@@ -40,6 +40,8 @@ void main() {
         developer,
         contains('`BashOutputTool` / `AgentOutputTool` / `KillShell`'),
       );
+      expect(developer, contains('Claude 旧名 `AskUserQuestion`'));
+      expect(developer, contains('`multiSelect`、`preview`、`annotations`'));
       expect(developer, contains('不要用普通文本请求计划批准'));
       expect(contextRecovery, contains('tool_output_truncated'));
       expect(contextRecovery, contains('tool_output_persisted_path'));

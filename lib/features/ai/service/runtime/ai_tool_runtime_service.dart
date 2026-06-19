@@ -100,6 +100,7 @@ class AiResolvedToolCatalog {
       'agent' => AiBuiltinToolKind.task,
       'bashoutputtool' || 'agentoutputtool' => AiBuiltinToolKind.taskOutput,
       'killshell' => AiBuiltinToolKind.taskStop,
+      'askuserquestion' => AiBuiltinToolKind.askUserChoice,
       _ => null,
     };
   }

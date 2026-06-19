@@ -70,6 +70,127 @@ void main() {
       });
       expect(presenterCalls, 1);
     });
+
+    test('accepts Claude AskUserQuestion single-choice payload', () async {
+      var presenterCalls = 0;
+      disposePresenter = AiAskUserChoiceTool.registerPresenter((request) async {
+        presenterCalls += 1;
+        expect(request.title, 'Which auth strategy should we implement?');
+        expect(request.description, 'Auth');
+        expect(request.allowCustomInput, isFalse);
+        expect(request.options, hasLength(2));
+        expect(request.options[0].value, 'OAuth');
+        expect(request.options[0].label, 'OAuth');
+        expect(request.options[0].description, 'Use OAuth provider login.');
+        return const AskUserChoiceResponse(value: 'OAuth', isCustom: false);
+      });
+
+      final result = await AiAskUserChoiceTool().execute(
+        _rawContext(
+          name: 'AskUserQuestion',
+          arguments: <String, Object?>{
+            'questions': <Map<String, Object?>>[
+              <String, Object?>{
+                'question': 'Which auth strategy should we implement?',
+                'header': 'Auth',
+                'options': <Map<String, Object?>>[
+                  <String, Object?>{
+                    'label': 'OAuth',
+                    'description': 'Use OAuth provider login.',
+                  },
+                  <String, Object?>{
+                    'label': 'JWT',
+                    'description': 'Use signed local tokens.',
+                  },
+                ],
+              },
+            ],
+          },
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.command, 'AskUserQuestion');
+      expect(jsonDecode(result.stdout), <String, Object?>{
+        'questions': <Object?>[
+          <String, Object?>{
+            'question': 'Which auth strategy should we implement?',
+            'header': 'Auth',
+            'options': <Object?>[
+              <String, Object?>{
+                'label': 'OAuth',
+                'description': 'Use OAuth provider login.',
+              },
+              <String, Object?>{
+                'label': 'JWT',
+                'description': 'Use signed local tokens.',
+              },
+            ],
+            'multiSelect': false,
+          },
+        ],
+        'answers': <String, Object?>{
+          'Which auth strategy should we implement?': 'OAuth',
+        },
+      });
+      expect(presenterCalls, 1);
+    });
+
+    test('rejects unsupported Claude AskUserQuestion shapes', () async {
+      var presenterCalls = 0;
+      disposePresenter = AiAskUserChoiceTool.registerPresenter((request) async {
+        presenterCalls += 1;
+        return const AskUserChoiceResponse(value: 'OAuth', isCustom: false);
+      });
+
+      Future<AiToolExecutionResult> run(Map<String, Object?> arguments) {
+        return AiAskUserChoiceTool().execute(
+          _rawContext(name: 'AskUserQuestion', arguments: arguments),
+        );
+      }
+
+      final multiQuestion = await run(<String, Object?>{
+        'questions': <Map<String, Object?>>[
+          _claudeQuestion('First?'),
+          _claudeQuestion('Second?'),
+        ],
+      });
+      expect(multiQuestion.status, BashToolExecutionStatus.invalidArguments);
+      expect(multiQuestion.stderr, contains('exactly one question'));
+
+      final multiSelect = await run(<String, Object?>{
+        'questions': <Map<String, Object?>>[
+          <String, Object?>{
+            ..._claudeQuestion('Pick features?'),
+            'multiSelect': true,
+          },
+        ],
+      });
+      expect(multiSelect.status, BashToolExecutionStatus.invalidArguments);
+      expect(multiSelect.stderr, contains('multiSelect'));
+
+      final preview = await run(<String, Object?>{
+        'questions': <Map<String, Object?>>[
+          <String, Object?>{
+            ..._claudeQuestion('Pick style?'),
+            'options': <Map<String, Object?>>[
+              <String, Object?>{
+                'label': 'Compact',
+                'description': 'Dense layout.',
+                'preview': '<div>Compact</div>',
+              },
+              <String, Object?>{
+                'label': 'Spacious',
+                'description': 'Roomier layout.',
+              },
+            ],
+          },
+        ],
+      });
+      expect(preview.status, BashToolExecutionStatus.invalidArguments);
+      expect(preview.stderr, contains('preview'));
+      expect(presenterCalls, 0);
+    });
   });
 }
 
@@ -106,6 +227,49 @@ AiToolExecutionContext _context({
     confirmWriteCommand: null,
     metadata: metadata,
   );
+}
+
+AiToolExecutionContext _rawContext({
+  required String name,
+  required Map<String, Object?> arguments,
+  Map<String, Object?> metadata = const <String, Object?>{},
+}) {
+  return AiToolExecutionContext(
+    sessionId: 'session-1',
+    catalog: const AiResolvedToolCatalog(
+      definitions: <AiToolDefinition>[],
+      toolsByName: <String, AiResolvedTool>{},
+    ),
+    toolCall: AiToolCall(
+      id: 'tool-call-1',
+      name: name,
+      arguments: jsonEncode(arguments),
+    ),
+    decodedArguments: arguments,
+    model: _testModel,
+    previouslyReadFiles: const <String>{},
+    denyCommandRules: const <AiDenyCommandRule>[],
+    requireWriteCommandConfirmation: true,
+    confirmWriteCommand: null,
+    metadata: metadata,
+  );
+}
+
+Map<String, Object?> _claudeQuestion(String question) {
+  return <String, Object?>{
+    'question': question,
+    'header': 'Choice',
+    'options': <Map<String, Object?>>[
+      <String, Object?>{
+        'label': 'OAuth',
+        'description': 'Use OAuth provider login.',
+      },
+      <String, Object?>{
+        'label': 'JWT',
+        'description': 'Use signed local tokens.',
+      },
+    ],
+  };
 }
 
 const Map<String, Object?> _planningMetadata = <String, Object?>{

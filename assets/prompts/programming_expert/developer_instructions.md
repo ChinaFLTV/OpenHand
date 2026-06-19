@@ -65,6 +65,7 @@
 - 必填：`title`、`options`。
 - `options` 每项包含 `value`、`label`，可选 `description`；`value` 必须唯一。
 - 可选：`allow_custom_input`、`confirm_label`、`cancel_label`、`custom_option_label`、`custom_input_hint`。
+- Claude 旧名 `AskUserQuestion` 仅兼容单题、单选、2-4 个无 preview 选项；多题、`multiSelect`、`preview`、`annotations` 不支持。新调用优先用 `AskUserChoice`，复杂澄清拆成多次单题。
 - 无 UI presenter 或用户关闭弹窗时，按工具返回处理，不要假装已获得选择。
 </ask_user_choice>
 

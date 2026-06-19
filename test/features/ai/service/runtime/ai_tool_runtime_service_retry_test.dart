@@ -274,6 +274,24 @@ void main() {
       expect(taskStopProperties?['task_id'], containsPair('type', 'string'));
       expect(taskStopProperties?['shell_id'], containsPair('type', 'string'));
     });
+
+    test('AskUserQuestion resolves to AskUserChoice when available', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+
+      expect(
+        catalog.find('AskUserQuestion')?.builtinKind,
+        AiBuiltinToolKind.askUserChoice,
+      );
+    });
   });
 
   group('AiToolRuntimeService Bash background alias', () {

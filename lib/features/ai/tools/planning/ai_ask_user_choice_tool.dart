@@ -98,12 +98,21 @@ class AiAskUserChoiceTool extends AiTool {
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final stopwatch = Stopwatch()..start();
-    final args = context.decodedArguments;
+    final commandName = _commandName(context);
+    final normalized = _normalizeArguments(
+      context.decodedArguments,
+      commandName: commandName,
+    );
+    if (normalized.error != null) {
+      return normalized.error!;
+    }
+    final normalizedValue = normalized.value!;
+    final args = normalizedValue.arguments;
     final title = '${args['title'] ?? ''}'.trim();
     if (title.isEmpty) {
       return AiToolUtils.invalidResult(
-        'AskUserChoice',
-        'AskUserChoice requires a non-empty "title".',
+        commandName,
+        '$commandName requires a non-empty "title".',
       );
     }
     final description = args['description'] is String
@@ -112,8 +121,8 @@ class AiAskUserChoiceTool extends AiTool {
     final optionsRaw = args['options'];
     if (optionsRaw is! List || optionsRaw.isEmpty) {
       return AiToolUtils.invalidResult(
-        'AskUserChoice',
-        'AskUserChoice requires a non-empty "options" array.',
+        commandName,
+        '$commandName requires a non-empty "options" array.',
       );
     }
     final parsedOptions = <AskUserChoiceOption>[];
@@ -122,22 +131,22 @@ class AiAskUserChoiceTool extends AiTool {
       final entry = optionsRaw[i];
       if (entry is! Map) {
         return AiToolUtils.invalidResult(
-          'AskUserChoice',
-          'AskUserChoice option #$i must be an object with {value, label}.',
+          commandName,
+          '$commandName option #$i must be an object with {value, label}.',
         );
       }
       final value = '${entry['value'] ?? ''}'.trim();
       final label = '${entry['label'] ?? ''}'.trim();
       if (value.isEmpty || label.isEmpty) {
         return AiToolUtils.invalidResult(
-          'AskUserChoice',
-          'AskUserChoice option #$i is missing a non-empty "value" or "label".',
+          commandName,
+          '$commandName option #$i is missing a non-empty "value" or "label".',
         );
       }
       if (!seenValues.add(value)) {
         return AiToolUtils.invalidResult(
-          'AskUserChoice',
-          'AskUserChoice option values must be unique; duplicate: "$value".',
+          commandName,
+          '$commandName option values must be unique; duplicate: "$value".',
         );
       }
       final optDescription = entry['description'] is String
@@ -161,10 +170,10 @@ class AiAskUserChoiceTool extends AiTool {
     )) {
       return AiToolUtils.withMergedMetadata(
         AiToolUtils.invalidResult(
-          'AskUserChoice',
-          'Do not use AskUserChoice to request plan approval in Plan mode. '
-              'Clarify requirements with AskUserChoice before finalizing the plan; '
-              'when the plan is ready, use ExitPlanMode instead.',
+          commandName,
+          'Do not use $commandName to request plan approval in Plan mode. '
+          'Clarify requirements with $commandName before finalizing the plan; '
+          'when the plan is ready, use ExitPlanMode instead.',
         ),
         <String, Object?>{
           'ask_user_choice_blocked_plan_approval': true,
@@ -184,14 +193,14 @@ class AiAskUserChoiceTool extends AiTool {
     if (presenter == null) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
-        command: 'AskUserChoice',
+        command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
         stderr:
-            'AskUserChoice UI presenter is not registered. Fall back to asking the user in plain chat.',
+            '$commandName UI presenter is not registered. Fall back to asking the user in plain chat.',
         durationMs: stopwatch.elapsedMilliseconds,
         resultText:
-            'status: failed\nerror: AskUserChoice UI presenter is not registered.',
+            'status: failed\nerror: $commandName UI presenter is not registered.',
       );
     }
 
@@ -226,20 +235,20 @@ class AiAskUserChoiceTool extends AiTool {
     } on TimeoutException catch (error) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,
-        command: 'AskUserChoice',
+        command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'AskUserChoice timed out: $error',
+        stderr: '$commandName timed out: $error',
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: 'status: timed_out\nerror: $error',
       );
     } catch (error, stackTrace) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
-        command: 'AskUserChoice',
+        command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'AskUserChoice failed: $error\n$stackTrace',
+        stderr: '$commandName failed: $error\n$stackTrace',
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: 'status: failed\nerror: $error',
       );
@@ -248,7 +257,7 @@ class AiAskUserChoiceTool extends AiTool {
     if (response == null) {
       if (cancelledBySignal) {
         return AiToolUtils.cancelledResult(
-          command: 'AskUserChoice',
+          command: commandName,
           durationMs: stopwatch.elapsedMilliseconds,
           metadata: const <String, Object?>{
             'ask_user_choice_cancelled_by_signal': true,
@@ -257,24 +266,31 @@ class AiAskUserChoiceTool extends AiTool {
       }
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.cancelled,
-        command: 'AskUserChoice',
+        command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'The user dismissed the AskUserChoice dialog.',
+        stderr: 'The user dismissed the $commandName dialog.',
         durationMs: stopwatch.elapsedMilliseconds,
         resultText:
             'status: cancelled\ndetail: user dismissed the choice dialog',
       );
     }
 
-    final payload = <String, Object?>{
-      'value': response.value,
-      'is_custom': response.isCustom,
-    };
+    final payload = normalizedValue.claudeQuestion == null
+        ? <String, Object?>{
+            'value': response.value,
+            'is_custom': response.isCustom,
+          }
+        : <String, Object?>{
+            'questions': <Map<String, Object?>>[
+              normalizedValue.claudeQuestion!,
+            ],
+            'answers': <String, Object?>{title: response.value},
+          };
     final encoded = const JsonEncoder.withIndent('  ').convert(payload);
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
-      command: 'AskUserChoice',
+      command: commandName,
       workingDirectory: AiToolUtils.defaultWorkingDirectory(),
       stdout: encoded,
       stderr: '',
@@ -293,6 +309,170 @@ class AiAskUserChoiceTool extends AiTool {
     return trimmed.isEmpty ? null : trimmed;
   }
 
+  static String _commandName(AiToolExecutionContext context) {
+    final name = context.toolCall.name.trim();
+    return name.isEmpty ? 'AskUserChoice' : name;
+  }
+
+  static _AskUserChoiceArgumentNormalization _normalizeArguments(
+    Map<String, Object?> args, {
+    required String commandName,
+  }) {
+    if (!args.containsKey('questions')) {
+      return _AskUserChoiceArgumentNormalization.value(
+        _AskUserChoiceNormalizedArguments(arguments: args),
+      );
+    }
+
+    for (final key in const <String>['answers', 'annotations', 'metadata']) {
+      if (args.containsKey(key)) {
+        return _AskUserChoiceArgumentNormalization.error(
+          AiToolUtils.invalidResult(
+            commandName,
+            'OpenHand supports AskUserQuestion only for new single-question prompts; "$key" is not supported.',
+          ),
+        );
+      }
+    }
+
+    final questionsRaw = args['questions'];
+    if (questionsRaw is! List) {
+      return _AskUserChoiceArgumentNormalization.error(
+        AiToolUtils.invalidResult(
+          commandName,
+          'AskUserQuestion requires "questions" to be an array.',
+        ),
+      );
+    }
+    if (questionsRaw.length != 1) {
+      return _AskUserChoiceArgumentNormalization.error(
+        AiToolUtils.invalidResult(
+          commandName,
+          'OpenHand supports AskUserQuestion only with exactly one question. Split multi-question prompts into separate AskUserChoice calls.',
+        ),
+      );
+    }
+
+    final questionRaw = questionsRaw.single;
+    if (questionRaw is! Map) {
+      return _AskUserChoiceArgumentNormalization.error(
+        AiToolUtils.invalidResult(
+          commandName,
+          'AskUserQuestion question #0 must be an object.',
+        ),
+      );
+    }
+    final questionMap = Map<String, Object?>.from(questionRaw);
+    final multiSelect = _optionalBool(questionMap['multiSelect']);
+    if (multiSelect == true) {
+      return _AskUserChoiceArgumentNormalization.error(
+        AiToolUtils.invalidResult(
+          commandName,
+          'OpenHand AskUserQuestion compatibility does not support multiSelect. Ask separate single-choice questions instead.',
+        ),
+      );
+    }
+    if (questionMap.containsKey('multiSelect') && multiSelect == null) {
+      return _AskUserChoiceArgumentNormalization.error(
+        AiToolUtils.invalidResult(
+          commandName,
+          'AskUserQuestion "multiSelect" must be a boolean when provided.',
+        ),
+      );
+    }
+
+    final questionText = _optionalString(questionMap['question']);
+    if (questionText == null) {
+      return _AskUserChoiceArgumentNormalization.error(
+        AiToolUtils.invalidResult(
+          commandName,
+          'AskUserQuestion requires a non-empty question text.',
+        ),
+      );
+    }
+    final optionsRaw = questionMap['options'];
+    if (optionsRaw is! List || optionsRaw.length < 2 || optionsRaw.length > 4) {
+      return _AskUserChoiceArgumentNormalization.error(
+        AiToolUtils.invalidResult(
+          commandName,
+          'AskUserQuestion requires 2-4 options for the single supported question.',
+        ),
+      );
+    }
+
+    final openHandOptions = <Map<String, Object?>>[];
+    final claudeOptions = <Map<String, Object?>>[];
+    for (var i = 0; i < optionsRaw.length; i++) {
+      final optionRaw = optionsRaw[i];
+      if (optionRaw is! Map) {
+        return _AskUserChoiceArgumentNormalization.error(
+          AiToolUtils.invalidResult(
+            commandName,
+            'AskUserQuestion option #$i must be an object.',
+          ),
+        );
+      }
+      final optionMap = Map<String, Object?>.from(optionRaw);
+      if (optionMap.containsKey('preview')) {
+        return _AskUserChoiceArgumentNormalization.error(
+          AiToolUtils.invalidResult(
+            commandName,
+            'OpenHand AskUserQuestion compatibility does not support option preview. Ask without preview or use plain chat for the preview content.',
+          ),
+        );
+      }
+      final label = _optionalString(optionMap['label']);
+      if (label == null) {
+        return _AskUserChoiceArgumentNormalization.error(
+          AiToolUtils.invalidResult(
+            commandName,
+            'AskUserQuestion option #$i requires a non-empty label.',
+          ),
+        );
+      }
+      final description = _optionalString(optionMap['description']);
+      openHandOptions.add(<String, Object?>{
+        'value': label,
+        'label': label,
+        if (description != null) 'description': description,
+      });
+      claudeOptions.add(<String, Object?>{
+        'label': label,
+        if (description != null) 'description': description,
+      });
+    }
+
+    final header = _optionalString(questionMap['header']);
+    final claudeQuestion = <String, Object?>{
+      'question': questionText,
+      if (header != null) 'header': header,
+      'options': claudeOptions,
+      'multiSelect': false,
+    };
+    return _AskUserChoiceArgumentNormalization.value(
+      _AskUserChoiceNormalizedArguments(
+        arguments: <String, Object?>{
+          'title': questionText,
+          if (header != null) 'description': header,
+          'options': openHandOptions,
+          'allow_custom_input': false,
+        },
+        claudeQuestion: claudeQuestion,
+      ),
+    );
+  }
+
+  static bool? _optionalBool(Object? raw) {
+    if (raw == null) return false;
+    if (raw is bool) return raw;
+    if (raw is String) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+    }
+    return null;
+  }
+
   static bool _looksLikePlanApprovalQuestion({
     required Map<String, Object?> metadata,
     required String title,
@@ -307,4 +487,23 @@ class AiAskUserChoiceTool extends AiTool {
     final text = '${title.toLowerCase()} ${description?.toLowerCase() ?? ''}';
     return AiPlanApprovalDetector.looksLikePlanApprovalRequest(text);
   }
+}
+
+class _AskUserChoiceArgumentNormalization {
+  const _AskUserChoiceArgumentNormalization.value(this.value) : error = null;
+
+  const _AskUserChoiceArgumentNormalization.error(this.error) : value = null;
+
+  final _AskUserChoiceNormalizedArguments? value;
+  final AiToolExecutionResult? error;
+}
+
+class _AskUserChoiceNormalizedArguments {
+  const _AskUserChoiceNormalizedArguments({
+    required this.arguments,
+    this.claudeQuestion,
+  });
+
+  final Map<String, Object?> arguments;
+  final Map<String, Object?>? claudeQuestion;
 }
