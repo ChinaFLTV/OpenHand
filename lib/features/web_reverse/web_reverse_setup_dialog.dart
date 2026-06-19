@@ -13,6 +13,8 @@ import 'web_reverse_profile_actions.dart';
 import 'web_reverse_profile_cleaner.dart';
 import 'web_reverse_session_config.dart';
 
+const int _kWebReverseBrowserDetectionMaxAttempts = 3;
+
 /// 弹出 Web 逆向会话创建表单。返回 null 表示用户取消；返回 result 后
 /// 上层负责真正去启动 controller、创建会话。
 ///
@@ -26,7 +28,9 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
   final detector = WebReverseBrowserDetector();
 
   Future<List<WebReverseBrowserProbeResult>?> ensureBrowserInstalled() async {
-    while (true) {
+    var attempts = 0;
+    while (attempts < _kWebReverseBrowserDetectionMaxAttempts) {
+      attempts += 1;
       final all = await detector.detectAll();
       if (all.isNotEmpty) return all;
       if (!context.mounted) return null;
@@ -37,6 +41,17 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
       }
       // openedDownloadPage / rechecked 都重新探测一次。
     }
+    if (context.mounted) {
+      final isZh = openHandIsChineseLocale(context);
+      await showOpenHandInfoDialog(
+        context: context,
+        title: isZh ? '未检测到浏览器' : 'Browser not detected',
+        message: isZh
+            ? '已连续重检 $_kWebReverseBrowserDetectionMaxAttempts 次。请确认 Chrome / Edge / Brave / Chromium 已安装并可启动后再重试。'
+            : 'Checked $_kWebReverseBrowserDetectionMaxAttempts times. Make sure Chrome, Edge, Brave, or Chromium is installed and can launch, then retry.',
+      );
+    }
+    return null;
   }
 
   final probes = await ensureBrowserInstalled();
@@ -163,226 +178,172 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final isZh = _isZh();
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 620,
       insetPadding: const EdgeInsets.all(28),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(theme, cs, loc),
-            Divider(height: 1, color: cs.outlineVariant),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _LabelText(loc?.webReverseSetupTargetUrl ?? 'Target URL *'),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: _urlCtrl,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        hintText: 'https://example.com/page',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 14),
-                    _LabelText(loc?.webReverseSetupObjective ?? 'Objective *'),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: _objectiveCtrl,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText:
-                            loc?.webReverseSetupObjectiveHint ??
-                            'e.g. reverse the wallpaper download API into a curl script',
-                        border: const OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 14),
-                    _LabelText(
-                      loc?.webReverseSetupTriggerActions ??
-                          'Trigger actions (optional)',
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: _triggerCtrl,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText:
-                            loc?.webReverseSetupTriggerHint ??
-                            'e.g. log in then click "Download Original"',
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _LabelText(loc?.webReverseSetupLoginMode ?? 'Login mode'),
-                    const SizedBox(height: 4),
-                    SegmentedButton<WebReverseLoginMode>(
-                      segments: WebReverseLoginMode.values
-                          .map(
-                            (m) => ButtonSegment(
-                              value: m,
-                              label: Text(_loginModeLabel(m, isZh)),
-                            ),
-                          )
-                          .toList(growable: false),
-                      selected: <WebReverseLoginMode>{_loginMode},
-                      onSelectionChanged: (s) =>
-                          setState(() => _loginMode = s.first),
-                    ),
-                    const SizedBox(height: 14),
-                    _LabelText(
-                      loc?.webReverseSetupBrowser ?? 'Browser (detected)',
-                    ),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<WebReverseBrowserProbeResult>(
-                      initialValue: _selectedProbe,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                      ),
-                      items: widget.probes
-                          .map(
-                            (p) => DropdownMenuItem(
-                              value: p,
-                              child: Text(
-                                p.versionLine == null
-                                    ? p.browser!.displayName
-                                    : '${p.browser!.displayName}  ·  ${p.versionLine}',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: widget.probes.length <= 1
-                          ? null
-                          : (v) {
-                              if (v == null) return;
-                              setState(() => _selectedProbe = v);
-                            },
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _selectedProbe.executablePath ?? '',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _LabelText(loc?.webReverseSetupProxy ?? 'Proxy (optional)'),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: _proxyCtrl,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        hintText: 'http://127.0.0.1:7890',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _LabelText(
-                      loc?.webReverseSetupKeywords ??
-                          'Keywords (optional, comma-separated)',
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: _keywordsCtrl,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        hintText: 'sign, encrypt, _0x',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _ProfileDirRow(
-                      userDataDir: _previewUserDataDir,
-                      isZh: isZh,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.travel_explore_rounded,
+            title: loc?.webReverseSetupHeaderTitle ?? 'New Web Reverse Session',
+            subtitle:
+                loc?.webReverseSetupHeaderSubtitle ??
+                'Browser will dock to the right of the main window after start',
+            closeTooltip: loc?.webReverseSetupClose ?? 'Close',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label:
-                        AppLocalizations.of(context)?.commonCancel ?? 'Cancel',
+                  _LabelText(loc?.webReverseSetupTargetUrl ?? 'Target URL *'),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _urlCtrl,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: 'https://example.com/page',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _canSubmit ? _submit : null,
-                    label: loc?.webReverseSetupCreateThread ?? 'Create Thread',
+                  const SizedBox(height: 14),
+                  _LabelText(loc?.webReverseSetupObjective ?? 'Objective *'),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _objectiveCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText:
+                          loc?.webReverseSetupObjectiveHint ??
+                          'e.g. reverse the wallpaper download API into a curl script',
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
                   ),
+                  const SizedBox(height: 14),
+                  _LabelText(
+                    loc?.webReverseSetupTriggerActions ??
+                        'Trigger actions (optional)',
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _triggerCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText:
+                          loc?.webReverseSetupTriggerHint ??
+                          'e.g. log in then click "Download Original"',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _LabelText(loc?.webReverseSetupLoginMode ?? 'Login mode'),
+                  const SizedBox(height: 4),
+                  SegmentedButton<WebReverseLoginMode>(
+                    segments: WebReverseLoginMode.values
+                        .map(
+                          (m) => ButtonSegment(
+                            value: m,
+                            label: Text(_loginModeLabel(m, isZh)),
+                          ),
+                        )
+                        .toList(growable: false),
+                    selected: <WebReverseLoginMode>{_loginMode},
+                    onSelectionChanged: (s) =>
+                        setState(() => _loginMode = s.first),
+                  ),
+                  const SizedBox(height: 14),
+                  _LabelText(
+                    loc?.webReverseSetupBrowser ?? 'Browser (detected)',
+                  ),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<WebReverseBrowserProbeResult>(
+                    initialValue: _selectedProbe,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    items: widget.probes
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p,
+                            child: Text(
+                              p.versionLine == null
+                                  ? p.browser!.displayName
+                                  : '${p.browser!.displayName}  ·  ${p.versionLine}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: widget.probes.length <= 1
+                        ? null
+                        : (v) {
+                            if (v == null) return;
+                            setState(() => _selectedProbe = v);
+                          },
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _selectedProbe.executablePath ?? '',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _LabelText(loc?.webReverseSetupProxy ?? 'Proxy (optional)'),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _proxyCtrl,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: 'http://127.0.0.1:7890',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _LabelText(
+                    loc?.webReverseSetupKeywords ??
+                        'Keywords (optional, comma-separated)',
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _keywordsCtrl,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: 'sign, encrypt, _0x',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _ProfileDirRow(userDataDir: _previewUserDataDir, isZh: isZh),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.travel_explore_rounded,
-              color: cs.onPrimaryContainer,
-              size: 24,
-            ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc?.webReverseSetupHeaderTitle ?? 'New Web Reverse Session',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  loc?.webReverseSetupHeaderSubtitle ??
-                      'Browser will dock to the right of the main window after start',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: loc?.webReverseSetupClose ?? 'Close',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
+          Divider(height: 1, color: cs.outlineVariant),
+          buildOpenHandDialogActionsBar(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(context).pop(),
+                label: AppLocalizations.of(context)?.commonCancel ?? 'Cancel',
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: _canSubmit ? _submit : null,
+                label: loc?.webReverseSetupCreateThread ?? 'Create Thread',
+              ),
+            ],
           ),
         ],
       ),

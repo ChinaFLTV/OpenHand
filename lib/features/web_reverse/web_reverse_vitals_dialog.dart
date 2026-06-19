@@ -273,123 +273,80 @@ class _VitalsDialogState extends State<_VitalsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-              child: Row(
-                children: [
-                  Icon(Icons.speed_rounded, color: cs.primary, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppLocalizations.of(context)?.webReverseVitalsTitle ??
-                              'Web Vitals',
-                          style: tt.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          AppLocalizations.of(
-                                context,
-                              )?.webReverseVitalsSubtitle ??
-                              'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live',
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip:
-                        AppLocalizations.of(
-                          context,
-                        )?.webReverseVitalsCopyJson ??
-                        'Copy JSON',
-                    onPressed: _copyReport,
-                    icon: const Icon(Icons.copy_rounded),
-                  ),
-                  IconButton(
-                    tooltip:
-                        AppLocalizations.of(context)?.webReverseVitalsReset ??
-                        'Reset',
-                    onPressed: _busy ? null : _reset,
-                    icon: const Icon(Icons.restart_alt_rounded),
-                  ),
-                  IconButton(
-                    tooltip:
-                        AppLocalizations.of(context)?.webReverseVitalsClose ??
-                        'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 720,
+      maxHeight: 680,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.speed_rounded,
+            title: loc?.webReverseVitalsTitle ?? 'Web Vitals',
+            subtitle:
+                loc?.webReverseVitalsSubtitle ??
+                'PerformanceObserver · LCP / CLS / INP / FCP / TTFB · live',
+            closeTooltip: loc?.webReverseVitalsClose ?? 'Close',
+            actions: [
+              IconButton(
+                tooltip: loc?.webReverseVitalsCopyJson ?? 'Copy JSON',
+                onPressed: _copyReport,
+                icon: const Icon(Icons.copy_rounded),
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-                children: [
-                  for (final m in _metrics) _metricCard(m, cs, tt),
-                  if (_status.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _status,
-                      style: tt.bodySmall?.copyWith(color: cs.error),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      AppLocalizations.of(
-                            context,
-                          )?.webReverseVitalsThresholdsHint ??
-                          'Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.',
-                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    ),
-                  ),
-                ],
+              IconButton(
+                tooltip: loc?.webReverseVitalsReset ?? 'Reset',
+                onPressed: _busy ? null : _reset,
+                icon: const Icon(Icons.restart_alt_rounded),
               ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              children: [
+                for (final m in _metrics) _metricCard(m, cs, tt),
+                if (_status.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(_status, style: tt.bodySmall?.copyWith(color: cs.error)),
+                ],
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    loc?.webReverseVitalsThresholdsHint ??
+                        'Thresholds per web.dev. After reset, reload or interact to retrigger LCP / event samples.',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            buildOpenHandDialogFooter(
-              primaryLabel:
-                  AppLocalizations.of(context)?.webReverseVitalsClose ??
-                  'Close',
-              onPrimaryPressed: () => Navigator.of(context).pop(),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-              leading: _busy
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: cs.primary,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseVitalsClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+            leading: _busy
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: cs.primary,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }

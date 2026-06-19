@@ -54,127 +54,104 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final url = _downloadUrl(context);
 
-    return Dialog(
-      backgroundColor: colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 520,
+      maxHeight: 640,
       insetPadding: const EdgeInsets.all(36),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.travel_explore_rounded,
+            title: loc?.webReverseInstallTitle ?? 'Google Chrome required',
+            closeTooltip: loc?.webReverseInstallClose ?? 'Close',
+            onClose: () => Navigator.of(
+              context,
+            ).pop(WebReverseInstallGuideDecision.cancelled),
+          ),
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Text(
+                    loc?.webReverseInstallBody ??
+                        'The Web Reverse Expert relies on an external Chromium-based browser (Chrome / Edge / Brave / Chromium) driven via CDP. None was detected.',
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+                  ),
+                  const SizedBox(height: 14),
                   Container(
-                    width: 44,
-                    height: 44,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
+                      color: colorScheme.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.outlineVariant),
                     ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.travel_explore_rounded,
-                      color: colorScheme.onPrimaryContainer,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      loc?.webReverseInstallTitle ?? 'Google Chrome required',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: loc?.webReverseInstallClose ?? 'Close',
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).pop(WebReverseInstallGuideDecision.cancelled),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                loc?.webReverseInstallBody ??
-                    'The Web Reverse Expert relies on an external Chromium-based browser (Chrome / Edge / Brave / Chromium) driven via CDP. None was detected.',
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.link_rounded,
-                      size: 18,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SelectableText(
-                        url,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                          color: colorScheme.onSurfaceVariant,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.link_rounded,
+                          size: 18,
+                          color: colorScheme.primary,
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SelectableText(
+                            url,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () => _openDownloadUrl(context),
+                          icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                          label: Text(loc?.webReverseInstallOpen ?? 'Open'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: () => _openDownloadUrl(context),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                      label: Text(loc?.webReverseInstallOpen ?? 'Open'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                loc?.webReverseInstallHint ??
-                    'Install Chrome and retry. If Edge / Brave / Chromium is already installed, click "I have installed, recheck".',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).pop(WebReverseInstallGuideDecision.cancelled),
-                    label: loc?.commonCancel ?? 'Cancel',
                   ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).pop(WebReverseInstallGuideDecision.rechecked),
-                    label:
-                        loc?.webReverseInstallInstalled ?? 'I Have Installed',
+                  const SizedBox(height: 16),
+                  Text(
+                    loc?.webReverseInstallHint ??
+                        'Install Chrome and retry. If Edge / Brave / Chromium is already installed, click "I have installed, recheck".',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          buildOpenHandDialogActionsBar(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop(WebReverseInstallGuideDecision.cancelled),
+                label: loc?.commonCancel ?? 'Cancel',
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop(WebReverseInstallGuideDecision.rechecked),
+                label: loc?.webReverseInstallInstalled ?? 'I Have Installed',
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

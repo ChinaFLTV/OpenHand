@@ -67,7 +67,10 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       );
       final err = r?['error'];
       if (err != null) {
-        _toast(false, '${loc?.webReverseCoverageStartFailed ?? 'start failed'}: $err');
+        _toast(
+          false,
+          '${loc?.webReverseCoverageStartFailed ?? 'start failed'}: $err',
+        );
       } else {
         setState(() => _running = true);
         _toast(true, loc?.webReverseCoverageCollecting ?? 'Collecting…');
@@ -89,7 +92,10 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       );
       final err = r?['error'];
       if (err != null) {
-        _toast(false, '${loc?.webReverseCoverageTakeFailed ?? 'take failed'}: $err');
+        _toast(
+          false,
+          '${loc?.webReverseCoverageTakeFailed ?? 'take failed'}: $err',
+        );
         return;
       }
       final list = (r?['result'] as List?) ?? const [];
@@ -132,9 +138,11 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         _rows = sorted;
         _lastTakeAt = DateTime.now();
       });
-      _toast(true,
-          loc?.webReverseCoverageSampledCount(sorted.length) ??
-              'Sampled ${sorted.length} scripts');
+      _toast(
+        true,
+        loc?.webReverseCoverageSampledCount(sorted.length) ??
+            'Sampled ${sorted.length} scripts',
+      );
     } catch (e, st) {
       silentLog('web_reverse_coverage_dialog', 'take', e, st);
     } finally {
@@ -147,7 +155,9 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     final loc = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
-      await widget.controller.sendRawCdp(method: 'Profiler.stopPreciseCoverage');
+      await widget.controller.sendRawCdp(
+        method: 'Profiler.stopPreciseCoverage',
+      );
       setState(() => _running = false);
       _toast(true, loc?.webReverseCoverageStopped ?? 'Stopped');
     } finally {
@@ -164,8 +174,10 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       ..writeln();
     for (final row in filtered) {
       final pct = (row.ratio * 100).toStringAsFixed(1);
-      buf.writeln('- $pct%  ${row.covered}/${row.total}B  '
-          '(${row.coveredFunctions}/${row.functions} fn)  ${row.url}');
+      buf.writeln(
+        '- $pct%  ${row.covered}/${row.total}B  '
+        '(${row.coveredFunctions}/${row.functions} fn)  ${row.url}',
+      );
     }
     await Clipboard.setData(ClipboardData(text: buf.toString()));
     if (!mounted) return;
@@ -196,170 +208,196 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     final rows = _visibleRows();
     final totalBytes = rows.fold<int>(0, (a, b) => a + b.total);
     final coveredBytes = rows.fold<int>(0, (a, b) => a + b.covered);
-    final globalRatio =
-        totalBytes == 0 ? 0.0 : (coveredBytes / totalBytes).clamp(0.0, 1.0);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    final globalRatio = totalBytes == 0
+        ? 0.0
+        : (coveredBytes / totalBytes).clamp(0.0, 1.0);
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 960,
+      maxHeight: 680,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 960, maxHeight: 680),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.bar_chart_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseCoverageTitle ?? 'JS Coverage',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          loc?.webReverseCoverageSubtitle ??
-                              'Start → exercise the page → take a sample to see which scripts ran',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.bar_chart_rounded,
+            title: loc?.webReverseCoverageTitle ?? 'JS Coverage',
+            subtitle:
+                loc?.webReverseCoverageSubtitle ??
+                'Start → exercise the page → take a sample to see which scripts ran',
+            actions: [
+              if (_running)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    loc?.webReverseCoverageRecording ?? 'RECORDING',
+                    style: TextStyle(
+                      color: cs.onPrimaryContainer,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
                     ),
                   ),
-                  if (_running)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.primaryContainer,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        loc?.webReverseCoverageRecording ?? 'RECORDING',
-                        style: TextStyle(
-                          color: cs.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          _buildToolbar(loc),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: globalRatio,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    minHeight: 8,
                   ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  FilledButton.icon(
-                    onPressed: _busy || _running ? null : _start,
-                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(loc?.webReverseCoverageStart ?? 'Start'),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${(globalRatio * 100).toStringAsFixed(1)}%  '
+                  '${_humanBytes(coveredBytes)} / ${_humanBytes(totalBytes)}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontFamily: 'monospace',
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: _busy || !_running ? null : _take,
-                    icon: const Icon(Icons.science_rounded, size: 18),
-                    label: Text(loc?.webReverseCoverageTake ?? 'Take'),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _busy || !_running ? null : _stop,
-                    icon: const Icon(Icons.stop_rounded, size: 18),
-                    label: Text(loc?.webReverseCoverageStop ?? 'Stop'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      onChanged: (v) => setState(() => _filter = v.trim()),
-                      decoration: InputDecoration(
-                        hintText: loc?.webReverseCoverageFilterHint ?? 'Filter by URL',
-                        prefixIcon: const Icon(Icons.filter_alt_rounded, size: 18),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: loc?.webReverseCoverageCopyReport ?? 'Copy report',
-                    onPressed: _rows.isEmpty ? null : _copyReport,
-                    icon: const Icon(Icons.copy_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: globalRatio,
-                      backgroundColor: cs.surfaceContainerHighest,
-                      minHeight: 8,
-                    ),
-                  ),
+                ),
+                if (_lastTakeAt != null) ...[
                   const SizedBox(width: 10),
                   Text(
-                    '${(globalRatio * 100).toStringAsFixed(1)}%  '
-                    '${_humanBytes(coveredBytes)} / ${_humanBytes(totalBytes)}',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(fontFamily: 'monospace'),
+                    _stamp(_lastTakeAt!),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
-                  if (_lastTakeAt != null) ...[
-                    const SizedBox(width: 10),
-                    Text(
-                      _stamp(_lastTakeAt!),
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: rows.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseCoverageNoData ??
+                          'No data. Start → use the page → Take.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    itemBuilder: (_, idx) =>
+                        _buildRow(theme, cs, rows[idx], loc),
+                  ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseCoverageClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
+            padding: const EdgeInsets.all(12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar(AppLocalizations? loc) {
+    Widget filterField() {
+      return TextField(
+        onChanged: (v) => setState(() => _filter = v.trim()),
+        decoration: InputDecoration(
+          hintText: loc?.webReverseCoverageFilterHint ?? 'Filter by URL',
+          prefixIcon: const Icon(Icons.filter_alt_rounded, size: 18),
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+      );
+    }
+
+    final actions = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FilledButton.icon(
+          onPressed: _busy || _running ? null : _start,
+          icon: const Icon(Icons.play_arrow_rounded, size: 18),
+          label: Text(loc?.webReverseCoverageStart ?? 'Start'),
+        ),
+        FilledButton.tonalIcon(
+          onPressed: _busy || !_running ? null : _take,
+          icon: const Icon(Icons.science_rounded, size: 18),
+          label: Text(loc?.webReverseCoverageTake ?? 'Take'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _busy || !_running ? null : _stop,
+          icon: const Icon(Icons.stop_rounded, size: 18),
+          label: Text(loc?.webReverseCoverageStop ?? 'Stop'),
+        ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact =
+              constraints.maxWidth.isFinite && constraints.maxWidth < 760;
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                actions,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: filterField()),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip:
+                          loc?.webReverseCoverageCopyReport ?? 'Copy report',
+                      onPressed: _rows.isEmpty ? null : _copyReport,
+                      icon: const Icon(Icons.copy_rounded),
                     ),
                   ],
-                ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              actions,
+              const SizedBox(width: 12),
+              Expanded(child: filterField()),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: loc?.webReverseCoverageCopyReport ?? 'Copy report',
+                onPressed: _rows.isEmpty ? null : _copyReport,
+                icon: const Icon(Icons.copy_rounded),
               ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: rows.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseCoverageNoData ?? 'No data. Start → use the page → Take.',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: rows.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 4),
-                      itemBuilder: (_, idx) =>
-                          _buildRow(theme, cs, rows[idx], loc),
-                    ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            buildOpenHandDialogFooter(
-              primaryLabel: loc?.webReverseCoverageClose ?? 'Close',
-              onPrimaryPressed: () => Navigator.of(context).pop(),
-              padding: const EdgeInsets.all(12),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildRow(
-      ThemeData theme, ColorScheme cs, _CoverageRow row, AppLocalizations? loc) {
+    ThemeData theme,
+    ColorScheme cs,
+    _CoverageRow row,
+    AppLocalizations? loc,
+  ) {
     final pct = (row.ratio * 100);
     final pctText = '${pct.toStringAsFixed(1)}%';
     Color barColor;
@@ -410,14 +448,16 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   row.url,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(fontFamily: 'monospace'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                  ),
                 ),
                 Text(
                   '${_humanBytes(row.covered)} / ${_humanBytes(row.total)}  ·  '
                   '${row.coveredFunctions}/${row.functions} fn',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
