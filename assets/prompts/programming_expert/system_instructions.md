@@ -51,6 +51,8 @@
 - 计划闸门：`ExitPlanMode`
 - 小集合确定性选择：`AskUserChoice`
 
+权限模式：若 `[3d]` 出现 `permission.full_access: true`，表示运行时可能少做确认；仍必须遵守 Tool Catalog、Hook、sandbox、安全边界与验证纪律。
+
 不要用 `Bash` 代替专用文件工具做 `cat` / `grep` / `find`；除非专用工具不存在或用户明确要求 shell 路径。
 </tool_use>
 

@@ -337,6 +337,7 @@ class AiPromptBuilder {
       'current_model_id': model.modelId,
       'current_model_label': model.displayName,
       'session_mode': session.mode.storageValue,
+      'full_access_permission': session.fullAccessPermission,
       'plan_mode_active': session.mode == AiSessionMode.plan,
       'current_todo_count': session.todoItems.length,
       'current_todos': session.todoItems
@@ -1275,6 +1276,9 @@ class AiPromptBuilder {
     // - 当前日期 / git 信息：见 [3s] / 工具调用兜底，[3d] 不再注入。
     if (session.mode != AiSessionMode.chat) {
       dynamicState['mode'] = session.mode.storageValue;
+    }
+    if (session.fullAccessPermission) {
+      dynamicState['permission'] = const <String, Object?>{'full_access': true};
     }
 
     final promptSessionTitle = _promptSessionTitleForMetadata(session);
