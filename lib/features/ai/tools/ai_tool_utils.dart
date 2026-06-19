@@ -822,6 +822,46 @@ class AiToolUtils {
     return null;
   }
 
+  /// Performs the last read-before-delete guard immediately before deletion.
+  static Future<AiToolExecutionResult?> deleteFileWithMutationGuard({
+    required String toolName,
+    required File file,
+    required Set<String> previouslyReadFiles,
+    AiFileTrackerService? fileTracker,
+  }) async {
+    final readValidation = await validateReadBeforeMutation(
+      toolName: toolName,
+      filePath: file.path,
+      previouslyReadFiles: previouslyReadFiles,
+      fileTracker: fileTracker,
+    );
+    if (readValidation != null) return readValidation;
+
+    final entityType = await FileSystemEntity.type(
+      file.path,
+      followLinks: false,
+    );
+    if (entityType == FileSystemEntityType.notFound) {
+      return invalidResult(
+        toolName,
+        '$toolName target no longer exists before deletion. Re-read the path before retrying: ${file.path}',
+      );
+    }
+    if (entityType == FileSystemEntityType.directory) {
+      return invalidResult(
+        toolName,
+        '$toolName refuses to delete a directory: ${file.path}',
+      );
+    }
+
+    await file.delete();
+    await updateTrackerAfterMutation(
+      filePath: file.path,
+      fileTracker: fileTracker,
+    );
+    return null;
+  }
+
   static Future<void> _copyExistingFileMode(
     File sourceFile,
     File targetFile,

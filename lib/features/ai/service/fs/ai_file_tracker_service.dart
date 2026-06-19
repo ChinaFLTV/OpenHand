@@ -138,7 +138,12 @@ class AiFileTrackerService {
 
   /// 更新文件读取快照（写入后需要更新）
   Future<void> updateAfterWrite(String filePath) async {
-    // 写入后重新记录快照，因为我们自己的写入是可信的
+    // 写入后重新记录快照，因为我们自己的写入是可信的；如果本次 mutation
+    // 删除了文件，则清除旧快照，避免后续工具复用已不存在文件的读取状态。
+    if (!await File(p.normalize(filePath)).exists()) {
+      clearFileTracking(filePath);
+      return;
+    }
     await recordFileRead(filePath);
   }
 

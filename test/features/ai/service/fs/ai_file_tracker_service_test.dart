@@ -98,6 +98,28 @@ void main() {
       );
     });
 
+    test('updateAfterWrite clears tracking when file was deleted', () async {
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\n');
+      final tracker = AiFileTrackerService();
+
+      await tracker.recordReadResult(filePath: file.path, offset: 1, limit: 10);
+      await file.delete();
+      await tracker.updateAfterWrite(file.path);
+
+      expect(
+        await tracker.isReadResultUnchanged(
+          filePath: file.path,
+          offset: 1,
+          limit: 10,
+        ),
+        isFalse,
+      );
+
+      await file.writeAsString('alpha\n');
+      expect(await tracker.validateSafeToWrite(file.path), isNull);
+    });
+
     test(
       'clearReadResultTracking preserves mutation safety snapshot',
       () async {

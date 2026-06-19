@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
+import '../../service/fs/ai_file_tracker_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -69,6 +71,19 @@ class AiDeleteFileTool extends AiTool {
       );
     }
 
+    final fileTracker =
+        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileHistory =
+        context.metadata['file_history'] as AiFileHistoryService?;
+
+    final readValidation = await AiToolUtils.validateReadBeforeMutation(
+      toolName: 'DeleteFile',
+      filePath: filePath,
+      previouslyReadFiles: context.previouslyReadFiles,
+      fileTracker: fileTracker,
+    );
+    if (readValidation != null) return readValidation;
+
     // 2026-04-13: 写操作权限确认检查（删除为不可逆破坏性操作）
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'DeleteFile',
@@ -84,13 +99,26 @@ class AiDeleteFileTool extends AiTool {
     }
 
     try {
+      final versionId = await AiToolUtils.saveFileVersionBeforeMutation(
+        filePath: filePath,
+        sessionId: context.sessionId,
+        toolCallId: context.toolCall.id,
+        fileHistory: fileHistory,
+      );
+
       // 2026-05-03: 在删除前抓取 before 内容入 ledger
       final mutationLedger =
           context.metadata['mutation_ledger'] as AiFileMutationLedger?;
       final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
         filePath,
       );
-      await file.delete();
+      final guardedDelete = await AiToolUtils.deleteFileWithMutationGuard(
+        toolName: 'DeleteFile',
+        file: file,
+        previouslyReadFiles: context.previouslyReadFiles,
+        fileTracker: fileTracker,
+      );
+      if (guardedDelete != null) return guardedDelete;
       final ledgerRecordId = await AiToolUtils.recordFileMutationToLedger(
         ledger: mutationLedger,
         sessionId: context.sessionId,
@@ -111,6 +139,7 @@ class AiDeleteFileTool extends AiTool {
           'tool_source': 'builtin',
           'file_mutation_kind': 'delete',
           'file_mutation_path': filePath,
+          if (versionId != null) 'file_mutation_history_version_id': versionId,
           if (ledgerRecordId != null)
             'file_mutation_ledger_record_id': ledgerRecordId,
         },
