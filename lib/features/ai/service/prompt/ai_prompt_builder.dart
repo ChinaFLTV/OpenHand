@@ -98,6 +98,10 @@ class AiPromptBuilder {
   static const int _compressionAttachmentDetailMaxChars = 2000;
   static const int _compressionPromptToolResultThresholdChars = 4096;
   static const int _compressionPromptToolResultHeadTailChars = 384;
+  static const int _compressionPromptMaxPlanRecords = 3;
+  static const int _compressionPromptMaxPlanChars = 6000;
+  static const int _compressionPromptMaxTodoItems = 40;
+  static const int _compressionPromptMaxTodoChars = 800;
   static const int _postCompactRestoreMaxFiles = 5;
   static const int _postCompactRestoreMaxFileBytes = 256 * 1024;
   static const int _postCompactRestoreMaxCharsPerFile = 12000;
@@ -1812,6 +1816,7 @@ class AiPromptBuilder {
     final templatePolicy = AiPromptTemplatePolicies.resolve(template.id);
     final usesMinimalCompressionPayload =
         templatePolicy.usesMinimalCompressionPayload;
+    final sessionStateSnapshot = _buildCompressionSessionStateSnapshot(session);
     final payload = <String, Object?>{
       'session_title': session.title,
       'template_name': template.name,
@@ -1825,6 +1830,8 @@ class AiPromptBuilder {
       'user_message_count': messagesToCompress
           .where((message) => message.kind == AiSessionMessageKind.user)
           .length,
+      if (sessionStateSnapshot.isNotEmpty)
+        'session_state': sessionStateSnapshot,
     };
     final userMessageManifest = _renderCompressionUserMessageManifest(
       messagesToCompress,
@@ -1877,6 +1884,70 @@ class AiPromptBuilder {
             '${AiPromptSectionHeaders.compressionTaskPayload}\n\n${_jsonCodeBlock(payload)}\n\n## Previous Checkpoint\n\n$previousCheckpointText${userMessageManifest.isEmpty ? '' : '\n\n## User Messages Manifest\n\n$userMessageManifest'}${resourceManifest.isEmpty ? '' : '\n\n## Resource Recovery Manifest\n\n$resourceManifest'}\n\n## Messages To Compress\n\n$transcript',
       ),
     ];
+  }
+
+  Map<String, Object?> _buildCompressionSessionStateSnapshot(
+    AiSession session,
+  ) {
+    final pendingPlan = session.pendingPlan?.trim();
+    final recentPlanRecords = session.planHistory.reversed
+        .take(_compressionPromptMaxPlanRecords)
+        .toList(growable: false)
+        .reversed
+        .map(_compressionPlanRecordSnapshot)
+        .toList(growable: false);
+    return <String, Object?>{
+      'mode': session.mode.storageValue,
+      'awaiting_plan_approval': session.awaitingPlanApproval,
+      'full_access_permission': session.fullAccessPermission,
+      if (pendingPlan != null && pendingPlan.isNotEmpty)
+        'pending_plan': _truncate(pendingPlan, _compressionPromptMaxPlanChars),
+      'current_todo_count': session.todoItems.length,
+      if (session.todoItems.isNotEmpty)
+        'current_todos': _compressionTodoListSnapshot(session.todoItems),
+      'plan_record_count': session.planHistory.length,
+      if (recentPlanRecords.isNotEmpty)
+        'recent_plan_records': recentPlanRecords,
+    };
+  }
+
+  Map<String, Object?> _compressionPlanRecordSnapshot(
+    AiSessionPlanRecord record,
+  ) {
+    final plan = record.plan.trim();
+    return <String, Object?>{
+      'id': record.id,
+      'created_at': record.createdAt.toUtc().toIso8601String(),
+      'updated_at': record.updatedAt.toUtc().toIso8601String(),
+      'status': record.status.storageValue,
+      if (plan.isNotEmpty)
+        'plan': _truncate(plan, _compressionPromptMaxPlanChars),
+      'step_count': record.steps.length,
+      if (record.steps.isNotEmpty)
+        'steps': _compressionTodoListSnapshot(record.steps),
+    };
+  }
+
+  Map<String, Object?> _compressionTodoListSnapshot(
+    List<AiSessionTodoItem> items,
+  ) {
+    final visible = items
+        .take(_compressionPromptMaxTodoItems)
+        .map(_compressionTodoSnapshot)
+        .toList(growable: false);
+    return <String, Object?>{
+      'items': visible,
+      if (items.length > visible.length)
+        'omitted': items.length - visible.length,
+    };
+  }
+
+  Map<String, Object?> _compressionTodoSnapshot(AiSessionTodoItem item) {
+    return <String, Object?>{
+      'id': item.id,
+      'content': _truncate(item.content.trim(), _compressionPromptMaxTodoChars),
+      'status': item.status,
+    };
   }
 
   Map<String, Object?>? _buildWebReverseRuntimeSnapshot(
