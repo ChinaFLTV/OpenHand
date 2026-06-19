@@ -668,6 +668,12 @@ class AiToolRuntimeService {
         stderr: guidanceText,
         durationMs: 0,
         resultText: 'status: invalid_arguments\nerror: $guidanceText',
+        metadata: <String, Object?>{
+          ...metadata,
+          'unsupported_tool_name': toolCall.name,
+          'available_tool_names': availableNames,
+          'tool_catalog_empty': availableNames.isEmpty,
+        },
       );
     }
     final decodedArguments = AiToolUtils.decodeArguments(

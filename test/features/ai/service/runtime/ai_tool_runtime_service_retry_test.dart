@@ -96,6 +96,57 @@ void main() {
       },
     );
   });
+
+  group('AiToolRuntimeService unsupported tool guidance', () {
+    test(
+      'preserves plan gate metadata when catalog is intentionally empty',
+      () async {
+        final runtime = AiToolRuntimeService(
+          bashToolService: AiBashToolService(),
+          hookService: AiNoopClaudeHookService(),
+          mcpToolService: _FakeMcpToolDiscoveryService(),
+          backgroundChatClient: _FakeChatClient(),
+        );
+
+        final result = await runtime.execute(
+          sessionId: 'runtime-plan-gate-test',
+          catalog: const AiResolvedToolCatalog(
+            definitions: <AiToolDefinition>[],
+            toolsByName: <String, AiResolvedTool>{},
+          ),
+          toolCall: const AiToolCall(
+            id: 'call-1',
+            name: 'Write',
+            arguments: '{}',
+          ),
+          model: _testModel,
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: true,
+          confirmWriteCommand: null,
+          metadata: const <String, Object?>{
+            'session_mode': 'plan',
+            'plan_mode_active': true,
+            'awaiting_plan_approval': true,
+            'plan_mode_execution_approved_for_send': false,
+          },
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.stderr, contains('waiting for the user to approve'));
+        expect(result.stderr, contains('Do NOT invent tool names'));
+        expect(result.metadata['unsupported_tool_name'], 'Write');
+        expect(result.metadata['tool_catalog_empty'], isTrue);
+        expect(result.metadata['available_tool_names'], isEmpty);
+        expect(result.metadata['plan_mode_active'], isTrue);
+        expect(result.metadata['awaiting_plan_approval'], isTrue);
+        expect(
+          result.metadata['plan_mode_execution_approved_for_send'],
+          isFalse,
+        );
+      },
+    );
+  });
 }
 
 const AiModelConfig _testModel = AiModelConfig(
