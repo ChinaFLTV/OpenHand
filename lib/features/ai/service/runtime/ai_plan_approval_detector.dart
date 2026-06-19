@@ -32,6 +32,29 @@ abstract final class AiPlanApprovalDetector {
     return _approvalPhrases.any(normalized.contains);
   }
 
+  static bool looksLikePlanExecutionContinuation(String content) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return _executionContinuationPhrases.any(normalized.contains);
+  }
+
+  static bool looksLikePlanRecoveryContinuation(
+    String content, {
+    bool includeGenericContinuations = false,
+  }) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    if (_recoveryContinuationPhrases.any(normalized.contains)) {
+      return true;
+    }
+    return includeGenericContinuations &&
+        _executionContinuationPhrases.any(normalized.contains);
+  }
+
   static final RegExp _punctuationPattern = RegExp(r'[\s!！。．\.,，、;；:：~～?？]+');
 
   /// Bare-equality approvals. Must match the FULL compact reply.
@@ -106,5 +129,62 @@ abstract final class AiPlanApprovalDetector {
     '上吧',
     '撸起来',
     '动手',
+  ];
+
+  static const List<String> _executionContinuationPhrases = <String>[
+    'continue',
+    'continue.',
+    'go on',
+    'keep going',
+    'continue the work',
+    'continue working',
+    'continue implementation',
+    'continue improving',
+    'continue optimizing',
+    'continue fixing',
+    'continue debugging',
+    'finish it',
+    '继续',
+    '继续吧',
+    '继续做',
+    '继续实施',
+    '继续开展',
+    '继续完成',
+    '继续处理',
+    '继续调整',
+    '继续排查',
+    '继续优化',
+    '继续完善',
+    '继续改进',
+    '继续修复',
+    '继续推进',
+    '继续跟进',
+    '接着',
+    '接着做',
+  ];
+
+  static const List<String> _recoveryContinuationPhrases = <String>[
+    'retry',
+    'retry it',
+    'retry the step',
+    'retry the failed step',
+    'resume',
+    'resume execution',
+    'resume from the failed step',
+    'rerun',
+    'rerun the step',
+    'continue from the failed step',
+    'continue after the failure',
+    'continue after failure',
+    '继续执行',
+    '继续执行失败步骤',
+    '从失败步骤继续',
+    '重试',
+    '重试一下',
+    '重新执行',
+    '重新尝试',
+    '重新试',
+    '恢复执行',
+    '恢复上次执行',
   ];
 }

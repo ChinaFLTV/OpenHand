@@ -128,6 +128,28 @@ class AiPromptBuilder {
     '接着做',
     '接着',
   };
+  static const List<String> _planModePlanningToolNames = <String>[
+    'AskUserChoice',
+    'Task',
+    'Glob',
+    'Grep',
+    'LS',
+    'Read',
+    'WebFetch',
+    'WebSearch',
+    'TodoWrite',
+  ];
+  static const Set<String> _planModePlanningToolTokens = <String>{
+    'askuserchoice',
+    'task',
+    'glob',
+    'grep',
+    'ls',
+    'read',
+    'webfetch',
+    'websearch',
+    'todowrite',
+  };
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
@@ -174,6 +196,8 @@ class AiPromptBuilder {
         const <String, AiResolvedTool>{},
     Map<String, String> mcpServerInstructionsByName = const <String, String>{},
     bool useDsmlToolCalls = false,
+    bool planModeExecutionApprovedForSend = false,
+    bool? planModeRecoveryInspectionRequired,
     // 2026-05-23 v6 — 供调用方（AiSessionController）在「等待计划批准」
     // 轮次传入「完整目录」，让 [2] Tool Catalog 文本跨轮保持字节一致，
     // 仅靠 [3d] 里的 plan.awaiting_approval 告诉模型「本轮不能调用工具」。
@@ -298,6 +322,16 @@ class AiPromptBuilder {
           session: session,
           latestUserMessage: latestUserMessage,
         );
+    final effectivePlanModeRecoveryInspectionRequired =
+        planModeRecoveryInspectionRequired ?? planRecoveryRequired;
+    final exitPlanModeAvailable = _hasExitPlanModeTool(availableToolNames);
+    final runtimeToolGateReason = _runtimeToolGateReasonForPrompt(
+      session: session,
+      availableToolNames: availableToolNames,
+      planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
+      planModeRecoveryInspectionRequired:
+          effectivePlanModeRecoveryInspectionRequired,
+    );
     // 2026-05-30 — metadata 中删除「纯遥测」字段：
     //   * session_updated_at：UI 元数据，模型无消费但会每轮变。
     //   * session_total_token_count / session_prompt_token_count /
@@ -333,6 +367,12 @@ class AiPromptBuilder {
       'current_tool_count': availableToolNames.length,
       'current_tool_names': availableToolNames,
       'current_file_editing_tool_names': currentFileEditingToolNames,
+      'plan_mode_planning_tool_names': _planModePlanningToolNames,
+      'plan_mode_exit_plan_mode_available': exitPlanModeAvailable,
+      'runtime_tool_gate_reason': runtimeToolGateReason,
+      'plan_mode_execution_approved_for_send': planModeExecutionApprovedForSend,
+      'plan_mode_recovery_inspection_required':
+          effectivePlanModeRecoveryInspectionRequired,
       'awaiting_plan_approval': session.awaitingPlanApproval,
       'pending_plan': session.pendingPlan,
       'workspace_instruction_document_count':
@@ -392,6 +432,10 @@ class AiPromptBuilder {
         runtimeContext: runtimeContext,
         repositorySnapshot: repositorySnapshot,
         postCompactRehydration: postCompactRehydration,
+        availableToolNames: availableToolNames,
+        planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
+        planModeRecoveryInspectionRequired:
+            effectivePlanModeRecoveryInspectionRequired,
         todoReminder: todoReminder,
         planModeReminder: planModeReminder,
       );
@@ -1231,6 +1275,9 @@ class AiPromptBuilder {
     required AiSessionRuntimeContext runtimeContext,
     required AiRepositorySnapshot? repositorySnapshot,
     required Map<String, Object?> postCompactRehydration,
+    required List<String> availableToolNames,
+    required bool planModeExecutionApprovedForSend,
+    required bool planModeRecoveryInspectionRequired,
     String? todoReminder,
     String? planModeReminder,
   }) {
@@ -1270,6 +1317,19 @@ class AiPromptBuilder {
       dynamicState['plan'] = <String, Object?>{
         'active': session.mode == AiSessionMode.plan,
         'awaiting_approval': session.awaitingPlanApproval,
+        'tool_gate_reason': _runtimeToolGateReasonForPrompt(
+          session: session,
+          availableToolNames: availableToolNames,
+          planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
+          planModeRecoveryInspectionRequired:
+              planModeRecoveryInspectionRequired,
+        ),
+        'available_tool_count': availableToolNames.length,
+        'planning_tool_allowlist': _planModePlanningToolNames,
+        'exit_plan_mode_available': _hasExitPlanModeTool(availableToolNames),
+        if (planModeExecutionApprovedForSend) 'execution_tools_approved': true,
+        if (planModeRecoveryInspectionRequired)
+          'recovery_inspection_required': true,
         if (session.pendingPlan != null &&
             session.pendingPlan!.trim().isNotEmpty)
           'pending_plan': session.pendingPlan!.trim(),
@@ -1290,6 +1350,49 @@ class AiPromptBuilder {
     }
 
     return dynamicState;
+  }
+
+  String _runtimeToolGateReasonForPrompt({
+    required AiSession session,
+    required List<String> availableToolNames,
+    required bool planModeExecutionApprovedForSend,
+    required bool planModeRecoveryInspectionRequired,
+  }) {
+    if (session.awaitingPlanApproval) {
+      return 'awaiting_plan_approval';
+    }
+    if (session.mode != AiSessionMode.plan) {
+      return availableToolNames.isEmpty ? 'chat_mode_no_tools' : 'chat_mode';
+    }
+    if (planModeRecoveryInspectionRequired) {
+      return 'plan_mode_recovery_inspection';
+    }
+    if (planModeExecutionApprovedForSend ||
+        _hasPlanModeExecutionTool(availableToolNames)) {
+      return 'plan_mode_execution';
+    }
+    return _hasExitPlanModeTool(availableToolNames)
+        ? 'plan_mode_planning_with_exit_allowed'
+        : 'plan_mode_planning_only';
+  }
+
+  bool _hasExitPlanModeTool(List<String> availableToolNames) {
+    return availableToolNames.any(
+      (name) => _normalizeToolNameForPromptCatalog(name) == 'exitplanmode',
+    );
+  }
+
+  bool _hasPlanModeExecutionTool(List<String> availableToolNames) {
+    for (final name in availableToolNames) {
+      final normalized = _normalizeToolNameForPromptCatalog(name);
+      if (normalized.isEmpty ||
+          normalized == 'exitplanmode' ||
+          _planModePlanningToolTokens.contains(normalized)) {
+        continue;
+      }
+      return true;
+    }
+    return false;
   }
 
   String _renderRuntimeToolCatalog(
@@ -4921,37 +5024,10 @@ $content
   }
 
   bool _looksLikePlanRecoveryContinuation(String content) {
-    final normalized = content.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return false;
-    }
-    const recoveryPhrases = <String>[
-      'continue',
-      'continue.',
-      'go on',
-      'keep going',
-      'continue implementation',
-      'finish it',
-      'retry',
-      'retry it',
-      'retry the step',
-      'retry the failed step',
-      'resume',
-      '继续',
-      '继续吧',
-      '继续做',
-      '继续完成',
-      '继续实施',
-      '继续执行',
-      '接着',
-      '接着做',
-      '重试',
-      '重试一下',
-      '重新执行',
-      '重新试',
-      '恢复执行',
-    ];
-    return recoveryPhrases.any((phrase) => normalized.contains(phrase));
+    return AiPlanApprovalDetector.looksLikePlanRecoveryContinuation(
+      content,
+      includeGenericContinuations: true,
+    );
   }
 
   bool _looksLikeNonTrivialTask(String content) {

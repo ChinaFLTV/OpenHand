@@ -3976,6 +3976,8 @@ class AiSessionController extends ChangeNotifier {
         mcpServerInstructionsByName:
             toolCatalogForRound.mcpServerInstructionsByName,
         useDsmlToolCalls: !supportsNativeToolCalls,
+        planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
+        planModeRecoveryInspectionRequired: planModeRecoveryInspectionRequired,
         displayCatalogOverride: displayCatalogForPrompt.definitions,
       );
       preRequestTimingsMs['prompt_build'] =
@@ -7377,73 +7379,11 @@ class AiSessionController extends ChangeNotifier {
   }
 
   bool _looksLikePlanExecutionContinuation(String content) {
-    final normalized = content.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return false;
-    }
-    const continuationPhrases = <String>[
-      'continue',
-      'continue.',
-      'go on',
-      'keep going',
-      'continue the work',
-      'continue working',
-      'continue implementation',
-      'continue improving',
-      'continue optimizing',
-      'continue fixing',
-      'continue debugging',
-      'finish it',
-      '继续',
-      '继续吧',
-      '继续做',
-      '继续开展',
-      '继续完成',
-      '继续处理',
-      '继续调整',
-      '继续排查',
-      '继续优化',
-      '继续完善',
-      '继续改进',
-      '继续修复',
-      '继续推进',
-      '继续跟进',
-      '接着',
-      '接着做',
-    ];
-    return continuationPhrases.any((phrase) => normalized.contains(phrase));
+    return AiPlanApprovalDetector.looksLikePlanExecutionContinuation(content);
   }
 
   bool _looksLikePlanRecoveryContinuation(String content) {
-    final normalized = content.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return false;
-    }
-    const recoveryPhrases = <String>[
-      'retry',
-      'retry it',
-      'retry the step',
-      'retry the failed step',
-      'resume',
-      'resume execution',
-      'resume from the failed step',
-      'rerun',
-      'rerun the step',
-      'continue from the failed step',
-      'continue after the failure',
-      'continue after failure',
-      '继续执行',
-      '继续执行失败步骤',
-      '从失败步骤继续',
-      '重试',
-      '重试一下',
-      '重新执行',
-      '重新尝试',
-      '重新试',
-      '恢复执行',
-      '恢复上次执行',
-    ];
-    return recoveryPhrases.any((phrase) => normalized.contains(phrase));
+    return AiPlanApprovalDetector.looksLikePlanRecoveryContinuation(content);
   }
 
   bool _roundRequestedTodoWrite(List<AiToolCall> toolCalls) {
