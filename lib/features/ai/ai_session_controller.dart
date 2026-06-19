@@ -21,6 +21,7 @@ import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
 import 'model/ai_creation_mode.dart';
 import 'model/ai_deny_command_rule.dart';
+import 'model/ai_input_cache_policy.dart';
 import 'model/ai_input_cache_runtime_config.dart';
 import 'model/ai_message_content_format.dart';
 import 'model/ai_model_config.dart';
@@ -275,6 +276,10 @@ class AiSessionController extends ChangeNotifier {
   static int _minimumMeaningfulLatinTitleWords = 2;
   static const String _defaultNewSessionTitle = '新会话';
   static const Duration _autoTitleRequestTimeout = Duration(seconds: 20);
+  static const Duration _automaticCacheBackgroundQuietPeriod = Duration(
+    seconds: 45,
+  );
+  static const Duration _automaticCacheBackgroundMaxWait = Duration(minutes: 3);
   // Sora-style media generation endpoints poll until the task finishes.
   // Real-world durations: image ~30s-2min, video ~3-15min, audio ~1-3min.
   // These timeouts must dwarf `connectTimeoutSeconds` so the polling loop
@@ -3674,11 +3679,16 @@ class AiSessionController extends ChangeNotifier {
           confirmWriteCommand: confirmWriteCommand,
         );
         if (succeeded && shouldScheduleAutoTitle) {
+          final inputCachePolicy = AiInputCachePolicy.resolve(
+            model: model,
+            runtimeContext: runtimeContext,
+          );
           _scheduleAutoTitleGeneration(
             sessionId: session.id,
             sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
             sourceContent: preparedUserTurnWithMetadata.userMessage.content,
             model: model,
+            deferForInputCache: inputCachePolicy.defersBackgroundRequests,
           );
         }
         return succeeded;
@@ -4001,6 +4011,10 @@ class AiSessionController extends ChangeNotifier {
         preStreamTelemetryPreviewed = true;
       }
 
+      final inputCachePolicy = AiInputCachePolicy.resolve(
+        model: model,
+        runtimeContext: runtimeContext,
+      );
       late final AiChatStreamingResponse streamResponse;
       try {
         // Media generation (image/video/audio) intentionally bypasses
@@ -4032,9 +4046,7 @@ class AiSessionController extends ChangeNotifier {
           ),
           cancelSignal: _stopSignalForSession(workingSession.id),
           inputCacheConfig: AiInputCacheRuntimeConfig(
-            enabled:
-                runtimeContext.aiInputCacheEnabled &&
-                model.effectiveExplicitPromptCacheEnabled,
+            enabled: inputCachePolicy.injectsExplicitCacheControl,
             mode: runtimeContext.aiInputCacheUpdateMode,
             updateInterval: runtimeContext.aiInputCacheUpdateInterval,
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
@@ -8067,11 +8079,21 @@ $tail''';
     required String sourceMessageId,
     required String sourceContent,
     required AiModelConfig model,
+    required bool deferForInputCache,
   }) {
     unawaited(() async {
       try {
         if (_isDisposed) {
           return;
+        }
+        if (deferForInputCache) {
+          final ready = await _waitForAutomaticCacheBackgroundQuietPeriod(
+            sessionId: sessionId,
+            sourceMessageId: sourceMessageId,
+          );
+          if (!ready || _isDisposed) {
+            return;
+          }
         }
         await _generateAutoTitle(
           sessionId: sessionId,
@@ -8088,6 +8110,50 @@ $tail''';
         );
       }
     }());
+  }
+
+  Future<bool> _waitForAutomaticCacheBackgroundQuietPeriod({
+    required String sessionId,
+    required String sourceMessageId,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    var lastUserMessageCount = _visibleUserMessageCount(sessionId);
+    while (stopwatch.elapsed < _automaticCacheBackgroundMaxWait) {
+      await Future<void>.delayed(_automaticCacheBackgroundQuietPeriod);
+      if (_isDisposed) {
+        return false;
+      }
+      final session = _sessionById(sessionId);
+      if (session == null ||
+          session.isTitleManuallyEdited ||
+          session.autoTitleGeneratedAt != null ||
+          (session.autoTitleSourceMessageId != null &&
+              session.autoTitleSourceMessageId != sourceMessageId)) {
+        return false;
+      }
+      final currentUserMessageCount = _visibleUserMessageCount(sessionId);
+      if (currentUserMessageCount != lastUserMessageCount) {
+        lastUserMessageCount = currentUserMessageCount;
+        continue;
+      }
+      if (sendPhaseForSession(sessionId) == AiSendPhase.idle) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int _visibleUserMessageCount(String sessionId) {
+    final session = _sessionById(sessionId);
+    if (session == null) {
+      return 0;
+    }
+    return session.messages
+        .where(
+          (message) =>
+              !message.isDeleted && message.kind == AiSessionMessageKind.user,
+        )
+        .length;
   }
 
   // Total attempts (preferred + retries) before falling back to a
@@ -10495,6 +10561,41 @@ $tail''';
     return null;
   }
 
+  Map<String, Object?> _promptCacheAuditMetadata(
+    Map<String, Object?> promptMetadata,
+  ) {
+    const keys = <String>{
+      'cache_enabled',
+      'input_cache_enabled',
+      'cache_global_enabled',
+      'cache_explicit_control_supported',
+      'cache_model_explicit_prompt_cache_enabled',
+      'cache_update_mode',
+      'cache_update_interval',
+      'cache_breakpoint_count',
+      'cache_breakpoint_positions',
+      'cache_control_strategy',
+      'cache_protocol_controlled',
+      'cache_provider_automatic_cache_protected',
+      'cache_background_requests_deferred',
+      'stable_prefix_hash',
+      'previous_stable_prefix_hash',
+      'tool_catalog_hash',
+      'previous_tool_catalog_hash',
+      'stable_cache_key',
+      'previous_stable_cache_key',
+      'idle_gap_seconds',
+      'ttl_suspected',
+    };
+    final result = <String, Object?>{};
+    for (final key in keys) {
+      if (promptMetadata.containsKey(key)) {
+        result[key] = promptMetadata[key];
+      }
+    }
+    return result;
+  }
+
   int _longestCommonPrefixLength(String previous, String current) {
     final maxLength = math.min(previous.length, current.length);
     var index = 0;
@@ -10610,6 +10711,7 @@ $tail''';
           Map<String, Object?>.from(promptResult.metadata),
           maxChars,
         ),
+      ..._promptCacheAuditMetadata(promptResult.metadata),
       'prompt_character_count': promptResult.promptCharacterCount,
       'estimated_prompt_tokens': estimatedPromptTokens,
       'estimated_total_tokens': estimatedPromptTokens,

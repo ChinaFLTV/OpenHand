@@ -11,6 +11,7 @@ import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
+import '../../model/ai_input_cache_policy.dart';
 import '../../model/ai_message_content_format.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_session.dart';
@@ -619,7 +620,7 @@ class AiPromptBuilder {
           .join('\n\n'),
     );
     final toolCatalogHash = _promptFingerprint(availableToolNames.join('\n'));
-    final cacheControlStrategy = _inputCacheControlStrategy(
+    final inputCachePolicy = AiInputCachePolicy.resolve(
       model: model,
       runtimeContext: runtimeContext,
     );
@@ -648,20 +649,25 @@ class AiPromptBuilder {
       ..['tool_catalog_hash'] = toolCatalogHash
       ..['previous_tool_catalog_hash'] =
           '${session.lastPromptMetadata['tool_catalog_hash'] ?? ''}'.trim()
-      ..['cache_enabled'] =
-          runtimeContext.aiInputCacheEnabled &&
-          model.effectiveExplicitPromptCacheEnabled
-      ..['cache_global_enabled'] = runtimeContext.aiInputCacheEnabled
+      ..['cache_enabled'] = inputCachePolicy.stablePromptPrefixEnabled
+      ..['input_cache_enabled'] = inputCachePolicy.stablePromptPrefixEnabled
+      ..['cache_global_enabled'] = inputCachePolicy.globalEnabled
+      ..['cache_explicit_control_supported'] =
+          inputCachePolicy.explicitControlSupported
       ..['cache_model_explicit_prompt_cache_enabled'] =
-          model.effectiveExplicitPromptCacheEnabled
+          inputCachePolicy.explicitControlEnabled
       ..['cache_update_mode'] = runtimeContext.aiInputCacheUpdateMode
       ..['cache_update_interval'] = runtimeContext.aiInputCacheUpdateInterval
       ..['cache_breakpoint_count'] = runtimeContext.aiInputCacheBreakpointCount
       ..['cache_breakpoint_positions'] =
           runtimeContext.aiInputCacheBreakpointPositions
-      ..['cache_control_strategy'] = cacheControlStrategy
+      ..['cache_control_strategy'] = inputCachePolicy.strategy.storageValue
       ..['cache_protocol_controlled'] =
-          cacheControlStrategy == 'explicit_cache_control'
+          inputCachePolicy.injectsExplicitCacheControl
+      ..['cache_provider_automatic_cache_protected'] =
+          inputCachePolicy.usesAutomaticProviderCache
+      ..['cache_background_requests_deferred'] =
+          inputCachePolicy.defersBackgroundRequests
       ..['stable_cache_key'] = stableCacheKey
       ..['previous_stable_cache_key'] =
           '${session.lastPromptMetadata['stable_cache_key'] ?? ''}'.trim()
@@ -1565,22 +1571,6 @@ class AiPromptBuilder {
       hash = (hash * 0x01000193) & 0xffffffff;
     }
     return hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
-  }
-
-  String _inputCacheControlStrategy({
-    required AiModelConfig model,
-    required AiSessionRuntimeContext runtimeContext,
-  }) {
-    if (!runtimeContext.aiInputCacheEnabled) {
-      return 'disabled';
-    }
-    if (!model.supportsExplicitPromptCacheControl) {
-      return 'none';
-    }
-    if (!model.effectiveExplicitPromptCacheEnabled) {
-      return 'provider_disabled';
-    }
-    return 'explicit_cache_control';
   }
 
   String _stableCacheKey({

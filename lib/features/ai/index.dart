@@ -18,6 +18,7 @@ export 'model/ai_cost_breakdown.dart';
 export 'model/ai_creation_mode.dart';
 export 'model/ai_deny_command_rule.dart';
 export 'model/ai_endpoint_override.dart';
+export 'model/ai_input_cache_policy.dart';
 export 'model/ai_input_cache_runtime_config.dart';
 export 'model/ai_lsp_backend_catalog.dart';
 export 'model/ai_lsp_language_settings.dart';

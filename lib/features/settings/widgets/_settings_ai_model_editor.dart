@@ -443,36 +443,54 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         : Padding(
             key: const ValueKey<String>('cacheControlVisible'),
             padding: const EdgeInsets.only(top: 16),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-                ),
-              ),
-              child: SwitchListTile(
-                contentPadding: const EdgeInsetsDirectional.fromSTEB(
-                  16,
-                  6,
-                  12,
-                  6,
-                ),
-                value: _explicitPromptCacheEnabled,
-                onChanged: _isSaving
+                onTap: _isSaving
                     ? null
-                    : (value) {
+                    : () {
                         setState(() {
-                          _explicitPromptCacheEnabled = value;
+                          _explicitPromptCacheEnabled =
+                              !_explicitPromptCacheEnabled;
                         });
                       },
-                title: const Text('启用 Claude 显式提示词缓存点'),
-                subtitle: Text(
-                  globalInputCacheEnabled
-                      ? '开启后，Claude native 请求会按成本控制设置插入 cache_control 断点。'
-                      : '全局输入缓存已关闭；此开关会保存偏好，但当前不会生效。',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(0, 8, 0, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '启用 Claude 显式提示词缓存点',
+                              style: theme.textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              globalInputCacheEnabled
+                                  ? '开启后，Claude native 请求会按成本控制设置插入 cache_control 断点。'
+                                  : '全局输入缓存已关闭；此开关会保存偏好，但当前不会生效。',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Switch(
+                        value: _explicitPromptCacheEnabled,
+                        onChanged: _isSaving
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _explicitPromptCacheEnabled = value;
+                                });
+                              },
+                      ),
+                    ],
                   ),
                 ),
               ),

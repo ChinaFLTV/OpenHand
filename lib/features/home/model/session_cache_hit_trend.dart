@@ -1,13 +1,18 @@
 import '../../ai/index.dart';
 import 'cache_hit_ratio.dart';
 
-enum SessionCacheMissKind { normal, ttlSuspected, prefixDrift, shortIdleMiss }
+enum SessionCacheMissKind {
+  normal,
+  ttlSuspected,
+  prefixDrift,
+  automaticProviderMiss,
+}
 
 /// "极端值"判定：长时间空闲（≥ 30 分钟）后命中率近乎为 0（< 1%）。
 const int kExtremeIdleGapSeconds = 1800; // 30 分钟
 const double kExtremeHitRatioThreshold = 0.01; // 1%
-const int kShortIdleCacheGapSeconds = 60;
-const double kShortIdlePartialHitRatioThreshold = 0.80;
+const int kAutomaticProviderCacheMissMinGapSeconds = 0;
+const double kAutomaticProviderCacheMissHitRatioThreshold = 0.80;
 
 enum SessionCacheHitDisplayMode { excludeExtremeMisses, includeAll }
 
@@ -43,7 +48,7 @@ class SessionCacheHitTurnPoint {
     required this.idleGapSeconds,
     required this.ttlSuspected,
     required this.prefixDriftSuspected,
-    required this.shortIdleMissSuspected,
+    required this.automaticProviderMissSuspected,
   });
 
   final int turnIndex;
@@ -56,13 +61,13 @@ class SessionCacheHitTurnPoint {
   final int? idleGapSeconds;
   final bool ttlSuspected;
   final bool prefixDriftSuspected;
-  final bool shortIdleMissSuspected;
+  final bool automaticProviderMissSuspected;
 
   SessionCacheMissKind get missKind {
     if (ttlSuspected) return SessionCacheMissKind.ttlSuspected;
     if (prefixDriftSuspected) return SessionCacheMissKind.prefixDrift;
-    if (shortIdleMissSuspected) {
-      return SessionCacheMissKind.shortIdleMiss;
+    if (automaticProviderMissSuspected) {
+      return SessionCacheMissKind.automaticProviderMiss;
     }
     return SessionCacheMissKind.normal;
   }
@@ -267,7 +272,8 @@ class SessionCacheHitTrend {
           idleGapSeconds: diagnostics.idleGapSeconds,
           ttlSuspected: diagnostics.ttlSuspected,
           prefixDriftSuspected: diagnostics.prefixDriftSuspected,
-          shortIdleMissSuspected: diagnostics.shortIdleMissSuspected,
+          automaticProviderMissSuspected:
+              diagnostics.automaticProviderMissSuspected,
         ),
       );
     }
@@ -292,13 +298,13 @@ class _CacheHitDiagnostics {
     required this.idleGapSeconds,
     required this.ttlSuspected,
     required this.prefixDriftSuspected,
-    required this.shortIdleMissSuspected,
+    required this.automaticProviderMissSuspected,
   });
 
   final int? idleGapSeconds;
   final bool ttlSuspected;
   final bool prefixDriftSuspected;
-  final bool shortIdleMissSuspected;
+  final bool automaticProviderMissSuspected;
 }
 
 AiSessionMessage? _previousUserMessage(
@@ -439,18 +445,45 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   ]);
   final inputCacheEnabled = firstBool([
     primaryMetadata['cache_enabled'],
+    primaryMetadata['input_cache_enabled'],
     relatedMetadata['cache_enabled'],
+    relatedMetadata['input_cache_enabled'],
     if (promptMetadata != null) promptMetadata['cache_enabled'],
+    if (promptMetadata != null) promptMetadata['input_cache_enabled'],
   ]);
-  final cacheControlMarkerCount = firstInt([
+  final cacheControlStrategy = firstString([
+    primaryMetadata['cache_control_strategy'],
+    relatedMetadata['cache_control_strategy'],
+    if (promptMetadata != null) promptMetadata['cache_control_strategy'],
+  ]);
+  final automaticProviderCacheProtected =
+      firstBool([
+        primaryMetadata['cache_provider_automatic_cache_protected'],
+        relatedMetadata['cache_provider_automatic_cache_protected'],
+        if (promptMetadata != null)
+          promptMetadata['cache_provider_automatic_cache_protected'],
+      ]) ||
+      cacheControlStrategy == 'automatic_provider_cache';
+  final protocolControlled =
+      firstBool([
+        primaryMetadata['cache_protocol_controlled'],
+        relatedMetadata['cache_protocol_controlled'],
+        if (promptMetadata != null) promptMetadata['cache_protocol_controlled'],
+      ]) ||
+      cacheControlStrategy == 'explicit_cache_control';
+  final explicitCacheControlsRequired =
+      requiresExplicitCacheControls || protocolControlled;
+  final stablePrefixCacheEnabled =
+      inputCacheEnabled || automaticProviderCacheProtected;
+  final requestCacheControlMarkerCount = firstInt([
     primaryMetadata['request_cache_control_marker_count'],
     relatedMetadata['request_cache_control_marker_count'],
   ]);
   final cacheControlsMissing =
-      requiresExplicitCacheControls &&
-      inputCacheEnabled &&
-      cacheControlMarkerCount != null &&
-      cacheControlMarkerCount <= 0;
+      explicitCacheControlsRequired &&
+      stablePrefixCacheEnabled &&
+      requestCacheControlMarkerCount != null &&
+      requestCacheControlMarkerCount <= 0;
   final stablePrefixKnown =
       stablePrefixHash.isNotEmpty && previousStablePrefixHash.isNotEmpty;
   final stablePrefixUnchanged =
@@ -469,18 +502,19 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   ]);
   final requestPrefixStable =
       !requestPrefixProbeComplete || requestPrefixContinuity;
-  final shortIdleMissSuspected =
-      !requiresExplicitCacheControls &&
+  final automaticProviderMissSuspected =
+      !explicitCacheControlsRequired &&
+      automaticProviderCacheProtected &&
       !ttlSuspected &&
       stablePrefixUnchanged &&
       toolCatalogStable &&
       requestPrefixStable &&
       idleGapSeconds != null &&
-      idleGapSeconds >= kShortIdleCacheGapSeconds &&
-      hitRatio < kShortIdlePartialHitRatioThreshold;
+      idleGapSeconds >= kAutomaticProviderCacheMissMinGapSeconds &&
+      hitRatio < kAutomaticProviderCacheMissHitRatioThreshold;
   final prefixDriftSuspected =
       !ttlSuspected &&
-      !shortIdleMissSuspected &&
+      !automaticProviderMissSuspected &&
       idleGapSeconds != null &&
       idleGapSeconds < 3600 &&
       ((stablePrefixKnown && stablePrefixHash != previousStablePrefixHash) ||
@@ -493,7 +527,7 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     idleGapSeconds: idleGapSeconds,
     ttlSuspected: ttlSuspected,
     prefixDriftSuspected: prefixDriftSuspected,
-    shortIdleMissSuspected: shortIdleMissSuspected,
+    automaticProviderMissSuspected: automaticProviderMissSuspected,
   );
 }
 

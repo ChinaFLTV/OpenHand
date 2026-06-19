@@ -797,6 +797,22 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
       if (promptMetadataFromMsg != null)
         promptMetadataFromMsg['cache_control_strategy'],
     ]);
+    final automaticProviderCacheProtected =
+        _auditFirstBool([
+          metadata['cache_provider_automatic_cache_protected'],
+          relatedMetadata['cache_provider_automatic_cache_protected'],
+          if (promptMetadataFromMsg != null)
+            promptMetadataFromMsg['cache_provider_automatic_cache_protected'],
+        ]) ||
+        cacheControlStrategy == 'automatic_provider_cache';
+    final protocolControlled =
+        _auditFirstBool([
+          metadata['cache_protocol_controlled'],
+          relatedMetadata['cache_protocol_controlled'],
+          if (promptMetadataFromMsg != null)
+            promptMetadataFromMsg['cache_protocol_controlled'],
+        ]) ||
+        cacheControlStrategy == 'explicit_cache_control';
     final stableCacheKey = _auditFirstString([
       metadata['stable_cache_key'],
       relatedMetadata['stable_cache_key'],
@@ -829,18 +845,19 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
         toolCatalogHash.isEmpty ||
         previousToolCatalogHash.isEmpty ||
         toolCatalogHash == previousToolCatalogHash;
-    final shortIdleMissSuspected =
-        !widget.claudeStyle &&
+    final automaticProviderMissSuspected =
+        !protocolControlled &&
+        automaticProviderCacheProtected &&
         !cacheTtlSuspected &&
         stablePrefixUnchanged &&
         toolCatalogStable &&
         cacheIdleGapSeconds != null &&
-        cacheIdleGapSeconds >= kShortIdleCacheGapSeconds &&
+        cacheIdleGapSeconds >= kAutomaticProviderCacheMissMinGapSeconds &&
         cacheHitRatio != null &&
-        cacheHitRatio < kShortIdlePartialHitRatioThreshold;
+        cacheHitRatio < kAutomaticProviderCacheMissHitRatioThreshold;
     final prefixDriftSuspected =
         !cacheTtlSuspected &&
-        !shortIdleMissSuspected &&
+        !automaticProviderMissSuspected &&
         cacheIdleGapSeconds != null &&
         cacheIdleGapSeconds < 3600 &&
         ((stablePrefixKnown && stablePrefixHash != previousStablePrefixHash) ||
@@ -1108,7 +1125,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       if (cacheIdleGapSeconds != null ||
                           cacheTtlSuspected ||
                           prefixDriftSuspected ||
-                          shortIdleMissSuspected)
+                          automaticProviderMissSuspected)
                         _AuditJsonBlock(
                           label: isZh ? '缓存诊断' : 'Cache Diagnostics',
                           initiallyExpanded: true,
@@ -1116,7 +1133,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                             'idle_gap_seconds': cacheIdleGapSeconds,
                             'ttl_suspected': cacheTtlSuspected,
                             'prefix_drift_suspected': prefixDriftSuspected,
-                            'short_idle_miss_suspected': shortIdleMissSuspected,
+                            'automatic_provider_cache_miss_suspected':
+                                automaticProviderMissSuspected,
                             'stable_prefix_hash': stablePrefixHash,
                             'previous_stable_prefix_hash':
                                 previousStablePrefixHash,
