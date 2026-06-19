@@ -38,6 +38,21 @@ void main() {
 
         expect(result.status, BashToolExecutionStatus.invalidArguments);
         expect(result.stderr, contains('Plan mode before execution approval'));
+        expect(result.metadata['task_blocked_plan_mode_subagent'], isTrue);
+        expect(
+          result.metadata['task_block_reason'],
+          'plan_mode_execution_unapproved',
+        );
+        expect(result.metadata['subagent_type'], 'verify');
+        expect(
+          result.metadata['allowed_subagent_types_before_approval'],
+          unorderedEquals(<String>['research', 'summarize', 'advice']),
+        );
+        expect(result.metadata['plan_mode_active'], isTrue);
+        expect(
+          result.metadata['plan_mode_execution_approved_for_send'],
+          isFalse,
+        );
         expect(chatClient.sendMessageCalls, 0);
       },
     );

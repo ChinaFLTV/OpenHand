@@ -103,10 +103,22 @@ class AiTaskTool extends AiTool {
       metadata: context.metadata,
       subagentType: canonicalSubagentType,
     )) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Plan mode before execution approval allows Task only with read-only subagent_type values: ${readOnlyParallelSubagentTypes.join(', ')}. '
-        'Use a read-only subagent now, or run "$canonicalSubagentType" after the plan is approved.',
+      return AiToolUtils.withMergedMetadata(
+        AiToolUtils.invalidResult(
+          _toolName,
+          'Plan mode before execution approval allows Task only with read-only subagent_type values: ${readOnlyParallelSubagentTypes.join(', ')}. '
+          'Use a read-only subagent now, or run "$canonicalSubagentType" after the plan is approved.',
+        ),
+        <String, Object?>{
+          'task_blocked_plan_mode_subagent': true,
+          'task_block_reason': 'plan_mode_execution_unapproved',
+          'subagent_type': canonicalSubagentType,
+          'allowed_subagent_types_before_approval':
+              readOnlyParallelSubagentTypes.toList(growable: false),
+          'plan_mode_active': context.metadata['plan_mode_active'] == true,
+          'plan_mode_execution_approved_for_send':
+              context.metadata['plan_mode_execution_approved_for_send'] == true,
+        },
       );
     }
     final subagentProfile =
