@@ -134,7 +134,9 @@ void main() {
 
         expect(result.status, BashToolExecutionStatus.invalidArguments);
         expect(result.stderr, contains('waiting for the user to approve'));
-        expect(result.stderr, contains('Do NOT invent tool names'));
+        expect(result.stderr, contains('restores the execution toolkit'));
+        expect(result.stderr, contains('Do not invent tool names'));
+        expect(result.stderr, contains('dump code into chat'));
         expect(result.metadata['unsupported_tool_name'], 'Write');
         expect(result.metadata['tool_catalog_empty'], isTrue);
         expect(result.metadata['available_tool_names'], isEmpty);
