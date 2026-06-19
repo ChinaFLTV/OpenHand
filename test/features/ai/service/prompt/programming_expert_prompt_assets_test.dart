@@ -21,6 +21,8 @@ void main() {
       expect(developer, contains('<file_operations>'));
       expect(developer, contains('`Task` 必须顶层传'));
       expect(developer, contains('`Edit`：单点替换'));
+      expect(developer, contains('ToolSearch'));
+      expect(developer, contains('select:<exact_name>'));
       expect(developer, contains('tool_output_persisted_path'));
       expect(developer, contains('tool_output_recovery_hint'));
       expect(contextRecovery, contains('tool_output_truncated'));

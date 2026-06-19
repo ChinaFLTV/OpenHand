@@ -166,6 +166,7 @@ class AiToolSearchTool extends AiTool {
       for (final r in requested) {
         final hit = byLower[r.toLowerCase()];
         if (hit != null && !found.contains(hit)) found.add(hit);
+        if (found.length >= maxResults) break;
       }
       return found;
     }

@@ -2765,9 +2765,9 @@ class AiToolRuntimeService {
           'Result: matched tools are returned inside a `<functions>` block '
           'whose entries follow the same JSONSchema encoding as the tools '
           'declared at the top of the prompt. Once a tool appears in that '
-          'result, you may invoke it by its exact name in this and any '
-          'subsequent turn. Issuing the same query twice with different '
-          'keywords is fine; ToolSearch is read-only and side-effect free.',
+          'result, invoke it by exact name from the next model request onward. '
+          'Issuing the same query twice with different keywords is fine; '
+          'ToolSearch is read-only and side-effect free.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
