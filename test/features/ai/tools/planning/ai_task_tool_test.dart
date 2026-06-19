@@ -15,6 +15,79 @@ import 'package:openhand/features/ai/tools/planning/ai_task_tool.dart';
 
 void main() {
   group('AiTaskTool', () {
+    test('defaults omitted subagent type to general-purpose', () async {
+      final chatClient = _FakeChatClient(
+        completion: const AiChatCompletion(reply: 'general task done'),
+      );
+      final tool = AiTaskTool(
+        backgroundChatClient: chatClient,
+        hookService: AiNoopClaudeHookService(),
+      );
+
+      final result = await tool.execute(
+        _context(metadata: const <String, Object?>{}, catalog: _mixedCatalog()),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, 'general task done');
+      expect(result.metadata['subagent_type'], 'general-purpose');
+      expect(
+        chatClient.lastToolNames,
+        unorderedEquals(<String>['Read', 'Git', 'Bash']),
+      );
+    });
+
+    test('accepts camelCase subagentType alias', () async {
+      final chatClient = _FakeChatClient(
+        completion: const AiChatCompletion(reply: 'alias done'),
+      );
+      final tool = AiTaskTool(
+        backgroundChatClient: chatClient,
+        hookService: AiNoopClaudeHookService(),
+      );
+
+      final result = await tool.execute(
+        _context(
+          subagentType: 'summarize',
+          useCamelCaseSubagentType: true,
+          metadata: const <String, Object?>{},
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, 'alias done');
+      expect(result.metadata['subagent_type'], 'summarize');
+      expect(chatClient.sendMessageCalls, 1);
+    });
+
+    test(
+      'blocks omitted subagent type while plan execution is unapproved',
+      () async {
+        final chatClient = _FakeChatClient(
+          completion: const AiChatCompletion(reply: 'should not run'),
+        );
+        final tool = AiTaskTool(
+          backgroundChatClient: chatClient,
+          hookService: AiNoopClaudeHookService(),
+        );
+
+        final result = await tool.execute(
+          _context(
+            metadata: const <String, Object?>{
+              'plan_mode_active': true,
+              'plan_mode_execution_approved_for_send': false,
+            },
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.stderr, contains('Plan mode before execution approval'));
+        expect(result.metadata['task_blocked_plan_mode_subagent'], isTrue);
+        expect(result.metadata['subagent_type'], 'general-purpose');
+        expect(chatClient.sendMessageCalls, 0);
+      },
+    );
+
     test(
       'blocks command-capable subagent types while plan execution is unapproved',
       () async {
@@ -159,7 +232,8 @@ void main() {
 }
 
 AiToolExecutionContext _context({
-  required String subagentType,
+  String? subagentType,
+  bool useCamelCaseSubagentType = false,
   required Map<String, Object?> metadata,
   AiResolvedToolCatalog catalog = const AiResolvedToolCatalog(
     definitions: <AiToolDefinition>[],
@@ -169,8 +243,11 @@ AiToolExecutionContext _context({
   final arguments = <String, Object?>{
     'description': 'Inspect task behavior',
     'prompt': 'Inspect behavior and return a concise result.',
-    'subagent_type': subagentType,
   };
+  if (subagentType != null) {
+    arguments[useCamelCaseSubagentType ? 'subagentType' : 'subagent_type'] =
+        subagentType;
+  }
   return AiToolExecutionContext(
     sessionId: 'session-1',
     catalog: catalog,

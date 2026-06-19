@@ -152,6 +152,30 @@ void main() {
   });
 
   group('AiToolRuntimeService builtin schemas', () {
+    test('Task accepts omitted subagent type input', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('Task')?.definition;
+      final parameters = definition?.parameters;
+      final required = parameters?['required'];
+
+      expect(definition, isNotNull);
+      if (required is List) {
+        expect(required, containsAll(<String>['description', 'prompt']));
+        expect(required, isNot(contains('subagent_type')));
+      } else {
+        fail('Task schema should require description and prompt.');
+      }
+    });
+
     test('ExitPlanMode accepts Claude-style omitted plan input', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),

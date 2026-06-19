@@ -21,7 +21,9 @@ void main() {
       expect(developer, contains('<runtime_catalog>'));
       expect(developer, contains('<task_tool>'));
       expect(developer, contains('<file_operations>'));
-      expect(developer, contains('`Task` 必须顶层传'));
+      expect(developer, contains('`Task` 必须顶层传 `description`、`prompt`'));
+      expect(developer, contains('省略时为 `general-purpose`'));
+      expect(developer, contains('计划模式未获执行批准时省略 `Task.subagent_type`'));
       expect(developer, contains('`Edit`：单点替换'));
       expect(developer, contains('ToolSearch'));
       expect(developer, contains('select:<exact_name>'));

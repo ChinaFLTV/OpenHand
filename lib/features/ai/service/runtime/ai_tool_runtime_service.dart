@@ -1904,12 +1904,12 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.task,
       name: 'Task',
       description:
-          'Launch a focused, stateless background sub-agent. Set description to a short title, prompt to the complete task, and subagent_type to declare the goal: '
+          'Launch a focused, stateless background sub-agent. Set description to a short title, prompt to the complete task, and optionally set subagent_type to declare the goal: '
           '`research` (read-only multi-file exploration), '
           '`verify` (run tests/lints/builds and report pass/fail), '
           '`summarize` (compress long output into a structured digest), '
           '`advice` (compare design options and recommend), '
-          'or `general-purpose` (fallback). Each call is isolated and receives a restricted sub-tool catalog: no file editing tools, TodoWrite, ExitPlanMode, AskUserChoice, Memory, ToolSearch, or MCP tools. '
+          'or `general-purpose` (default fallback when omitted). Each call is isolated and receives a restricted sub-tool catalog: no file editing tools, TodoWrite, ExitPlanMode, AskUserChoice, Memory, ToolSearch, or MCP tools. '
           'Local skill tools are also parent-thread only. '
           'Write-like Bash commands are blocked inside every Task sub-agent; the parent agent must perform writes directly when appropriate. '
           'Only read-only subagent types (`research`, `summarize`, `advice`) may run in parallel with sibling tool calls.',
@@ -1929,7 +1929,7 @@ class AiToolRuntimeService {
           'subagent_type': <String, Object?>{
             'type': 'string',
             'description':
-                'Sub-agent profile to use for this isolated Task invocation.',
+                'Optional sub-agent profile to use for this isolated Task invocation. If omitted, general-purpose is used.',
             'enum': <String>[
               'general-purpose',
               'research',
@@ -1939,7 +1939,7 @@ class AiToolRuntimeService {
             ],
           },
         },
-        'required': <String>['description', 'prompt', 'subagent_type'],
+        'required': <String>['description', 'prompt'],
         'additionalProperties': false,
       },
     ),

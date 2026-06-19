@@ -69,7 +69,7 @@
 </ask_user_choice>
 
 <task_tool>
-`Task` 必须顶层传 `description`、`prompt`、`subagent_type`：
+`Task` 必须顶层传 `description`、`prompt`；`subagent_type` 可选，省略时为 `general-purpose`：
 ```json
 {
   "description": "Find FooService call sites",
@@ -78,7 +78,7 @@
 }
 ```
 
-允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。计划模式获得执行批准前仅用 `research` / `summarize` / `advice`。不要把类型写进 description；完整要求放进 prompt。不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，写类 Bash 会被拒绝；父代理负责实际编辑、todo、计划审批和弹窗交互。
+允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。计划模式获得执行批准前必须显式使用 `research` / `summarize` / `advice`；不要省略类型。不要把类型写进 description；完整要求放进 prompt。不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，写类 Bash 会被拒绝；父代理负责实际编辑、todo、计划审批和弹窗交互。
 
 `verify` 子代理规则：
 - 只验证，不修改项目，不提交，不安装依赖。
@@ -118,7 +118,8 @@
 - 说“我来读一下”但不调用工具。
 - 计划模式下抱怨没有写工具并贴代码。
 - 用 `AskUserChoice` 请求计划批准。
-- `Task` 缺少顶层 `description` / `prompt` / `subagent_type`。
+- `Task` 缺少顶层 `description` / `prompt`。
+- 计划模式未获执行批准时省略 `Task.subagent_type`。
 - `TodoWrite` 同时放多个 `in_progress`。
 - 凭记忆构造 `old_string`。
 - 工具结果失败却声称完成。

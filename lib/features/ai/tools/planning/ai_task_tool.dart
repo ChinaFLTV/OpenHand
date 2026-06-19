@@ -22,6 +22,7 @@ class AiTaskTool extends AiTool {
   static const String _toolName = 'Task';
   static const String _subagentStartEvent = 'SubagentStart';
   static const String _subagentStopEvent = 'SubagentStop';
+  static const String defaultSubagentType = 'general-purpose';
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
 
   final AiChatClient _backgroundChatClient;
@@ -83,11 +84,15 @@ class AiTaskTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final description = '${args['description'] ?? ''}'.trim();
     final prompt = '${args['prompt'] ?? ''}'.trim();
-    final subagentType = '${args['subagent_type'] ?? ''}'.trim();
-    if (description.isEmpty || prompt.isEmpty || subagentType.isEmpty) {
+    final rawSubagentType =
+        '${args['subagent_type'] ?? args['subagentType'] ?? ''}'.trim();
+    final subagentType = rawSubagentType.isEmpty
+        ? defaultSubagentType
+        : rawSubagentType;
+    if (description.isEmpty || prompt.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'Task requires description, prompt, and subagent_type.',
+        'Task requires non-empty description and prompt.',
       );
     }
     final canonicalSubagentType = AiTaskTool.canonicalSubagentType(
