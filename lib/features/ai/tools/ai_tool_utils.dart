@@ -366,8 +366,19 @@ class AiToolUtils {
     if (oldString.isEmpty) {
       return const ReplacementResult.failure('old_string must not be empty.');
     }
+    final actualOldString = findActualString(content, oldString);
+    if (actualOldString == null) {
+      return const ReplacementResult.failure(
+        'old_string was not found in the file.',
+      );
+    }
+    final actualNewString = preserveQuoteStyle(
+      oldString,
+      actualOldString,
+      newString,
+    );
     final matchCount = RegExp(
-      RegExp.escape(oldString),
+      RegExp.escape(actualOldString),
     ).allMatches(content).length;
     if (matchCount == 0) {
       return const ReplacementResult.failure(
@@ -381,8 +392,11 @@ class AiToolUtils {
     }
     return ReplacementResult.success(
       replaceAll
-          ? content.replaceAll(oldString, newString)
-          : content.replaceFirst(oldString, newString),
+          ? content.replaceAll(actualOldString, actualNewString)
+          : content.replaceFirst(actualOldString, actualNewString),
+      appliedNewString: actualNewString,
+      matchedOldString: actualOldString,
+      replacementCount: replaceAll ? matchCount : 1,
     );
   }
 
@@ -394,18 +408,18 @@ class AiToolUtils {
     required bool allowCreationFromEmptyOldString,
   }) {
     if (oldString.isEmpty) {
-      if (!allowCreationFromEmptyOldString) {
+      if (!allowCreationFromEmptyOldString && content.trim().isNotEmpty) {
         return const ReplacementResult.failure(
-          'old_string must not be empty. Empty old_string is only allowed as '
-          'the first edit when creating a new file.',
+          'old_string must not be empty. Empty old_string is only allowed when '
+          'creating a new file or replacing an empty file.',
         );
       }
       if (replaceAll) {
         return const ReplacementResult.failure(
-          'replace_all is not valid when old_string is empty for file creation.',
+          'replace_all is not valid when old_string is empty.',
         );
       }
-      return ReplacementResult.success(newString);
+      return ReplacementResult.success(newString, appliedNewString: newString);
     }
     if (oldString == newString) {
       return const ReplacementResult.failure(
@@ -418,6 +432,108 @@ class AiToolUtils {
       newString: newString,
       replaceAll: replaceAll,
     );
+  }
+
+  static String? validateSequentialEditTarget({
+    required String oldString,
+    required Iterable<String> previousNewStrings,
+  }) {
+    final oldStringToCheck = oldString.replaceAll(RegExp(r'\n+$'), '');
+    if (oldStringToCheck.isEmpty) return null;
+    for (final previousNewString in previousNewStrings) {
+      if (previousNewString.contains(oldStringToCheck)) {
+        return 'Cannot edit file: old_string is a substring of a new_string '
+            'from a previous edit.';
+      }
+    }
+    return null;
+  }
+
+  static String normalizeQuotes(String value) {
+    return value
+        .replaceAll('\u2018', "'")
+        .replaceAll('\u2019', "'")
+        .replaceAll('\u201c', '"')
+        .replaceAll('\u201d', '"');
+  }
+
+  static String? findActualString(String content, String searchString) {
+    if (content.contains(searchString)) return searchString;
+    final normalizedSearch = normalizeQuotes(searchString);
+    final normalizedContent = normalizeQuotes(content);
+    final matchIndex = normalizedContent.indexOf(normalizedSearch);
+    if (matchIndex < 0) return null;
+    return content.substring(matchIndex, matchIndex + searchString.length);
+  }
+
+  static String preserveQuoteStyle(
+    String oldString,
+    String actualOldString,
+    String newString,
+  ) {
+    if (oldString == actualOldString) return newString;
+    var result = newString;
+    if (actualOldString.contains('\u201c') ||
+        actualOldString.contains('\u201d')) {
+      result = _applyCurlyDoubleQuotes(result);
+    }
+    if (actualOldString.contains('\u2018') ||
+        actualOldString.contains('\u2019')) {
+      result = _applyCurlySingleQuotes(result);
+    }
+    return result;
+  }
+
+  static String _applyCurlyDoubleQuotes(String value) {
+    final buffer = StringBuffer();
+    for (var i = 0; i < value.length; i++) {
+      final char = value[i];
+      if (char == '"') {
+        buffer.write(_isOpeningQuoteContext(value, i) ? '\u201c' : '\u201d');
+      } else {
+        buffer.write(char);
+      }
+    }
+    return buffer.toString();
+  }
+
+  static String _applyCurlySingleQuotes(String value) {
+    final buffer = StringBuffer();
+    for (var i = 0; i < value.length; i++) {
+      final char = value[i];
+      if (char != "'") {
+        buffer.write(char);
+        continue;
+      }
+      final prev = i > 0 ? value[i - 1] : '';
+      final next = i + 1 < value.length ? value[i + 1] : '';
+      if (_isAsciiLetter(prev) && _isAsciiLetter(next)) {
+        buffer.write('\u2019');
+      } else {
+        buffer.write(_isOpeningQuoteContext(value, i) ? '\u2018' : '\u2019');
+      }
+    }
+    return buffer.toString();
+  }
+
+  static bool _isOpeningQuoteContext(String value, int index) {
+    if (index == 0) return true;
+    final previous = value[index - 1];
+    return previous == ' ' ||
+        previous == '\t' ||
+        previous == '\n' ||
+        previous == '\r' ||
+        previous == '(' ||
+        previous == '[' ||
+        previous == '{' ||
+        previous == '\u2014' ||
+        previous == '\u2013';
+  }
+
+  static bool _isAsciiLetter(String value) {
+    if (value.isEmpty) return false;
+    final code = value.codeUnitAt(0);
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
   }
 
   static AiToolExecutionResult invalidResult(String command, String message) {
@@ -1366,14 +1482,25 @@ class _WriteConfirmationOutcome {
 }
 
 class ReplacementResult {
-  const ReplacementResult.success(this.content)
-    : success = true,
-      errorMessage = '';
+  const ReplacementResult.success(
+    this.content, {
+    this.appliedNewString = '',
+    this.matchedOldString = '',
+    this.replacementCount = 1,
+  }) : success = true,
+       errorMessage = '';
+
   const ReplacementResult.failure(this.errorMessage)
     : success = false,
-      content = '';
+      content = '',
+      appliedNewString = '',
+      matchedOldString = '',
+      replacementCount = 0;
 
   final bool success;
   final String content;
   final String errorMessage;
+  final String appliedNewString;
+  final String matchedOldString;
+  final int replacementCount;
 }

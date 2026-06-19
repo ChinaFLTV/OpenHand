@@ -36,7 +36,8 @@ class AiEditTool extends AiTool {
       );
     }
     final file = File(filePath);
-    if (!await file.exists()) {
+    final fileExists = await file.exists();
+    if (!fileExists && oldString.isNotEmpty) {
       return AiToolUtils.invalidResult(
         'Edit',
         'File does not exist: $filePath',
@@ -68,45 +69,49 @@ class AiEditTool extends AiTool {
       toolName: 'Edit',
       filePath: filePath,
       previouslyReadFiles: context.previouslyReadFiles,
+      requireExistingFileRead: fileExists,
       fileTracker: fileTracker,
     );
     if (readValidation != null) return readValidation;
 
     // 2026-04-12: 保存历史版本（在修改前）
-    final versionId = await AiToolUtils.saveFileVersionBeforeMutation(
-      filePath: filePath,
-      sessionId: context.sessionId,
-      toolCallId: context.toolCall.id,
-      fileHistory: fileHistory,
-    );
+    String? versionId;
+    if (fileExists) {
+      versionId = await AiToolUtils.saveFileVersionBeforeMutation(
+        filePath: filePath,
+        sessionId: context.sessionId,
+        toolCallId: context.toolCall.id,
+        fileHistory: fileHistory,
+      );
+    }
 
     // 2026-05-03: 新型 ledger — 双快照捕获 before 内容
     final mutationLedger =
         context.metadata['mutation_ledger'] as AiFileMutationLedger?;
-    final beforeContentForLedger = await AiToolUtils.readFileContentForLedger(
-      filePath,
-    );
+    final beforeContentForLedger = fileExists
+        ? await AiToolUtils.readFileContentForLedger(filePath)
+        : null;
 
     final String content;
-    try {
-      content = await file.readAsString();
-    } on FormatException {
-      return AiToolUtils.invalidResult(
-        'Edit',
-        'File does not appear to be a valid text file: $filePath',
-      );
+    if (fileExists) {
+      try {
+        content = await file.readAsString();
+      } on FormatException {
+        return AiToolUtils.invalidResult(
+          'Edit',
+          'File does not appear to be a valid text file: $filePath',
+        );
+      }
+    } else {
+      content = '';
     }
 
-    // 计算替换次数
-    final matchCount = RegExp(
-      RegExp.escape(oldString),
-    ).allMatches(content).length;
-
-    final replacement = AiToolUtils.replaceOnceOrAll(
+    final replacement = AiToolUtils.applyExactStringEdit(
       content: content,
       oldString: oldString,
       newString: newString,
       replaceAll: replaceAll,
+      allowCreationFromEmptyOldString: !fileExists,
     );
     if (!replacement.success) {
       return AiToolUtils.invalidResult('Edit', replacement.errorMessage);
@@ -116,7 +121,7 @@ class AiEditTool extends AiTool {
       file: file,
       content: replacement.content,
       previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: true,
+      requireExistingFileRead: fileExists,
       fileTracker: fileTracker,
     );
     if (guardedWrite != null) return guardedWrite;
@@ -131,29 +136,19 @@ class AiEditTool extends AiTool {
         'File was written but verification read failed: $e',
       );
     }
-    final verificationPassed = verificationContent.contains(newString);
-    if (!verificationPassed && newString.isNotEmpty) {
+    final verificationPassed = verificationContent == replacement.content;
+    if (!verificationPassed) {
       return AiToolUtils.invalidResult(
         'Edit',
-        'File was written but verification failed: new_string not found in file after write. '
-            'This may indicate a write permission issue or concurrent modification.',
-      );
-    }
-    // Also verify that oldString was fully replaced (should not remain if
-    // oldString != newString and replaceAll was requested, or for single
-    // replacement the match count should have decreased by one).
-    if (oldString != newString &&
-        replaceAll &&
-        verificationContent.contains(oldString)) {
-      return AiToolUtils.invalidResult(
-        'Edit',
-        'File was written but verification failed: old_string still found in file after replace-all. '
+        'File was written but verification failed: content mismatch after write. '
             'This may indicate a concurrent modification.',
       );
     }
 
-    final replacementCount = replaceAll ? matchCount : 1;
-    final outputMessage = replaceAll
+    final replacementCount = replacement.replacementCount;
+    final outputMessage = !fileExists
+        ? 'Created $filePath (verified)'
+        : replaceAll
         ? 'Updated $filePath (replaced $replacementCount occurrence${replacementCount > 1 ? 's' : ''}, verified)'
         : 'Updated $filePath (verified)';
 
@@ -164,7 +159,7 @@ class AiEditTool extends AiTool {
       toolCallId: context.toolCall.id,
       toolName: 'Edit',
       filePath: filePath,
-      kind: FileMutationKind.modify,
+      kind: fileExists ? FileMutationKind.modify : FileMutationKind.create,
       beforeContent: beforeContentForLedger,
       afterContent: verificationContent,
     );

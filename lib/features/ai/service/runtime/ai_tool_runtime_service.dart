@@ -2206,7 +2206,7 @@ class AiToolRuntimeService {
           'old_string': <String, Object?>{
             'type': 'string',
             'description':
-                'The exact text to find and replace. Must be non-empty and match exactly once unless replace_all is true.',
+                'The exact text to find and replace. Must match exactly once unless replace_all is true. Empty old_string is allowed only to create a new file or replace an empty file.',
           },
           'new_string': <String, Object?>{
             'type': 'string',
@@ -2215,7 +2215,7 @@ class AiToolRuntimeService {
           'replace_all': <String, Object?>{
             'type': 'boolean',
             'description':
-                'If true, replace all occurrences. Defaults to false (first match only).',
+                'If true, replace all occurrences. Defaults to false. Not valid with empty old_string.',
           },
         },
         'required': <String>['file_path', 'old_string', 'new_string'],
@@ -2228,7 +2228,7 @@ class AiToolRuntimeService {
       description:
           'Perform multiple exact string replacements in a file. '
           'The file_path MUST be an absolute path (starting with /). '
-          'For a new file only, the first edit may use empty old_string to seed the file content.',
+          'For a new or empty file, the first edit may use empty old_string to seed the file content.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2245,7 +2245,7 @@ class AiToolRuntimeService {
                 'old_string': <String, Object?>{
                   'type': 'string',
                   'description':
-                      'Exact text to replace. Empty old_string is allowed only for the first edit when creating a new file.',
+                      'Exact text to replace. Empty old_string is allowed only for the first edit when creating a new or empty file.',
                 },
                 'new_string': <String, Object?>{'type': 'string'},
                 'replace_all': <String, Object?>{
@@ -2290,7 +2290,7 @@ class AiToolRuntimeService {
                       'old_string': <String, Object?>{
                         'type': 'string',
                         'description':
-                            'Exact text to replace. Empty old_string is allowed only for the first hunk when creating a new file.',
+                            'Exact text to replace. Empty old_string is allowed only for the first hunk when creating a new or empty file.',
                       },
                       'new_string': <String, Object?>{'type': 'string'},
                       'replace_all': <String, Object?>{

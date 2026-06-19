@@ -95,6 +95,7 @@ class AiMultiEditTool extends AiTool {
       initialContent = '';
     }
     var content = initialContent;
+    final appliedNewStrings = <String>[];
     for (var editIndex = 0; editIndex < edits.length; editIndex++) {
       final rawEdit = edits[editIndex];
       if (rawEdit is! Map) {
@@ -107,6 +108,16 @@ class AiMultiEditTool extends AiTool {
       final oldString = '${edit['old_string'] ?? ''}';
       final newString = '${edit['new_string'] ?? ''}';
       final replaceAll = edit['replace_all'] == true;
+      final sequentialValidation = AiToolUtils.validateSequentialEditTarget(
+        oldString: oldString,
+        previousNewStrings: appliedNewStrings,
+      );
+      if (sequentialValidation != null) {
+        return AiToolUtils.invalidResult(
+          'MultiEdit',
+          'edits[$editIndex] failed: $sequentialValidation',
+        );
+      }
       final replacement = AiToolUtils.applyExactStringEdit(
         content: content,
         oldString: oldString,
@@ -121,6 +132,7 @@ class AiMultiEditTool extends AiTool {
         );
       }
       content = replacement.content;
+      appliedNewStrings.add(newString);
     }
     final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
       toolName: 'MultiEdit',

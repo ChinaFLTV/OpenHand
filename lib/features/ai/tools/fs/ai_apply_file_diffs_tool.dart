@@ -113,6 +113,7 @@ class AiApplyFileDiffsTool extends AiTool {
         originalContent = '';
       }
       var content = originalContent;
+      final appliedNewStrings = <String>[];
       for (var hunkIndex = 0; hunkIndex < hunks.length; hunkIndex++) {
         final rawHunk = hunks[hunkIndex];
         if (rawHunk is! Map) {
@@ -125,6 +126,16 @@ class AiApplyFileDiffsTool extends AiTool {
         final oldString = '${hunk['old_string'] ?? ''}';
         final newString = '${hunk['new_string'] ?? ''}';
         final replaceAll = hunk['replace_all'] == true;
+        final sequentialValidation = AiToolUtils.validateSequentialEditTarget(
+          oldString: oldString,
+          previousNewStrings: appliedNewStrings,
+        );
+        if (sequentialValidation != null) {
+          return AiToolUtils.invalidResult(
+            'ApplyFileDiffs',
+            'diffs[$i].hunks[$hunkIndex] failed for $filePath: $sequentialValidation',
+          );
+        }
         final replacement = AiToolUtils.applyExactStringEdit(
           content: content,
           oldString: oldString,
@@ -139,6 +150,7 @@ class AiApplyFileDiffsTool extends AiTool {
           );
         }
         content = replacement.content;
+        appliedNewStrings.add(newString);
       }
       plans.add(
         _FileDiffPlan(
