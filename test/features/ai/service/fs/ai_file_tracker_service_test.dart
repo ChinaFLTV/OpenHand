@@ -97,5 +97,36 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'clearReadResultTracking preserves mutation safety snapshot',
+      () async {
+        final file = File('${tempDir.path}/sample.txt');
+        await file.writeAsString('alpha\n');
+        final tracker = AiFileTrackerService();
+
+        await tracker.recordReadResult(
+          filePath: file.path,
+          offset: 1,
+          limit: 10,
+        );
+        tracker.clearReadResultTracking();
+
+        expect(
+          await tracker.isReadResultUnchanged(
+            filePath: file.path,
+            offset: 1,
+            limit: 10,
+          ),
+          isFalse,
+        );
+
+        await file.writeAsString('bravo\n');
+        final error = await tracker.validateSafeToWrite(file.path);
+
+        expect(error, isNotNull);
+        expect(error, contains('Re-read the file before editing'));
+      },
+    );
   });
 }

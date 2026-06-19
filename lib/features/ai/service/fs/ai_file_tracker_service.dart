@@ -122,6 +122,14 @@ class AiFileTrackerService {
     _readResultSnapshots.remove(normalizedPath);
   }
 
+  /// 清除所有 Read 结果去重记录，保留 read-before-write 快照。
+  ///
+  /// 历史压缩后，之前的完整 Read tool_result 可能已经不在 prompt 中，
+  /// 因此不能继续返回“refer to earlier Read result”的短提示。
+  void clearReadResultTracking() {
+    _readResultSnapshots.clear();
+  }
+
   /// 清除所有追踪记录（会话重置时调用）
   void clearAllTracking() {
     _readSnapshots.clear();

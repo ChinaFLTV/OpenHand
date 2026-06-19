@@ -7884,6 +7884,7 @@ class AiSessionController extends ChangeNotifier {
       );
       final committed = await _commitSessionLocked(compressedSession);
       if (committed) {
+        _toolRuntimeService.fileTracker.clearReadResultTracking();
         try {
           await _store.saveCompressionMemorySidecar(
             session: compressedSession,
