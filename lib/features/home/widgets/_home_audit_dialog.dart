@@ -829,18 +829,18 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
         toolCatalogHash.isEmpty ||
         previousToolCatalogHash.isEmpty ||
         toolCatalogHash == previousToolCatalogHash;
-    final providerAutomaticMissSuspected =
+    final shortIdleMissSuspected =
         !widget.claudeStyle &&
         !cacheTtlSuspected &&
         stablePrefixUnchanged &&
         toolCatalogStable &&
         cacheIdleGapSeconds != null &&
-        cacheIdleGapSeconds >= kShortAutoCacheIdleGapSeconds &&
+        cacheIdleGapSeconds >= kShortIdleCacheGapSeconds &&
         cacheHitRatio != null &&
-        cacheHitRatio < kProviderAutomaticMissHitRatioThreshold;
+        cacheHitRatio < kShortIdlePartialHitRatioThreshold;
     final prefixDriftSuspected =
         !cacheTtlSuspected &&
-        !providerAutomaticMissSuspected &&
+        !shortIdleMissSuspected &&
         cacheIdleGapSeconds != null &&
         cacheIdleGapSeconds < 3600 &&
         ((stablePrefixKnown && stablePrefixHash != previousStablePrefixHash) ||
@@ -1108,7 +1108,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       if (cacheIdleGapSeconds != null ||
                           cacheTtlSuspected ||
                           prefixDriftSuspected ||
-                          providerAutomaticMissSuspected)
+                          shortIdleMissSuspected)
                         _AuditJsonBlock(
                           label: isZh ? '缓存诊断' : 'Cache Diagnostics',
                           initiallyExpanded: true,
@@ -1116,8 +1116,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                             'idle_gap_seconds': cacheIdleGapSeconds,
                             'ttl_suspected': cacheTtlSuspected,
                             'prefix_drift_suspected': prefixDriftSuspected,
-                            'provider_automatic_miss_suspected':
-                                providerAutomaticMissSuspected,
+                            'short_idle_miss_suspected': shortIdleMissSuspected,
                             'stable_prefix_hash': stablePrefixHash,
                             'previous_stable_prefix_hash':
                                 previousStablePrefixHash,

@@ -2,8 +2,8 @@
 ///
 /// 由 [AiSessionController] 在每轮请求开始时根据 SettingsController 与
 /// [AiSessionRuntimeContext] 装配，向下传递到 [AiChatClient.sendMessageStream]
-/// 与 [AiProtocolAdapter.buildBody]，由具体协议适配器（当前只有
-/// [ClaudeProtocolAdapter]）翻译为 `cache_control: {type: 'ephemeral'}` 标记。
+/// 与 [AiProtocolAdapter.buildBody]，由具体协议适配器（当前仅 Claude native）
+/// 翻译为 `cache_control: {type: 'ephemeral'}` 标记。
 ///
 /// `enabled=false` 时，所有适配器应表现为完全无行为变化（空操作）。
 class AiInputCacheRuntimeConfig {
@@ -13,7 +13,6 @@ class AiInputCacheRuntimeConfig {
     required this.updateInterval,
     required this.breakpointCount,
     this.breakpointPositions = const <double>[],
-    this.sessionAffinityKey = '',
   });
 
   /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
@@ -38,11 +37,5 @@ class AiInputCacheRuntimeConfig {
   /// 自动布点。最后一个断点恒位于消息流末尾。
   final List<double> breakpointPositions;
 
-  /// Stable per-session key used by OpenAI-compatible adapters to provide a
-  /// provider-side cache/routing hint without exposing user identity.
-  final String sessionAffinityKey;
-
   bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
-
-  bool get hasSessionAffinityKey => sessionAffinityKey.trim().isNotEmpty;
 }

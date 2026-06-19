@@ -626,6 +626,12 @@ class AiModelConfig {
     );
     final rawApiDialect = '${json['api_dialect'] ?? ''}'.trim();
     final rawProviderKind = '${json['provider_kind'] ?? ''}'.trim();
+    final apiDialect = rawApiDialect.isEmpty
+        ? inferAiApiDialect(protocolType)
+        : AiApiDialect.fromStorage(rawApiDialect);
+    final providerKind = rawProviderKind.isEmpty
+        ? inferAiProviderKind(protocolType)
+        : AiProviderKind.fromStorage(rawProviderKind);
     return AiModelConfig(
       id: '${json['id'] ?? ''}'.trim(),
       name: '${json['name'] ?? ''}'.trim(),
@@ -634,12 +640,12 @@ class AiModelConfig {
       token: '${json['token'] ?? ''}',
       modelId: '${json['model_id'] ?? ''}'.trim(),
       protocolType: protocolType,
-      apiDialect: rawApiDialect.isEmpty
-          ? inferAiApiDialect(protocolType)
-          : AiApiDialect.fromStorage(rawApiDialect),
-      providerKind: rawProviderKind.isEmpty
-          ? inferAiProviderKind(protocolType)
-          : AiProviderKind.fromStorage(rawProviderKind),
+      apiDialect: apiDialect,
+      providerKind: providerKind,
+      explicitPromptCacheEnabled: _readExplicitPromptCacheEnabled(
+        protocolType: protocolType,
+        value: json[_explicitPromptCacheEnabledJsonKey],
+      ),
       maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
       availableModelIds: availableModelIds,
       customHeaders: _parseCustomHeaders(json['custom_headers']),
@@ -671,6 +677,7 @@ class AiModelConfig {
     required this.protocolType,
     this.apiDialect = AiApiDialect.openAiCompat,
     this.providerKind = AiProviderKind.custom,
+    bool? explicitPromptCacheEnabled,
     this.maxContextTokens,
     this.availableModelIds = const <String>[],
     this.customHeaders = const <String, String>{},
@@ -684,7 +691,12 @@ class AiModelConfig {
     this.capabilityOverrides = const <AiApiFamily, String>{},
     this.operationExtras = const <String, Object?>{},
     this.realtime = const AiRealtimeConfig(),
-  });
+  }) : explicitPromptCacheEnabled =
+           protocolType == AiProtocolType.claude &&
+           (explicitPromptCacheEnabled ?? true);
+
+  static const String _explicitPromptCacheEnabledJsonKey =
+      'explicit_prompt_cache_enabled';
 
   static List<String> normalizeModelIds(Iterable<String> values) {
     final normalized = <String>{};
@@ -713,6 +725,11 @@ class AiModelConfig {
   final AiProtocolType protocolType;
   final AiApiDialect apiDialect;
   final AiProviderKind providerKind;
+
+  /// Claude native prompt-cache markers are opt-in at provider level and are
+  /// still gated by the global cost-control input-cache switch at runtime.
+  final bool explicitPromptCacheEnabled;
+
   final int? maxContextTokens;
 
   /// All known model IDs for this provider (auto-scanned + manually added).
@@ -823,6 +840,12 @@ class AiModelConfig {
     return true;
   }
 
+  bool get supportsExplicitPromptCacheControl =>
+      protocolType == AiProtocolType.claude;
+
+  bool get effectiveExplicitPromptCacheEnabled =>
+      supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
+
   bool get requiresReasoningEcho {
     final profile = profileFor(modelId);
     final explicit = profile.requiresReasoningEcho;
@@ -903,6 +926,7 @@ class AiModelConfig {
     AiProtocolType? protocolType,
     AiApiDialect? apiDialect,
     AiProviderKind? providerKind,
+    bool? explicitPromptCacheEnabled,
     int? maxContextTokens,
     bool clearMaxContextTokens = false,
     List<String>? availableModelIds,
@@ -930,6 +954,8 @@ class AiModelConfig {
       protocolType: protocolType ?? this.protocolType,
       apiDialect: apiDialect ?? this.apiDialect,
       providerKind: providerKind ?? this.providerKind,
+      explicitPromptCacheEnabled:
+          explicitPromptCacheEnabled ?? this.explicitPromptCacheEnabled,
       maxContextTokens: clearMaxContextTokens
           ? null
           : maxContextTokens ?? this.maxContextTokens,
@@ -975,6 +1001,8 @@ class AiModelConfig {
       'protocol_type': protocolType.storageValue,
       'api_dialect': apiDialect.storageValue,
       'provider_kind': providerKind.storageValue,
+      if (supportsExplicitPromptCacheControl)
+        _explicitPromptCacheEnabledJsonKey: effectiveExplicitPromptCacheEnabled,
       'max_context_tokens': maxContextTokens,
       'available_model_ids': normalizeModelIds(availableModelIds),
       'custom_headers': customHeaders,
@@ -1017,6 +1045,17 @@ class AiModelConfig {
       return null;
     }
     return parsed;
+  }
+
+  static bool _readExplicitPromptCacheEnabled({
+    required AiProtocolType protocolType,
+    required Object? value,
+  }) {
+    final supported = protocolType == AiProtocolType.claude;
+    if (!supported) {
+      return false;
+    }
+    return value is bool ? value : true;
   }
 
   /// Parses `available_model_ids` which may be:

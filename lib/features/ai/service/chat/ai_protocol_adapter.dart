@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
-import '../../model/ai_api_dialect.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
@@ -415,56 +414,6 @@ String _normalizeToolNameForRequest(String value) {
   return buffer.toString();
 }
 
-String? _cacheAffinityId(AiInputCacheRuntimeConfig? config) {
-  if (config == null ||
-      !config.isEffectivelyEnabled ||
-      !config.hasSessionAffinityKey) {
-    return null;
-  }
-  return 'ohc_${_fnv32Hex('openhand-cache-affinity\n${config.sessionAffinityKey.trim()}')}';
-}
-
-String _fnv32Hex(String content) {
-  var hash = 0x811c9dc5;
-  for (final codeUnit in content.codeUnits) {
-    hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xffffffff;
-  }
-  return hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
-}
-
-bool _supportsPromptCacheKey(
-  AiModelConfig model,
-  AiInputCacheRuntimeConfig? config,
-) {
-  if (config == null || !config.isEffectivelyEnabled) {
-    return false;
-  }
-  if (!model.apiDialect.isOpenAiCompat) {
-    return false;
-  }
-  if (model.providerKind == AiProviderKind.openai) {
-    return true;
-  }
-  final host = Uri.tryParse(model.normalizedBaseUrl)?.host.toLowerCase() ?? '';
-  if (host == 'api.openai.com' || host.endsWith('.openai.azure.com')) {
-    return true;
-  }
-  final supported = model
-      .profileFor(model.modelId)
-      .supportedParameters
-      .map((item) => item.trim().toLowerCase())
-      .toSet();
-  return supported.contains('prompt_cache_key');
-}
-
-bool _supportsOpenAiUserCacheAffinity(AiModelConfig model) {
-  if (!model.apiDialect.isOpenAiCompat) {
-    return false;
-  }
-  return model.protocolType != AiProtocolType.ollama;
-}
-
 class OpenAiProtocolAdapter extends AiProtocolAdapter {
   const OpenAiProtocolAdapter(
     this.protocolType, {
@@ -498,9 +447,6 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     final stableTools = _stableToolDefinitions(tools);
-    final cacheAffinityId = _supportsOpenAiUserCacheAffinity(model)
-        ? _cacheAffinityId(inputCacheConfig)
-        : null;
     final requestMessages = await Future.wait<Map<String, Object?>>(
       messages.map((item) => _mapOpenAiMessage(item)),
     );
@@ -520,10 +466,6 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       // opt in for streaming so the token popup gets full cache stats.
       if (stream)
         'stream_options': const <String, Object?>{'include_usage': true},
-      if (cacheAffinityId != null) 'user': cacheAffinityId,
-      if (cacheAffinityId != null &&
-          _supportsPromptCacheKey(model, inputCacheConfig))
-        'prompt_cache_key': cacheAffinityId,
       if (stableTools.isNotEmpty)
         'tools': stableTools
             .map((item) => item.toOpenAiJson())

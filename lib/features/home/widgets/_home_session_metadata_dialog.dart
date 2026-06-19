@@ -2023,7 +2023,11 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
     final altColor = colorScheme.tertiary;
     final ttlLabel = _localizedText(context, zh: 'TTL', en: 'TTL');
     final driftLabel = _localizedText(context, zh: '前缀漂移', en: 'Prefix drift');
-    final autoMissLabel = _localizedText(context, zh: '自动缓存', en: 'Auto cache');
+    final shortIdleLabel = _localizedText(
+      context,
+      zh: '短时低命中',
+      en: 'Short-idle miss',
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2102,7 +2106,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
               _CacheHitDiagnosisChip(
                 color: colorScheme.tertiary,
                 label:
-                    '$autoMissLabel × ${widget.trend.points.where((p) => p.providerAutomaticMissSuspected).length}',
+                    '$shortIdleLabel × ${widget.trend.points.where((p) => p.shortIdleMissSuspected).length}',
               ),
             ],
           ),
@@ -2157,8 +2161,8 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                     label.write('  $ttlLabel');
                   } else if (point.prefixDriftSuspected) {
                     label.write('  $driftLabel');
-                  } else if (point.providerAutomaticMissSuspected) {
-                    label.write('  $autoMissLabel');
+                  } else if (point.shortIdleMissSuspected) {
+                    label.write('  $shortIdleLabel');
                   }
                   tooltipChildren.add(
                     Positioned(

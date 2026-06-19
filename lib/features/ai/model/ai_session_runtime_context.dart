@@ -107,8 +107,8 @@ class AiSessionRuntimeContext {
     this.writeToolSummaryMaxChars = 280,
     // 2026-06-01 — 与 AppSettingsSnapshot.defaultAiInputCacheEnabled
     // 同步改为 true：绝大多数用户依赖 Claude 协议前缀缓存降低成本；
-    // 关闭后只能依赖 provider 端自动缓存（OpenAI 兼容 / Gemini 等），
-    // hit rate 与稳定性都明显变差。手动关闭入口仍在"输入缓存"设置页。
+    // 关闭后 Claude native 不再注入显式 cache_control 断点。手动关闭入口
+    // 仍在"输入缓存"设置页。
     this.aiInputCacheEnabled = true,
     this.aiInputCacheUpdateMode = 'allMessages',
     this.aiInputCacheUpdateInterval = 10,

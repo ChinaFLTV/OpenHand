@@ -9,7 +9,6 @@ import '../../../../app/support/silent_log.dart';
 import '../../../instructions/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
-import '../../model/ai_api_dialect.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../../model/ai_message_content_format.dart';
@@ -185,7 +184,6 @@ class AiPromptBuilder {
       session: session,
       runtimeContext: runtimeContext,
     );
-    final preferInlineHistorySystemArtifacts = model.apiDialect.isOpenAiCompat;
     final latestCompressionPoint = session.latestCompressionPoint;
     final visibleSessionMessages = sessionMessages
         .where((item) => !item.isDeleted)
@@ -245,8 +243,6 @@ class AiPromptBuilder {
         latestUserMessageIdForInlineAttachments: latestUserInline
             ? latestUserMessage.id
             : null,
-        preferInlineSystemReminders: preferInlineHistorySystemArtifacts,
-        preferInlineSystemArtifacts: preferInlineHistorySystemArtifacts,
       ),
     );
     final todoReminder = _buildTodoWriteReminder(
@@ -257,40 +253,14 @@ class AiPromptBuilder {
       session: session,
       latestUserMessage: latestUserMessage,
     );
-    final existingLatestUserSystemReminders = latestUserMessage == null
-        ? const <String>{}
-        : _readStringList(
-            latestUserMessage.metadata[aiHookSystemRemindersMetadataKey],
-          ).toSet();
-    final canInlineLatestUserRuntimeReminders =
-        preferInlineHistorySystemArtifacts &&
-        latestUserMessage != null &&
-        !latestUserInline;
-    final latestUserRuntimeSystemReminders = canInlineLatestUserRuntimeReminders
-        ? <String>[
-            if (todoReminder != null &&
-                todoReminder.isNotEmpty &&
-                !existingLatestUserSystemReminders.contains(todoReminder))
-              todoReminder,
-            if (planModeReminder != null &&
-                planModeReminder.isNotEmpty &&
-                !existingLatestUserSystemReminders.contains(planModeReminder))
-              planModeReminder,
-          ]
-        : const <String>[];
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
         ? const <AiChatTurn>[]
         : _mapUserMessage(
             latestUserMessage,
             session: session,
             model: model,
-            content: _promptContentForMessage(
-              latestUserMessage,
-              inlineSystemReminders: preferInlineHistorySystemArtifacts,
-              additionalSystemReminders: latestUserRuntimeSystemReminders,
-            ),
+            content: _promptContentForMessage(latestUserMessage),
             isLatestUserMessage: true,
-            inlineSystemReminders: preferInlineHistorySystemArtifacts,
           );
     final failedTodos = session.todoItems
         .where((item) {
@@ -474,16 +444,10 @@ class AiPromptBuilder {
           latestCompressionPoint: latestCompressionPoint,
         );
 
-    // 2026-05-23 — Claude 路径下 latestUserTurns 可能包含 hook 注入的 system
+    // latestUserTurns 可能包含 hook 注入的 system
     // reminder（`<system-reminder>` 标签被 _mapMessageContent 提取为 system
     // turn）。这些 system turn 每轮都变，必须与 stable restored contexts 隔离
     // → 放入 volatile tail。
-    //
-    // 2026-06-16 — OpenAI-compatible 自动 prefix cache 依赖相邻轮次尽量是
-    // “上一轮请求 + assistant + next user”的纯追加序列。若最新 user 后面额外
-    // 追加独立 system reminder，下一轮该位置会被 assistant 历史替换，DeepSeek
-    // 等服务端自动缓存容易在最新 user 后断裂。OpenAI-compatible 路径已在上方
-    // 将 reminder 内联到 user content；这里通常不会再产生 latestUserSystemTurns。
     final latestUserSystemTurns = <AiChatTurn>[];
     final latestUserNonSystemTurns = <AiChatTurn>[];
     for (final turn in latestUserTurns) {
@@ -527,12 +491,6 @@ class AiPromptBuilder {
       // - [3d] Dynamic（todos、plan、mode）— 仅包含会话内真正可变字段，留在
       //   latest user 之后的 volatile tail。
       //   date/git 已移至 [3s] 或移除：跨天/每次写文件后改变 hash 破坏 prefix-cache。
-      //
-      // 原因（实测 DeepSeek-v4-flash 9 轮会话，整体命中率 44%）：
-      // 旧设计将 [3d]/[5.5] 放在用户消息之后（volatile tail）。
-      // DeepSeek KV prefix-cache 写入时以"最新路径"覆盖中间节点；
-      // 下一轮的 token 序列在 volatile tail 位置（随 history 增长后移）
-      // 与已缓存路径不一致 → 0 命中，形成"98% / 0% 交替"的锁步 miss 模式。
       //
       // 修复：静态块固定在 history 之前，动态块固定在 latest user 之后。
       // 相邻轮次尽量满足 "Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]"
@@ -621,11 +579,8 @@ class AiPromptBuilder {
       // 这样易变块即便每轮重写，影响范围也只落在当前轮 user 之后，不会吞掉
       // 历史+当前用户消息的共享前缀。实测工具会话可避免 0~50% 的异常塌方。
       //
-      // 2026-06-11：输出格式与主题提醒属于会话级稳定约束。放在 latest user
-      // 后会让下一轮在“上一轮用户消息之后”插入 assistant/tool 历史时与旧
-      // prompt 尾部不一致，OpenAI 兼容自动 prefix cache 只能命中静态系统
-      // 前缀。将它们放回 history 之前后，格式不变的多轮 HTML 会话恢复为
-      // 纯追加序列；用户切换格式/主题时只击穿一次，下一轮即重新稳定。
+      // 输出格式与主题提醒属于会话级稳定约束。放在 history 之前可以保持
+      // 各模板的静态前缀顺序统一；用户切换格式/主题时只影响一次。
       // ─────────────────────────────────────────────────────────────
       ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ 共享前缀末端。
@@ -637,13 +592,9 @@ class AiPromptBuilder {
         ),
       if (focusContext.isNotEmpty)
         _systemSectionTurn(AiPromptSectionHeaders.focusContext, focusContext),
-      if (!preferInlineHistorySystemArtifacts &&
-          todoReminder != null &&
-          todoReminder.isNotEmpty)
+      if (todoReminder != null && todoReminder.isNotEmpty)
         _systemSectionTurn(AiPromptSectionHeaders.systemReminder, todoReminder),
-      if (!preferInlineHistorySystemArtifacts &&
-          planModeReminder != null &&
-          planModeReminder.isNotEmpty)
+      if (planModeReminder != null && planModeReminder.isNotEmpty)
         _systemSectionTurn(
           AiPromptSectionHeaders.planModeReminder,
           planModeReminder,
@@ -697,7 +648,12 @@ class AiPromptBuilder {
       ..['tool_catalog_hash'] = toolCatalogHash
       ..['previous_tool_catalog_hash'] =
           '${session.lastPromptMetadata['tool_catalog_hash'] ?? ''}'.trim()
-      ..['cache_enabled'] = runtimeContext.aiInputCacheEnabled
+      ..['cache_enabled'] =
+          runtimeContext.aiInputCacheEnabled &&
+          model.effectiveExplicitPromptCacheEnabled
+      ..['cache_global_enabled'] = runtimeContext.aiInputCacheEnabled
+      ..['cache_model_explicit_prompt_cache_enabled'] =
+          model.effectiveExplicitPromptCacheEnabled
       ..['cache_update_mode'] = runtimeContext.aiInputCacheUpdateMode
       ..['cache_update_interval'] = runtimeContext.aiInputCacheUpdateInterval
       ..['cache_breakpoint_count'] = runtimeContext.aiInputCacheBreakpointCount
@@ -706,14 +662,6 @@ class AiPromptBuilder {
       ..['cache_control_strategy'] = cacheControlStrategy
       ..['cache_protocol_controlled'] =
           cacheControlStrategy == 'explicit_cache_control'
-      ..['cache_provider_automatic'] =
-          cacheControlStrategy == 'provider_automatic'
-      ..['cache_session_affinity_enabled'] =
-          runtimeContext.aiInputCacheEnabled &&
-          cacheControlStrategy == 'provider_automatic'
-      ..['cache_session_affinity_hash'] = _promptFingerprint(
-        'openhand-cache-affinity\n${session.id}',
-      )
       ..['stable_cache_key'] = stableCacheKey
       ..['previous_stable_cache_key'] =
           '${session.lastPromptMetadata['stable_cache_key'] ?? ''}'.trim()
@@ -729,10 +677,6 @@ class AiPromptBuilder {
           promptCharacterCount: promptCharacterCount,
         ),
       );
-    if (latestUserRuntimeSystemReminders.isNotEmpty) {
-      metadata['latest_user_inlined_runtime_system_reminders'] =
-          latestUserRuntimeSystemReminders;
-    }
     return AiPromptBuildResult(
       messages: messages,
       metadata: metadata,
@@ -1630,16 +1574,13 @@ class AiPromptBuilder {
     if (!runtimeContext.aiInputCacheEnabled) {
       return 'disabled';
     }
-    if (model.apiDialect == AiApiDialect.anthropicNative ||
-        model.protocolType == AiProtocolType.claude) {
-      return 'explicit_cache_control';
+    if (!model.supportsExplicitPromptCacheControl) {
+      return 'none';
     }
-    if (model.apiDialect.isOpenAiCompat ||
-        model.apiDialect == AiApiDialect.geminiNative ||
-        model.protocolType == AiProtocolType.gemini) {
-      return 'provider_automatic';
+    if (!model.effectiveExplicitPromptCacheEnabled) {
+      return 'provider_disabled';
     }
-    return 'none';
+    return 'explicit_cache_control';
   }
 
   String _stableCacheKey({
@@ -4139,10 +4080,9 @@ $content
     if (!compressionConfig.enabled || !compressionConfig.summarizeResults) {
       // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
       // 2026-06-13: 除用户显式开启的旧结果微压缩外，普通对话历史保留
-      // 原文。OpenAI-compatible 自动 prefix cache 依赖跨轮请求是纯追加
-      // 序列；把上一轮已发送的工具结果改写为摘要会让下一轮从该工具结果
-      // 处断裂。真正的工具结果摘要只在 compression prompt 中启用，避免
-      // 上下文检查点生成时爆窗。
+      // 原文，避免把上一轮已发送的工具结果改写为摘要后改变历史消息字节。
+      // 真正的工具结果摘要只在 compression prompt 中启用，避免上下文
+      // 检查点生成时爆窗。
       return _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,

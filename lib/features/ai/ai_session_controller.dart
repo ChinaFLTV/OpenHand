@@ -318,25 +318,9 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _autoTitleRetryPollInterval = Duration(
     milliseconds: 250,
   );
-  // Auto-title uses a separate background LLM request. On OpenAI-compatible
-  // automatic-prefix-cache providers, sending that request while a fresh chat
-  // prefix is still warming can reduce the next user turn's cache hit rate.
-  // Keep the title request out of the critical first-turn cache window.
-  static const Duration _autoTitlePromptCacheQuietWindow = Duration(
-    seconds: 75,
-  );
-  static const Duration _autoTitlePromptCacheMaxWait = Duration(minutes: 5);
   static const Duration _streamPreviewThrottle = Duration(milliseconds: 72);
   static const Duration _reasoningStreamPreviewThrottle = Duration(
     milliseconds: 160,
-  );
-  // DeepSeek KV cache is persisted asynchronously on the provider side.
-  // Tool-continuation requests sent immediately after the previous response
-  // often miss the just-written prefix cache even when the prompt is a pure
-  // append. A short, provider-scoped settle window lets the cache become
-  // visible without penalizing ordinary user-turn latency.
-  static const Duration _deepSeekContinuationCacheSettleDelay = Duration(
-    seconds: 2,
   );
   static const AiResolvedToolCatalog _emptyToolCatalog = AiResolvedToolCatalog(
     definitions: <AiToolDefinition>[],
@@ -3695,7 +3679,6 @@ class AiSessionController extends ChangeNotifier {
             sourceMessageId: preparedUserTurnWithMetadata.userMessage.id,
             sourceContent: preparedUserTurnWithMetadata.userMessage.content,
             model: model,
-            runtimeContext: runtimeContext,
           );
         }
         return succeeded;
@@ -4049,12 +4032,13 @@ class AiSessionController extends ChangeNotifier {
           ),
           cancelSignal: _stopSignalForSession(workingSession.id),
           inputCacheConfig: AiInputCacheRuntimeConfig(
-            enabled: runtimeContext.aiInputCacheEnabled,
+            enabled:
+                runtimeContext.aiInputCacheEnabled &&
+                model.effectiveExplicitPromptCacheEnabled,
             mode: runtimeContext.aiInputCacheUpdateMode,
             updateInterval: runtimeContext.aiInputCacheUpdateInterval,
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
             breakpointPositions: runtimeContext.aiInputCacheBreakpointPositions,
-            sessionAffinityKey: workingSession.id,
           ),
           onRequestStarted: previewRequestStartTelemetry,
         );
@@ -5532,55 +5516,7 @@ class AiSessionController extends ChangeNotifier {
         );
         return true;
       }
-      if (await _delayForDeepSeekContinuationCacheSettle(
-        sessionId: workingSession.id,
-        model: model,
-        toolRoundCount: toolRoundCount,
-      )) {
-        return true;
-      }
     }
-  }
-
-  bool _shouldDelayForDeepSeekContinuationCacheSettle({
-    required AiModelConfig model,
-    required int toolRoundCount,
-  }) {
-    if (toolRoundCount <= 0) {
-      return false;
-    }
-    if (!model.streamEnabled || !model.apiDialect.isOpenAiCompat) {
-      return false;
-    }
-    final normalizedModelId = model.modelId.trim().toLowerCase();
-    return normalizedModelId.startsWith('deepseek-v4');
-  }
-
-  Future<bool> _delayForDeepSeekContinuationCacheSettle({
-    required String sessionId,
-    required AiModelConfig model,
-    required int toolRoundCount,
-  }) async {
-    if (!_shouldDelayForDeepSeekContinuationCacheSettle(
-      model: model,
-      toolRoundCount: toolRoundCount,
-    )) {
-      return false;
-    }
-    _debugSessionLog(
-      sessionId,
-      'deepseek_cache_settle_wait round=${toolRoundCount + 1} '
-      'delay_ms=${_deepSeekContinuationCacheSettleDelay.inMilliseconds}',
-    );
-    await Future<void>.delayed(_deepSeekContinuationCacheSettleDelay);
-    if (_isDisposed || _isStopRequestedForSession(sessionId)) {
-      _debugSessionLog(
-        sessionId,
-        'deepseek_cache_settle_wait_cancelled round=${toolRoundCount + 1}',
-      );
-      return true;
-    }
-    return false;
   }
 
   Future<AiSession?> _executeToolCalls({
@@ -8131,22 +8067,9 @@ $tail''';
     required String sourceMessageId,
     required String sourceContent,
     required AiModelConfig model,
-    required AiSessionRuntimeContext runtimeContext,
   }) {
     unawaited(() async {
       try {
-        if (_shouldProtectPromptCacheBeforeAutoTitle(
-          model: model,
-          runtimeContext: runtimeContext,
-        )) {
-          final ready = await _waitForAutoTitlePromptCacheQuietWindow(
-            sessionId: sessionId,
-            sourceMessageId: sourceMessageId,
-          );
-          if (!ready) {
-            return;
-          }
-        }
         if (_isDisposed) {
           return;
         }
@@ -8165,83 +8088,6 @@ $tail''';
         );
       }
     }());
-  }
-
-  bool _shouldProtectPromptCacheBeforeAutoTitle({
-    required AiModelConfig model,
-    required AiSessionRuntimeContext runtimeContext,
-  }) {
-    return runtimeContext.aiInputCacheEnabled &&
-        model.streamEnabled &&
-        model.apiDialect.isOpenAiCompat;
-  }
-
-  Future<bool> _waitForAutoTitlePromptCacheQuietWindow({
-    required String sessionId,
-    required String sourceMessageId,
-  }) async {
-    final stopwatch = Stopwatch()..start();
-    while (stopwatch.elapsed < _autoTitlePromptCacheMaxWait) {
-      if (_isDisposed) {
-        return false;
-      }
-      final session = _sessionById(sessionId);
-      if (session == null ||
-          session.isTitleManuallyEdited ||
-          session.autoTitleGeneratedAt != null ||
-          (session.autoTitleSourceMessageId != null &&
-              session.autoTitleSourceMessageId != sourceMessageId)) {
-        return false;
-      }
-      if (sendPhaseForSession(sessionId) != AiSendPhase.idle) {
-        await Future<void>.delayed(_autoTitleRetryPollInterval);
-        continue;
-      }
-      final latestActivityAt =
-          _latestPromptCacheRelevantMessageAt(session) ?? session.updatedAt;
-      final idleFor = _clock().toUtc().difference(latestActivityAt.toUtc());
-      if (idleFor >= _autoTitlePromptCacheQuietWindow) {
-        return true;
-      }
-      final remaining = _autoTitlePromptCacheQuietWindow - idleFor;
-      final sleepMs = math.min(
-        remaining.inMilliseconds,
-        _autoTitleRetryPollInterval.inMilliseconds,
-      );
-      await Future<void>.delayed(Duration(milliseconds: math.max(1, sleepMs)));
-    }
-    return false;
-  }
-
-  DateTime? _latestPromptCacheRelevantMessageAt(AiSession session) {
-    DateTime? latest;
-    for (final message in session.messages) {
-      if (message.isDeleted || !_isPromptCacheRelevantMessage(message.kind)) {
-        continue;
-      }
-      final createdAt = message.createdAt.toUtc();
-      if (latest == null || createdAt.isAfter(latest)) {
-        latest = createdAt;
-      }
-    }
-    return latest;
-  }
-
-  bool _isPromptCacheRelevantMessage(AiSessionMessageKind kind) {
-    return switch (kind) {
-      AiSessionMessageKind.user ||
-      AiSessionMessageKind.assistant ||
-      AiSessionMessageKind.reasoning ||
-      AiSessionMessageKind.toolCall ||
-      AiSessionMessageKind.tool => true,
-      AiSessionMessageKind.compressionPoint ||
-      AiSessionMessageKind.mcp ||
-      AiSessionMessageKind.skill ||
-      AiSessionMessageKind.hook ||
-      AiSessionMessageKind.selfLearning ||
-      AiSessionMessageKind.fileMutationSummary ||
-      AiSessionMessageKind.status => false,
-    };
   }
 
   // Total attempts (preferred + retries) before falling back to a

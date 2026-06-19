@@ -25,6 +25,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late AiProviderKind _providerKind;
   late String _requestMethod;
   late bool _streamEnabled;
+  late bool _explicitPromptCacheEnabled;
   late final TextEditingController _responsesModelIdController;
   late final TextEditingController _embeddingModelIdController;
   late final TextEditingController _moderationModelIdController;
@@ -93,6 +94,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         widget.initialModel?.providerKind ?? inferAiProviderKind(_protocolType);
     _requestMethod = widget.initialModel?.requestMethod ?? 'POST';
     _streamEnabled = widget.initialModel?.streamEnabled ?? true;
+    _explicitPromptCacheEnabled =
+        widget.initialModel?.explicitPromptCacheEnabled ??
+        _defaultExplicitPromptCacheEnabledFor(_protocolType);
     _responsesModelIdController = TextEditingController(
       text: widget.initialModel?.operationRouting.responsesModelId ?? '',
     );
@@ -403,10 +407,107 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     return result;
   }
 
+  bool get _showsExplicitPromptCacheControl =>
+      _protocolType == AiProtocolType.claude;
+
+  bool _defaultExplicitPromptCacheEnabledFor(AiProtocolType protocolType) {
+    return protocolType == AiProtocolType.claude;
+  }
+
+  void _handleProtocolChanged(AiProtocolType value) {
+    final wasClaude = _showsExplicitPromptCacheControl;
+    final nextIsClaude = value == AiProtocolType.claude;
+    setState(() {
+      _protocolType = value;
+      _apiDialect = inferAiApiDialect(value);
+      _providerKind = inferAiProviderKind(value);
+      if (!nextIsClaude) {
+        _explicitPromptCacheEnabled = false;
+      } else if (!wasClaude) {
+        _explicitPromptCacheEnabled = true;
+      }
+    });
+  }
+
+  Widget _buildExplicitPromptCacheControl({
+    required bool globalInputCacheEnabled,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+    final child = !_showsExplicitPromptCacheControl
+        ? const SizedBox.shrink(key: ValueKey<String>('cacheControlHidden'))
+        : Padding(
+            key: const ValueKey<String>('cacheControlVisible'),
+            padding: const EdgeInsets.only(top: 16),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                ),
+              ),
+              child: SwitchListTile(
+                contentPadding: const EdgeInsetsDirectional.fromSTEB(
+                  16,
+                  6,
+                  12,
+                  6,
+                ),
+                value: _explicitPromptCacheEnabled,
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _explicitPromptCacheEnabled = value;
+                        });
+                      },
+                title: const Text('启用 Claude 显式提示词缓存点'),
+                subtitle: Text(
+                  globalInputCacheEnabled
+                      ? '开启后，Claude native 请求会按成本控制设置插入 cache_control 断点。'
+                      : '全局输入缓存已关闭；此开关会保存偏好，但当前不会生效。',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          );
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: duration,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+              sizeFactor: animation,
+              axisAlignment: -1,
+              child: child,
+            ),
+          );
+        },
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+    final globalInputCacheEnabled = context
+        .watch<SettingsController>()
+        .aiInputCacheEnabled;
 
     return PopScope(
       canPop: !_isSaving,
@@ -529,9 +630,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                                 if (value == null) {
                                                   return;
                                                 }
-                                                setState(() {
-                                                  _protocolType = value;
-                                                });
+                                                _handleProtocolChanged(value);
                                               },
                                       );
                                   if (stacked) {
@@ -553,6 +652,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     ],
                                   );
                                 },
+                              ),
+                              _buildExplicitPromptCacheControl(
+                                globalInputCacheEnabled:
+                                    globalInputCacheEnabled,
                               ),
                               const SizedBox(height: 16),
                               TextFormField(
@@ -999,12 +1102,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         ),
                                         items: AiApiDialect.values
                                             .map(
-                                              (item) => DropdownMenuItem<
-                                                AiApiDialect
-                                              >(
-                                                value: item,
-                                                child: Text(item.storageValue),
-                                              ),
+                                              (item) =>
+                                                  DropdownMenuItem<
+                                                    AiApiDialect
+                                                  >(
+                                                    value: item,
+                                                    child: Text(
+                                                      item.storageValue,
+                                                    ),
+                                                  ),
                                             )
                                             .toList(growable: false),
                                         onChanged: _isSaving
@@ -1024,12 +1130,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         ),
                                         items: AiProviderKind.values
                                             .map(
-                                              (item) => DropdownMenuItem<
-                                                AiProviderKind
-                                              >(
-                                                value: item,
-                                                child: Text(item.storageValue),
-                                              ),
+                                              (item) =>
+                                                  DropdownMenuItem<
+                                                    AiProviderKind
+                                                  >(
+                                                    value: item,
+                                                    child: Text(
+                                                      item.storageValue,
+                                                    ),
+                                                  ),
                                             )
                                             .toList(growable: false),
                                         onChanged: _isSaving
@@ -1271,7 +1380,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     children: [
                                       Row(
                                         children: [
-                                          Expanded(child: realtimeTransportField),
+                                          Expanded(
+                                            child: realtimeTransportField,
+                                          ),
                                           const SizedBox(width: 16),
                                           Expanded(child: realtimeUrlField),
                                         ],
@@ -1556,7 +1667,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     final Map<String, Object?> endpointOverridesJson;
     final Map<String, Object?> operationExtrasJson;
     try {
-      endpointOverridesJson = _decodeJsonObject(_endpointOverridesController.text);
+      endpointOverridesJson = _decodeJsonObject(
+        _endpointOverridesController.text,
+      );
       operationExtrasJson = _decodeJsonObject(_operationExtrasController.text);
     } on FormatException catch (error) {
       setState(() {
@@ -1579,6 +1692,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       protocolType: _protocolType,
       apiDialect: _apiDialect,
       providerKind: _providerKind,
+      explicitPromptCacheEnabled: _showsExplicitPromptCacheControl
+          ? _explicitPromptCacheEnabled
+          : false,
       maxContextTokens: _parseOptionalPositiveInt(
         _maxContextTokensController.text,
       ),
@@ -1688,9 +1804,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     if (decoded is Map) {
       return Map<String, Object?>.from(decoded);
     }
-    throw const FormatException(
-      '高级 JSON 配置必须是合法的 JSON 对象。',
-    );
+    throw const FormatException('高级 JSON 配置必须是合法的 JSON 对象。');
   }
 
   String _prettyJson(Map<String, Object?> map) {

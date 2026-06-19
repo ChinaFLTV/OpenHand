@@ -1,19 +1,13 @@
 import '../../ai/index.dart';
 import 'cache_hit_ratio.dart';
 
-enum SessionCacheMissKind {
-  normal,
-  ttlSuspected,
-  prefixDrift,
-  providerAutomaticMiss,
-}
+enum SessionCacheMissKind { normal, ttlSuspected, prefixDrift, shortIdleMiss }
 
 /// "极端值"判定：长时间空闲（≥ 30 分钟）后命中率近乎为 0（< 1%）。
 const int kExtremeIdleGapSeconds = 1800; // 30 分钟
 const double kExtremeHitRatioThreshold = 0.01; // 1%
-const int kShortAutoCacheIdleGapSeconds = 60;
-const double kPartialAutoCacheHitRatioThreshold = 0.80;
-const double kProviderAutomaticMissHitRatioThreshold = 0.01;
+const int kShortIdleCacheGapSeconds = 60;
+const double kShortIdlePartialHitRatioThreshold = 0.80;
 
 enum SessionCacheHitDisplayMode { excludeExtremeMisses, includeAll }
 
@@ -49,7 +43,7 @@ class SessionCacheHitTurnPoint {
     required this.idleGapSeconds,
     required this.ttlSuspected,
     required this.prefixDriftSuspected,
-    required this.providerAutomaticMissSuspected,
+    required this.shortIdleMissSuspected,
   });
 
   final int turnIndex;
@@ -62,13 +56,13 @@ class SessionCacheHitTurnPoint {
   final int? idleGapSeconds;
   final bool ttlSuspected;
   final bool prefixDriftSuspected;
-  final bool providerAutomaticMissSuspected;
+  final bool shortIdleMissSuspected;
 
   SessionCacheMissKind get missKind {
     if (ttlSuspected) return SessionCacheMissKind.ttlSuspected;
     if (prefixDriftSuspected) return SessionCacheMissKind.prefixDrift;
-    if (providerAutomaticMissSuspected) {
-      return SessionCacheMissKind.providerAutomaticMiss;
+    if (shortIdleMissSuspected) {
+      return SessionCacheMissKind.shortIdleMiss;
     }
     return SessionCacheMissKind.normal;
   }
@@ -273,8 +267,7 @@ class SessionCacheHitTrend {
           idleGapSeconds: diagnostics.idleGapSeconds,
           ttlSuspected: diagnostics.ttlSuspected,
           prefixDriftSuspected: diagnostics.prefixDriftSuspected,
-          providerAutomaticMissSuspected:
-              diagnostics.providerAutomaticMissSuspected,
+          shortIdleMissSuspected: diagnostics.shortIdleMissSuspected,
         ),
       );
     }
@@ -299,13 +292,13 @@ class _CacheHitDiagnostics {
     required this.idleGapSeconds,
     required this.ttlSuspected,
     required this.prefixDriftSuspected,
-    required this.providerAutomaticMissSuspected,
+    required this.shortIdleMissSuspected,
   });
 
   final int? idleGapSeconds;
   final bool ttlSuspected;
   final bool prefixDriftSuspected;
-  final bool providerAutomaticMissSuspected;
+  final bool shortIdleMissSuspected;
 }
 
 AiSessionMessage? _previousUserMessage(
@@ -476,24 +469,18 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   ]);
   final requestPrefixStable =
       !requestPrefixProbeComplete || requestPrefixContinuity;
-  final shortIdleAutoCacheMissSuspected =
+  final shortIdleMissSuspected =
       !requiresExplicitCacheControls &&
       !ttlSuspected &&
       stablePrefixUnchanged &&
       toolCatalogStable &&
       requestPrefixStable &&
       idleGapSeconds != null &&
-      idleGapSeconds >= kShortAutoCacheIdleGapSeconds &&
-      hitRatio < kPartialAutoCacheHitRatioThreshold;
-  final providerAutomaticMissSuspected =
-      shortIdleAutoCacheMissSuspected &&
-      hitRatio < kProviderAutomaticMissHitRatioThreshold;
-  final effectiveTtlSuspected =
-      ttlSuspected ||
-      (shortIdleAutoCacheMissSuspected && !providerAutomaticMissSuspected);
+      idleGapSeconds >= kShortIdleCacheGapSeconds &&
+      hitRatio < kShortIdlePartialHitRatioThreshold;
   final prefixDriftSuspected =
-      !effectiveTtlSuspected &&
-      !providerAutomaticMissSuspected &&
+      !ttlSuspected &&
+      !shortIdleMissSuspected &&
       idleGapSeconds != null &&
       idleGapSeconds < 3600 &&
       ((stablePrefixKnown && stablePrefixHash != previousStablePrefixHash) ||
@@ -504,9 +491,9 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
           cacheControlsMissing);
   return _CacheHitDiagnostics(
     idleGapSeconds: idleGapSeconds,
-    ttlSuspected: effectiveTtlSuspected,
+    ttlSuspected: ttlSuspected,
     prefixDriftSuspected: prefixDriftSuspected,
-    providerAutomaticMissSuspected: providerAutomaticMissSuspected,
+    shortIdleMissSuspected: shortIdleMissSuspected,
   );
 }
 

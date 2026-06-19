@@ -354,9 +354,9 @@ class AppSettingsSnapshot {
   /// 2026-06-01 — 默认改为 `true`：
   /// 旧默认 `false` 导致绝大多数用户从未开启；从第 2 轮起无法享受
   /// Anthropic prefix cache 命中，token 费用直线上升。开启后 Claude 协议
-  /// 会自动注入 `cache_control: {type: ephemeral}` 断点；OpenAI 兼容
-  /// / Gemini 等其它协议下为无操作（这些协议走 provider 端自动缓存），
-  /// 不会产生副作用。少数场景需要关闭时再在"输入缓存"设置里手动关闭。
+  /// 会在对应 Claude provider 开关开启时注入
+  /// `cache_control: {type: ephemeral}` 断点；其它协议不插入缓存点，
+  /// 不会产生请求体副作用。少数场景需要关闭时再在"输入缓存"设置里手动关闭。
   static const bool defaultAiInputCacheEnabled = true;
 
   /// 2026-05-02 — 缓存断点更新模式：allMessages | userMessages | tokens。
