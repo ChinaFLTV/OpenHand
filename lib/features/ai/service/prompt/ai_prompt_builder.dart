@@ -1840,7 +1840,10 @@ class AiPromptBuilder {
     final templatePolicy = AiPromptTemplatePolicies.resolve(template.id);
     final usesMinimalCompressionPayload =
         templatePolicy.usesMinimalCompressionPayload;
-    final sessionStateSnapshot = _buildCompressionSessionStateSnapshot(session);
+    final sessionStateSnapshot = _buildCompressionSessionStateSnapshot(
+      session: session,
+      runtimeContext: runtimeContext,
+    );
     final payload = <String, Object?>{
       'session_title': session.title,
       'template_name': template.name,
@@ -1910,10 +1913,27 @@ class AiPromptBuilder {
     ];
   }
 
-  Map<String, Object?> _buildCompressionSessionStateSnapshot(
-    AiSession session,
-  ) {
+  Map<String, Object?> _buildCompressionSessionStateSnapshot({
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
     final pendingPlan = session.pendingPlan?.trim();
+    final writeCommandConfirmationRequired = _writeCommandConfirmationRequired(
+      session: session,
+      runtimeContext: runtimeContext,
+    );
+    final hasIncompleteTodo = _hasIncompleteTodoItems(session.todoItems);
+    final compressionExitPlanModeAvailable =
+        session.mode == AiSessionMode.plan &&
+        !session.awaitingPlanApproval &&
+        hasIncompleteTodo;
+    final planToolNames = session.mode == AiSessionMode.plan
+        ? <String>[
+            ...AiPlanModeToolGate.planningToolNames,
+            if (compressionExitPlanModeAvailable)
+              AiPlanModeToolGate.exitPlanModeToolName,
+          ]
+        : AiPlanModeToolGate.planningToolNames;
     final recentPlanRecords = session.planHistory.reversed
         .take(_compressionPromptMaxPlanRecords)
         .toList(growable: false)
@@ -1924,15 +1944,38 @@ class AiPromptBuilder {
       'mode': session.mode.storageValue,
       'awaiting_plan_approval': session.awaitingPlanApproval,
       'full_access_permission': session.fullAccessPermission,
+      'write_command_confirmation_enabled':
+          runtimeContext.writeCommandConfirmationEnabled,
+      'write_command_confirmation_required': writeCommandConfirmationRequired,
       if (pendingPlan != null && pendingPlan.isNotEmpty)
         'pending_plan': _truncate(pendingPlan, _compressionPromptMaxPlanChars),
       'current_todo_count': session.todoItems.length,
       if (session.todoItems.isNotEmpty)
         'current_todos': _compressionTodoListSnapshot(session.todoItems),
+      if (session.mode == AiSessionMode.plan || session.awaitingPlanApproval)
+        'plan_mode': <String, Object?>{
+          'planning_tool_names': AiPlanModeToolGate.planningToolNames,
+          'has_incomplete_todo': hasIncompleteTodo,
+          'exit_plan_mode_available': compressionExitPlanModeAvailable,
+          'tool_gate_reason': AiPlanModeToolGate.gateReason(
+            isPlanMode: session.mode == AiSessionMode.plan,
+            awaitingPlanApproval: session.awaitingPlanApproval,
+            availableToolNames: planToolNames,
+            executionApprovedForSend: false,
+            recoveryInspectionRequired: false,
+          ),
+        },
       'plan_record_count': session.planHistory.length,
       if (recentPlanRecords.isNotEmpty)
         'recent_plan_records': recentPlanRecords,
     };
+  }
+
+  bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
+    return todoItems.any((item) {
+      final status = item.status.trim().toLowerCase();
+      return status != 'completed';
+    });
   }
 
   Map<String, Object?> _compressionPlanRecordSnapshot(
