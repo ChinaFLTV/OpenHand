@@ -60,6 +60,69 @@ void main() {
       expect(result.stdout, isNot(contains('delta')));
     });
 
+    test('offset can read beyond the initial large-file prefix', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/large.txt');
+      final buffer = StringBuffer();
+      final padding = ''.padRight(80, 'x');
+      for (var i = 1; i <= 9000; i++) {
+        buffer.writeln('line-${i.toString().padLeft(4, '0')} $padding');
+      }
+      await file.writeAsString(buffer.toString());
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-large-offset',
+          filePath: file.path,
+          offset: 8500,
+          limit: 3,
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      expect(result.status.storageValue, 'success');
+      expect(result.stdout, contains('8500\tline-8500'));
+      expect(result.stdout, contains('8502\tline-8502'));
+      expect(result.stdout, isNot(contains('line-0001')));
+      expect(result.metadata['read_truncated'], isTrue);
+    });
+
+    test('offset beyond end reports empty range, not empty file', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\nbeta\n');
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-offset-beyond-end',
+          filePath: file.path,
+          offset: 20,
+          limit: 3,
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      expect(result.status.storageValue, 'success');
+      expect(result.stdout, 'No lines available in the requested range.');
+      expect(result.stdout, isNot(contains('File is empty')));
+    });
+
     test('returns unchanged stub for repeated same-range reads', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_read_tool_test_',

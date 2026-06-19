@@ -11,7 +11,12 @@ import 'ai_read_tool.dart';
 class AiFileReadRenderer {
   const AiFileReadRenderer();
 
-  Future<RenderedReadContent> render(File file, String filePath) async {
+  Future<RenderedReadContent> render(
+    File file,
+    String filePath, {
+    int? offset,
+    int? limit,
+  }) async {
     final extension = p.extension(filePath).toLowerCase();
     if (extension == '.ipynb') {
       return RenderedReadContent(
@@ -28,6 +33,7 @@ class AiFileReadRenderer {
         fileKind: extension.isEmpty ? 'text' : extension,
         renderMode: 'text',
         lineAddressable: true,
+        fileEmpty: true,
       );
     }
     if (AiToolUtils.isRasterImageExtension(extension)) {
@@ -50,23 +56,47 @@ class AiFileReadRenderer {
         truncated: truncated,
       );
     }
-    var content = AiToolUtils.decodeTextBytes(bytes);
-    if (truncated) {
-      content =
-          '${AiToolUtils.truncateContent(content, AiToolUtils.maxFileCharacters)}'
-          '\n\n[truncated: showing the first ${bytes.length} bytes of $fileLength bytes]';
-    } else {
-      content = AiToolUtils.truncateContent(
-        content,
-        AiToolUtils.maxFileCharacters,
-      );
+    return _renderTextRange(
+      file,
+      extension,
+      offset: offset ?? 1,
+      limit: limit ?? AiToolUtils.defaultReadLimit,
+    );
+  }
+
+  Future<RenderedReadContent> _renderTextRange(
+    File file,
+    String extension, {
+    required int offset,
+    required int limit,
+  }) async {
+    final startLine = offset <= 1 ? 1 : offset;
+    final visibleLines = <String>[];
+    var lineNumber = 0;
+    var hasMoreLines = false;
+    await for (final line
+        in file
+            .openRead()
+            .transform(const Utf8Decoder(allowMalformed: true))
+            .transform(const LineSplitter())) {
+      lineNumber += 1;
+      if (lineNumber < startLine) continue;
+      if (visibleLines.length < limit) {
+        visibleLines.add(line);
+        continue;
+      }
+      hasMoreLines = true;
+      break;
     }
+
     return RenderedReadContent(
-      content: content,
+      content: visibleLines.join('\n'),
       fileKind: extension.isEmpty ? 'text' : extension,
       renderMode: 'text',
       lineAddressable: true,
-      truncated: truncated,
+      truncated: startLine > 1 || hasMoreLines,
+      lineRangeApplied: true,
+      lineNumberStart: startLine,
     );
   }
 

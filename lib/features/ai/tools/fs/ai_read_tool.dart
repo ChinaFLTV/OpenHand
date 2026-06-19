@@ -76,7 +76,12 @@ class AiReadTool extends AiTool {
         },
       );
     }
-    final renderedRead = await _renderer.render(file, filePath);
+    final renderedRead = await _renderer.render(
+      file,
+      filePath,
+      offset: effectiveOffset,
+      limit: limit,
+    );
     final rawContent = renderedRead.content;
 
     if (renderedRead.lineAddressable) {
@@ -89,7 +94,7 @@ class AiReadTool extends AiTool {
       await fileTracker?.recordFileRead(filePath);
     }
 
-    if (rawContent.isEmpty) {
+    if (rawContent.isEmpty && renderedRead.fileEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'Read $filePath',
         output: 'File is empty: $filePath',
@@ -123,24 +128,25 @@ class AiReadTool extends AiTool {
       );
     }
     final lines = const LineSplitter().convert(rawContent);
-    final startIndex = effectiveOffset <= 1 ? 0 : effectiveOffset - 1;
-    final safeStartIndex = startIndex < lines.length
-        ? startIndex
-        : lines.length;
-    final endIndex = (safeStartIndex + limit) < lines.length
-        ? safeStartIndex + limit
-        : lines.length;
-    final visibleLines = lines.sublist(safeStartIndex, endIndex);
-    final lineNumberWidth = endIndex.toString().length < 4
+    final visibleLines = renderedRead.lineRangeApplied
+        ? lines
+        : _sliceLines(lines, effectiveOffset: effectiveOffset, limit: limit);
+    final firstLineNumber = renderedRead.lineRangeApplied
+        ? renderedRead.lineNumberStart
+        : effectiveOffset;
+    final lastLineNumber = visibleLines.isEmpty
+        ? firstLineNumber
+        : firstLineNumber + visibleLines.length - 1;
+    final lineNumberWidth = lastLineNumber.toString().length < 4
         ? 4
-        : endIndex.toString().length;
+        : lastLineNumber.toString().length;
     final output = visibleLines.isEmpty
         ? 'No lines available in the requested range.'
         : visibleLines
               .asMap()
               .entries
               .map((entry) {
-                final lineNumber = safeStartIndex + entry.key + 1;
+                final lineNumber = firstLineNumber + entry.key;
                 final line = entry.value.length > AiToolUtils.maxReadLineLength
                     ? '${entry.value.substring(0, AiToolUtils.maxReadLineLength)}...'
                     : entry.value;
@@ -161,10 +167,27 @@ class AiReadTool extends AiTool {
         'read_file_limit': limit,
         if (renderedRead.truncated)
           aiHookSystemRemindersMetadataKey: <String>[
-            'Read truncated a large file preview: $filePath',
+            renderedRead.lineRangeApplied
+                ? 'Read returned a bounded file range: $filePath'
+                : 'Read truncated a large file preview: $filePath',
           ],
       },
     );
+  }
+
+  List<String> _sliceLines(
+    List<String> lines, {
+    required int effectiveOffset,
+    required int limit,
+  }) {
+    final startIndex = effectiveOffset <= 1 ? 0 : effectiveOffset - 1;
+    final safeStartIndex = startIndex < lines.length
+        ? startIndex
+        : lines.length;
+    final endIndex = (safeStartIndex + limit) < lines.length
+        ? safeStartIndex + limit
+        : lines.length;
+    return lines.sublist(safeStartIndex, endIndex);
   }
 }
 
@@ -176,6 +199,9 @@ class RenderedReadContent {
     required this.renderMode,
     required this.lineAddressable,
     this.truncated = false,
+    this.lineRangeApplied = false,
+    this.lineNumberStart = 1,
+    this.fileEmpty = false,
   });
 
   final String content;
@@ -183,4 +209,7 @@ class RenderedReadContent {
   final String renderMode;
   final bool lineAddressable;
   final bool truncated;
+  final bool lineRangeApplied;
+  final int lineNumberStart;
+  final bool fileEmpty;
 }
