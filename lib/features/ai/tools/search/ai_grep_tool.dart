@@ -9,6 +9,17 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
 class AiGrepTool extends AiTool {
+  static const int _defaultHeadLimit = 250;
+  static const int _maxColumns = 500;
+  static const List<String> _vcsDirectoriesToExclude = <String>[
+    '.git',
+    '.svn',
+    '.hg',
+    '.bzr',
+    '.jj',
+    '.sl',
+  ];
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.grep;
 
@@ -45,11 +56,23 @@ class AiGrepTool extends AiTool {
     final after = AiToolUtils.readInt(args['-A']);
     final contextLines =
         AiToolUtils.readInt(args['-C']) ?? AiToolUtils.readInt(args['context']);
-    final showLineNumbers = AiToolUtils.readBool(args['-n']) == true;
+    final showLineNumbers = AiToolUtils.readBool(args['-n']) ?? true;
     final caseInsensitive = AiToolUtils.readBool(args['-i']) == true;
     final type = '${args['type'] ?? ''}'.trim();
     final headLimit = AiToolUtils.readInt(args['head_limit']);
+    if (headLimit != null && headLimit < 0) {
+      return AiToolUtils.invalidResult(
+        'Grep',
+        'Grep head_limit must be a non-negative integer.',
+      );
+    }
     final offset = AiToolUtils.readInt(args['offset']) ?? 0;
+    if (offset < 0) {
+      return AiToolUtils.invalidResult(
+        'Grep',
+        'Grep offset must be a non-negative integer.',
+      );
+    }
     final multiline = AiToolUtils.readBool(args['multiline']) == true;
 
     // 查找 rg 可执行文件（优先使用应用内嵌入的 vendor/ripgrep；
@@ -76,7 +99,15 @@ class AiGrepTool extends AiTool {
     }
 
     // 构建 rg 参数列表
-    final rgArgs = <String>[];
+    final rgArgs = <String>[
+      '--hidden',
+      '--max-columns',
+      '$_maxColumns',
+      for (final dir in _vcsDirectoriesToExclude) ...<String>[
+        '--glob',
+        '!$dir',
+      ],
+    ];
     switch (outputMode) {
       case 'content':
         break;
@@ -87,22 +118,22 @@ class AiGrepTool extends AiTool {
       default:
         rgArgs.add('--files-with-matches');
     }
-    if (before != null) {
+    if (outputMode == 'content' && before != null) {
       rgArgs
         ..add('-B')
         ..add('$before');
     }
-    if (after != null) {
+    if (outputMode == 'content' && after != null) {
       rgArgs
         ..add('-A')
         ..add('$after');
     }
-    if (contextLines != null) {
+    if (outputMode == 'content' && contextLines != null) {
       rgArgs
         ..add('-C')
         ..add('$contextLines');
     }
-    if (showLineNumbers) {
+    if (outputMode == 'content' && showLineNumbers) {
       rgArgs.add('-n');
     }
     if (caseInsensitive) {
@@ -149,16 +180,29 @@ class AiGrepTool extends AiTool {
     if (rgResult.exitCode == 0 ||
         (rgResult.exitCode == 1 && rgResult.stdout.trim().isEmpty)) {
       var output = rgResult.stdout.trimRight();
+      var pagination = _GrepPaginationResult(
+        output: output,
+        appliedLimit: null,
+      );
       if (output.isEmpty) {
         output = outputMode == 'count' ? '(zero matches)' : '(no matches)';
-      } else if (offset > 0 || (headLimit != null && headLimit > 0)) {
-        final lines = output.split('\n');
-        final offsetLines = offset > 0 ? lines.skip(offset) : lines;
-        output = headLimit != null && headLimit > 0
-            ? offsetLines.take(headLimit).join('\n')
-            : offsetLines.join('\n');
+      } else {
+        pagination = _applyPagination(
+          output,
+          headLimit: headLimit,
+          offset: offset,
+        );
+        output = pagination.output;
         if (output.isEmpty) {
           output = '(no matches after offset)';
+        }
+        final paginationInfo = _formatPaginationInfo(
+          appliedLimit: pagination.appliedLimit,
+          offset: offset,
+        );
+        if (paginationInfo.isNotEmpty) {
+          output =
+              '$output\n\n[Showing results with pagination = $paginationInfo]';
         }
       }
       if (output.length > AiToolUtils.maxSearchOutputCharacters) {
@@ -170,6 +214,14 @@ class AiGrepTool extends AiTool {
         output: output,
         durationMs: startedAt.elapsedMilliseconds,
         workingDirectory: path,
+        metadata: <String, Object?>{
+          'grep_output_mode': outputMode,
+          'grep_head_limit': headLimit ?? _defaultHeadLimit,
+          'grep_head_limit_defaulted': headLimit == null,
+          'grep_offset': offset,
+          if (pagination.appliedLimit != null)
+            'grep_applied_limit': pagination.appliedLimit,
+        },
       );
     }
 
@@ -190,6 +242,42 @@ class AiGrepTool extends AiTool {
         stderr: stderrText,
       ),
     );
+  }
+
+  _GrepPaginationResult _applyPagination(
+    String output, {
+    required int? headLimit,
+    required int offset,
+  }) {
+    final lines = output.split('\n');
+    final safeOffset = offset < lines.length ? offset : lines.length;
+    if (headLimit == 0) {
+      return _GrepPaginationResult(
+        output: lines.skip(safeOffset).join('\n'),
+        appliedLimit: null,
+      );
+    }
+    final effectiveLimit = headLimit ?? _defaultHeadLimit;
+    final visibleLines = lines.skip(safeOffset).take(effectiveLimit).toList();
+    final wasTruncated = lines.length - safeOffset > effectiveLimit;
+    return _GrepPaginationResult(
+      output: visibleLines.join('\n'),
+      appliedLimit: wasTruncated ? effectiveLimit : null,
+    );
+  }
+
+  String _formatPaginationInfo({
+    required int? appliedLimit,
+    required int offset,
+  }) {
+    final parts = <String>[];
+    if (appliedLimit != null) {
+      parts.add('limit: $appliedLimit');
+    }
+    if (offset > 0) {
+      parts.add('offset: $offset');
+    }
+    return parts.join(', ');
   }
 
   /// 构建失败结果文本，提供更清晰的错误信息。
@@ -221,4 +309,14 @@ class AiGrepTool extends AiTool {
     }
     return buffer.toString().trim();
   }
+}
+
+class _GrepPaginationResult {
+  const _GrepPaginationResult({
+    required this.output,
+    required this.appliedLimit,
+  });
+
+  final String output;
+  final int? appliedLimit;
 }

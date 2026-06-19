@@ -2307,10 +2307,18 @@ class AiToolRuntimeService {
             'type': 'integer',
             'description': 'Claude-style alias for -C context lines.',
           },
-          '-n': <String, Object?>{'type': 'boolean'},
+          '-n': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Show line numbers in content output. Defaults to true.',
+          },
           '-i': <String, Object?>{'type': 'boolean'},
           'type': <String, Object?>{'type': 'string'},
-          'head_limit': <String, Object?>{'type': 'integer'},
+          'head_limit': <String, Object?>{
+            'type': 'integer',
+            'description':
+                'Limit output to the first N lines or entries after offset. Defaults to 250; pass 0 only when unlimited output is intentional.',
+          },
           'offset': <String, Object?>{
             'type': 'integer',
             'description':

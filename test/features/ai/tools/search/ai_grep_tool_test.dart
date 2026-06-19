@@ -62,6 +62,91 @@ void main() {
       expect(result.stdout, isNot(contains('match one')));
       expect(result.stdout, isNot(contains('match three')));
     });
+
+    test('defaults to Claude-style 250 result cap', () async {
+      final file = File('${tempDir.path}/many.txt')
+        ..writeAsStringSync(
+          List<String>.generate(
+            260,
+            (index) => 'needle-${(index + 1).toString().padLeft(3, '0')}',
+          ).join('\n'),
+        );
+
+      final result = await AiGrepTool().execute(
+        _context(<String, Object?>{
+          'pattern': 'needle',
+          'path': file.path,
+          'output_mode': 'content',
+        }),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('needle-250'));
+      expect(result.stdout, isNot(contains('needle-251')));
+      expect(result.stdout, contains('pagination = limit: 250'));
+      expect(result.metadata['grep_head_limit_defaulted'], isTrue);
+      expect(result.metadata['grep_applied_limit'], 250);
+    });
+
+    test('head_limit zero keeps Grep output unlimited', () async {
+      final file = File('${tempDir.path}/unlimited.txt')
+        ..writeAsStringSync(
+          List<String>.generate(
+            260,
+            (index) => 'needle-${(index + 1).toString().padLeft(3, '0')}',
+          ).join('\n'),
+        );
+
+      final result = await AiGrepTool().execute(
+        _context(<String, Object?>{
+          'pattern': 'needle',
+          'path': file.path,
+          'output_mode': 'content',
+          'head_limit': 0,
+        }),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('needle-260'));
+      expect(result.stdout, isNot(contains('pagination =')));
+      expect(result.metadata['grep_head_limit'], 0);
+      expect(result.metadata['grep_applied_limit'], isNull);
+    });
+
+    test('content mode shows line numbers by default', () async {
+      final file = File('${tempDir.path}/lines.txt')
+        ..writeAsStringSync('before\nneedle\nafter\n');
+
+      final result = await AiGrepTool().execute(
+        _context(<String, Object?>{
+          'pattern': 'needle',
+          'path': file.path,
+          'output_mode': 'content',
+        }),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('2:needle'));
+    });
+
+    test('searches hidden files while excluding VCS directories', () async {
+      File('${tempDir.path}/.env').writeAsStringSync('OPENHAND_NEEDLE=1\n');
+      final gitDir = Directory('${tempDir.path}/.git');
+      gitDir.createSync();
+      File('${gitDir.path}/config').writeAsStringSync('OPENHAND_NEEDLE=2\n');
+
+      final result = await AiGrepTool().execute(
+        _context(<String, Object?>{
+          'pattern': 'OPENHAND_NEEDLE',
+          'path': tempDir.path,
+          'output_mode': 'files_with_matches',
+        }),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('.env'));
+      expect(result.stdout, isNot(contains('.git')));
+    });
   });
 }
 

@@ -314,6 +314,8 @@ void main() {
       expect(definition, isNotNull);
       expect(properties?['context'], containsPair('type', 'integer'));
       expect(properties?['offset'], containsPair('type', 'integer'));
+      expect('${properties?['head_limit']}', contains('Defaults to 250'));
+      expect('${properties?['-n']}', contains('Defaults to true'));
     });
 
     test('Read exposes Claude-style PDF pages parameter', () {
