@@ -51,7 +51,7 @@ import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
-import { getDialogExitDurationMs } from '../../../hooks/useDialogMotionSettings';
+import { useDelayedVisibility } from '../../../hooks/useDelayedVisibility';
 import { useEventCallback } from '../../../hooks/useEventCallback';
 import { stopTtsPlayback } from '../../../hooks/useTtsSettings';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
@@ -1240,24 +1240,18 @@ export function SessionDetailPage() {
   const [skillPickerQuery, setSkillPickerQuery] = useState('');
   const [skillPickerLoading, setSkillPickerLoading] = useState(false);
   const [skillPickerSelectedIndex, setSkillPickerSelectedIndex] = useState(0);
-  // 技能浮窗渲染态：用 visible+closing 双层让退场动效跑完再卸载，
-  // 配合全局 dialog 动画设置（oh-dialog-pop-in / oh-dialog-pop-out）。
-  const [skillPickerVisible, setSkillPickerVisible] = useState(false);
-  const [skillPickerClosing, setSkillPickerClosing] = useState(false);
+  const {
+    visible: skillPickerVisible,
+    closing: skillPickerClosing,
+    show: showSkillPicker,
+    hide: hideSkillPicker,
+  } = useDelayedVisibility();
   const [skillPickerAnchor, setSkillPickerAnchor] = useState<{
     bottomGap: number;
     left: number;
     width: number;
     maxHeight: number;
   } | null>(null);
-  const skillPickerCloseTimerRef = useRef<number | null>(null);
-  const clearSkillPickerCloseTimer = useCallback(() => {
-    if (skillPickerCloseTimerRef.current == null) return;
-    if (typeof window !== 'undefined') {
-      window.clearTimeout(skillPickerCloseTimerRef.current);
-    }
-    skillPickerCloseTimerRef.current = null;
-  }, []);
 
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
   const [attachmentPreviews, setAttachmentPreviews] = useState<{ mime: string; dataUrl: string; size: number }[]>([]);
@@ -2766,31 +2760,15 @@ export function SessionDetailPage() {
     setSkillPickerAnchor({ bottomGap, left, width, maxHeight });
   }, []);
 
-  // 浮窗 open ↔ visible 同步：尊重全局 dialog 动画设置。
+  // 浮窗 open ↔ visible 同步：退场生命周期由 useDelayedVisibility 统一管理。
   useEffect(() => {
     if (skillPickerOpen) {
-      clearSkillPickerCloseTimer();
-      setSkillPickerClosing(false);
-      setSkillPickerVisible(true);
       recomputeSkillPickerAnchor();
+      showSkillPicker();
       return;
     }
-    if (!skillPickerVisible) return;
-    setSkillPickerClosing(true);
-    const exitMs = getDialogExitDurationMs();
-    if (exitMs <= 0 || typeof window === 'undefined') {
-      setSkillPickerVisible(false);
-      setSkillPickerClosing(false);
-      return;
-    }
-    skillPickerCloseTimerRef.current = window.setTimeout(() => {
-      skillPickerCloseTimerRef.current = null;
-      setSkillPickerVisible(false);
-      setSkillPickerClosing(false);
-    }, exitMs);
-  }, [clearSkillPickerCloseTimer, skillPickerOpen, skillPickerVisible, recomputeSkillPickerAnchor]);
-
-  useEffect(() => clearSkillPickerCloseTimer, [clearSkillPickerCloseTimer]);
+    hideSkillPicker();
+  }, [hideSkillPicker, recomputeSkillPickerAnchor, showSkillPicker, skillPickerOpen]);
 
   // 滚动 / resize 时让浮窗锚点跟随 textarea。
   useEffect(() => {

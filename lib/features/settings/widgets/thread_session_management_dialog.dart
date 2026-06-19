@@ -17,7 +17,10 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
+
+const Duration _kReorderPersistDebounceDelay = Duration(milliseconds: 400);
 
 /// Shows the Thread Session Management dialog. Honors the global dialog
 /// animation settings (entrance/exit are picked from the nearest
@@ -46,7 +49,9 @@ class _ThreadSessionManagementDialogState
   List<AiSession>? _localOrder;
   Set<String> _selectedIds = <String>{};
   bool _isSelectionMode = false;
-  Timer? _persistDebounce;
+  final OpenHandDebouncer _persistDebounce = OpenHandDebouncer(
+    delay: _kReorderPersistDebounceDelay,
+  );
 
   // Precise on-disk byte footprint per session, refreshed asynchronously
   // after the dialog opens / sessions change. Falls back to the
@@ -102,7 +107,7 @@ class _ThreadSessionManagementDialogState
 
   @override
   void dispose() {
-    _persistDebounce?.cancel();
+    _persistDebounce.dispose();
     _searchController.dispose();
     _outcomeSuccessSignal.dispose();
     _outcomeErrorSignal.dispose();
@@ -180,8 +185,7 @@ class _ThreadSessionManagementDialogState
   }
 
   void _scheduleReorderPersist() {
-    _persistDebounce?.cancel();
-    _persistDebounce = Timer(const Duration(milliseconds: 400), () async {
+    _persistDebounce.schedule(() async {
       if (!mounted) return;
       final order = _localOrder;
       if (order == null) return;

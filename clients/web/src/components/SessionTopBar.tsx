@@ -6,9 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
-import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useRafScheduler } from '../hooks/useRafScheduler';
-import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import {
   DEFAULT_FLOATING_ANCHOR_GAP,
   DEFAULT_FLOATING_VIEWPORT_PADDING,
@@ -139,7 +138,6 @@ export interface SessionTopBarProps {
 }
 
 export function SessionTopBar(props: SessionTopBarProps) {
-  const reduceMotion = useReducedMotion();
   const {
     title,
     subtitle,
@@ -160,49 +158,14 @@ export function SessionTopBar(props: SessionTopBarProps) {
   const [draftTitle, setDraftTitle] = useState(title);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const moreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
-  const [showMore, setShowMore] = useState(false);
-  const [closingMore, setClosingMore] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const moreMenuCloseTimerRef = useRef<number | null>(null);
-
-  const moreMenuVisible = showMore || closingMore;
-
-  function clearMoreMenuCloseTimer() {
-    if (moreMenuCloseTimerRef.current == null) return;
-    window.clearTimeout(moreMenuCloseTimerRef.current);
-    moreMenuCloseTimerRef.current = null;
-  }
-
-  function openMoreMenu() {
-    clearMoreMenuCloseTimer();
-    setClosingMore(false);
-    setShowMore(true);
-  }
-
-  function requestCloseMoreMenu() {
-    if (!showMore || closingMore) return;
-    setClosingMore(true);
-    clearMoreMenuCloseTimer();
-    const closeMs = reduceMotion ? 0 : getDialogExitDurationMs();
-    if (closeMs <= 0) {
-      setShowMore(false);
-      setClosingMore(false);
-      return;
-    }
-    moreMenuCloseTimerRef.current = window.setTimeout(() => {
-      setShowMore(false);
-      setClosingMore(false);
-      moreMenuCloseTimerRef.current = null;
-    }, closeMs);
-  }
-
-  function toggleMoreMenu() {
-    if (showMore && !closingMore) {
-      requestCloseMoreMenu();
-    } else {
-      openMoreMenu();
-    }
-  }
+  const {
+    open: moreMenuOpen,
+    closing: closingMore,
+    visible: moreMenuVisible,
+    hide: requestCloseMoreMenu,
+    toggle: toggleMoreMenu,
+  } = useDelayedVisibility();
 
   useEffect(() => {
     if (!editing) setDraftTitle(title);
@@ -212,11 +175,9 @@ export function SessionTopBar(props: SessionTopBarProps) {
     if (editing) titleInputRef.current?.focus();
   }, [editing]);
 
-  useEffect(() => () => clearMoreMenuCloseTimer(), []);
-
   // 任意菜单打开时, 点击外部关闭
   useEffect(() => {
-    if (!showMore || closingMore) return;
+    if (!moreMenuOpen || closingMore) return;
     function close(e: MouseEvent) {
       const t = e.target as HTMLElement;
       if (!t.closest('[data-topbar-menu]')) {
@@ -232,7 +193,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
       window.removeEventListener('mousedown', close);
       window.removeEventListener('keydown', onKey);
     };
-  }, [showMore, closingMore]);
+  }, [moreMenuOpen, closingMore, requestCloseMoreMenu]);
 
   async function commitRename() {
     if (renaming) return;

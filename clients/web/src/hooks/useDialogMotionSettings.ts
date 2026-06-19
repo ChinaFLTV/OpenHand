@@ -86,6 +86,13 @@ function normalizeCurve(value: string | undefined): DialogMotionCurve {
     : DEFAULT_DIALOG_MOTION_SETTINGS.curve;
 }
 
+function dialogMotionDisabled(
+  entranceStyle: DialogMotionStyle,
+  exitStyle: DialogMotionStyle,
+): boolean {
+  return entranceStyle === 'none' && exitStyle === 'none';
+}
+
 function normalizeDuration(
   value: number | string | undefined,
   entranceStyle: DialogMotionStyle,
@@ -93,11 +100,11 @@ function normalizeDuration(
 ): number {
   const numericValue = finiteNumberOrNullFromUnknown(value);
   if (numericValue == null) {
-    return entranceStyle === 'none' && exitStyle === 'none'
+    return dialogMotionDisabled(entranceStyle, exitStyle)
       ? 0
       : DEFAULT_DIALOG_MOTION_SETTINGS.durationMs;
   }
-  if (entranceStyle === 'none' && exitStyle === 'none') return 0;
+  if (dialogMotionDisabled(entranceStyle, exitStyle)) return 0;
   return normalizeDurationMs(numericValue, {
     fallback: DEFAULT_DIALOG_MOTION_SETTINGS.durationMs,
     min: DIALOG_MOTION_MIN_ANIMATED_DURATION_MS,
@@ -196,25 +203,25 @@ export function normalizeDialogExitDurationMs(value?: number): number {
   });
 }
 
-/// 进场（展开）动画时长：entrance_style=none 时返回 0；否则使用全局 durationMs。
+// 进场（展开）动画时长：entrance_style=none 时返回 0；否则使用全局 durationMs。
 export function getDialogEnterDurationMs(): number {
   return currentSettings.entranceStyle === 'none' ? 0 : currentSettings.durationMs;
 }
 
-/// 供 CollapsibleCardBody 等复用：同时反映进场 + 退场 duration（取较大值作
-/// 为“一个交互的完整节奏”）。避免 collapse 与 expand 节奏相差过大。
+// 供折叠面板等复用：同时反映进场 + 退场 duration（取较大值作
+// 为“一个交互的完整节奏”）。避免 collapse 与 expand 节奏相差过大。
 export function getDialogMotionDurationMs(): number {
   const enter = getDialogEnterDurationMs();
   const exit = getDialogExitDurationMs();
   return enter === 0 && exit === 0 ? 0 : Math.max(enter, exit);
 }
 
-/// 展开（enter 方向）缓动曲线，CSS 字符串形式，可直接传给 WAAPI。
+// 展开（enter 方向）缓动曲线，CSS 字符串形式，可直接传给 WAAPI。
 export function getDialogMotionCurve(): string {
   return curveToCss(currentSettings.curve);
 }
 
-/// 折叠（exit 方向）缓动曲线，CSS 字符串形式，可直接传给 WAAPI。
+// 折叠（exit 方向）缓动曲线，CSS 字符串形式，可直接传给 WAAPI。
 export function getDialogMotionExitCurve(): string {
   return reverseCurveToCss(currentSettings.curve);
 }

@@ -1,4 +1,5 @@
 import type { ComponentChildren, JSX } from 'preact';
+import { clampNumber, normalizeInteger } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
 type DialogPanelAnimation = 'pop' | 'slideUp' | 'none';
@@ -71,12 +72,11 @@ export function createDialogOverlayStyle({
     typeof background === 'string' && background.trim()
       ? background
       : DIALOG_OVERLAY_DEFAULT_BACKGROUND;
-  const safeBlurPx = Number.isFinite(blurPx)
-    ? Math.min(Math.max(0, blurPx), DIALOG_OVERLAY_MAX_BLUR_PX)
-    : 0;
-  const safeZIndex = Number.isFinite(zIndex) && zIndex > 0
-    ? Math.round(zIndex)
-    : DIALOG_OVERLAY_BASE_Z_INDEX;
+  const safeBlurPx = clampNumber(blurPx, 0, DIALOG_OVERLAY_MAX_BLUR_PX);
+  const safeZIndex = normalizeInteger(zIndex, {
+    fallback: DIALOG_OVERLAY_BASE_Z_INDEX,
+    min: 1,
+  });
   const style: JSX.CSSProperties = { background: resolvedBackground };
   if (safeBlurPx > 0) {
     style.backdropFilter = `blur(${safeBlurPx}px)`;

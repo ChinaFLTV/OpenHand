@@ -775,9 +775,7 @@ Widget buildOpenHandDialogValidationMessage(
 }) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final duration = MediaQuery.disableAnimationsOf(context)
-      ? Duration.zero
-      : const Duration(milliseconds: 180);
+  final duration = openHandMotionDurationMs(context, 180);
   final content = message == null
       ? const SizedBox.shrink(key: ValueKey<String>('empty'))
       : DecoratedBox(

@@ -1,7 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
-import { normalizeDurationMs } from '../shared/util/number';
+import { useControlledDelayedVisibility } from '../hooks/useDelayedVisibility';
 import {
   DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
@@ -17,48 +14,17 @@ export interface BusyWaitDialogProps {
   delayMs?: number;
 }
 
-type BusyDialogPhase = 'hidden' | 'visible' | 'closing';
-
 export function BusyWaitDialog({
   open,
   title,
   body,
   delayMs = 650,
 }: BusyWaitDialogProps) {
-  const reduceMotion = useReducedMotion();
-  const [phase, setPhase] = useState<BusyDialogPhase>('hidden');
-  const phaseRef = useRef<BusyDialogPhase>('hidden');
-  const effectiveDelayMs = normalizeDurationMs(delayMs, { fallback: 0 });
+  const { visible, closing } = useControlledDelayedVisibility(open, {
+    enterDelayMs: delayMs,
+  });
 
-  useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
-
-  useEffect(() => {
-    let timer: number | undefined;
-    if (open) {
-      if (phaseRef.current === 'hidden') {
-        timer = window.setTimeout(
-          () => setPhase('visible'),
-          reduceMotion ? 0 : effectiveDelayMs,
-        );
-      } else {
-        setPhase('visible');
-      }
-    } else if (phaseRef.current !== 'hidden') {
-      setPhase('closing');
-      timer = window.setTimeout(
-        () => setPhase('hidden'),
-        reduceMotion ? 0 : getDialogExitDurationMs(),
-      );
-    }
-    return () => {
-      if (timer != null) window.clearTimeout(timer);
-    };
-  }, [open, effectiveDelayMs, reduceMotion]);
-
-  if (phase === 'hidden') return null;
-  const closing = phase === 'closing';
+  if (!visible) return null;
   return (
     <DialogFrame
       closing={closing}

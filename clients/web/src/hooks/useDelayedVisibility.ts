@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
+import { normalizeDurationMs } from '../shared/util/number';
 
 export interface DelayedVisibilityOptions {
   exitMs?: number;
   initiallyOpen?: boolean;
+}
+
+export interface ControlledDelayedVisibilityOptions {
+  enterDelayMs?: number;
+  exitMs?: number;
 }
 
 export interface DelayedVisibilityController {
@@ -15,6 +21,13 @@ export interface DelayedVisibilityController {
   hide: () => void;
   toggle: () => void;
 }
+
+export interface ControlledDelayedVisibilityState {
+  visible: boolean;
+  closing: boolean;
+}
+
+type VisibilityPhase = 'hidden' | 'visible' | 'closing';
 
 export function useDelayedVisibility({
   exitMs,
@@ -80,5 +93,77 @@ export function useDelayedVisibility({
     show,
     hide,
     toggle,
+  };
+}
+
+export function useControlledDelayedVisibility(
+  open: boolean,
+  {
+    enterDelayMs = 0,
+    exitMs,
+  }: ControlledDelayedVisibilityOptions = {},
+): ControlledDelayedVisibilityState {
+  const reduceMotion = useReducedMotion();
+  const [phase, setPhase] = useState<VisibilityPhase>(
+    open ? 'visible' : 'hidden',
+  );
+  const phaseRef = useRef<VisibilityPhase>(phase);
+  const timerRef = useRef<number | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current == null || typeof window === 'undefined') return;
+    window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    clearTimer();
+    if (open) {
+      if (phaseRef.current !== 'hidden') {
+        phaseRef.current = 'visible';
+        setPhase('visible');
+        return;
+      }
+      const delayMs = reduceMotion
+        ? 0
+        : normalizeDurationMs(enterDelayMs, { fallback: 0, min: 0 });
+      if (delayMs <= 0 || typeof window === 'undefined') {
+        phaseRef.current = 'visible';
+        setPhase('visible');
+        return;
+      }
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = null;
+        phaseRef.current = 'visible';
+        setPhase('visible');
+      }, delayMs);
+      return;
+    }
+
+    if (phaseRef.current === 'hidden') return;
+    phaseRef.current = 'closing';
+    setPhase('closing');
+    const closeMs = reduceMotion ? 0 : normalizeDialogExitDurationMs(exitMs);
+    if (closeMs <= 0 || typeof window === 'undefined') {
+      phaseRef.current = 'hidden';
+      setPhase('hidden');
+      return;
+    }
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      phaseRef.current = 'hidden';
+      setPhase('hidden');
+    }, closeMs);
+  }, [clearTimer, enterDelayMs, exitMs, open, reduceMotion]);
+
+  useEffect(() => () => clearTimer(), [clearTimer]);
+
+  return {
+    visible: phase !== 'hidden',
+    closing: phase === 'closing',
   };
 }
