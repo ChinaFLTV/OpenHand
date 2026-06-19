@@ -1,0 +1,102 @@
+/// Shared Plan-mode tool gate rules.
+///
+/// The controller filters the runtime catalog with these rules; prompt builders
+/// render the same state back to the model so the visible prompt matches the
+/// actual tool surface for the current turn.
+abstract final class AiPlanModeToolGate {
+  static const List<String> planningToolNames = <String>[
+    'AskUserChoice',
+    'Task',
+    'Glob',
+    'Grep',
+    'LS',
+    'Read',
+    'WebFetch',
+    'WebSearch',
+    'TodoWrite',
+  ];
+
+  static const String exitPlanModeToolName = 'ExitPlanMode';
+  static const String exitPlanModeToken = 'exitplanmode';
+
+  static const Set<String> _planningToolTokens = <String>{
+    'askuserchoice',
+    'task',
+    'glob',
+    'grep',
+    'ls',
+    'read',
+    'webfetch',
+    'websearch',
+    'todowrite',
+  };
+
+  static String normalizeToolName(String value) {
+    final buffer = StringBuffer();
+    for (final code in value.codeUnits) {
+      if ((code >= 0x30 && code <= 0x39) ||
+          (code >= 0x41 && code <= 0x5A) ||
+          (code >= 0x61 && code <= 0x7A)) {
+        buffer.writeCharCode(code | 0x20);
+      }
+    }
+    return buffer.toString();
+  }
+
+  static bool isPlanningTool(String toolName) {
+    return _planningToolTokens.contains(normalizeToolName(toolName));
+  }
+
+  static bool isExitPlanModeTool(String toolName) {
+    return normalizeToolName(toolName) == exitPlanModeToken;
+  }
+
+  static bool isAllowedPlanningTool(
+    String toolName, {
+    required bool allowExitPlanMode,
+  }) {
+    return isPlanningTool(toolName) ||
+        (allowExitPlanMode && isExitPlanModeTool(toolName));
+  }
+
+  static bool hasExitPlanModeTool(Iterable<String> toolNames) {
+    return toolNames.any(isExitPlanModeTool);
+  }
+
+  static bool hasExecutionTool(Iterable<String> toolNames) {
+    for (final name in toolNames) {
+      final normalized = normalizeToolName(name);
+      if (normalized.isEmpty ||
+          normalized == exitPlanModeToken ||
+          _planningToolTokens.contains(normalized)) {
+        continue;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  static String gateReason({
+    required bool isPlanMode,
+    required bool awaitingPlanApproval,
+    required bool executionApprovedForSend,
+    required bool recoveryInspectionRequired,
+    required Iterable<String> availableToolNames,
+  }) {
+    if (awaitingPlanApproval) {
+      return 'awaiting_plan_approval';
+    }
+    if (!isPlanMode) {
+      return availableToolNames.isEmpty ? 'chat_mode_no_tools' : 'chat_mode';
+    }
+    if (recoveryInspectionRequired) {
+      return 'plan_mode_recovery_inspection';
+    }
+    if (executionApprovedForSend || hasExecutionTool(availableToolNames)) {
+      return 'plan_mode_execution';
+    }
+    return hasExitPlanModeTool(availableToolNames)
+        ? 'plan_mode_planning_with_exit_allowed'
+        : 'plan_mode_planning_only';
+  }
+}

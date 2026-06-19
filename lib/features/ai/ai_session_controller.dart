@@ -48,6 +48,7 @@ import 'service/prompt/ai_prompt_template_assembly.dart';
 import 'service/prompt/ai_prompt_template_repository.dart';
 import 'service/runtime/ai_builtin_tool_lazy_loading_applier.dart';
 import 'service/runtime/ai_plan_approval_detector.dart';
+import 'service/runtime/ai_plan_mode_tool_gate.dart';
 import 'service/runtime/ai_tool_execution_registry.dart';
 import 'service/runtime/ai_tool_runtime_service.dart';
 import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
@@ -649,20 +650,6 @@ class AiSessionController extends ChangeNotifier {
   int get _effectiveEstimatedCharactersPerToken =>
       _latestRuntimeContext?.estimatedCharactersPerToken ??
       AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken;
-  static const List<String> _planModePlanningToolNames = <String>[
-    'AskUserChoice',
-    'Task',
-    'Glob',
-    'Grep',
-    'LS',
-    'Read',
-    'WebFetch',
-    'WebSearch',
-    'TodoWrite',
-  ];
-  static final Set<String> _planModePlanningToolAllowlist = <String>{
-    for (final name in _planModePlanningToolNames) _normalizeToolName(name),
-  };
   static const Set<String> _internalPromptLeakHeaders =
       aiInternalPromptLeakHeaders;
 
@@ -2506,9 +2493,10 @@ class AiSessionController extends ChangeNotifier {
       planExecutionApproved: executionApprovedForSend,
       toolNames: toolNames,
       notices: effectiveCatalog.notices,
-      gateReason: _runtimeToolCatalogGateReason(
-        session: session,
-        toolCatalog: effectiveCatalog,
+      gateReason: AiPlanModeToolGate.gateReason(
+        isPlanMode: session.mode == AiSessionMode.plan,
+        awaitingPlanApproval: session.awaitingPlanApproval,
+        availableToolNames: toolNames,
         executionApprovedForSend: executionApprovedForSend,
         recoveryInspectionRequired: recoveryInspectionRequired,
       ),
@@ -6706,7 +6694,7 @@ class AiSessionController extends ChangeNotifier {
     }
     if (executionApprovedForSend) {
       final filteredEntries = baseCatalog.toolsByName.entries
-          .where((entry) => _normalizeToolName(entry.key) != 'exitplanmode')
+          .where((entry) => !AiPlanModeToolGate.isExitPlanModeTool(entry.key))
           .toList(growable: false);
       return AiResolvedToolCatalog(
         definitions: filteredEntries
@@ -6749,8 +6737,8 @@ class AiSessionController extends ChangeNotifier {
         .map((tool) => tool.name.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
-    final exitPlanModeAvailable = toolNames.any(
-      (name) => _normalizeToolName(name) == 'exitplanmode',
+    final exitPlanModeAvailable = AiPlanModeToolGate.hasExitPlanModeTool(
+      toolNames,
     );
     return <String, Object?>{
       ...baseMetadata,
@@ -6765,13 +6753,14 @@ class AiSessionController extends ChangeNotifier {
           .toList(growable: false),
       'current_tool_count': toolNames.length,
       'current_tool_names': toolNames,
-      'plan_mode_planning_tool_names': _planModePlanningToolNames,
+      'plan_mode_planning_tool_names': AiPlanModeToolGate.planningToolNames,
       'plan_mode_exit_plan_mode_available': exitPlanModeAvailable,
       'runtime_tool_catalog_stale': false,
       'runtime_tool_catalog_notices': toolCatalog.notices,
-      'runtime_tool_gate_reason': _runtimeToolCatalogGateReason(
-        session: session,
-        toolCatalog: toolCatalog,
+      'runtime_tool_gate_reason': AiPlanModeToolGate.gateReason(
+        isPlanMode: session.mode == AiSessionMode.plan,
+        awaitingPlanApproval: session.awaitingPlanApproval,
+        availableToolNames: toolNames,
         executionApprovedForSend: executionApprovedForSend,
         recoveryInspectionRequired: recoveryInspectionRequired,
       ),
@@ -6796,7 +6785,7 @@ class AiSessionController extends ChangeNotifier {
       'current_todos': session.todoItems
           .map((item) => item.toJson())
           .toList(growable: false),
-      'plan_mode_planning_tool_names': _planModePlanningToolNames,
+      'plan_mode_planning_tool_names': AiPlanModeToolGate.planningToolNames,
       'plan_mode_exit_plan_mode_available': false,
       'runtime_tool_catalog_stale': true,
       'runtime_tool_catalog_notices': const <String>[],
@@ -6804,40 +6793,14 @@ class AiSessionController extends ChangeNotifier {
     };
   }
 
-  String _runtimeToolCatalogGateReason({
-    required AiSession session,
-    required AiResolvedToolCatalog toolCatalog,
-    required bool executionApprovedForSend,
-    required bool recoveryInspectionRequired,
-  }) {
-    if (session.awaitingPlanApproval) {
-      return 'awaiting_plan_approval';
-    }
-    if (session.mode != AiSessionMode.plan) {
-      return toolCatalog.definitions.isEmpty
-          ? 'chat_mode_no_tools'
-          : 'chat_mode';
-    }
-    if (recoveryInspectionRequired) {
-      return 'plan_mode_recovery_inspection';
-    }
-    if (executionApprovedForSend) {
-      return 'plan_mode_execution';
-    }
-    return _hasIncompleteTodoItems(session.todoItems)
-        ? 'plan_mode_planning_with_exit_allowed'
-        : 'plan_mode_planning_only';
-  }
-
   bool _isAllowedPlanModePlanningTool(
     String toolName, {
     required bool allowExitPlanMode,
   }) {
-    final normalizedToolName = _normalizeToolName(toolName);
-    if (_planModePlanningToolAllowlist.contains(normalizedToolName)) {
-      return true;
-    }
-    return allowExitPlanMode && normalizedToolName == 'exitplanmode';
+    return AiPlanModeToolGate.isAllowedPlanningTool(
+      toolName,
+      allowExitPlanMode: allowExitPlanMode,
+    );
   }
 
   bool _shouldAllowPlanModeExecutionTools({
