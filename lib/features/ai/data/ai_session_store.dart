@@ -103,6 +103,13 @@ class AiSessionStore {
     );
   }
 
+  String sessionDirectoryPath(String sessionId) {
+    return p.join(
+      _sessionsDirectoryPath,
+      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
+    );
+  }
+
   /// Modern per-session attachments directory used by the new attachment
   /// storage layout: `~/.openhand/sessions/{sessionId}/attachments/`.
   ///
@@ -111,19 +118,11 @@ class AiSessionStore {
   /// [sessionAttachmentsDirectoryPath] continue to be honored on read because
   /// each `AiMessageAttachment` carries its full storage path.
   String perSessionAttachmentsDirectoryPath(String sessionId) {
-    return p.join(
-      _sessionsDirectoryPath,
-      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
-      'attachments',
-    );
+    return p.join(sessionDirectoryPath(sessionId), 'attachments');
   }
 
   String sessionCompactMemoryDirectoryPath(String sessionId) {
-    return p.join(
-      _sessionsDirectoryPath,
-      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
-      'memory',
-    );
+    return p.join(sessionDirectoryPath(sessionId), 'memory');
   }
 
   String sessionCompactMemoryMarkdownPath(String sessionId) {
@@ -839,8 +838,12 @@ class AiSessionStore {
   }
 
   /// Deletes a session and all its messages from the database, plus
-  /// attachment files from disk.
+  /// per-session artifacts from disk.
   Future<void> delete(String sessionId) async {
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      sessionId,
+      label: 'session id',
+    );
     // Database CASCADE will remove messages automatically.
     await _db.delete(
       'sessions',
@@ -848,12 +851,30 @@ class AiSessionStore {
       whereArgs: <Object?>[sessionId],
     );
 
-    // Remove attachment files.
-    final attachmentsDirectory = Directory(
-      sessionAttachmentsDirectoryPath(sessionId),
+    // Remove legacy attachments and modern per-session artifacts
+    // (`attachments/`, `tool-results/`, compact memory sidecars, etc.).
+    final modernSessionDirectoryPath = sessionDirectoryPath(
+      normalizedSessionId,
     );
-    if (await attachmentsDirectory.exists()) {
-      await attachmentsDirectory.delete(recursive: true);
+    final paths = <String>[
+      sessionAttachmentsDirectoryPath(normalizedSessionId),
+      if (!p.equals(modernSessionDirectoryPath, attachmentsDirectoryPath))
+        modernSessionDirectoryPath,
+      sessionFilePath(normalizedSessionId),
+    ];
+    for (final path in paths) {
+      final type = await FileSystemEntity.type(path, followLinks: false);
+      switch (type) {
+        case FileSystemEntityType.directory:
+          await Directory(path).delete(recursive: true);
+        case FileSystemEntityType.file:
+        case FileSystemEntityType.link:
+        case FileSystemEntityType.pipe:
+        case FileSystemEntityType.unixDomainSock:
+          await File(path).delete();
+        case FileSystemEntityType.notFound:
+          break;
+      }
     }
   }
 

@@ -8,7 +8,7 @@ import 'package:openhand/shared/db/database_service.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
-  group('AiSessionStore plan allowed prompts', () {
+  group('AiSessionStore', () {
     Directory? tempDir;
 
     setUp(() async {
@@ -94,6 +94,96 @@ void main() {
       expect(
         loaded.planHistory.single.allowedPrompts.single.prompt,
         'run targeted tests',
+      );
+    });
+
+    test('deletes modern per-session artifacts and legacy sidecars', () async {
+      final now = DateTime.utc(2026, 6, 19, 8);
+      final store = AiSessionStore(
+        sessionsDirectoryPath: p.join(tempDir!.path, 'sessions'),
+      );
+      final session = AiSession(
+        id: 'session-1',
+        title: 'Artifact cleanup session',
+        templateId: 'programming_expert',
+        templateName: '编程专家',
+        templateIconName: 'code_rounded',
+        templateInternalVersion: 'test',
+        createdAt: now,
+        updatedAt: now,
+        messages: <AiSessionMessage>[
+          AiSessionMessage.toolResult(
+            id: 'tool-1',
+            content: 'Large output truncated.',
+            createdAt: now,
+            metadata: <String, Object?>{
+              'tool_call_id': 'call-1',
+              'tool_name': 'Bash',
+              'tool_output_persisted_path': p.join(
+                store.sessionDirectoryPath('session-1'),
+                'tool-results',
+                'call-1.txt',
+              ),
+            },
+          ),
+        ],
+        environment: _testEnvironment(tempDir!.path),
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: const <AiSessionErrorRecord>[],
+      );
+      await store.save(session);
+
+      final modernToolOutput = File(
+        p.join(
+          store.sessionDirectoryPath('session-1'),
+          'tool-results',
+          'call-1.txt',
+        ),
+      );
+      final modernAttachment = File(
+        p.join(
+          store.perSessionAttachmentsDirectoryPath('session-1'),
+          'message-attachment.txt',
+        ),
+      );
+      final compactMemory = File(
+        store.sessionCompactMemoryMarkdownPath('session-1'),
+      );
+      final legacyAttachment = File(
+        p.join(
+          store.sessionAttachmentsDirectoryPath('session-1'),
+          'legacy.txt',
+        ),
+      );
+      final legacySessionJson = File(store.sessionFilePath('session-1'));
+      for (final file in <File>[
+        modernToolOutput,
+        modernAttachment,
+        compactMemory,
+        legacyAttachment,
+        legacySessionJson,
+      ]) {
+        await file.parent.create(recursive: true);
+        await file.writeAsString('artifact');
+      }
+
+      await store.delete('session-1');
+
+      expect(await store.loadSession('session-1'), isNull);
+      expect(await modernToolOutput.exists(), isFalse);
+      expect(await modernAttachment.exists(), isFalse);
+      expect(await compactMemory.exists(), isFalse);
+      expect(await legacyAttachment.exists(), isFalse);
+      expect(await legacySessionJson.exists(), isFalse);
+      expect(
+        await Directory(store.sessionDirectoryPath('session-1')).exists(),
+        isFalse,
+      );
+      expect(
+        await Directory(
+          store.sessionAttachmentsDirectoryPath('session-1'),
+        ).exists(),
+        isFalse,
       );
     });
   });
