@@ -2295,7 +2295,11 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'pattern': <String, Object?>{'type': 'string'},
           'path': <String, Object?>{'type': 'string'},
-          'glob': <String, Object?>{'type': 'string'},
+          'glob': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Glob pattern(s) to filter files. Comma or space separated patterns are split unless the pattern uses braces.',
+          },
           'output_mode': <String, Object?>{
             'type': 'string',
             'enum': <String>['content', 'files_with_matches', 'count'],

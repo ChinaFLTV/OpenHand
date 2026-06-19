@@ -147,6 +147,58 @@ void main() {
       expect(result.stdout, contains('.env'));
       expect(result.stdout, isNot(contains('.git')));
     });
+
+    test('passes dash-prefixed patterns through -e', () async {
+      final file = File('${tempDir.path}/flags.txt')
+        ..writeAsStringSync('--openhand-flag\nplain\n');
+
+      final result = await AiGrepTool().execute(
+        _context(<String, Object?>{
+          'pattern': '--openhand-flag',
+          'path': file.path,
+          'output_mode': 'content',
+        }),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('--openhand-flag'));
+    });
+
+    test('splits comma and space separated glob patterns', () async {
+      File('${tempDir.path}/one.dart').writeAsStringSync('OPENHAND_SPLIT\n');
+      File('${tempDir.path}/two.md').writeAsStringSync('OPENHAND_SPLIT\n');
+      File('${tempDir.path}/three.txt').writeAsStringSync('OPENHAND_SPLIT\n');
+
+      final result = await AiGrepTool().execute(
+        _context(<String, Object?>{
+          'pattern': 'OPENHAND_SPLIT',
+          'path': tempDir.path,
+          'glob': '*.dart,*.md',
+          'output_mode': 'files_with_matches',
+        }),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('one.dart'));
+      expect(result.stdout, contains('two.md'));
+      expect(result.stdout, isNot(contains('three.txt')));
+    });
+
+    test('rejects unsupported output modes', () async {
+      final file = File('${tempDir.path}/mode.txt')
+        ..writeAsStringSync('needle\n');
+
+      final result = await AiGrepTool().execute(
+        _context(<String, Object?>{
+          'pattern': 'needle',
+          'path': file.path,
+          'output_mode': 'lines',
+        }),
+      );
+
+      expect(result.status, BashToolExecutionStatus.invalidArguments);
+      expect(result.stderr, contains('output_mode'));
+    });
   });
 }
 

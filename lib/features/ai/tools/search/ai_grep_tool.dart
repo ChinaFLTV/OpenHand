@@ -52,6 +52,12 @@ class AiGrepTool extends AiTool {
 
     final glob = '${args['glob'] ?? ''}'.trim();
     final outputMode = '${args['output_mode'] ?? 'files_with_matches'}'.trim();
+    if (!_supportedOutputModes.contains(outputMode)) {
+      return AiToolUtils.invalidResult(
+        'Grep',
+        'Grep output_mode must be content, files_with_matches, or count.',
+      );
+    }
     final before = AiToolUtils.readInt(args['-B']);
     final after = AiToolUtils.readInt(args['-A']);
     final contextLines =
@@ -144,10 +150,10 @@ class AiGrepTool extends AiTool {
         ..add('--type')
         ..add(type);
     }
-    if (glob.isNotEmpty) {
+    for (final globPattern in _splitGlobPatterns(glob)) {
       rgArgs
         ..add('--glob')
-        ..add(glob);
+        ..add(globPattern);
     }
     if (multiline) {
       rgArgs
@@ -167,9 +173,14 @@ class AiGrepTool extends AiTool {
       workingDir = p.dirname(path);
       searchTarget = p.basename(path);
     }
-    rgArgs
-      ..add(pattern)
-      ..add(searchTarget);
+    if (pattern.startsWith('-')) {
+      rgArgs
+        ..add('-e')
+        ..add(pattern);
+    } else {
+      rgArgs.add(pattern);
+    }
+    rgArgs.add(searchTarget);
 
     // 执行 rg 命令（使用共享工具方法）
     final rgResult = await AiToolUtils.runProcessSafely(
@@ -242,6 +253,33 @@ class AiGrepTool extends AiTool {
         stderr: stderrText,
       ),
     );
+  }
+
+  static const Set<String> _supportedOutputModes = <String>{
+    'content',
+    'files_with_matches',
+    'count',
+  };
+
+  List<String> _splitGlobPatterns(String glob) {
+    if (glob.isEmpty) return const <String>[];
+    final patterns = <String>[];
+    for (final rawPattern in glob.split(RegExp(r'\s+'))) {
+      if (rawPattern.isEmpty) {
+        continue;
+      }
+      if (rawPattern.contains('{') && rawPattern.contains('}')) {
+        patterns.add(rawPattern);
+      } else {
+        patterns.addAll(
+          rawPattern
+              .split(',')
+              .map((part) => part.trim())
+              .where((part) => part.isNotEmpty),
+        );
+      }
+    }
+    return patterns;
   }
 
   _GrepPaginationResult _applyPagination(
