@@ -247,6 +247,14 @@ void main() {
       final taskStop = catalog.find('TaskStop')?.definition;
 
       expect(taskOutput, isNotNull);
+      expect(
+        catalog.find('BashOutputTool')?.builtinKind,
+        AiBuiltinToolKind.taskOutput,
+      );
+      expect(
+        catalog.find('AgentOutputTool')?.builtinKind,
+        AiBuiltinToolKind.taskOutput,
+      );
       final taskOutputProperties = taskOutput?.parameters['properties'] as Map?;
       expect(taskOutputProperties?['task_id'], containsPair('type', 'string'));
       expect(taskOutputProperties?['block'], containsPair('type', 'boolean'));
@@ -257,6 +265,10 @@ void main() {
       );
 
       expect(taskStop, isNotNull);
+      expect(
+        catalog.find('KillShell')?.builtinKind,
+        AiBuiltinToolKind.taskStop,
+      );
       final taskStopProperties = taskStop?.parameters['properties'] as Map?;
       expect(taskStopProperties?['task_id'], containsPair('type', 'string'));
       expect(taskStopProperties?['shell_id'], containsPair('type', 'string'));
@@ -447,7 +459,7 @@ void main() {
       expect(outputResult.metadata['task_output_retrieval_status'], 'success');
     });
 
-    test('stops background task through TaskStop shell_id alias', () async {
+    test('stops background task through KillShell shell_id alias', () async {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),
         hookService: AiNoopClaudeHookService(),
@@ -484,7 +496,7 @@ void main() {
         catalog: catalog,
         toolCall: AiToolCall(
           id: 'call-task-stop-stop',
-          name: 'TaskStop',
+          name: 'KillShell',
           arguments: jsonEncode(<String, Object?>{'shell_id': handle}),
         ),
         model: _testModel,
@@ -499,7 +511,7 @@ void main() {
       expect(stopResult.stdout, contains('status: killed'));
       expect(stopResult.stdout, contains('task_id: $handle'));
       expect(stopResult.metadata['background_task_alias'], isTrue);
-      expect(stopResult.metadata['routed_from_tool'], 'TaskStop');
+      expect(stopResult.metadata['routed_from_tool'], 'KillShell');
       expect(stopResult.metadata['routed_to_tool'], 'BashBackground');
       expect(stopResult.metadata['task_stop_alias'], isTrue);
       expect(stopResult.metadata['task_id'], handle);

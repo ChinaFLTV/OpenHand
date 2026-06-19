@@ -68,6 +68,15 @@ class AiResolvedToolCatalog {
         return entry.value;
       }
     }
+    final aliasKind = _builtinAliasKind(normalizedName);
+    if (aliasKind != null) {
+      for (final tool in toolsByName.values) {
+        if (tool.source == AiRuntimeToolSource.builtin &&
+            tool.builtinKind == aliasKind) {
+          return tool;
+        }
+      }
+    }
     return null;
   }
 
@@ -84,6 +93,14 @@ class AiResolvedToolCatalog {
       }
     }
     return buffer.toString();
+  }
+
+  static AiBuiltinToolKind? _builtinAliasKind(String normalizedName) {
+    return switch (normalizedName) {
+      'bashoutputtool' || 'agentoutputtool' => AiBuiltinToolKind.taskOutput,
+      'killshell' => AiBuiltinToolKind.taskStop,
+      _ => null,
+    };
   }
 }
 
@@ -1400,7 +1417,7 @@ class AiToolRuntimeService {
       };
       dispatchMetadata = <String, Object?>{
         'background_task_alias': true,
-        'routed_from_tool': tool.name,
+        'routed_from_tool': toolCall.name,
         'routed_to_tool': 'BashBackground',
       };
     }

@@ -33,6 +33,11 @@ void main() {
       expect(developer, contains('tool_output_recovery_hint'));
       expect(developer, contains('Claude 风格 `command`'));
       expect(developer, contains('run_in_background: true'));
+      expect(developer, contains('`TaskOutput` / `TaskStop`'));
+      expect(
+        developer,
+        contains('`BashOutputTool` / `AgentOutputTool` / `KillShell`'),
+      );
       expect(developer, contains('不要用普通文本请求计划批准'));
       expect(contextRecovery, contains('tool_output_truncated'));
       expect(contextRecovery, contains('tool_output_persisted_path'));

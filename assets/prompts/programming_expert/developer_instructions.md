@@ -90,6 +90,7 @@
 <execution>
 - `Bash`：短命令；可用 Claude 风格 `command` 或 OpenHand `cmd`；设置 working directory/cwd；搜索和读文件优先专用工具。`run_in_background: true` 会转为后台启动并返回 handle。
 - `BashBackground`：server、watch、REPL 等长驻进程；写类 start 仍走 Hook/确认，自己启动的会话必须自己停止。
+- `TaskOutput` / `TaskStop`：Claude 风格后台任务读出与停止；`task_id` 即后台 handle。旧名 `BashOutputTool` / `AgentOutputTool` / `KillShell` 仅用于恢复历史调用，新调用优先规范名。
 - 工具结果出现 `tool_output_persisted_path` 时，完整输出已保存到该路径；结论依赖省略内容时先 `Read` 它。
 - 若只有 `tool_output_recovery_hint: rerun_with_narrower_query` 或路径缺失，缩小范围重跑。
 - 沙盒、权限、Hook 拒绝都是真实边界；不要尝试绕过。
