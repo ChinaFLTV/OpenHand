@@ -21,6 +21,7 @@ import {
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from './DialogFrame';
 import { showSnackbar } from './Snackbar';
 
@@ -743,13 +744,13 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       })}
       panelClassName="rounded-m3-lg overflow-hidden"
       panelStyle={{
-        width: `${layout.panelWidth}px`,
-        maxWidth: `${layout.maxPanelWidth}px`,
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-4)',
-        border: '1px solid var(--m3-outline)',
-        maxHeight: `${layout.maxPanelHeight}px`,
+        ...createDialogPanelSurfaceStyle({
+          width: `${layout.panelWidth}px`,
+          maxWidth: `${layout.maxPanelWidth}px`,
+          maxHeight: `${layout.maxPanelHeight}px`,
+          boxShadow: 'var(--m3-elev-4)',
+          border: '1px solid var(--m3-outline)',
+        }),
         display: 'flex',
         flexDirection: 'column',
         transition: panelTransition,

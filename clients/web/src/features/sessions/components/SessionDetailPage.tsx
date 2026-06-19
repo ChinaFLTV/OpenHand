@@ -66,6 +66,7 @@ import {
   DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
@@ -4462,13 +4463,10 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
         background: DIALOG_OVERLAY_STRONG_BACKGROUND,
       })}
       panelClassName="rounded-m3-md p-4 max-w-2xl w-full flex flex-col"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
         maxHeight: '80vh',
         border: '1px solid var(--m3-outline)',
-      }}
+      })}
       ariaLabel={`${t('common.audit', '审计')} ${message.id}`}
     >
       <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -4557,13 +4555,10 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
         background: DIALOG_OVERLAY_SOFT_BACKGROUND,
       })}
       panelClassName="w-full max-w-md rounded-m3-xl p-5 flex flex-col"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
         border: '1px solid var(--m3-outline-variant)',
         maxHeight: 'min(720px, calc(100vh - 32px))',
-      }}
+      })}
       ariaLabel={t('topbar.tokens', 'Token 统计')}
     >
       <header class="mb-4 flex shrink-0 items-start justify-between gap-3">
@@ -4797,12 +4792,9 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
         background: DIALOG_OVERLAY_SOFT_BACKGROUND,
       })}
       panelClassName="w-full max-w-md rounded-m3-xl p-5"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
         border: '1px solid var(--m3-outline-variant)',
-      }}
+      })}
       ariaLabel={t('contextStats.title', '上下文使用情况')}
     >
       <header class="mb-4 flex items-start justify-between gap-3">
@@ -5424,14 +5416,11 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
         background: DIALOG_OVERLAY_INVERSE_BACKGROUND,
       })}
       panelClassName="rounded-m3-lg p-5 w-full flex flex-col"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
         border: '1px solid var(--m3-outline-variant)',
         maxWidth: '860px',
         maxHeight: '84vh',
-      }}
+      })}
       ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
       <div class="overflow-auto pr-1 flex-1 min-h-0">
@@ -5779,13 +5768,10 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
         background: DIALOG_OVERLAY_STRONG_BACKGROUND,
       })}
       panelClassName="rounded-m3-md p-4 max-w-3xl w-full flex flex-col"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
         border: '1px solid var(--m3-outline)',
         maxHeight: '84vh',
-      }}
+      })}
       ariaLabel={t('topbar.audit', '会话审计')}
     >
       <header class="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -5986,7 +5972,10 @@ function SessionThrottleDialog({
         background: DIALOG_OVERLAY_INTENSE_BACKGROUND,
       })}
       panelClassName="rounded-m3-md p-5 w-full max-w-md"
-      panelStyle={{ background: 'var(--m3-surface-container-high)' }}
+      panelStyle={createDialogPanelSurfaceStyle({
+        background: 'var(--m3-surface-container-high)',
+        border: 'none',
+      })}
       ariaLabel={t('topbar.throttle.dialogTitle', '本会话流式节流')}
     >
       <h2 class="text-base font-semibold mb-1" style={{ color: 'var(--m3-on-surface)' }}>

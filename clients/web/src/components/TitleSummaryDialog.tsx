@@ -8,6 +8,7 @@ import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from './DialogFrame';
 
 type Phase = 'config' | 'pending' | 'success' | 'error';
@@ -111,11 +112,10 @@ export function TitleSummaryDialog({
         zIndex: DIALOG_OVERLAY_FOCUSED_Z_INDEX,
       })}
       panelClassName="w-full max-w-md rounded-2xl px-6 py-5"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
+      panelStyle={createDialogPanelSurfaceStyle({
         boxShadow: 'var(--m3-elev-4)',
-      }}
+        border: 'none',
+      })}
       ariaLabel={t('titleSummary.title', '获取 AI 摘要标题')}
     >
       {phase === 'config' ? (

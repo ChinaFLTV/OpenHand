@@ -15,6 +15,7 @@ import {
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from './DialogFrame';
 
 const RECENT_KEY = 'openhand.web.recent_models';
@@ -215,11 +216,12 @@ export function ModelPickerDialog({
       })}
       panelClassName="flex flex-col"
       panelStyle={{
-        width: 'min(420px, 92vw)',
-        maxHeight: 'min(520px, 86vh)',
-        background: 'var(--m3-surface-container)',
+        ...createDialogPanelSurfaceStyle({
+          width: 'min(420px, 92vw)',
+          maxHeight: 'min(520px, 86vh)',
+          border: 'none',
+        }),
         borderRadius: '16px',
-        boxShadow: 'var(--m3-elev-3)',
         overflow: 'hidden',
       }}
       ariaLabel={t('modelPicker.search', '搜索模型…')}

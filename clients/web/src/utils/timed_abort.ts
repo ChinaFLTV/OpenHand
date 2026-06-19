@@ -10,6 +10,7 @@ export interface TimedAbortController {
 }
 
 const DEFAULT_ABORT_TIMEOUT_MS = 30_000;
+const MAX_ABORT_TIMEOUT_MS = 60 * 60 * 1000;
 
 export class OperationTimeoutError extends Error {
   constructor(public readonly timeoutMs: number) {
@@ -30,6 +31,7 @@ export interface RunWithAbortableTimeoutOptions extends RunWithTimeoutOptions {
 function normalizeAbortTimeoutMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
     fallback: DEFAULT_ABORT_TIMEOUT_MS,
+    max: MAX_ABORT_TIMEOUT_MS,
   });
 }
 
@@ -54,6 +56,7 @@ export function createTimedAbortController(
 
   const abort = () => {
     clear();
+    clearExternalAbortListener();
     if (!controller.signal.aborted) controller.abort();
   };
 

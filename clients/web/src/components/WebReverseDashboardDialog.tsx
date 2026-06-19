@@ -16,6 +16,7 @@ import {
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from './DialogFrame';
 import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
@@ -62,8 +63,10 @@ export function WebReverseDashboardDialog({
         blurPx: 0,
         zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
       })}
-      panelClassName="w-full max-w-[720px] rounded-m3-lg shadow-xl overflow-hidden"
-      panelStyle={{ background: 'var(--m3-surface-container)' }}
+      panelClassName="w-full max-w-[720px] rounded-m3-lg overflow-hidden"
+      panelStyle={createDialogPanelSurfaceStyle({
+        border: 'none',
+      })}
       ariaLabel={t('webReverse.dashboard.title', 'Web 逆向调试面板')}
     >
       <header

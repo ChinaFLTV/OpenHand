@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { DialogFrame } from './DialogFrame';
+import { DialogFrame, createDialogPanelSurfaceStyle } from './DialogFrame';
 
 type ConfirmCloseReason = 'cancel' | 'dismiss' | 'escape';
 
@@ -81,14 +81,11 @@ export function ConfirmDialog({
       closeOnBackdrop={!busy && !closing && !disableBackdropClose}
       overlayClassName="oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4"
       panelClassName={`oh-confirm-dialog ${wide ? 'is-wide' : ''} ${scrollBody ? 'is-scroll-body' : ''} w-full rounded-m3-xl p-5`}
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
         border: '1px solid var(--m3-outline)',
         maxWidth: wide ? 'min(720px, calc(100vw - 32px))' : 'min(448px, calc(100vw - 32px))',
         maxHeight: scrollBody ? 'min(86dvh, 760px)' : undefined,
-      }}
+      })}
       ariaLabel={title}
     >
       <div class="oh-confirm-dialog-head flex items-start gap-3">

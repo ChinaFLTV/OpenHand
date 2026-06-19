@@ -13,6 +13,8 @@ export const DIALOG_OVERLAY_DEFAULT_BACKGROUND = 'rgba(0,0,0,0.38)';
 export const DIALOG_OVERLAY_SOFT_BACKGROUND = 'rgba(0,0,0,0.36)';
 export const DIALOG_OVERLAY_STRONG_BACKGROUND = 'rgba(0,0,0,0.40)';
 export const DIALOG_OVERLAY_INTENSE_BACKGROUND = 'rgba(0,0,0,0.45)';
+export const DIALOG_OVERLAY_DEFAULT_BLUR_PX = 2;
+export const DIALOG_OVERLAY_MAX_BLUR_PX = 12;
 export const DIALOG_OVERLAY_INVERSE_BACKGROUND =
   'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)';
 export const DIALOG_OVERLAY_CENTER_CLASS =
@@ -28,6 +30,22 @@ export interface DialogOverlayStyleOptions {
   background?: string;
   blurPx?: number;
   zIndex?: number;
+}
+
+export const DIALOG_PANEL_DEFAULT_BACKGROUND = 'var(--m3-surface-container)';
+export const DIALOG_PANEL_DEFAULT_COLOR = 'var(--m3-on-surface)';
+export const DIALOG_PANEL_DEFAULT_SHADOW = 'var(--m3-elev-3)';
+export const DIALOG_PANEL_DEFAULT_BORDER = '1px solid var(--m3-outline-variant)';
+
+export interface DialogPanelSurfaceStyleOptions {
+  background?: string;
+  color?: string;
+  boxShadow?: string;
+  border?: string;
+  width?: string;
+  maxWidth?: string;
+  maxHeight?: string;
+  overflow?: JSX.CSSProperties['overflow'];
 }
 
 export interface DialogFrameProps {
@@ -46,14 +64,16 @@ export interface DialogFrameProps {
 
 export function createDialogOverlayStyle({
   background = DIALOG_OVERLAY_DEFAULT_BACKGROUND,
-  blurPx = 2,
+  blurPx = DIALOG_OVERLAY_DEFAULT_BLUR_PX,
   zIndex = DIALOG_OVERLAY_BASE_Z_INDEX,
 }: DialogOverlayStyleOptions = {}): JSX.CSSProperties {
   const resolvedBackground =
     typeof background === 'string' && background.trim()
       ? background
       : DIALOG_OVERLAY_DEFAULT_BACKGROUND;
-  const safeBlurPx = Number.isFinite(blurPx) ? Math.max(0, blurPx) : 0;
+  const safeBlurPx = Number.isFinite(blurPx)
+    ? Math.min(Math.max(0, blurPx), DIALOG_OVERLAY_MAX_BLUR_PX)
+    : 0;
   const safeZIndex = Number.isFinite(zIndex) && zIndex > 0
     ? Math.round(zIndex)
     : DIALOG_OVERLAY_BASE_Z_INDEX;
@@ -67,6 +87,42 @@ export function createDialogOverlayStyle({
 
 export const DIALOG_OVERLAY_DEFAULT_STYLE = createDialogOverlayStyle();
 
+function stringStyleValueOr(value: string | undefined, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function assignStringStyleValue<K extends keyof JSX.CSSProperties>(
+  style: JSX.CSSProperties,
+  key: K,
+  value: string | undefined,
+): void {
+  if (typeof value !== 'string' || !value.trim()) return;
+  style[key] = value as JSX.CSSProperties[K];
+}
+
+export function createDialogPanelSurfaceStyle({
+  background,
+  color,
+  boxShadow,
+  border,
+  width,
+  maxWidth,
+  maxHeight,
+  overflow,
+}: DialogPanelSurfaceStyleOptions = {}): JSX.CSSProperties {
+  const style: JSX.CSSProperties = {
+    background: stringStyleValueOr(background, DIALOG_PANEL_DEFAULT_BACKGROUND),
+    color: stringStyleValueOr(color, DIALOG_PANEL_DEFAULT_COLOR),
+    boxShadow: stringStyleValueOr(boxShadow, DIALOG_PANEL_DEFAULT_SHADOW),
+    border: stringStyleValueOr(border, DIALOG_PANEL_DEFAULT_BORDER),
+  };
+  assignStringStyleValue(style, 'width', width);
+  assignStringStyleValue(style, 'maxWidth', maxWidth);
+  assignStringStyleValue(style, 'maxHeight', maxHeight);
+  if (overflow != null) style.overflow = overflow;
+  return style;
+}
+
 function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): string {
   switch (animation) {
     case 'slideUp':
@@ -79,11 +135,22 @@ function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): st
   }
 }
 
-function dialogClassNames(...values: Array<string | undefined | false>): string {
+export function dialogClassNames(...values: Array<string | undefined | false>): string {
   return values
     .flatMap((value) => (value ? value.trim().split(/\s+/) : []))
     .filter(Boolean)
     .join(' ');
+}
+
+function dialogPanelStyle(
+  style: JSX.CSSProperties | undefined,
+  closing: boolean,
+): JSX.CSSProperties | undefined {
+  if (!closing) return style;
+  return {
+    ...style,
+    pointerEvents: 'none',
+  };
 }
 
 export function DialogFrame({
@@ -103,8 +170,9 @@ export function DialogFrame({
   const panelClass = panelMotionClass(panelAnimation, closing);
   const overlayClass = dialogClassNames(overlayMotionClass, overlayClassName);
   const sectionClass = dialogClassNames(panelClass, panelClassName);
+  const allowBackdropClose = !closing && closeOnBackdrop && onRequestClose != null;
   const handleBackdropClick = (event: JSX.TargetedMouseEvent<HTMLDivElement>) => {
-    if (closing || !closeOnBackdrop || !onRequestClose || event.target !== event.currentTarget) {
+    if (!allowBackdropClose || event.target !== event.currentTarget) {
       return;
     }
     onRequestClose();
@@ -116,6 +184,7 @@ export function DialogFrame({
         class={overlayClass}
         style={overlayStyle}
         onClick={handleBackdropClick}
+        data-closing={closing ? 'true' : undefined}
       >
         <section
           role="dialog"
@@ -123,8 +192,9 @@ export function DialogFrame({
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           class={sectionClass}
-          style={panelStyle}
+          style={dialogPanelStyle(panelStyle, closing)}
           onClick={(event) => event.stopPropagation()}
+          data-closing={closing ? 'true' : undefined}
         >
           {children}
         </section>

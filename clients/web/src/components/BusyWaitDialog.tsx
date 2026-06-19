@@ -7,6 +7,7 @@ import {
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from './DialogFrame';
 
 export interface BusyWaitDialogProps {
@@ -67,12 +68,9 @@ export function BusyWaitDialog({
         zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
       })}
       panelClassName="w-full max-w-sm rounded-m3-xl p-5"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
         border: '1px solid var(--m3-outline-variant)',
-      }}
+      })}
       ariaLabel={title}
     >
       <div

@@ -8,6 +8,7 @@ import {
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from './DialogFrame';
 
 export interface CreationOptions {
@@ -309,12 +310,11 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
       })}
       panelAnimation="slideUp"
       panelClassName="w-full max-w-3xl rounded-t-2xl px-6 py-5 flex flex-col overflow-hidden"
-      panelStyle={{
+      panelStyle={createDialogPanelSurfaceStyle({
         background: 'var(--m3-surface-container-low)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+        border: 'none',
         maxHeight: '82vh',
-      }}
+      })}
       ariaLabel={modeTitle(mode)}
     >
       <h3 class="text-base font-semibold mb-4">{modeTitle(mode)}</h3>

@@ -23,6 +23,7 @@ import {
   DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
   createDialogOverlayStyle,
+  createDialogPanelSurfaceStyle,
 } from './DialogFrame';
 
 interface DialogShellProps {
@@ -65,13 +66,11 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
       })}
       ariaLabel={title}
       panelClassName="rounded-m3-xl w-full overflow-hidden flex flex-col"
-      panelStyle={{
-        background: 'var(--m3-surface-container)',
-        color: 'var(--m3-on-surface)',
-        boxShadow: 'var(--m3-elev-3)',
+      panelStyle={createDialogPanelSurfaceStyle({
+        border: 'none',
         maxWidth: `${maxWidth}px`,
         maxHeight: '88vh',
-      }}
+      })}
     >
       <header
           class="px-6 py-4 flex items-center justify-between gap-4"
