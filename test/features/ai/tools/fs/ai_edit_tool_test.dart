@@ -199,6 +199,47 @@ void main() {
   });
 
   group('AiApplyFileDiffsTool', () {
+    test('rejects duplicate file plans before writing', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_apply_file_diffs_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\nbeta\n');
+
+      final result = await AiApplyFileDiffsTool().execute(
+        _context(
+          toolName: 'ApplyFileDiffs',
+          arguments: <String, Object?>{
+            'diffs': <Object?>[
+              <String, Object?>{
+                'file_path': file.path,
+                'hunks': <Object?>[
+                  <String, Object?>{'old_string': 'alpha', 'new_string': 'one'},
+                ],
+              },
+              <String, Object?>{
+                'file_path': file.path,
+                'hunks': <Object?>[
+                  <String, Object?>{'old_string': 'beta', 'new_string': 'two'},
+                ],
+              },
+            ],
+          },
+          previouslyReadFiles: <String>{file.path},
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('duplicates file_path'));
+      expect(await file.readAsString(), 'alpha\nbeta\n');
+    });
+
     test('rejects hunks that retarget a previous new_string', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_apply_file_diffs_tool_test_',

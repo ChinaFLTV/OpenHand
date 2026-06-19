@@ -63,6 +63,7 @@ class AiApplyFileDiffsTool extends AiTool {
 
     // ── 阶段 1：解析 + 内存中应用所有 hunk，发现不匹配立即整体失败 ──
     final plans = <_FileDiffPlan>[];
+    final seenFilePaths = <String>{};
     for (var i = 0; i < diffs.length; i++) {
       final raw = diffs[i];
       if (raw is! Map) {
@@ -80,6 +81,12 @@ class AiApplyFileDiffsTool extends AiTool {
         );
       }
       final filePath = AiToolUtils.resolvePath(rawPath);
+      if (!seenFilePaths.add(filePath)) {
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          'diffs[$i] duplicates file_path already planned in this call: $filePath',
+        );
+      }
       final hunks = entry['hunks'];
       if (hunks is! List || hunks.isEmpty) {
         return AiToolUtils.invalidResult(
