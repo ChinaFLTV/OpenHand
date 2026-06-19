@@ -22,6 +22,7 @@ class AiTaskTool extends AiTool {
   static const String _toolName = 'Task';
   static const String _subagentStartEvent = 'SubagentStart';
   static const String _subagentStopEvent = 'SubagentStop';
+  static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
 
   final AiChatClient _backgroundChatClient;
   final AiClaudeHookService _hookService;
@@ -294,11 +295,48 @@ class AiTaskTool extends AiTool {
           );
         }
         final toolCall = completion.toolCalls[index];
+        final decodedArguments = _decodeArguments(toolCall.arguments);
+        final writeViolation = _subagentWriteViolation(
+          catalog: subagentCatalog,
+          toolCall: toolCall,
+          decodedArguments: decodedArguments,
+        );
+        if (writeViolation != null) {
+          final subagentStopHookResult = await _runSubagentStopHook(
+            sessionId: subagentSessionId,
+            subagentType: canonicalSubagentType,
+            description: description,
+            status: 'failed',
+            error: writeViolation.reason,
+          );
+          return _failedTaskResult(
+            description: description,
+            error:
+                'Sub-agent attempted a write-like Bash command. '
+                'Task sub-agents are read-only; the parent agent must run '
+                'write commands itself when appropriate.\n'
+                'command: ${writeViolation.command}\n'
+                'reason: ${writeViolation.reason}',
+            durationMs: startedAt.elapsedMilliseconds,
+            subagentType: canonicalSubagentType,
+            toolCount: subagentCatalog.definitions.length,
+            rounds: round + 1,
+            systemReminders: _hookSystemReminders(
+              subagentStartHookResult,
+              subagentStopHookResult,
+            ),
+            extraMetadata: <String, Object?>{
+              'subagent_write_blocked': true,
+              'subagent_blocked_command': writeViolation.command,
+              'subagent_blocked_write_reason': writeViolation.reason,
+            },
+          );
+        }
         final subContext = AiToolExecutionContext(
           sessionId: subagentSessionId,
           catalog: subagentCatalog,
           toolCall: toolCall,
-          decodedArguments: _decodeArguments(toolCall.arguments),
+          decodedArguments: decodedArguments,
           model: context.model,
           previouslyReadFiles: readFiles,
           denyCommandRules: context.denyCommandRules,
@@ -414,6 +452,28 @@ class AiTaskTool extends AiTool {
       _ => _readOnlyBuiltinKinds,
     };
     return allowedKinds.contains(kind);
+  }
+
+  ({String command, String reason})? _subagentWriteViolation({
+    required AiResolvedToolCatalog catalog,
+    required AiToolCall toolCall,
+    required Map<String, Object?> decodedArguments,
+  }) {
+    final resolvedTool = catalog.find(toolCall.name);
+    if (resolvedTool?.builtinKind != AiBuiltinToolKind.bash) {
+      return null;
+    }
+    final command =
+        '${decodedArguments['cmd'] ?? decodedArguments['command'] ?? ''}'
+            .trim();
+    if (command.isEmpty) {
+      return null;
+    }
+    final analysis = _bashWriteAnalyzer.analyzeWriteCommand(command);
+    if (!analysis.isWrite) {
+      return null;
+    }
+    return (command: command, reason: analysis.reason);
   }
 
   String _subagentSystemPrompt({
