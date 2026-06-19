@@ -447,9 +447,6 @@ class AiTaskTool extends AiTool {
     AiResolvedTool tool, {
     required String subagentType,
   }) {
-    if (tool.source == AiRuntimeToolSource.skill) {
-      return true;
-    }
     if (tool.source != AiRuntimeToolSource.builtin) {
       return false;
     }

@@ -89,12 +89,67 @@ void main() {
       expect(result.stdout, 'verify done');
       expect(chatClient.sendMessageCalls, 1);
     });
+
+    test('research subagents receive only read-only builtin tools', () async {
+      final chatClient = _FakeChatClient(
+        completion: const AiChatCompletion(reply: 'research done'),
+      );
+      final tool = AiTaskTool(
+        backgroundChatClient: chatClient,
+        hookService: AiNoopClaudeHookService(),
+      );
+
+      final result = await tool.execute(
+        _context(
+          subagentType: 'research',
+          metadata: const <String, Object?>{},
+          catalog: _mixedCatalog(),
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(
+        chatClient.lastToolNames,
+        unorderedEquals(<String>['Read', 'Git']),
+      );
+    });
+
+    test('verify subagents receive Bash but not parent-thread tools', () async {
+      final chatClient = _FakeChatClient(
+        completion: const AiChatCompletion(reply: 'verify done'),
+      );
+      final tool = AiTaskTool(
+        backgroundChatClient: chatClient,
+        hookService: AiNoopClaudeHookService(),
+      );
+
+      final result = await tool.execute(
+        _context(
+          subagentType: 'verify',
+          metadata: const <String, Object?>{
+            'plan_mode_active': true,
+            'plan_mode_execution_approved_for_send': true,
+          },
+          catalog: _mixedCatalog(),
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(
+        chatClient.lastToolNames,
+        unorderedEquals(<String>['Read', 'Git', 'Bash']),
+      );
+    });
   });
 }
 
 AiToolExecutionContext _context({
   required String subagentType,
   required Map<String, Object?> metadata,
+  AiResolvedToolCatalog catalog = const AiResolvedToolCatalog(
+    definitions: <AiToolDefinition>[],
+    toolsByName: <String, AiResolvedTool>{},
+  ),
 }) {
   final arguments = <String, Object?>{
     'description': 'Inspect task behavior',
@@ -103,10 +158,7 @@ AiToolExecutionContext _context({
   };
   return AiToolExecutionContext(
     sessionId: 'session-1',
-    catalog: const AiResolvedToolCatalog(
-      definitions: <AiToolDefinition>[],
-      toolsByName: <String, AiResolvedTool>{},
-    ),
+    catalog: catalog,
     toolCall: AiToolCall(
       id: 'tool-call-1',
       name: 'Task',
@@ -122,11 +174,65 @@ AiToolExecutionContext _context({
   );
 }
 
+AiResolvedToolCatalog _mixedCatalog() {
+  final tools = <AiResolvedTool>[
+    _builtinTool('Read', AiBuiltinToolKind.read),
+    _builtinTool('Git', AiBuiltinToolKind.git),
+    _builtinTool('Bash', AiBuiltinToolKind.bash),
+    _builtinTool('TodoWrite', AiBuiltinToolKind.todoWrite),
+    _builtinTool('ExitPlanMode', AiBuiltinToolKind.exitPlanMode),
+    _builtinTool('AskUserChoice', AiBuiltinToolKind.askUserChoice),
+    _builtinTool('Memory', AiBuiltinToolKind.memory),
+    _builtinTool('ToolSearch', AiBuiltinToolKind.toolSearch),
+    _runtimeTool('mcp__repo_lookup', AiRuntimeToolSource.mcp),
+    _runtimeTool('skill__flutter', AiRuntimeToolSource.skill),
+  ];
+  return AiResolvedToolCatalog(
+    definitions: tools.map((tool) => tool.definition).toList(growable: false),
+    toolsByName: <String, AiResolvedTool>{
+      for (final tool in tools) tool.name: tool,
+    },
+  );
+}
+
+AiResolvedTool _builtinTool(String name, AiBuiltinToolKind kind) {
+  return AiResolvedTool(
+    name: name,
+    definition: _toolDefinition(name),
+    source: AiRuntimeToolSource.builtin,
+    builtinKind: kind,
+  );
+}
+
+AiResolvedTool _runtimeTool(String name, AiRuntimeToolSource source) {
+  return AiResolvedTool(
+    name: name,
+    definition: _toolDefinition(name),
+    source: source,
+  );
+}
+
+AiToolDefinition _toolDefinition(String name) {
+  return AiToolDefinition(
+    name: name,
+    description: 'Test tool $name',
+    parameters: const <String, Object?>{
+      'type': 'object',
+      'additionalProperties': false,
+    },
+  );
+}
+
 class _FakeChatClient implements AiChatClient {
   _FakeChatClient({required this.completion});
 
   final AiChatCompletion completion;
   int sendMessageCalls = 0;
+  List<AiToolDefinition> lastTools = const <AiToolDefinition>[];
+
+  List<String> get lastToolNames {
+    return lastTools.map((tool) => tool.name).toList(growable: false);
+  }
 
   @override
   Future<AiChatCompletion> sendMessage({
@@ -140,6 +246,7 @@ class _FakeChatClient implements AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     sendMessageCalls += 1;
+    lastTools = List<AiToolDefinition>.from(tools);
     return completion;
   }
 

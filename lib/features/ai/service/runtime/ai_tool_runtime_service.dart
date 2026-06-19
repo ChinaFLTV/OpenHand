@@ -1743,6 +1743,7 @@ class AiToolRuntimeService {
           '`summarize` (compress long output into a structured digest), '
           '`advice` (compare design options and recommend), '
           'or `general-purpose` (fallback). Each call is isolated and receives a restricted sub-tool catalog: no file editing tools, TodoWrite, ExitPlanMode, AskUserChoice, Memory, ToolSearch, or MCP tools. '
+          'Local skill tools are also parent-thread only. '
           'Write-like Bash commands are blocked inside every Task sub-agent; the parent agent must perform writes directly when appropriate. '
           'Only read-only subagent types (`research`, `summarize`, `advice`) may run in parallel with sibling tool calls.',
       parameters: const <String, Object?>{
