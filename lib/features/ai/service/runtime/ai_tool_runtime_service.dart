@@ -2387,6 +2387,10 @@ class AiToolRuntimeService {
           'phrasing multi-choice questions in plain chat text whenever a '
           'deterministic, machine-readable answer is required (e.g. brainstorm '
           'direction picking, confirming which of N candidate paths to use). '
+          'In Plan mode, use this only to clarify requirements or choose '
+          'between approaches before finalizing the plan; do not ask whether '
+          'the plan is approved or whether implementation should proceed. '
+          'Use ExitPlanMode for plan approval. '
           'Returns JSON `{"value": "...", "is_custom": true|false}`.',
       parameters: const <String, Object?>{
         'type': 'object',

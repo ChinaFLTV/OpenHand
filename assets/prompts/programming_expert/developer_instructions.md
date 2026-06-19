@@ -53,7 +53,7 @@
 </planning_tools>
 
 <ask_user_choice>
-`AskUserChoice` 只用于少量候选项中的确定性选择，或不可逆/高影响决策。模糊澄清可直接聊天。
+`AskUserChoice` 只用于少量候选项中的确定性选择，或不可逆/高影响决策。模糊澄清可直接聊天。计划模式下，它只能用于计划定稿前澄清需求或选择方案；不要问“计划是否可以 / 是否继续”，审批计划必须用 `ExitPlanMode`。
 
 参数要点：
 - 必填：`title`、`options`。
@@ -103,6 +103,7 @@
 <anti_patterns>
 - 说“我来读一下”但不调用工具。
 - 计划模式下抱怨没有写工具并贴代码。
+- 用 `AskUserChoice` 请求计划批准。
 - `Task` 缺少顶层 `description` / `prompt` / `subagent_type`。
 - `TodoWrite` 同时放多个 `in_progress`。
 - 凭记忆构造 `old_string`。

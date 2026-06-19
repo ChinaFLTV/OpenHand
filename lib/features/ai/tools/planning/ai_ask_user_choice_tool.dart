@@ -81,6 +81,40 @@ class AiAskUserChoiceTool extends AiTool {
   @override
   bool get isDestructive => false;
 
+  static const List<String> _planApprovalQuestionPhrases = <String>[
+    'approve the plan',
+    'approve plan',
+    'plan approval',
+    'is the plan okay',
+    'is this plan okay',
+    'does the plan look good',
+    'should i proceed',
+    'should we proceed',
+    'can i proceed',
+    'may i proceed',
+    'proceed with implementation',
+    'start implementation',
+    'start coding',
+    'continue to implementation',
+    'go ahead with the plan',
+    '批准计划',
+    '同意计划',
+    '计划可以',
+    '计划是否',
+    '是否批准',
+    '是否继续',
+    '可以继续',
+    '开始实施',
+    '开始实现',
+    '开始编码',
+    '继续执行',
+    '继续实施',
+    '执行计划',
+    '按计划执行',
+    '计划没问题',
+    '计划可以吗',
+  ];
+
   static AskUserChoicePresenter? _presenter;
 
   /// Registers the UI-side presenter. Returns a disposer that unregisters
@@ -153,6 +187,18 @@ class AiAskUserChoiceTool extends AiTool {
     final allowCustomInput = args['allow_custom_input'] is bool
         ? args['allow_custom_input'] as bool
         : true;
+    if (_looksLikePlanApprovalQuestion(
+      metadata: context.metadata,
+      title: title,
+      description: description,
+    )) {
+      return AiToolUtils.invalidResult(
+        'AskUserChoice',
+        'Do not use AskUserChoice to request plan approval in Plan mode. '
+            'Clarify requirements with AskUserChoice before finalizing the plan; '
+            'when the plan is ready, use ExitPlanMode instead.',
+      );
+    }
 
     final presenter = _presenter;
     if (presenter == null) {
@@ -265,5 +311,20 @@ class AiAskUserChoiceTool extends AiTool {
     if (raw is! String) return null;
     final trimmed = raw.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static bool _looksLikePlanApprovalQuestion({
+    required Map<String, Object?> metadata,
+    required String title,
+    required String? description,
+  }) {
+    final planModeActive = metadata['plan_mode_active'] == true;
+    final executionApproved =
+        metadata['plan_mode_execution_approved_for_send'] == true;
+    if (!planModeActive || executionApproved) {
+      return false;
+    }
+    final text = '${title.toLowerCase()} ${description?.toLowerCase() ?? ''}';
+    return _planApprovalQuestionPhrases.any(text.contains);
   }
 }
