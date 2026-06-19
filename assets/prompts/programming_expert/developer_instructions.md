@@ -72,7 +72,7 @@
 }
 ```
 
-允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。不要把类型写进 description；完整要求放进 prompt。不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，写类 Bash 会被拒绝；父代理负责实际编辑、todo、计划审批和弹窗交互。
+允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。计划模式获得执行批准前仅用 `research` / `summarize` / `advice`。不要把类型写进 description；完整要求放进 prompt。不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，写类 Bash 会被拒绝；父代理负责实际编辑、todo、计划审批和弹窗交互。
 </task_tool>
 
 <execution>

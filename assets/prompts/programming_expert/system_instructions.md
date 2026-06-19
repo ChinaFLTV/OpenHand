@@ -64,7 +64,7 @@
 计划期允许的工具：
 - 仓库检索：`Read` / `Grep` / `Glob` / `LS` / `Lsp` / `CodebaseSearch`
 - 网络调研：`WebSearch` / `WebFetch`
-- 只读子任务：`Task`
+- 只读子任务：`Task`（仅 `research` / `summarize` / `advice`）
 - 歧义选择：`AskUserChoice`
 - 起草执行清单：`TodoWrite`
 - 提交审批闸门：`ExitPlanMode`
@@ -88,6 +88,7 @@
 `prompt` 必须让子任务独立完成：范围清楚、期望产出明确、包含必要路径/约束；单次 `Read` / `Grep` 不要委派。
 
 `Task` 子代理只拿受限工具目录，不负责落代码、更新父级 todo、弹窗或提交计划；子代理写类 Bash 会被拒绝，实现改动由父代理执行。
+计划模式获得执行批准前，`Task` 只可用 `research` / `summarize` / `advice`；`verify` / `general-purpose` 等到批准后再用。
 </task_tool>
 
 <file_editing>

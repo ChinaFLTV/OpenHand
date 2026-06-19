@@ -624,6 +624,7 @@ class AiToolRuntimeService {
     confirmWriteCommand,
     Future<void>? cancelSignal,
     void Function(BashToolExecutionUpdate update)? onBashUpdate,
+    Map<String, Object?> metadata = const <String, Object?>{},
   }) async {
     final resolvedTool = catalog.find(toolCall.name);
     if (resolvedTool == null) {
@@ -747,6 +748,7 @@ class AiToolRuntimeService {
           confirmWriteCommand: confirmWriteCommand,
           cancelSignal: cancelSignal,
           onBashUpdate: onBashUpdate,
+          metadata: metadata,
         ),
         AiRuntimeToolSource.mcp => _executeMcpTool(
           tool: resolvedTool,
@@ -1173,6 +1175,7 @@ class AiToolRuntimeService {
     confirmWriteCommand,
     Future<void>? cancelSignal,
     void Function(BashToolExecutionUpdate update)? onBashUpdate,
+    Map<String, Object?> metadata = const <String, Object?>{},
   }) async {
     final kind = tool.builtinKind;
     if (kind == null) {
@@ -1196,6 +1199,7 @@ class AiToolRuntimeService {
       cancelSignal: cancelSignal,
       onBashUpdate: onBashUpdate,
       metadata: <String, Object?>{
+        ...metadata,
         'file_tracker': _fileTracker,
         'file_history': _fileHistory,
         'mutation_ledger': _mutationLedger,

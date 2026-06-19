@@ -99,6 +99,16 @@ class AiTaskTool extends AiTool {
         'Unsupported subagent_type "$subagentType". Available types: ${subagentDescriptions.keys.join(', ')}',
       );
     }
+    if (_isBlockedPlanModeSubagent(
+      metadata: context.metadata,
+      subagentType: canonicalSubagentType,
+    )) {
+      return AiToolUtils.invalidResult(
+        _toolName,
+        'Plan mode before execution approval allows Task only with read-only subagent_type values: ${readOnlyParallelSubagentTypes.join(', ')}. '
+        'Use a read-only subagent now, or run "$canonicalSubagentType" after the plan is approved.',
+      );
+    }
     final subagentProfile =
         subagentDescriptions[canonicalSubagentType] ??
         'Focused background agent.';
@@ -344,6 +354,7 @@ class AiTaskTool extends AiTool {
               context.requireWriteCommandConfirmation,
           confirmWriteCommand: context.confirmWriteCommand,
           cancelSignal: context.cancelSignal,
+          metadata: context.metadata,
         );
         // NOTE: subagent tool execution is dispatched back through AiToolRuntimeService
         // via a provided callback to avoid circular dependency. The callback is injected
@@ -452,6 +463,18 @@ class AiTaskTool extends AiTool {
       _ => _readOnlyBuiltinKinds,
     };
     return allowedKinds.contains(kind);
+  }
+
+  bool _isBlockedPlanModeSubagent({
+    required Map<String, Object?> metadata,
+    required String subagentType,
+  }) {
+    final planModeActive = metadata['plan_mode_active'] == true;
+    final executionApproved =
+        metadata['plan_mode_execution_approved_for_send'] == true;
+    return planModeActive &&
+        !executionApproved &&
+        !readOnlyParallelSubagentTypes.contains(subagentType);
   }
 
   ({String command, String reason})? _subagentWriteViolation({

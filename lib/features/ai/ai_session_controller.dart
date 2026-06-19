@@ -5482,6 +5482,7 @@ class AiSessionController extends ChangeNotifier {
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
+        planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
         refreshToolCatalog: (currentSession) {
           if (currentSession.awaitingPlanApproval) {
             return const AiResolvedToolCatalog(
@@ -5552,6 +5553,7 @@ class AiSessionController extends ChangeNotifier {
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
+    required bool planModeExecutionApprovedForSend,
     AiResolvedToolCatalog Function(AiSession session)? refreshToolCatalog,
   }) async {
     if (_isStopRequestedForSession(session.id)) {
@@ -5573,6 +5575,7 @@ class AiSessionController extends ChangeNotifier {
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
+        planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
       );
     }
     var workingSession = session;
@@ -5627,6 +5630,7 @@ class AiSessionController extends ChangeNotifier {
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
+        planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
         onUpdate: (update) {
           if (update.phase != BashToolExecutionPhase.running) {
             return;
@@ -5761,6 +5765,7 @@ class AiSessionController extends ChangeNotifier {
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
+    required bool planModeExecutionApprovedForSend,
   }) async {
     var workingSession = session;
     final runningStates = <_RunningToolCallState>[];
@@ -5824,6 +5829,7 @@ class AiSessionController extends ChangeNotifier {
           denyCommandRules: denyCommandRules,
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
           confirmWriteCommand: confirmWriteCommand,
+          planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
           onUpdate: (update) {
             if (update.phase != BashToolExecutionPhase.running) {
               return;
@@ -5962,12 +5968,15 @@ class AiSessionController extends ChangeNotifier {
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
+    bool planModeExecutionApprovedForSend = false,
     Future<void>? cancelSignal,
     void Function(BashToolExecutionUpdate update)? onUpdate,
   }) async {
     try {
       final currentSession = _sessionById(sessionId);
       final isFullAccess = currentSession?.fullAccessPermission == true;
+      final sessionMode = currentSession?.mode;
+      final planModeActive = sessionMode == AiSessionMode.plan;
       return await _toolRuntimeService.execute(
         sessionId: executionSessionId ?? sessionId,
         catalog: toolCatalog,
@@ -5981,6 +5990,15 @@ class AiSessionController extends ChangeNotifier {
         confirmWriteCommand: confirmWriteCommand,
         cancelSignal: cancelSignal ?? _stopSignalForSession(sessionId),
         onBashUpdate: onUpdate,
+        metadata: <String, Object?>{
+          if (sessionMode != null) 'session_mode': sessionMode.storageValue,
+          'plan_mode_active': planModeActive,
+          'awaiting_plan_approval':
+              currentSession?.awaitingPlanApproval ?? false,
+          'plan_mode_execution_approved_for_send': planModeActive
+              ? planModeExecutionApprovedForSend
+              : true,
+        },
       );
     } catch (error) {
       return AiToolExecutionResult(
