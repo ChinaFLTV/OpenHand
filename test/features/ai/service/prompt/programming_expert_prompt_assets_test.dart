@@ -7,6 +7,7 @@ void main() {
     test('keep system prompt focused and tool manual in developer prompt', () {
       final system = _readPrompt('system_instructions.md');
       final developer = _readPrompt('developer_instructions.md');
+      final contextRecovery = _readPrompt('sections/context_recovery.md');
 
       expect(system.split('\n').length, lessThanOrEqualTo(100));
       expect(system, isNot(contains('<tool_use>')));
@@ -20,6 +21,10 @@ void main() {
       expect(developer, contains('<file_operations>'));
       expect(developer, contains('`Task` 必须顶层传'));
       expect(developer, contains('`Edit`：单点替换'));
+      expect(developer, contains('tool_output_persisted_path'));
+      expect(developer, contains('tool_output_recovery_hint'));
+      expect(contextRecovery, contains('tool_output_truncated'));
+      expect(contextRecovery, contains('tool_output_persisted_path'));
     });
   });
 }
