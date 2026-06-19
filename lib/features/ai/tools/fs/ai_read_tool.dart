@@ -15,6 +15,9 @@ class AiReadTool extends AiTool {
   AiReadTool({AiFileReadRenderer? renderer})
     : _renderer = renderer ?? const AiFileReadRenderer();
 
+  static const String _unchangedSinceLastReadMessage =
+      'File unchanged since last read. The content from the earlier Read tool result in this conversation is still current; refer to that result instead of re-reading.';
+
   final AiFileReadRenderer _renderer;
 
   @override
@@ -53,11 +56,38 @@ class AiReadTool extends AiTool {
         'Read limit must be a positive integer.',
       );
     }
+    final effectiveOffset = offset == null || offset <= 1 ? 1 : offset;
+    if (fileTracker != null &&
+        await fileTracker.isReadResultUnchanged(
+          filePath: filePath,
+          offset: effectiveOffset,
+          limit: limit,
+        )) {
+      return AiToolUtils.simpleSuccessResult(
+        command: 'Read $filePath',
+        output: '$_unchangedSinceLastReadMessage\npath: $filePath',
+        durationMs: startedAt.elapsedMilliseconds,
+        workingDirectory: p.dirname(filePath),
+        metadata: <String, Object?>{
+          'read_file_path': filePath,
+          'read_file_unchanged': true,
+          'read_file_offset': effectiveOffset,
+          'read_file_limit': limit,
+        },
+      );
+    }
     final renderedRead = await _renderer.render(file, filePath);
     final rawContent = renderedRead.content;
 
-    // 2026-04-12: 记录文件读取时间（用于脏写检测）
-    await fileTracker?.recordFileRead(filePath);
+    if (renderedRead.lineAddressable) {
+      await fileTracker?.recordReadResult(
+        filePath: filePath,
+        offset: effectiveOffset,
+        limit: limit,
+      );
+    } else {
+      await fileTracker?.recordFileRead(filePath);
+    }
 
     if (rawContent.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
@@ -68,6 +98,8 @@ class AiReadTool extends AiTool {
           'read_file_path': filePath,
           'read_file_kind': renderedRead.fileKind,
           'read_render_mode': renderedRead.renderMode,
+          'read_file_offset': effectiveOffset,
+          'read_file_limit': limit,
           aiHookSystemRemindersMetadataKey: <String>[
             'Read opened an empty file: $filePath',
           ],
@@ -85,11 +117,13 @@ class AiReadTool extends AiTool {
           'read_file_kind': renderedRead.fileKind,
           'read_render_mode': renderedRead.renderMode,
           'read_truncated': renderedRead.truncated,
+          'read_file_offset': effectiveOffset,
+          'read_file_limit': limit,
         },
       );
     }
     final lines = const LineSplitter().convert(rawContent);
-    final startIndex = offset == null || offset <= 1 ? 0 : offset - 1;
+    final startIndex = effectiveOffset <= 1 ? 0 : effectiveOffset - 1;
     final safeStartIndex = startIndex < lines.length
         ? startIndex
         : lines.length;
@@ -123,6 +157,8 @@ class AiReadTool extends AiTool {
         'read_file_kind': renderedRead.fileKind,
         'read_render_mode': renderedRead.renderMode,
         'read_truncated': renderedRead.truncated,
+        'read_file_offset': effectiveOffset,
+        'read_file_limit': limit,
         if (renderedRead.truncated)
           aiHookSystemRemindersMetadataKey: <String>[
             'Read truncated a large file preview: $filePath',

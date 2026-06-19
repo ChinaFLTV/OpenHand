@@ -70,5 +70,32 @@ void main() {
         expect(error, contains(file.path));
       },
     );
+
+    test('updateAfterWrite clears read result dedup snapshot', () async {
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\n');
+      final tracker = AiFileTrackerService();
+
+      await tracker.recordReadResult(filePath: file.path, offset: 1, limit: 10);
+      expect(
+        await tracker.isReadResultUnchanged(
+          filePath: file.path,
+          offset: 1,
+          limit: 10,
+        ),
+        isTrue,
+      );
+
+      await tracker.updateAfterWrite(file.path);
+
+      expect(
+        await tracker.isReadResultUnchanged(
+          filePath: file.path,
+          offset: 1,
+          limit: 10,
+        ),
+        isFalse,
+      );
+    });
   });
 }

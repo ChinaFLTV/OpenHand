@@ -19,6 +19,13 @@ class AiFileTrackerService {
   final Map<String, _TrackedFileSnapshot> _readSnapshots =
       <String, _TrackedFileSnapshot>{};
 
+  /// 文件路径 → 最近一次 Read 工具返回的范围快照。
+  ///
+  /// 仅用于重复 Read 去重；Edit/Write 后会清除，避免把模型指向旧的
+  /// Read tool_result。
+  final Map<String, _TrackedReadResult> _readResultSnapshots =
+      <String, _TrackedReadResult>{};
+
   /// 记录文件读取快照
   ///
   /// 在 Read 工具执行成功后调用
@@ -27,9 +34,47 @@ class AiFileTrackerService {
     final file = File(normalizedPath);
     if (!await file.exists()) return;
     _readSnapshots[normalizedPath] = await _snapshotFile(file);
+    _readResultSnapshots.remove(normalizedPath);
   }
 
-  /// 批量记录文件读取时间
+  /// 记录 Read 工具成功返回的文件范围快照。
+  Future<void> recordReadResult({
+    required String filePath,
+    required int offset,
+    required int limit,
+  }) async {
+    final normalizedPath = p.normalize(filePath);
+    final file = File(normalizedPath);
+    if (!await file.exists()) return;
+    final snapshot = await _snapshotFile(file);
+    _readSnapshots[normalizedPath] = snapshot;
+    _readResultSnapshots[normalizedPath] = _TrackedReadResult(
+      offset: offset,
+      limit: limit,
+      snapshot: snapshot,
+    );
+  }
+
+  /// 如果同一 Read 范围自上次读取后未变化，返回 true。
+  Future<bool> isReadResultUnchanged({
+    required String filePath,
+    required int offset,
+    required int limit,
+  }) async {
+    final normalizedPath = p.normalize(filePath);
+    final previousRead = _readResultSnapshots[normalizedPath];
+    if (previousRead == null ||
+        previousRead.offset != offset ||
+        previousRead.limit != limit) {
+      return false;
+    }
+    final file = File(normalizedPath);
+    if (!await file.exists()) return false;
+    final current = await _snapshotFile(file);
+    return previousRead.snapshot.hasSameContentAs(current);
+  }
+
+  /// 批量记录文件读取快照
   Future<void> recordFilesRead(Iterable<String> filePaths) async {
     for (final path in filePaths) {
       await recordFileRead(path);
@@ -57,8 +102,8 @@ class AiFileTrackerService {
     }
 
     final current = await _snapshotFile(file);
-    if (lastRead.sha256Digest != null && current.sha256Digest != null) {
-      if (lastRead.sha256Digest == current.sha256Digest) return null;
+    if (lastRead.canCompareContentWith(current)) {
+      if (lastRead.hasSameContentAs(current)) return null;
       return _dirtyWriteMessage(filePath, lastRead, current);
     }
 
@@ -74,11 +119,13 @@ class AiFileTrackerService {
   void clearFileTracking(String filePath) {
     final normalizedPath = p.normalize(filePath);
     _readSnapshots.remove(normalizedPath);
+    _readResultSnapshots.remove(normalizedPath);
   }
 
   /// 清除所有追踪记录（会话重置时调用）
   void clearAllTracking() {
     _readSnapshots.clear();
+    _readResultSnapshots.clear();
   }
 
   /// 更新文件读取快照（写入后需要更新）
@@ -139,4 +186,24 @@ class _TrackedFileSnapshot {
   final DateTime modified;
   final int size;
   final String? sha256Digest;
+
+  bool canCompareContentWith(_TrackedFileSnapshot other) {
+    return sha256Digest != null && other.sha256Digest != null;
+  }
+
+  bool hasSameContentAs(_TrackedFileSnapshot other) {
+    return canCompareContentWith(other) && sha256Digest == other.sha256Digest;
+  }
+}
+
+class _TrackedReadResult {
+  const _TrackedReadResult({
+    required this.offset,
+    required this.limit,
+    required this.snapshot,
+  });
+
+  final int offset;
+  final int limit;
+  final _TrackedFileSnapshot snapshot;
 }
