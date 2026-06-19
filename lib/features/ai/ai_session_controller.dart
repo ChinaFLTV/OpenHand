@@ -6339,6 +6339,11 @@ class AiSessionController extends ChangeNotifier {
     return toolCall.name;
   }
 
+  bool _toolCallRunInBackground(AiToolCall toolCall) {
+    final decodedArguments = _decodeToolArguments(toolCall.arguments);
+    return _readBool(decodedArguments['run_in_background']) == true;
+  }
+
   String _toolCallWorkingDirectory(AiToolCall toolCall) {
     final decodedArguments = _decodeToolArguments(toolCall.arguments);
     final workingDirectory =
@@ -6392,6 +6397,9 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.task:
         return _isParallelizableTaskToolCall(toolCall);
       case AiBuiltinToolKind.bash:
+        if (_toolCallRunInBackground(toolCall)) {
+          return false;
+        }
         return !_bashToolService
             .analyzeWriteCommand(_toolCallCommand(toolCall))
             .isWrite;

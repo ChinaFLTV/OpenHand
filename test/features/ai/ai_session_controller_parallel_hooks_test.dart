@@ -131,6 +131,97 @@ void main() {
         containsAll(<String>['read-a', 'read-b']),
       );
     });
+
+    test('keeps Bash run_in_background calls serial', () async {
+      final projectDir = Directory(p.join(tempDir!.path, 'project-bg'));
+      await projectDir.create(recursive: true);
+      final file = File(p.join(projectDir.path, 'a.txt'));
+      await file.writeAsString('alpha\n');
+
+      final chatClient = _QueuedStreamingChatClient(<AiChatStreamResult>[
+        AiChatStreamResult(
+          reply: '',
+          reasoning: '',
+          finishReason: 'tool_calls',
+          toolCalls: <AiToolCall>[
+            AiToolCall(
+              id: 'bash-bg',
+              name: 'Bash',
+              arguments: jsonEncode(<String, Object?>{
+                'cmd': 'sleep 5',
+                'working_directory': projectDir.path,
+                'run_in_background': true,
+              }),
+            ),
+            AiToolCall(
+              id: 'read-a',
+              name: 'Read',
+              arguments: jsonEncode(<String, Object?>{'file_path': file.path}),
+            ),
+          ],
+        ),
+        const AiChatStreamResult(
+          reply: 'done',
+          reasoning: '',
+          finishReason: 'stop',
+          toolCalls: <AiToolCall>[],
+        ),
+      ]);
+      final hookExecutor = _RecordingHooksExecutor(hooksController);
+      final store = AiSessionStore(
+        sessionsDirectoryPath: p.join(tempDir!.path, 'sessions-bg'),
+      );
+      final controller = await AiSessionController.create(
+        store: store,
+        chatClient: chatClient,
+        backgroundChatClient: chatClient,
+        templateRepository: AiPromptTemplateRepository(loader: _promptLoader),
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        userHooksExecutor: hookExecutor,
+      );
+      addTearDown(controller.dispose);
+
+      final created = await controller.createSession(
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+        runtimeContext: _runtimeContext(projectDir.path),
+        awaitStartHook: false,
+      );
+      expect(created, isTrue);
+
+      final sent = await controller.sendMessage(
+        content: 'Start the background command and read the file.',
+        model: _testModel,
+        runtimeContext: _runtimeContext(projectDir.path),
+        requireWriteCommandConfirmation: false,
+      );
+
+      expect(sent, isTrue);
+      expect(chatClient.streamRequestCount, 2);
+      final hookOrder = hookExecutor.payloads
+          .map(
+            (payload) =>
+                '${payload['event'] ?? ''}:${payload['tool_name'] ?? ''}',
+          )
+          .toList(growable: false);
+      expect(
+        hookOrder,
+        containsAllInOrder(<String>[
+          '${HookEvent.preToolUse.storageValue}:Bash',
+          '${HookEvent.postToolUse.storageValue}:Bash',
+          '${HookEvent.preToolUse.storageValue}:Read',
+          '${HookEvent.postToolUse.storageValue}:Read',
+        ]),
+      );
+
+      final session = controller.currentSession!;
+      final bashResult = session.messages.lastWhere(
+        (message) => message.metadata['tool_call_id'] == 'bash-bg',
+      );
+      expect(bashResult.metadata['bash_run_in_background_alias'], isTrue);
+      expect(bashResult.metadata['bg_handle'], isA<String>());
+    });
   });
 }
 

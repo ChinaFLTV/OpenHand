@@ -1351,13 +1351,45 @@ class AiToolRuntimeService {
         'Missing builtin tool metadata.',
       );
     }
+    var dispatchKind = kind;
+    var dispatchToolCall = toolCall;
+    var dispatchArguments = decodedArguments;
+    var dispatchMetadata = const <String, Object?>{};
+    if (kind == AiBuiltinToolKind.bash &&
+        _readBoolArgument(decodedArguments['run_in_background']) == true) {
+      final backgroundTool = _findResolvedBuiltinTool(
+        catalog,
+        AiBuiltinToolKind.bashBackground,
+      );
+      if (backgroundTool == null) {
+        return _invalidToolResult(
+          toolCall.name,
+          'Bash run_in_background requires BashBackground to be enabled in the current tool catalog.',
+        );
+      }
+      dispatchKind = AiBuiltinToolKind.bashBackground;
+      dispatchToolCall = AiToolCall(
+        id: toolCall.id,
+        name: backgroundTool.name,
+        arguments: toolCall.arguments,
+      );
+      dispatchArguments = <String, Object?>{
+        ...decodedArguments,
+        'action': 'start',
+      }..remove('run_in_background');
+      dispatchMetadata = <String, Object?>{
+        'bash_run_in_background_alias': true,
+        'routed_from_tool': tool.name,
+        'routed_to_tool': backgroundTool.name,
+      };
+    }
     // 2026-04-01 优先通过多态 Registry 路由（轻量工具已迁移）
     // 2026-04-12 通过 metadata 传递文件追踪和历史服务（遵循 AiToolExecutionContext 冻结约束）
     final registryContext = AiToolExecutionContext(
       sessionId: sessionId,
       catalog: catalog,
-      toolCall: toolCall,
-      decodedArguments: decodedArguments,
+      toolCall: dispatchToolCall,
+      decodedArguments: dispatchArguments,
       model: model,
       previouslyReadFiles: previouslyReadFiles,
       denyCommandRules: denyCommandRules,
@@ -1376,14 +1408,38 @@ class AiToolRuntimeService {
     );
     final registryResult = await _toolRegistry.tryExecute(
       registryContext,
-      kind,
+      dispatchKind,
     );
-    if (registryResult != null) return registryResult;
+    if (registryResult != null) {
+      if (dispatchMetadata.isEmpty) return registryResult;
+      return AiToolUtils.withMergedMetadata(registryResult, dispatchMetadata);
+    }
     // 2026-04-01 所有工具均已通过 Registry 注册，此路径不可达。
     return _invalidToolResult(
       toolCall.name,
       'No registered handler found for builtin tool: ${kind.name}',
     );
+  }
+
+  AiResolvedTool? _findResolvedBuiltinTool(
+    AiResolvedToolCatalog catalog,
+    AiBuiltinToolKind kind,
+  ) {
+    for (final tool in catalog.toolsByName.values) {
+      if (tool.source == AiRuntimeToolSource.builtin &&
+          tool.builtinKind == kind) {
+        return tool;
+      }
+    }
+    return null;
+  }
+
+  bool? _readBoolArgument(Object? rawValue) {
+    if (rawValue is bool) return rawValue;
+    final normalized = '$rawValue'.trim().toLowerCase();
+    if (normalized == 'true') return true;
+    if (normalized == 'false') return false;
+    return null;
   }
 
   Future<AiToolExecutionResult> _executeMcpTool({
@@ -1947,7 +2003,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.bash,
       name: 'Bash',
       description:
-          'Execute a shell command in a subprocess. Use cmd for the command string and optionally working_directory for the working directory. Call this directly when shell work is needed. '
+          'Execute a shell command in a subprocess. Use cmd for the command string and optionally working_directory for the working directory. Set run_in_background to true for Claude-style long-running commands that should be started through BashBackground. '
           'For code/text search, prefer the dedicated Grep tool (which is backed by the application-bundled ripgrep binary) over shelling out to `grep`/`rg`. '
           'If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
       parameters: const <String, Object?>{
@@ -1956,6 +2012,11 @@ class AiToolRuntimeService {
           'cmd': <String, Object?>{'type': 'string'},
           'working_directory': <String, Object?>{'type': 'string'},
           'timeout': <String, Object?>{'type': 'integer'},
+          'run_in_background': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, route this command to BashBackground start and return a background handle instead of waiting for completion.',
+          },
         },
         'required': <String>['cmd'],
         'additionalProperties': false,

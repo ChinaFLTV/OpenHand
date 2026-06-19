@@ -152,6 +152,29 @@ void main() {
   });
 
   group('AiToolRuntimeService builtin schemas', () {
+    test('Bash accepts Claude-style run_in_background input', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('Bash')?.definition;
+      final parameters = definition?.parameters;
+      final properties = parameters?['properties'];
+
+      expect(definition, isNotNull);
+      expect(properties, isA<Map>());
+      expect(
+        (properties as Map)['run_in_background'],
+        containsPair('type', 'boolean'),
+      );
+    });
+
     test('Task accepts omitted subagent type input', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),
@@ -198,6 +221,91 @@ void main() {
         expect(required, isNull);
       }
     });
+  });
+
+  group('AiToolRuntimeService Bash background alias', () {
+    test('routes run_in_background to BashBackground start', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(runtime.dispose);
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+
+      final result = await runtime.execute(
+        sessionId: 'runtime-bash-background-alias-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-bg-1',
+          name: 'Bash',
+          arguments: jsonEncode(<String, Object?>{
+            'cmd': 'sleep 5',
+            'working_directory': '/tmp',
+            'run_in_background': true,
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.command, startsWith('BashBackground start bg_'));
+      expect(result.stdout, contains('status: started'));
+      expect(result.stdout, contains('handle: bg_'));
+      expect(result.metadata['bash_run_in_background_alias'], isTrue);
+      expect(result.metadata['routed_from_tool'], 'Bash');
+      expect(result.metadata['routed_to_tool'], 'BashBackground');
+      expect(result.metadata['bg_handle'], isA<String>());
+    });
+
+    test(
+      'rejects run_in_background when BashBackground is unavailable',
+      () async {
+        final runtime = AiToolRuntimeService(
+          bashToolService: AiBashToolService(),
+          hookService: AiNoopClaudeHookService(),
+          mcpToolService: _FakeMcpToolDiscoveryService(),
+          backgroundChatClient: _FakeChatClient(),
+        );
+        addTearDown(runtime.dispose);
+        final fullCatalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _testRuntimeContext,
+        );
+        final bashTool = fullCatalog.find('Bash')!;
+        final bashOnlyCatalog = AiResolvedToolCatalog(
+          definitions: <AiToolDefinition>[bashTool.definition],
+          toolsByName: <String, AiResolvedTool>{'Bash': bashTool},
+        );
+
+        final result = await runtime.execute(
+          sessionId: 'runtime-bash-background-missing-test',
+          catalog: bashOnlyCatalog,
+          toolCall: AiToolCall(
+            id: 'call-bg-2',
+            name: 'Bash',
+            arguments: jsonEncode(<String, Object?>{
+              'cmd': 'sleep 5',
+              'run_in_background': true,
+            }),
+          ),
+          model: _testModel,
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: null,
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.stderr, contains('requires BashBackground'));
+      },
+    );
   });
 
   group('AiToolRuntimeService output budget', () {
