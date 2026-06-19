@@ -3251,6 +3251,7 @@ $tail''';
         final writeConfirmationDecision = _writeConfirmationDecision(
           message.metadata,
         );
+        final gateDescriptorParts = _toolGateDescriptorParts(message.metadata);
         final pathHint = _fileContextAnchorPathPreview(message);
         final snippet = _firstNonEmptyLine(message.content, 160);
         final descriptor = <String>[
@@ -3258,6 +3259,7 @@ $tail''';
           if (status.isNotEmpty) 'status=$status',
           if (writeConfirmationDecision.isNotEmpty)
             'write_confirmation=$writeConfirmationDecision',
+          ...gateDescriptorParts,
           if (command.isNotEmpty) 'cmd=${_truncate(command, 60)}',
           if (pathHint.isNotEmpty) 'path=$pathHint',
         ].join(' · ');
@@ -4476,7 +4478,7 @@ $content
       '[old_tool_result_cleared] ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
       if (status.isNotEmpty) 'status: $status',
-      ..._writeConfirmationSummaryLines(metadata),
+      ..._toolStateSummaryLines(metadata),
       if (targetPaths.isNotEmpty) 'targets: ${targetPaths.join(', ')}',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
       if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
@@ -4487,6 +4489,13 @@ $content
 
   String _writeConfirmationDecision(Map<String, Object?> metadata) {
     return '${metadata['write_confirmation_decision'] ?? ''}'.trim();
+  }
+
+  List<String> _toolStateSummaryLines(Map<String, Object?> metadata) {
+    return <String>[
+      ..._writeConfirmationSummaryLines(metadata),
+      ..._planGateSummaryLines(metadata),
+    ];
   }
 
   List<String> _writeConfirmationSummaryLines(Map<String, Object?> metadata) {
@@ -4505,6 +4514,69 @@ $content
       }
     }
     return lines;
+  }
+
+  List<String> _planGateSummaryLines(Map<String, Object?> metadata) {
+    final lines = <String>[];
+    if (metadata['ask_user_choice_blocked_plan_approval'] == true) {
+      lines.add('plan_gate_block: ask_user_choice_plan_approval');
+      final reason = '${metadata['ask_user_choice_block_reason'] ?? ''}'.trim();
+      if (reason.isNotEmpty) lines.add('ask_user_choice_block_reason: $reason');
+      final approvalTool = '${metadata['plan_approval_tool'] ?? ''}'.trim();
+      if (approvalTool.isNotEmpty) {
+        lines.add('plan_approval_tool: $approvalTool');
+      }
+    }
+    if (metadata['task_blocked_plan_mode_subagent'] == true) {
+      lines.add('plan_gate_block: task_subagent_execution_unapproved');
+      final reason = '${metadata['task_block_reason'] ?? ''}'.trim();
+      if (reason.isNotEmpty) lines.add('task_block_reason: $reason');
+      final subagentType = '${metadata['subagent_type'] ?? ''}'.trim();
+      if (subagentType.isNotEmpty) lines.add('subagent_type: $subagentType');
+      final allowed = _readStringList(
+        metadata['allowed_subagent_types_before_approval'],
+      );
+      if (allowed.isNotEmpty) {
+        lines.add(
+          'allowed_subagent_types_before_approval: ${allowed.join(', ')}',
+        );
+      }
+    }
+    final unsupportedTool = '${metadata['unsupported_tool_name'] ?? ''}'.trim();
+    if (unsupportedTool.isNotEmpty) {
+      lines.add('unsupported_tool_name: $unsupportedTool');
+    }
+    if (metadata['tool_catalog_empty'] == true) {
+      lines.add('tool_catalog_empty: true');
+    }
+    for (final key in const <String>[
+      'plan_mode_active',
+      'awaiting_plan_approval',
+      'plan_mode_execution_approved_for_send',
+    ]) {
+      if (metadata.containsKey(key) && metadata[key] is bool) {
+        lines.add('$key: ${metadata[key]}');
+      }
+    }
+    return lines;
+  }
+
+  List<String> _toolGateDescriptorParts(Map<String, Object?> metadata) {
+    final parts = <String>[];
+    if (metadata['ask_user_choice_blocked_plan_approval'] == true) {
+      parts.add('plan_gate=ask_choice_requires_exit');
+    }
+    if (metadata['task_blocked_plan_mode_subagent'] == true) {
+      parts.add('plan_gate=task_unapproved');
+    }
+    final unsupportedTool = '${metadata['unsupported_tool_name'] ?? ''}'.trim();
+    if (unsupportedTool.isNotEmpty) {
+      parts.add('unsupported_tool=$unsupportedTool');
+    }
+    if (metadata['tool_catalog_empty'] == true) {
+      parts.add('catalog_empty=true');
+    }
+    return parts;
   }
 
   /// 2026-05-23 — 压缩前补做微压缩：为 [messages] 中已被消费的旧工具结果
@@ -4742,11 +4814,15 @@ $content
       message,
       inlineSystemReminders: inlineSystemReminders,
     );
+    final metadata = message.metadata;
+    final toolStateLines = _toolStateSummaryLines(
+      metadata,
+    ).where((line) => !original.contains(line)).toList(growable: false);
     final threshold = compressionConfig.thresholdChars;
     if (original.length <= threshold) {
-      return original;
+      if (toolStateLines.isEmpty) return original;
+      return '$original\n${toolStateLines.join('\n')}';
     }
-    final metadata = message.metadata;
     final toolName = '${metadata['tool_name'] ?? ''}'.trim();
     final status =
         '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
@@ -4768,6 +4844,7 @@ $content
       '[tool_result_summary] ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
       if (status.isNotEmpty) 'status: $status',
+      ...toolStateLines,
       if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
       if (pathHits.isNotEmpty)
         'affected:\n${pathHits.map((h) => '  - $h').join('\n')}',

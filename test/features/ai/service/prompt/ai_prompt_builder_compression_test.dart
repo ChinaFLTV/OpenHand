@@ -139,6 +139,119 @@ void main() {
       expect(content, contains('reason: mutating command touch'));
     });
 
+    test('preserves plan gate blocks in compressed transcript', () {
+      final now = DateTime.utc(2026, 6, 19, 8);
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'u1',
+          content: 'Continue after planning',
+          createdAt: now,
+        ),
+        AiSessionMessage.toolResult(
+          id: 't1',
+          content: 'Error: plan approval must use the dedicated tool.',
+          createdAt: now.add(const Duration(seconds: 1)),
+          metadata: const <String, Object?>{
+            'tool_name': 'AskUserChoice',
+            'status': 'invalid_arguments',
+            'ask_user_choice_blocked_plan_approval': true,
+            'ask_user_choice_block_reason':
+                'plan_approval_requires_exit_plan_mode',
+            'plan_approval_tool': 'ExitPlanMode',
+            'plan_mode_active': true,
+            'awaiting_plan_approval': false,
+            'plan_mode_execution_approved_for_send': false,
+          },
+        ),
+        AiSessionMessage.toolResult(
+          id: 't2',
+          content: 'Error: verify subagent is blocked until plan approval.',
+          createdAt: now.add(const Duration(seconds: 2)),
+          metadata: const <String, Object?>{
+            'tool_name': 'Task',
+            'status': 'invalid_arguments',
+            'task_blocked_plan_mode_subagent': true,
+            'task_block_reason': 'plan_mode_execution_unapproved',
+            'subagent_type': 'verify',
+            'allowed_subagent_types_before_approval': <String>[
+              'research',
+              'summarize',
+              'advice',
+            ],
+            'plan_mode_active': true,
+            'plan_mode_execution_approved_for_send': false,
+          },
+        ),
+        AiSessionMessage.toolResult(
+          id: 't3',
+          content: 'Unsupported tool: Patch',
+          createdAt: now.add(const Duration(seconds: 3)),
+          metadata: const <String, Object?>{
+            'tool_name': 'Patch',
+            'status': 'unsupported_tool',
+            'unsupported_tool_name': 'Patch',
+            'tool_catalog_empty': true,
+          },
+        ),
+      ];
+      final session = AiSession(
+        id: 'session-1',
+        title: 'Plan gate compression session',
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+        templateName: '编程专家',
+        templateIconName: 'code_rounded',
+        templateInternalVersion: 'test',
+        createdAt: now,
+        updatedAt: now,
+        messages: messages,
+        environment: _testEnvironment,
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: const <AiSessionErrorRecord>[],
+      );
+
+      final turns = const AiPromptBuilder().buildCompressionPrompt(
+        templateBundle: _testBundle,
+        template: _testTemplate,
+        session: session,
+        runtimeContext: _testRuntimeContext,
+        messagesToCompress: messages,
+        previousCompressionPoint: null,
+      );
+
+      final content = turns.last.content;
+      expect(
+        content,
+        contains('plan_gate_block: ask_user_choice_plan_approval'),
+      );
+      expect(
+        content,
+        contains(
+          'ask_user_choice_block_reason: '
+          'plan_approval_requires_exit_plan_mode',
+        ),
+      );
+      expect(content, contains('plan_approval_tool: ExitPlanMode'));
+      expect(
+        content,
+        contains('plan_gate_block: task_subagent_execution_unapproved'),
+      );
+      expect(
+        content,
+        contains('task_block_reason: plan_mode_execution_unapproved'),
+      );
+      expect(content, contains('subagent_type: verify'));
+      expect(
+        content,
+        contains(
+          'allowed_subagent_types_before_approval: research, summarize, advice',
+        ),
+      );
+      expect(content, contains('unsupported_tool_name: Patch'));
+      expect(content, contains('tool_catalog_empty: true'));
+      expect(content, contains('plan_mode_active: true'));
+      expect(content, contains('plan_mode_execution_approved_for_send: false'));
+    });
+
     test(
       'surfaces write confirmation decision in post-compact focus context',
       () {
@@ -208,6 +321,110 @@ void main() {
         expect(focusContext, contains('cmd=touch /tmp/openhand-focus-test'));
       },
     );
+
+    test('surfaces plan gate blocks in post-compact focus context', () {
+      final now = DateTime.utc(2026, 6, 19, 8);
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.toolResult(
+          id: 't1',
+          content: 'Error: plan approval must use the dedicated tool.',
+          createdAt: now,
+          metadata: const <String, Object?>{
+            'tool_name': 'AskUserChoice',
+            'status': 'invalid_arguments',
+            'ask_user_choice_blocked_plan_approval': true,
+            'ask_user_choice_block_reason':
+                'plan_approval_requires_exit_plan_mode',
+            'plan_approval_tool': 'ExitPlanMode',
+            'plan_mode_active': true,
+            'awaiting_plan_approval': false,
+            'plan_mode_execution_approved_for_send': false,
+          },
+        ),
+        AiSessionMessage.toolResult(
+          id: 't2',
+          content: 'Error: verify subagent is blocked until plan approval.',
+          createdAt: now.add(const Duration(seconds: 1)),
+          metadata: const <String, Object?>{
+            'tool_name': 'Task',
+            'status': 'invalid_arguments',
+            'task_blocked_plan_mode_subagent': true,
+            'task_block_reason': 'plan_mode_execution_unapproved',
+            'subagent_type': 'verify',
+            'allowed_subagent_types_before_approval': <String>[
+              'research',
+              'summarize',
+              'advice',
+            ],
+            'plan_mode_active': true,
+            'plan_mode_execution_approved_for_send': false,
+          },
+        ),
+        AiSessionMessage.toolResult(
+          id: 't3',
+          content: 'Unsupported tool: Patch',
+          createdAt: now.add(const Duration(seconds: 2)),
+          metadata: const <String, Object?>{
+            'tool_name': 'Patch',
+            'status': 'unsupported_tool',
+            'unsupported_tool_name': 'Patch',
+            'tool_catalog_empty': true,
+          },
+        ),
+        AiSessionMessage.compressionPoint(
+          id: 'c1',
+          content: 'Checkpoint after plan gate blocks.',
+          createdAt: now.add(const Duration(seconds: 3)),
+          metadata: const <String, Object?>{},
+        ),
+        AiSessionMessage.user(
+          id: 'u1',
+          content: 'What happened before compaction?',
+          createdAt: now.add(const Duration(seconds: 4)),
+        ),
+      ];
+      final session = AiSession(
+        id: 'session-1',
+        title: 'Plan gate focus context session',
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+        templateName: '编程专家',
+        templateIconName: 'code_rounded',
+        templateInternalVersion: 'test',
+        createdAt: now,
+        updatedAt: now,
+        messages: messages,
+        environment: _testEnvironment,
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: const <AiSessionErrorRecord>[],
+      );
+
+      final result = const AiPromptBuilder().buildSessionPrompt(
+        templateBundle: _testBundle,
+        session: session,
+        model: _testModel,
+        runtimeContext: _testRuntimeContext,
+        memoryEntries: const <Never>[],
+        sessionMessages: messages,
+        latestUserMessageId: 'u1',
+      );
+      final focusContext = result.messages
+          .map((turn) => turn.content)
+          .firstWhere(
+            (content) =>
+                content.startsWith(AiPromptSectionHeaders.focusContext),
+          );
+
+      expect(
+        focusContext,
+        contains('AskUserChoice · status=invalid_arguments'),
+      );
+      expect(focusContext, contains('plan_gate=ask_choice_requires_exit'));
+      expect(focusContext, contains('Task · status=invalid_arguments'));
+      expect(focusContext, contains('plan_gate=task_unapproved'));
+      expect(focusContext, contains('Patch · status=unsupported_tool'));
+      expect(focusContext, contains('unsupported_tool=Patch'));
+      expect(focusContext, contains('catalog_empty=true'));
+    });
   });
 }
 
