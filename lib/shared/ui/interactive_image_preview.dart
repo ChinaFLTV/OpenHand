@@ -29,17 +29,14 @@ class _OpenHandInteractiveImagePreviewState
   static const Curve _kResetCurve = Curves.easeOutCubic;
 
   late final TransformationController _controller = TransformationController();
-  late final AnimationController _resetController = AnimationController(
-    vsync: this,
-    duration: _kResetDuration,
-  )..addListener(_applyResetAnimationFrame);
+  AnimationController? _resetController;
   Animation<Matrix4>? _resetAnimation;
 
   @override
   void didUpdateWidget(covariant OpenHandInteractiveImagePreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.child.key != widget.child.key) {
-      _resetController.stop();
+      _resetController?.stop();
       _resetAnimation = null;
       _controller.value = Matrix4.identity();
     }
@@ -47,9 +44,17 @@ class _OpenHandInteractiveImagePreviewState
 
   @override
   void dispose() {
-    _resetController.dispose();
+    _resetController?.dispose();
+    _resetController = null;
     _controller.dispose();
     super.dispose();
+  }
+
+  AnimationController _ensureResetController() {
+    return _resetController ??= AnimationController(
+      vsync: this,
+      duration: _kResetDuration,
+    )..addListener(_applyResetAnimationFrame);
   }
 
   void _applyResetAnimationFrame() {
@@ -59,12 +64,13 @@ class _OpenHandInteractiveImagePreviewState
   }
 
   void _animateReset() {
-    _resetController.stop();
+    final resetController = _ensureResetController();
+    resetController.stop();
     _resetAnimation = Matrix4Tween(
       begin: _controller.value.clone(),
       end: Matrix4.identity(),
-    ).animate(CurvedAnimation(parent: _resetController, curve: _kResetCurve));
-    _resetController.forward(from: 0);
+    ).animate(CurvedAnimation(parent: resetController, curve: _kResetCurve));
+    resetController.forward(from: 0);
   }
 
   @override
@@ -82,7 +88,7 @@ class _OpenHandInteractiveImagePreviewState
         transformationController: _controller,
         minScale: minScale,
         maxScale: maxScale,
-        onInteractionStart: (_) => _resetController.stop(),
+        onInteractionStart: (_) => _resetController?.stop(),
         trackpadScrollCausesScale: true,
         child: widget.child,
       ),
