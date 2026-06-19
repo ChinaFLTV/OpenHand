@@ -430,6 +430,12 @@ void main() {
         expect('${definition?.parameters}', isNot(contains('must start')));
       }
 
+      for (final name in <String>['Edit', 'MultiEdit', 'ApplyFileDiffs']) {
+        final definition = catalog.find(name)?.definition;
+        expect(definition?.description, contains('NotebookEdit'));
+        expect(definition?.description, contains('.ipynb'));
+      }
+
       final deleteDefinition = catalog.find('DeleteFile')?.definition;
       final deleteProperties =
           deleteDefinition?.parameters['properties'] as Map?;

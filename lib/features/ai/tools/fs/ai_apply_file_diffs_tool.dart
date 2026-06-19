@@ -81,6 +81,11 @@ class AiApplyFileDiffsTool extends AiTool {
         );
       }
       final filePath = AiToolUtils.resolvePath(rawPath);
+      final notebookValidation = AiToolUtils.validateNotebookTextMutation(
+        toolName: 'ApplyFileDiffs',
+        filePath: filePath,
+      );
+      if (notebookValidation != null) return notebookValidation;
       if (!seenFilePaths.add(filePath)) {
         return AiToolUtils.invalidResult(
           'ApplyFileDiffs',

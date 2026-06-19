@@ -36,6 +36,11 @@ class AiEditTool extends AiTool {
     if (payloadSizeValidation != null) return payloadSizeValidation;
 
     final filePath = AiToolUtils.resolvePath(rawFilePath);
+    final notebookValidation = AiToolUtils.validateNotebookTextMutation(
+      toolName: 'Edit',
+      filePath: filePath,
+    );
+    if (notebookValidation != null) return notebookValidation;
     if (oldString == newString) {
       return AiToolUtils.invalidResult(
         'Edit',

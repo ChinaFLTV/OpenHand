@@ -21,9 +21,9 @@
 </read_and_search>
 
 <file_operations>
-- `Edit`：精确替换；`old_string` 来自 `Read` 的真实文本，包含足够上下文，默认必须唯一匹配；同串全量替换用 `replace_all: true`。
-- `MultiEdit`：同文件多点原子编辑；任一 hunk 失败则不应假定部分成功。仅在创建不存在的新文件时，第一条 edit 可用空 `old_string` 写入初始内容。
-- `ApplyFileDiffs`：跨文件成组补丁；所有 hunk 先内存校验并收齐确认后再写，写入阶段失败会尽力回滚已写文件。
+- `Edit`：精确替换；`old_string` 来自 `Read` 的真实文本，包含足够上下文，默认必须唯一匹配；同串全量替换用 `replace_all: true`；`.ipynb` 单元格改动用 `NotebookEdit`。
+- `MultiEdit`：同文件多点原子编辑；任一 hunk 失败则不应假定部分成功。仅在创建不存在的新文件时，第一条 edit 可用空 `old_string` 写入初始内容；不直接修改 `.ipynb`。
+- `ApplyFileDiffs`：跨文件成组补丁；所有 hunk 先内存校验并收齐确认后再写，写入阶段失败会尽力回滚已写文件；不直接修改 `.ipynb`。
 - `Write`：新文件、短文件整写、或局部编辑成本高于整写时使用；`file_path` 可相对/绝对，父目录会自动创建；覆盖既有文件前先读并确认这是意图。
 - `DeleteFile`：删除单文件；新调用用 `file_path`，旧 `target_file` 兼容；删除前确认用户意图，不做扫荡式清理。
 - `NotebookEdit`：只用于 `.ipynb` 单元格；`notebook_path` 同样按 cwd 解析相对路径。

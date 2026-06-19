@@ -2474,7 +2474,8 @@ class AiToolRuntimeService {
       name: 'Edit',
       description:
           'Perform an exact string replacement in a file. '
-          'Accepts absolute or relative file_path values and resolves them against the working directory.',
+          'Accepts absolute or relative file_path values and resolves them against the working directory. '
+          'Jupyter Notebook .ipynb cell changes must use NotebookEdit instead.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2507,7 +2508,8 @@ class AiToolRuntimeService {
       description:
           'Perform multiple exact string replacements in a file. '
           'Accepts absolute or relative file_path values and resolves them against the working directory. '
-          'For a new or empty file, the first edit may use empty old_string to seed the file content.',
+          'For a new or empty file, the first edit may use empty old_string to seed the file content. '
+          'Jupyter Notebook .ipynb cell changes must use NotebookEdit instead.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2550,7 +2552,8 @@ class AiToolRuntimeService {
           'Each diff has `file_path` + `hunks` (array of {old_string, new_string, replace_all?}). '
           'Plans all hunks in memory and collects all confirmations before writing; if any hunk fails or confirmation is denied, no file is written. '
           'If a write or verification fails after writing starts, previously written files are rolled back best-effort. '
-          'Accepts absolute or relative file_path values and resolves them against the working directory. Up to 32 files per call.',
+          'Accepts absolute or relative file_path values and resolves them against the working directory. '
+          'Jupyter Notebook .ipynb cell changes must use NotebookEdit instead. Up to 32 files per call.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

@@ -43,6 +43,21 @@ class AiToolUtils {
     return p.normalize(p.join(defaultWorkingDirectory(), normalizedInput));
   }
 
+  static bool isNotebookPath(String filePath) {
+    return p.extension(filePath).toLowerCase() == '.ipynb';
+  }
+
+  static AiToolExecutionResult? validateNotebookTextMutation({
+    required String toolName,
+    required String filePath,
+  }) {
+    if (!isNotebookPath(filePath)) return null;
+    return invalidResult(
+      toolName,
+      '$toolName cannot edit Jupyter Notebook files directly. Use NotebookEdit for .ipynb cell changes.',
+    );
+  }
+
   static Map<String, Object?> decodeArguments(
     String rawArguments, {
     Map<String, Object?>? parameters,

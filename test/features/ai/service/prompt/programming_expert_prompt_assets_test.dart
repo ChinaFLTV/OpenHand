@@ -38,6 +38,7 @@ void main() {
       expect(developer, contains('旧 `target_file` 兼容'));
       expect(developer, contains('`NotebookEdit`：只用于 `.ipynb` 单元格'));
       expect(developer, contains('`notebook_path` 同样按 cwd 解析相对路径'));
+      expect(developer, contains('不直接修改 `.ipynb`'));
       expect(developer, contains('`LSP`：类型化语言'));
       expect(developer, contains('Claude 风格 `filePath`'));
       expect(developer, contains('ToolSearch'));

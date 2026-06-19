@@ -26,6 +26,11 @@ class AiMultiEditTool extends AiTool {
       );
     }
     final filePath = AiToolUtils.resolvePath(rawFilePath);
+    final notebookValidation = AiToolUtils.validateNotebookTextMutation(
+      toolName: 'MultiEdit',
+      filePath: filePath,
+    );
+    if (notebookValidation != null) return notebookValidation;
     final edits = args['edits'];
     if (edits is! List || edits.isEmpty) {
       return AiToolUtils.invalidResult(
