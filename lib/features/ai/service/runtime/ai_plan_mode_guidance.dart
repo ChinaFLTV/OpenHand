@@ -25,9 +25,9 @@ class AiPlanModeGuidance {
 
   static const String pendingApprovalNoPlanReminder =
       'A plan is pending user approval. Present the captured plan clearly, ask '
-      'for explicit approval, and wait before implementation. Do not call '
-      'editing, write-oriented, Bash, or other implementation tools until '
-      'approval is granted.';
+      'for explicit approval, and wait before implementation. Do not call any '
+      'tools in this turn, including read-only research tools; the runtime '
+      'keeps the execution catalog empty until approval is granted.';
 
   static String pendingApprovalReminder(String pendingPlan) {
     final trimmedPlan = pendingPlan.trim();
