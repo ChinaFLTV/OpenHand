@@ -1,28 +1,32 @@
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 /// 文件追踪器服务，用于检测脏写（dirty write）
 ///
 /// 核心机制：
-/// 1. Read 时记录 lastReadTime（读取时刻的文件 modTime）
-/// 2. Edit/Write 前检查当前 modTime > lastReadTime → 文件已被外部修改
-/// 3. 防止 AI 覆盖用户手动修改的内容
+/// 1. Read 时记录文件的 modTime、size 与可用内容指纹
+/// 2. Edit/Write 前重新采样当前文件快照
+/// 3. 优先用内容指纹识别真实变化，避免时间戳抖动误报或容差漏报
 class AiFileTrackerService {
   AiFileTrackerService();
 
-  /// 文件路径 → 读取时的 modTime 快照
-  final Map<String, DateTime> _lastReadTimes = <String, DateTime>{};
+  static const Duration _timestampTolerance = Duration(seconds: 2);
+  static const int _maxFingerprintBytes = 4 * 1024 * 1024;
 
-  /// 记录文件读取时间
+  /// 文件路径 → 读取时的文件快照
+  final Map<String, _TrackedFileSnapshot> _readSnapshots =
+      <String, _TrackedFileSnapshot>{};
+
+  /// 记录文件读取快照
   ///
   /// 在 Read 工具执行成功后调用
   Future<void> recordFileRead(String filePath) async {
     final normalizedPath = p.normalize(filePath);
     final file = File(normalizedPath);
     if (!await file.exists()) return;
-    final stat = await file.stat();
-    _lastReadTimes[normalizedPath] = stat.modified;
+    _readSnapshots[normalizedPath] = await _snapshotFile(file);
   }
 
   /// 批量记录文件读取时间
@@ -45,24 +49,22 @@ class AiFileTrackerService {
     if (!await file.exists()) return null;
 
     // 从未读取过 → 不应该直接修改
-    final lastReadTime = _lastReadTimes[normalizedPath];
-    if (lastReadTime == null) {
+    final lastRead = _readSnapshots[normalizedPath];
+    if (lastRead == null) {
       // 这个检查由 previouslyReadFiles 机制处理
-      // 这里只处理时间戳检查
+      // 这里只处理陈旧快照检查
       return null;
     }
 
-    final stat = await file.stat();
-    final currentModTime = stat.modified;
+    final current = await _snapshotFile(file);
+    if (lastRead.sha256Digest != null && current.sha256Digest != null) {
+      if (lastRead.sha256Digest == current.sha256Digest) return null;
+      return _dirtyWriteMessage(filePath, lastRead, current);
+    }
 
-    // If the current modTime is after the lastReadTime, the file was modified
-    // externally.  We apply a small tolerance (2 seconds) because some file
-    // systems (e.g. FAT32, HFS+) have limited timestamp resolution and the
-    // modTime written back by our own atomic write may round differently.
-    if (currentModTime.isAfter(lastReadTime.add(const Duration(seconds: 2)))) {
-      final timeDiff = currentModTime.difference(lastReadTime);
-      return 'File was modified externally after last read (${_formatDuration(timeDiff)} ago). '
-          'Re-read the file before editing to avoid overwriting external changes: $filePath';
+    if (lastRead.size != current.size ||
+        _timestampDiffExceedsTolerance(lastRead.modified, current.modified)) {
+      return _dirtyWriteMessage(filePath, lastRead, current);
     }
 
     return null;
@@ -71,18 +73,52 @@ class AiFileTrackerService {
   /// 清除指定文件的追踪记录
   void clearFileTracking(String filePath) {
     final normalizedPath = p.normalize(filePath);
-    _lastReadTimes.remove(normalizedPath);
+    _readSnapshots.remove(normalizedPath);
   }
 
   /// 清除所有追踪记录（会话重置时调用）
   void clearAllTracking() {
-    _lastReadTimes.clear();
+    _readSnapshots.clear();
   }
 
-  /// 更新文件的 lastReadTime（写入后需要更新）
+  /// 更新文件读取快照（写入后需要更新）
   Future<void> updateAfterWrite(String filePath) async {
-    // 写入后重新记录时间，因为我们自己的写入是可信的
+    // 写入后重新记录快照，因为我们自己的写入是可信的
     await recordFileRead(filePath);
+  }
+
+  Future<_TrackedFileSnapshot> _snapshotFile(File file) async {
+    final stat = await file.stat();
+    final digest = await _fingerprintFile(file, stat.size);
+    return _TrackedFileSnapshot(
+      modified: stat.modified,
+      size: stat.size,
+      sha256Digest: digest,
+    );
+  }
+
+  Future<String?> _fingerprintFile(File file, int byteSize) async {
+    if (byteSize > _maxFingerprintBytes) return null;
+    try {
+      return (await sha256.bind(file.openRead()).first).toString();
+    } on FileSystemException {
+      return null;
+    }
+  }
+
+  bool _timestampDiffExceedsTolerance(DateTime a, DateTime b) {
+    final diff = a.difference(b).abs();
+    return diff > _timestampTolerance;
+  }
+
+  String _dirtyWriteMessage(
+    String filePath,
+    _TrackedFileSnapshot lastRead,
+    _TrackedFileSnapshot current,
+  ) {
+    final timeDiff = current.modified.difference(lastRead.modified).abs();
+    return 'File was modified externally after last read (${_formatDuration(timeDiff)} difference). '
+        'Re-read the file before editing to avoid overwriting external changes: $filePath';
   }
 
   String _formatDuration(Duration duration) {
@@ -91,4 +127,16 @@ class AiFileTrackerService {
     if (duration.inMinutes > 0) return '${duration.inMinutes}m';
     return '${duration.inSeconds}s';
   }
+}
+
+class _TrackedFileSnapshot {
+  const _TrackedFileSnapshot({
+    required this.modified,
+    required this.size,
+    required this.sha256Digest,
+  });
+
+  final DateTime modified;
+  final int size;
+  final String? sha256Digest;
 }
