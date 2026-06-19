@@ -77,6 +77,55 @@ void main() {
       );
     });
 
+    test('uses pending plan metadata when plan argument is omitted', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _context(
+          metadata: const <String, Object?>{
+            'pending_plan': '  1. Patch the runtime path.\n2. Verify.  ',
+          },
+          allowedPrompts: const <Map<String, String>>[
+            <String, String>{'tool': 'Bash', 'prompt': 'run targeted tests'},
+          ],
+          useCamelCaseAllowedPrompts: true,
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(
+        result.metadata['pending_plan'],
+        '1. Patch the runtime path.\n2. Verify.',
+      );
+      expect(result.metadata['pending_plan_source'], 'pending_plan');
+      expect(result.metadata['plan_mode_allowed_prompt_count'], 1);
+    });
+
+    test('derives omitted plan argument from current todo metadata', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _context(
+          metadata: const <String, Object?>{
+            'current_todos': <Map<String, String>>[
+              <String, String>{
+                'content': 'Patch the narrow compatibility path',
+                'status': 'pending',
+              },
+              <String, String>{
+                'content': 'Run targeted verification',
+                'status': 'pending',
+              },
+            ],
+          },
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(
+        result.metadata['pending_plan'],
+        '1. Patch the narrow compatibility path\n'
+        '2. Run targeted verification',
+      );
+      expect(result.metadata['pending_plan_source'], 'current_todos');
+    });
+
     test('rejects unsupported allowed prompt tool', () async {
       final result = await AiExitPlanModeTool().execute(
         _context(
@@ -146,15 +195,27 @@ void main() {
       expect(result.stderr, contains('requires a non-empty plan'));
       expect(result.metadata, isEmpty);
     });
+
+    test('rejects omitted plan without recoverable context', () async {
+      final result = await AiExitPlanModeTool().execute(_context());
+
+      expect(result.status, BashToolExecutionStatus.invalidArguments);
+      expect(result.stderr, contains('recoverable plan context'));
+      expect(result.metadata, isEmpty);
+    });
   });
 }
 
 AiToolExecutionContext _context({
-  required String plan,
+  String? plan,
   List<Map<String, String>> allowedPrompts = const <Map<String, String>>[],
   bool useCamelCaseAllowedPrompts = false,
+  Map<String, Object?> metadata = const <String, Object?>{},
 }) {
-  final arguments = <String, Object?>{'plan': plan};
+  final arguments = <String, Object?>{};
+  if (plan != null) {
+    arguments['plan'] = plan;
+  }
   if (allowedPrompts.isNotEmpty) {
     arguments[useCamelCaseAllowedPrompts
             ? 'allowedPrompts'
@@ -178,6 +239,7 @@ AiToolExecutionContext _context({
     denyCommandRules: const <AiDenyCommandRule>[],
     requireWriteCommandConfirmation: true,
     confirmWriteCommand: null,
+    metadata: metadata,
   );
 }
 

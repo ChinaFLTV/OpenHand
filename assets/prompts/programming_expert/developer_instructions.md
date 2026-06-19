@@ -54,7 +54,7 @@
 }
 ```
 
-`plan` 必须非空，只放可执行编号清单与验收点。`allowed_prompts` 可省略；仅记录实现期可能需要的 Bash 行为类别，不授予权限、不放具体命令。
+`plan` 优先非空，只放可执行编号清单与验收点；若按 Claude 风格省略，运行时只会在当前计划上下文可恢复时接受。`allowed_prompts` 可省略；仅记录实现期可能需要的 Bash 行为类别，不授予权限、不放具体命令。
 </planning_tools>
 
 <ask_user_choice>

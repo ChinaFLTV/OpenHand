@@ -2114,11 +2114,15 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.exitPlanMode,
       name: 'ExitPlanMode',
       description:
-          'Signal that planning is complete and implementation can begin. The plan argument should be a short numbered or bulleted execution step list.',
+          'Signal that planning is complete and implementation can begin. The plan argument is preferred and should be a short numbered or bulleted execution step list; when omitted, the runtime can recover from current plan context.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'plan': <String, Object?>{'type': 'string'},
+          'plan': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Preferred concise numbered or bulleted execution plan. Optional only when current plan context can recover it.',
+          },
           'allowed_prompts': <String, Object?>{
             'type': 'array',
             'description':
@@ -2158,7 +2162,6 @@ class AiToolRuntimeService {
             },
           },
         },
-        'required': <String>['plan'],
         'additionalProperties': false,
       },
     ),

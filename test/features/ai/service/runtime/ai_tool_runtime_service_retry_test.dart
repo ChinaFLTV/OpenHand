@@ -7,6 +7,7 @@ import 'package:openhand/features/ai/model/ai_creation_mode.dart';
 import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
+import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
 import 'package:openhand/features/ai/service/bash/ai_bash_tool_service.dart';
 import 'package:openhand/features/ai/service/chat/ai_chat_service.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
@@ -148,6 +149,31 @@ void main() {
         );
       },
     );
+  });
+
+  group('AiToolRuntimeService builtin schemas', () {
+    test('ExitPlanMode accepts Claude-style omitted plan input', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('ExitPlanMode')?.definition;
+      final parameters = definition?.parameters;
+      final required = parameters?['required'];
+
+      expect(definition, isNotNull);
+      if (required is List) {
+        expect(required, isNot(contains('plan')));
+      } else {
+        expect(required, isNull);
+      }
+    });
   });
 
   group('AiToolRuntimeService output budget', () {
@@ -296,6 +322,22 @@ const AiModelConfig _testModel = AiModelConfig(
   token: '',
   modelId: 'test-model',
   protocolType: AiProtocolType.openai,
+);
+
+const AiSessionRuntimeContext _testRuntimeContext = AiSessionRuntimeContext(
+  localeTag: 'zh-CN',
+  appVersion: 'test',
+  appBuildNumber: '1',
+  settingsFilePath: '/tmp/settings.json',
+  skillsStoragePath: '/tmp/skills',
+  mcpServersFilePath: '/tmp/mcp.json',
+  userMemoryFilePath: '/tmp/memory.json',
+  compressionThresholdChars: 1000,
+  memoryEnabled: false,
+  memoryEntries: <Never>[],
+  workingDirectory: '/tmp/project',
+  platformName: 'macOS',
+  timeZoneName: 'Asia/Shanghai',
 );
 
 class _FakeChatClient implements AiChatClient {

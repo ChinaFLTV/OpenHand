@@ -6246,6 +6246,7 @@ class AiSessionController extends ChangeNotifier {
       final isFullAccess = currentSession?.fullAccessPermission == true;
       final sessionMode = currentSession?.mode;
       final planModeActive = sessionMode == AiSessionMode.plan;
+      final pendingPlan = currentSession?.pendingPlan?.trim() ?? '';
       return await _toolRuntimeService.execute(
         sessionId: executionSessionId ?? sessionId,
         catalog: toolCatalog,
@@ -6264,6 +6265,11 @@ class AiSessionController extends ChangeNotifier {
           'plan_mode_active': planModeActive,
           'awaiting_plan_approval':
               currentSession?.awaitingPlanApproval ?? false,
+          if (pendingPlan.isNotEmpty) 'pending_plan': pendingPlan,
+          if (currentSession?.todoItems.isNotEmpty == true)
+            'current_todos': currentSession!.todoItems
+                .map((item) => item.toJson())
+                .toList(growable: false),
           'plan_mode_execution_approved_for_send': planModeActive
               ? planModeExecutionApprovedForSend
               : true,

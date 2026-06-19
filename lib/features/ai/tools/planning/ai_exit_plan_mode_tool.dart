@@ -46,11 +46,12 @@ class AiExitPlanModeTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final plan = '${args['plan'] ?? ''}'.trim();
+    final planResolution = _resolvePlan(context);
+    final plan = planResolution.plan;
     if (plan.isEmpty) {
       return AiToolUtils.invalidResult(
         'ExitPlanMode',
-        'ExitPlanMode requires a non-empty plan.',
+        'ExitPlanMode requires a non-empty plan or recoverable plan context.',
       );
     }
     final allowedPromptsResult = _parseAllowedPrompts(args);
@@ -70,12 +71,47 @@ class AiExitPlanModeTool extends AiTool {
       metadata: <String, Object?>{
         'plan_mode_awaiting_approval': true,
         'pending_plan': plan,
+        'pending_plan_source': planResolution.source,
         if (allowedPrompts.isNotEmpty) ...<String, Object?>{
           'plan_mode_allowed_prompts': allowedPrompts,
           'plan_mode_allowed_prompt_count': allowedPrompts.length,
         },
       },
     );
+  }
+
+  _PlanResolution _resolvePlan(AiToolExecutionContext context) {
+    final argumentPlan = '${context.decodedArguments['plan'] ?? ''}'.trim();
+    if (argumentPlan.isNotEmpty) {
+      return _PlanResolution(plan: argumentPlan, source: 'argument');
+    }
+    final pendingPlan = '${context.metadata['pending_plan'] ?? ''}'.trim();
+    if (pendingPlan.isNotEmpty) {
+      return _PlanResolution(plan: pendingPlan, source: 'pending_plan');
+    }
+    final todoPlan = _planFromCurrentTodos(context.metadata['current_todos']);
+    if (todoPlan.isNotEmpty) {
+      return _PlanResolution(plan: todoPlan, source: 'current_todos');
+    }
+    return const _PlanResolution(plan: '', source: 'missing');
+  }
+
+  String _planFromCurrentTodos(Object? rawTodos) {
+    if (rawTodos is! List) {
+      return '';
+    }
+    final lines = <String>[];
+    for (final rawTodo in rawTodos) {
+      if (rawTodo is! Map) {
+        continue;
+      }
+      final content = '${rawTodo['content'] ?? ''}'.trim();
+      if (content.isEmpty) {
+        continue;
+      }
+      lines.add('${lines.length + 1}. $content');
+    }
+    return lines.join('\n');
   }
 
   _AllowedPromptsParseResult _parseAllowedPrompts(Map<String, Object?> args) {
@@ -161,4 +197,11 @@ class _AllowedPromptsParseResult {
 
   final List<Map<String, String>> items;
   final String? error;
+}
+
+class _PlanResolution {
+  const _PlanResolution({required this.plan, required this.source});
+
+  final String plan;
+  final String source;
 }
