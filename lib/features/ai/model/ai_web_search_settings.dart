@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 /// 受支持的搜索引擎种类。顺序与默认渲染顺序一致；用户可在设置中拖拽改变实际优先级。
 enum AiWebSearchEngineKind {
@@ -185,25 +186,26 @@ class AiWebSearchEngineConfig {
         .where((e) => e.name == rawKind)
         .firstOrNull;
     if (kind == null) return null;
-    int clamp(int value, int lo, int hi) =>
-        value < lo ? lo : (value > hi ? hi : value);
     return AiWebSearchEngineConfig(
       kind: kind,
       enabled: json['enabled'] is bool ? json['enabled'] as bool : false,
-      weight: clamp(
-        (json['weight'] as num?)?.toInt() ?? defaultWeight,
-        minWeight,
-        maxWeight,
+      weight: clampedIntFromValue(
+        json['weight'],
+        fallback: defaultWeight,
+        min: minWeight,
+        max: maxWeight,
       ),
-      maxRetries: clamp(
-        (json['max_retries'] as num?)?.toInt() ?? defaultMaxRetries,
-        0,
-        maxRetriesUpperBound,
+      maxRetries: clampedIntFromValue(
+        json['max_retries'],
+        fallback: defaultMaxRetries,
+        min: 0,
+        max: maxRetriesUpperBound,
       ),
-      truncationChars: clamp(
-        (json['truncation_chars'] as num?)?.toInt() ?? defaultTruncationChars,
-        minTruncationChars,
-        maxTruncationChars,
+      truncationChars: clampedIntFromValue(
+        json['truncation_chars'],
+        fallback: defaultTruncationChars,
+        min: minTruncationChars,
+        max: maxTruncationChars,
       ),
       apiKey: json['api_key'] is String ? json['api_key'] as String : null,
       providerConfigId: json['provider_config_id'] is String
@@ -487,15 +489,13 @@ class AiWebSearchSettings {
             .firstOrNull ??
         AiWebSearchSummaryStyle.neutral;
 
-    int clamp(int value, int lo, int hi) =>
-        value < lo ? lo : (value > hi ? hi : value);
-
     return AiWebSearchSettings(
       engines: engines,
-      resultCount: clamp(
-        (json['result_count'] as num?)?.toInt() ?? defaultResultCount,
-        minResultCount,
-        maxResultCount,
+      resultCount: clampedIntFromValue(
+        json['result_count'],
+        fallback: defaultResultCount,
+        min: minResultCount,
+        max: maxResultCount,
       ),
       modelMode: modelMode,
       fixedModelProviderConfigId:
@@ -506,89 +506,97 @@ class AiWebSearchSettings {
           ? json['fixed_model_id'] as String
           : null,
       parallel: json['parallel'] is bool ? json['parallel'] as bool : true,
-      parallelWorkers: clamp(
-        (json['parallel_workers'] as num?)?.toInt() ?? defaultParallelWorkers,
-        minParallelWorkers,
-        maxParallelWorkers,
+      parallelWorkers: clampedIntFromValue(
+        json['parallel_workers'],
+        fallback: defaultParallelWorkers,
+        min: minParallelWorkers,
+        max: maxParallelWorkers,
       ),
       summaryDetail: summaryDetail,
       summaryStyle: summaryStyle,
-      summaryMinChars: clamp(
-        (json['summary_min_chars'] as num?)?.toInt() ?? 0,
-        0,
-        maxSummaryMaxChars,
+      summaryMinChars: clampedIntFromValue(
+        json['summary_min_chars'],
+        fallback: 0,
+        min: 0,
+        max: maxSummaryMaxChars,
       ),
-      summaryMaxChars: clamp(
-        (json['summary_max_chars'] as num?)?.toInt() ?? defaultSummaryMaxChars,
-        0,
-        maxSummaryMaxChars,
+      summaryMaxChars: clampedIntFromValue(
+        json['summary_max_chars'],
+        fallback: defaultSummaryMaxChars,
+        min: 0,
+        max: maxSummaryMaxChars,
       ),
-      cacheTtlSeconds: clamp(
-        (json['cache_ttl_seconds'] as num?)?.toInt() ?? defaultCacheTtlSeconds,
-        minCacheTtlSeconds,
-        maxCacheTtlSeconds,
+      cacheTtlSeconds: clampedIntFromValue(
+        json['cache_ttl_seconds'],
+        fallback: defaultCacheTtlSeconds,
+        min: minCacheTtlSeconds,
+        max: maxCacheTtlSeconds,
       ),
-      cacheMaxBytes: clamp(
-        (json['cache_max_bytes'] as num?)?.toInt() ?? defaultCacheMaxBytes,
-        minCacheMaxBytes,
-        maxCacheMaxBytes,
+      cacheMaxBytes: clampedIntFromValue(
+        json['cache_max_bytes'],
+        fallback: defaultCacheMaxBytes,
+        min: minCacheMaxBytes,
+        max: maxCacheMaxBytes,
       ),
-      cooldownTier1Failures: clamp(
-        (json['cooldown_tier1_failures'] as num?)?.toInt() ??
-            defaultCooldownTier1Failures,
-        minCooldownFailures,
-        maxCooldownFailures,
+      cooldownTier1Failures: clampedIntFromValue(
+        json['cooldown_tier1_failures'],
+        fallback: defaultCooldownTier1Failures,
+        min: minCooldownFailures,
+        max: maxCooldownFailures,
       ),
-      cooldownTier1Seconds: clamp(
-        (json['cooldown_tier1_seconds'] as num?)?.toInt() ??
-            defaultCooldownTier1Seconds,
-        minCooldownSeconds,
-        maxCooldownSeconds,
+      cooldownTier1Seconds: clampedIntFromValue(
+        json['cooldown_tier1_seconds'],
+        fallback: defaultCooldownTier1Seconds,
+        min: minCooldownSeconds,
+        max: maxCooldownSeconds,
       ),
-      cooldownTier2Failures: clamp(
-        (json['cooldown_tier2_failures'] as num?)?.toInt() ??
-            defaultCooldownTier2Failures,
-        minCooldownFailures,
-        maxCooldownFailures,
+      cooldownTier2Failures: clampedIntFromValue(
+        json['cooldown_tier2_failures'],
+        fallback: defaultCooldownTier2Failures,
+        min: minCooldownFailures,
+        max: maxCooldownFailures,
       ),
-      cooldownTier2Seconds: clamp(
-        (json['cooldown_tier2_seconds'] as num?)?.toInt() ??
-            defaultCooldownTier2Seconds,
-        minCooldownSeconds,
-        maxCooldownSeconds,
+      cooldownTier2Seconds: clampedIntFromValue(
+        json['cooldown_tier2_seconds'],
+        fallback: defaultCooldownTier2Seconds,
+        min: minCooldownSeconds,
+        max: maxCooldownSeconds,
       ),
-      cooldownTier3Failures: clamp(
-        (json['cooldown_tier3_failures'] as num?)?.toInt() ??
-            defaultCooldownTier3Failures,
-        minCooldownFailures,
-        maxCooldownFailures,
+      cooldownTier3Failures: clampedIntFromValue(
+        json['cooldown_tier3_failures'],
+        fallback: defaultCooldownTier3Failures,
+        min: minCooldownFailures,
+        max: maxCooldownFailures,
       ),
-      cooldownTier3Seconds: clamp(
-        (json['cooldown_tier3_seconds'] as num?)?.toInt() ??
-            defaultCooldownTier3Seconds,
-        minCooldownSeconds,
-        maxCooldownSeconds,
+      cooldownTier3Seconds: clampedIntFromValue(
+        json['cooldown_tier3_seconds'],
+        fallback: defaultCooldownTier3Seconds,
+        min: minCooldownSeconds,
+        max: maxCooldownSeconds,
       ),
-      cooldownQuotaSeconds: clamp(
-        (json['cooldown_quota_seconds'] as num?)?.toInt() ??
-            defaultCooldownQuotaSeconds,
-        minCooldownSeconds,
-        maxCooldownSeconds,
+      cooldownQuotaSeconds: clampedIntFromValue(
+        json['cooldown_quota_seconds'],
+        fallback: defaultCooldownQuotaSeconds,
+        min: minCooldownSeconds,
+        max: maxCooldownSeconds,
       ),
-      alertSuccessRatePct: clamp(
-        (json['alert_success_rate_pct'] as num?)?.toInt() ?? 0,
-        0,
-        maxAlertSuccessRatePct,
+      alertSuccessRatePct: clampedIntFromValue(
+        json['alert_success_rate_pct'],
+        fallback: 0,
+        min: 0,
+        max: maxAlertSuccessRatePct,
       ),
-      alertAvgDurationMs: clamp(
-        (json['alert_avg_duration_ms'] as num?)?.toInt() ?? 0,
-        0,
-        maxAlertAvgDurationMs,
+      alertAvgDurationMs: clampedIntFromValue(
+        json['alert_avg_duration_ms'],
+        fallback: 0,
+        min: 0,
+        max: maxAlertAvgDurationMs,
       ),
-      throttlePerMinute: clamp(
-        (json['throttle_per_minute'] as num?)?.toInt() ?? 0,
-        0,
-        maxThrottlePerMinute,
+      throttlePerMinute: clampedIntFromValue(
+        json['throttle_per_minute'],
+        fallback: 0,
+        min: 0,
+        max: maxThrottlePerMinute,
       ),
     );
   }

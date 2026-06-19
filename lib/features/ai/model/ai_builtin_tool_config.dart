@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_web_fetch_settings.dart';
 import 'ai_web_search_settings.dart';
@@ -168,17 +169,21 @@ class AiBuiltinToolConfig {
   /// 实际生效的重试次数（已 clamp 到上限）。
   int get effectiveMaxRetries {
     if (!retryOnFailure) return 0;
-    if (maxRetries <= 0) return 0;
-    if (maxRetries > maxRetriesUpperBound) return maxRetriesUpperBound;
-    return maxRetries;
+    return clampedIntFromValue(
+      maxRetries,
+      fallback: 0,
+      min: 0,
+      max: maxRetriesUpperBound,
+    );
   }
 
   /// 实际生效的退避基线（毫秒），已 clamp 到 [0, [maxRetryBackoffMs]]。
-  int get effectiveRetryBackoffMs {
-    if (retryBackoffMs <= 0) return 0;
-    if (retryBackoffMs > maxRetryBackoffMs) return maxRetryBackoffMs;
-    return retryBackoffMs;
-  }
+  int get effectiveRetryBackoffMs => clampedIntFromValue(
+    retryBackoffMs,
+    fallback: defaultRetryBackoffMs,
+    min: 0,
+    max: maxRetryBackoffMs,
+  );
 
   /// 计算第 [attemptIndex]（1-based: 第 1 次重试 = 1）次重试前应等待的毫秒数。
   /// 指数退避：base * 2^(attemptIndex-1)，上限 [maxRetryBackoffMs]。
@@ -404,24 +409,33 @@ class AiBuiltinToolConfig {
           ? json['prompt_override'] as String
           : null,
       schemaOverride: schemaOverride,
-      priority: (json['priority'] as num?)?.toInt() ?? 100,
-      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      priority: intFromValue(json['priority'], fallback: 100),
+      sortOrder: intFromValue(json['sort_order'], fallback: 0),
       loadStrategy: loadStrategy,
       forceLoad: json['force_load'] is bool
           ? json['force_load'] as bool
           : defaultForceLoadForKind(kind),
       tags: tags,
-      maxOutputChars: (json['max_output_chars'] as num?)?.toInt(),
-      timeoutSeconds: (json['timeout_seconds'] as num?)?.toInt(),
+      maxOutputChars: optionalIntFromValue(json['max_output_chars']),
+      timeoutSeconds: optionalIntFromValue(json['timeout_seconds']),
       requireConfirmation: json['require_confirmation'] is bool
           ? json['require_confirmation'] as bool
           : null,
       retryOnFailure: json['retry_on_failure'] is bool
           ? json['retry_on_failure'] as bool
           : false,
-      maxRetries: (json['max_retries'] as num?)?.toInt() ?? 0,
-      retryBackoffMs:
-          (json['retry_backoff_ms'] as num?)?.toInt() ?? defaultRetryBackoffMs,
+      maxRetries: clampedIntFromValue(
+        json['max_retries'],
+        fallback: 0,
+        min: 0,
+        max: maxRetriesUpperBound,
+      ),
+      retryBackoffMs: clampedIntFromValue(
+        json['retry_backoff_ms'],
+        fallback: defaultRetryBackoffMs,
+        min: 0,
+        max: maxRetryBackoffMs,
+      ),
       isCustom: json['is_custom'] is bool ? json['is_custom'] as bool : false,
       customToolName: json['custom_tool_name'] is String
           ? json['custom_tool_name'] as String

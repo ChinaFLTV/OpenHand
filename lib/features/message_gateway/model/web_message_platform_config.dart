@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import '../../../shared/util/input_value_parsing.dart';
 
 const String webMessagePlatformBuiltinId = 'builtin_web_message_platform';
 const String webMessagePlatformBuiltinName = 'Web通用消息平台';
@@ -88,12 +88,17 @@ class WebGatewayHealthCheckConfig {
       path: _nonEmptyString(json['path'], '/api/health'),
       method: _nonEmptyString(json['method'], 'GET').toUpperCase(),
       queryParameters: _stringMap(json['query_parameters']),
-      timeoutMs: _clampInt(json['timeout_ms'], 3000, 250, 60000),
-      expectedStatusCode: _clampInt(
+      timeoutMs: clampedIntFromValue(
+        json['timeout_ms'],
+        fallback: 3000,
+        min: 250,
+        max: 60000,
+      ),
+      expectedStatusCode: clampedIntFromValue(
         json['expected_status_code'],
-        200,
-        100,
-        599,
+        fallback: 200,
+        min: 100,
+        max: 599,
       ),
       responseContains: _stringValue(json['response_contains']).trim(),
       followRedirects: json['follow_redirects'] as bool? ?? false,
@@ -156,19 +161,34 @@ class WebGatewayLogConfig {
 
   factory WebGatewayLogConfig.fromJson(Map<String, Object?> json) {
     return WebGatewayLogConfig(
-      fileMaxBytes: _clampInt(
+      fileMaxBytes: clampedIntFromValue(
         json['file_max_bytes'],
-        50 * 1024 * 1024,
-        1024 * 1024,
-        512 * 1024 * 1024,
+        fallback: 50 * 1024 * 1024,
+        min: 1024 * 1024,
+        max: 512 * 1024 * 1024,
       ),
-      rotationDays: _clampInt(json['rotation_days'], 7, 1, 90),
-      maxFiles: _clampInt(json['max_files'], 10, 1, 100),
+      rotationDays: clampedIntFromValue(
+        json['rotation_days'],
+        fallback: 7,
+        min: 1,
+        max: 90,
+      ),
+      maxFiles: clampedIntFromValue(
+        json['max_files'],
+        fallback: 10,
+        min: 1,
+        max: 100,
+      ),
       levels: _stringList(
         json['levels'],
         fallback: const <String>['info', 'warn', 'error', 'debug'],
       ),
-      lazyReadPageSize: _clampInt(json['lazy_read_page_size'], 300, 50, 5000),
+      lazyReadPageSize: clampedIntFromValue(
+        json['lazy_read_page_size'],
+        fallback: 300,
+        min: 50,
+        max: 5000,
+      ),
     );
   }
 
@@ -258,18 +278,23 @@ class WebMessagePlatformConfig {
       autoReloadOnChange: json['auto_reload_on_change'] as bool? ?? true,
       description: _nonEmptyString(json['description'], defaultDescription),
       listenHost: _nonEmptyString(json['listen_host'], '0.0.0.0'),
-      listenPort: _clampInt(json['listen_port'], 8848, 1, 65535),
+      listenPort: clampedIntFromValue(
+        json['listen_port'],
+        fallback: 8848,
+        min: 1,
+        max: 65535,
+      ),
       authEnabled: json['auth_enabled'] as bool? ?? false,
       username: _nonEmptyString(json['username'], 'openhand'),
       password: _stringValue(json['password']),
       telemetryEnabled: json['telemetry_enabled'] as bool? ?? false,
       loggingEnabled: json['logging_enabled'] as bool? ?? false,
       opsEnabled: json['ops_enabled'] as bool? ?? false,
-      maxConcurrentRequests: _clampInt(
+      maxConcurrentRequests: clampedIntFromValue(
         json['max_concurrent_requests'],
-        200,
-        1,
-        5000,
+        fallback: 200,
+        min: 1,
+        max: 5000,
       ),
       allowedTemplateIds: _stringList(json['allowed_template_ids']),
       allowedSkillNames: _stringList(json['allowed_skill_names']),
@@ -297,43 +322,43 @@ class WebMessagePlatformConfig {
       ),
       allowedModelKeys: _stringList(json['allowed_model_keys']),
       planModeEnabled: json['plan_mode_enabled'] as bool? ?? false,
-      singleMessageTokenLimit: _clampInt(
+      singleMessageTokenLimit: clampedIntFromValue(
         json['single_message_token_limit'],
-        2000,
-        64,
-        200000,
+        fallback: 2000,
+        min: 64,
+        max: 200000,
       ),
-      maxMessagesPerSession: _clampInt(
+      maxMessagesPerSession: clampedIntFromValue(
         json['max_messages_per_session'],
-        100,
-        1,
-        10000,
+        fallback: 100,
+        min: 1,
+        max: 10000,
       ),
       sessionManagementEnabled:
           json['session_management_enabled'] as bool? ?? true,
       workspaceFilesEnabled: json['workspace_files_enabled'] as bool? ?? true,
       workspaceFileWriteEnabled:
           json['workspace_file_write_enabled'] as bool? ?? false,
-      workspaceFileMaxBytes: _clampInt(
+      workspaceFileMaxBytes: clampedIntFromValue(
         json['workspace_file_max_bytes'],
-        1024 * 1024,
-        1024,
-        32 * 1024 * 1024,
+        fallback: 1024 * 1024,
+        min: 1024,
+        max: 32 * 1024 * 1024,
       ),
       workspaceFileAllowedExtensions: _extensionList(
         json['workspace_file_allowed_extensions'],
       ),
-      uploadCacheRetentionDays: _clampInt(
+      uploadCacheRetentionDays: clampedIntFromValue(
         json['upload_cache_retention_days'],
-        7,
-        1,
-        180,
+        fallback: 7,
+        min: 1,
+        max: 180,
       ),
-      uploadCacheMaxBytes: _clampInt(
+      uploadCacheMaxBytes: clampedIntFromValue(
         json['upload_cache_max_bytes'],
-        512 * 1024 * 1024,
-        1024 * 1024,
-        10 * 1024 * 1024 * 1024,
+        fallback: 512 * 1024 * 1024,
+        min: 1024 * 1024,
+        max: 10 * 1024 * 1024 * 1024,
       ),
       healthCheck: json['health_check'] is Map
           ? WebGatewayHealthCheckConfig.fromJson(
@@ -519,15 +544,6 @@ class WebMessagePlatformConfig {
       'log_config': logConfig.toJson(),
     };
   }
-}
-
-int _clampInt(Object? value, int fallback, int min, int max) {
-  final raw = value is int
-      ? value
-      : value is num
-      ? value.toInt()
-      : int.tryParse('${value ?? ''}'.trim());
-  return math.min(max, math.max(min, raw ?? fallback));
 }
 
 String _stringValue(Object? value) => value == null ? '' : '$value';
