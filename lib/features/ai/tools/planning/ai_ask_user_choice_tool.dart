@@ -192,11 +192,24 @@ class AiAskUserChoiceTool extends AiTool {
       title: title,
       description: description,
     )) {
-      return AiToolUtils.invalidResult(
-        'AskUserChoice',
-        'Do not use AskUserChoice to request plan approval in Plan mode. '
-            'Clarify requirements with AskUserChoice before finalizing the plan; '
-            'when the plan is ready, use ExitPlanMode instead.',
+      return AiToolUtils.withMergedMetadata(
+        AiToolUtils.invalidResult(
+          'AskUserChoice',
+          'Do not use AskUserChoice to request plan approval in Plan mode. '
+              'Clarify requirements with AskUserChoice before finalizing the plan; '
+              'when the plan is ready, use ExitPlanMode instead.',
+        ),
+        <String, Object?>{
+          'ask_user_choice_blocked_plan_approval': true,
+          'ask_user_choice_block_reason':
+              'plan_approval_requires_exit_plan_mode',
+          'plan_approval_tool': 'ExitPlanMode',
+          'plan_mode_active': context.metadata['plan_mode_active'] == true,
+          'awaiting_plan_approval':
+              context.metadata['awaiting_plan_approval'] == true,
+          'plan_mode_execution_approved_for_send':
+              context.metadata['plan_mode_execution_approved_for_send'] == true,
+        },
       );
     }
 

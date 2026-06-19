@@ -35,6 +35,15 @@ void main() {
 
       expect(result.status, BashToolExecutionStatus.invalidArguments);
       expect(result.stderr, contains('use ExitPlanMode'));
+      expect(result.metadata['ask_user_choice_blocked_plan_approval'], isTrue);
+      expect(
+        result.metadata['ask_user_choice_block_reason'],
+        'plan_approval_requires_exit_plan_mode',
+      );
+      expect(result.metadata['plan_approval_tool'], 'ExitPlanMode');
+      expect(result.metadata['plan_mode_active'], isTrue);
+      expect(result.metadata['awaiting_plan_approval'], isFalse);
+      expect(result.metadata['plan_mode_execution_approved_for_send'], isFalse);
       expect(presenterCalls, 0);
     });
 
