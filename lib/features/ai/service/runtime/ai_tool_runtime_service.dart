@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -1556,12 +1557,21 @@ class AiToolRuntimeService {
     var suffix = 1;
     var uniqueCandidate = candidate;
     while (takenNames.contains(uniqueCandidate)) {
-      uniqueCandidate = '${candidate}_${suffix++}';
-      if (uniqueCandidate.length > _maxToolNameLength) {
-        uniqueCandidate = uniqueCandidate.substring(0, _maxToolNameLength);
-      }
+      uniqueCandidate = _toolNameWithUniqueSuffix(candidate, suffix++);
     }
     return uniqueCandidate;
+  }
+
+  String _toolNameWithUniqueSuffix(String candidate, int suffix) {
+    final suffixToken = '_$suffix';
+    final baseLength = math.max(1, _maxToolNameLength - suffixToken.length);
+    final base = candidate.length > baseLength
+        ? candidate.substring(0, baseLength)
+        : candidate;
+    final value = '$base$suffixToken';
+    return value.length > _maxToolNameLength
+        ? value.substring(0, _maxToolNameLength)
+        : value;
   }
 
   String _normalizeToolToken(String value) {
@@ -1598,9 +1608,9 @@ class AiToolRuntimeService {
     );
   }
 
-  /// Phase-1 skill catalog cap (Warp parity, see `docs/programming_expert_redesign.md` §6).
-  /// The catalog only ships skill metadata; the full SKILL.md body is loaded
-  /// on-demand when the LLM invokes the per-skill `skill__<name>` tool.
+  /// Skill catalog cap: the catalog only ships skill metadata; the full
+  /// SKILL.md body is loaded on demand through the per-skill `skill__<name>`
+  /// tool.
   static const int _skillCatalogDescriptionCap = 512;
 
   AiResolvedTool _buildSkillTool(LocalSkill skill, Set<String> takenNames) {
