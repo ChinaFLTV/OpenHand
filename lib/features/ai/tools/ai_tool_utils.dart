@@ -27,6 +27,8 @@ class AiToolUtils {
   static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;
   static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;
 
+  static int _safeWriteArtifactCounter = 0;
+
   static String defaultWorkingDirectory() {
     return p.normalize(Directory.current.path);
   }
@@ -765,36 +767,27 @@ class AiToolUtils {
       file.path,
       followLinks: false,
     );
+    if (entityType == FileSystemEntityType.directory) {
+      throw FileSystemException(
+        'Refusing to write text content to a directory.',
+        file.path,
+      );
+    }
     await file.parent.create(recursive: true);
     if (entityType == FileSystemEntityType.link) {
       await file.writeAsString(content, flush: true);
       return;
     }
-    final tempFile = File(
-      p.join(
-        file.parent.path,
-        '.${p.basename(file.path)}.${DateTime.now().microsecondsSinceEpoch}.tmp',
-      ),
-    );
-    final backupFile = File('${file.path}.bak');
-    if (await tempFile.exists()) await tempFile.delete();
+    final tempFile = _uniqueSafeWriteArtifact(file, 'tmp');
     await tempFile.writeAsString(content, flush: true);
     if (await file.exists()) await _copyExistingFileMode(file, tempFile);
-    var movedExistingFile = false;
     try {
-      if (await backupFile.exists()) await backupFile.delete();
-      if (await file.exists()) {
-        await file.rename(backupFile.path);
-        movedExistingFile = true;
-      }
       await tempFile.rename(file.path);
-      if (await backupFile.exists()) await backupFile.delete();
+    } on FileSystemException {
+      if (!await tempFile.exists()) rethrow;
+      await _replaceTextFileWithTemporaryBackup(file, tempFile);
     } catch (_) {
       if (await tempFile.exists()) await tempFile.delete();
-      if (movedExistingFile && await backupFile.exists()) {
-        if (await file.exists()) await file.delete();
-        await backupFile.rename(file.path);
-      }
       rethrow;
     }
   }
@@ -812,7 +805,18 @@ class AiToolUtils {
     required bool requireExistingFileRead,
     AiFileTrackerService? fileTracker,
   }) async {
-    if (!requireExistingFileRead && await file.exists()) {
+    final entityType = await FileSystemEntity.type(
+      file.path,
+      followLinks: false,
+    );
+    if (entityType == FileSystemEntityType.directory) {
+      return invalidResult(
+        toolName,
+        '$toolName refuses to write text content to a directory: ${file.path}',
+      );
+    }
+    if (!requireExistingFileRead &&
+        entityType != FileSystemEntityType.notFound) {
       return invalidResult(
         toolName,
         '$toolName expected to create a new file, but the target now exists. '
@@ -835,6 +839,66 @@ class AiToolUtils {
       fileTracker: fileTracker,
     );
     return null;
+  }
+
+  static File _uniqueSafeWriteArtifact(File targetFile, String role) {
+    for (var attempt = 0; attempt < 16; attempt++) {
+      final counter = _safeWriteArtifactCounter =
+          (_safeWriteArtifactCounter + 1) & 0x3fffffff;
+      final path = p.join(
+        targetFile.parent.path,
+        '.${p.basename(targetFile.path)}.'
+        '${DateTime.now().microsecondsSinceEpoch}.$counter.$role',
+      );
+      final candidate = File(path);
+      if (!candidate.existsSync()) return candidate;
+    }
+    throw FileSystemException(
+      'Unable to allocate a unique temporary write artifact.',
+      targetFile.path,
+    );
+  }
+
+  static Future<void> _replaceTextFileWithTemporaryBackup(
+    File targetFile,
+    File tempFile,
+  ) async {
+    File? backupFile;
+    var movedExistingFile = false;
+    try {
+      if (await targetFile.exists()) {
+        backupFile = _uniqueSafeWriteArtifact(targetFile, 'bak');
+        await targetFile.rename(backupFile.path);
+        movedExistingFile = true;
+      }
+      await tempFile.rename(targetFile.path);
+      if (backupFile != null && await backupFile.exists()) {
+        await backupFile.delete();
+      }
+    } catch (_) {
+      if (await tempFile.exists()) {
+        try {
+          await tempFile.delete();
+        } on FileSystemException {
+          // Best-effort cleanup; preserve the original write error.
+        }
+      }
+      if (movedExistingFile &&
+          backupFile != null &&
+          await backupFile.exists()) {
+        try {
+          if (await targetFile.exists()) await targetFile.delete();
+        } on FileSystemException {
+          // Best-effort cleanup before restoring the previous target.
+        }
+        try {
+          await backupFile.rename(targetFile.path);
+        } on FileSystemException {
+          // Preserve the original write error if rollback also fails.
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Performs the last read-before-delete guard immediately before deletion.

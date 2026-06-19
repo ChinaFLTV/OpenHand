@@ -71,6 +71,36 @@ void main() {
       expect(await file.exists(), isFalse);
     });
 
+    test('safe text writes preserve user-owned sibling backup files', () async {
+      final file = File('${tempDir.path}/sample.txt');
+      final userBackup = File('${file.path}.bak');
+      await file.writeAsString('old\n');
+      await userBackup.writeAsString('user backup\n');
+
+      await AiToolUtils.writeTextFileSafely(file, 'new\n');
+
+      expect(await file.readAsString(), 'new\n');
+      expect(await userBackup.readAsString(), 'user backup\n');
+    });
+
+    test('rejects directory targets before attempting a write', () async {
+      final directory = Directory('${tempDir.path}/target');
+      await directory.create();
+
+      final result = await AiWriteTool().execute(
+        _context(
+          filePath: directory.path,
+          content: 'replacement\n',
+          previouslyReadFiles: const <String>{},
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('refuses to write text content'));
+      expect(await directory.exists(), isTrue);
+    });
+
     test('rechecks stale state immediately before writing', () async {
       final file = File('${tempDir.path}/sample.txt');
       await file.writeAsString('alpha\n');
