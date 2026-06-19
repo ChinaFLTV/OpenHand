@@ -2488,6 +2488,7 @@ class AiSessionController extends ChangeNotifier {
         .toList(growable: false);
     return AiRuntimeToolPreview(
       sessionMode: session.mode,
+      fullAccessPermission: session.fullAccessPermission,
       awaitingPlanApproval: session.awaitingPlanApproval,
       planRecoveryInspectionRequired: recoveryInspectionRequired,
       planExecutionApproved: executionApprovedForSend,

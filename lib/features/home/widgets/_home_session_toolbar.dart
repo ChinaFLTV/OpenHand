@@ -1402,6 +1402,7 @@ List<String> _metadataStringList(Object? rawValue) {
 class _RuntimeToolCatalogStatus {
   const _RuntimeToolCatalogStatus({
     required this.sessionMode,
+    required this.fullAccessPermission,
     required this.hasSnapshot,
     required this.stale,
     required this.isLivePreview,
@@ -1418,6 +1419,7 @@ class _RuntimeToolCatalogStatus {
   });
 
   final AiSessionMode sessionMode;
+  final bool fullAccessPermission;
   final bool hasSnapshot;
   final bool stale;
   final bool isLivePreview;
@@ -1442,6 +1444,7 @@ _RuntimeToolCatalogStatus _runtimeToolCatalogStatus(
   if (livePreview != null) {
     return _RuntimeToolCatalogStatus(
       sessionMode: livePreview.sessionMode,
+      fullAccessPermission: livePreview.fullAccessPermission,
       hasSnapshot: true,
       stale: false,
       isLivePreview: true,
@@ -1489,6 +1492,7 @@ _RuntimeToolCatalogStatus _runtimeToolCatalogStatus(
   }
   return _RuntimeToolCatalogStatus(
     sessionMode: session.mode,
+    fullAccessPermission: session.fullAccessPermission,
     hasSnapshot: metadata.isNotEmpty,
     stale: metadata['runtime_tool_catalog_stale'] == true,
     isLivePreview: false,

@@ -11,6 +11,7 @@ enum AiSendPhase {
 class AiRuntimeToolPreview {
   const AiRuntimeToolPreview({
     required this.sessionMode,
+    required this.fullAccessPermission,
     required this.awaitingPlanApproval,
     required this.planRecoveryInspectionRequired,
     required this.planExecutionApproved,
@@ -22,6 +23,7 @@ class AiRuntimeToolPreview {
   });
 
   final AiSessionMode sessionMode;
+  final bool fullAccessPermission;
   final bool awaitingPlanApproval;
   final bool planRecoveryInspectionRequired;
   final bool planExecutionApproved;

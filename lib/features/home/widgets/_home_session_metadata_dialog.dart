@@ -26,7 +26,8 @@ class _SessionMetadataDialog extends StatelessWidget {
     );
     final hasPromptMetadata = lastPromptMetadata.isNotEmpty;
     final writeCommandConfirmationEnabled =
-        lastPromptMetadata['write_command_confirmation_enabled'] == true;
+        lastPromptMetadata['write_command_confirmation_enabled'] == true &&
+        !runtimeStatus.fullAccessPermission;
     final allowCommandRuleCount = _metadataInt(
       lastPromptMetadata['allow_command_rule_count'],
     );
@@ -69,6 +70,12 @@ class _SessionMetadataDialog extends StatelessWidget {
       _MetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaMode,
         value: _runtimeModeLabel(context, runtimeStatus, compact: true),
+      ),
+      _MetadataSummaryTile(
+        label: AppLocalizations.of(context)!.permissionLabel,
+        value: runtimeStatus.fullAccessPermission
+            ? AppLocalizations.of(context)!.mcpServerStatusEnabled
+            : AppLocalizations.of(context)!.mcpServerStatusDisabled,
       ),
       _MetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaRuntimeTools,
@@ -540,6 +547,18 @@ class _SessionMetadataDialog extends StatelessWidget {
                           _MetadataEntryRow(
                             label: AppLocalizations.of(context)!.sessMetaMode,
                             value: _runtimeModeLabel(context, runtimeStatus),
+                          ),
+                          _MetadataEntryRow(
+                            label: AppLocalizations.of(
+                              context,
+                            )!.permissionLabel,
+                            value: runtimeStatus.fullAccessPermission
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.mcpServerStatusEnabled
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.mcpServerStatusDisabled,
                           ),
                           _MetadataEntryRow(
                             label: AppLocalizations.of(
