@@ -26,8 +26,10 @@ class _SessionMetadataDialog extends StatelessWidget {
     );
     final hasPromptMetadata = lastPromptMetadata.isNotEmpty;
     final writeCommandConfirmationEnabled =
-        lastPromptMetadata['write_command_confirmation_enabled'] == true &&
-        !runtimeStatus.fullAccessPermission;
+        lastPromptMetadata['write_command_confirmation_required'] is bool
+        ? lastPromptMetadata['write_command_confirmation_required'] == true
+        : lastPromptMetadata['write_command_confirmation_enabled'] == true &&
+              !runtimeStatus.fullAccessPermission;
     final allowCommandRuleCount = _metadataInt(
       lastPromptMetadata['allow_command_rule_count'],
     );

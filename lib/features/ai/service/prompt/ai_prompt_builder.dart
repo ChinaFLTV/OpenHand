@@ -310,6 +310,10 @@ class AiPromptBuilder {
     final exitPlanModeAvailable = AiPlanModeToolGate.hasExitPlanModeTool(
       availableToolNames,
     );
+    final writeCommandConfirmationRequired = _writeCommandConfirmationRequired(
+      session: session,
+      runtimeContext: runtimeContext,
+    );
     final runtimeToolGateReason = AiPlanModeToolGate.gateReason(
       isPlanMode: session.mode == AiSessionMode.plan,
       awaitingPlanApproval: session.awaitingPlanApproval,
@@ -376,6 +380,7 @@ class AiPromptBuilder {
       'time_zone_name': runtimeContext.timeZoneName,
       'write_command_confirmation_enabled':
           runtimeContext.writeCommandConfirmationEnabled,
+      'write_command_confirmation_required': writeCommandConfirmationRequired,
       'allow_command_rule_count': runtimeContext.allowCommandRules.length,
       'allow_command_rules': runtimeContext.allowCommandRules
           .map((item) => item.toJson())
@@ -1256,6 +1261,14 @@ class AiPromptBuilder {
     return staticState;
   }
 
+  bool _writeCommandConfirmationRequired({
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    return runtimeContext.writeCommandConfirmationEnabled &&
+        !session.fullAccessPermission;
+  }
+
   Map<String, Object?> _buildCompactDynamicSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
@@ -1277,8 +1290,15 @@ class AiPromptBuilder {
     if (session.mode != AiSessionMode.chat) {
       dynamicState['mode'] = session.mode.storageValue;
     }
-    if (session.fullAccessPermission) {
-      dynamicState['permission'] = const <String, Object?>{'full_access': true};
+    if (session.fullAccessPermission ||
+        runtimeContext.writeCommandConfirmationEnabled) {
+      dynamicState['permission'] = <String, Object?>{
+        if (session.fullAccessPermission) 'full_access': true,
+        'write_cmd_confirm_required': _writeCommandConfirmationRequired(
+          session: session,
+          runtimeContext: runtimeContext,
+        ),
+      };
     }
 
     final promptSessionTitle = _promptSessionTitleForMetadata(session);
