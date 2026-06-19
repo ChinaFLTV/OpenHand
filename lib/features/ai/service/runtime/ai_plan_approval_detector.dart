@@ -68,6 +68,21 @@ abstract final class AiPlanApprovalDetector {
         _executionContinuationPhrases.any(normalized.contains);
   }
 
+  /// Returns `true` when assistant/tool text is asking the user to approve a
+  /// plan outside the dedicated ExitPlanMode approval gate.
+  static bool looksLikePlanApprovalRequest(String content) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    final compactReply = normalized.replaceAll(_punctuationPattern, '');
+    if (_negativeApprovalRequestPhrases.any(normalized.contains) ||
+        _negativeApprovalRequestCompactFragments.any(compactReply.contains)) {
+      return false;
+    }
+    return _approvalRequestPhrases.any(normalized.contains);
+  }
+
   static final RegExp _punctuationPattern = RegExp(r'[\s!！。．\.,，、;；:：~～?？]+');
 
   static bool _containsNegativePlanAction(
@@ -265,5 +280,57 @@ abstract final class AiPlanApprovalDetector {
     '重新试',
     '恢复执行',
     '恢复上次执行',
+  ];
+
+  static const List<String> _negativeApprovalRequestPhrases = <String>[
+    'do not ask for plan approval',
+    "don't ask for plan approval",
+    'never ask for plan approval',
+    'not asking for plan approval',
+    'without asking for plan approval',
+    'no plan approval question',
+  ];
+
+  static const List<String> _negativeApprovalRequestCompactFragments = <String>[
+    '不要请求计划批准',
+    '不要询问计划批准',
+    '不要问计划是否可以',
+    '不能用聊天请求计划批准',
+    '禁止请求计划批准',
+    '禁止询问计划批准',
+  ];
+
+  static const List<String> _approvalRequestPhrases = <String>[
+    'approve the plan',
+    'approve plan',
+    'plan approval',
+    'is the plan okay',
+    'is this plan okay',
+    'does the plan look good',
+    'should i proceed',
+    'should we proceed',
+    'can i proceed',
+    'may i proceed',
+    'proceed with implementation',
+    'start implementation',
+    'start coding',
+    'continue to implementation',
+    'go ahead with the plan',
+    '批准计划',
+    '同意计划',
+    '计划可以',
+    '计划是否',
+    '是否批准',
+    '是否继续',
+    '可以继续',
+    '开始实施',
+    '开始实现',
+    '开始编码',
+    '继续执行',
+    '继续实施',
+    '执行计划',
+    '按计划执行',
+    '计划没问题',
+    '计划可以吗',
   ];
 }

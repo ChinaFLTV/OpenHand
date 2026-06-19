@@ -52,5 +52,36 @@ void main() {
         isFalse,
       );
     });
+
+    test('recognizes plan approval requests in assistant text', () {
+      expect(
+        AiPlanApprovalDetector.looksLikePlanApprovalRequest(
+          'Is this plan okay? Should I proceed with implementation?',
+        ),
+        isTrue,
+      );
+      expect(
+        AiPlanApprovalDetector.looksLikePlanApprovalRequest('计划可以吗？是否继续？'),
+        isTrue,
+      );
+    });
+
+    test(
+      'does not treat planning rules or clarifications as approval requests',
+      () {
+        expect(
+          AiPlanApprovalDetector.looksLikePlanApprovalRequest(
+            'Do not ask for plan approval in plain chat.',
+          ),
+          isFalse,
+        );
+        expect(
+          AiPlanApprovalDetector.looksLikePlanApprovalRequest(
+            'Pick the approach the implementation plan should use.',
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 }

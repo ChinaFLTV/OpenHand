@@ -45,6 +45,7 @@
 - `status` 只能是 `pending` / `in_progress` / `completed` / `failed`。
 - 同一调用内 `id` 唯一，最多一个 `in_progress`。
 - 计划模式下，调用 `ExitPlanMode` 前必须保留至少一个未完成 todo，否则运行时可能不会暴露 `ExitPlanMode`。
+- 计划轮只能以阻塞性澄清或 `ExitPlanMode` 结束；不要用普通文本请求计划批准。
 
 `ExitPlanMode` 参数：
 ```json

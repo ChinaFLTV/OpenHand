@@ -15,6 +15,8 @@ void main() {
       expect(system, isNot(contains('<file_editing>')));
       expect(system, isNot(contains('Task` 必须顶层传')));
       expect(system, isNot(contains('`Edit`：单点替换')));
+      expect(system, contains('不要用普通文本请求计划批准'));
+      expect(system, isNot(contains('用自然语言给出编号计划并请用户批准')));
 
       expect(developer, contains('<runtime_catalog>'));
       expect(developer, contains('<task_tool>'));
@@ -27,6 +29,7 @@ void main() {
       expect(developer, contains('VERDICT: PASS'));
       expect(developer, contains('tool_output_persisted_path'));
       expect(developer, contains('tool_output_recovery_hint'));
+      expect(developer, contains('不要用普通文本请求计划批准'));
       expect(contextRecovery, contains('tool_output_truncated'));
       expect(contextRecovery, contains('tool_output_persisted_path'));
       expect(contextRecovery, contains('Task verify'));

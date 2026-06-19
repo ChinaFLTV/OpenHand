@@ -221,6 +221,8 @@ class AiSessionController extends ChangeNotifier {
   };
   static const String _emptyPlanContinuationReplyError =
       'The assistant returned an empty follow-up response after tool execution.';
+  static const String _plainTextPlanApprovalRequestError =
+      'Plan approval in Plan mode must use ExitPlanMode. Do not ask for plan approval in plain chat or AskUserChoice; refresh TodoWrite if needed, then call ExitPlanMode.';
 
   static Future<AiSessionController> create({
     AiSessionStore? store,
@@ -5426,10 +5428,11 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
 
+      final sanitizedFinalReply = _sanitizeVisibleModelContent(result.reply);
       if (_shouldFailEmptyPlanContinuationReply(
         session: workingSession,
         toolRoundCount: toolRoundCount,
-        finalReply: _sanitizeVisibleModelContent(result.reply),
+        finalReply: sanitizedFinalReply,
         hasToolCalls: result.toolCalls.isNotEmpty,
       )) {
         _debugSessionLog(
@@ -5451,6 +5454,36 @@ class AiSessionController extends ChangeNotifier {
         _setLastSendErrorMessage(
           workingSession.id,
           _emptyPlanContinuationReplyError,
+        );
+        notifyListeners();
+        return false;
+      }
+
+      if (_shouldFailPlainTextPlanApprovalRequest(
+        session: workingSession,
+        finalReply: sanitizedFinalReply,
+        hasToolCalls: result.toolCalls.isNotEmpty,
+        executionApprovedForSend: planModeExecutionApprovedForSend,
+      )) {
+        _debugSessionLog(
+          workingSession.id,
+          'stream_plain_text_plan_approval_request round=${toolRoundCount + 1}',
+        );
+        await _emitStopFailureHook(
+          sessionId: workingSession.id,
+          stage: 'plan_mode_approval_request',
+          detail: _plainTextPlanApprovalRequestError,
+        );
+        final failedSession = _appendError(
+          workingSession,
+          stage: 'plan_mode_approval_request',
+          message: _plainTextPlanApprovalRequestError,
+          detail: _plainTextPlanApprovalRequestError,
+        );
+        await _commitSessionLocked(_rebuildSession(failedSession));
+        _setLastSendErrorMessage(
+          workingSession.id,
+          _plainTextPlanApprovalRequestError,
         );
         notifyListeners();
         return false;
@@ -7185,6 +7218,23 @@ class AiSessionController extends ChangeNotifier {
     }
     return session.latestActivePlanRecord?.status ==
         AiSessionPlanStatus.inProgress;
+  }
+
+  bool _shouldFailPlainTextPlanApprovalRequest({
+    required AiSession session,
+    required String finalReply,
+    required bool hasToolCalls,
+    required bool executionApprovedForSend,
+  }) {
+    if (hasToolCalls ||
+        executionApprovedForSend ||
+        session.mode != AiSessionMode.plan ||
+        session.awaitingPlanApproval ||
+        !_hasIncompleteTodoItems(session.todoItems) ||
+        finalReply.trim().isEmpty) {
+      return false;
+    }
+    return AiPlanApprovalDetector.looksLikePlanApprovalRequest(finalReply);
   }
 
   bool _shouldResetPlanStateForNewTask({

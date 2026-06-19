@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/runtime/ai_plan_approval_detector.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -80,40 +81,6 @@ class AiAskUserChoiceTool extends AiTool {
 
   @override
   bool get isDestructive => false;
-
-  static const List<String> _planApprovalQuestionPhrases = <String>[
-    'approve the plan',
-    'approve plan',
-    'plan approval',
-    'is the plan okay',
-    'is this plan okay',
-    'does the plan look good',
-    'should i proceed',
-    'should we proceed',
-    'can i proceed',
-    'may i proceed',
-    'proceed with implementation',
-    'start implementation',
-    'start coding',
-    'continue to implementation',
-    'go ahead with the plan',
-    '批准计划',
-    '同意计划',
-    '计划可以',
-    '计划是否',
-    '是否批准',
-    '是否继续',
-    '可以继续',
-    '开始实施',
-    '开始实现',
-    '开始编码',
-    '继续执行',
-    '继续实施',
-    '执行计划',
-    '按计划执行',
-    '计划没问题',
-    '计划可以吗',
-  ];
 
   static AskUserChoicePresenter? _presenter;
 
@@ -338,6 +305,6 @@ class AiAskUserChoiceTool extends AiTool {
       return false;
     }
     final text = '${title.toLowerCase()} ${description?.toLowerCase() ?? ''}';
-    return _planApprovalQuestionPhrases.any(text.contains);
+    return AiPlanApprovalDetector.looksLikePlanApprovalRequest(text);
   }
 }

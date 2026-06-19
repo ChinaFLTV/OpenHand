@@ -14,8 +14,10 @@ class AiPlanModeGuidance {
       'ExitPlanMode. Keep at least one todo item pending or in_progress until '
       'ExitPlanMode captures the plan; otherwise the runtime may not expose '
       'ExitPlanMode. Do not call editing, write-oriented, Bash, or other '
-      'implementation tools until the user approves the captured plan. If the '
-      'user has already endorsed the plan in this turn (for example '
+      'implementation tools until the user approves the captured plan. End '
+      'planning turns only with AskUserChoice for blocking clarification or '
+      'ExitPlanMode for approval; never ask for plan approval in plain chat. '
+      'If the user has already endorsed the plan in this turn (for example '
       '$_approvalExamples), call ExitPlanMode immediately with the '
       'concise numbered plan and wait for the next turn to execute.';
 
