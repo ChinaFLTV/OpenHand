@@ -131,7 +131,7 @@ class AiGitTool extends AiTool {
         return _run(workingDirectory, gitArgs, toolCallId: toolCallId);
 
       case 'show':
-        final ref = '${args['ref'] ?? 'HEAD'}'.trim();
+        final ref = '${args['target'] ?? args['ref'] ?? 'HEAD'}'.trim();
         if (ref.startsWith('-')) {
           throw ArgumentError('Git show ref must not start with "-".');
         }
@@ -140,7 +140,6 @@ class AiGitTool extends AiTool {
           'show',
           '--stat',
           '-p',
-          '--',
           ref,
         ], toolCallId: toolCallId);
 
