@@ -239,8 +239,8 @@ class _WriteCommandConfirmationDialogState
                 Text(
                   _localizedText(
                     context,
-                    zh: '快捷键：Enter 确认 · Esc 关闭（不视为同意或拒绝）',
-                    en: 'Shortcuts: Enter approves · Esc closes (counts as neither approve nor reject)',
+                    zh: '快捷键：Enter 确认 · Esc 不关闭，请明确选择允许或取消',
+                    en: 'Shortcuts: Enter approves · Esc is ignored; choose Run or Cancel explicitly',
                   ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,

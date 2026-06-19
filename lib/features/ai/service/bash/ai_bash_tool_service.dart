@@ -30,9 +30,9 @@ enum BashToolExecutionStatus {
 enum BashToolExecutionPhase { running, completed }
 
 /// 用户对 bash 写命令的确认决策。`approved` 与 `rejected` 来自显式
-/// 点击；`dismissed` 表示用户按 ESC（没明示同意也没明示拒绝，更像
-/// "暂不决定"）；其余区分超时与会话级取消。把决策完整透传给 AI，
-/// 让模型在后续动作中区分"用户拒绝"vs"用户没作答"。
+/// 选择；`dismissed` 表示弹窗或远端确认被外部关闭，用户没有明示同意
+/// 或拒绝；其余区分超时与会话级取消。把决策完整透传给 AI，让模型在
+/// 后续动作中区分"用户拒绝"vs"用户没作答"。
 enum BashCommandApprovalDecision {
   approved,
   rejected,
