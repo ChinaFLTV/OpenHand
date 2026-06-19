@@ -649,16 +649,19 @@ class AiSessionController extends ChangeNotifier {
   int get _effectiveEstimatedCharactersPerToken =>
       _latestRuntimeContext?.estimatedCharactersPerToken ??
       AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken;
-  static const Set<String> _planModePlanningToolAllowlist = <String>{
-    'askuserchoice',
-    'task',
-    'glob',
-    'grep',
-    'ls',
-    'read',
-    'webfetch',
-    'websearch',
-    'todowrite',
+  static const List<String> _planModePlanningToolNames = <String>[
+    'AskUserChoice',
+    'Task',
+    'Glob',
+    'Grep',
+    'LS',
+    'Read',
+    'WebFetch',
+    'WebSearch',
+    'TodoWrite',
+  ];
+  static final Set<String> _planModePlanningToolAllowlist = <String>{
+    for (final name in _planModePlanningToolNames) _normalizeToolName(name),
   };
   static const Set<String> _internalPromptLeakHeaders =
       aiInternalPromptLeakHeaders;
@@ -6744,6 +6747,9 @@ class AiSessionController extends ChangeNotifier {
         .map((tool) => tool.name.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
+    final exitPlanModeAvailable = toolNames.any(
+      (name) => _normalizeToolName(name) == 'exitplanmode',
+    );
     return <String, Object?>{
       ...baseMetadata,
       'tool_catalog_authoritative': true,
@@ -6757,6 +6763,8 @@ class AiSessionController extends ChangeNotifier {
           .toList(growable: false),
       'current_tool_count': toolNames.length,
       'current_tool_names': toolNames,
+      'plan_mode_planning_tool_names': _planModePlanningToolNames,
+      'plan_mode_exit_plan_mode_available': exitPlanModeAvailable,
       'runtime_tool_catalog_stale': false,
       'runtime_tool_catalog_notices': toolCatalog.notices,
       'runtime_tool_gate_reason': _runtimeToolCatalogGateReason(
@@ -6786,6 +6794,8 @@ class AiSessionController extends ChangeNotifier {
       'current_todos': session.todoItems
           .map((item) => item.toJson())
           .toList(growable: false),
+      'plan_mode_planning_tool_names': _planModePlanningToolNames,
+      'plan_mode_exit_plan_mode_available': false,
       'runtime_tool_catalog_stale': true,
       'runtime_tool_catalog_notices': const <String>[],
       'runtime_tool_gate_reason': 'mode_switch_requires_refresh',
