@@ -26,6 +26,7 @@ import '../fs/ai_file_tracker_service.dart';
 import '../hook/ai_claude_hook_service.dart';
 import '../prompt/ai_prompt_template_assembly.dart';
 import '../web_fetch/web_fetch_scrapling_bridge.dart';
+import 'ai_plan_mode_guidance.dart';
 import 'ai_tool_execution_registry.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
@@ -623,13 +624,7 @@ class AiToolRuntimeService {
           .toList(growable: false);
       final guidance = StringBuffer('Unsupported tool name: ${toolCall.name}.');
       if (availableNames.isEmpty) {
-        guidance.write(
-          ' The tool catalog is empty for this turn — usually because the '
-          'system is waiting for the user to approve a pending plan. Do NOT '
-          'invent tool names; respond by presenting the captured plan and '
-          'asking the user to confirm. Once approved, the next turn will '
-          'restore Write/Edit/MultiEdit/Bash automatically.',
-        );
+        guidance.write(AiPlanModeGuidance.unsupportedEmptyCatalog);
       } else {
         // Cap the suggestion list so an MCP-heavy session does not blow the
         // tool-result envelope.

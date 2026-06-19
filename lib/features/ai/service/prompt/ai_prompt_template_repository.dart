@@ -68,7 +68,7 @@ class AiPromptTemplateRepository {
       iconName: 'code_rounded',
       description:
           '对标 Cursor Agent 的全栈 AI 编程助手。具备语义代码搜索、LSP 诊断、Git 集成、自主 Agent 循环，支持 Research→Synthesis→Implementation→Verification 四阶段工作流。',
-      internalVersion: '1.0.0',
+      internalVersion: '1.1.0',
       promptAssetDirectory:
           AiPromptTemplatePolicies.programmingExpertPromptAssetDirectory,
     ),

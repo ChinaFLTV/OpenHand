@@ -25,6 +25,7 @@ import '../chat/ai_protocol_adapter.dart';
 import '../hook/ai_claude_hook_service.dart';
 import '../mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import '../runtime/ai_plan_approval_detector.dart';
+import '../runtime/ai_plan_mode_guidance.dart';
 import '../runtime/ai_tool_runtime_service.dart';
 import 'ai_output_format_prompts.dart';
 import 'ai_prompt_sections.dart';
@@ -1331,11 +1332,8 @@ class AiPromptBuilder {
     final visibleToolCount =
         skillTools.length + mcpTools.length + builtinTools.length;
     if (visibleToolCount == 0) {
-      // 2026-04-27: 在计划模式待批准的轮次，工具目录被主动清空。
-      // 原状下模型容易以为“什么工具都没有”而拒绝实现。
-      // 为该场景提供明确提示，避免模型谎称工具缺失。
       if (awaitingPlanApproval) {
-        return 'Tool catalog is intentionally empty for this turn because the system is waiting for the user to approve your plan. Present the captured plan and ask for confirmation. As soon as the user endorses it (English or Chinese, e.g. "do it", "ship it", "去写吧", "去做吧"), the next turn will restore the full execution toolkit (Write, Edit, MultiEdit, Bash, etc.) automatically. Never tell the user that Write/Edit do not exist — the tools simply have not been re-enabled yet.';
+        return AiPlanModeGuidance.emptyCatalogAwaitingApproval;
       }
       return 'No runtime tools are available in this response. Do not invent tool names or assume a tool exists because it existed in an earlier turn.';
     }
@@ -4707,11 +4705,9 @@ $content
     required AiSessionMessage? latestUserMessage,
   }) {
     if (session.awaitingPlanApproval) {
-      final pendingPlan = (session.pendingPlan ?? '').trim();
-      if (pendingPlan.isEmpty) {
-        return 'A plan is pending user approval. Present the captured plan clearly, ask for explicit approval, and wait before implementation. Do not call editing or write-oriented tools until approval is granted.';
-      }
-      return 'A plan is pending user approval. Present the captured plan below, ask for explicit approval, and wait before implementation. Do not call editing or write-oriented tools until approval is granted.\n\n$pendingPlan';
+      return AiPlanModeGuidance.pendingApprovalReminder(
+        session.pendingPlan ?? '',
+      );
     }
     if (session.mode != AiSessionMode.plan || latestUserMessage == null) {
       return null;
@@ -4743,9 +4739,9 @@ $content
       return 'The previous plan run stopped after a failed, timed-out, otherwise interrupted step, or a stale todo state. Before retrying, first review the current todo list and inspect the workspace, generated artifacts, and recent tool results to see what already succeeded.$completedTodoSummary Then decide whether to fully retry the failed step or only retry the unfinished portion. Use TodoWrite to refresh the relevant todo entries before resuming heavy execution. If a failed or stale-completed step should be retried now, set that step back to in_progress so the timeline reflects the retry, and keep the todo list current as the retry progresses.$failedStepSummary';
     }
     if (_looksLikePlanApproval(latestUserMessage.content)) {
-      return 'The user is approving the existing plan. Do not call ExitPlanMode again or restate the plan. Start executing it now, use TodoWrite to track concrete implementation steps, and keep the todo list current as work progresses. Your tool catalog now includes Write/Edit/MultiEdit/Bash — use them directly. Never apologise for missing tools or ask the user to copy-paste code: re-check the tool list, and if a write tool is genuinely absent (e.g. you are still in planning phase), call ExitPlanMode first instead of giving up.';
+      return AiPlanModeGuidance.approvalExecutionReminder;
     }
-    return 'This session is in Plan mode. When the request needs more than one concrete step, first inspect the problem, use TodoWrite to create or refresh a structured todo list, and complete planning before implementation. Do not call editing, write-oriented, or execution-heavy tools until the plan is approved. Once the plan is ready, call ExitPlanMode with a concise actionable numbered or bulleted execution step list and wait for explicit user approval before making changes. IMPORTANT: if the user has already endorsed the plan in any phrasing (English or Chinese, e.g. "去写吧", "去做吧", "do it", "ship it"), treat that turn as approval and call ExitPlanMode at once — never claim Write/Edit are unavailable as an excuse to dump code into chat.';
+    return AiPlanModeGuidance.planningReminder;
   }
 
   bool _shouldUsePlanRecoveryReminder({

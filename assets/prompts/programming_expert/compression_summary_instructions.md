@@ -8,6 +8,8 @@
 - **Code Context**：相关文件、符号、行号、当前改动意图。
 - **Architecture**：架构选择、设计模式、取舍依据。
 - **Plan State**：已完成、进行中、待办、阻塞项。
+- **Current Work**：压缩发生时正在处理的具体文件、符号、命令或工具调用意图。
+- **Next Step**：下一轮应直接执行的一个动作；若不能继续，说明阻塞输入。
 - **Approval Gates**：计划 / 映射 / 改造等用户确认状态；保留原文确认词。
 - **Environment**：工作目录、构建命令、运行时 / SDK / 工具版本。
 - **Tool Outcomes**：影响后续动作的失败、拒绝、超时、验证结果。
@@ -34,6 +36,8 @@
 ## Key Decisions
 ## Code Changes
 ## Current Plan
+## Current Work
+## Next Step
 ## Approval Gates
 ## Build & Test
 ## Git State

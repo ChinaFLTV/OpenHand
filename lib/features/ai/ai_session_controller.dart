@@ -649,6 +649,7 @@ class AiSessionController extends ChangeNotifier {
       _latestRuntimeContext?.estimatedCharactersPerToken ??
       AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken;
   static const Set<String> _planModePlanningToolAllowlist = <String>{
+    'askuserchoice',
     'task',
     'glob',
     'grep',
