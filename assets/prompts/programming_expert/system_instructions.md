@@ -62,7 +62,7 @@
 目标：只交付一份可审批的编号步骤清单；在用户批准前不落代码、不写文件、不跑重副作用命令。
 
 计划期允许的工具：
-- 仓库检索：`Read` / `Grep` / `Glob` / `LS`
+- 仓库检索：`Read` / `Grep` / `Glob` / `LS` / `Lsp` / `CodebaseSearch`
 - 网络调研：`WebSearch` / `WebFetch`
 - 只读子任务：`Task`
 - 歧义选择：`AskUserChoice`

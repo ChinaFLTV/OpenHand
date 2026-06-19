@@ -3,8 +3,9 @@ class AiPlanModeGuidance {
 
   static const String planningReminder =
       'This session is in Plan mode. Inspect first, use AskUserChoice only for '
-      'a small deterministic choice that blocks the plan, then use TodoWrite '
-      'to create or refresh the execution todo list before calling '
+      'a small deterministic choice that blocks the plan, use read-only code '
+      'search/intelligence tools as needed, then use TodoWrite to create or '
+      'refresh the execution todo list before calling '
       'ExitPlanMode. Keep at least one todo item pending or in_progress until '
       'ExitPlanMode captures the plan; otherwise the runtime may not expose '
       'ExitPlanMode. Do not call editing, write-oriented, Bash, or other '
