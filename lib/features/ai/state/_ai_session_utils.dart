@@ -6,9 +6,7 @@ part of '../ai_session_controller.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
-  return todoItems.any(
-    (item) => item.status.trim().toLowerCase() != 'completed',
-  );
+  return AiSessionTodoState.hasIncomplete(todoItems);
 }
 
 bool _hasPlanExecutionContext(AiSession session) {
@@ -22,17 +20,11 @@ String _normalizeToolName(String toolName) {
 }
 
 bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
-  return todoItems.isNotEmpty &&
-      todoItems.every(
-        (item) => item.status.trim().toLowerCase() == 'completed',
-      );
+  return AiSessionTodoState.allCompleted(todoItems);
 }
 
 bool _hasFailedTodoItems(List<AiSessionTodoItem> todoItems) {
-  return todoItems.any((item) {
-    final status = item.status.trim().toLowerCase();
-    return status == 'failed' || status == 'blocked' || status == 'cancelled';
-  });
+  return AiSessionTodoState.hasFailure(todoItems);
 }
 
 bool _isFailureTrackedPlanToolStatus(String status) {

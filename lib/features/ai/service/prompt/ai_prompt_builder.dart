@@ -273,12 +273,7 @@ class AiPromptBuilder {
             isLatestUserMessage: true,
           );
     final failedTodos = session.todoItems
-        .where((item) {
-          final status = item.status.trim().toLowerCase();
-          return status == 'failed' ||
-              status == 'blocked' ||
-              status == 'cancelled';
-        })
+        .where((item) => AiSessionTodoState.isFailureStatus(item.status))
         .map((item) => item.toJson())
         .toList(growable: false);
     final availableToolNames = availableTools
@@ -1972,10 +1967,7 @@ class AiPromptBuilder {
   }
 
   bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
-    return todoItems.any((item) {
-      final status = item.status.trim().toLowerCase();
-      return status != 'completed';
-    });
+    return AiSessionTodoState.hasIncomplete(todoItems);
   }
 
   Map<String, Object?> _compressionPlanRecordSnapshot(
@@ -4967,8 +4959,8 @@ $content
     if (session.awaitingPlanApproval) {
       return null;
     }
-    final hasIncompleteTodo = session.todoItems.any(
-      (item) => item.status.trim().toLowerCase() != 'completed',
+    final hasIncompleteTodo = AiSessionTodoState.hasIncomplete(
+      session.todoItems,
     );
     final normalizedContent = message.content.trim().toLowerCase();
     if (_continuationOnlySignals.contains(normalizedContent)) {
@@ -5001,10 +4993,7 @@ $content
           _looksLikePlanRecoveryContinuation(latestUserMessage.content);
       final failedSteps = session.todoItems
           .where((item) {
-            final status = item.status.trim().toLowerCase();
-            return status == 'failed' ||
-                status == 'blocked' ||
-                status == 'cancelled';
+            return AiSessionTodoState.isFailureStatus(item.status);
           })
           .map((item) => item.content.trim())
           .where((item) => item.isNotEmpty)
@@ -5037,12 +5026,7 @@ $content
     if (_hasCompletedTodoItemsOnly(session.todoItems)) {
       return true;
     }
-    return session.todoItems.any((item) {
-          final status = item.status.trim().toLowerCase();
-          return status == 'failed' ||
-              status == 'blocked' ||
-              status == 'cancelled';
-        }) ||
+    return AiSessionTodoState.hasFailure(session.todoItems) ||
         _hasRecentPlanToolFailure(session);
   }
 
@@ -5067,10 +5051,7 @@ $content
   }
 
   bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
-    return todoItems.isNotEmpty &&
-        todoItems.every(
-          (item) => item.status.trim().toLowerCase() == 'completed',
-        );
+    return AiSessionTodoState.allCompleted(todoItems);
   }
 
   bool _hasRecentPlanToolFailure(AiSession session) {

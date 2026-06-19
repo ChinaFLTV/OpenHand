@@ -84,6 +84,51 @@ class AiSessionTodoItem {
   }
 }
 
+abstract final class AiSessionTodoState {
+  static const String pending = 'pending';
+  static const String inProgress = 'in_progress';
+  static const String completed = 'completed';
+  static const String failed = 'failed';
+  static const String blocked = 'blocked';
+  static const String cancelled = 'cancelled';
+
+  static String normalizeStatus(String value) => value.trim().toLowerCase();
+
+  static bool isCompletedStatus(String value) {
+    return normalizeStatus(value) == completed;
+  }
+
+  static bool isIncompleteStatus(String value) {
+    return !isCompletedStatus(value);
+  }
+
+  static bool isFailureStatus(String value) {
+    return switch (normalizeStatus(value)) {
+      failed || blocked || cancelled => true,
+      _ => false,
+    };
+  }
+
+  static bool hasIncomplete(Iterable<AiSessionTodoItem> todoItems) {
+    return todoItems.any((item) => isIncompleteStatus(item.status));
+  }
+
+  static bool allCompleted(Iterable<AiSessionTodoItem> todoItems) {
+    var sawItem = false;
+    for (final item in todoItems) {
+      sawItem = true;
+      if (!isCompletedStatus(item.status)) {
+        return false;
+      }
+    }
+    return sawItem;
+  }
+
+  static bool hasFailure(Iterable<AiSessionTodoItem> todoItems) {
+    return todoItems.any((item) => isFailureStatus(item.status));
+  }
+}
+
 enum AiSessionPlanStatus {
   pendingApproval('pending_approval'),
   inProgress('in_progress'),
