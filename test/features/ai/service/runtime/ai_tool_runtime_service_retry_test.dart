@@ -315,6 +315,24 @@ void main() {
       expect(properties?['context'], containsPair('type', 'integer'));
       expect(properties?['offset'], containsPair('type', 'integer'));
     });
+
+    test('Read exposes Claude-style PDF pages parameter', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('Read')?.definition;
+      final properties = definition?.parameters['properties'] as Map?;
+
+      expect(definition, isNotNull);
+      expect(properties?['pages'], containsPair('type', 'string'));
+    });
   });
 
   group('AiToolRuntimeService Bash background alias', () {

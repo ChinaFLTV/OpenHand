@@ -11,7 +11,7 @@
 </runtime_catalog>
 
 <read_and_search>
-- `Read`：编辑前必用；`file_path` 按 schema 传绝对路径。大文件先用 `offset` / `limit` 分段。
+- `Read`：编辑前必用；`file_path` 按 schema 传绝对路径。大文件先用 `offset` / `limit` 分段。PDF 可传 Claude 风格 `pages` 表达页范围，但当前返回 PDF 元信息与请求范围，不抽取页面文本。
 - `Grep`：精确文本或正则搜索；用 `path` / `glob` / `head_limit` / `offset` 缩范围；`context` 可作为 `-C` 别名。
 - `Glob`：按模式发现文件，比 shell `find` 更合适。
 - `LS`：列目录；写入新路径前先确认父目录。

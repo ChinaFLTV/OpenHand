@@ -2421,6 +2421,11 @@ class AiToolRuntimeService {
             'type': 'integer',
             'description': 'Maximum number of lines to read. Defaults to 2000.',
           },
+          'pages': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Claude-style PDF page range such as "1", "1-5", or "1,3-5". Maximum 20 pages. Current runtime returns PDF metadata and the requested range, not extracted page text.',
+          },
         },
         'required': <String>['file_path'],
         'additionalProperties': false,

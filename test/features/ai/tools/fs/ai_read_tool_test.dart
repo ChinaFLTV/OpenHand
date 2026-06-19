@@ -205,6 +205,101 @@ void main() {
       expect(result.stdout, contains('delta'));
       expect(result.stdout, isNot(contains('File unchanged since last read')));
     });
+
+    test('accepts Claude-style PDF pages range as explicit metadata', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/sample.pdf');
+      await file.writeAsString(
+        '%PDF-1.4\n'
+        '1 0 obj << /Type /Page >> endobj\n'
+        '2 0 obj << /Type /Page >> endobj\n',
+        encoding: latin1,
+      );
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-pdf-pages',
+          filePath: file.path,
+          offset: 1,
+          limit: 10,
+          fileTracker: AiFileTrackerService(),
+          pages: '1-2',
+        ),
+      );
+
+      expect(result.status.storageValue, 'success');
+      expect(result.stdout, contains('file_type: pdf'));
+      expect(result.stdout, contains('requested_pages: 1-2'));
+      expect(result.stdout, contains('requested_page_count: 2'));
+      expect(
+        result.stdout,
+        contains('Page-range text extraction is not available'),
+      );
+    });
+
+    test('rejects pages for non-PDF files', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('alpha\n');
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-text-pages',
+          filePath: file.path,
+          offset: 1,
+          limit: 10,
+          fileTracker: AiFileTrackerService(),
+          pages: '1',
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('only supported for PDF'));
+    });
+
+    test('rejects PDF page ranges over the Claude-compatible cap', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/sample.pdf');
+      await file.writeAsString('%PDF-1.4\n', encoding: latin1);
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-pdf-too-many-pages',
+          filePath: file.path,
+          offset: 1,
+          limit: 10,
+          fileTracker: AiFileTrackerService(),
+          pages: '1-21',
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('at most 20 PDF pages'));
+    });
   });
 }
 
@@ -214,7 +309,14 @@ AiToolExecutionContext _context({
   required int offset,
   required int limit,
   required AiFileTrackerService fileTracker,
+  String? pages,
 }) {
+  final arguments = <String, Object?>{
+    'file_path': filePath,
+    'offset': offset,
+    'limit': limit,
+    if (pages != null) 'pages': pages,
+  };
   return AiToolExecutionContext(
     sessionId: 'test-session',
     catalog: const AiResolvedToolCatalog(
@@ -224,17 +326,9 @@ AiToolExecutionContext _context({
     toolCall: AiToolCall(
       id: id,
       name: 'Read',
-      arguments: jsonEncode(<String, Object?>{
-        'file_path': filePath,
-        'offset': offset,
-        'limit': limit,
-      }),
+      arguments: jsonEncode(arguments),
     ),
-    decodedArguments: <String, Object?>{
-      'file_path': filePath,
-      'offset': offset,
-      'limit': limit,
-    },
+    decodedArguments: arguments,
     model: _testModel,
     previouslyReadFiles: <String>{},
     denyCommandRules: const <Never>[],

@@ -16,6 +16,7 @@ class AiFileReadRenderer {
     String filePath, {
     int? offset,
     int? limit,
+    AiPdfPageRange? pdfPages,
   }) async {
     final extension = p.extension(filePath).toLowerCase();
     if (extension == '.ipynb') {
@@ -42,7 +43,7 @@ class AiFileReadRenderer {
     }
     if (extension == '.pdf') {
       final bytes = await file.readAsBytes();
-      return _renderPdf(bytes, filePath);
+      return _renderPdf(bytes, filePath, pageRange: pdfPages);
     }
     final bytes = await AiToolUtils.readFilePrefix(file, fileLength);
     final truncated = fileLength > bytes.length;
@@ -164,7 +165,11 @@ class AiFileReadRenderer {
     );
   }
 
-  RenderedReadContent _renderPdf(List<int> bytes, String filePath) {
+  RenderedReadContent _renderPdf(
+    List<int> bytes,
+    String filePath, {
+    AiPdfPageRange? pageRange,
+  }) {
     final latinText = latin1.decode(bytes, allowInvalid: true);
     final headerLine = latinText.split(RegExp(r'[\r\n]')).first.trim();
     final pageCount = RegExp(r'/Type\s*/Page\b').allMatches(latinText).length;
@@ -174,6 +179,14 @@ class AiFileReadRenderer {
       ..writeln('size_bytes: ${bytes.length}');
     if (headerLine.isNotEmpty) buffer.writeln('header: $headerLine');
     if (pageCount > 0) buffer.writeln('page_count_estimate: $pageCount');
+    if (pageRange != null) {
+      buffer
+        ..writeln('requested_pages: ${pageRange.label}')
+        ..writeln('requested_page_count: ${pageRange.pageCount}')
+        ..writeln(
+          'requested_pages_note: Page-range text extraction is not available in this runtime; only PDF metadata is returned.',
+        );
+    }
     buffer.writeln(
       'preview: PDF files are not line-addressable in this runtime.',
     );
@@ -239,4 +252,11 @@ class AiFileReadRenderer {
     final text = '$value'.trim();
     return text == 'null' ? '' : text;
   }
+}
+
+class AiPdfPageRange {
+  const AiPdfPageRange({required this.label, required this.pageCount});
+
+  final String label;
+  final int pageCount;
 }

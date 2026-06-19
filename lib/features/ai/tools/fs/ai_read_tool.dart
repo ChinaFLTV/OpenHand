@@ -15,6 +15,8 @@ class AiReadTool extends AiTool {
   AiReadTool({AiFileReadRenderer? renderer})
     : _renderer = renderer ?? const AiFileReadRenderer();
 
+  static const int _maxPdfPageRangeCount = 20;
+
   static const String _unchangedSinceLastReadMessage =
       'File unchanged since last read. The content from the earlier Read tool result in this conversation is still current; refer to that result instead of re-reading.';
 
@@ -42,6 +44,14 @@ class AiReadTool extends AiTool {
         'File does not exist: $filePath',
       );
     }
+    final pdfPagesResult = _parsePdfPagesArgument(
+      args['pages'],
+      filePath: filePath,
+    );
+    if (pdfPagesResult.error != null) {
+      return pdfPagesResult.error!;
+    }
+    final pdfPages = pdfPagesResult.pages;
 
     // 2026-04-12: 从 metadata 获取追踪服务
     final fileTracker =
@@ -81,6 +91,7 @@ class AiReadTool extends AiTool {
       filePath,
       offset: effectiveOffset,
       limit: limit,
+      pdfPages: pdfPages,
     );
     final rawContent = renderedRead.content;
 
@@ -189,6 +200,70 @@ class AiReadTool extends AiTool {
         : lines.length;
     return lines.sublist(safeStartIndex, endIndex);
   }
+
+  _PdfPagesParseResult _parsePdfPagesArgument(
+    Object? rawPages, {
+    required String filePath,
+  }) {
+    if (rawPages == null) return const _PdfPagesParseResult();
+    final raw = '$rawPages'.trim();
+    if (raw.isEmpty) return const _PdfPagesParseResult();
+    if (p.extension(filePath).toLowerCase() != '.pdf') {
+      return _PdfPagesParseResult(
+        error: AiToolUtils.invalidResult(
+          'Read',
+          'Read pages is only supported for PDF files.',
+        ),
+      );
+    }
+
+    final pages = <int>{};
+    for (final segment in raw.split(',')) {
+      final part = segment.trim();
+      if (part.isEmpty) {
+        return _invalidPdfPages(raw);
+      }
+      final rangeMatch = RegExp(r'^(\d+)(?:\s*-\s*(\d+))?$').firstMatch(part);
+      if (rangeMatch == null) {
+        return _invalidPdfPages(raw);
+      }
+      final start = int.tryParse(rangeMatch.group(1) ?? '');
+      final end = int.tryParse(rangeMatch.group(2) ?? '') ?? start;
+      if (start == null || start <= 0 || end == null || end < start) {
+        return _invalidPdfPages(raw);
+      }
+      for (var page = start; page <= end; page++) {
+        pages.add(page);
+        if (pages.length > _maxPdfPageRangeCount) {
+          return _PdfPagesParseResult(
+            error: AiToolUtils.invalidResult(
+              'Read',
+              'Read pages supports at most $_maxPdfPageRangeCount PDF pages per request.',
+            ),
+          );
+        }
+      }
+    }
+    return _PdfPagesParseResult(
+      pages: AiPdfPageRange(label: raw, pageCount: pages.length),
+    );
+  }
+
+  _PdfPagesParseResult _invalidPdfPages(String raw) {
+    return _PdfPagesParseResult(
+      error: AiToolUtils.invalidResult(
+        'Read',
+        'Invalid PDF pages range "$raw". Use "1", "1-5", or comma-separated ranges up to $_maxPdfPageRangeCount pages.',
+      ),
+    );
+  }
+}
+
+class _PdfPagesParseResult {
+  const _PdfPagesParseResult({this.pages, this.error});
+
+  final AiPdfPageRange? pages;
+  final AiToolExecutionResult? error;
 }
 
 /// Value object returned by file render operations.
