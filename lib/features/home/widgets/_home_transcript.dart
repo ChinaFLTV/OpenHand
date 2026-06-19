@@ -314,6 +314,48 @@ class _MessageTranslationEntry {
   final AiTranslationProvider provider;
 }
 
+enum _TranscriptMultimediaKind { image, video, audio }
+
+const Map<String, _TranscriptMultimediaKind?>
+_transcriptMultimediaMetadataKeys = <String, _TranscriptMultimediaKind?>{
+  'image_path': _TranscriptMultimediaKind.image,
+  'image_paths': _TranscriptMultimediaKind.image,
+  'generated_image_path': _TranscriptMultimediaKind.image,
+  'generated_image_paths': _TranscriptMultimediaKind.image,
+  'video_path': _TranscriptMultimediaKind.video,
+  'video_paths': _TranscriptMultimediaKind.video,
+  'generated_video_path': _TranscriptMultimediaKind.video,
+  'generated_video_paths': _TranscriptMultimediaKind.video,
+  'audio_path': _TranscriptMultimediaKind.audio,
+  'audio_paths': _TranscriptMultimediaKind.audio,
+  'generated_audio_path': _TranscriptMultimediaKind.audio,
+  'generated_audio_paths': _TranscriptMultimediaKind.audio,
+  'media_path': null,
+  'media_paths': null,
+};
+
+const Set<String> _transcriptMultimediaAttachmentKindHints = <String>{
+  'image',
+  'img',
+  'picture',
+  'photo',
+  'video',
+  'movie',
+  'audio',
+  'sound',
+  'voice',
+};
+
+final RegExp _transcriptMarkdownMediaLinkPattern = RegExp(
+  r'(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)',
+  caseSensitive: false,
+);
+
+final RegExp _transcriptHtmlMediaSrcPattern = RegExp(
+  r'''<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>''',
+  caseSensitive: false,
+);
+
 class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _selectedMessageId;
   String? _highlightedMessageId;
@@ -1243,6 +1285,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     AiTranslationSettings settings,
   ) async {
+    if (_messageHasMultimediaContent(message)) return;
     final sourceText = _translatableMessageText(message, settings);
     if (sourceText == null) return;
     if (_translationVisibleMessageIds.contains(message.id)) {
@@ -1323,11 +1366,208 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return settings.selectedAiModel;
   }
 
+  bool _messageHasMultimediaContent(AiSessionMessage message) {
+    final metadata = message.metadata;
+    final attachments = AiMessageAttachment.listFromMetadata(
+      metadata[aiSessionMessageAttachmentsMetadataKey],
+    );
+    for (final attachment in attachments) {
+      if (_attachmentIsMultimedia(attachment)) {
+        return true;
+      }
+    }
+
+    for (final entry in _transcriptMultimediaMetadataKeys.entries) {
+      if (_metadataValueHasMultimediaContent(
+        metadata[entry.key],
+        kindHint: entry.value,
+      )) {
+        return true;
+      }
+    }
+
+    return _messageContentHasMultimediaLink(message.content);
+  }
+
+  bool _messageIdTargetsMultimediaContent(String? messageId) {
+    if (messageId == null || messageId.isEmpty) return false;
+    for (final message in widget.session.displayMessages) {
+      if (message.id == messageId) {
+        return _messageHasMultimediaContent(message);
+      }
+    }
+    return false;
+  }
+
+  bool _attachmentIsMultimedia(AiMessageAttachment attachment) {
+    if (attachment.kind == AiAttachmentKind.image) {
+      return true;
+    }
+    if (_mimeTypeIsMultimedia(attachment.mimeType)) {
+      return true;
+    }
+    return _pathIsMultimedia(attachment.storagePath) ||
+        _pathIsMultimedia(attachment.originalSourcePath) ||
+        _pathIsMultimedia(attachment.name);
+  }
+
+  bool _metadataValueHasMultimediaContent(
+    Object? value, {
+    _TranscriptMultimediaKind? kindHint,
+  }) {
+    if (value == null) return false;
+    if (value is String) {
+      return _pathIsMultimedia(value, kindHint: kindHint);
+    }
+    if (value is Iterable) {
+      for (final item in value) {
+        if (_metadataValueHasMultimediaContent(item, kindHint: kindHint)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (value is Map) {
+      final kind = _multimediaKindFromHint(value['kind'] ?? value['type']);
+      final mime = value['mime_type'] ?? value['mime'] ?? value['content_type'];
+      if (kind != null || _mimeTypeIsMultimedia(mime)) {
+        return true;
+      }
+      for (final key in const <String>[
+        'storage_path',
+        'path',
+        'file_path',
+        'original_source_path',
+        'url',
+        'uri',
+        'name',
+        'file_name',
+        'filename',
+      ]) {
+        if (_pathIsMultimedia(value[key], kindHint: kindHint)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool _messageContentHasMultimediaLink(String content) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return false;
+
+    final lower = trimmed.toLowerCase();
+    if (lower.contains('<img') ||
+        lower.contains('<video') ||
+        lower.contains('<audio')) {
+      for (final match in _transcriptHtmlMediaSrcPattern.allMatches(trimmed)) {
+        if ((match.group(1) ?? '').trim().isNotEmpty) {
+          return true;
+        }
+      }
+    }
+
+    if (!trimmed.contains('](') && !trimmed.contains('![')) {
+      return false;
+    }
+    for (final match in _transcriptMarkdownMediaLinkPattern.allMatches(
+      trimmed,
+    )) {
+      final usesImageSyntax = (match.group(1) ?? '').isNotEmpty;
+      final label = (match.group(2) ?? '').trim();
+      final destination = _normalizeMarkdownDestination(match.group(3) ?? '');
+      if (destination.isEmpty) continue;
+      if (usesImageSyntax ||
+          _multimediaKindFromHint(label) != null ||
+          _pathIsMultimedia(destination)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _pathIsMultimedia(Object? value, {_TranscriptMultimediaKind? kindHint}) {
+    if (kindHint != null) {
+      return _stringValue(value).isNotEmpty;
+    }
+    final text = _stringValue(value);
+    if (text.isEmpty) return false;
+    final parsed = Uri.tryParse(text);
+    final path = parsed?.path.isNotEmpty == true ? parsed!.path : text;
+    final extension = p.extension(path).toLowerCase();
+    if (extension.isEmpty) {
+      return false;
+    }
+    return aiAttachmentKindForPath(path) == AiAttachmentKind.image ||
+        _videoMediaExtensions.contains(extension) ||
+        _audioMediaExtensions.contains(extension);
+  }
+
+  bool _mimeTypeIsMultimedia(Object? value) {
+    final normalized = _stringValue(value).toLowerCase();
+    return normalized.startsWith('image/') ||
+        normalized.startsWith('video/') ||
+        normalized.startsWith('audio/');
+  }
+
+  _TranscriptMultimediaKind? _multimediaKindFromHint(Object? value) {
+    final normalized = _stringValue(value).toLowerCase();
+    if (normalized.isEmpty) return null;
+    if (normalized.startsWith('image/') ||
+        normalized.startsWith('img/') ||
+        normalized.contains('image') ||
+        normalized.contains('picture') ||
+        normalized.contains('photo')) {
+      return _TranscriptMultimediaKind.image;
+    }
+    if (normalized.startsWith('video/') ||
+        normalized.contains('video') ||
+        normalized.contains('movie')) {
+      return _TranscriptMultimediaKind.video;
+    }
+    if (normalized.startsWith('audio/') ||
+        normalized.contains('audio') ||
+        normalized.contains('sound') ||
+        normalized.contains('speech') ||
+        normalized.contains('voice')) {
+      return _TranscriptMultimediaKind.audio;
+    }
+    return _transcriptMultimediaAttachmentKindHints.contains(normalized)
+        ? _TranscriptMultimediaKind.image
+        : null;
+  }
+
+  String _normalizeMarkdownDestination(String value) {
+    var text = value.trim();
+    if (text.isEmpty) return '';
+    final titleMatch = RegExp(r'''\s+["']''').firstMatch(text);
+    if (titleMatch != null && titleMatch.start > 0) {
+      text = text.substring(0, titleMatch.start).trim();
+    }
+    if ((text.startsWith('<') && text.endsWith('>')) ||
+        (text.startsWith('"') && text.endsWith('"')) ||
+        (text.startsWith("'") && text.endsWith("'"))) {
+      text = text.substring(1, text.length - 1).trim();
+    }
+    try {
+      return Uri.decodeFull(text);
+    } catch (_) {
+      return text;
+    }
+  }
+
+  String _stringValue(Object? value) {
+    return value == null ? '' : '$value'.trim();
+  }
+
   bool _isMessageTranslatable(
     AiSessionMessage message,
     SettingsController settings,
   ) {
     if (message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
+      return false;
+    }
+    if (_messageHasMultimediaContent(message)) {
       return false;
     }
     if (_translatableMessageText(message, settings.aiTranslationSettings) ==
@@ -1932,7 +2172,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
             valueListenable: widget.ttsPlaybackService.state,
             builder: (context, ttsSnapshot, _) {
-              if (!ttsSettings.enabled && ttsSnapshot.playing) {
+              final activeTtsUnsupported =
+                  ttsSnapshot.playing &&
+                  _messageIdTargetsMultimediaContent(ttsSnapshot.messageId);
+              if (ttsSnapshot.playing &&
+                  (!ttsSettings.enabled || activeTtsUnsupported)) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
                   unawaited(widget.ttsPlaybackService.stop());
@@ -2092,13 +2336,19 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         widget.sendPhase != AiSendPhase.idle &&
                         isLastVisibleMessage &&
                         !_animatedMessageIds.contains(message.id);
+                    final hasMultimediaContent = _messageHasMultimediaContent(
+                      message,
+                    );
+                    final speechEnabled =
+                        ttsSettings.enabled && !hasMultimediaContent;
                     final speechPlaying =
-                        ttsSettings.enabled &&
+                        speechEnabled &&
                         ttsSnapshot.playing &&
                         ttsSnapshot.messageId == message.id;
                     final translationEntry =
                         _translationCacheByMessageId[message.id];
                     final translationVisible =
+                        !hasMultimediaContent &&
                         translationEntry != null &&
                         _translationVisibleMessageIds.contains(message.id) &&
                         translationEntry.sourceText ==
@@ -2108,10 +2358,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             ) &&
                         translationEntry.settingsFingerprint ==
                             translationSettings.cacheFingerprint;
-                    final translationLoading = _translationLoadingMessageIds
-                        .contains(message.id);
+                    final translationLoading =
+                        !hasMultimediaContent &&
+                        _translationLoadingMessageIds.contains(message.id);
                     final translationEnabled =
                         translationSettings.enabled &&
+                        !hasMultimediaContent &&
                         _isMessageTranslatable(message, settingsController);
                     final bubble = _TranscriptBubbleRegistrar(
                       messageId: message.id,
@@ -2176,9 +2428,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             : null,
                         onCopy: () => widget.onCopyMessage(message),
                         onFork: () => widget.onForkMessage(message),
-                        speechEnabled: ttsSettings.enabled,
+                        speechEnabled: speechEnabled,
                         speechPlaying: speechPlaying,
-                        onToggleSpeech: ttsSettings.enabled
+                        onToggleSpeech: speechEnabled
                             ? () => widget.ttsPlaybackService.toggleMessage(
                                 messageId: message.id,
                                 text: message.content,

@@ -381,6 +381,12 @@ function collectMedia(message: SessionMessage): MediaItem[] {
   });
 }
 
+export function messageHasMultimedia(message: SessionMessage): boolean {
+  return collectMedia(message).some((item) => (
+    item.kind === 'image' || item.kind === 'video' || item.kind === 'audio'
+  ));
+}
+
 function mediaMetadataSignature(meta: Record<string, unknown> | undefined): string {
   if (!meta) return '';
   const parts: unknown[] = [];

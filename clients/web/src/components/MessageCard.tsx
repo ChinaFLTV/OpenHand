@@ -14,7 +14,7 @@ import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { Markdown, looksLikeHtml, openHtmlInNewTab } from './Markdown';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
-import { MediaPreviewDialog, MessageMedia, stripCollectedNetworkMedia } from './MessageMedia';
+import { MediaPreviewDialog, MessageMedia, messageHasMultimedia, stripCollectedNetworkMedia } from './MessageMedia';
 import type { MediaItem } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
@@ -25,6 +25,7 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMessageContentFormat } from '../hooks/useMessageContentFormat';
 import {
+  stopTtsPlayback,
   toggleTtsPlayback,
   useTtsPlaybackState,
   useTtsSettings,
@@ -1169,7 +1170,18 @@ function MessageCardImpl({
     : '';
 
   const ttsPlaying = ttsPlayback.playing && ttsPlayback.messageId === message.id;
-  const canReadMessage = ttsSettings.enabled && !isUserBubble && content.trim().length > 0;
+  const hasMultimediaContent = messageHasMultimedia(message);
+  const canReadMessage = (
+    ttsSettings.enabled &&
+    !isUserBubble &&
+    !hasMultimediaContent &&
+    content.trim().length > 0
+  );
+  useEffect(() => {
+    if (ttsPlaying && hasMultimediaContent) {
+      stopTtsPlayback();
+    }
+  }, [hasMultimediaContent, ttsPlaying]);
   const hasAnyAction = Boolean(
     onCopy ||
     canReadMessage ||
