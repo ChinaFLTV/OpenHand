@@ -439,6 +439,15 @@ void main() {
       expect('${deleteProperties?['target_file']}', contains('Legacy alias'));
       expect('$deleteAnyOf', contains('file_path'));
       expect('$deleteAnyOf', contains('target_file'));
+
+      final notebookDefinition = catalog.find('NotebookEdit')?.definition;
+      final notebookProperties =
+          notebookDefinition?.parameters['properties'] as Map?;
+      expect('${notebookProperties?['notebook_path']}', contains('relative'));
+      expect(
+        '${notebookProperties?['notebook_path']}',
+        contains('working directory'),
+      );
     });
 
     test('Read exposes Claude-style PDF pages parameter', () {

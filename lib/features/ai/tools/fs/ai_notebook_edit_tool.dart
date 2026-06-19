@@ -19,13 +19,18 @@ class AiNotebookEditTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final notebookPath = AiToolUtils.requireAbsoluteFilePath(
-      '${args['notebook_path'] ?? ''}'.trim(),
-    );
-    if (notebookPath == null) {
+    final rawNotebookPath = '${args['notebook_path'] ?? ''}'.trim();
+    if (rawNotebookPath.isEmpty) {
       return AiToolUtils.invalidResult(
         'NotebookEdit',
-        'NotebookEdit requires an absolute notebook_path.',
+        'NotebookEdit requires a non-empty notebook_path.',
+      );
+    }
+    final notebookPath = AiToolUtils.resolvePath(rawNotebookPath);
+    if (p.extension(notebookPath).toLowerCase() != '.ipynb') {
+      return AiToolUtils.invalidResult(
+        'NotebookEdit',
+        'NotebookEdit requires a .ipynb notebook file.',
       );
     }
     final newSource = '${args['new_source'] ?? ''}';

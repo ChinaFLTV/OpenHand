@@ -2627,7 +2627,8 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'notebook_path': <String, Object?>{
             'type': 'string',
-            'description': 'Absolute path to the .ipynb file.',
+            'description':
+                'The absolute or relative path to the .ipynb file. Relative paths are resolved against the working directory.',
           },
           'cell_id': <String, Object?>{
             'type': 'string',

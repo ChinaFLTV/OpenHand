@@ -11,6 +11,102 @@ import 'package:openhand/features/ai/tools/fs/ai_notebook_edit_tool.dart';
 
 void main() {
   group('AiNotebookEditTool', () {
+    test(
+      'resolves relative notebook paths from the working directory',
+      () async {
+        final originalWorkingDirectory = Directory.current.path;
+        final tempDir = await Directory.systemTemp.createTemp(
+          'openhand_notebook_edit_tool_test_',
+        );
+        addTearDown(() async {
+          Directory.current = originalWorkingDirectory;
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+        Directory.current = tempDir.path;
+
+        final notebookPath = AiToolUtils.resolvePath('sample.ipynb');
+        final notebook = File(notebookPath);
+        await notebook.writeAsString(
+          const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+            'cells': <Object?>[
+              <String, Object?>{
+                'cell_type': 'code',
+                'id': 'cell-1',
+                'metadata': <String, Object?>{},
+                'source': 'print(1)\n',
+              },
+            ],
+            'metadata': <String, Object?>{},
+            'nbformat': 4,
+            'nbformat_minor': 5,
+          }),
+        );
+
+        final result = await AiNotebookEditTool().execute(
+          _context(
+            id: 'notebook-relative',
+            arguments: <String, Object?>{
+              'notebook_path': 'sample.ipynb',
+              'cell_id': 'cell-1',
+              'new_source': 'print(2)\n',
+            },
+            previouslyReadFiles: <String>{notebookPath},
+          ),
+        );
+
+        final updated = jsonDecode(await notebook.readAsString()) as Map;
+        final cells = updated['cells'] as List;
+
+        expect(result.status.storageValue, 'success');
+        expect(result.metadata['file_mutation_path'], notebookPath);
+        expect((cells.single as Map)['source'], 'print(2)\n');
+      },
+    );
+
+    test('rejects non-ipynb targets before editing JSON content', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_notebook_edit_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final notNotebook = File('${tempDir.path}/sample.json');
+      final originalContent = const JsonEncoder.withIndent('  ').convert(
+        <String, Object?>{
+          'cells': <Object?>[
+            <String, Object?>{
+              'cell_type': 'code',
+              'id': 'cell-1',
+              'metadata': <String, Object?>{},
+              'source': 'print(1)\n',
+            },
+          ],
+        },
+      );
+      await notNotebook.writeAsString(originalContent);
+
+      final result = await AiNotebookEditTool().execute(
+        _context(
+          id: 'notebook-non-ipynb',
+          arguments: <String, Object?>{
+            'notebook_path': notNotebook.path,
+            'cell_id': 'cell-1',
+            'new_source': 'print(2)\n',
+          },
+          previouslyReadFiles: <String>{notNotebook.path},
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('.ipynb'));
+      expect(await notNotebook.readAsString(), originalContent);
+    });
+
     test('delete mode does not require new_source', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_notebook_edit_tool_test_',
@@ -210,6 +306,31 @@ void main() {
 
 String _oversizedGeneratedText() =>
     ''.padRight(AiToolUtils.maxGeneratedTextPayloadCharacters + 1, 'x');
+
+AiToolExecutionContext _context({
+  required String id,
+  required Map<String, Object?> arguments,
+  required Set<String> previouslyReadFiles,
+}) {
+  return AiToolExecutionContext(
+    sessionId: 'test-session',
+    catalog: const AiResolvedToolCatalog(
+      definitions: <AiToolDefinition>[],
+      toolsByName: <String, AiResolvedTool>{},
+    ),
+    toolCall: AiToolCall(
+      id: id,
+      name: 'NotebookEdit',
+      arguments: jsonEncode(arguments),
+    ),
+    decodedArguments: arguments,
+    model: _testModel,
+    previouslyReadFiles: previouslyReadFiles,
+    denyCommandRules: const <Never>[],
+    requireWriteCommandConfirmation: false,
+    confirmWriteCommand: null,
+  );
+}
 
 const AiModelConfig _testModel = AiModelConfig(
   id: 'test',

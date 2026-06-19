@@ -26,7 +26,7 @@
 - `ApplyFileDiffs`：跨文件成组补丁；所有 hunk 先内存校验并收齐确认后再写，写入阶段失败会尽力回滚已写文件。
 - `Write`：新文件、短文件整写、或局部编辑成本高于整写时使用；`file_path` 可相对/绝对，父目录会自动创建；覆盖既有文件前先读并确认这是意图。
 - `DeleteFile`：删除单文件；新调用用 `file_path`，旧 `target_file` 兼容；删除前确认用户意图，不做扫荡式清理。
-- `NotebookEdit`：只用于 `.ipynb` 单元格。
+- `NotebookEdit`：只用于 `.ipynb` 单元格；`notebook_path` 同样按 cwd 解析相对路径。
 </file_operations>
 
 <planning_tools>
