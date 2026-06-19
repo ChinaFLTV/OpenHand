@@ -92,6 +92,53 @@ void main() {
       expect(result.metadata, isEmpty);
     });
 
+    test(
+      'rejects concrete shell commands in allowed prompt categories',
+      () async {
+        final result = await AiExitPlanModeTool().execute(
+          _context(
+            plan: '1. Patch.\n2. Verify.',
+            allowedPrompts: const <Map<String, String>>[
+              <String, String>{
+                'tool': 'Bash',
+                'prompt': 'flutter test test/features/ai/foo_test.dart',
+              },
+            ],
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.stderr, contains('semantic Bash action category'));
+        expect(result.metadata, isEmpty);
+      },
+    );
+
+    test('allows semantic Bash action categories', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _context(
+          plan: '1. Patch.\n2. Verify.',
+          allowedPrompts: const <Map<String, String>>[
+            <String, String>{
+              'tool': 'Bash',
+              'prompt': 'run targeted Flutter tests',
+            },
+          ],
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.metadata['plan_mode_allowed_prompt_count'], 1);
+      expect(
+        result.metadata['plan_mode_allowed_prompts'],
+        <Map<String, String>>[
+          <String, String>{
+            'tool': 'Bash',
+            'prompt': 'run targeted Flutter tests',
+          },
+        ],
+      );
+    });
+
     test('rejects an empty plan', () async {
       final result = await AiExitPlanModeTool().execute(_context(plan: '   '));
 

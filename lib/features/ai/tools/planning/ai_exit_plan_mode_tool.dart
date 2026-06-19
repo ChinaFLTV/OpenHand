@@ -6,6 +6,38 @@ import '../ai_tool_utils.dart';
 class AiExitPlanModeTool extends AiTool {
   static const int _maxAllowedPromptCount = 8;
   static const int _maxAllowedPromptChars = 180;
+  static const Set<String> _concreteCommandPrefixes = <String>{
+    'bash',
+    'bun',
+    'cargo',
+    'cd',
+    'cmake',
+    'curl',
+    'dart',
+    'flutter',
+    'gh',
+    'git',
+    'go',
+    'gradle',
+    'java',
+    'make',
+    'mvn',
+    'node',
+    'npm',
+    'pnpm',
+    'python',
+    'python3',
+    'pytest',
+    'sh',
+    'uv',
+    'uvx',
+    'wget',
+    'yarn',
+    'zsh',
+  };
+  static final RegExp _shellOperatorPattern = RegExp(
+    r'(`|\$\(|&&|\|\||[;|<>])',
+  );
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.exitPlanMode;
@@ -92,6 +124,13 @@ class AiExitPlanModeTool extends AiTool {
               'ExitPlanMode allowed_prompts item #$i requires a non-empty prompt.',
         );
       }
+      if (_looksLikeConcreteCommand(prompt)) {
+        return _AllowedPromptsParseResult(
+          items: const <Map<String, String>>[],
+          error:
+              'ExitPlanMode allowed_prompts item #$i must describe a semantic Bash action category, not a concrete shell command.',
+        );
+      }
       final boundedPrompt = prompt.length <= _maxAllowedPromptChars
           ? prompt
           : prompt.substring(0, _maxAllowedPromptChars);
@@ -102,6 +141,18 @@ class AiExitPlanModeTool extends AiTool {
       items.add(<String, String>{'tool': tool, 'prompt': boundedPrompt});
     }
     return _AllowedPromptsParseResult(items: items);
+  }
+
+  bool _looksLikeConcreteCommand(String prompt) {
+    final normalized = prompt.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    if (_shellOperatorPattern.hasMatch(normalized)) {
+      return true;
+    }
+    final firstToken = normalized.split(RegExp(r'\s+')).first;
+    return _concreteCommandPrefixes.contains(firstToken);
   }
 }
 
