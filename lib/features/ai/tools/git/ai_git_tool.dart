@@ -11,6 +11,9 @@ import '../ai_tool_utils.dart';
 /// 比 Bash 执行 raw git 命令更安全（只读操作、无交互模式）且输出更结构化。
 /// 写操作（commit, push, checkout 等）保留在 Bash 中，需用户确认。
 class AiGitTool extends AiTool {
+  static const String _supportedOperationsMessage =
+      'status, diff, log, blame, show, branch, stash_list';
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.git;
 
@@ -23,13 +26,17 @@ class AiGitTool extends AiTool {
     final startedAt = Stopwatch()..start();
 
     final operation = '${args['operation'] ?? ''}'.trim();
-    if (operation.isEmpty) {
-      return AiToolUtils.invalidResult('Git', 'operation is required.');
-    }
-
     final workingDirectory = AiToolUtils.resolvePath(
       '${args['working_directory'] ?? ''}'.trim(),
     );
+    if (operation.isEmpty) {
+      return _invalidArgumentsResult(
+        operation: operation,
+        workingDirectory: workingDirectory,
+        durationMs: startedAt.elapsedMilliseconds,
+        message: 'operation is required.',
+      );
+    }
 
     try {
       final output = await _executeGitOperation(
@@ -43,6 +50,14 @@ class AiGitTool extends AiTool {
         output: output,
         durationMs: startedAt.elapsedMilliseconds,
         workingDirectory: workingDirectory,
+      );
+    } on ArgumentError catch (error) {
+      final message = '${error.message ?? error}';
+      return _invalidArgumentsResult(
+        operation: operation,
+        workingDirectory: workingDirectory,
+        durationMs: startedAt.elapsedMilliseconds,
+        message: message,
       );
     } catch (error) {
       return AiToolExecutionResult(
@@ -157,8 +172,29 @@ class AiGitTool extends AiTool {
         ], toolCallId: toolCallId);
 
       default:
-        return 'Unknown Git operation: $operation. Supported: status, diff, log, blame, show, branch, stash_list.';
+        throw ArgumentError(
+          'Unsupported Git operation "$operation". Supported operations: '
+          '$_supportedOperationsMessage.',
+        );
     }
+  }
+
+  AiToolExecutionResult _invalidArgumentsResult({
+    required String operation,
+    required String workingDirectory,
+    required int durationMs,
+    required String message,
+  }) {
+    final command = operation.isEmpty ? 'Git' : 'Git $operation';
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.invalidArguments,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: '',
+      stderr: message,
+      durationMs: durationMs,
+      resultText: 'status: invalid_arguments\nerror: $message',
+    );
   }
 
   Future<String> _run(
