@@ -952,7 +952,7 @@ class AiPromptBuilder {
       session,
       latestCompressionPoint,
     );
-    final recentReadFiles = _recentReadFileAnchors(historyMessages);
+    final recentFileAnchors = _recentFileContextAnchors(historyMessages);
     final recentInvokedSkills = _recentInvokedSkillAnchors(historyMessages);
     final recentSessionStartHooks = _recentSessionStartHookAnchors(
       historyMessages: historyMessages,
@@ -992,7 +992,7 @@ class AiPromptBuilder {
           mcpServerInstructionNames.isNotEmpty)
         'mcp_context',
       if (mcpServerInstructionNames.isNotEmpty) 'mcp_instructions',
-      if (recentReadFiles.isNotEmpty) 'recent_read_files',
+      if (recentFileAnchors.isNotEmpty) 'recent_file_anchors',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
       if (recentSessionStartHooks.isNotEmpty) 'session_start_hooks',
       if (recentAgentResults.isNotEmpty) 'agent_results',
@@ -1028,7 +1028,7 @@ class AiPromptBuilder {
       'plan_record_count': session.planHistory.length,
       'pending_plan_present': session.pendingPlan?.trim().isNotEmpty == true,
       'repository_snapshot_present': repositorySnapshot != null,
-      'recent_read_file_count': recentReadFiles.length,
+      'recent_file_anchor_count': recentFileAnchors.length,
       'session_start_hook_count': recentSessionStartHooks.length,
       'agent_result_count': recentAgentResults.length,
       if (recentAgentResults.isNotEmpty)
@@ -1050,7 +1050,8 @@ class AiPromptBuilder {
             .toList(growable: false),
       'agent_type_count': taskAgentTypes.length,
       if (taskAgentTypes.isNotEmpty) 'agent_types': taskAgentTypes,
-      if (recentReadFiles.isNotEmpty) 'recent_read_files': recentReadFiles,
+      if (recentFileAnchors.isNotEmpty)
+        'recent_file_anchors': recentFileAnchors,
       'invoked_skill_count': recentInvokedSkills.length,
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills': recentInvokedSkills,
     };
@@ -2754,20 +2755,27 @@ $identity''';
     final seen = <String>{};
     for (final message in messages) {
       final metadata = message.metadata;
-      final readPath = '${metadata['read_file_path'] ?? ''}'.trim();
-      if (lines.length < _compressionResourceManifestMaxItems &&
-          readPath.isNotEmpty &&
-          seen.add('file:$readPath')) {
+      for (final anchor in _fileContextAnchorsForMessage(message)) {
+        final path = '${anchor['path'] ?? ''}'.trim();
+        if (lines.length >= _compressionResourceManifestMaxItems ||
+            path.isEmpty ||
+            !seen.add('file:$path')) {
+          continue;
+        }
         final attributes = <String>[
           'file',
+          if ('${anchor['source'] ?? ''}'.trim().isNotEmpty)
+            'source=${anchor['source']}',
           'message_id=${message.id}',
-          if ('${metadata['read_file_kind'] ?? ''}'.trim().isNotEmpty)
-            'kind=${metadata['read_file_kind']}',
-          if ('${metadata['read_render_mode'] ?? ''}'.trim().isNotEmpty)
-            'render=${metadata['read_render_mode']}',
-          if (metadata['read_truncated'] == true) 'truncated=true',
+          if ('${anchor['file_kind'] ?? ''}'.trim().isNotEmpty)
+            'kind=${anchor['file_kind']}',
+          if ('${anchor['render_mode'] ?? ''}'.trim().isNotEmpty)
+            'render=${anchor['render_mode']}',
+          if ('${anchor['mutation_kind'] ?? ''}'.trim().isNotEmpty)
+            'mutation=${anchor['mutation_kind']}',
+          if (anchor['truncated'] == true) 'truncated=true',
         ];
-        lines.add('- ${attributes.join(' · ')} · $readPath');
+        lines.add('- ${attributes.join(' · ')} · $path');
       }
 
       final webUrl = _firstNonEmptyMetadataValue(metadata, const <String>[
@@ -2800,9 +2808,11 @@ $identity''';
     final seen = <String>{};
     for (final message in messages) {
       final metadata = message.metadata;
-      final readPath = '${metadata['read_file_path'] ?? ''}'.trim();
-      if (readPath.isNotEmpty) {
-        seen.add('file:$readPath');
+      for (final anchor in _fileContextAnchorsForMessage(message)) {
+        final path = '${anchor['path'] ?? ''}'.trim();
+        if (path.isNotEmpty) {
+          seen.add('file:$path');
+        }
       }
       final webUrl = _firstNonEmptyMetadataValue(metadata, const <String>[
         'webfetch_final_url',
@@ -3065,9 +3075,7 @@ $tail''';
             '${message.metadata['tool_name'] ?? message.metadata['name'] ?? 'tool'}';
         final status = '${message.metadata['status'] ?? ''}'.trim();
         final command = '${message.metadata['command'] ?? ''}'.trim();
-        final pathHint =
-            '${message.metadata['file_mutation_path'] ?? message.metadata['read_file_path'] ?? ''}'
-                .trim();
+        final pathHint = _fileContextAnchorPathPreview(message);
         final snippet = _firstNonEmptyLine(message.content, 160);
         final descriptor = <String>[
           toolName,
@@ -3082,18 +3090,22 @@ $tail''';
       }
     }
 
-    final recentReadFiles = _recentReadFileAnchors(historyMessages);
-    if (recentReadFiles.isNotEmpty) {
+    final recentFileAnchors = _recentFileContextAnchors(historyMessages);
+    if (recentFileAnchors.isNotEmpty) {
       if (lines.isNotEmpty) lines.add('');
-      lines.add('## Recent read files (post-compact restore anchors)');
-      for (final item in recentReadFiles) {
+      lines.add('## Recent file anchors (post-compact restore candidates)');
+      for (final item in recentFileAnchors) {
         final path = '${item['path'] ?? ''}'.trim();
+        final source = '${item['source'] ?? ''}'.trim();
         final fileKind = '${item['file_kind'] ?? ''}'.trim();
         final renderMode = '${item['render_mode'] ?? ''}'.trim();
+        final mutationKind = '${item['mutation_kind'] ?? ''}'.trim();
         final truncated = item['truncated'] == true;
         final details = <String>[
+          if (source.isNotEmpty) 'source=$source',
           if (fileKind.isNotEmpty) 'kind=$fileKind',
           if (renderMode.isNotEmpty) 'mode=$renderMode',
+          if (mutationKind.isNotEmpty) 'mutation=$mutationKind',
           if (truncated) 'truncated=true',
         ].join(' · ');
         lines.add(details.isEmpty ? '- $path' : '- $path · $details');
@@ -3126,7 +3138,7 @@ $tail''';
     return lines.isEmpty ? '' : lines.join('\n');
   }
 
-  List<Map<String, Object?>> _recentReadFileAnchors(
+  List<Map<String, Object?>> _recentFileContextAnchors(
     List<AiSessionMessage> messages, {
     int maxFiles = _postCompactRestoreMaxFiles,
   }) {
@@ -3143,22 +3155,89 @@ $tail''';
           message.kind != AiSessionMessageKind.skill) {
         continue;
       }
-      final path = '${message.metadata['read_file_path'] ?? ''}'.trim();
-      if (path.isEmpty || !seenPaths.add(path)) {
+      for (final anchor in _fileContextAnchorsForMessage(message)) {
+        final path = '${anchor['path'] ?? ''}'.trim();
+        if (path.isEmpty || !seenPaths.add(path)) {
+          continue;
+        }
+        anchors.add(<String, Object?>{
+          ...anchor,
+          'message_id': message.id,
+          'created_at': message.createdAt.toUtc().toIso8601String(),
+        });
+        if (anchors.length >= maxFiles) {
+          break;
+        }
+      }
+    }
+    return anchors.reversed.toList(growable: false);
+  }
+
+  List<Map<String, Object?>> _fileContextAnchorsForMessage(
+    AiSessionMessage message,
+  ) {
+    final metadata = message.metadata;
+    final anchors = <Map<String, Object?>>[];
+    final readPath = '${metadata['read_file_path'] ?? ''}'.trim();
+    if (readPath.isNotEmpty) {
+      anchors.add(<String, Object?>{
+        'path': readPath,
+        'source': 'read',
+        if ('${metadata['read_file_kind'] ?? ''}'.trim().isNotEmpty)
+          'file_kind': '${metadata['read_file_kind']}',
+        if ('${metadata['read_render_mode'] ?? ''}'.trim().isNotEmpty)
+          'render_mode': '${metadata['read_render_mode']}',
+        if (metadata['read_truncated'] == true) 'truncated': true,
+      });
+    }
+
+    final mutationKind = '${metadata['file_mutation_kind'] ?? ''}'.trim();
+    final mutationPaths = <String>[];
+    final singleMutationPath = '${metadata['file_mutation_path'] ?? ''}'.trim();
+    if (singleMutationPath.isNotEmpty) {
+      mutationPaths.add(singleMutationPath);
+    }
+    final rawMutationPaths = metadata['file_mutation_paths'];
+    if (rawMutationPaths is List) {
+      for (final item in rawMutationPaths) {
+        final path = '$item'.trim();
+        if (path.isNotEmpty) {
+          mutationPaths.add(path);
+        }
+      }
+    }
+    final seenMutationPaths = <String>{};
+    for (final path in mutationPaths) {
+      if (!seenMutationPaths.add(path)) {
         continue;
       }
       anchors.add(<String, Object?>{
         'path': path,
-        'message_id': message.id,
-        'created_at': message.createdAt.toUtc().toIso8601String(),
-        if ('${message.metadata['read_file_kind'] ?? ''}'.trim().isNotEmpty)
-          'file_kind': '${message.metadata['read_file_kind']}',
-        if ('${message.metadata['read_render_mode'] ?? ''}'.trim().isNotEmpty)
-          'render_mode': '${message.metadata['read_render_mode']}',
-        if (message.metadata['read_truncated'] == true) 'truncated': true,
+        'source': 'mutation',
+        if (mutationKind.isNotEmpty) 'mutation_kind': mutationKind,
       });
     }
-    return anchors.reversed.toList(growable: false);
+    return anchors;
+  }
+
+  String _fileContextAnchorPathPreview(AiSessionMessage message) {
+    final paths = <String>[];
+    final seen = <String>{};
+    for (final anchor in _fileContextAnchorsForMessage(message)) {
+      final path = '${anchor['path'] ?? ''}'.trim();
+      if (path.isNotEmpty && seen.add(path)) {
+        paths.add(path);
+      }
+    }
+    if (paths.isEmpty) {
+      return '';
+    }
+    if (paths.length == 1) {
+      return paths.first;
+    }
+    final preview = paths.take(2).join(', ');
+    final omitted = paths.length - 2;
+    return omitted > 0 ? '$preview, +$omitted more' : preview;
   }
 
   String _renderPostCompactRestoredFileContext({
@@ -3177,7 +3256,7 @@ $tail''';
     final preCheckpointMessages = historyMessages
         .take(checkpointIndex)
         .toList(growable: false);
-    final anchors = _recentReadFileAnchors(preCheckpointMessages);
+    final anchors = _recentFileContextAnchors(preCheckpointMessages);
     if (anchors.isEmpty) {
       return '';
     }
@@ -3206,9 +3285,13 @@ $tail''';
       usedChars += content.length;
       final fileKind = '${anchor['file_kind'] ?? ''}'.trim();
       final renderMode = '${anchor['render_mode'] ?? ''}'.trim();
+      final source = '${anchor['source'] ?? ''}'.trim();
+      final mutationKind = '${anchor['mutation_kind'] ?? ''}'.trim();
       final metadata = <String>[
+        if (source.isNotEmpty) 'source=$source',
         if (fileKind.isNotEmpty) 'kind=$fileKind',
         if (renderMode.isNotEmpty) 'last_read_mode=$renderMode',
+        if (mutationKind.isNotEmpty) 'mutation=$mutationKind',
       ].join(' · ');
       sections.add('''## $path${metadata.isEmpty ? '' : ' · $metadata'}
 
@@ -3219,7 +3302,7 @@ $content
     if (sections.isEmpty) {
       return '';
     }
-    return 'Recent files restored after compaction. These are bounded snapshots of files previously read before the latest checkpoint.\n\n${sections.join('\n\n')}';
+    return 'Recent file snapshots restored after compaction. These bounded snapshots come from files previously read or mutated before the latest checkpoint.\n\n${sections.join('\n\n')}';
   }
 
   String? _tryReadPostCompactRestoredFile(String path) {
@@ -4139,7 +4222,7 @@ $content
         '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
             .trim();
     final mutationKind = '${metadata['file_mutation_kind'] ?? ''}'.trim();
-    final targetPath = _fileMutationTargetPath(metadata);
+    final targetPaths = _fileMutationTargetPaths(metadata);
     final workingDirectory =
         '${metadata['working_directory'] ?? metadata['tool_execution_working_directory'] ?? ''}'
             .trim();
@@ -4153,7 +4236,7 @@ $content
       '[write_result] ${toolName.isEmpty ? 'Tool' : toolName}',
       if (status.isNotEmpty) 'status: $status',
       if (mutationKind.isNotEmpty) 'mutation: $mutationKind',
-      if (targetPath != null) 'target: $targetPath',
+      if (targetPaths.isNotEmpty) 'targets: ${targetPaths.join(', ')}',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
       if (writeReason.isNotEmpty) 'reason: $writeReason',
       if (resultText.isNotEmpty &&
@@ -4201,7 +4284,7 @@ $content
     final status =
         '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
             .trim();
-    final targetPath = _fileMutationTargetPath(metadata);
+    final targetPaths = _fileMutationTargetPaths(metadata);
     final workingDirectory =
         '${metadata['working_directory'] ?? metadata['tool_execution_working_directory'] ?? ''}'
             .trim();
@@ -4214,7 +4297,7 @@ $content
       '[old_tool_result_cleared] ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
       if (status.isNotEmpty) 'status: $status',
-      if (targetPath != null) 'target: $targetPath',
+      if (targetPaths.isNotEmpty) 'targets: ${targetPaths.join(', ')}',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
       if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
       'note: Older consumed tool result content was cleared from prompt history. Re-run the tool or read local files if exact output is needed.',
@@ -4596,19 +4679,34 @@ $content
     };
   }
 
-  String? _fileMutationTargetPath(Map<String, Object?> metadata) {
+  List<String> _fileMutationTargetPaths(Map<String, Object?> metadata) {
     final candidateValues = <Object?>[
       metadata['file_mutation_path'],
       metadata['file_path'],
       metadata['notebook_path'],
     ];
+    final paths = <String>[];
+    final seen = <String>{};
     for (final value in candidateValues) {
       final normalized = '$value'.trim();
-      if (normalized.isNotEmpty && normalized != 'null') {
-        return normalized;
+      if (normalized.isNotEmpty &&
+          normalized != 'null' &&
+          seen.add(normalized)) {
+        paths.add(normalized);
       }
     }
-    return null;
+    final rawMutationPaths = metadata['file_mutation_paths'];
+    if (rawMutationPaths is List) {
+      for (final value in rawMutationPaths) {
+        final normalized = '$value'.trim();
+        if (normalized.isNotEmpty &&
+            normalized != 'null' &&
+            seen.add(normalized)) {
+          paths.add(normalized);
+        }
+      }
+    }
+    return paths;
   }
 
   List<AiToolCall> _readToolCalls(Map<String, Object?> metadata) {
