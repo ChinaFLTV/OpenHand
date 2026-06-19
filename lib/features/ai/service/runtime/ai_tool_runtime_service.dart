@@ -1967,7 +1967,8 @@ class AiToolRuntimeService {
           },
           'offset': <String, Object?>{
             'type': 'integer',
-            'description': 'Line offset to start reading from (0-based).',
+            'description':
+                '1-based line number to start reading from. Values <= 1 start at the first line.',
           },
           'limit': <String, Object?>{
             'type': 'integer',

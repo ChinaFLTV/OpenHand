@@ -40,16 +40,16 @@ class AiCodebaseSearchTool extends AiTool {
       return AiToolUtils.invalidResult('CodebaseSearch', 'query is required.');
     }
 
-    final targetDirs = _parseTargetDirectories(args['target_directories']);
+    final searchRoot = _resolveSearchRoot(args);
+    final filePattern = _optionalString(args['file_pattern']);
     final explanation = '${args['explanation'] ?? ''}'.trim();
 
-    // Resolve search root
-    final searchRoot = targetDirs.isNotEmpty
-        ? AiToolUtils.resolvePath(targetDirs.first)
-        : AiToolUtils.defaultWorkingDirectory();
-
     try {
-      final results = await _multiSignalSearch(query, searchRoot);
+      final results = await _multiSignalSearch(
+        query,
+        searchRoot,
+        filePattern: filePattern,
+      );
 
       if (results.isEmpty) {
         return AiToolUtils.simpleSuccessResult(
@@ -63,6 +63,9 @@ class AiCodebaseSearchTool extends AiTool {
       final buffer = StringBuffer();
       buffer.writeln('CodebaseSearch results for: "$query"');
       if (explanation.isNotEmpty) buffer.writeln('Purpose: $explanation');
+      if (filePattern.isNotEmpty) {
+        buffer.writeln('File pattern: $filePattern');
+      }
       buffer.writeln('Found ${results.length} relevant chunk(s):\n');
 
       for (final result in results) {
@@ -97,6 +100,20 @@ class AiCodebaseSearchTool extends AiTool {
     }
   }
 
+  String _resolveSearchRoot(Map<String, Object?> args) {
+    final path = _optionalString(args['path']);
+    if (path.isNotEmpty) return AiToolUtils.resolvePath(path);
+    final targetDirs = _parseTargetDirectories(args['target_directories']);
+    return targetDirs.isNotEmpty
+        ? AiToolUtils.resolvePath(targetDirs.first)
+        : AiToolUtils.defaultWorkingDirectory();
+  }
+
+  String _optionalString(Object? value) {
+    if (value is! String) return '';
+    return value.trim();
+  }
+
   List<String> _parseTargetDirectories(Object? value) {
     if (value is List) {
       return value
@@ -109,8 +126,9 @@ class AiCodebaseSearchTool extends AiTool {
 
   Future<List<_SearchResult>> _multiSignalSearch(
     String query,
-    String searchRoot,
-  ) async {
+    String searchRoot, {
+    required String filePattern,
+  }) async {
     // Extract meaningful keywords from the natural language query
     final keywords = _extractKeywords(query);
     if (keywords.isEmpty) return const <_SearchResult>[];
@@ -120,8 +138,16 @@ class AiCodebaseSearchTool extends AiTool {
     // Signal 1: Exact keyword grep (highest weight)
     // Try each keyword individually, then combined
     for (final keyword in keywords.take(5)) {
-      final results = await _ripgrepSearch(searchRoot, keyword, maxResults: 10);
+      final results = await _ripgrepSearch(
+        searchRoot,
+        keyword,
+        maxResults: 10,
+        filePattern: filePattern,
+      );
       for (final r in results) {
+        if (!_matchesFilePattern(r.filePath, searchRoot, filePattern)) {
+          continue;
+        }
         final key = '${r.filePath}:${r.lineNumber}';
         if (!allResults.containsKey(key)) {
           allResults[key] = r.copyWith(weight: r.weight + 3);
@@ -137,8 +163,16 @@ class AiCodebaseSearchTool extends AiTool {
     if (keywords.length >= 2) {
       // Search for files containing multiple keywords
       final pattern = keywords.take(4).join('|');
-      final results = await _ripgrepSearch(searchRoot, pattern, maxResults: 15);
+      final results = await _ripgrepSearch(
+        searchRoot,
+        pattern,
+        maxResults: 15,
+        filePattern: filePattern,
+      );
       for (final r in results) {
+        if (!_matchesFilePattern(r.filePath, searchRoot, filePattern)) {
+          continue;
+        }
         final key = '${r.filePath}:${r.lineNumber}';
         if (!allResults.containsKey(key)) {
           allResults[key] = r;
@@ -152,7 +186,11 @@ class AiCodebaseSearchTool extends AiTool {
 
     // Signal 3: File name matching (bonus weight for files whose names match)
     for (final keyword in keywords.take(3)) {
-      final fileResults = await _findFilesByName(searchRoot, keyword);
+      final fileResults = await _findFilesByName(
+        searchRoot,
+        keyword,
+        filePattern: filePattern,
+      );
       for (final filePath in fileResults) {
         // Read first 20 lines as context
         final file = File(filePath);
@@ -180,6 +218,22 @@ class AiCodebaseSearchTool extends AiTool {
     final sorted = allResults.values.toList()
       ..sort((a, b) => b.weight.compareTo(a.weight));
     return sorted.take(20).toList(growable: false);
+  }
+
+  bool _matchesFilePattern(
+    String filePath,
+    String searchRoot,
+    String filePattern,
+  ) {
+    if (filePattern.isEmpty) return true;
+    final absolutePath = p.isAbsolute(filePath)
+        ? p.normalize(filePath)
+        : p.normalize(p.join(searchRoot, filePath));
+    final relativePath = p
+        .relative(absolutePath, from: searchRoot)
+        .replaceAll('\\', '/');
+    return AiToolUtils.globMatches(relativePath, filePattern) ||
+        AiToolUtils.globMatches(p.basename(absolutePath), filePattern);
   }
 
   List<String> _extractKeywords(String query) {
@@ -244,6 +298,7 @@ class AiCodebaseSearchTool extends AiTool {
     int contextLines = 3,
     int maxResults = 20,
     bool caseInsensitive = true,
+    required String filePattern,
   }) async {
     // 先检查 ripgrep 是否可用
     final rgPath = await AiToolUtils.resolveRipgrepPath();
@@ -260,6 +315,7 @@ class AiCodebaseSearchTool extends AiTool {
       '--type-add',
       'code:*.{dart,ts,tsx,js,jsx,py,go,rs,java,kt,swift,c,cpp,h,hpp,cs,rb,php,yaml,yml,json,toml,md}',
       '--type', 'code',
+      if (filePattern.isNotEmpty) ...['--glob', filePattern],
       pattern,
       '.', // 在工作目录中搜索
     ];
@@ -278,10 +334,14 @@ class AiCodebaseSearchTool extends AiTool {
     final stdout = (result.stdout as String).trim();
     if (stdout.isEmpty) return const <_SearchResult>[];
 
-    return _parseRipgrepJson(stdout, maxResults);
+    return _parseRipgrepJson(stdout, maxResults, searchRoot: searchRoot);
   }
 
-  List<_SearchResult> _parseRipgrepJson(String jsonOutput, int maxResults) {
+  List<_SearchResult> _parseRipgrepJson(
+    String jsonOutput,
+    int maxResults, {
+    required String searchRoot,
+  }) {
     final results = <String, _SearchResult>{};
     final lines = jsonOutput.split('\n');
 
@@ -300,8 +360,11 @@ class AiCodebaseSearchTool extends AiTool {
         if (type == 'match') {
           final data =
               entry['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-          final path =
+          final rawPath =
               (data['path'] as Map<String, dynamic>?)?['text'] as String? ?? '';
+          final path = p.isAbsolute(rawPath)
+              ? p.normalize(rawPath)
+              : p.normalize(p.join(searchRoot, rawPath));
           final lineNum = data['line_number'] as int? ?? 0;
           final text =
               (data['lines'] as Map<String, dynamic>?)?['text'] as String? ??
@@ -365,8 +428,9 @@ class AiCodebaseSearchTool extends AiTool {
 
   Future<List<String>> _findFilesByName(
     String searchRoot,
-    String keyword,
-  ) async {
+    String keyword, {
+    required String filePattern,
+  }) async {
     // Use glob-style file search
     final lowerKeyword = keyword.toLowerCase();
     final results = <String>[];
@@ -384,6 +448,9 @@ class AiCodebaseSearchTool extends AiTool {
               entity.path.contains('/build/') ||
               entity.path.contains('/node_modules/') ||
               entity.path.contains('/.dart_tool/')) {
+            continue;
+          }
+          if (!_matchesFilePattern(entity.path, searchRoot, filePattern)) {
             continue;
           }
           if (basename.contains(lowerKeyword)) {
