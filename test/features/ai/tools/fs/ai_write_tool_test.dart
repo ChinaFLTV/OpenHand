@@ -143,6 +143,38 @@ void main() {
       expect(result.stderr, contains('target now exists'));
       expect(await file.readAsString(), 'external\n');
     });
+
+    test('serializes final mutation guard per file path', () async {
+      final file = File('${tempDir.path}/sample.txt');
+      await file.writeAsString('base\n');
+      final tracker = _ObservingFileTrackerService(
+        delay: const Duration(milliseconds: 50),
+      );
+      await tracker.recordFileRead(file.path);
+
+      final results = await Future.wait(<Future<AiToolExecutionResult?>>[
+        AiToolUtils.writeTextFileWithMutationGuard(
+          toolName: 'Write',
+          file: file,
+          content: 'one\n',
+          previouslyReadFiles: <String>{file.path},
+          requireExistingFileRead: true,
+          fileTracker: tracker,
+        ),
+        AiToolUtils.writeTextFileWithMutationGuard(
+          toolName: 'Write',
+          file: file,
+          content: 'two\n',
+          previouslyReadFiles: <String>{file.path},
+          requireExistingFileRead: true,
+          fileTracker: tracker,
+        ),
+      ]);
+
+      expect(results, everyElement(isNull));
+      expect(tracker.maxConcurrentValidations, 1);
+      expect(await file.readAsString(), isIn(<String>{'one\n', 'two\n'}));
+    });
   });
 }
 
@@ -202,6 +234,28 @@ class _MutatingFileHistoryService extends AiFileHistoryService {
     await file.writeAsString(content);
     await file.setLastModified(modified);
     return 'mutated-during-history';
+  }
+}
+
+class _ObservingFileTrackerService extends AiFileTrackerService {
+  _ObservingFileTrackerService({required this.delay});
+
+  final Duration delay;
+  int _activeValidations = 0;
+  int maxConcurrentValidations = 0;
+
+  @override
+  Future<String?> validateSafeToWrite(String filePath) async {
+    _activeValidations += 1;
+    if (_activeValidations > maxConcurrentValidations) {
+      maxConcurrentValidations = _activeValidations;
+    }
+    try {
+      await Future<void>.delayed(delay);
+      return await super.validateSafeToWrite(filePath);
+    } finally {
+      _activeValidations -= 1;
+    }
   }
 }
 

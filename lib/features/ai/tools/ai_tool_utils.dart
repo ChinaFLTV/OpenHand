@@ -28,6 +28,8 @@ class AiToolUtils {
   static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;
 
   static int _safeWriteArtifactCounter = 0;
+  static final Map<String, Future<void>> _textWriteLocks =
+      <String, Future<void>>{};
 
   static String defaultWorkingDirectory() {
     return p.normalize(Directory.current.path);
@@ -763,6 +765,16 @@ class AiToolUtils {
   }
 
   static Future<void> writeTextFileSafely(File file, String content) async {
+    await _runWithTextWriteLock(
+      file,
+      () => _writeTextFileSafelyUnlocked(file, content),
+    );
+  }
+
+  static Future<void> _writeTextFileSafelyUnlocked(
+    File file,
+    String content,
+  ) async {
     final entityType = await FileSystemEntity.type(
       file.path,
       followLinks: false,
@@ -805,40 +817,80 @@ class AiToolUtils {
     required bool requireExistingFileRead,
     AiFileTrackerService? fileTracker,
   }) async {
-    final entityType = await FileSystemEntity.type(
-      file.path,
-      followLinks: false,
-    );
-    if (entityType == FileSystemEntityType.directory) {
-      return invalidResult(
-        toolName,
-        '$toolName refuses to write text content to a directory: ${file.path}',
+    return _runWithTextWriteLock(file, () async {
+      final entityType = await FileSystemEntity.type(
+        file.path,
+        followLinks: false,
       );
-    }
-    if (!requireExistingFileRead &&
-        entityType != FileSystemEntityType.notFound) {
-      return invalidResult(
-        toolName,
-        '$toolName expected to create a new file, but the target now exists. '
-        'Read the file before overwriting it: ${file.path}',
+      if (entityType == FileSystemEntityType.directory) {
+        return invalidResult(
+          toolName,
+          '$toolName refuses to write text content to a directory: ${file.path}',
+        );
+      }
+      if (!requireExistingFileRead &&
+          entityType != FileSystemEntityType.notFound) {
+        return invalidResult(
+          toolName,
+          '$toolName expected to create a new file, but the target now exists. '
+          'Read the file before overwriting it: ${file.path}',
+        );
+      }
+
+      final readValidation = await validateReadBeforeMutation(
+        toolName: toolName,
+        filePath: file.path,
+        previouslyReadFiles: previouslyReadFiles,
+        requireExistingFileRead: requireExistingFileRead,
+        fileTracker: fileTracker,
       );
+      if (readValidation != null) return readValidation;
+
+      await _writeTextFileSafelyUnlocked(file, content);
+      await updateTrackerAfterMutation(
+        filePath: file.path,
+        fileTracker: fileTracker,
+      );
+      return null;
+    });
+  }
+
+  static Future<T> _runWithTextWriteLock<T>(
+    File file,
+    Future<T> Function() operation,
+  ) async {
+    final key = await _textWriteLockKey(file);
+    final previous = _textWriteLocks[key] ?? Future<void>.value();
+    final gate = Completer<void>();
+    final gateFuture = gate.future;
+    _textWriteLocks[key] = gateFuture;
+    try {
+      await previous.catchError((Object _, StackTrace _) {});
+      return await operation();
+    } finally {
+      if (!gate.isCompleted) gate.complete();
+      if (identical(_textWriteLocks[key], gateFuture)) {
+        _textWriteLocks.remove(key);
+      }
     }
+  }
 
-    final readValidation = await validateReadBeforeMutation(
-      toolName: toolName,
-      filePath: file.path,
-      previouslyReadFiles: previouslyReadFiles,
-      requireExistingFileRead: requireExistingFileRead,
-      fileTracker: fileTracker,
-    );
-    if (readValidation != null) return readValidation;
-
-    await writeTextFileSafely(file, content);
-    await updateTrackerAfterMutation(
-      filePath: file.path,
-      fileTracker: fileTracker,
-    );
-    return null;
+  static Future<String> _textWriteLockKey(File file) async {
+    final rawPath = p.normalize(file.absolute.path);
+    try {
+      final entityType = await FileSystemEntity.type(
+        rawPath,
+        followLinks: false,
+      );
+      if (entityType != FileSystemEntityType.link) return rawPath;
+      final linkTarget = await Link(rawPath).target();
+      final resolved = p.isAbsolute(linkTarget)
+          ? linkTarget
+          : p.join(p.dirname(rawPath), linkTarget);
+      return p.normalize(resolved);
+    } on FileSystemException {
+      return rawPath;
+    }
   }
 
   static File _uniqueSafeWriteArtifact(File targetFile, String role) {
