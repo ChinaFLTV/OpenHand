@@ -4545,7 +4545,11 @@ $content
       if (targetPaths.isNotEmpty) 'targets: ${targetPaths.join(', ')}',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
       if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
-      'note: Older consumed tool result content was cleared from prompt history. Re-run the tool or read local files if exact output is needed.',
+      _toolResultRecoveryNote(
+        metadata,
+        fallback:
+            'Older consumed tool result content was cleared from prompt history. Re-run the tool or read local files if exact output is needed.',
+      ),
     ];
     return lines.join('\n');
   }
@@ -5066,11 +5070,26 @@ $content
         'affected:\n${pathHits.map((h) => '  - $h').join('\n')}',
       if (head.isNotEmpty) 'head:\n$head',
       if (tail.isNotEmpty && tail != head) 'tail:\n$tail',
-      'note: Tool result exceeded $threshold'
-          ' chars and was condensed for the prompt history. Re-run the tool'
-          ' or read the local file directly if exact contents are needed.',
+      _toolResultRecoveryNote(
+        metadata,
+        fallback:
+            'Tool result exceeded $threshold chars and was condensed for the prompt history. Re-run the tool or read the local file directly if exact contents are needed.',
+      ),
     ];
     return lines.join('\n');
+  }
+
+  String _toolResultRecoveryNote(
+    Map<String, Object?> metadata, {
+    required String fallback,
+  }) {
+    final persistedPath = _metadataTrimmedString(
+      metadata['tool_output_persisted_path'],
+    );
+    if (persistedPath.isNotEmpty) {
+      return 'note: Exact omitted output is available at tool_output_persisted_path. Read it before relying on cleared or condensed content.';
+    }
+    return 'note: $fallback';
   }
 
   String? _extractToolCallPurpose(Map<String, Object?> metadata) {

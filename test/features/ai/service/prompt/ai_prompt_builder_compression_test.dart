@@ -298,7 +298,9 @@ void main() {
         ),
         AiSessionMessage.toolResult(
           id: 't1',
-          content: 'Short visible prefix from a much larger tool result.',
+          content:
+              'Short visible prefix from a much larger tool result.\n'
+              '${List<String>.filled(5000, 'x').join()}',
           createdAt: now.add(const Duration(seconds: 1)),
           metadata: const <String, Object?>{
             'tool_name': 'Bash',
@@ -363,6 +365,12 @@ void main() {
       expect(
         content,
         contains('tool_output_recovery_hint: read_persisted_output'),
+      );
+      expect(
+        content,
+        contains(
+          'note: Exact omitted output is available at tool_output_persisted_path.',
+        ),
       );
     });
 
@@ -693,6 +701,123 @@ void main() {
     );
 
     test(
+      'keeps persisted output recovery anchors when micro-compacting old tool results',
+      () {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final messages = <AiSessionMessage>[];
+        for (var i = 0; i < 6; i += 1) {
+          final toolCallId = 'call-$i';
+          final arguments = jsonEncode(<String, Object?>{
+            'cmd': 'generate-output-$i',
+          });
+          messages
+            ..add(
+              AiSessionMessage.toolCall(
+                id: 'tc-$i',
+                content: 'Tool call: Bash',
+                createdAt: now.add(Duration(seconds: i * 3)),
+                metadata: <String, Object?>{
+                  'tool_call_id': toolCallId,
+                  'tool_name': 'Bash',
+                  'tool_arguments': arguments,
+                  'tool_calls': <Map<String, Object?>>[
+                    <String, Object?>{
+                      'id': toolCallId,
+                      'name': 'Bash',
+                      'arguments': arguments,
+                    },
+                  ],
+                },
+              ),
+            )
+            ..add(
+              AiSessionMessage.toolResult(
+                id: 'tr-$i',
+                content:
+                    'visible output $i ${List<String>.filled(80, 'x').join()}',
+                createdAt: now.add(Duration(seconds: i * 3 + 1)),
+                metadata: <String, Object?>{
+                  'tool_call_id': toolCallId,
+                  'tool_name': 'Bash',
+                  'status': 'success',
+                  if (i == 0) ...<String, Object?>{
+                    'tool_output_truncated': true,
+                    'tool_output_original_length': 120000,
+                    'tool_output_budget_chars': 20000,
+                    'tool_output_included_chars': 19800,
+                    'tool_output_omitted_chars': 100200,
+                    'tool_output_truncation_strategy': 'head_tail',
+                    'tool_output_full_content_available': true,
+                    'tool_output_recovery_hint': 'read_persisted_output',
+                    'tool_output_persisted': true,
+                    'tool_output_persisted_path':
+                        '/tmp/openhand/session-1/tool-results/call-0.txt',
+                    'tool_output_persisted_chars': 120000,
+                    'tool_output_persistence_format': 'text',
+                  },
+                },
+              ),
+            )
+            ..add(
+              AiSessionMessage.assistant(
+                id: 'a-$i',
+                content: 'Observed result $i.',
+                createdAt: now.add(Duration(seconds: i * 3 + 2)),
+              ),
+            );
+        }
+        messages.add(
+          AiSessionMessage.user(
+            id: 'u-latest',
+            content: 'Continue from the prior tool work.',
+            createdAt: now.add(const Duration(seconds: 30)),
+          ),
+        );
+        final session = AiSession(
+          id: 'session-1',
+          title: 'Micro compact persisted output session',
+          templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+          templateName: '编程专家',
+          templateIconName: 'code_rounded',
+          templateInternalVersion: 'test',
+          createdAt: now,
+          updatedAt: now,
+          messages: messages,
+          environment: _testEnvironment,
+          statistics: const AiSessionStatistics.initial(),
+          recentErrors: const <AiSessionErrorRecord>[],
+        );
+
+        final result = const AiPromptBuilder().buildSessionPrompt(
+          templateBundle: _testBundle,
+          session: session,
+          model: _testModel,
+          runtimeContext: _testRuntimeContextWithMicroCompression,
+          memoryEntries: const <Never>[],
+          sessionMessages: messages,
+          latestUserMessageId: 'u-latest',
+        );
+        final transcript = result.messages
+            .map((turn) => turn.content)
+            .join('\n---\n');
+
+        expect(transcript, contains('[old_tool_result_cleared] Bash'));
+        expect(
+          transcript,
+          contains(
+            'tool_output_persisted_path: /tmp/openhand/session-1/tool-results/call-0.txt',
+          ),
+        );
+        expect(
+          transcript,
+          contains(
+            'note: Exact omitted output is available at tool_output_persisted_path.',
+          ),
+        );
+      },
+    );
+
+    test(
       'surfaces plan approval allowed prompts in post-compact focus context',
       () {
         final now = DateTime.utc(2026, 6, 19, 8);
@@ -832,3 +957,21 @@ const AiSessionRuntimeContext _testRuntimeContext = AiSessionRuntimeContext(
   platformName: 'macOS',
   timeZoneName: 'Asia/Shanghai',
 );
+
+const AiSessionRuntimeContext _testRuntimeContextWithMicroCompression =
+    AiSessionRuntimeContext(
+      localeTag: 'zh-CN',
+      appVersion: 'test',
+      appBuildNumber: '1',
+      settingsFilePath: '/tmp/settings.json',
+      skillsStoragePath: '/tmp/skills',
+      mcpServersFilePath: '/tmp/mcp.json',
+      userMemoryFilePath: '/tmp/memory.json',
+      compressionThresholdChars: 1000,
+      microCompressionEnabled: true,
+      memoryEnabled: false,
+      memoryEntries: <Never>[],
+      workingDirectory: '/tmp/project',
+      platformName: 'macOS',
+      timeZoneName: 'Asia/Shanghai',
+    );
