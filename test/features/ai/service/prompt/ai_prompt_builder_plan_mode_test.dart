@@ -95,6 +95,91 @@ void main() {
           );
       expect(toolCatalog, contains('Read'));
     });
+
+    test('carries the approved plan into the first execution turn', () {
+      final now = DateTime.utc(2026, 6, 19, 9);
+      final session = AiSession(
+        id: 'session-1',
+        title: 'Approved plan',
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+        templateName: '编程专家',
+        templateIconName: 'code_rounded',
+        templateInternalVersion: 'test',
+        createdAt: now,
+        updatedAt: now,
+        messages: <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'u1',
+            content: 'Plan the change',
+            createdAt: now,
+          ),
+          AiSessionMessage.user(
+            id: 'u2',
+            content: 'go ahead',
+            createdAt: now.add(const Duration(minutes: 1)),
+          ),
+        ],
+        environment: _testEnvironment,
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: const <AiSessionErrorRecord>[],
+        todoItems: const <AiSessionTodoItem>[
+          AiSessionTodoItem(
+            id: '1',
+            content: 'Patch the runtime behavior',
+            status: 'pending',
+          ),
+        ],
+        mode: AiSessionMode.plan,
+        planHistory: <AiSessionPlanRecord>[
+          AiSessionPlanRecord(
+            id: 'plan-1',
+            createdAt: now,
+            updatedAt: now.add(const Duration(minutes: 1)),
+            status: AiSessionPlanStatus.inProgress,
+            plan:
+                '1. Patch the runtime behavior.\n'
+                '2. Run focused verification.',
+            allowedPrompts: const <AiSessionPlanAllowedPrompt>[
+              AiSessionPlanAllowedPrompt(
+                tool: 'Bash',
+                prompt: 'run targeted tests',
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final result = const AiPromptBuilder().buildSessionPrompt(
+        templateBundle: _testBundle,
+        session: session,
+        model: _testModel,
+        runtimeContext: _testRuntimeContext,
+        memoryEntries: const <Never>[],
+        sessionMessages: session.messages,
+        latestUserMessageId: 'u2',
+        availableTools: const <AiToolDefinition>[_readTool, _writeTool],
+        planModeExecutionApprovedForSend: true,
+      );
+
+      final planReminder = result.messages
+          .map((turn) => turn.content)
+          .firstWhere(
+            (content) =>
+                content.startsWith(AiPromptSectionHeaders.planModeReminder),
+          );
+      expect(planReminder, contains('The user is approving the existing plan'));
+      expect(planReminder, contains('## Approved Plan'));
+      expect(planReminder, contains('1. Patch the runtime behavior.'));
+      expect(planReminder, contains('allowed_prompts:'));
+      expect(planReminder, contains('- Bash: run targeted tests'));
+
+      final dynamicState = _jsonSection(
+        result.messages,
+        AiPromptSectionHeaders.dynamicSessionState,
+      );
+      final plan = Map<String, Object?>.from(dynamicState['plan'] as Map);
+      expect(plan['execution_tools_approved'], isTrue);
+    });
   });
 }
 
@@ -117,6 +202,20 @@ const AiToolDefinition _readTool = AiToolDefinition(
       'file_path': <String, Object?>{'type': 'string'},
     },
     'required': <String>['file_path'],
+    'additionalProperties': false,
+  },
+);
+
+const AiToolDefinition _writeTool = AiToolDefinition(
+  name: 'Write',
+  description: 'Write a file.',
+  parameters: <String, Object?>{
+    'type': 'object',
+    'properties': <String, Object?>{
+      'file_path': <String, Object?>{'type': 'string'},
+      'content': <String, Object?>{'type': 'string'},
+    },
+    'required': <String>['file_path', 'content'],
     'additionalProperties': false,
   },
 );

@@ -5349,9 +5349,34 @@ $content
       return 'The previous plan run stopped after a failed, timed-out, otherwise interrupted step, or a stale todo state. Before retrying, first review the current todo list and inspect the workspace, generated artifacts, and recent tool results to see what already succeeded.$completedTodoSummary Then decide whether to fully retry the failed step or only retry the unfinished portion. Use TodoWrite to refresh the relevant todo entries before resuming heavy execution. If a failed or stale-completed step should be retried now, set that step back to in_progress so the timeline reflects the retry, and keep the todo list current as the retry progresses.$failedStepSummary';
     }
     if (_looksLikePlanApproval(latestUserMessage.content)) {
-      return AiPlanModeGuidance.approvalExecutionReminder;
+      return _buildPlanApprovalExecutionReminder(session);
     }
     return AiPlanModeGuidance.planningReminder;
+  }
+
+  String _buildPlanApprovalExecutionReminder(AiSession session) {
+    final record = session.latestActivePlanRecord;
+    final plan = record?.plan.trim() ?? '';
+    final allowedPrompts = record == null
+        ? ''
+        : _renderPlanAllowedPromptLines(record.allowedPrompts);
+    final buffer = StringBuffer(AiPlanModeGuidance.approvalExecutionReminder);
+    if (plan.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln()
+        ..writeln('## Approved Plan')
+        ..writeln('```text')
+        ..writeln(plan)
+        ..writeln('```');
+    }
+    if (allowedPrompts.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('allowed_prompts:')
+        ..writeln(allowedPrompts);
+    }
+    return buffer.toString().trimRight();
   }
 
   bool _shouldUsePlanRecoveryReminder({
