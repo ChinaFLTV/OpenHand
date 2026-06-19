@@ -29,8 +29,14 @@ const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
 /// - read 是非阻塞拉取（自上次 read 以来的新输出 + 进程状态）。
 /// - stdin 写入仅在进程存活时有效；进程已退出时返回 invalid_arguments。
 class AiBashBackgroundTool extends AiTool {
-  AiBashBackgroundTool({AiSandboxService? sandboxService})
-    : _sandboxService = sandboxService ?? AiSandboxService();
+  AiBashBackgroundTool({
+    AiBashToolService? bashToolService,
+    AiSandboxService? sandboxService,
+  }) : _bashToolService = bashToolService ?? AiBashToolService(),
+       _sandboxService =
+           sandboxService ??
+           bashToolService?.sandboxService ??
+           AiSandboxService();
 
   static const int _maxBufferBytes = 64 * 1024;
   static const int _maxConcurrentSessions = 8;
@@ -38,6 +44,7 @@ class AiBashBackgroundTool extends AiTool {
   static const int _maxRetainedExitedSessions = 4;
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
+  final AiBashToolService _bashToolService;
   final AiSandboxService _sandboxService;
   int _handleCounter = 0;
 
@@ -99,6 +106,7 @@ class AiBashBackgroundTool extends AiTool {
         'start requires non-empty cmd.',
       );
     }
+    final writeAnalysis = _bashToolService.analyzeWriteCommand(cmd);
     _pruneExitedSessions();
     if (_activeSessionCount >= _maxConcurrentSessions) {
       return AiToolUtils.invalidResult(
@@ -117,6 +125,8 @@ class AiBashBackgroundTool extends AiTool {
         durationMs: 0,
         matchedRuleId: denyRule.id,
         matchedRulePattern: denyRule.pattern,
+        isWriteCommand: writeAnalysis.isWrite,
+        writeAnalysisReason: writeAnalysis.reason,
         resultText:
             'status: denied\nrule: ${denyRule.pattern}\nreason: matched deny rule',
       );
@@ -133,9 +143,33 @@ class AiBashBackgroundTool extends AiTool {
         stdout: '',
         stderr: launchSpec.reason,
         durationMs: 0,
+        isWriteCommand: writeAnalysis.isWrite,
+        writeAnalysisReason: writeAnalysis.reason,
         resultText: 'status: denied\nreason: ${launchSpec.reason}',
         metadata: launchSpec.metadata,
       );
+    }
+    if (writeAnalysis.isWrite) {
+      final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+        toolName: 'BashBackground',
+        operationDescription:
+            'Start long-running shell process in $cwd\n'
+            'reason: ${writeAnalysis.reason}\n'
+            'cmd: $cmd',
+        targetPath: _directoryConfirmationTarget(cwd),
+        requireWriteConfirmation: context.requireWriteCommandConfirmation,
+        confirmWriteCommand: context.confirmWriteCommand,
+        cancelSignal: context.cancelSignal,
+        timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+        approvalCommand: cmd,
+        approvalWorkingDirectory: cwd,
+        resultCommand: cmd,
+        writeAnalysisReason: writeAnalysis.reason,
+      );
+      if (confirmationResult != null) {
+        await launchSpec.proxyLease?.close();
+        return confirmationResult;
+      }
     }
     final startedAt = Stopwatch()..start();
     final Process process;
@@ -224,11 +258,21 @@ class AiBashBackgroundTool extends AiTool {
       output: output.toString().trimRight(),
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: launchSpec.workingDirectory,
+      isWriteCommand: writeAnalysis.isWrite,
+      writeAnalysisReason: writeAnalysis.reason,
       metadata: <String, Object?>{
         ...launchSpec.metadata,
         'bg_handle': handle,
         'bg_pid': process.pid,
         'bg_cmd': cmd,
+        if (writeAnalysis.isWrite)
+          'file_mutation_kind': 'bash_background_write',
+        if (writeAnalysis.isWrite)
+          'file_mutation_working_directory': launchSpec.workingDirectory,
+        if (writeAnalysis.isWrite)
+          'file_mutation_command_char_count': cmd.length,
+        if (writeAnalysis.isWrite)
+          'file_mutation_write_reason': writeAnalysis.reason,
       },
     );
   }
@@ -399,6 +443,12 @@ class AiBashBackgroundTool extends AiTool {
   int _normalizeReadBytes(int? value) {
     final raw = value ?? _defaultReadBytes;
     return raw.clamp(0, _maxBufferBytes).toInt();
+  }
+
+  String _directoryConfirmationTarget(String directory) {
+    final separator = Platform.pathSeparator;
+    final suffix = directory.endsWith(separator) ? '.' : '$separator.';
+    return '$directory$suffix';
   }
 
   void _pruneExitedSessions() {

@@ -438,6 +438,7 @@ class AiToolUtils {
     required int durationMs,
     String? workingDirectory,
     bool isWriteCommand = false,
+    String? writeAnalysisReason,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) {
     return AiToolExecutionResult(
@@ -449,7 +450,9 @@ class AiToolUtils {
       durationMs: durationMs,
       resultText: output.trim(),
       isWriteCommand: isWriteCommand,
-      writeAnalysisReason: isWriteCommand ? 'builtin file mutation tool' : '',
+      writeAnalysisReason: isWriteCommand
+          ? (writeAnalysisReason ?? 'builtin file mutation tool')
+          : '',
       metadata: metadata,
     );
   }
@@ -1098,6 +1101,10 @@ class AiToolUtils {
     confirmWriteCommand,
     Future<void>? cancelSignal,
     int? timeoutMs,
+    String? approvalCommand,
+    String? approvalWorkingDirectory,
+    String? resultCommand,
+    String? writeAnalysisReason,
   }) async {
     // 如果不需要写确认，直接通过
     if (!requireWriteConfirmation) {
@@ -1106,16 +1113,25 @@ class AiToolUtils {
 
     // 如果需要确认但没有确认回调，这是一个配置错误，拒绝执行
     if (confirmWriteCommand == null) {
+      final workingDirectory =
+          approvalWorkingDirectory ?? p.dirname(targetPath);
+      final commandForResult = resultCommand ?? '$toolName $targetPath';
       return rejectedWriteResult(
         toolName: toolName,
         targetPath: targetPath,
         reason: '需要写操作确认但未提供确认回调，操作已拒绝执行。',
+        command: commandForResult,
+        workingDirectory: workingDirectory,
+        writeAnalysisReason: writeAnalysisReason,
       );
     }
 
-    final workingDirectory = p.dirname(targetPath);
+    final workingDirectory = approvalWorkingDirectory ?? p.dirname(targetPath);
+    final commandForApproval =
+        approvalCommand ?? '$toolName $targetPath\n$operationDescription';
+    final commandForResult = resultCommand ?? '$toolName $targetPath';
     final request = BashCommandApprovalRequest(
-      command: '$toolName $targetPath\n$operationDescription',
+      command: commandForApproval,
       workingDirectory: workingDirectory,
       isWriteCommand: true,
     );
@@ -1145,7 +1161,7 @@ class AiToolUtils {
     } on TimeoutException {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,
-        command: '$toolName $targetPath',
+        command: commandForResult,
         workingDirectory: workingDirectory,
         stdout: '',
         stderr: '写操作确认超时（用户既未批准也未明确拒绝）。本次工具调用未执行；如仍需该副作用请重新征询用户意图后再次尝试。',
@@ -1153,6 +1169,9 @@ class AiToolUtils {
         resultText:
             'status: timed_out\nreason: Write confirmation timed out — user did not respond.',
         isWriteCommand: true,
+        writeAnalysisReason:
+            writeAnalysisReason ??
+            'builtin file mutation tool requires confirmation',
       );
     }
 
@@ -1164,6 +1183,9 @@ class AiToolUtils {
           toolName: toolName,
           targetPath: targetPath,
           reason: '用户已显式拒绝该写操作确认（点击"取消"按钮）。请勿重试该写操作；先与用户确认期望后再行动。',
+          command: commandForResult,
+          workingDirectory: workingDirectory,
+          writeAnalysisReason: writeAnalysisReason,
         );
       case BashCommandApprovalDecision.dismissed:
         return rejectedWriteResult(
@@ -1171,11 +1193,14 @@ class AiToolUtils {
           targetPath: targetPath,
           reason:
               '用户按 Esc / 关闭了写操作确认弹窗，未明确表态。视为"决策悬置"：本次工具调用未执行；与用户确认意图后再决定下一步。',
+          command: commandForResult,
+          workingDirectory: workingDirectory,
+          writeAnalysisReason: writeAnalysisReason,
         );
       case BashCommandApprovalDecision.timedOut:
         return AiToolExecutionResult(
           status: BashToolExecutionStatus.timedOut,
-          command: '$toolName $targetPath',
+          command: commandForResult,
           workingDirectory: workingDirectory,
           stdout: '',
           stderr: '写操作确认弹窗超时（用户既未批准也未明确拒绝）。本次工具调用未执行。',
@@ -1183,10 +1208,13 @@ class AiToolUtils {
           resultText:
               'status: timed_out\nreason: Write confirmation timed out — user did not respond.',
           isWriteCommand: true,
+          writeAnalysisReason:
+              writeAnalysisReason ??
+              'builtin file mutation tool requires confirmation',
         );
       case BashCommandApprovalDecision.cancelled:
         return cancelledResult(
-          command: '$toolName $targetPath',
+          command: commandForResult,
           durationMs: 0,
           metadata: <String, Object?>{'write_confirmation_cancelled': true},
         );
@@ -1198,17 +1226,22 @@ class AiToolUtils {
     required String toolName,
     required String targetPath,
     required String reason,
+    String? command,
+    String? workingDirectory,
+    String? writeAnalysisReason,
   }) {
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.rejected,
-      command: '$toolName $targetPath',
-      workingDirectory: p.dirname(targetPath),
+      command: command ?? '$toolName $targetPath',
+      workingDirectory: workingDirectory ?? p.dirname(targetPath),
       stdout: '',
       stderr: reason,
       durationMs: 0,
       resultText: 'status: rejected\nreason: $reason',
       isWriteCommand: true,
-      writeAnalysisReason: 'builtin file mutation tool requires confirmation',
+      writeAnalysisReason:
+          writeAnalysisReason ??
+          'builtin file mutation tool requires confirmation',
     );
   }
 }

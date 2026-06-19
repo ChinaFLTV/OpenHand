@@ -85,10 +85,8 @@ class AiToolRegistry {
       AiBashTool(bashToolService: bashToolService, hookService: hookService),
     );
 
-    // BashBackground — 长跑后台子进程，独立于主 Bash 工具，不依赖外部服务。
-    registry.register(
-      AiBashBackgroundTool(sandboxService: bashToolService.sandboxService),
-    );
+    // BashBackground — 长跑后台子进程，共用 Bash 写命令分析与 sandbox 设置。
+    registry.register(AiBashBackgroundTool(bashToolService: bashToolService));
 
     // SkillManager — 需要 skills directory provider (Hermes Talker builtin).
     // Only registered when a provider is wired; sessions where the user has
