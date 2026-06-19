@@ -70,6 +70,44 @@ void main() {
     });
 
     test(
+      'accepts Claude-style todos with activeForm and generated ids',
+      () async {
+        final result = await AiTodoWriteTool().execute(
+          _context(
+            todos: const <Map<String, Object?>>[
+              <String, Object?>{
+                'content': 'Inspect current flow',
+                'status': 'in_progress',
+                'activeForm': 'Inspecting current flow',
+              },
+              <String, Object?>{
+                'content': 'Implement minimal change',
+                'status': 'pending',
+              },
+            ],
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        expect(result.stdout, contains('[-] 1: Inspect current flow'));
+        expect(result.stdout, contains('[ ] 2: Implement minimal change'));
+        expect(result.metadata['todo_items'], <Map<String, Object?>>[
+          <String, Object?>{
+            'id': '1',
+            'content': 'Inspect current flow',
+            'status': 'in_progress',
+            'activeForm': 'Inspecting current flow',
+          },
+          <String, Object?>{
+            'id': '2',
+            'content': 'Implement minimal change',
+            'status': 'pending',
+          },
+        ]);
+      },
+    );
+
+    test(
       'reminds verification before final claim after completing major todos',
       () async {
         final result = await AiTodoWriteTool().execute(

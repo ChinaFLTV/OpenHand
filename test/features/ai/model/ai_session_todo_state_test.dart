@@ -93,6 +93,31 @@ void main() {
       expect(AiSessionTodoState.hasFailure(todos), isFalse);
     });
 
+    test('round-trips optional activeForm wording', () {
+      const todo = AiSessionTodoItem(
+        id: '1',
+        content: 'Inspect current flow',
+        status: 'in_progress',
+        activeForm: 'Inspecting current flow',
+      );
+
+      final decoded = AiSessionTodoItem.fromJson(todo.toJson());
+
+      expect(decoded.id, '1');
+      expect(decoded.content, 'Inspect current flow');
+      expect(decoded.status, 'in_progress');
+      expect(decoded.activeForm, 'Inspecting current flow');
+      expect(
+        AiSessionTodoItem.fromJson(const <String, Object?>{
+          'id': '2',
+          'content': 'Patch',
+          'status': 'pending',
+          'active_form': 'Patching',
+        }).activeForm,
+        'Patching',
+      );
+    });
+
     test('keeps legacy failed statuses grouped as failures', () {
       const todos = <AiSessionTodoItem>[
         AiSessionTodoItem(id: '1', content: 'Retry build', status: 'blocked'),

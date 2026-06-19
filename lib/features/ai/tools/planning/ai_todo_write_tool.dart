@@ -24,9 +24,15 @@ class AiTodoWriteTool extends AiTool {
       );
     }
     final normalizedTodos = <Map<String, Object?>>[];
+    final providedIds = todos
+        .whereType<Map>()
+        .map((todo) => '${todo['id'] ?? ''}'.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
     final seenIds = <String>{};
     var inProgressCount = 0;
-    for (final rawTodo in todos) {
+    for (var todoIndex = 0; todoIndex < todos.length; todoIndex++) {
+      final rawTodo = todos[todoIndex];
       if (rawTodo is! Map) {
         return AiToolUtils.invalidResult(
           'TodoWrite',
@@ -34,13 +40,20 @@ class AiTodoWriteTool extends AiTool {
         );
       }
       final todo = Map<String, Object?>.from(rawTodo);
-      final id = '${todo['id'] ?? ''}'.trim();
+      final id = _resolveTodoId(
+        todo: todo,
+        providedIds: providedIds,
+        seenIds: seenIds,
+        fallbackIndex: todoIndex,
+      );
       final content = '${todo['content'] ?? ''}'.trim();
       final status = '${todo['status'] ?? ''}'.trim();
-      if (id.isEmpty || content.isEmpty) {
+      final activeForm = '${todo['activeForm'] ?? todo['active_form'] ?? ''}'
+          .trim();
+      if (content.isEmpty) {
         return AiToolUtils.invalidResult(
           'TodoWrite',
-          'Each todo must include id and content.',
+          'Each todo must include content.',
         );
       }
       if (!seenIds.add(id)) {
@@ -63,6 +76,7 @@ class AiTodoWriteTool extends AiTool {
         'id': id,
         'content': content,
         'status': status,
+        if (activeForm.isNotEmpty) 'activeForm': activeForm,
       });
     }
     if (inProgressCount > 1) {
@@ -105,5 +119,22 @@ class AiTodoWriteTool extends AiTool {
         if (shouldEmitVerificationReminder) 'todo_verification_reminder': true,
       },
     );
+  }
+
+  String _resolveTodoId({
+    required Map<String, Object?> todo,
+    required Set<String> providedIds,
+    required Set<String> seenIds,
+    required int fallbackIndex,
+  }) {
+    final explicitId = '${todo['id'] ?? ''}'.trim();
+    if (explicitId.isNotEmpty) return explicitId;
+    var candidateNumber = fallbackIndex + 1;
+    var candidate = '$candidateNumber';
+    while (providedIds.contains(candidate) || seenIds.contains(candidate)) {
+      candidateNumber += 1;
+      candidate = '$candidateNumber';
+    }
+    return candidate;
   }
 }

@@ -33,14 +33,15 @@
 ```json
 {
   "todos": [
-    {"id": "1", "content": "Inspect current flow", "status": "in_progress"},
-    {"id": "2", "content": "Implement the minimal change", "status": "pending"}
+    {"content": "Inspect current flow", "status": "in_progress", "activeForm": "Inspecting current flow"},
+    {"content": "Implement the minimal change", "status": "pending"}
   ]
 }
 ```
 
 规则：
-- `todos` 必须是数组；每项必须有 `id`、`content`、`status`。
+- `todos` 必须是数组；每项必须有 `content`、`status`；`id` 可省略，运行时会生成。
+- `activeForm` 可选，用于当前执行态措辞。
 - `status` 只能是 `pending` / `in_progress` / `completed` / `failed`。
 - 同一调用内 `id` 唯一，最多一个 `in_progress`。
 - 计划模式下，调用 `ExitPlanMode` 前必须保留至少一个未完成 todo，否则运行时可能不会暴露 `ExitPlanMode`。

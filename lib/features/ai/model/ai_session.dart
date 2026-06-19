@@ -57,22 +57,35 @@ class AiSessionTodoItem {
     required this.id,
     required this.content,
     required this.status,
+    this.activeForm = '',
   });
 
   final String id;
   final String content;
   final String status;
+  final String activeForm;
 
-  AiSessionTodoItem copyWith({String? id, String? content, String? status}) {
+  AiSessionTodoItem copyWith({
+    String? id,
+    String? content,
+    String? status,
+    String? activeForm,
+  }) {
     return AiSessionTodoItem(
       id: id ?? this.id,
       content: content ?? this.content,
       status: status ?? this.status,
+      activeForm: activeForm ?? this.activeForm,
     );
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{'id': id, 'content': content, 'status': status};
+    return <String, Object?>{
+      'id': id,
+      'content': content,
+      'status': status,
+      if (activeForm.trim().isNotEmpty) 'activeForm': activeForm,
+    };
   }
 
   static AiSessionTodoItem fromJson(Map<String, Object?> json) {
@@ -80,6 +93,7 @@ class AiSessionTodoItem {
       id: '${json['id'] ?? ''}',
       content: '${json['content'] ?? ''}',
       status: '${json['status'] ?? ''}',
+      activeForm: '${json['activeForm'] ?? json['active_form'] ?? ''}'.trim(),
     );
   }
 }

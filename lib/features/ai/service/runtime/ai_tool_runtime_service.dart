@@ -2397,9 +2397,10 @@ class AiToolRuntimeService {
       description:
           'Create or update the structured todo list for the current task. '
           'The "todos" parameter MUST be a JSON array of objects — NOT an XML-style wrapper like {"item":[...]}. '
-          'Each object needs id (string), content (string) and status '
-          '("pending"|"in_progress"|"completed"|"failed"). At most one in_progress at a time. '
-          'Example: {"todos":[{"id":"1","content":"Step A","status":"in_progress"},{"id":"2","content":"Step B","status":"pending"}]}',
+          'Each object needs content (string) and status '
+          '("pending"|"in_progress"|"completed"|"failed"); id is optional and generated when omitted. '
+          'Optional activeForm is accepted for Claude-style progress wording. At most one in_progress at a time. '
+          'Example: {"todos":[{"content":"Step A","status":"in_progress","activeForm":"Working on Step A"},{"content":"Step B","status":"pending"}]}',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2419,8 +2420,10 @@ class AiToolRuntimeService {
                   ],
                 },
                 'id': <String, Object?>{'type': 'string'},
+                'activeForm': <String, Object?>{'type': 'string'},
+                'active_form': <String, Object?>{'type': 'string'},
               },
-              'required': <String>['content', 'status', 'id'],
+              'required': <String>['content', 'status'],
               'additionalProperties': false,
             },
           },
