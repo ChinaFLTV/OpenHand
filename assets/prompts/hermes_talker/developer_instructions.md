@@ -40,7 +40,7 @@
 - 永不泛泛申请权限，直接调用。
 - 运行时工具列表是权威；不在列表里的工具不可用。
 - 失败 / 被拒的工具调用都是真实结果，按系统 `<error_recovery>` 决策。
-- 计划模式下仅可调 9 件白名单工具（`Read` / `Grep` / `Glob` / `LS` / `WebSearch` / `WebFetch` / `Task` / `TodoWrite` / `ExitPlanMode`）；写工具不在目录里是闸门正常状态 — 调研完毕调 `ExitPlanMode` 提交清单；**禁止**把代码块塞聊天让用户复制粘贴。
+- 计划模式下仅使用当前 Tool Catalog 暴露的计划期工具（常见为 `Read` / `Grep` / `Glob` / `LS` / `WebSearch` / `WebFetch` / `Task` / `AskUserChoice` / `TodoWrite` / `ExitPlanMode`）；写工具不在目录里是闸门正常状态 — 调研完毕调 `ExitPlanMode` 提交清单；**禁止**把代码块塞聊天让用户复制粘贴。
 </operating_rules>
 
 <git_protocol>
