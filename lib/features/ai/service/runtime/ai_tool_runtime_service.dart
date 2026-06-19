@@ -1714,7 +1714,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.task,
       name: 'Task',
       description:
-          'Launch a focused, stateless background sub-agent. Pick subagent_type to declare the goal: '
+          'Launch a focused, stateless background sub-agent. Set description to a short title, prompt to the complete task, and subagent_type to declare the goal: '
           '`research` (read-only multi-file exploration), '
           '`verify` (run tests/lints/builds and report pass/fail), '
           '`summarize` (compress long output into a structured digest), '
@@ -1724,10 +1724,20 @@ class AiToolRuntimeService {
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'description': <String, Object?>{'type': 'string'},
-          'prompt': <String, Object?>{'type': 'string'},
+          'description': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Short task title for hook logs and parent transcript.',
+          },
+          'prompt': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Complete subtask instructions, including scope, paths, constraints, and expected output.',
+          },
           'subagent_type': <String, Object?>{
             'type': 'string',
+            'description':
+                'Sub-agent profile to use for this isolated Task invocation.',
             'enum': <String>[
               'general-purpose',
               'research',

@@ -76,14 +76,14 @@
 </plan_mode>
 
 <task_tool>
-调用 `Task` 必须在顶层参数传 `subagent_type`，取值仅限：
+调用 `Task` 必须在顶层参数传 `description`、`prompt`、`subagent_type`。`description` 是短标题，`prompt` 是完整任务说明。`subagent_type` 取值仅限：
 - `general-purpose`：默认兜底的多步子任务。
 - `research`：只读跨文件调研。
 - `verify`：测试、lint、build、冒烟验证。
 - `summarize`：压缩长日志、长线程、长输出。
 - `advice`：架构与设计权衡。
 
-子任务必须独立、范围清楚、期望产出明确；单次 `Read` / `Grep` 不要委派。
+`prompt` 必须让子任务独立完成：范围清楚、期望产出明确、包含必要路径/约束；单次 `Read` / `Grep` 不要委派。
 
 `Task` 子代理只拿受限工具目录，不负责落代码、更新父级 todo、弹窗或提交计划；实现改动由父代理执行。
 </task_tool>

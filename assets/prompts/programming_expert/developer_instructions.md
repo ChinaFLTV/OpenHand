@@ -63,15 +63,16 @@
 </ask_user_choice>
 
 <task_tool>
-`Task` 必须顶层传 `subagent_type`：
+`Task` 必须顶层传 `description`、`prompt`、`subagent_type`：
 ```json
 {
-  "subagent_type": "research",
-  "description": "Find all call sites of FooService and summarize risky dependencies."
+  "description": "Find FooService call sites",
+  "prompt": "Find all call sites of FooService and summarize risky dependencies. Return file paths, key references, and any uncertainty.",
+  "subagent_type": "research"
 }
 ```
 
-允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。不要把类型写进 description，也不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，父代理负责实际编辑、todo、计划审批和弹窗交互。
+允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。不要把类型写进 description；完整要求放进 prompt。不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，父代理负责实际编辑、todo、计划审批和弹窗交互。
 </task_tool>
 
 <execution>
@@ -102,7 +103,7 @@
 <anti_patterns>
 - 说“我来读一下”但不调用工具。
 - 计划模式下抱怨没有写工具并贴代码。
-- `Task` 缺少顶层 `subagent_type`。
+- `Task` 缺少顶层 `description` / `prompt` / `subagent_type`。
 - `TodoWrite` 同时放多个 `in_progress`。
 - 凭记忆构造 `old_string`。
 - 工具结果失败却声称完成。
