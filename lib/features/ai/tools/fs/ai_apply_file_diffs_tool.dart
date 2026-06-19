@@ -101,6 +101,12 @@ class AiApplyFileDiffsTool extends AiTool {
       }
       final file = File(filePath);
       final exists = await file.exists();
+      if (!exists && _requiresExistingFile(hunks)) {
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          await AiToolUtils.missingPathMessage(subject: 'File', path: filePath),
+        );
+      }
 
       final readValidation = await AiToolUtils.validateReadBeforeMutation(
         toolName: 'ApplyFileDiffs',
@@ -373,6 +379,12 @@ class AiApplyFileDiffsTool extends AiTool {
       return ' Rolled back ${restored.length} previously written file${restored.length == 1 ? '' : 's'}.';
     }
     return ' Rollback attempted: restored ${restored.length}; failed ${failed.length}: ${failed.join('; ')}.';
+  }
+
+  bool _requiresExistingFile(List<Object?> hunks) {
+    final firstHunk = hunks.first;
+    if (firstHunk is! Map) return false;
+    return '${firstHunk['old_string'] ?? ''}'.isNotEmpty;
   }
 }
 

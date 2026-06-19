@@ -61,6 +61,35 @@ void main() {
       }
     });
 
+    test('suggests a similar sibling path when file is missing', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final sibling = File('${tempDir.path}/sample.txt');
+      await sibling.writeAsString('alpha\n');
+      final missingPath = '${tempDir.path}/sample.dart';
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-missing-suggestion',
+          filePath: missingPath,
+          offset: 1,
+          limit: 2,
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('File does not exist: $missingPath'));
+      expect(result.stderr, contains('Did you mean ${sibling.path}?'));
+    });
+
     test('resolves macOS screenshot thin-space AM PM path variants', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_read_tool_test_',

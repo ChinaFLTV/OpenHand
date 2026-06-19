@@ -41,7 +41,10 @@ class AiNotebookEditTool extends AiTool {
     if (!await file.exists()) {
       return AiToolUtils.invalidResult(
         'NotebookEdit',
-        'Notebook does not exist: $notebookPath',
+        await AiToolUtils.missingPathMessage(
+          subject: 'Notebook',
+          path: notebookPath,
+        ),
       );
     }
     if (editMode == null) {

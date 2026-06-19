@@ -58,6 +58,12 @@ class AiMultiEditTool extends AiTool {
 
     final file = File(filePath);
     final bool fileExists = await file.exists();
+    if (!fileExists && _requiresExistingFile(edits)) {
+      return AiToolUtils.invalidResult(
+        'MultiEdit',
+        await AiToolUtils.missingPathMessage(subject: 'File', path: filePath),
+      );
+    }
 
     // 2026-04-13: 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
@@ -221,5 +227,11 @@ class AiMultiEditTool extends AiTool {
           'file_mutation_ledger_record_id': ledgerRecordId,
       },
     );
+  }
+
+  bool _requiresExistingFile(List<Object?> edits) {
+    final firstEdit = edits.first;
+    if (firstEdit is! Map) return false;
+    return '${firstEdit['old_string'] ?? ''}'.isNotEmpty;
   }
 }

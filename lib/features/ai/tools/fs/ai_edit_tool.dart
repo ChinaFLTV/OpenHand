@@ -52,7 +52,7 @@ class AiEditTool extends AiTool {
     if (!fileExists && oldString.isNotEmpty) {
       return AiToolUtils.invalidResult(
         'Edit',
-        'File does not exist: $filePath',
+        await AiToolUtils.missingPathMessage(subject: 'File', path: filePath),
       );
     }
 

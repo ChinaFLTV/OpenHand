@@ -27,6 +27,7 @@ class AiToolUtils {
   static const int maxLedgerCaptureBytes = 16 * kBytesPerMiB;
   static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;
   static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;
+  static const int maxMissingPathSuggestionScanEntries = 256;
 
   static int _safeWriteArtifactCounter = 0;
   static final Map<String, Future<void>> _fileMutationLocks =
@@ -41,6 +42,146 @@ class AiToolUtils {
     if (normalizedInput.isEmpty) return defaultWorkingDirectory();
     if (p.isAbsolute(normalizedInput)) return p.normalize(normalizedInput);
     return p.normalize(p.join(defaultWorkingDirectory(), normalizedInput));
+  }
+
+  static Future<String> missingPathMessage({
+    required String subject,
+    required String path,
+  }) async {
+    final base = '$subject does not exist: $path';
+    final suggestion = await suggestSiblingPath(path);
+    if (suggestion == null) return base;
+    return '$base Did you mean $suggestion?';
+  }
+
+  static Future<String?> suggestSiblingPath(String missingPath) async {
+    final normalizedMissingPath = p.normalize(missingPath);
+    final parentPath = p.dirname(normalizedMissingPath);
+    final parent = Directory(parentPath);
+    try {
+      if (!await parent.exists()) return null;
+      final targetName = p.basename(normalizedMissingPath);
+      final targetNameLower = targetName.toLowerCase();
+      final targetBaseLower = p
+          .basenameWithoutExtension(targetName)
+          .toLowerCase();
+      final targetExtensionLower = p.extension(targetName).toLowerCase();
+      _MissingPathSuggestion? best;
+      var scannedEntries = 0;
+      await for (final entity in parent.list(followLinks: false)) {
+        if (scannedEntries >= maxMissingPathSuggestionScanEntries) break;
+        scannedEntries += 1;
+        final candidatePath = p.normalize(entity.path);
+        if (candidatePath == normalizedMissingPath) continue;
+        final type = await FileSystemEntity.type(candidatePath);
+        if (type == FileSystemEntityType.directory ||
+            type == FileSystemEntityType.notFound) {
+          continue;
+        }
+        final candidateName = p.basename(candidatePath);
+        final score = _missingPathSuggestionScore(
+          targetNameLower: targetNameLower,
+          targetBaseLower: targetBaseLower,
+          targetExtensionLower: targetExtensionLower,
+          candidateNameLower: candidateName.toLowerCase(),
+          candidateBaseLower: p
+              .basenameWithoutExtension(candidateName)
+              .toLowerCase(),
+          candidateExtensionLower: p.extension(candidateName).toLowerCase(),
+        );
+        if (score == null) continue;
+        final candidate = _MissingPathSuggestion(
+          path: candidatePath,
+          name: candidateName.toLowerCase(),
+          score: score,
+        );
+        if (best == null || candidate.isBetterThan(best)) {
+          best = candidate;
+        }
+      }
+      return best?.path;
+    } catch (error, stack) {
+      silentLog('ai_tool_utils', 'suggest missing sibling path', error, stack);
+      return null;
+    }
+  }
+
+  static int? _missingPathSuggestionScore({
+    required String targetNameLower,
+    required String targetBaseLower,
+    required String targetExtensionLower,
+    required String candidateNameLower,
+    required String candidateBaseLower,
+    required String candidateExtensionLower,
+  }) {
+    if (candidateNameLower == targetNameLower) return 100000;
+    if (targetBaseLower.isNotEmpty && candidateBaseLower == targetBaseLower) {
+      return 90000;
+    }
+
+    final sameExtension =
+        targetExtensionLower.isNotEmpty &&
+        candidateExtensionLower == targetExtensionLower;
+    if (sameExtension && targetBaseLower.isNotEmpty) {
+      final lengthPenalty = (candidateBaseLower.length - targetBaseLower.length)
+          .abs();
+      if (candidateBaseLower.startsWith(targetBaseLower)) {
+        return 80000 - lengthPenalty;
+      }
+      if (targetBaseLower.startsWith(candidateBaseLower)) {
+        return 78000 - lengthPenalty;
+      }
+      if (candidateBaseLower.contains(targetBaseLower) ||
+          targetBaseLower.contains(candidateBaseLower)) {
+        return 70000 - lengthPenalty;
+      }
+      final maxDistance = targetBaseLower.length <= 8 ? 2 : 3;
+      final editDistance = _boundedEditDistance(
+        targetBaseLower,
+        candidateBaseLower,
+        maxDistance,
+      );
+      if (editDistance != null) {
+        return 65000 - (editDistance * 100) - lengthPenalty;
+      }
+    }
+
+    if (targetBaseLower.isNotEmpty &&
+        candidateBaseLower.startsWith(targetBaseLower)) {
+      return 50000 - (candidateBaseLower.length - targetBaseLower.length);
+    }
+    return null;
+  }
+
+  static int? _boundedEditDistance(String a, String b, int maxDistance) {
+    if ((a.length - b.length).abs() > maxDistance) return null;
+    if (a == b) return 0;
+    if (a.isEmpty) return b.length <= maxDistance ? b.length : null;
+    if (b.isEmpty) return a.length <= maxDistance ? a.length : null;
+
+    var previous = List<int>.generate(b.length + 1, (index) => index);
+    for (var i = 1; i <= a.length; i += 1) {
+      final current = List<int>.filled(b.length + 1, 0);
+      current[0] = i;
+      var rowMin = current[0];
+      for (var j = 1; j <= b.length; j += 1) {
+        final substitutionCost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1)
+            ? 0
+            : 1;
+        final deletion = previous[j] + 1;
+        final insertion = current[j - 1] + 1;
+        final substitution = previous[j - 1] + substitutionCost;
+        final value = deletion < insertion
+            ? (deletion < substitution ? deletion : substitution)
+            : (insertion < substitution ? insertion : substitution);
+        current[j] = value;
+        if (value < rowMin) rowMin = value;
+      }
+      if (rowMin > maxDistance) return null;
+      previous = current;
+    }
+    final distance = previous[b.length];
+    return distance <= maxDistance ? distance : null;
   }
 
   static bool isNotebookPath(String filePath) {
@@ -1703,6 +1844,25 @@ class _WriteConfirmationOutcome {
 
   bool get approved => decision == BashCommandApprovalDecision.approved;
   bool get cancelled => decision == BashCommandApprovalDecision.cancelled;
+}
+
+class _MissingPathSuggestion {
+  const _MissingPathSuggestion({
+    required this.path,
+    required this.name,
+    required this.score,
+  });
+
+  final String path;
+  final String name;
+  final int score;
+
+  bool isBetterThan(_MissingPathSuggestion other) {
+    if (score != other.score) return score > other.score;
+    final nameComparison = name.compareTo(other.name);
+    if (nameComparison != 0) return nameComparison < 0;
+    return path.compareTo(other.path) < 0;
+  }
 }
 
 class AiEditableTextSnapshot {

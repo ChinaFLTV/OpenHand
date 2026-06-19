@@ -63,7 +63,7 @@ class AiReadTool extends AiTool {
     if (resolvedFile == null) {
       return AiToolUtils.invalidResult(
         'Read',
-        'File does not exist: $filePath',
+        await AiToolUtils.missingPathMessage(subject: 'File', path: filePath),
       );
     }
     final actualFilePath = resolvedFile.filePath;

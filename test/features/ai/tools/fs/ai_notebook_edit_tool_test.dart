@@ -107,6 +107,44 @@ void main() {
       expect(await notNotebook.readAsString(), originalContent);
     });
 
+    test('suggests a similar notebook path when target is missing', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_notebook_edit_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final sibling = File('${tempDir.path}/analysis-copy.ipynb');
+      await sibling.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+          'cells': <Object?>[],
+          'metadata': <String, Object?>{},
+          'nbformat': 4,
+          'nbformat_minor': 5,
+        }),
+      );
+      final missingPath = '${tempDir.path}/analysis.ipynb';
+
+      final result = await AiNotebookEditTool().execute(
+        _context(
+          id: 'notebook-missing-suggestion',
+          arguments: <String, Object?>{
+            'notebook_path': missingPath,
+            'cell_id': 'cell-1',
+            'new_source': 'print(2)\n',
+          },
+          previouslyReadFiles: <String>{missingPath},
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('Notebook does not exist: $missingPath'));
+      expect(result.stderr, contains('Did you mean ${sibling.path}?'));
+    });
+
     test('delete mode does not require new_source', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_notebook_edit_tool_test_',

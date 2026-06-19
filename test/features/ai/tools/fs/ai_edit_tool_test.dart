@@ -124,6 +124,32 @@ void main() {
       expect(await file.readAsString(), 'hello\n');
     });
 
+    test(
+      'suggests a similar sibling path for missing existing-file edits',
+      () async {
+        final sibling = File('${tempDir.path}/target.txt');
+        await sibling.writeAsString('alpha\n');
+        final missingPath = '${tempDir.path}/target.dart';
+
+        final result = await AiEditTool().execute(
+          _context(
+            toolName: 'Edit',
+            arguments: <String, Object?>{
+              'file_path': missingPath,
+              'old_string': 'alpha',
+              'new_string': 'beta',
+            },
+          ),
+        );
+
+        expect(result.status.storageValue, 'invalid_arguments');
+        expect(result.stderr, contains('File does not exist: $missingPath'));
+        expect(result.stderr, contains('Did you mean ${sibling.path}?'));
+        expect(await sibling.readAsString(), 'alpha\n');
+        expect(await File(missingPath).exists(), isFalse);
+      },
+    );
+
     test('rejects direct notebook text edits', () async {
       final file = File('${tempDir.path}/sample.ipynb');
       const original = '{"cells":[],"metadata":{},"nbformat":4}\n';
@@ -281,6 +307,42 @@ void main() {
   });
 
   group('AiMultiEditTool', () {
+    test(
+      'suggests a similar sibling path for missing existing-file edits',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'openhand_multi_edit_tool_test_',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+
+        final sibling = File('${tempDir.path}/multi.txt');
+        await sibling.writeAsString('alpha\n');
+        final missingPath = '${tempDir.path}/multi.dart';
+
+        final result = await AiMultiEditTool().execute(
+          _context(
+            toolName: 'MultiEdit',
+            arguments: <String, Object?>{
+              'file_path': missingPath,
+              'edits': <Object?>[
+                <String, Object?>{'old_string': 'alpha', 'new_string': 'beta'},
+              ],
+            },
+          ),
+        );
+
+        expect(result.status.storageValue, 'invalid_arguments');
+        expect(result.stderr, contains('File does not exist: $missingPath'));
+        expect(result.stderr, contains('Did you mean ${sibling.path}?'));
+        expect(await sibling.readAsString(), 'alpha\n');
+        expect(await File(missingPath).exists(), isFalse);
+      },
+    );
+
     test('preserves CRLF line endings after sequential edits', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_multi_edit_tool_test_',
@@ -417,6 +479,49 @@ void main() {
   });
 
   group('AiApplyFileDiffsTool', () {
+    test(
+      'suggests a similar sibling path for missing existing-file diffs',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'openhand_apply_file_diffs_tool_test_',
+        );
+        addTearDown(() async {
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
+
+        final sibling = File('${tempDir.path}/apply.txt');
+        await sibling.writeAsString('alpha\n');
+        final missingPath = '${tempDir.path}/apply.dart';
+
+        final result = await AiApplyFileDiffsTool().execute(
+          _context(
+            toolName: 'ApplyFileDiffs',
+            arguments: <String, Object?>{
+              'diffs': <Object?>[
+                <String, Object?>{
+                  'file_path': missingPath,
+                  'hunks': <Object?>[
+                    <String, Object?>{
+                      'old_string': 'alpha',
+                      'new_string': 'beta',
+                    },
+                  ],
+                },
+              ],
+            },
+          ),
+        );
+
+        expect(result.status.storageValue, 'invalid_arguments');
+        expect(result.stderr, contains('File does not exist: $missingPath'));
+        expect(result.stderr, contains('Did you mean ${sibling.path}?'));
+        expect(await sibling.readAsString(), 'alpha\n');
+        expect(await File(missingPath).exists(), isFalse);
+      },
+    );
+
     test('rejects duplicate file plans before writing', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_apply_file_diffs_tool_test_',
