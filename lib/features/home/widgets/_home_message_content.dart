@@ -3841,6 +3841,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const Duration _kInitialRevealFallbackDelay = Duration(
     milliseconds: 1600,
   );
+  static const Duration _kPostScrollHeightApplyDelay = Duration(
+    milliseconds: 900,
+  );
   // 首次测量 outlier 阈值。WebView 第一次测高常因图片/CSS
   // 未完成返回异常大的值（如 5000+），直接应用会撑出"渲染下方空白"。
   // 当首测高度 > 估算高度 × ratio 时，**先应用估算高度**作为初始
@@ -4243,6 +4246,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   int _loadGeneration = 0;
   Timer? _heightDebounceTimer;
   Timer? _initialRevealFallbackTimer;
+  Timer? _postScrollHeightApplyTimer;
   // HTML WebView 通过 ResizeObserver
   // + rAF 在 macOS focus/blur、JS 二次布局、scrollIntoView 触发时都会重新
   // 测高，每帧 16-30ms 一次。原来的 100ms 防抖每次都被新一轮测量重置、
@@ -4258,12 +4262,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   final GlobalKey _webViewRegionKey = GlobalKey();
   _MessageBubbleState? _bubbleStateForRegion;
   // 滚动活动协调信号。active=true 时 JS 测高只缓存、不应用，
-  // 避免 maxScrollExtent 抖动把 viewport 拽回底部。inactive 后才一次性
-  // 应用累积的最新高度。
+  // 避免 maxScrollExtent 抖动把 viewport 拽回底部。inactive 后再等待
+  // 一个安静期，才一次性应用累积的最新高度。
   TranscriptScrollActivity? _scrollActivity;
   bool _scrollActive = false;
-  // 滚动停止后是否有待应用的最新高度。
-  bool _hasPendingHeightAfterScroll = false;
   bool _safeSetStateQueued = false;
   // 首次测量 outlier 检查状态位。首次非跳过的测量若超
   // 出估算高度 × ratio，标记为已处理并应用估算高度（避免"渲染下方
@@ -4275,6 +4277,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     widget.baseTextStyle?.fontSize,
     widget.baseTextStyle?.height,
   );
+
+  bool get _heightUpdatesFrozen =>
+      _scrollActive || (_postScrollHeightApplyTimer?.isActive ?? false);
 
   @override
   void initState() {
@@ -4322,23 +4327,37 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (activity == null || !mounted) return;
     final isActive = activity.value;
     if (isActive == _scrollActive) return;
-    _safeSetState(() => _scrollActive = isActive);
     if (isActive) {
+      _postScrollHeightApplyTimer?.cancel();
+      _postScrollHeightApplyTimer = null;
       _heightDebounceTimer?.cancel();
       _heightDebounceTimer = null;
-      _hasPendingHeightAfterScroll = _pendingHeight != null;
+      _safeSetState(() => _scrollActive = true);
       return;
     }
-    if (!isActive && _hasPendingHeightAfterScroll) {
-      _hasPendingHeightAfterScroll = false;
-      _applyPendingHeightIfAny();
-    }
+    _schedulePostScrollHeightApply();
+    _safeSetState(() => _scrollActive = false);
+  }
+
+  void _schedulePostScrollHeightApply() {
+    _postScrollHeightApplyTimer?.cancel();
+    _postScrollHeightApplyTimer = startSafeTimer(
+      _kPostScrollHeightApplyDelay,
+      () {
+        _postScrollHeightApplyTimer = null;
+        if (!mounted || _scrollActive) {
+          return;
+        }
+        _applyPendingHeightIfAny();
+      },
+    );
   }
 
   @override
   void dispose() {
     _heightDebounceTimer?.cancel();
     _initialRevealFallbackTimer?.cancel();
+    _postScrollHeightApplyTimer?.cancel();
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
@@ -4462,11 +4481,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // ListView 时，WebView 的 ResizeObserver / MutationObserver 也会
     // 持续回测高度。如果立即 apply 触发 setState → SliverList 重新
     // 布局 → maxScrollExtent 抖动 → Flutter clamp 滚动位置 → 视口被
-    // 拽回底部。此期间只缓存最新值，滚动结束由
-    // `_onScrollActivityChanged` 一次性应用。
-    if (_scrollActive) {
+    // 拽回底部。此期间只缓存最新值，滚动结束后的安静期再一次性应用。
+    if (_heightUpdatesFrozen) {
       _pendingHeight = next;
-      _hasPendingHeightAfterScroll = true;
       return;
     }
     // 首次非跳过的测量做 outlier 检查。WebView 首测常因
@@ -4503,8 +4520,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
             _heightDebounceTimer = startSafeTimer(_kHeightDebounceDuration, () {
               if (!mounted) return;
               _heightDebounceTimer = null;
-              if (_scrollActive) {
-                _hasPendingHeightAfterScroll = _pendingHeight != null;
+              if (_heightUpdatesFrozen) {
                 return;
               }
               final pending = _pendingHeight;
@@ -4535,8 +4551,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _heightDebounceTimer = startSafeTimer(_kHeightDebounceDuration, () {
         if (!mounted) return;
         _heightDebounceTimer = null;
-        if (_scrollActive) {
-          _hasPendingHeightAfterScroll = _pendingHeight != null;
+        if (_heightUpdatesFrozen) {
           return;
         }
         final pending = _pendingHeight;
@@ -4829,7 +4844,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 抖动。floor 与 cache 分离，outlier 占位估计绝不写入，避免污染。
     final baseDisplayHeight = _height ?? cachedHeight ?? estimatedHeight;
     final displayHeight =
-        _scrollActive && floor != null && baseDisplayHeight < floor
+        _heightUpdatesFrozen && floor != null && baseDisplayHeight < floor
         ? floor
         : baseDisplayHeight;
 

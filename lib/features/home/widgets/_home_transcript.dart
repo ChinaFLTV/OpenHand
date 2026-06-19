@@ -412,6 +412,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _TranscriptViewportAnchor? _pendingPrependAnchor;
   int _pendingPrependAnchorFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
+  bool _historyRevealCacheBoost = false;
   TranscriptScrollActivity? _scrollActivity;
   _PendingRevealRestore? _pendingRevealRestore;
 
@@ -434,8 +435,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // immediately on this frame — they are pure data classes and the heavy
     // widget work (markdown parse / syntax highlight) is throttled to
     // ~1 task / frame by [_MarkdownFrameScheduler] + [_HighlightFrameScheduler].
-    // Combined with `cacheExtent: 120` on the ListView (which only mounts
-    // bubbles inside the actual viewport + ~120 px buffer), the heavy work
+    // Combined with the ListView's narrow base cache band (which only mounts
+    // bubbles inside the actual viewport + a small buffer), the heavy work
     // naturally spreads across post-mount frames without any drip wrapper.
     //
     // 首帧只取窗口底部几条消息，保证打开长会话时先落到最新内容；
@@ -485,6 +486,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _warmupGeneration += 1;
       _warmupScheduler.clear();
       _selectedMessageId = null;
+      _historyRevealCacheBoost = false;
       _translationCacheByMessageId.clear();
       _translationVisibleMessageIds.clear();
       _translationLoadingMessageIds.clear();
@@ -501,7 +503,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // immediately so the cross-fade can start, then materialise the
       // visible window on the next frame; the markdown / highlight work
       // is throttled by [_MarkdownFrameScheduler] / [_HighlightFrameScheduler]
-      // and the ListView's `cacheExtent: 120` keeps off-viewport mounts cheap.
+      // and the ListView's narrow base cache band keeps off-viewport mounts cheap.
       // 切换会话时同样先绘制底部小窗口，再补齐常规窗口。
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
@@ -1648,6 +1650,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final preserveTriggerOffset = hiddenBefore > 0;
     setState(() {
       _loadingOlderMessages = true;
+      _historyRevealCacheBoost = true;
     });
 
     await Future<void>.delayed(const Duration(milliseconds: 16));
@@ -2151,6 +2154,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         pendingPlaceholderCount +
         retiringPlaceholderCount +
         failureCardCount;
+    final listCacheExtent = _historyRevealCacheBoost
+        ? math.max(
+            _transcriptHistoryRevealListCacheExtent,
+            MediaQuery.sizeOf(context).height * 2.4,
+          )
+        : _transcriptListCacheExtent;
     final transcriptScrollActive = context
         .select<TranscriptScrollActivity, bool>((activity) => activity.value);
     return Column(
@@ -2205,11 +2214,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   // (Leaving this at the framework default, which is already
                   // `true`, keeps the call site lint-clean and the intent
                   // explicit via the comment above.)
-                  // Keep the cache band narrow on first open. Extra cached
-                  // bubbles still pay wrapper/layout cost even when markdown and
-                  // highlighting are deferred, so the initial window should track
-                  // the real viewport closely and expand as the user scrolls.
-                  cacheExtent: _transcriptListCacheExtent,
+                  // Keep the cache band narrow on first open. After the user
+                  // explicitly reveals earlier history, widen it so Flutter can
+                  // lay out nearby variable-height bubbles before slow upward
+                  // scrolling reaches them; this keeps maxScrollExtent and the
+                  // desktop scrollbar thumb stable.
+                  cacheExtent: listCacheExtent,
                   physics: kOpenHandClampingPhysics,
                   itemCount: listItemCount,
                   itemBuilder: (context, index) {

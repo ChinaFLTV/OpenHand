@@ -218,17 +218,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 慢速滚动时两个 tick 之间会出现 _userScrollInProgress=false 的空窗，
   // 让 layout-change / composer 折叠 / 流式新消息触发的 jumpTo 抢到一帧，
   // 表现为视口被一股力反复拽回底部，呈现"抽搐/鬼畜"。给 scroll-end 加上
-  // 800 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
+  // 1200 ms 宽限：宽限期内任何新的 scroll start 都会续期；超时未再发生
   // 滚动活动才视为用户真正松手。快速滑动时 ballistic 持续 → scroll-end
   // 推迟到松手才发，不依赖此宽限。
   // 2026-05-26 — 420→800 ms：极慢速触控板滚动时单 tick 间隔可超 420 ms，
   // 导致宽限期在两 tick 间过期→_userScrollInProgress 抖回 false→自动跟随
   // 抢一帧 jumpTo 把视口拽回底部→用户再拉回→往复振荡抽搐。
+  // 2026-06-19 — 800→1200 ms：加载更早消息后，慢速上滑会不断物化
+  // 可变高度旧消息；过早释放滚动活动会让 HTML 高度回写和 Sliver 估算
+  // 修正插入到 tick 间隙，表现为整列消息轻微震动、滚动条长度漂移。
   late final OpenHandDebouncer _userScrollGraceDebouncer = OpenHandDebouncer(
     delay: _userScrollEndGraceDuration,
   );
   static const Duration _userScrollEndGraceDuration = Duration(
-    milliseconds: 800,
+    milliseconds: 1200,
   );
   static const Duration _pointerSignalScrollActivityWindow = Duration(
     milliseconds: 500,
@@ -239,7 +242,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 导致 _userScrollInProgress 未被置位。用 _lastScrollActivityAt 兜底记录
   // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
   DateTime? _lastScrollActivityAt;
-  static const Duration _scrollActivityWindow = Duration(milliseconds: 250);
+  static const Duration _scrollActivityWindow = Duration(milliseconds: 1200);
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];

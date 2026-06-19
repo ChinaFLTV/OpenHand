@@ -39,6 +39,7 @@ const int _transcriptPreparationThreshold = 8;
 const int _transcriptStagedMaterializationThreshold = 24;
 const int _transcriptWarmupMaxPerFrame = 1;
 const double _transcriptListCacheExtent = 120;
+const double _transcriptHistoryRevealListCacheExtent = 2800;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 const int _scrollToBottomPositionRetryLimit = 16;
