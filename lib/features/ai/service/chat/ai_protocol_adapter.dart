@@ -420,6 +420,8 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     this.visionModelPatterns = const <String>[],
   });
 
+  static const int _toolSequenceRepairSummaryMaxChars = 4000;
+
   @override
   final AiProtocolType protocolType;
 
@@ -453,7 +455,9 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     // Many OpenAI-compatible providers reject requests with multiple system
     // messages.  Merge consecutive leading system messages into one to
     // maximise compatibility while keeping the prompt structure intact.
-    final mergedMessages = _mergeConsecutiveSystemMessages(requestMessages);
+    final mergedMessages = _repairOpenAiToolMessageSequence(
+      _mergeConsecutiveSystemMessages(requestMessages),
+    );
     return <String, Object?>{
       'model': model.modelId,
       if (model.maxTokens != null) 'max_tokens': model.maxTokens,
@@ -550,6 +554,253 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       }
     }
     return payload;
+  }
+
+  static List<Map<String, Object?>> _repairOpenAiToolMessageSequence(
+    List<Map<String, Object?>> messages,
+  ) {
+    if (messages.length <= 1) return messages;
+    final repaired = <Map<String, Object?>>[];
+    var index = 0;
+    while (index < messages.length) {
+      final message = messages[index];
+      if (_isAssistantToolCallMessage(message)) {
+        final assistantMessages = <Map<String, Object?>>[];
+        final groupedToolCalls = <Map<String, Object?>>[];
+        final groupedToolCallIds = <String>[];
+        final seenToolCallIds = <String>{};
+        while (index < messages.length &&
+            _isAssistantToolCallMessage(messages[index])) {
+          final assistantMessage = messages[index];
+          assistantMessages.add(assistantMessage);
+          for (final toolCall in _openAiToolCalls(assistantMessage)) {
+            final toolCallId = _openAiToolCallId(toolCall);
+            if (toolCallId.isEmpty || !seenToolCallIds.add(toolCallId)) {
+              continue;
+            }
+            groupedToolCalls.add(toolCall);
+            groupedToolCallIds.add(toolCallId);
+          }
+          index += 1;
+        }
+        if (groupedToolCalls.isEmpty) {
+          repaired.add(
+            _assistantSummaryForIncompleteToolExchange(
+              assistantMessages: assistantMessages,
+              toolCalls: const <Map<String, Object?>>[],
+              missingToolCallIds: const <String>[],
+              toolMessages: const <Map<String, Object?>>[],
+              systemReminders: const <String>[],
+            ),
+          );
+          continue;
+        }
+
+        final toolMessagesById = <String, Map<String, Object?>>{};
+        final orphanToolMessages = <Map<String, Object?>>[];
+        final systemReminders = <String>[];
+        final expectedToolCallIds = groupedToolCallIds.toSet();
+        while (index < messages.length) {
+          final next = messages[index];
+          if (_isSystemReminderMessage(next)) {
+            systemReminders.add(_systemReminderText(next));
+            index += 1;
+            continue;
+          }
+          if (_messageRole(next) != 'tool') {
+            break;
+          }
+          final toolCallId = '${next['tool_call_id'] ?? ''}'.trim();
+          if (expectedToolCallIds.contains(toolCallId) &&
+              !toolMessagesById.containsKey(toolCallId)) {
+            toolMessagesById[toolCallId] = next;
+          } else {
+            orphanToolMessages.add(next);
+          }
+          index += 1;
+        }
+
+        final missingToolCallIds = groupedToolCallIds
+            .where((toolCallId) => !toolMessagesById.containsKey(toolCallId))
+            .toList(growable: false);
+        if (missingToolCallIds.isNotEmpty) {
+          repaired.add(
+            _assistantSummaryForIncompleteToolExchange(
+              assistantMessages: assistantMessages,
+              toolCalls: groupedToolCalls,
+              missingToolCallIds: missingToolCallIds,
+              toolMessages: <Map<String, Object?>>[
+                ...toolMessagesById.values,
+                ...orphanToolMessages,
+              ],
+              systemReminders: systemReminders,
+            ),
+          );
+          continue;
+        }
+
+        repaired.add(
+          _mergedAssistantToolCallMessage(assistantMessages, groupedToolCalls),
+        );
+        var remindersAttached = false;
+        for (final toolCallId in groupedToolCallIds) {
+          var toolMessage = Map<String, Object?>.from(
+            toolMessagesById[toolCallId]!,
+          );
+          if (!remindersAttached && systemReminders.isNotEmpty) {
+            toolMessage = _appendSystemRemindersToToolMessage(
+              toolMessage,
+              systemReminders,
+            );
+            remindersAttached = true;
+          }
+          repaired.add(toolMessage);
+        }
+        for (final orphan in orphanToolMessages) {
+          repaired.add(_assistantSummaryForOrphanToolMessage(orphan));
+        }
+        continue;
+      }
+
+      if (_messageRole(message) == 'tool') {
+        repaired.add(_assistantSummaryForOrphanToolMessage(message));
+        index += 1;
+        continue;
+      }
+      repaired.add(message);
+      index += 1;
+    }
+    return repaired;
+  }
+
+  static bool _isAssistantToolCallMessage(Map<String, Object?> message) {
+    return _messageRole(message) == 'assistant' &&
+        _openAiToolCalls(message).isNotEmpty;
+  }
+
+  static String _messageRole(Map<String, Object?> message) {
+    return '${message['role'] ?? ''}'.trim();
+  }
+
+  static List<Map<String, Object?>> _openAiToolCalls(
+    Map<String, Object?> message,
+  ) {
+    final rawToolCalls = message['tool_calls'];
+    if (rawToolCalls is! List) return const <Map<String, Object?>>[];
+    return rawToolCalls
+        .map((item) {
+          if (item is Map<String, Object?>) return item;
+          if (item is Map) return Map<String, Object?>.from(item);
+          return null;
+        })
+        .whereType<Map<String, Object?>>()
+        .toList(growable: false);
+  }
+
+  static String _openAiToolCallId(Map<String, Object?> toolCall) {
+    return '${toolCall['id'] ?? ''}'.trim();
+  }
+
+  static bool _isSystemReminderMessage(Map<String, Object?> message) {
+    return _messageRole(message) == 'system' &&
+        '${message['content'] ?? ''}'.trim().startsWith('# System Reminder');
+  }
+
+  static String _systemReminderText(Map<String, Object?> message) {
+    final content = '${message['content'] ?? ''}'.trim();
+    const header = '# System Reminder';
+    final body = content.startsWith(header)
+        ? content.substring(header.length).trim()
+        : content;
+    return body.isEmpty ? '[system_reminder]' : '[system_reminder] $body';
+  }
+
+  static Map<String, Object?> _mergedAssistantToolCallMessage(
+    List<Map<String, Object?>> assistantMessages,
+    List<Map<String, Object?>> toolCalls,
+  ) {
+    final merged = Map<String, Object?>.from(assistantMessages.first);
+    final content = assistantMessages
+        .map((message) => '${message['content'] ?? ''}'.trim())
+        .where((item) => item.isNotEmpty)
+        .join('\n\n');
+    merged['content'] = content;
+    merged['tool_calls'] = toolCalls;
+    return merged;
+  }
+
+  static Map<String, Object?> _appendSystemRemindersToToolMessage(
+    Map<String, Object?> toolMessage,
+    List<String> systemReminders,
+  ) {
+    final content = '${toolMessage['content'] ?? ''}'.trim();
+    toolMessage['content'] = <String>[
+      if (content.isNotEmpty) content,
+      ...systemReminders.where((item) => item.trim().isNotEmpty),
+    ].join('\n\n');
+    return toolMessage;
+  }
+
+  static Map<String, Object?> _assistantSummaryForIncompleteToolExchange({
+    required List<Map<String, Object?>> assistantMessages,
+    required List<Map<String, Object?>> toolCalls,
+    required List<String> missingToolCallIds,
+    required List<Map<String, Object?>> toolMessages,
+    required List<String> systemReminders,
+  }) {
+    final lines = <String>[
+      '[tool_exchange_repaired]',
+      if (missingToolCallIds.isNotEmpty)
+        'missing_tool_call_ids: ${missingToolCallIds.join(', ')}',
+      for (final message in assistantMessages)
+        if ('${message['content'] ?? ''}'.trim().isNotEmpty)
+          '${message['content']}'.trim(),
+      for (final toolCall in toolCalls)
+        'Tool call: ${_openAiToolCallName(toolCall)} (${_openAiToolCallId(toolCall)})',
+      ...systemReminders,
+      for (final toolMessage in toolMessages)
+        _orphanToolMessageText(toolMessage),
+    ];
+    return <String, Object?>{
+      'role': 'assistant',
+      'content': _boundedRepairSummary(lines.join('\n')),
+    };
+  }
+
+  static Map<String, Object?> _assistantSummaryForOrphanToolMessage(
+    Map<String, Object?> toolMessage,
+  ) {
+    return <String, Object?>{
+      'role': 'assistant',
+      'content': _boundedRepairSummary(_orphanToolMessageText(toolMessage)),
+    };
+  }
+
+  static String _openAiToolCallName(Map<String, Object?> toolCall) {
+    final function = toolCall['function'];
+    if (function is Map<String, Object?>) {
+      return '${function['name'] ?? 'tool'}'.trim();
+    }
+    if (function is Map) {
+      return '${function['name'] ?? 'tool'}'.trim();
+    }
+    return 'tool';
+  }
+
+  static String _orphanToolMessageText(Map<String, Object?> toolMessage) {
+    final toolCallId = '${toolMessage['tool_call_id'] ?? ''}'.trim();
+    final content = '${toolMessage['content'] ?? ''}'.trim();
+    return <String>[
+      '[orphan_tool_result]',
+      if (toolCallId.isNotEmpty) 'tool_call_id: $toolCallId',
+      if (content.isNotEmpty) content,
+    ].join('\n');
+  }
+
+  static String _boundedRepairSummary(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length <= _toolSequenceRepairSummaryMaxChars) return trimmed;
+    return '${trimmed.substring(0, _toolSequenceRepairSummaryMaxChars)}\n[tool_exchange_repair_truncated]';
   }
 
   /// Merges consecutive messages that share the `system` role into a single

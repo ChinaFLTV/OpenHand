@@ -6,6 +6,8 @@ import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
 import 'package:openhand/features/ai/model/ai_thread_template.dart';
+import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
+import 'package:openhand/features/ai/service/hook/ai_claude_hook_service.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_sections.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
@@ -816,6 +818,121 @@ void main() {
         );
       },
     );
+
+    test('keeps hook reminders inline inside grouped tool results', () {
+      final now = DateTime.utc(2026, 6, 19, 8);
+      final todoArguments = jsonEncode(<String, Object?>{'todos': <Never>[]});
+      final lsArguments = jsonEncode(<String, Object?>{'path': '/tmp/project'});
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'u1',
+          content: 'List files after updating todos.',
+          createdAt: now,
+        ),
+        AiSessionMessage.toolCall(
+          id: 'tc1',
+          content: 'Tool call: TodoWrite',
+          createdAt: now.add(const Duration(seconds: 1)),
+          metadata: <String, Object?>{
+            'tool_call_id': 'call-1',
+            'tool_name': 'TodoWrite',
+            'tool_arguments': todoArguments,
+            'tool_calls': <Map<String, Object?>>[
+              <String, Object?>{
+                'id': 'call-1',
+                'name': 'TodoWrite',
+                'arguments': todoArguments,
+              },
+            ],
+          },
+        ),
+        AiSessionMessage.toolCall(
+          id: 'tc2',
+          content: 'Tool call: LS',
+          createdAt: now.add(const Duration(seconds: 2)),
+          metadata: <String, Object?>{
+            'tool_call_id': 'call-2',
+            'tool_name': 'LS',
+            'tool_arguments': lsArguments,
+            'tool_calls': <Map<String, Object?>>[
+              <String, Object?>{
+                'id': 'call-2',
+                'name': 'LS',
+                'arguments': lsArguments,
+              },
+            ],
+          },
+        ),
+        AiSessionMessage.toolResult(
+          id: 'tr1',
+          content: 'todo ok',
+          createdAt: now.add(const Duration(seconds: 3)),
+          metadata: const <String, Object?>{
+            'tool_call_id': 'call-1',
+            'tool_name': 'TodoWrite',
+            'status': 'success',
+          },
+        ),
+        AiSessionMessage.toolResult(
+          id: 'tr2',
+          content: 'ls ok',
+          createdAt: now.add(const Duration(seconds: 4)),
+          metadata: const <String, Object?>{
+            'tool_call_id': 'call-2',
+            'tool_name': 'LS',
+            'status': 'success',
+            aiHookSystemRemindersMetadataKey: <String>['hook command failed'],
+          },
+        ),
+        AiSessionMessage.user(
+          id: 'u2',
+          content: 'Continue.',
+          createdAt: now.add(const Duration(seconds: 5)),
+        ),
+      ];
+      final session = AiSession(
+        id: 'session-1',
+        title: 'Grouped tool reminder session',
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+        templateName: '编程专家',
+        templateIconName: 'code_rounded',
+        templateInternalVersion: 'test',
+        createdAt: now,
+        updatedAt: now,
+        messages: messages,
+        environment: _testEnvironment,
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: const <AiSessionErrorRecord>[],
+      );
+
+      final result = const AiPromptBuilder().buildSessionPrompt(
+        templateBundle: _testBundle,
+        session: session,
+        model: _testModel,
+        runtimeContext: _testRuntimeContext,
+        memoryEntries: const <Never>[],
+        sessionMessages: messages,
+        latestUserMessageId: 'u2',
+      );
+      final assistantIndex = result.messages.indexWhere(
+        (turn) =>
+            turn.role == AiChatRole.assistant &&
+            turn.toolCalls.map((item) => item.id).join(',') == 'call-1,call-2',
+      );
+
+      expect(assistantIndex, greaterThanOrEqualTo(0));
+      expect(assistantIndex + 2, lessThan(result.messages.length));
+      final firstTool = result.messages[assistantIndex + 1];
+      final secondTool = result.messages[assistantIndex + 2];
+      expect(firstTool.role, AiChatRole.tool);
+      expect(firstTool.toolCallId, 'call-1');
+      expect(secondTool.role, AiChatRole.tool);
+      expect(secondTool.toolCallId, 'call-2');
+      expect(
+        <String>[firstTool.content, secondTool.content].join('\n'),
+        contains('[system_reminder] hook command failed'),
+      );
+    });
 
     test(
       'surfaces plan approval allowed prompts in post-compact focus context',

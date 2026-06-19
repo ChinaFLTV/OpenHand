@@ -2580,6 +2580,10 @@ $identity''';
     for (final toolCall in groupedToolCalls) {
       final toolMessage = toolMessagesByCallId[toolCall.id]!;
       final toolMessageIndex = toolMessageIndexByCallId[toolCall.id]!;
+      // OpenAI-compatible APIs require tool result messages to immediately
+      // follow the assistant message that declared their tool_calls. Keep hook
+      // reminders inline inside the tool payload so they cannot split the
+      // assistant -> tool adjacency.
       turns.addAll(
         _mapMessageContent(
           role: AiChatRole.tool,
@@ -2591,9 +2595,9 @@ $identity''';
             isMicroCompactCleared: microCompactMessageIds.contains(
               toolMessage.id,
             ),
-            inlineSystemReminders: preferInlineSystemReminders,
+            inlineSystemReminders: true,
           ),
-          inlineSystemReminders: preferInlineSystemReminders,
+          inlineSystemReminders: true,
         ),
       );
     }
