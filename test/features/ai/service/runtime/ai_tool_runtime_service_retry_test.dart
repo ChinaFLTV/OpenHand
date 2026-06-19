@@ -188,7 +188,8 @@ void main() {
           id: 'call-1',
           name: 'Bash',
           arguments: jsonEncode(<String, Object?>{
-            'cmd': 'yes x | head -c 800',
+            'cmd':
+                'python3 -c \'print("BEGIN-" + ("middle" * 200) + "-END", end="")\'',
             'working_directory': '/tmp',
           }),
         ),
@@ -200,9 +201,19 @@ void main() {
       );
 
       expect(result.status, BashToolExecutionStatus.success);
-      expect(result.resultText, contains('[Output truncated:'));
+      expect(result.resultText, contains('-END'));
+      expect(result.resultText, contains('[Output truncated: omitted'));
+      expect(result.stdout, contains('BEGIN-'));
+      expect(result.stdout, contains('-END'));
+      expect(result.stdout, contains('[Output truncated: omitted'));
       expect(result.metadata['tool_output_truncated'], isTrue);
       expect(result.metadata['tool_output_budget_chars'], 320);
+      expect(result.metadata['tool_output_truncation_strategy'], 'head_tail');
+      expect(result.metadata['tool_output_full_content_available'], isFalse);
+      expect(
+        result.metadata['tool_output_recovery_hint'],
+        'rerun_with_narrower_query',
+      );
       final originalLength =
           result.metadata['tool_output_original_length'] as int;
       final includedChars =

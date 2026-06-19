@@ -310,6 +310,9 @@ void main() {
               'tool_output_budget_chars': 20000,
               'tool_output_included_chars': 19800,
               'tool_output_omitted_chars': 100200,
+              'tool_output_truncation_strategy': 'head_tail',
+              'tool_output_full_content_available': false,
+              'tool_output_recovery_hint': 'rerun_with_narrower_query',
             },
           ),
         ];
@@ -343,6 +346,12 @@ void main() {
         expect(content, contains('tool_output_budget_chars: 20000'));
         expect(content, contains('tool_output_included_chars: 19800'));
         expect(content, contains('tool_output_omitted_chars: 100200'));
+        expect(content, contains('tool_output_truncation_strategy: head_tail'));
+        expect(content, contains('tool_output_full_content_available: false'));
+        expect(
+          content,
+          contains('tool_output_recovery_hint: rerun_with_narrower_query'),
+        );
       },
     );
 
@@ -605,6 +614,9 @@ void main() {
               'tool_output_budget_chars': 20000,
               'tool_output_included_chars': 19800,
               'tool_output_omitted_chars': 100200,
+              'tool_output_truncation_strategy': 'head_tail',
+              'tool_output_full_content_available': false,
+              'tool_output_recovery_hint': 'rerun_with_narrower_query',
             },
           ),
           AiSessionMessage.compressionPoint(
@@ -652,6 +664,9 @@ void main() {
 
         expect(focusContext, contains('Bash · status=success'));
         expect(focusContext, contains('output_truncated=120000/20000'));
+        expect(focusContext, contains('truncation=head_tail'));
+        expect(focusContext, contains('full_output=false'));
+        expect(focusContext, contains('recovery=rerun_with_narrower_query'));
       },
     );
 

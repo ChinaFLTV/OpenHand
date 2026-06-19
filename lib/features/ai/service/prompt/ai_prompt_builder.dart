@@ -4706,6 +4706,22 @@ $content
         lines.add('${entry.label}: $value');
       }
     }
+    final strategy = _metadataTrimmedString(
+      metadata['tool_output_truncation_strategy'],
+    );
+    if (strategy.isNotEmpty) {
+      lines.add('tool_output_truncation_strategy: $strategy');
+    }
+    final fullContentAvailable = metadata['tool_output_full_content_available'];
+    if (fullContentAvailable is bool) {
+      lines.add('tool_output_full_content_available: $fullContentAvailable');
+    }
+    final recoveryHint = _metadataTrimmedString(
+      metadata['tool_output_recovery_hint'],
+    );
+    if (recoveryHint.isNotEmpty) {
+      lines.add('tool_output_recovery_hint: $recoveryHint');
+    }
     return lines;
   }
 
@@ -4717,10 +4733,29 @@ $content
       metadata['tool_output_original_length'],
     );
     final budget = _metadataPositiveInt(metadata['tool_output_budget_chars']);
+    final parts = <String>[];
     if (original != null && budget != null) {
-      return <String>['output_truncated=$original/$budget'];
+      parts.add('output_truncated=$original/$budget');
+    } else {
+      parts.add('output_truncated=true');
     }
-    return const <String>['output_truncated=true'];
+    final strategy = _metadataTrimmedString(
+      metadata['tool_output_truncation_strategy'],
+    );
+    if (strategy.isNotEmpty) {
+      parts.add('truncation=$strategy');
+    }
+    final fullContentAvailable = metadata['tool_output_full_content_available'];
+    if (fullContentAvailable is bool) {
+      parts.add('full_output=$fullContentAvailable');
+    }
+    final recoveryHint = _metadataTrimmedString(
+      metadata['tool_output_recovery_hint'],
+    );
+    if (recoveryHint.isNotEmpty) {
+      parts.add('recovery=$recoveryHint');
+    }
+    return parts;
   }
 
   int? _metadataPositiveInt(Object? raw) {
@@ -4729,6 +4764,10 @@ $content
     final parsed = int.tryParse('${raw ?? ''}'.trim());
     if (parsed == null || parsed <= 0) return null;
     return parsed;
+  }
+
+  String _metadataTrimmedString(Object? raw) {
+    return '${raw ?? ''}'.trim();
   }
 
   /// 2026-05-23 — 压缩前补做微压缩：为 [messages] 中已被消费的旧工具结果

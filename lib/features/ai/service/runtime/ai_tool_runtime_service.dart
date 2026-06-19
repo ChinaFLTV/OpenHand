@@ -33,6 +33,9 @@ import 'ai_tool_execution_registry.dart';
 enum AiRuntimeToolSource { builtin, mcp, skill }
 
 const int _maxPostHocLedgerCaptureBytes = 16 * kBytesPerMiB;
+const int _minToolOutputTruncationPayloadChars = 40;
+const String _toolOutputTruncationStrategyHeadTail = 'head_tail';
+const String _toolOutputRecoveryHintRerunNarrower = 'rerun_with_narrower_query';
 
 class AiResolvedToolCatalog {
   const AiResolvedToolCatalog({
@@ -945,26 +948,12 @@ class AiToolRuntimeService {
     if (rawResult.length <= maxToolOutputChars) {
       return result;
     }
-    final notice =
-        '\n\n[Output truncated: result exceeded the $maxToolOutputChars-character tool output budget. '
-        'Only a leading payload segment is included. Use more targeted '
-        'commands or file offsets to read the remaining content.]';
-    // Reserve room for the notice so the final string never exceeds the
-    // declared budget. Floor at 100 chars of payload to keep something
-    // useful even if the configured budget is unusually small.
-    final payloadCap = maxToolOutputChars - notice.length < 100
-        ? 100
-        : maxToolOutputChars - notice.length;
-    final truncated = rawResult.substring(
-      0,
-      payloadCap < rawResult.length ? payloadCap : rawResult.length,
+    final resultView = _truncateOutputTextToBudget(
+      rawResult,
+      maxToolOutputChars,
     );
-    final omittedChars = rawResult.length - truncated.length;
-    final truncatedResult = '$truncated$notice';
     String capStream(String value) {
-      if (value.length <= maxToolOutputChars) return value;
-      final cap = payloadCap < value.length ? payloadCap : value.length;
-      return '${value.substring(0, cap)}$notice';
+      return _truncateOutputTextToBudget(value, maxToolOutputChars).text;
     }
 
     final truncatedStdout = capStream(result.stdout);
@@ -976,7 +965,7 @@ class AiToolRuntimeService {
       stdout: truncatedStdout,
       stderr: truncatedStderr,
       durationMs: result.durationMs,
-      resultText: truncatedResult,
+      resultText: resultView.text,
       exitCode: result.exitCode,
       matchedRuleId: result.matchedRuleId,
       matchedRulePattern: result.matchedRulePattern,
@@ -987,10 +976,69 @@ class AiToolRuntimeService {
         'tool_output_truncated': true,
         'tool_output_original_length': rawResult.length,
         'tool_output_budget_chars': maxToolOutputChars,
-        'tool_output_included_chars': truncated.length,
-        'tool_output_omitted_chars': omittedChars,
+        'tool_output_included_chars': resultView.includedChars,
+        'tool_output_omitted_chars': resultView.omittedChars,
+        'tool_output_truncation_strategy':
+            _toolOutputTruncationStrategyHeadTail,
+        'tool_output_full_content_available': false,
+        'tool_output_recovery_hint': _toolOutputRecoveryHintRerunNarrower,
       },
     );
+  }
+
+  ({String text, int includedChars, int omittedChars})
+  _truncateOutputTextToBudget(String value, int budget) {
+    if (value.length <= budget) {
+      return (text: value, includedChars: value.length, omittedChars: 0);
+    }
+    var notice = _toolOutputTruncationNotice(
+      originalChars: value.length,
+      omittedChars: value.length,
+      budgetChars: budget,
+    );
+    var payloadBudget = math.max(
+      _minToolOutputTruncationPayloadChars,
+      budget - notice.length,
+    );
+    payloadBudget = math.min(payloadBudget, value.length);
+    var omittedChars = value.length - payloadBudget;
+    notice = _toolOutputTruncationNotice(
+      originalChars: value.length,
+      omittedChars: omittedChars,
+      budgetChars: budget,
+    );
+    final effectivePayloadBudget = math.max(0, budget - notice.length);
+    if (effectivePayloadBudget <= 0) {
+      final fallback = notice.length <= budget
+          ? notice
+          : notice.substring(0, math.max(0, budget));
+      return (text: fallback, includedChars: 0, omittedChars: value.length);
+    }
+    final includedChars = math.min(effectivePayloadBudget, value.length);
+    omittedChars = value.length - includedChars;
+    final headChars = (includedChars / 2).ceil();
+    final tailChars = includedChars - headChars;
+    final head = value.substring(0, headChars);
+    final tail = tailChars <= 0
+        ? ''
+        : value.substring(value.length - tailChars);
+    return (
+      text: '$head$notice$tail',
+      includedChars: includedChars,
+      omittedChars: omittedChars,
+    );
+  }
+
+  String _toolOutputTruncationNotice({
+    required int originalChars,
+    required int omittedChars,
+    required int budgetChars,
+  }) {
+    return '\n\n[Output truncated: omitted $omittedChars middle chars from '
+        '$originalChars-character result because it exceeded the '
+        '$budgetChars-character tool output budget. Full output was not '
+        'persisted; rerun a narrower command, add filters, or use file offsets '
+        'if exact omitted content is needed.]\n\n';
   }
 
   bool _retryEnabled(AiBuiltinToolConfig? config) {
