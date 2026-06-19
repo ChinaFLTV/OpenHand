@@ -2814,70 +2814,84 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
   }
 }
 
-class _AnimatedSessionTitleText extends StatelessWidget {
+class _AnimatedSessionTitleText extends StatefulWidget {
   const _AnimatedSessionTitleText({required this.text, required this.style});
 
   static const Duration _switchInDuration = Duration(milliseconds: 320);
-  static const Duration _switchOutDuration = Duration(milliseconds: 200);
 
   final String text;
   final TextStyle? style;
 
   @override
+  State<_AnimatedSessionTitleText> createState() =>
+      _AnimatedSessionTitleTextState();
+}
+
+class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
+    with SingleTickerProviderStateMixin {
+  late String _currentText = widget.text;
+  String? _previousText;
+  bool _disableAnimations = false;
+  late final AnimationController _controller =
+      AnimationController(
+        vsync: this,
+        duration: _AnimatedSessionTitleText._switchInDuration,
+      )..addStatusListener((status) {
+        if (status == AnimationStatus.completed &&
+            mounted &&
+            _previousText != null) {
+          setState(() {
+            _previousText = null;
+          });
+        }
+      });
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.value = 1;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _disableAnimations = MediaQuery.disableAnimationsOf(context);
+    if (_disableAnimations && _previousText != null) {
+      _previousText = null;
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedSessionTitleText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text == widget.text) return;
+    if (_disableAnimations) {
+      _currentText = widget.text;
+      _previousText = null;
+      _controller.value = 1;
+      return;
+    }
+    _previousText = _currentText;
+    _currentText = widget.text;
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final trimmed = text.trim();
-    final body = Text(
-      key: ValueKey<String>(text),
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      softWrap: false,
-      style: style,
+    final trimmed = _currentText.trim();
+    final animatedBody = _buildAnimatedBody(
+      context,
+      text: _currentText,
+      previousText: _previousText,
+      style: widget.style,
     );
-    final animatedBody = MediaQuery.disableAnimationsOf(context)
-        ? body
-        : ClipRect(
-            child: AnimatedSwitcher(
-              duration: _switchInDuration,
-              reverseDuration: _switchOutDuration,
-              switchInCurve: kCardMotionCurve,
-              switchOutCurve: Curves.easeInCubic,
-              layoutBuilder: (currentChild, previousChildren) {
-                return Stack(
-                  alignment: Alignment.centerLeft,
-                  children: <Widget>[
-                    ...previousChildren,
-                    if (currentChild != null) currentChild,
-                  ],
-                );
-              },
-              transitionBuilder: (child, animation) {
-                final curved = CurvedAnimation(
-                  parent: animation,
-                  curve: kCardMotionCurve,
-                  reverseCurve: Curves.easeInCubic,
-                );
-                return FadeTransition(
-                  opacity: curved,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.18),
-                      end: Offset.zero,
-                    ).animate(curved),
-                    child: ScaleTransition(
-                      alignment: Alignment.centerLeft,
-                      scale: Tween<double>(
-                        begin: 0.985,
-                        end: 1,
-                      ).animate(curved),
-                      child: child,
-                    ),
-                  ),
-                );
-              },
-              child: body,
-            ),
-          );
     if (trimmed.isEmpty) {
       return animatedBody;
     }
@@ -2889,6 +2903,64 @@ class _AnimatedSessionTitleText extends StatelessWidget {
       message: trimmed,
       waitDuration: const Duration(milliseconds: 380),
       child: semanticBody,
+    );
+  }
+
+  Widget _buildAnimatedBody(
+    BuildContext context, {
+    required String text,
+    required String? previousText,
+    required TextStyle? style,
+  }) {
+    Widget titleText(String value) {
+      return Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: style,
+      );
+    }
+
+    if (_disableAnimations || previousText == null) {
+      return titleText(text);
+    }
+    return ClipRect(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final raw = _controller.value.clamp(0.0, 1.0);
+          final incoming = kCardMotionCurve.transform(raw).clamp(0.0, 1.0);
+          final outgoing = Curves.easeInCubic.transform(raw).clamp(0.0, 1.0);
+          return Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Opacity(
+                opacity: (1 - outgoing).clamp(0.0, 1.0),
+                child: Transform.translate(
+                  offset: Offset(0, -7 * outgoing),
+                  child: Transform.scale(
+                    alignment: Alignment.centerLeft,
+                    scale: 1 - 0.015 * outgoing,
+                    child: titleText(previousText),
+                  ),
+                ),
+              ),
+              Opacity(
+                opacity: incoming,
+                child: Transform.translate(
+                  offset: Offset(0, 7 * (1 - incoming)),
+                  child: Transform.scale(
+                    alignment: Alignment.centerLeft,
+                    scale: 0.985 + 0.015 * incoming,
+                    child: titleText(text),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
