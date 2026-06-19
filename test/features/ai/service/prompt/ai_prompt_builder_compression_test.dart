@@ -288,72 +288,83 @@ void main() {
       expect(content, contains('plan_mode_execution_approved_for_send: false'));
     });
 
-    test(
-      'preserves tool output budget truncation in compressed transcript',
-      () {
-        final now = DateTime.utc(2026, 6, 19, 8);
-        final messages = <AiSessionMessage>[
-          AiSessionMessage.user(
-            id: 'u1',
-            content: 'Summarize the large command output',
-            createdAt: now,
-          ),
-          AiSessionMessage.toolResult(
-            id: 't1',
-            content: 'Short visible prefix from a much larger tool result.',
-            createdAt: now.add(const Duration(seconds: 1)),
-            metadata: const <String, Object?>{
-              'tool_name': 'Bash',
-              'status': 'success',
-              'tool_output_truncated': true,
-              'tool_output_original_length': 120000,
-              'tool_output_budget_chars': 20000,
-              'tool_output_included_chars': 19800,
-              'tool_output_omitted_chars': 100200,
-              'tool_output_truncation_strategy': 'head_tail',
-              'tool_output_full_content_available': false,
-              'tool_output_recovery_hint': 'rerun_with_narrower_query',
-            },
-          ),
-        ];
-        final session = AiSession(
-          id: 'session-1',
-          title: 'Tool truncation compression session',
-          templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
-          templateName: '编程专家',
-          templateIconName: 'code_rounded',
-          templateInternalVersion: 'test',
+    test('preserves tool output budget truncation in compressed transcript', () {
+      final now = DateTime.utc(2026, 6, 19, 8);
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'u1',
+          content: 'Summarize the large command output',
           createdAt: now,
-          updatedAt: now,
-          messages: messages,
-          environment: _testEnvironment,
-          statistics: const AiSessionStatistics.initial(),
-          recentErrors: const <AiSessionErrorRecord>[],
-        );
+        ),
+        AiSessionMessage.toolResult(
+          id: 't1',
+          content: 'Short visible prefix from a much larger tool result.',
+          createdAt: now.add(const Duration(seconds: 1)),
+          metadata: const <String, Object?>{
+            'tool_name': 'Bash',
+            'status': 'success',
+            'tool_output_truncated': true,
+            'tool_output_original_length': 120000,
+            'tool_output_budget_chars': 20000,
+            'tool_output_included_chars': 19800,
+            'tool_output_omitted_chars': 100200,
+            'tool_output_truncation_strategy': 'head_tail',
+            'tool_output_full_content_available': true,
+            'tool_output_recovery_hint': 'read_persisted_output',
+            'tool_output_persisted': true,
+            'tool_output_persisted_path':
+                '/tmp/openhand/session-1/tool-results/call-1.txt',
+            'tool_output_persisted_chars': 120000,
+            'tool_output_persistence_format': 'text',
+          },
+        ),
+      ];
+      final session = AiSession(
+        id: 'session-1',
+        title: 'Tool truncation compression session',
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+        templateName: '编程专家',
+        templateIconName: 'code_rounded',
+        templateInternalVersion: 'test',
+        createdAt: now,
+        updatedAt: now,
+        messages: messages,
+        environment: _testEnvironment,
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: const <AiSessionErrorRecord>[],
+      );
 
-        final turns = const AiPromptBuilder().buildCompressionPrompt(
-          templateBundle: _testBundle,
-          template: _testTemplate,
-          session: session,
-          runtimeContext: _testRuntimeContext,
-          messagesToCompress: messages,
-          previousCompressionPoint: null,
-        );
+      final turns = const AiPromptBuilder().buildCompressionPrompt(
+        templateBundle: _testBundle,
+        template: _testTemplate,
+        session: session,
+        runtimeContext: _testRuntimeContext,
+        messagesToCompress: messages,
+        previousCompressionPoint: null,
+      );
 
-        final content = turns.last.content;
-        expect(content, contains('tool_output_truncated: true'));
-        expect(content, contains('tool_output_original_length: 120000'));
-        expect(content, contains('tool_output_budget_chars: 20000'));
-        expect(content, contains('tool_output_included_chars: 19800'));
-        expect(content, contains('tool_output_omitted_chars: 100200'));
-        expect(content, contains('tool_output_truncation_strategy: head_tail'));
-        expect(content, contains('tool_output_full_content_available: false'));
-        expect(
-          content,
-          contains('tool_output_recovery_hint: rerun_with_narrower_query'),
-        );
-      },
-    );
+      final content = turns.last.content;
+      expect(content, contains('tool_output_truncated: true'));
+      expect(content, contains('tool_output_original_length: 120000'));
+      expect(content, contains('tool_output_budget_chars: 20000'));
+      expect(content, contains('tool_output_included_chars: 19800'));
+      expect(content, contains('tool_output_omitted_chars: 100200'));
+      expect(content, contains('tool_output_truncation_strategy: head_tail'));
+      expect(content, contains('tool_output_full_content_available: true'));
+      expect(content, contains('tool_output_persisted: true'));
+      expect(
+        content,
+        contains(
+          'tool_output_persisted_path: /tmp/openhand/session-1/tool-results/call-1.txt',
+        ),
+      );
+      expect(content, contains('tool_output_persisted_chars: 120000'));
+      expect(content, contains('tool_output_persistence_format: text'));
+      expect(
+        content,
+        contains('tool_output_recovery_hint: read_persisted_output'),
+      );
+    });
 
     test(
       'preserves plan approval allowed prompts in compressed transcript',
@@ -615,8 +626,13 @@ void main() {
               'tool_output_included_chars': 19800,
               'tool_output_omitted_chars': 100200,
               'tool_output_truncation_strategy': 'head_tail',
-              'tool_output_full_content_available': false,
-              'tool_output_recovery_hint': 'rerun_with_narrower_query',
+              'tool_output_full_content_available': true,
+              'tool_output_recovery_hint': 'read_persisted_output',
+              'tool_output_persisted': true,
+              'tool_output_persisted_path':
+                  '/tmp/openhand/session-1/tool-results/call-1.txt',
+              'tool_output_persisted_chars': 120000,
+              'tool_output_persistence_format': 'text',
             },
           ),
           AiSessionMessage.compressionPoint(
@@ -665,8 +681,14 @@ void main() {
         expect(focusContext, contains('Bash · status=success'));
         expect(focusContext, contains('output_truncated=120000/20000'));
         expect(focusContext, contains('truncation=head_tail'));
-        expect(focusContext, contains('full_output=false'));
-        expect(focusContext, contains('recovery=rerun_with_narrower_query'));
+        expect(focusContext, contains('full_output=true'));
+        expect(
+          focusContext,
+          contains(
+            'persisted_output=/tmp/openhand/session-1/tool-results/call-1.txt',
+          ),
+        );
+        expect(focusContext, contains('recovery=read_persisted_output'));
       },
     );
 

@@ -4700,11 +4700,30 @@ $content
       (key: 'tool_output_budget_chars', label: 'tool_output_budget_chars'),
       (key: 'tool_output_included_chars', label: 'tool_output_included_chars'),
       (key: 'tool_output_omitted_chars', label: 'tool_output_omitted_chars'),
+      (
+        key: 'tool_output_persisted_chars',
+        label: 'tool_output_persisted_chars',
+      ),
     ]) {
       final value = _metadataPositiveInt(metadata[entry.key]);
       if (value != null) {
         lines.add('${entry.label}: $value');
       }
+    }
+    if (metadata['tool_output_persisted'] == true) {
+      lines.add('tool_output_persisted: true');
+    }
+    final persistedPath = _metadataTrimmedString(
+      metadata['tool_output_persisted_path'],
+    );
+    if (persistedPath.isNotEmpty) {
+      lines.add('tool_output_persisted_path: $persistedPath');
+    }
+    final persistenceFormat = _metadataTrimmedString(
+      metadata['tool_output_persistence_format'],
+    );
+    if (persistenceFormat.isNotEmpty) {
+      lines.add('tool_output_persistence_format: $persistenceFormat');
     }
     final strategy = _metadataTrimmedString(
       metadata['tool_output_truncation_strategy'],
@@ -4748,6 +4767,12 @@ $content
     final fullContentAvailable = metadata['tool_output_full_content_available'];
     if (fullContentAvailable is bool) {
       parts.add('full_output=$fullContentAvailable');
+    }
+    final persistedPath = _metadataTrimmedString(
+      metadata['tool_output_persisted_path'],
+    );
+    if (persistedPath.isNotEmpty) {
+      parts.add('persisted_output=${_truncate(persistedPath, 96)}');
     }
     final recoveryHint = _metadataTrimmedString(
       metadata['tool_output_recovery_hint'],

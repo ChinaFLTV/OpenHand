@@ -149,43 +149,40 @@ void main() {
   });
 
   group('AiToolRuntimeService output budget', () {
-    test('annotates truncated tool output with structured metadata', () async {
-      final runtime = AiToolRuntimeService(
-        bashToolService: AiBashToolService(),
-        hookService: AiNoopClaudeHookService(),
-        mcpToolService: _FakeMcpToolDiscoveryService(),
-        backgroundChatClient: _FakeChatClient(),
-      )..maxToolOutputChars = 320;
-      const definition = AiToolDefinition(
-        name: 'Bash',
-        description: 'Run bash',
-        parameters: <String, Object?>{
-          'type': 'object',
-          'properties': <String, Object?>{
-            'cmd': <String, Object?>{'type': 'string'},
-            'working_directory': <String, Object?>{'type': 'string'},
-          },
-          'required': <String>['cmd'],
-          'additionalProperties': false,
+    const definition = AiToolDefinition(
+      name: 'Bash',
+      description: 'Run bash',
+      parameters: <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'cmd': <String, Object?>{'type': 'string'},
+          'working_directory': <String, Object?>{'type': 'string'},
         },
-      );
-      const catalog = AiResolvedToolCatalog(
-        definitions: <AiToolDefinition>[definition],
-        toolsByName: <String, AiResolvedTool>{
-          'Bash': AiResolvedTool(
-            name: 'Bash',
-            definition: definition,
-            source: AiRuntimeToolSource.builtin,
-            builtinKind: AiBuiltinToolKind.bash,
-          ),
-        },
-      );
+        'required': <String>['cmd'],
+        'additionalProperties': false,
+      },
+    );
+    const catalog = AiResolvedToolCatalog(
+      definitions: <AiToolDefinition>[definition],
+      toolsByName: <String, AiResolvedTool>{
+        'Bash': AiResolvedTool(
+          name: 'Bash',
+          definition: definition,
+          source: AiRuntimeToolSource.builtin,
+          builtinKind: AiBuiltinToolKind.bash,
+        ),
+      },
+    );
 
-      final result = await runtime.execute(
+    Future<AiToolExecutionResult> executeLongOutput(
+      AiToolRuntimeService runtime, {
+      String toolCallId = 'call-1',
+    }) {
+      return runtime.execute(
         sessionId: 'runtime-output-budget-test',
         catalog: catalog,
         toolCall: AiToolCall(
-          id: 'call-1',
+          id: toolCallId,
           name: 'Bash',
           arguments: jsonEncode(<String, Object?>{
             'cmd':
@@ -199,20 +196,56 @@ void main() {
         requireWriteCommandConfirmation: false,
         confirmWriteCommand: null,
       );
+    }
+
+    test('annotates truncated tool output with structured metadata', () async {
+      final outputDir = await Directory.systemTemp.createTemp(
+        'openhand-tool-output-test-',
+      );
+      addTearDown(() async {
+        if (await outputDir.exists()) {
+          await outputDir.delete(recursive: true);
+        }
+      });
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+        toolOutputDirectoryProvider: (sessionId) =>
+            '${outputDir.path}/$sessionId/tool-results',
+      )..maxToolOutputChars = 520;
+
+      final result = await executeLongOutput(runtime);
 
       expect(result.status, BashToolExecutionStatus.success);
       expect(result.resultText, contains('-END'));
       expect(result.resultText, contains('[Output truncated: omitted'));
+      expect(result.resultText, contains('Full output saved to:'));
+      expect(result.resultText.length, lessThanOrEqualTo(520));
       expect(result.stdout, contains('BEGIN-'));
       expect(result.stdout, contains('-END'));
       expect(result.stdout, contains('[Output truncated: omitted'));
       expect(result.metadata['tool_output_truncated'], isTrue);
-      expect(result.metadata['tool_output_budget_chars'], 320);
+      expect(result.metadata['tool_output_budget_chars'], 520);
       expect(result.metadata['tool_output_truncation_strategy'], 'head_tail');
-      expect(result.metadata['tool_output_full_content_available'], isFalse);
+      expect(result.metadata['tool_output_full_content_available'], isTrue);
       expect(
         result.metadata['tool_output_recovery_hint'],
-        'rerun_with_narrower_query',
+        'read_persisted_output',
+      );
+      expect(result.metadata['tool_output_persisted'], isTrue);
+      expect(result.metadata['tool_output_persistence_format'], 'text');
+      final persistedPath =
+          result.metadata['tool_output_persisted_path'] as String;
+      final persistedFile = File(persistedPath);
+      expect(await persistedFile.exists(), isTrue);
+      final persistedContent = await persistedFile.readAsString();
+      expect(persistedContent, contains('BEGIN-'));
+      expect(persistedContent, contains('-END'));
+      expect(
+        result.metadata['tool_output_persisted_chars'],
+        persistedContent.length,
       );
       final originalLength =
           result.metadata['tool_output_original_length'] as int;
@@ -223,6 +256,33 @@ void main() {
       expect(includedChars, greaterThan(0));
       expect(omittedChars, greaterThan(0));
       expect(includedChars + omittedChars, originalLength);
+    });
+
+    test('falls back cleanly when persisted output is unavailable', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+        toolOutputDirectoryProvider: (_) => '   ',
+      )..maxToolOutputChars = 520;
+
+      final result = await executeLongOutput(runtime, toolCallId: 'call-2');
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.resultText, contains('[Output truncated: omitted'));
+      expect(result.resultText, contains('Full output was not persisted'));
+      expect(result.resultText.length, lessThanOrEqualTo(520));
+      expect(result.metadata['tool_output_truncated'], isTrue);
+      expect(result.metadata['tool_output_full_content_available'], isFalse);
+      expect(
+        result.metadata['tool_output_recovery_hint'],
+        'rerun_with_narrower_query',
+      );
+      expect(
+        result.metadata.containsKey('tool_output_persisted_path'),
+        isFalse,
+      );
     });
   });
 }

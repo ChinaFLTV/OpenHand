@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -34,8 +35,11 @@ enum AiRuntimeToolSource { builtin, mcp, skill }
 
 const int _maxPostHocLedgerCaptureBytes = 16 * kBytesPerMiB;
 const int _minToolOutputTruncationPayloadChars = 40;
+const String _toolResultsSubdirectoryName = 'tool-results';
 const String _toolOutputTruncationStrategyHeadTail = 'head_tail';
 const String _toolOutputRecoveryHintRerunNarrower = 'rerun_with_narrower_query';
+const String _toolOutputRecoveryHintReadPersisted = 'read_persisted_output';
+const String _toolOutputPersistenceFormatText = 'text';
 
 class AiResolvedToolCatalog {
   const AiResolvedToolCatalog({
@@ -203,6 +207,13 @@ class AiToolExecutionResult {
   String toToolOutput() => resultText.trim();
 }
 
+class _PersistedToolOutput {
+  const _PersistedToolOutput({required this.path, required this.originalChars});
+
+  final String path;
+  final int originalChars;
+}
+
 class AiToolRuntimeService {
   AiToolRuntimeService({
     required AiBashToolService bashToolService,
@@ -216,6 +227,7 @@ class AiToolRuntimeService {
     AiFileMutationLedger? mutationLedger,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    String Function(String sessionId)? toolOutputDirectoryProvider,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
        _mcpToolService = mcpToolService,
@@ -226,7 +238,8 @@ class AiToolRuntimeService {
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
        _fileTracker = fileTrackerService ?? AiFileTrackerService(),
        _fileHistory = fileHistoryService ?? AiFileHistoryService(),
-       _mutationLedger = mutationLedger ?? AiFileMutationLedger() {
+       _mutationLedger = mutationLedger ?? AiFileMutationLedger(),
+       _toolOutputDirectoryProvider = toolOutputDirectoryProvider {
     // 2026-04-01 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
@@ -271,6 +284,7 @@ class AiToolRuntimeService {
   final AiFileTrackerService _fileTracker;
   final AiFileHistoryService _fileHistory;
   final AiFileMutationLedger _mutationLedger;
+  final String Function(String sessionId)? _toolOutputDirectoryProvider;
 
   /// 获取文件追踪服务（供外部访问，如会话重置时清理）
   AiFileTrackerService get fileTracker => _fileTracker;
@@ -925,12 +939,14 @@ class AiToolRuntimeService {
           },
         ),
       );
-      return _applyOutputBudget(
+      return await _applyOutputBudget(
         _mergeHookResultIntoToolResult(
           rawResult: rawResult,
           preHookResult: preHookResult,
           postHookResult: postHookResult,
         ),
+        sessionId: sessionId,
+        toolCallId: toolCall.id,
       );
     } finally {
       if (shouldRegister) {
@@ -939,25 +955,42 @@ class AiToolRuntimeService {
     }
   }
 
-  // 2026-04-01 工具输出 budget 截断。
-  // 对 resultText 进行字符数上限保护，超限时截断内容并附上提示。
+  // 2026-04-01 工具输出 budget 保护。
+  // 对 resultText 进行字符数上限保护，超限时先尝试持久化完整结果，
+  // 再向模型返回 head/tail 预算内预览和恢复提示。
   // 这防止了单次工具调用将大量输出（如 WebFetch 、Bash cat 大文件）直接塑进 API 上下文。
   // FIX: stdout/stderr 截断边界与 resultText 保持一致，避免上下文看到不同片段。
-  AiToolExecutionResult _applyOutputBudget(AiToolExecutionResult result) {
+  Future<AiToolExecutionResult> _applyOutputBudget(
+    AiToolExecutionResult result, {
+    required String sessionId,
+    required String toolCallId,
+  }) async {
     final rawResult = result.resultText;
     if (rawResult.length <= maxToolOutputChars) {
       return result;
     }
+    final persisted = await _persistToolOutput(
+      sessionId: sessionId,
+      toolCallId: toolCallId,
+      content: rawResult,
+    );
+    final persistedPath = persisted?.path ?? '';
     final resultView = _truncateOutputTextToBudget(
       rawResult,
       maxToolOutputChars,
+      persistedPath: persistedPath,
     );
     String capStream(String value) {
-      return _truncateOutputTextToBudget(value, maxToolOutputChars).text;
+      return _truncateOutputTextToBudget(
+        value,
+        maxToolOutputChars,
+        persistedPath: persistedPath,
+      ).text;
     }
 
     final truncatedStdout = capStream(result.stdout);
     final truncatedStderr = capStream(result.stderr);
+    final fullContentAvailable = persisted != null;
     return AiToolExecutionResult(
       status: result.status,
       command: result.command,
@@ -980,14 +1013,26 @@ class AiToolRuntimeService {
         'tool_output_omitted_chars': resultView.omittedChars,
         'tool_output_truncation_strategy':
             _toolOutputTruncationStrategyHeadTail,
-        'tool_output_full_content_available': false,
-        'tool_output_recovery_hint': _toolOutputRecoveryHintRerunNarrower,
+        'tool_output_full_content_available': fullContentAvailable,
+        'tool_output_recovery_hint': fullContentAvailable
+            ? _toolOutputRecoveryHintReadPersisted
+            : _toolOutputRecoveryHintRerunNarrower,
+        if (persisted != null) ...<String, Object?>{
+          'tool_output_persisted': true,
+          'tool_output_persisted_path': persisted.path,
+          'tool_output_persisted_chars': persisted.originalChars,
+          'tool_output_persistence_format': _toolOutputPersistenceFormatText,
+        },
       },
     );
   }
 
   ({String text, int includedChars, int omittedChars})
-  _truncateOutputTextToBudget(String value, int budget) {
+  _truncateOutputTextToBudget(
+    String value,
+    int budget, {
+    String persistedPath = '',
+  }) {
     if (value.length <= budget) {
       return (text: value, includedChars: value.length, omittedChars: 0);
     }
@@ -995,6 +1040,7 @@ class AiToolRuntimeService {
       originalChars: value.length,
       omittedChars: value.length,
       budgetChars: budget,
+      persistedPath: persistedPath,
     );
     var payloadBudget = math.max(
       _minToolOutputTruncationPayloadChars,
@@ -1006,6 +1052,7 @@ class AiToolRuntimeService {
       originalChars: value.length,
       omittedChars: omittedChars,
       budgetChars: budget,
+      persistedPath: persistedPath,
     );
     final effectivePayloadBudget = math.max(0, budget - notice.length);
     if (effectivePayloadBudget <= 0) {
@@ -1033,12 +1080,71 @@ class AiToolRuntimeService {
     required int originalChars,
     required int omittedChars,
     required int budgetChars,
+    String persistedPath = '',
   }) {
+    final recovery = persistedPath.trim().isEmpty
+        ? 'Full output was not persisted; rerun a narrower command, add '
+              'filters, or use file offsets if exact omitted content is '
+              'needed.'
+        : 'Full output saved to: $persistedPath. Read that file or rerun a '
+              'narrower command if exact omitted content is needed.';
     return '\n\n[Output truncated: omitted $omittedChars middle chars from '
         '$originalChars-character result because it exceeded the '
-        '$budgetChars-character tool output budget. Full output was not '
-        'persisted; rerun a narrower command, add filters, or use file offsets '
-        'if exact omitted content is needed.]\n\n';
+        '$budgetChars-character tool output budget. $recovery]\n\n';
+  }
+
+  Future<_PersistedToolOutput?> _persistToolOutput({
+    required String sessionId,
+    required String toolCallId,
+    required String content,
+  }) async {
+    if (toolCallId.trim().isEmpty || content.isEmpty) {
+      return null;
+    }
+    final directoryPath = _toolOutputDirectoryPath(sessionId);
+    if (directoryPath.trim().isEmpty) {
+      return null;
+    }
+    final file = File(
+      p.join(
+        directoryPath,
+        '${_safeToolOutputStorageIdentifier(toolCallId, 'tool_result')}.txt',
+      ),
+    );
+    try {
+      await file.parent.create(recursive: true);
+      if (!await file.exists()) {
+        await file.writeAsString(content, flush: true);
+      }
+      return _PersistedToolOutput(
+        path: file.path,
+        originalChars: content.length,
+      );
+    } catch (error, stack) {
+      silentLog('ai_tool_runtime_service', 'persist tool output', error, stack);
+      return null;
+    }
+  }
+
+  String _toolOutputDirectoryPath(String sessionId) {
+    final provider = _toolOutputDirectoryProvider;
+    if (provider != null) {
+      return provider(sessionId);
+    }
+    return p.join(
+      OpenHandPaths.defaultSessionsDirectoryPath(),
+      _safeToolOutputStorageIdentifier(sessionId, 'session'),
+      _toolResultsSubdirectoryName,
+    );
+  }
+
+  String _safeToolOutputStorageIdentifier(String raw, String fallback) {
+    final normalized = raw
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    final value = normalized.isEmpty ? fallback : normalized;
+    return value.length <= 120 ? value : value.substring(0, 120);
   }
 
   bool _retryEnabled(AiBuiltinToolConfig? config) {
