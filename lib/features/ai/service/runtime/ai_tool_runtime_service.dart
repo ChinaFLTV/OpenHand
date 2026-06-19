@@ -1597,7 +1597,8 @@ class AiToolRuntimeService {
           '`verify` (run tests/lints/builds and report pass/fail), '
           '`summarize` (compress long output into a structured digest), '
           '`advice` (compare design options and recommend), '
-          'or `general-purpose` (fallback). Each call is isolated; do not call Task or ExitPlanMode from within.',
+          'or `general-purpose` (fallback). Each call is isolated and receives a restricted sub-tool catalog: no file editing tools, TodoWrite, ExitPlanMode, AskUserChoice, Memory, ToolSearch, or MCP tools. '
+          'Only read-only subagent types (`research`, `summarize`, `advice`) may run in parallel with sibling tool calls.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

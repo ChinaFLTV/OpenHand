@@ -51,6 +51,7 @@ import 'service/runtime/ai_plan_approval_detector.dart';
 import 'service/runtime/ai_tool_execution_registry.dart';
 import 'service/runtime/ai_tool_runtime_service.dart';
 import 'tools/memory/ai_memory_tool.dart' show MemoryControllerProvider;
+import 'tools/planning/ai_task_tool.dart';
 import 'tools/search/ai_tool_search_tool.dart';
 import 'tools/skill/ai_skill_manager_tool.dart';
 import 'tools/web/ai_web_fetch_tool.dart';
@@ -6064,11 +6065,12 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.webFetch:
       case AiBuiltinToolKind.webSearch:
       case AiBuiltinToolKind.lsp:
-      case AiBuiltinToolKind.task:
       case AiBuiltinToolKind.codebaseSearch:
       case AiBuiltinToolKind.git:
       case AiBuiltinToolKind.readLints:
         return true;
+      case AiBuiltinToolKind.task:
+        return _isParallelizableTaskToolCall(toolCall);
       case AiBuiltinToolKind.bash:
         return !_bashToolService
             .analyzeWriteCommand(_toolCallCommand(toolCall))
@@ -6094,6 +6096,28 @@ class AiSessionController extends ChangeNotifier {
       // Memory tool mutates shared MemoryController state — must run serially.
       case AiBuiltinToolKind.memory:
         return false;
+    }
+  }
+
+  bool _isParallelizableTaskToolCall(AiToolCall toolCall) {
+    try {
+      final decoded = jsonDecode(toolCall.arguments);
+      if (decoded is! Map) {
+        return false;
+      }
+      final subagentType = AiTaskTool.canonicalSubagentType(
+        '${decoded['subagent_type'] ?? ''}',
+      );
+      return subagentType != null &&
+          AiTaskTool.readOnlyParallelSubagentTypes.contains(subagentType);
+    } catch (error, stackTrace) {
+      silentLog(
+        'ai_session_controller',
+        '_isParallelizableTaskToolCall',
+        error,
+        stackTrace,
+      );
+      return false;
     }
   }
 

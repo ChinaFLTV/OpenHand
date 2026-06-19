@@ -70,7 +70,7 @@
 }
 ```
 
-允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。不要把类型写进 description，也不要让子任务再调用 `Task` 或 `ExitPlanMode`。
+允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。不要把类型写进 description，也不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，父代理负责实际编辑、todo、计划审批和弹窗交互。
 </task_tool>
 
 <execution>

@@ -34,6 +34,40 @@ class AiTaskTool extends AiTool {
         'Advice agent. Compare design alternatives, weigh trade-offs, and recommend an approach with explicit risks. Read-only.',
   };
 
+  static const Set<String> readOnlyParallelSubagentTypes = <String>{
+    'research',
+    'summarize',
+    'advice',
+  };
+
+  static const Set<AiBuiltinToolKind> _readOnlyBuiltinKinds =
+      <AiBuiltinToolKind>{
+        AiBuiltinToolKind.glob,
+        AiBuiltinToolKind.grep,
+        AiBuiltinToolKind.ls,
+        AiBuiltinToolKind.read,
+        AiBuiltinToolKind.webFetch,
+        AiBuiltinToolKind.webSearch,
+        AiBuiltinToolKind.lsp,
+        AiBuiltinToolKind.codebaseSearch,
+        AiBuiltinToolKind.git,
+        AiBuiltinToolKind.readLints,
+      };
+
+  static const Set<AiBuiltinToolKind> _verifyBuiltinKinds = <AiBuiltinToolKind>{
+    ..._readOnlyBuiltinKinds,
+    AiBuiltinToolKind.bash,
+  };
+
+  static const Set<AiBuiltinToolKind> _generalPurposeBuiltinKinds =
+      <AiBuiltinToolKind>{..._verifyBuiltinKinds};
+
+  static String? canonicalSubagentType(String rawType) {
+    final normalized = rawType.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    return subagentDescriptions.containsKey(normalized) ? normalized : null;
+  }
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.task;
 
@@ -50,7 +84,9 @@ class AiTaskTool extends AiTool {
         'Task requires description, prompt, and subagent_type.',
       );
     }
-    final canonicalSubagentType = _canonical(subagentType);
+    final canonicalSubagentType = AiTaskTool.canonicalSubagentType(
+      subagentType,
+    );
     if (canonicalSubagentType == null) {
       return AiToolUtils.invalidResult(
         'Task',
@@ -62,11 +98,10 @@ class AiTaskTool extends AiTool {
         'Focused background agent.';
     final subagentToolEntries = context.catalog.toolsByName.entries
         .where(
-          (entry) =>
-              entry.key != 'Task' &&
-              entry.key != 'ExitPlanMode' &&
-              entry.key != 'bash' &&
-              entry.value.builtinKind != AiBuiltinToolKind.toolSearch,
+          (entry) => _isAllowedSubagentTool(
+            entry.value,
+            subagentType: canonicalSubagentType,
+          ),
         )
         .toList(growable: false);
     final subagentCatalog = AiResolvedToolCatalog(
@@ -79,7 +114,7 @@ class AiTaskTool extends AiTool {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            'You are a focused "$canonicalSubagentType" background sub-agent for OpenHand. $subagentProfile This Task invocation is stateless and isolated from other Task calls. Complete the assigned subtask directly. Use tools when they materially help. Do not call Task or ExitPlanMode. Return only the useful result for the parent agent.',
+            'You are a focused "$canonicalSubagentType" background sub-agent for OpenHand. $subagentProfile This Task invocation is stateless and isolated from other Task calls. Your available tools are restricted for this subagent type; do not edit source files, update parent todos, open UI dialogs, or request plan approval. Complete the assigned subtask directly. Use tools when they materially help. Return only the useful result for the parent agent.',
       ),
       AiChatTurn(
         role: AiChatRole.user,
@@ -125,6 +160,8 @@ class AiTaskTool extends AiTool {
         metadata: <String, Object?>{
           'subagent_type': canonicalSubagentType,
           'subagent_session_isolated': true,
+          'subagent_tool_count': subagentCatalog.definitions.length,
+          'subagent_tools_restricted': true,
           'hook_blocked': true,
           'hook_event_name': 'SubagentStart',
           if (subagentStartHookResult.systemReminders.isNotEmpty)
@@ -150,6 +187,8 @@ class AiTaskTool extends AiTool {
           metadata: <String, Object?>{
             'subagent_type': canonicalSubagentType,
             'subagent_session_isolated': true,
+            'subagent_tool_count': subagentCatalog.definitions.length,
+            'subagent_tools_restricted': true,
           },
         );
       }
@@ -179,6 +218,8 @@ class AiTaskTool extends AiTool {
             'subagent_type': canonicalSubagentType,
             'subagent_session_isolated': true,
             'task_tool_rounds': round,
+            'subagent_tool_count': subagentCatalog.definitions.length,
+            'subagent_tools_restricted': true,
             if (subagentStartHookResult.systemReminders.isNotEmpty ||
                 subagentStopHookResult.systemReminders.isNotEmpty)
               aiHookSystemRemindersMetadataKey: <String>[
@@ -207,6 +248,8 @@ class AiTaskTool extends AiTool {
             metadata: <String, Object?>{
               'subagent_type': canonicalSubagentType,
               'subagent_session_isolated': true,
+              'subagent_tool_count': subagentCatalog.definitions.length,
+              'subagent_tools_restricted': true,
             },
           );
         }
@@ -252,6 +295,8 @@ class AiTaskTool extends AiTool {
       metadata: <String, Object?>{
         'subagent_type': canonicalSubagentType,
         'subagent_session_isolated': true,
+        'subagent_tool_count': subagentCatalog.definitions.length,
+        'subagent_tools_restricted': true,
         if (subagentStartHookResult.systemReminders.isNotEmpty)
           aiHookSystemRemindersMetadataKey:
               subagentStartHookResult.systemReminders,
@@ -282,10 +327,26 @@ class AiTaskTool extends AiTool {
     return this;
   }
 
-  String? _canonical(String rawType) {
-    final normalized = rawType.trim().toLowerCase();
-    if (normalized.isEmpty) return null;
-    return subagentDescriptions.containsKey(normalized) ? normalized : null;
+  bool _isAllowedSubagentTool(
+    AiResolvedTool tool, {
+    required String subagentType,
+  }) {
+    if (tool.source == AiRuntimeToolSource.skill) {
+      return true;
+    }
+    if (tool.source != AiRuntimeToolSource.builtin) {
+      return false;
+    }
+    final kind = tool.builtinKind;
+    if (kind == null) {
+      return false;
+    }
+    final allowedKinds = switch (subagentType) {
+      'verify' => _verifyBuiltinKinds,
+      'general-purpose' => _generalPurposeBuiltinKinds,
+      _ => _readOnlyBuiltinKinds,
+    };
+    return allowedKinds.contains(kind);
   }
 
   Map<String, Object?> _decodeArguments(String rawArguments) {
