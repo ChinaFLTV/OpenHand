@@ -42,9 +42,10 @@
 
 规则：
 - `todos` 必须是数组；每项必须有 `content`、`status`；`id` 可省略，运行时会生成。
-- `activeForm` 可选，用于当前执行态措辞。
-- `status` 只能是 `pending` / `in_progress` / `completed` / `failed`。
+- `activeForm` 建议提供，用于当前执行态措辞。
+- `status` 主路径只用 `pending` / `in_progress` / `completed`；`failed` 仅用于兼容旧状态或恢复失败记录。
 - 同一调用内 `id` 唯一，最多一个 `in_progress`。
+- 遇到阻塞时保持当前项 `in_progress`，新增待解决项；不要把未完成工作标为 `completed`。
 - 计划模式下，调用 `ExitPlanMode` 前必须保留至少一个未完成 todo，否则运行时可能不会暴露 `ExitPlanMode`。
 - 计划轮只能以阻塞性澄清或 `ExitPlanMode` 结束；不要用普通文本请求计划批准。
 

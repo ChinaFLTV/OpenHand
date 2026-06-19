@@ -214,6 +214,27 @@ void main() {
       }
     });
 
+    test('TodoWrite documents Claude-style primary statuses', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('TodoWrite')?.definition;
+
+      expect(definition, isNotNull);
+      expect(definition?.description, contains('pending'));
+      expect(definition?.description, contains('in_progress'));
+      expect(definition?.description, contains('completed'));
+      expect(definition?.description, contains('legacy "failed"'));
+      expect(definition?.description, contains('activeForm is recommended'));
+    });
+
     test('ExitPlanMode accepts Claude-style omitted plan input', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),

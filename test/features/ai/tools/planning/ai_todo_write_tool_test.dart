@@ -39,6 +39,7 @@ void main() {
       expect(result.stdout, contains('[ ] 2: Run tests'));
       expect(result.stdout, contains('[x] 3: Commit verified changes'));
       expect(result.metadata['todo_list_replaced'], true);
+      expect(result.metadata['oldTodos'], isEmpty);
       expect(result.metadata['todo_items'], <Map<String, Object?>>[
         <String, Object?>{
           'id': '1',
@@ -56,6 +57,12 @@ void main() {
           'status': 'completed',
         },
       ]);
+      expect(result.metadata['newTodos'], result.metadata['todo_items']);
+      expect(result.metadata['todo_all_completed'], false);
+      expect(
+        result.metadata['todo_items_for_next_turn'],
+        result.metadata['todo_items'],
+      );
     });
 
     test('allows clearing the todo list', () async {
@@ -125,7 +132,7 @@ void main() {
               },
               <String, Object?>{
                 'id': '3',
-                'content': 'Run tests',
+                'content': 'Commit verified changes',
                 'status': 'completed',
               },
             ],
@@ -136,6 +143,60 @@ void main() {
         expect(result.stdout, contains('verification_reminder'));
         expect(result.stdout, contains('Task(subagent_type: verify)'));
         expect(result.metadata['todo_verification_reminder'], true);
+        expect(result.metadata['todo_all_completed'], true);
+        expect(result.metadata['todo_items_for_next_turn'], isEmpty);
+      },
+    );
+
+    test(
+      'does not repeat verification reminder when completed todos include verification',
+      () async {
+        final result = await AiTodoWriteTool().execute(
+          _context(
+            todos: const <Map<String, Object?>>[
+              <String, Object?>{
+                'id': '1',
+                'content': 'Inspect implementation',
+                'status': 'completed',
+              },
+              <String, Object?>{
+                'id': '2',
+                'content': 'Patch runtime',
+                'status': 'completed',
+              },
+              <String, Object?>{
+                'id': '3',
+                'content': 'Run tests',
+                'status': 'completed',
+              },
+            ],
+            metadata: const <String, Object?>{
+              'current_todos': <Map<String, Object?>>[
+                <String, Object?>{
+                  'id': '1',
+                  'content': 'Inspect implementation',
+                  'status': 'in_progress',
+                  'activeForm': 'Inspecting implementation',
+                },
+              ],
+            },
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        expect(result.stdout, isNot(contains('verification_reminder')));
+        expect(result.metadata['todo_verification_reminder'], isNull);
+        expect(result.metadata['todo_all_completed'], true);
+        expect(result.metadata['oldTodos'], <Map<String, Object?>>[
+          <String, Object?>{
+            'id': '1',
+            'content': 'Inspect implementation',
+            'status': 'in_progress',
+            'activeForm': 'Inspecting implementation',
+          },
+        ]);
+        expect(result.metadata['newTodos'], result.metadata['todo_items']);
+        expect(result.metadata['todo_items_for_next_turn'], isEmpty);
       },
     );
 
@@ -205,7 +266,10 @@ void main() {
   });
 }
 
-AiToolExecutionContext _context({required Object? todos}) {
+AiToolExecutionContext _context({
+  required Object? todos,
+  Map<String, Object?> metadata = const <String, Object?>{},
+}) {
   final arguments = <String, Object?>{'todos': todos};
   return AiToolExecutionContext(
     sessionId: 'session-1',
@@ -224,6 +288,7 @@ AiToolExecutionContext _context({required Object? todos}) {
     denyCommandRules: const <AiDenyCommandRule>[],
     requireWriteCommandConfirmation: true,
     confirmWriteCommand: null,
+    metadata: metadata,
   );
 }
 

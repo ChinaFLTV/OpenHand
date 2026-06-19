@@ -28,6 +28,12 @@ void main() {
       expect(developer, contains('计划模式未获执行批准时省略 `Task.subagent_type`'));
       expect(developer, contains('Claude 规范名 `Agent`'));
       expect(developer, contains('`run_in_background`、`isolation`'));
+      expect(
+        developer,
+        contains('主路径只用 `pending` / `in_progress` / `completed`'),
+      );
+      expect(developer, contains('`failed` 仅用于兼容旧状态'));
+      expect(developer, contains('遇到阻塞时保持当前项 `in_progress`'));
       expect(developer, contains('`Edit`：精确替换'));
       expect(developer, contains('replace_all: true'));
       expect(developer, contains('本地文件路径可相对/绝对'));
