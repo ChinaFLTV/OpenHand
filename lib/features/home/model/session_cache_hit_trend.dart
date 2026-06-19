@@ -36,6 +36,34 @@ class SessionCacheHitDisplayData {
   final int excludedPointCount;
 }
 
+bool shouldShowSessionCacheHitMetrics({
+  required int totalPromptTokens,
+  required int totalTokens,
+  required int cacheReadTokens,
+  required int cacheWriteTokens,
+  required bool hasTrendPoints,
+}) {
+  return totalPromptTokens > 0 ||
+      totalTokens > 0 ||
+      cacheReadTokens > 0 ||
+      cacheWriteTokens > 0 ||
+      hasTrendPoints;
+}
+
+int resolveSessionCacheHitBarPromptTokens({
+  required SessionCacheHitDisplayData displayData,
+  required int promptTokens,
+  required int totalPromptTokens,
+}) {
+  if (displayData.uncachedPromptTokens > 0) {
+    return displayData.uncachedPromptTokens;
+  }
+  if (promptTokens > 0) {
+    return promptTokens;
+  }
+  return totalPromptTokens > 0 ? totalPromptTokens : 0;
+}
+
 class SessionCacheHitTurnPoint {
   const SessionCacheHitTurnPoint({
     required this.turnIndex,

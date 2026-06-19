@@ -348,14 +348,18 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     );
     final displayData = trend.displayData(_displayMode);
     final cacheHitRatio = displayData.averageHitRatio;
-    final hasTokenAccounting =
-        promptTokensTotal > 0 || total > 0 || cacheRead > 0 || cacheWrite > 0;
-    final showCacheHitMetrics = hasTokenAccounting || trend.points.isNotEmpty;
-    final cacheBarPromptTokens = displayData.uncachedPromptTokens > 0
-        ? displayData.uncachedPromptTokens
-        : promptTokens > 0
-        ? promptTokens
-        : promptTokensTotal;
+    final showCacheHitMetrics = shouldShowSessionCacheHitMetrics(
+      totalPromptTokens: promptTokensTotal,
+      totalTokens: total,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+      hasTrendPoints: trend.points.isNotEmpty,
+    );
+    final cacheBarPromptTokens = resolveSessionCacheHitBarPromptTokens(
+      displayData: displayData,
+      promptTokens: promptTokens,
+      totalPromptTokens: promptTokensTotal,
+    );
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -933,11 +937,13 @@ class _CompactCacheHitSparkline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final hitPercent = (cacheHitRatio * 100).round();
     final total = cacheRead + cacheWrite + promptTokens;
     final readFrac = total == 0 ? 0.0 : cacheRead / total;
     final writeFrac = total == 0 ? 0.0 : cacheWrite / total;
     final promptFrac = total == 0 ? 1.0 : promptTokens / total;
+    final uncachedLabel = _localizedText(context, zh: '未缓存', en: 'Uncached');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -954,7 +960,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              '$hitPercent% 缓存命中',
+              '${l10n.tokenPopupCacheHit} $hitPercent%',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.green.shade700,
                 fontWeight: FontWeight.w700,
@@ -995,17 +1001,17 @@ class _CompactCacheHitSparkline extends StatelessWidget {
           children: [
             _LegendDot(
               color: Colors.green.shade400,
-              label: '命中 ${_k(cacheRead)}',
+              label: '${l10n.tokenPopupCacheRead} ${_k(cacheRead)}',
             ),
             const SizedBox(width: 10),
             _LegendDot(
               color: Colors.amber.shade400,
-              label: '写入 ${_k(cacheWrite)}',
+              label: '${l10n.tokenPopupCacheWrite} ${_k(cacheWrite)}',
             ),
             const SizedBox(width: 10),
             _LegendDot(
               color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-              label: '未缓存 ${_k(promptTokens)}',
+              label: '$uncachedLabel ${_k(promptTokens)}',
             ),
           ],
         ),

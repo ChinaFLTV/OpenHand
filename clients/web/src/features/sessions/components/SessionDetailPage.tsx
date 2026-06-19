@@ -3445,7 +3445,7 @@ export function SessionDetailPage() {
     const sessCacheRead = readStatNumber(tokenStats['cache_read_tokens'], 0);
     const claudeStyle = usesClaudeStyleCacheMath(session.last_used_model_protocol);
     const backendHitRatio = readDouble(tokenStats['cache_hit_ratio'], 0);
-    const cacheSavingsPercent = backendHitRatio > 0.0001 ? Math.max(0, Math.min(100, Math.round(backendHitRatio * 100))) : 0;
+    const cacheSavingsPercent = cacheHitRatioPercent(backendHitRatio);
     const cacheSavingsBase = claudeStyle ? sessPrompt + sessCacheRead : sessPrompt;
     const tokensBadge =
       sessCacheRead > 0
@@ -5196,6 +5196,33 @@ function usesClaudeStyleCacheMath(protocol: unknown): boolean {
   return normalized === 'claude';
 }
 
+const CACHE_HIT_RATIO_PERCENT_EPSILON = 0.0001;
+
+function cacheHitRatioPercent(value: number): number {
+  if (value <= CACHE_HIT_RATIO_PERCENT_EPSILON) return 0;
+  return Math.max(0, Math.min(100, Math.round(value * 100)));
+}
+
+function shouldShowSessionCacheHitMetrics({
+  cacheReadTokens,
+  cacheWriteTokens,
+  promptTokensTotal,
+  totalTokens,
+  trendPointCount,
+}: {
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  promptTokensTotal: number;
+  totalTokens: number;
+  trendPointCount: number;
+}): boolean {
+  return cacheReadTokens > 0 ||
+    cacheWriteTokens > 0 ||
+    promptTokensTotal > 0 ||
+    totalTokens > 0 ||
+    trendPointCount > 0;
+}
+
 // 2026-06-08 — WEB 端纯只读：所有缓存命中率元数据从后端 metadata 实时取得，
 // 此处仅保留 usesClaudeStyleCacheMath（用于 TopBar 分母展示，不参与计算）和
 // TrendPoint 接口（走势图渲染）。
@@ -5230,7 +5257,7 @@ function buildSessionCacheHitDisplay(
   const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
   const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens);
   const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
-  const cacheHitRatio = backendHitRatio > 0.0001 ? Math.round(backendHitRatio * 100) : 0;
+  const cacheHitRatio = cacheHitRatioPercent(backendHitRatio);
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
   const trendData = backendTrendPoints && backendTrendPoints.length > 0
     ? {
@@ -5242,12 +5269,13 @@ function buildSessionCacheHitDisplay(
       averageRatio: backendHitRatio,
     }
     : null;
-  const hasCacheHitMetrics =
-    cacheReadTokens > 0 ||
-    cacheWriteTokens > 0 ||
-    promptTokensTotal > 0 ||
-    totalTokens > 0 ||
-    Boolean(trendData && trendData.points.length > 0);
+  const hasCacheHitMetrics = shouldShowSessionCacheHitMetrics({
+    cacheReadTokens,
+    cacheWriteTokens,
+    promptTokensTotal,
+    totalTokens,
+    trendPointCount: trendData?.points.length ?? 0,
+  });
   const cacheHitFrac = cacheHitRatio / 100;
   const hasWrite = cacheWriteTokens > 0;
   const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
