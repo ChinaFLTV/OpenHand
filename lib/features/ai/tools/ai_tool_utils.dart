@@ -1110,26 +1110,11 @@ class AiToolUtils {
     BashCommandApprovalDecision decision, {
     bool missingCallback = false,
   }) {
-    final decisionValue = switch (decision) {
-      BashCommandApprovalDecision.approved => 'approved',
-      BashCommandApprovalDecision.rejected => 'rejected',
-      BashCommandApprovalDecision.dismissed => 'dismissed',
-      BashCommandApprovalDecision.timedOut => 'timed_out',
-      BashCommandApprovalDecision.cancelled => 'cancelled',
-    };
-    return <String, Object?>{
-      ...metadata,
-      'write_confirmation_decision': decisionValue,
-      if (decision == BashCommandApprovalDecision.rejected)
-        'write_confirmation_rejected': true,
-      if (decision == BashCommandApprovalDecision.dismissed)
-        'write_confirmation_dismissed': true,
-      if (decision == BashCommandApprovalDecision.timedOut)
-        'write_confirmation_timed_out': true,
-      if (decision == BashCommandApprovalDecision.cancelled)
-        'write_confirmation_cancelled': true,
-      if (missingCallback) 'write_confirmation_missing_callback': true,
-    };
+    return bashWriteConfirmationMetadata(
+      metadata,
+      decision,
+      missingCallback: missingCallback,
+    );
   }
 
   /// 请求用户确认写操作。

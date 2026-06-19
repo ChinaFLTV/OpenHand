@@ -43,6 +43,36 @@ enum BashCommandApprovalDecision {
   bool get isApproved => this == BashCommandApprovalDecision.approved;
 }
 
+String bashCommandApprovalDecisionValue(BashCommandApprovalDecision decision) {
+  return switch (decision) {
+    BashCommandApprovalDecision.approved => 'approved',
+    BashCommandApprovalDecision.rejected => 'rejected',
+    BashCommandApprovalDecision.dismissed => 'dismissed',
+    BashCommandApprovalDecision.timedOut => 'timed_out',
+    BashCommandApprovalDecision.cancelled => 'cancelled',
+  };
+}
+
+Map<String, Object?> bashWriteConfirmationMetadata(
+  Map<String, Object?> metadata,
+  BashCommandApprovalDecision decision, {
+  bool missingCallback = false,
+}) {
+  return <String, Object?>{
+    ...metadata,
+    'write_confirmation_decision': bashCommandApprovalDecisionValue(decision),
+    if (decision == BashCommandApprovalDecision.rejected)
+      'write_confirmation_rejected': true,
+    if (decision == BashCommandApprovalDecision.dismissed)
+      'write_confirmation_dismissed': true,
+    if (decision == BashCommandApprovalDecision.timedOut)
+      'write_confirmation_timed_out': true,
+    if (decision == BashCommandApprovalDecision.cancelled)
+      'write_confirmation_cancelled': true,
+    if (missingCallback) 'write_confirmation_missing_callback': true,
+  };
+}
+
 class BashCommandApprovalRequest {
   const BashCommandApprovalRequest({
     required this.command,
@@ -94,6 +124,7 @@ class BashToolExecutionResult {
     this.isWriteCommand = false,
     this.writeAnalysisReason = '',
     this.sandboxMetadata = const <String, Object?>{},
+    this.metadata = const <String, Object?>{},
   });
 
   final BashToolExecutionStatus status;
@@ -108,6 +139,7 @@ class BashToolExecutionResult {
   final bool isWriteCommand;
   final String writeAnalysisReason;
   final Map<String, Object?> sandboxMetadata;
+  final Map<String, Object?> metadata;
 
   String toToolOutput() {
     final buffer = StringBuffer()
@@ -141,6 +173,22 @@ class BashToolExecutionResult {
         'sandbox_proxy: http=${sandboxMetadata['sandbox_proxy_http_port'] ?? ''}'
         '${sandboxMetadata['sandbox_proxy_socks_port'] == null ? '' : ', socks=${sandboxMetadata['sandbox_proxy_socks_port']}'}',
       );
+    }
+    final confirmationDecision =
+        '${metadata['write_confirmation_decision'] ?? ''}'.trim();
+    if (confirmationDecision.isNotEmpty) {
+      buffer.writeln('write_confirmation_decision: $confirmationDecision');
+    }
+    for (final entry in const <String>[
+      'write_confirmation_rejected',
+      'write_confirmation_dismissed',
+      'write_confirmation_timed_out',
+      'write_confirmation_cancelled',
+      'write_confirmation_missing_callback',
+    ]) {
+      if (metadata[entry] == true) {
+        buffer.writeln('$entry: true');
+      }
     }
     final sandboxWarning =
         '${sandboxMetadata['sandbox_domain_filter_warning'] ?? ''}'.trim();
@@ -571,26 +619,24 @@ class AiBashToolService {
         // Bash to bypass the write-confirmation prompt.
       } else {
         late final _WriteConfirmationOutcome outcome;
+        final missingConfirmationCallback = confirmWriteCommand == null;
         try {
-          final approvalFuture =
-              (confirmWriteCommand
-                          ?.call(
-                            BashCommandApprovalRequest(
-                              command: normalizedCommand,
-                              workingDirectory: displayedWorkingDirectory,
-                              isWriteCommand: true,
-                            ),
-                          )
-                          .timeout(
-                            Duration(milliseconds: writeConfirmationTimeoutMs),
-                          ) ??
-                      Future<BashCommandApprovalDecision>.value(
-                        BashCommandApprovalDecision.rejected,
-                      ))
-                  .then<_WriteConfirmationOutcome>(
-                    (decision) =>
-                        _WriteConfirmationOutcome.fromDecision(decision),
-                  );
+          final approvalDecisionFuture = missingConfirmationCallback
+              ? Future<BashCommandApprovalDecision>.value(
+                  BashCommandApprovalDecision.rejected,
+                )
+              : confirmWriteCommand(
+                  BashCommandApprovalRequest(
+                    command: normalizedCommand,
+                    workingDirectory: displayedWorkingDirectory,
+                    isWriteCommand: true,
+                  ),
+                );
+          final approvalFuture = approvalDecisionFuture
+              .timeout(Duration(milliseconds: writeConfirmationTimeoutMs))
+              .then<_WriteConfirmationOutcome>(
+                (decision) => _WriteConfirmationOutcome.fromDecision(decision),
+              );
           if (cancelSignal == null) {
             outcome = await approvalFuture;
           } else {
@@ -616,6 +662,10 @@ class AiBashToolService {
             isWriteCommand: isWriteCommand,
             writeAnalysisReason: writeAnalysis.reason,
             sandboxMetadata: sandboxMetadata,
+            metadata: bashWriteConfirmationMetadata(
+              const <String, Object?>{},
+              BashCommandApprovalDecision.timedOut,
+            ),
           );
         }
         if (outcome.cancelled) {
@@ -632,6 +682,10 @@ class AiBashToolService {
             isWriteCommand: isWriteCommand,
             writeAnalysisReason: writeAnalysis.reason,
             sandboxMetadata: sandboxMetadata,
+            metadata: bashWriteConfirmationMetadata(
+              const <String, Object?>{},
+              BashCommandApprovalDecision.cancelled,
+            ),
           );
         }
         switch (outcome.decision) {
@@ -652,6 +706,11 @@ class AiBashToolService {
               isWriteCommand: isWriteCommand,
               writeAnalysisReason: writeAnalysis.reason,
               sandboxMetadata: sandboxMetadata,
+              metadata: bashWriteConfirmationMetadata(
+                const <String, Object?>{},
+                BashCommandApprovalDecision.rejected,
+                missingCallback: missingConfirmationCallback,
+              ),
             );
           case BashCommandApprovalDecision.dismissed:
             await closeLaunchProxy();
@@ -667,6 +726,10 @@ class AiBashToolService {
               isWriteCommand: isWriteCommand,
               writeAnalysisReason: writeAnalysis.reason,
               sandboxMetadata: sandboxMetadata,
+              metadata: bashWriteConfirmationMetadata(
+                const <String, Object?>{},
+                BashCommandApprovalDecision.dismissed,
+              ),
             );
           case BashCommandApprovalDecision.timedOut:
             await closeLaunchProxy();
@@ -682,6 +745,10 @@ class AiBashToolService {
               isWriteCommand: isWriteCommand,
               writeAnalysisReason: writeAnalysis.reason,
               sandboxMetadata: sandboxMetadata,
+              metadata: bashWriteConfirmationMetadata(
+                const <String, Object?>{},
+                BashCommandApprovalDecision.timedOut,
+              ),
             );
           case BashCommandApprovalDecision.cancelled:
             await closeLaunchProxy();
@@ -696,6 +763,10 @@ class AiBashToolService {
               isWriteCommand: isWriteCommand,
               writeAnalysisReason: writeAnalysis.reason,
               sandboxMetadata: sandboxMetadata,
+              metadata: bashWriteConfirmationMetadata(
+                const <String, Object?>{},
+                BashCommandApprovalDecision.cancelled,
+              ),
             );
         }
       }

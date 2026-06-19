@@ -160,7 +160,11 @@ class AiToolExecutionResult {
       isWriteCommand: result.isWriteCommand,
       writeAnalysisReason: result.writeAnalysisReason,
       resultText: result.toToolOutput(),
-      metadata: <String, Object?>{...result.sandboxMetadata, ...metadata},
+      metadata: <String, Object?>{
+        ...result.sandboxMetadata,
+        ...result.metadata,
+        ...metadata,
+      },
     );
   }
   const AiToolExecutionResult({
