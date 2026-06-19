@@ -5355,10 +5355,12 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const rehydration = recordFromUnknown(lastPromptMetadata['post_compact_rehydration']);
   const hasPromptMetadata = Object.keys(lastPromptMetadata).length > 0;
   const runtimeToolNames = stringListFromUnknown(lastPromptMetadata['current_tool_names']);
+  const planModePlanningToolNames = stringListFromUnknown(lastPromptMetadata['plan_mode_planning_tool_names']);
   const runtimeNotices = stringListFromUnknown(lastPromptMetadata['runtime_tool_catalog_notices']);
   const runtimeToolCount = Math.max(integerFromUnknown(lastPromptMetadata['current_tool_count']), runtimeToolNames.length);
   const runtimeStale = lastPromptMetadata['runtime_tool_catalog_stale'] === true;
   const awaitingPlanApproval = lastPromptMetadata['awaiting_plan_approval'] === true || session.awaiting_plan_approval === true;
+  const exitPlanModeAvailable = lastPromptMetadata['plan_mode_exit_plan_mode_available'] === true;
   const planRecoveryRequired = lastPromptMetadata['plan_mode_recovery_inspection_required'] === true || lastPromptMetadata['plan_recovery_required'] === true;
   const planExecutionApproved = lastPromptMetadata['plan_mode_execution_approved_for_send'] === true;
   const hasActivePlanState = Boolean(session.todo_items?.length) || Boolean((session.pending_plan ?? '').trim());
@@ -5733,6 +5735,17 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label="工具目录状态" value={toolCatalogState} />
             <EntryRow label="门控原因" value={runtimeGateReasonLabel(gateReason)} />
             <EntryRow label="运行工具数" value={hasPromptMetadata && !runtimeStale ? `${runtimeToolCount}` : '下轮刷新'} />
+            <EntryRow label="ExitPlanMode" value={!hasPromptMetadata ? '不可用' : exitPlanModeAvailable ? '已开放' : session.mode === 'plan' ? '未开放' : '不适用'} />
+            {planModePlanningToolNames.length > 0 ? (
+              <>
+                <div class="mt-3 mb-2 text-sm font-extrabold">计划期工具</div>
+                <div class="flex flex-wrap gap-2">
+                  {planModePlanningToolNames.map((item) => (
+                    <Chip key={item} label={item} />
+                  ))}
+                </div>
+              </>
+            ) : null}
             {runtimeNotices.length > 0 ? (
               <>
                 <div class="mt-3 mb-2 text-sm font-extrabold">运行时提示</div>
