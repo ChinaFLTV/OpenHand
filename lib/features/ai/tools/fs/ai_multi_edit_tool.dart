@@ -81,10 +81,10 @@ class AiMultiEditTool extends AiTool {
       );
     }
 
-    final String initialContent;
+    final AiEditableTextSnapshot editableText;
     if (fileExists) {
       try {
-        initialContent = await file.readAsString();
+        editableText = await AiToolUtils.readEditableTextFile(file);
       } on FormatException {
         return AiToolUtils.invalidResult(
           'MultiEdit',
@@ -92,9 +92,9 @@ class AiMultiEditTool extends AiTool {
         );
       }
     } else {
-      initialContent = '';
+      editableText = AiEditableTextSnapshot.empty();
     }
-    var content = initialContent;
+    var content = editableText.normalizedContent;
     final appliedNewStrings = <String>[];
     for (var editIndex = 0; editIndex < edits.length; editIndex++) {
       final rawEdit = edits[editIndex];
@@ -134,10 +134,11 @@ class AiMultiEditTool extends AiTool {
       content = replacement.content;
       appliedNewStrings.add(newString);
     }
+    final writeContent = editableText.restoreLineEndings(content);
     final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
       toolName: 'MultiEdit',
       file: file,
-      content: content,
+      content: writeContent,
       previouslyReadFiles: context.previouslyReadFiles,
       requireExistingFileRead: fileExists,
       fileTracker: fileTracker,
@@ -154,7 +155,7 @@ class AiMultiEditTool extends AiTool {
         'File was written but verification read failed: $e',
       );
     }
-    final verificationPassed = verificationContent == content;
+    final verificationPassed = verificationContent == writeContent;
     if (!verificationPassed) {
       return AiToolUtils.invalidResult(
         'MultiEdit',

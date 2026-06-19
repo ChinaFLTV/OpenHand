@@ -407,7 +407,9 @@ class AiToolUtils {
     required bool replaceAll,
     required bool allowCreationFromEmptyOldString,
   }) {
-    if (oldString.isEmpty) {
+    final normalizedOldString = normalizeTextLineEndings(oldString);
+    final normalizedNewString = normalizeTextLineEndings(newString);
+    if (normalizedOldString.isEmpty) {
       if (!allowCreationFromEmptyOldString && content.trim().isNotEmpty) {
         return const ReplacementResult.failure(
           'old_string must not be empty. Empty old_string is only allowed when '
@@ -419,17 +421,20 @@ class AiToolUtils {
           'replace_all is not valid when old_string is empty.',
         );
       }
-      return ReplacementResult.success(newString, appliedNewString: newString);
+      return ReplacementResult.success(
+        normalizedNewString,
+        appliedNewString: normalizedNewString,
+      );
     }
-    if (oldString == newString) {
+    if (normalizedOldString == normalizedNewString) {
       return const ReplacementResult.failure(
         'old_string and new_string must differ.',
       );
     }
     return replaceOnceOrAll(
       content: content,
-      oldString: oldString,
-      newString: newString,
+      oldString: normalizedOldString,
+      newString: normalizedNewString,
       replaceAll: replaceAll,
     );
   }
@@ -438,10 +443,14 @@ class AiToolUtils {
     required String oldString,
     required Iterable<String> previousNewStrings,
   }) {
-    final oldStringToCheck = oldString.replaceAll(RegExp(r'\n+$'), '');
+    final oldStringToCheck = normalizeTextLineEndings(
+      oldString,
+    ).replaceAll(RegExp(r'\n+$'), '');
     if (oldStringToCheck.isEmpty) return null;
     for (final previousNewString in previousNewStrings) {
-      if (previousNewString.contains(oldStringToCheck)) {
+      if (normalizeTextLineEndings(
+        previousNewString,
+      ).contains(oldStringToCheck)) {
         return 'Cannot edit file: old_string is a substring of a new_string '
             'from a previous edit.';
       }
@@ -534,6 +543,15 @@ class AiToolUtils {
     if (value.isEmpty) return false;
     final code = value.codeUnitAt(0);
     return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+  }
+
+  static Future<AiEditableTextSnapshot> readEditableTextFile(File file) async {
+    final rawContent = await file.readAsString();
+    return AiEditableTextSnapshot.fromRaw(rawContent);
+  }
+
+  static String normalizeTextLineEndings(String value) {
+    return value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   }
 
   static AiToolExecutionResult invalidResult(String command, String message) {
@@ -1479,6 +1497,45 @@ class _WriteConfirmationOutcome {
 
   bool get approved => decision == BashCommandApprovalDecision.approved;
   bool get cancelled => decision == BashCommandApprovalDecision.cancelled;
+}
+
+class AiEditableTextSnapshot {
+  const AiEditableTextSnapshot({
+    required this.rawContent,
+    required this.normalizedContent,
+    required this.lineEnding,
+  });
+
+  factory AiEditableTextSnapshot.fromRaw(String rawContent) {
+    return AiEditableTextSnapshot(
+      rawContent: rawContent,
+      normalizedContent: AiToolUtils.normalizeTextLineEndings(rawContent),
+      lineEnding: _detectLineEnding(rawContent),
+    );
+  }
+
+  factory AiEditableTextSnapshot.empty() {
+    return const AiEditableTextSnapshot(
+      rawContent: '',
+      normalizedContent: '',
+      lineEnding: '\n',
+    );
+  }
+
+  final String rawContent;
+  final String normalizedContent;
+  final String lineEnding;
+
+  String restoreLineEndings(String normalizedValue) {
+    if (lineEnding == '\n') return normalizedValue;
+    return normalizedValue.replaceAll('\n', lineEnding);
+  }
+
+  static String _detectLineEnding(String value) {
+    if (value.contains('\r\n')) return '\r\n';
+    if (value.contains('\r')) return '\r';
+    return '\n';
+  }
 }
 
 class ReplacementResult {

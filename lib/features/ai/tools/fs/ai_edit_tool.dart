@@ -92,10 +92,10 @@ class AiEditTool extends AiTool {
         ? await AiToolUtils.readFileContentForLedger(filePath)
         : null;
 
-    final String content;
+    final AiEditableTextSnapshot editableText;
     if (fileExists) {
       try {
-        content = await file.readAsString();
+        editableText = await AiToolUtils.readEditableTextFile(file);
       } on FormatException {
         return AiToolUtils.invalidResult(
           'Edit',
@@ -103,11 +103,11 @@ class AiEditTool extends AiTool {
         );
       }
     } else {
-      content = '';
+      editableText = AiEditableTextSnapshot.empty();
     }
 
     final replacement = AiToolUtils.applyExactStringEdit(
-      content: content,
+      content: editableText.normalizedContent,
       oldString: oldString,
       newString: newString,
       replaceAll: replaceAll,
@@ -116,10 +116,11 @@ class AiEditTool extends AiTool {
     if (!replacement.success) {
       return AiToolUtils.invalidResult('Edit', replacement.errorMessage);
     }
+    final writeContent = editableText.restoreLineEndings(replacement.content);
     final guardedWrite = await AiToolUtils.writeTextFileWithMutationGuard(
       toolName: 'Edit',
       file: file,
-      content: replacement.content,
+      content: writeContent,
       previouslyReadFiles: context.previouslyReadFiles,
       requireExistingFileRead: fileExists,
       fileTracker: fileTracker,
@@ -136,7 +137,7 @@ class AiEditTool extends AiTool {
         'File was written but verification read failed: $e',
       );
     }
-    final verificationPassed = verificationContent == replacement.content;
+    final verificationPassed = verificationContent == writeContent;
     if (!verificationPassed) {
       return AiToolUtils.invalidResult(
         'Edit',

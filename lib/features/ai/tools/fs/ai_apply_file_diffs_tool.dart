@@ -99,10 +99,10 @@ class AiApplyFileDiffsTool extends AiTool {
       );
       if (readValidation != null) return readValidation;
 
-      String originalContent;
+      final AiEditableTextSnapshot editableText;
       if (exists) {
         try {
-          originalContent = await file.readAsString();
+          editableText = await AiToolUtils.readEditableTextFile(file);
         } on FormatException {
           return AiToolUtils.invalidResult(
             'ApplyFileDiffs',
@@ -110,9 +110,9 @@ class AiApplyFileDiffsTool extends AiTool {
           );
         }
       } else {
-        originalContent = '';
+        editableText = AiEditableTextSnapshot.empty();
       }
-      var content = originalContent;
+      var content = editableText.normalizedContent;
       final appliedNewStrings = <String>[];
       for (var hunkIndex = 0; hunkIndex < hunks.length; hunkIndex++) {
         final rawHunk = hunks[hunkIndex];
@@ -152,13 +152,14 @@ class AiApplyFileDiffsTool extends AiTool {
         content = replacement.content;
         appliedNewStrings.add(newString);
       }
+      final newContent = editableText.restoreLineEndings(content);
       plans.add(
         _FileDiffPlan(
           filePath: filePath,
           file: file,
           existed: exists,
-          originalContent: originalContent,
-          newContent: content,
+          originalContent: editableText.rawContent,
+          newContent: newContent,
           hunkCount: hunks.length,
         ),
       );

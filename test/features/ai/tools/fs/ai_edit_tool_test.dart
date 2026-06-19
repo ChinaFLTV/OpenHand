@@ -85,6 +85,26 @@ void main() {
       expect(await file.readAsString(), 'const title = \u201cWorld\u201d;\n');
     });
 
+    test('matches LF edit strings while preserving CRLF files', () async {
+      final file = File('${tempDir.path}/crlf.txt');
+      await file.writeAsString('one\r\nalpha\r\nbeta\r\nend\r\n');
+
+      final result = await AiEditTool().execute(
+        _context(
+          toolName: 'Edit',
+          arguments: <String, Object?>{
+            'file_path': file.path,
+            'old_string': 'alpha\nbeta',
+            'new_string': 'gamma\ndelta',
+          },
+          previouslyReadFiles: <String>{file.path},
+        ),
+      );
+
+      expect(result.status.storageValue, 'success');
+      expect(await file.readAsString(), 'one\r\ngamma\r\ndelta\r\nend\r\n');
+    });
+
     test(
       'rejects ambiguous single replacement and leaves file unchanged',
       () async {
@@ -111,6 +131,37 @@ void main() {
   });
 
   group('AiMultiEditTool', () {
+    test('preserves CRLF line endings after sequential edits', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_multi_edit_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final file = File('${tempDir.path}/crlf.txt');
+      await file.writeAsString('alpha\r\nbeta\r\n');
+
+      final result = await AiMultiEditTool().execute(
+        _context(
+          toolName: 'MultiEdit',
+          arguments: <String, Object?>{
+            'file_path': file.path,
+            'edits': <Object?>[
+              <String, Object?>{'old_string': 'alpha', 'new_string': 'one'},
+              <String, Object?>{'old_string': 'beta', 'new_string': 'two'},
+            ],
+          },
+          previouslyReadFiles: <String>{file.path},
+        ),
+      );
+
+      expect(result.status.storageValue, 'success');
+      expect(await file.readAsString(), 'one\r\ntwo\r\n');
+    });
+
     test('rejects edits that retarget a previous new_string', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_multi_edit_tool_test_',
