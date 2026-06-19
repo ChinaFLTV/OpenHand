@@ -1540,7 +1540,7 @@ class AiToolRuntimeService {
     final normalizedToken = _normalizeToolToken(token);
     var candidate = '${normalizedPrefix}__$normalizedToken';
     if (candidate.length > _maxToolNameLength) {
-      final hash = token.hashCode.abs().toRadixString(16);
+      final hash = _stableToolNameHash(token);
       final allowedTokenLength =
           _maxToolNameLength - normalizedPrefix.length - hash.length - 4;
       final shortenedToken = normalizedToken.substring(
@@ -1572,6 +1572,15 @@ class AiToolRuntimeService {
     return value.length > _maxToolNameLength
         ? value.substring(0, _maxToolNameLength)
         : value;
+  }
+
+  String _stableToolNameHash(String value) {
+    var hash = 0x811c9dc5;
+    for (final code in value.codeUnits) {
+      hash ^= code;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   String _normalizeToolToken(String value) {
