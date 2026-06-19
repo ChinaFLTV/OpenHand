@@ -7,7 +7,7 @@ import 'package:openhand/shared/db/database_service.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
-  group('AiSessionController fork', () {
+  group('AiSessionController persisted tool output lifecycle', () {
     Directory? tempDir;
 
     setUp(() async {
@@ -67,27 +67,13 @@ void main() {
           },
         ),
       ];
-      final sourceSession = AiSession(
+      final sourceSession = _testSession(
         id: 'source-session',
         title: 'Fork source',
-        templateId: 'programming_expert',
-        templateName: '编程专家',
-        templateIconName: 'code_rounded',
-        templateInternalVersion: 'test',
+        rootPath: tempDir!.path,
         createdAt: now,
         updatedAt: now,
         messages: sourceMessages,
-        environment: _testEnvironment(tempDir!.path),
-        statistics: AiSessionStatistics.fromMessages(
-          sourceMessages,
-          totalPromptCharacters: 0,
-          promptBuildCount: 0,
-          compressionRunCount: 0,
-          totalUsage: const AiTokenUsage(),
-          lastPromptSystemMessageCount: 0,
-          lastPromptHistoryMessageCount: 0,
-        ),
-        recentErrors: const <AiSessionErrorRecord>[],
       );
       await store.save(sourceSession);
       final idGenerator = _QueuedIdGenerator(<String>[
@@ -139,7 +125,237 @@ void main() {
         forkedPath,
       );
     });
+
+    test(
+      'deletes only unreferenced session-owned persisted tool outputs',
+      () async {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final store = AiSessionStore(
+          sessionsDirectoryPath: p.join(tempDir!.path, 'sessions'),
+        );
+        final deletedOutput = File(
+          p.join(
+            store.sessionToolResultsDirectoryPath('source-session'),
+            'delete-me.txt',
+          ),
+        );
+        final sharedOutput = File(
+          p.join(
+            store.sessionToolResultsDirectoryPath('source-session'),
+            'shared.txt',
+          ),
+        );
+        final externalOutput = File(p.join(tempDir!.path, 'external.txt'));
+        for (final file in <File>[
+          deletedOutput,
+          sharedOutput,
+          externalOutput,
+        ]) {
+          await file.parent.create(recursive: true);
+          await file.writeAsString(p.basename(file.path));
+        }
+        final sourceMessages = <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'user-1',
+            content: 'run commands',
+            createdAt: now,
+          ),
+          _toolResult(
+            id: 'delete-result',
+            createdAt: now.add(const Duration(seconds: 1)),
+            toolCallId: 'delete-me',
+            persistedPath: deletedOutput.path,
+          ),
+          _toolResult(
+            id: 'shared-result-a',
+            createdAt: now.add(const Duration(seconds: 2)),
+            toolCallId: 'shared-a',
+            persistedPath: sharedOutput.path,
+          ),
+          _toolResult(
+            id: 'shared-result-b',
+            createdAt: now.add(const Duration(seconds: 3)),
+            toolCallId: 'shared-b',
+            persistedPath: sharedOutput.path,
+          ),
+          _toolResult(
+            id: 'external-result',
+            createdAt: now.add(const Duration(seconds: 4)),
+            toolCallId: 'external',
+            persistedPath: externalOutput.path,
+          ),
+        ];
+        await store.save(
+          _testSession(
+            id: 'source-session',
+            title: 'Delete source',
+            rootPath: tempDir!.path,
+            createdAt: now,
+            updatedAt: now,
+            messages: sourceMessages,
+          ),
+        );
+        final chatClient = _FakeChatClient();
+        final controller = await AiSessionController.create(
+          store: store,
+          chatClient: chatClient,
+          backgroundChatClient: chatClient,
+          bashToolService: AiBashToolService(),
+          hookService: AiNoopClaudeHookService(),
+          mcpToolService: _FakeMcpToolDiscoveryService(),
+          idGenerator: () => 'unused',
+          clock: () => now.add(const Duration(minutes: 1)),
+        );
+        addTearDown(controller.dispose);
+
+        final deleted = await controller.deleteMessages(<String>[
+          'delete-result',
+          'shared-result-a',
+          'external-result',
+        ], sessionId: 'source-session');
+
+        expect(deleted, isTrue);
+        expect(await deletedOutput.exists(), isFalse);
+        expect(await sharedOutput.exists(), isTrue);
+        expect(await externalOutput.exists(), isTrue);
+        final loaded = await store.loadSession('source-session');
+        expect(
+          loaded!.messages
+              .singleWhere((message) => message.id == 'delete-result')
+              .isDeleted,
+          isTrue,
+        );
+        expect(
+          loaded.messages
+              .singleWhere((message) => message.id == 'shared-result-b')
+              .isDeleted,
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'deletes persisted tool outputs discarded by completed edit',
+      () async {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final store = AiSessionStore(
+          sessionsDirectoryPath: p.join(tempDir!.path, 'sessions'),
+        );
+        final discardedOutput = File(
+          p.join(
+            store.sessionToolResultsDirectoryPath('source-session'),
+            'discarded.txt',
+          ),
+        );
+        await discardedOutput.parent.create(recursive: true);
+        await discardedOutput.writeAsString('discarded output');
+        final sourceMessages = <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'user-1',
+            content: 'edit this',
+            createdAt: now,
+          ),
+          _toolResult(
+            id: 'discarded-result',
+            createdAt: now.add(const Duration(seconds: 1)),
+            toolCallId: 'discarded',
+            persistedPath: discardedOutput.path,
+          ),
+        ];
+        await store.save(
+          _testSession(
+            id: 'source-session',
+            title: 'Edit source',
+            rootPath: tempDir!.path,
+            createdAt: now,
+            updatedAt: now,
+            messages: sourceMessages,
+          ),
+        );
+        final chatClient = _FakeChatClient();
+        final controller = await AiSessionController.create(
+          store: store,
+          chatClient: chatClient,
+          backgroundChatClient: chatClient,
+          bashToolService: AiBashToolService(),
+          hookService: AiNoopClaudeHookService(),
+          mcpToolService: _FakeMcpToolDiscoveryService(),
+          idGenerator: () => 'unused',
+          clock: () => now.add(const Duration(minutes: 1)),
+        );
+        addTearDown(controller.dispose);
+        await controller.selectSession('source-session');
+
+        final draft = await controller.beginEditingMessage('user-1');
+        expect(draft, isNotNull);
+        expect(await discardedOutput.exists(), isTrue);
+        final completed = await controller.completeEditingMessage();
+
+        expect(completed, isTrue);
+        expect(await discardedOutput.exists(), isFalse);
+        final loaded = await store.loadSession('source-session');
+        expect(
+          loaded!.messages
+              .singleWhere((message) => message.id == 'discarded-result')
+              .isDeleted,
+          isTrue,
+        );
+      },
+    );
   });
+}
+
+AiSession _testSession({
+  required String id,
+  required String title,
+  required String rootPath,
+  required DateTime createdAt,
+  required DateTime updatedAt,
+  required List<AiSessionMessage> messages,
+}) {
+  return AiSession(
+    id: id,
+    title: title,
+    templateId: 'programming_expert',
+    templateName: '编程专家',
+    templateIconName: 'code_rounded',
+    templateInternalVersion: 'test',
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    messages: messages,
+    environment: _testEnvironment(rootPath),
+    statistics: AiSessionStatistics.fromMessages(
+      messages,
+      totalPromptCharacters: 0,
+      promptBuildCount: 0,
+      compressionRunCount: 0,
+      totalUsage: const AiTokenUsage(),
+      lastPromptSystemMessageCount: 0,
+      lastPromptHistoryMessageCount: 0,
+    ),
+    recentErrors: const <AiSessionErrorRecord>[],
+  );
+}
+
+AiSessionMessage _toolResult({
+  required String id,
+  required DateTime createdAt,
+  required String toolCallId,
+  required String persistedPath,
+}) {
+  return AiSessionMessage.toolResult(
+    id: id,
+    content: 'preview',
+    createdAt: createdAt,
+    metadata: <String, Object?>{
+      'tool_call_id': toolCallId,
+      'tool_name': 'Bash',
+      'tool_output_persisted': true,
+      'tool_output_persisted_path': persistedPath,
+      'tool_output_persisted_chars': 20,
+      'tool_output_full_content_available': true,
+    },
+  );
 }
 
 AiSessionEnvironment _testEnvironment(String rootPath) {

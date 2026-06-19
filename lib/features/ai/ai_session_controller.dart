@@ -1,6 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Directory, File, NetworkInterface, Platform;
+import 'dart:io'
+    show
+        Directory,
+        File,
+        FileSystemEntity,
+        FileSystemEntityType,
+        NetworkInterface,
+        Platform;
 import 'dart:math' as math;
 import 'dart:ui' show FlutterView, PlatformDispatcher;
 
@@ -3042,6 +3049,8 @@ class AiSessionController extends ChangeNotifier {
     var matchedMessage = false;
     var didChange = false;
     var shouldFinalizeEditRollback = false;
+    final newlyDeletedMessages = <AiSessionMessage>[];
+    final finalizedRollbackMessages = <AiSessionMessage>[];
     final updatedMessages = <AiSessionMessage>[];
     for (final message in session.messages) {
       final rollbackMarker = '${message.metadata[_editRollbackMarkerKey] ?? ''}'
@@ -3060,6 +3069,7 @@ class AiSessionController extends ChangeNotifier {
         continue;
       }
       didChange = true;
+      newlyDeletedMessages.add(message);
       updatedMessages.add(message.copyWith(isDeleted: true));
     }
     if (!matchedMessage) {
@@ -3083,6 +3093,9 @@ class AiSessionController extends ChangeNotifier {
           if (rollbackMarker != currentEditingMessageId) {
             continue;
           }
+          if (message.isDeleted) {
+            finalizedRollbackMessages.add(message);
+          }
           final nextMetadata = Map<String, Object?>.from(message.metadata)
             ..remove(_editRollbackMarkerKey);
           updatedMessages[index] = message.copyWith(metadata: nextMetadata);
@@ -3102,6 +3115,16 @@ class AiSessionController extends ChangeNotifier {
     );
     final committed = await _commitSessionLocked(updatedSession);
     if (committed) {
+      await _deletePersistedToolOutputsForMessages(
+        sessionId: updatedSession.id,
+        deletedMessages: <AiSessionMessage>[
+          ...newlyDeletedMessages,
+          ...finalizedRollbackMessages,
+        ],
+        retainedMessages: updatedSession.messages.where(
+          (message) => !message.isDeleted,
+        ),
+      );
       return true;
     }
     if (session.id == _currentSessionId) {
@@ -3279,6 +3302,7 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
       var didChange = false;
+      final finalizedDeletedMessages = <AiSessionMessage>[];
       final updatedMessages = session.messages
           .map((message) {
             final marker = '${message.metadata[_editRollbackMarkerKey] ?? ''}'
@@ -3287,6 +3311,9 @@ class AiSessionController extends ChangeNotifier {
               return message;
             }
             didChange = true;
+            if (message.isDeleted) {
+              finalizedDeletedMessages.add(message);
+            }
             final nextMetadata = Map<String, Object?>.from(message.metadata)
               ..remove(_editRollbackMarkerKey);
             return message.copyWith(metadata: nextMetadata);
@@ -3304,12 +3331,112 @@ class AiSessionController extends ChangeNotifier {
         ),
       );
       final committed = await _commitSessionLocked(updatedSession);
-      if (!committed) {
+      if (committed) {
+        await _deletePersistedToolOutputsForMessages(
+          sessionId: updatedSession.id,
+          deletedMessages: finalizedDeletedMessages,
+          retainedMessages: updatedSession.messages.where(
+            (message) => !message.isDeleted,
+          ),
+        );
+      } else {
         _editingMessageId = editingMessageId;
       }
       notifyListeners();
       return committed;
     });
+  }
+
+  Future<void> _deletePersistedToolOutputsForMessages({
+    required String sessionId,
+    required Iterable<AiSessionMessage> deletedMessages,
+    required Iterable<AiSessionMessage> retainedMessages,
+  }) async {
+    final candidatePaths = _sessionOwnedPersistedToolOutputPaths(
+      sessionId: sessionId,
+      messages: deletedMessages,
+    );
+    if (candidatePaths.isEmpty) {
+      return;
+    }
+    final retainedPaths = _sessionOwnedPersistedToolOutputPaths(
+      sessionId: sessionId,
+      messages: retainedMessages,
+    );
+    final targetPaths = candidatePaths.difference(retainedPaths).toList()
+      ..sort();
+    for (final path in targetPaths) {
+      await _deletePersistedToolOutputPath(path);
+    }
+    await _deleteDirectoryIfEmpty(
+      Directory(_store.sessionToolResultsDirectoryPath(sessionId)),
+    );
+  }
+
+  Set<String> _sessionOwnedPersistedToolOutputPaths({
+    required String sessionId,
+    required Iterable<AiSessionMessage> messages,
+  }) {
+    final directoryPath = p.normalize(
+      _store.sessionToolResultsDirectoryPath(sessionId),
+    );
+    final paths = <String>{};
+    for (final message in messages) {
+      final rawPath =
+          '${message.metadata[_toolOutputPersistedPathMetadataKey] ?? ''}'
+              .trim();
+      if (rawPath.isEmpty) {
+        continue;
+      }
+      final normalizedPath = p.normalize(rawPath);
+      if (!p.isWithin(directoryPath, normalizedPath)) {
+        continue;
+      }
+      paths.add(normalizedPath);
+    }
+    return paths;
+  }
+
+  Future<void> _deletePersistedToolOutputPath(String path) async {
+    try {
+      final type = await FileSystemEntity.type(path, followLinks: false);
+      switch (type) {
+        case FileSystemEntityType.file:
+        case FileSystemEntityType.link:
+          await File(path).delete();
+        case FileSystemEntityType.directory:
+        case FileSystemEntityType.pipe:
+        case FileSystemEntityType.unixDomainSock:
+        case FileSystemEntityType.notFound:
+          break;
+      }
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'delete persisted tool output',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _deleteDirectoryIfEmpty(Directory directory) async {
+    try {
+      if (!await directory.exists()) {
+        return;
+      }
+      await for (final _ in directory.list(followLinks: false)) {
+        return;
+      }
+      await directory.delete();
+    } catch (error, stack) {
+      silentLog(
+        'ai_session_controller',
+        'delete empty tool output directory',
+        error,
+        stack,
+      );
+    }
   }
 
   Future<void> openStorageDirectory() {
