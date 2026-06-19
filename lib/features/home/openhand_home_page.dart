@@ -72,6 +72,7 @@ import '../../shared/ui/streaming_text_reveal.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/unified_diff.dart'
@@ -5456,11 +5457,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || _shouldDeferAutoFollowScheduling()) {
         return;
       }
-      // 仅当视口已在底部附近时才跟随 layout 变化轻轻贴底，
-      // 不消费 _pendingForcedScrollToBottom —— 该 flag 留给
-      // 用户主动滚回底部或点击"跳到最新"时的一次性强制定位。
-      // 否则 HTML 气泡的每一次异步高度测量回调都会触发一次
-      // jumpTo，造成滚动条瞬移与消息卡片弹跳。
+      // 自动跟随开启且未被用户暂停时，布局增长也要钉到底部；否则流式
+      // reasoning 上方继续增高时，底部 pending tool-call 卡片会掉出视口。
       if (!_autoFollowEnabled || !_shouldAutoFollowMessages) return;
       final position = _activeMessageScrollPosition();
       if (position == null) return;
@@ -5471,10 +5469,65 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (position.isScrollingNotifier.value || _hasRecentScrollActivity()) {
         return;
       }
-      final d2b = position.maxScrollExtent - position.pixels;
-      if (d2b > _autoFollowDistanceThreshold) return;
       _scheduleScrollToBottom(allowSettlePasses: false);
     });
+  }
+
+  bool _messageDrivesAutoFollow(AiSessionMessage message) {
+    if (boolFromValue(message.metadata[aiSessionMessageMetadataStreamingKey])) {
+      return true;
+    }
+    final kind = message.kind;
+    if (kind != AiSessionMessageKind.toolCall &&
+        kind != AiSessionMessageKind.hook) {
+      return false;
+    }
+    if (boolFromValue(message.metadata['tool_arguments_streaming']) ||
+        boolFromValue(message.metadata['tool_preparing'])) {
+      return true;
+    }
+    final status = _toolExecutionStatus(message);
+    final hasOutput =
+        _toolExecutionStdout(message).isNotEmpty ||
+        _toolExecutionStderr(message).isNotEmpty ||
+        _toolExecutionResult(message).isNotEmpty ||
+        '${message.metadata['result_text'] ?? ''}'.trim().isNotEmpty;
+    return status.isEmpty && !hasOutput;
+  }
+
+  String _metadataTextFingerprint(Object? value) {
+    if (value == null) return '0';
+    final text = value is String
+        ? value
+        : (() {
+            try {
+              return jsonEncode(value);
+            } catch (_) {
+              return value.toString();
+            }
+          })();
+    if (text.isEmpty) return '0';
+    final head = text.length <= 48 ? text : text.substring(0, 48);
+    final tail = text.length <= 24 ? text : text.substring(text.length - 24);
+    return '${text.length}:$head:$tail';
+  }
+
+  String _messageAutoFollowRenderSignature(AiSessionMessage message) {
+    return [
+      message.id,
+      message.kind.storageValue,
+      message.characterCount,
+      '${boolFromValue(message.metadata[aiSessionMessageMetadataStreamingKey])}',
+      '${boolFromValue(message.metadata['tool_arguments_streaming'])}',
+      '${boolFromValue(message.metadata['tool_preparing'])}',
+      _metadataTextFingerprint(message.metadata['tool_arguments']),
+      _metadataTextFingerprint(message.metadata['tool_execution_command']),
+      _toolExecutionStatus(message),
+      '${_toolExecutionStdout(message).length}',
+      '${_toolExecutionStderr(message).length}',
+      '${_toolExecutionResult(message).length}',
+      _metadataTextFingerprint(message.metadata['result_text']),
+    ].join(':');
   }
 
   void _handleRevealOlderMessages() {
@@ -5493,16 +5546,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return null;
     }
     final lastMessage = displayMessages.last;
+    final activeFollowParts = <String>[];
+    for (
+      var index = displayMessages.length - 1;
+      index >= 0 && activeFollowParts.length < 4;
+      index -= 1
+    ) {
+      final message = displayMessages[index];
+      if (!_messageDrivesAutoFollow(message)) continue;
+      activeFollowParts.add(
+        'active:$index:${_messageAutoFollowRenderSignature(message)}',
+      );
+    }
     return [
       currentSession.id,
       displayMessages.length,
       lastMessage.id,
       lastMessage.kind.storageValue,
       lastMessage.characterCount,
+      _messageAutoFollowRenderSignature(lastMessage),
       _toolExecutionStatus(lastMessage),
       '${_toolExecutionStdout(lastMessage).length}',
       '${_toolExecutionStderr(lastMessage).length}',
       '${_toolExecutionResult(lastMessage).length}',
+      ...activeFollowParts,
     ].join('|');
   }
 

@@ -22,10 +22,9 @@ const double _stackedNavigationMaxHeight = 360;
 const double _composerMinHeight = 168;
 const double _composerDefaultHeight = 196;
 const double _composerMaxHeight = 440;
-// Auto-follow uses hysteresis: resume only when close to bottom, pause only
-// after a clearer user scroll away. This avoids repeated layout jitter when
-// older markdown/code blocks finish measuring after history prepend.
-const double _autoFollowDistanceThreshold = 32;
+// Auto-follow pauses only after a clearer user scroll away. This avoids
+// repeated layout jitter when older markdown/code blocks finish measuring
+// after history prepend.
 const double _autoFollowPauseHysteresis = 96;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // First-open jank mitigation: mount only the latest handful of message bubbles

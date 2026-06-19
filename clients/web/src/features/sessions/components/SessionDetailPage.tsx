@@ -39,6 +39,7 @@ import {
   finiteNumberOrNullFromUnknown,
   integerFromUnknown,
   nonNegativeIntegerFromUnknown,
+  booleanFromUnknown,
   recordFromUnknown,
   recordOrNullFromUnknown,
   stringListFromUnknown,
@@ -131,6 +132,7 @@ interface SessionMessageWindowView {
   idSet: Set<string>;
   tail: SessionMessage | null;
   tailSignature: string;
+  followSignature: string;
   latestAssistantMessage: SessionMessage | null;
   latestStreamingTextMessageId: string | null;
   lastCreationModeAwaitingAssistant: AwaitingCreationMode | null;
@@ -323,6 +325,10 @@ function messageMetadataStreaming(message: SessionMessage): boolean {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
+function metadataString(value: unknown): string {
+  return value == null ? '' : String(value).trim();
+}
+
 function metadataTextLength(value: unknown): number {
   if (typeof value === 'string') return value.length;
   if (value == null) return 0;
@@ -454,6 +460,40 @@ function messagesEquivalentForRender(a: SessionMessage, b: SessionMessage): bool
 
 export function messageFollowSignature(message: SessionMessage): string {
   return messageRenderSignature(message);
+}
+
+function toolMessageHasOutput(metadata: Record<string, unknown> | null): boolean {
+  if (!metadata) return false;
+  return (
+    metadataString(metadata['tool_execution_stdout']).length > 0 ||
+    metadataString(metadata['tool_execution_stderr']).length > 0 ||
+    metadataString(metadata['tool_execution_result']).length > 0 ||
+    metadataString(metadata['result_text']).length > 0
+  );
+}
+
+function isActiveFollowMessage(message: SessionMessage): boolean {
+  if (messageMetadataStreaming(message)) return true;
+  if (message.kind !== 'tool_call' && message.kind !== 'hook') return false;
+  const metadata = recordOrNullFromUnknown(message.metadata);
+  if (booleanFromUnknown(metadata?.['tool_arguments_streaming']) || booleanFromUnknown(metadata?.['tool_preparing'])) {
+    return true;
+  }
+  const status = metadataString(metadata?.['tool_execution_status'] ?? metadata?.['tool_status'] ?? metadata?.['status']);
+  return status.length === 0 && !toolMessageHasOutput(metadata);
+}
+
+function messagesFollowSignature(ordered: SessionMessage[]): string {
+  if (ordered.length === 0) return '';
+  const parts = [`tail:${messageFollowSignature(ordered[ordered.length - 1]!)}`];
+  let activeCount = 0;
+  for (let index = ordered.length - 1; index >= 0 && activeCount < 4; index -= 1) {
+    const message = ordered[index]!;
+    if (!isActiveFollowMessage(message)) continue;
+    parts.push(`active:${index}:${messageFollowSignature(message)}`);
+    activeCount += 1;
+  }
+  return parts.join('||');
 }
 
 function shouldKeepLongerStreamingMessage(existing: SessionMessage | undefined, incoming: SessionMessage, options: MergeServerWindowOptions): boolean {
@@ -1003,6 +1043,7 @@ function deriveMessageWindowView(items: SessionMessage[]): SessionMessageWindowV
     idSet,
     tail,
     tailSignature: tail ? messageFollowSignature(tail) : '',
+    followSignature: messagesFollowSignature(ordered),
     latestAssistantMessage,
     latestStreamingTextMessageId,
     lastCreationModeAwaitingAssistant,
@@ -1343,6 +1384,7 @@ export function SessionDetailPage() {
   const resizeFollowFrameRef = useRef<number | null>(null);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailSignatureRef = useRef<string>('');
+  const lastFollowSignatureRef = useRef<string>('');
   const renderedMessageCountRef = useRef(0);
   const messageRenderGenerationRef = useRef(0);
   const messageRenderSessionRef = useRef('');
@@ -1980,25 +2022,29 @@ export function SessionDetailPage() {
     if (!tail) {
       lastTailIdRef.current = null;
       lastTailSignatureRef.current = '';
+      lastFollowSignatureRef.current = '';
       return;
     }
     const tailSignature = messageWindowView.tailSignature;
+    const followSignature = messageWindowView.followSignature;
     if (lastTailIdRef.current === null) {
       lastTailIdRef.current = tail.id;
       lastTailSignatureRef.current = tailSignature;
+      lastFollowSignatureRef.current = followSignature;
       if (autoFollow) scheduleFollowToBottom('auto');
       return;
     }
     const tailChanged = tail.id !== lastTailIdRef.current;
     const tailContentChanged = tailSignature !== lastTailSignatureRef.current;
-    if (!tailChanged && !tailContentChanged) return;
+    const followContentChanged = followSignature !== lastFollowSignatureRef.current;
+    if (!tailChanged && !tailContentChanged && !followContentChanged) return;
     lastTailIdRef.current = tail.id;
     lastTailSignatureRef.current = tailSignature;
-    const shouldFollow = shouldFollowPinnedMessages();
+    lastFollowSignatureRef.current = followSignature;
+    const shouldFollow = autoFollowRef.current && !autoFollowPausedRef.current;
     if (shouldFollow) {
-      // 流式追加（tailContentChanged）一律走 'auto' 即时钉底；只有切换会话或新建消息这种
-      // 一次性大跳跃才偶尔用 smooth，避免每个 token 都触发 smooth 缓动堆叠。
-      const behavior = reduceMotion || tailContentChanged ? 'auto' : 'smooth';
+      const streamingChange = tailContentChanged || followContentChanged;
+      const behavior = reduceMotion || streamingChange ? 'auto' : 'smooth';
       scheduleFollowToBottom(behavior);
     } else {
       if (autoFollow) setAutoFollowPausedValue(true);
