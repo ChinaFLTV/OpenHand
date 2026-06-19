@@ -4,6 +4,7 @@ import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+import 'ai_bash_write_confirmation_gate.dart';
 
 class AiBashTool extends AiTool {
   AiBashTool({
@@ -34,68 +35,15 @@ class AiBashTool extends AiTool {
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
-    final sessionId = context.sessionId;
     final cancelSignal = context.cancelSignal;
     final onBashUpdate = context.onBashUpdate;
-    final confirmWriteCommand = context.confirmWriteCommand;
 
-    final permissionHookReminders = <String>[];
-    final wrappedConfirmWriteCommand = confirmWriteCommand == null
-        ? null
-        : (BashCommandApprovalRequest request) async {
-            final permissionHookResult = await _hookService.runHooks(
-              eventName: 'PermissionRequest',
-              sessionId: sessionId,
-              matcherValue: 'Bash',
-              cwd: request.workingDirectory,
-              payload: <String, Object?>{
-                'tool_name': 'Bash',
-                'toolName': 'Bash',
-                'command': request.command,
-                'working_directory': request.workingDirectory,
-                'permission_type': 'write_command_confirmation',
-                'is_write_command': request.isWriteCommand,
-              },
-            );
-            permissionHookReminders.addAll(
-              permissionHookResult.systemReminders,
-            );
-            if (permissionHookResult.blocked) {
-              final notificationHookResult = await _runAuxiliaryHook(
-                eventName: 'Notification',
-                sessionId: sessionId,
-                matcherValue: 'permission_prompt',
-                cwd: request.workingDirectory,
-                payload: <String, Object?>{
-                  'notification_type': 'permission_prompt',
-                  'tool_name': 'Bash',
-                  'command': request.command,
-                  'status': 'blocked',
-                },
-              );
-              permissionHookReminders.addAll(
-                notificationHookResult.systemReminders,
-              );
-              return BashCommandApprovalDecision.rejected;
-            }
-            final decision = await confirmWriteCommand(request);
-            final notificationHookResult = await _runAuxiliaryHook(
-              eventName: 'Notification',
-              sessionId: sessionId,
-              matcherValue: 'permission_prompt',
-              cwd: request.workingDirectory,
-              payload: <String, Object?>{
-                'notification_type': 'permission_prompt',
-                'tool_name': 'Bash',
-                'command': request.command,
-                'status': decision.name,
-              },
-            );
-            permissionHookReminders.addAll(
-              notificationHookResult.systemReminders,
-            );
-            return decision;
-          };
+    final confirmationGate = AiBashWriteConfirmationGate(
+      hookService: _hookService,
+      sessionId: context.sessionId,
+      toolName: 'Bash',
+      userConfirmation: context.confirmWriteCommand,
+    );
 
     final timeoutMs =
         AiToolUtils.readInt(args['timeout']) ??
@@ -108,12 +56,12 @@ class AiBashTool extends AiTool {
     }
     final bashResult = await _bashToolService.execute(
       command: '${args['cmd'] ?? args['command'] ?? ''}'.trim(),
-      sessionId: sessionId,
+      sessionId: context.sessionId,
       workingDirectory: '${args['working_directory'] ?? args['cwd'] ?? ''}'
           .trim(),
       denyRules: context.denyCommandRules,
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
-      confirmWriteCommand: wrappedConfirmWriteCommand,
+      confirmWriteCommand: confirmationGate.callback,
       cancelSignal: cancelSignal,
       onUpdate: onBashUpdate,
       timeoutMs: timeoutMs,
@@ -132,31 +80,8 @@ class AiBashTool extends AiTool {
       bashResult,
       metadata: <String, Object?>{
         ...bashMetadata,
-        if (permissionHookReminders.isNotEmpty)
-          aiHookSystemRemindersMetadataKey: permissionHookReminders,
+        ...confirmationGate.metadata,
       },
     );
-  }
-
-  Future<AiClaudeHookInvocationResult> _runAuxiliaryHook({
-    required String eventName,
-    required String sessionId,
-    required Map<String, Object?> payload,
-    String? matcherValue,
-    String? cwd,
-  }) async {
-    try {
-      return await _hookService.runHooks(
-        eventName: eventName,
-        sessionId: sessionId,
-        matcherValue: matcherValue,
-        cwd: cwd,
-        payload: payload,
-      );
-    } catch (error) {
-      return AiClaudeHookInvocationResult(
-        systemReminders: <String>['Hook event $eventName failed: $error'],
-      );
-    }
   }
 }

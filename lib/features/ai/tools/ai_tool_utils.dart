@@ -457,6 +457,28 @@ class AiToolUtils {
     );
   }
 
+  static AiToolExecutionResult withMergedMetadata(
+    AiToolExecutionResult result,
+    Map<String, Object?> metadata,
+  ) {
+    if (metadata.isEmpty) return result;
+    return AiToolExecutionResult(
+      status: result.status,
+      command: result.command,
+      workingDirectory: result.workingDirectory,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      durationMs: result.durationMs,
+      resultText: result.resultText,
+      exitCode: result.exitCode,
+      matchedRuleId: result.matchedRuleId,
+      matchedRulePattern: result.matchedRulePattern,
+      isWriteCommand: result.isWriteCommand,
+      writeAnalysisReason: result.writeAnalysisReason,
+      metadata: <String, Object?>{...result.metadata, ...metadata},
+    );
+  }
+
   static AiToolExecutionResult cancelledResult({
     required String command,
     required int durationMs,
@@ -1105,6 +1127,7 @@ class AiToolUtils {
     String? approvalWorkingDirectory,
     String? resultCommand,
     String? writeAnalysisReason,
+    Map<String, Object?> metadata = const <String, Object?>{},
   }) async {
     // 如果不需要写确认，直接通过
     if (!requireWriteConfirmation) {
@@ -1123,6 +1146,7 @@ class AiToolUtils {
         command: commandForResult,
         workingDirectory: workingDirectory,
         writeAnalysisReason: writeAnalysisReason,
+        metadata: metadata,
       );
     }
 
@@ -1172,6 +1196,7 @@ class AiToolUtils {
         writeAnalysisReason:
             writeAnalysisReason ??
             'builtin file mutation tool requires confirmation',
+        metadata: metadata,
       );
     }
 
@@ -1186,6 +1211,7 @@ class AiToolUtils {
           command: commandForResult,
           workingDirectory: workingDirectory,
           writeAnalysisReason: writeAnalysisReason,
+          metadata: metadata,
         );
       case BashCommandApprovalDecision.dismissed:
         return rejectedWriteResult(
@@ -1196,6 +1222,7 @@ class AiToolUtils {
           command: commandForResult,
           workingDirectory: workingDirectory,
           writeAnalysisReason: writeAnalysisReason,
+          metadata: metadata,
         );
       case BashCommandApprovalDecision.timedOut:
         return AiToolExecutionResult(
@@ -1211,12 +1238,16 @@ class AiToolUtils {
           writeAnalysisReason:
               writeAnalysisReason ??
               'builtin file mutation tool requires confirmation',
+          metadata: metadata,
         );
       case BashCommandApprovalDecision.cancelled:
         return cancelledResult(
           command: commandForResult,
           durationMs: 0,
-          metadata: <String, Object?>{'write_confirmation_cancelled': true},
+          metadata: <String, Object?>{
+            ...metadata,
+            'write_confirmation_cancelled': true,
+          },
         );
     }
   }
@@ -1229,6 +1260,7 @@ class AiToolUtils {
     String? command,
     String? workingDirectory,
     String? writeAnalysisReason,
+    Map<String, Object?> metadata = const <String, Object?>{},
   }) {
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.rejected,
@@ -1242,6 +1274,7 @@ class AiToolUtils {
       writeAnalysisReason:
           writeAnalysisReason ??
           'builtin file mutation tool requires confirmation',
+      metadata: metadata,
     );
   }
 }

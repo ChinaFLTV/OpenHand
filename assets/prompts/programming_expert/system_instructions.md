@@ -46,7 +46,7 @@
 - 符号导航：`Lsp`
 - 编辑：`Edit` / `MultiEdit` / `ApplyFileDiffs`
 - 新建或整文件重写：`Write`
-- 命令：短命令用 `Bash`，长驻进程用 `BashBackground`；写类后台 start 仍需确认
+- 命令：短命令用 `Bash`，长驻进程用 `BashBackground`；写类后台 start 仍需 Hook/确认
 - 计划与进度：`TodoWrite`
 - 计划闸门：`ExitPlanMode`
 - 小集合确定性选择：`AskUserChoice`

@@ -1648,7 +1648,7 @@ class AiToolRuntimeService {
           '`read` (handle + optional max_bytes → drain new stdout/stderr since last read and report alive/exit_code), '
           '`stop` (handle → SIGKILL), '
           '`list` (no args → enumerate active sessions). '
-          'If `start` is write-like, OpenHand runs the same write-confirmation gate before spawning. '
+          'If `start` is write-like, OpenHand runs the same PermissionRequest/write-confirmation gate before spawning. '
           'Use this instead of Bash when the command would block the agent loop indefinitely.',
       parameters: const <String, Object?>{
         'type': 'object',

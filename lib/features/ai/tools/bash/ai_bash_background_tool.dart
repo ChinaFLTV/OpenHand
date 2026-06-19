@@ -7,6 +7,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/hook/ai_claude_hook_service.dart';
 import '../../service/runtime/ai_tool_execution_registry.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../../service/sandbox/ai_sandbox_proxy_service.dart';
@@ -14,6 +15,7 @@ import '../../service/sandbox/ai_sandbox_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+import 'ai_bash_write_confirmation_gate.dart';
 
 const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
 
@@ -31,8 +33,10 @@ const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
 class AiBashBackgroundTool extends AiTool {
   AiBashBackgroundTool({
     AiBashToolService? bashToolService,
+    AiClaudeHookService? hookService,
     AiSandboxService? sandboxService,
   }) : _bashToolService = bashToolService ?? AiBashToolService(),
+       _hookService = hookService ?? AiNoopClaudeHookService(),
        _sandboxService =
            sandboxService ??
            bashToolService?.sandboxService ??
@@ -45,6 +49,7 @@ class AiBashBackgroundTool extends AiTool {
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
   final AiBashToolService _bashToolService;
+  final AiClaudeHookService _hookService;
   final AiSandboxService _sandboxService;
   int _handleCounter = 0;
 
@@ -149,7 +154,14 @@ class AiBashBackgroundTool extends AiTool {
         metadata: launchSpec.metadata,
       );
     }
+    var writeConfirmationMetadata = const <String, Object?>{};
     if (writeAnalysis.isWrite) {
+      final confirmationGate = AiBashWriteConfirmationGate(
+        hookService: _hookService,
+        sessionId: context.sessionId,
+        toolName: 'BashBackground',
+        userConfirmation: context.confirmWriteCommand,
+      );
       final confirmationResult = await AiToolUtils.requestWriteConfirmation(
         toolName: 'BashBackground',
         operationDescription:
@@ -158,7 +170,7 @@ class AiBashBackgroundTool extends AiTool {
             'cmd: $cmd',
         targetPath: _directoryConfirmationTarget(cwd),
         requireWriteConfirmation: context.requireWriteCommandConfirmation,
-        confirmWriteCommand: context.confirmWriteCommand,
+        confirmWriteCommand: confirmationGate.callback,
         cancelSignal: context.cancelSignal,
         timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
         approvalCommand: cmd,
@@ -168,8 +180,12 @@ class AiBashBackgroundTool extends AiTool {
       );
       if (confirmationResult != null) {
         await launchSpec.proxyLease?.close();
-        return confirmationResult;
+        return AiToolUtils.withMergedMetadata(
+          confirmationResult,
+          confirmationGate.metadata,
+        );
       }
+      writeConfirmationMetadata = confirmationGate.metadata;
     }
     final startedAt = Stopwatch()..start();
     final Process process;
@@ -262,6 +278,7 @@ class AiBashBackgroundTool extends AiTool {
       writeAnalysisReason: writeAnalysis.reason,
       metadata: <String, Object?>{
         ...launchSpec.metadata,
+        ...writeConfirmationMetadata,
         'bg_handle': handle,
         'bg_pid': process.pid,
         'bg_cmd': cmd,

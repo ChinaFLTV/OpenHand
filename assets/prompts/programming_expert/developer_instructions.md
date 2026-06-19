@@ -75,7 +75,7 @@
 
 <execution>
 - `Bash`：短命令；设置 working directory；搜索和读文件优先专用工具。
-- `BashBackground`：server、watch、REPL 等长驻进程；写类 start 仍走确认，自己启动的会话必须自己停止。
+- `BashBackground`：server、watch、REPL 等长驻进程；写类 start 仍走 Hook/确认，自己启动的会话必须自己停止。
 - 任何命令输出截断时，先判断缺失部分是否影响结论；影响就读取完整输出或缩小范围重跑。
 - 沙盒、权限、Hook 拒绝都是真实边界；不要尝试绕过。
 </execution>
