@@ -5,6 +5,10 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
 class AiTodoWriteTool extends AiTool {
+  static const int _verificationReminderTodoThreshold = 3;
+  static const String _verificationReminder =
+      'verification_reminder: All major todos are marked completed. Before a final completion claim, verify the change with ReadLints, tests, build, a direct command, or Task(subagent_type: verify), and report any skipped check explicitly.';
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.todoWrite;
 
@@ -67,7 +71,7 @@ class AiTodoWriteTool extends AiTool {
         'Only one todo may be in_progress at a time.',
       );
     }
-    final lines = normalizedTodos.isEmpty
+    final baseLines = normalizedTodos.isEmpty
         ? '(todo list cleared)'
         : normalizedTodos
               .map((todo) {
@@ -81,6 +85,12 @@ class AiTodoWriteTool extends AiTool {
                 return '$marker ${todo['id']}: ${todo['content']}';
               })
               .join('\n');
+    final shouldEmitVerificationReminder =
+        normalizedTodos.length >= _verificationReminderTodoThreshold &&
+        normalizedTodos.every((todo) => todo['status'] == 'completed');
+    final lines = shouldEmitVerificationReminder
+        ? '$baseLines\n\n$_verificationReminder'
+        : baseLines;
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: 'TodoWrite',
@@ -92,6 +102,7 @@ class AiTodoWriteTool extends AiTool {
       metadata: <String, Object?>{
         'todo_items': normalizedTodos,
         'todo_list_replaced': true,
+        if (shouldEmitVerificationReminder) 'todo_verification_reminder': true,
       },
     );
   }

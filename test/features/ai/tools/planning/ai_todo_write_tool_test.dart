@@ -69,6 +69,38 @@ void main() {
       expect(result.metadata['todo_list_replaced'], true);
     });
 
+    test(
+      'reminds verification before final claim after completing major todos',
+      () async {
+        final result = await AiTodoWriteTool().execute(
+          _context(
+            todos: const <Map<String, Object?>>[
+              <String, Object?>{
+                'id': '1',
+                'content': 'Inspect implementation',
+                'status': 'completed',
+              },
+              <String, Object?>{
+                'id': '2',
+                'content': 'Patch runtime',
+                'status': 'completed',
+              },
+              <String, Object?>{
+                'id': '3',
+                'content': 'Run tests',
+                'status': 'completed',
+              },
+            ],
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        expect(result.stdout, contains('verification_reminder'));
+        expect(result.stdout, contains('Task(subagent_type: verify)'));
+        expect(result.metadata['todo_verification_reminder'], true);
+      },
+    );
+
     test('rejects duplicate ids', () async {
       final result = await AiTodoWriteTool().execute(
         _context(

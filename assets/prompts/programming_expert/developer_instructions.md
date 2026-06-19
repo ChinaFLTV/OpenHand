@@ -77,6 +77,12 @@
 ```
 
 允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。计划模式获得执行批准前仅用 `research` / `summarize` / `advice`。不要把类型写进 description；完整要求放进 prompt。不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，写类 Bash 会被拒绝；父代理负责实际编辑、todo、计划审批和弹窗交互。
+
+`verify` 子代理规则：
+- 只验证，不修改项目，不提交，不安装依赖。
+- 必须运行命令或可观察检查；读代码不是验证。
+- 报告每项检查的命令、关键输出、结果，结尾给 `VERDICT: PASS` / `FAIL` / `PARTIAL`。
+- `PASS` 至少包含一个边界、异常、幂等、并发或回归类对抗探测。
 </task_tool>
 
 <execution>
@@ -90,6 +96,7 @@
 <verification_cadence>
 - 源码改动后优先 `ReadLints`，必要时补测试或构建。
 - 行为改动不要只做静态 lint；至少跑最相关的单测、脚本或构建入口。
+- 多文件、后端/API、构建配置、UI 行为或高风险改动后，优先调用 `Task` 的 `verify` 子代理交叉验收；主代理仍需审阅其证据。
 - 同一错误最多迭代 3 轮；第三轮仍失败就报告根因、已尝试方案和下一步选择。
 - 未跑验证时，不要说“通过”；说清楚“未运行 X”。
 </verification_cadence>

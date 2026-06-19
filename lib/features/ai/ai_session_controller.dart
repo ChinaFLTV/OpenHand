@@ -5833,13 +5833,9 @@ class AiSessionController extends ChangeNotifier {
         );
         return null;
       }
-      await _safeRunUserHook(
-        event: HookEvent.preToolUse,
-        sessionId: workingSession.id,
-        payload: <String, Object?>{
-          'tool_name': toolCall.name,
-          'tool_arguments': toolCall.arguments,
-        },
+      workingSession = await _runUserPreToolUseHook(
+        session: workingSession,
+        toolCall: toolCall,
       );
       final result = await _executeSingleToolCall(
         sessionId: workingSession.id,
@@ -5962,17 +5958,11 @@ class AiSessionController extends ChangeNotifier {
           'tool_execution_catalog_refreshed loaded_runtime_tools=${loadedToolNames.length}',
         );
       }
-      await _safeRunUserHook(
-        event: HookEvent.postToolUse,
-        sessionId: workingSession.id,
-        payload: <String, Object?>{
-          'tool_name': toolCall.name,
-          'status': result.status.storageValue,
-          'duration_ms': result.durationMs,
-        },
+      workingSession = await _runUserPostToolUseHook(
+        session: workingSession,
+        toolCall: toolCall,
+        result: result,
       );
-      // Re-read session since _safeRunUserHook may have committed new messages.
-      workingSession = _sessionById(workingSession.id) ?? workingSession;
       if (result.status == BashToolExecutionStatus.cancelled ||
           _isStopRequestedForSession(workingSession.id)) {
         return _commitCancelledPendingToolCalls(workingSession);
@@ -6034,6 +6024,12 @@ class AiSessionController extends ChangeNotifier {
         'Failed to persist the running tool-call state.',
       );
       return null;
+    }
+    for (final state in runningStates) {
+      workingSession = await _runUserPreToolUseHook(
+        session: workingSession,
+        toolCall: state.toolCall,
+      );
     }
     final readFilePaths = _readFileHistory(workingSession);
     final concurrencyLimit = (_latestRuntimeContext?.maxConcurrentTools ?? 8)
@@ -6166,7 +6162,52 @@ class AiSessionController extends ChangeNotifier {
         result: result,
       );
     }
+    for (var index = 0; index < runningStates.length; index++) {
+      workingSession = await _runUserPostToolUseHook(
+        session: workingSession,
+        toolCall: runningStates[index].toolCall,
+        result: results[index],
+      );
+    }
     return workingSession;
+  }
+
+  Future<AiSession> _runUserPreToolUseHook({
+    required AiSession session,
+    required AiToolCall toolCall,
+  }) async {
+    await _safeRunUserHook(
+      event: HookEvent.preToolUse,
+      sessionId: session.id,
+      payload: <String, Object?>{
+        'tool_call_id': toolCall.id,
+        'tool_name': toolCall.name,
+        'tool_arguments': toolCall.arguments,
+      },
+    );
+    return _sessionById(session.id) ?? session;
+  }
+
+  Future<AiSession> _runUserPostToolUseHook({
+    required AiSession session,
+    required AiToolCall toolCall,
+    required AiToolExecutionResult result,
+  }) async {
+    await _safeRunUserHook(
+      event: HookEvent.postToolUse,
+      sessionId: session.id,
+      payload: <String, Object?>{
+        'tool_call_id': toolCall.id,
+        'tool_name': toolCall.name,
+        'tool_arguments': toolCall.arguments,
+        'status': result.status.storageValue,
+        'duration_ms': result.durationMs,
+        'command': result.command,
+        'working_directory': result.workingDirectory,
+        if (result.exitCode != null) 'exit_code': result.exitCode,
+      },
+    );
+    return _sessionById(session.id) ?? session;
   }
 
   /// 2026-05-04 — When a `ToolSearch` invocation succeeds it stamps the

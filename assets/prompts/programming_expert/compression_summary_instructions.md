@@ -14,7 +14,7 @@
 - **Approval Gates**：计划 / 映射 / 改造等用户确认状态；保留原文确认词。
 - **Environment**：工作目录、构建命令、运行时 / SDK / 工具版本。
 - **Tool Outcomes**：影响后续动作的失败、拒绝、超时、验证结果。
-- **Build & Test**：命令、退出码、已知失败。
+- **Build & Test**：命令、退出码、关键输出、已知失败、`Task verify` 的 verdict。
 - **Git State**：分支与未提交文件清单，不展开 diff。
 - **Context Gap**：若 payload 标记有被丢弃消息，记录缺口范围、数量和风险。
 - **Resource Recovery**：保留 `Resource Recovery Manifest` 中可重载的文件 / URL 锚点。

@@ -23,10 +23,13 @@ void main() {
       expect(developer, contains('`Edit`：单点替换'));
       expect(developer, contains('ToolSearch'));
       expect(developer, contains('select:<exact_name>'));
+      expect(developer, contains('`verify` 子代理规则'));
+      expect(developer, contains('VERDICT: PASS'));
       expect(developer, contains('tool_output_persisted_path'));
       expect(developer, contains('tool_output_recovery_hint'));
       expect(contextRecovery, contains('tool_output_truncated'));
       expect(contextRecovery, contains('tool_output_persisted_path'));
+      expect(contextRecovery, contains('Task verify'));
     });
   });
 }
