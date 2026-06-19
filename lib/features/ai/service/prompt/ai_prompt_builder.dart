@@ -4408,6 +4408,7 @@ $content
     final lines = <String>[
       '[write_result] ${toolName.isEmpty ? 'Tool' : toolName}',
       if (status.isNotEmpty) 'status: $status',
+      ..._writeConfirmationSummaryLines(metadata),
       if (mutationKind.isNotEmpty) 'mutation: $mutationKind',
       if (targetPaths.isNotEmpty) 'targets: ${targetPaths.join(', ')}',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
@@ -4470,12 +4471,31 @@ $content
       '[old_tool_result_cleared] ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
       if (status.isNotEmpty) 'status: $status',
+      ..._writeConfirmationSummaryLines(metadata),
       if (targetPaths.isNotEmpty) 'targets: ${targetPaths.join(', ')}',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
       if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
       'note: Older consumed tool result content was cleared from prompt history. Re-run the tool or read local files if exact output is needed.',
     ];
     return lines.join('\n');
+  }
+
+  List<String> _writeConfirmationSummaryLines(Map<String, Object?> metadata) {
+    final decision = '${metadata['write_confirmation_decision'] ?? ''}'.trim();
+    if (decision.isEmpty) return const <String>[];
+    final lines = <String>['write_confirmation_decision: $decision'];
+    for (final key in const <String>[
+      'write_confirmation_rejected',
+      'write_confirmation_dismissed',
+      'write_confirmation_timed_out',
+      'write_confirmation_cancelled',
+      'write_confirmation_missing_callback',
+    ]) {
+      if (metadata[key] == true) {
+        lines.add('$key: true');
+      }
+    }
+    return lines;
   }
 
   /// 2026-05-23 — 压缩前补做微压缩：为 [messages] 中已被消费的旧工具结果

@@ -72,6 +72,70 @@ void main() {
         'plan_mode_planning_with_exit_allowed',
       );
     });
+
+    test('preserves write confirmation decision in compressed transcript', () {
+      final now = DateTime.utc(2026, 6, 19, 8);
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'u1',
+          content: 'Run the write command',
+          createdAt: now,
+        ),
+        AiSessionMessage.toolResult(
+          id: 't1',
+          content:
+              'status: rejected\n'
+              'write_confirmation_decision: dismissed\n'
+              'write_confirmation_dismissed: true',
+          createdAt: now.add(const Duration(seconds: 1)),
+          metadata: const <String, Object?>{
+            'tool_name': 'Bash',
+            'tool_execution_status': 'rejected',
+            'tool_execution_is_write_command': true,
+            'file_mutation_kind': 'bash_write',
+            'tool_execution_working_directory': '/tmp/project',
+            'tool_execution_write_analysis_reason': 'mutating command touch',
+            'tool_execution_result':
+                'status: rejected\n'
+                'write_confirmation_decision: dismissed\n'
+                'write_confirmation_dismissed: true',
+            'write_confirmation_decision': 'dismissed',
+            'write_confirmation_dismissed': true,
+          },
+        ),
+      ];
+      final session = AiSession(
+        id: 'session-1',
+        title: 'Write confirmation session',
+        templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+        templateName: '编程专家',
+        templateIconName: 'code_rounded',
+        templateInternalVersion: 'test',
+        createdAt: now,
+        updatedAt: now,
+        messages: messages,
+        environment: _testEnvironment,
+        statistics: const AiSessionStatistics.initial(),
+        recentErrors: const <AiSessionErrorRecord>[],
+      );
+
+      final turns = const AiPromptBuilder().buildCompressionPrompt(
+        templateBundle: _testBundle,
+        template: _testTemplate,
+        session: session,
+        runtimeContext: _testRuntimeContext,
+        messagesToCompress: messages,
+        previousCompressionPoint: null,
+      );
+
+      final content = turns.last.content;
+      expect(content, contains('[write_result] Bash'));
+      expect(content, contains('status: rejected'));
+      expect(content, contains('write_confirmation_decision: dismissed'));
+      expect(content, contains('write_confirmation_dismissed: true'));
+      expect(content, contains('mutation: bash_write'));
+      expect(content, contains('reason: mutating command touch'));
+    });
   });
 }
 
