@@ -562,7 +562,12 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 if (_fileMutationPaths(message).isNotEmpty &&
                     _toolExecutionStatus(message) == 'success') ...[
                   const SizedBox(height: 10),
-                  _FileMutationCard(message: message),
+                  _FileMutationCard(
+                    key: ValueKey<String>(
+                      'file-mutation-${message.id}-${message.metadata['tool_call_id'] ?? ''}',
+                    ),
+                    message: message,
+                  ),
                 ],
               ],
             ),

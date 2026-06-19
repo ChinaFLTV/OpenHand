@@ -42,7 +42,7 @@ List<String> _fileMutationPaths(AiSessionMessage message) {
 /// - 全程使用 M3 expressive 配色；动画走 `MediaQuery.disableAnimationsOf`
 ///   降级。
 class _FileMutationCard extends StatefulWidget {
-  const _FileMutationCard({required this.message});
+  const _FileMutationCard({super.key, required this.message});
 
   final AiSessionMessage message;
 
@@ -60,12 +60,17 @@ class _FileMutationCard extends StatefulWidget {
 }
 
 class _FileMutationCardState extends State<_FileMutationCard> {
-  final Set<String> _expandedRecordIds = <String>{};
+  static const int _kExpansionStateCacheLimit = 500;
+  static final Map<String, Set<String>> _expandedRecordIdsByScope =
+      <String, Set<String>>{};
+
+  Set<String> _expandedRecordIds = <String>{};
   final Set<String> _busyRecordIds = <String>{};
   final ValueNotifier<int> _pulseSignal = ValueNotifier<int>(0);
   Future<List<FileMutationView>>? _viewsFuture;
   String? _lastSessionId;
   String? _lastToolCallId;
+  String? _expansionScopeKey;
   // 批量「全部撤销」并发执行 + 进度提示。
   int _bulkUndoTotal = 0;
   int _bulkUndoDone = 0;
@@ -80,6 +85,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
 
   @override
   void dispose() {
+    _rememberExpansionState();
     _pulseSignal.dispose();
     super.dispose();
   }
@@ -105,10 +111,51 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     );
   }
 
+  String _buildExpansionScopeKey({
+    required String sessionId,
+    required String toolCallId,
+  }) {
+    final scopedSessionId = sessionId.trim().isEmpty ? '_' : sessionId.trim();
+    final scopedToolCallId = toolCallId.trim().isEmpty
+        ? widget.message.id
+        : toolCallId.trim();
+    return '$scopedSessionId::$scopedToolCallId::${widget.message.id}';
+  }
+
+  void _bindExpansionScope({
+    required String sessionId,
+    required String toolCallId,
+  }) {
+    final nextKey = _buildExpansionScopeKey(
+      sessionId: sessionId,
+      toolCallId: toolCallId,
+    );
+    if (_expansionScopeKey == nextKey) return;
+    _rememberExpansionState();
+    _expansionScopeKey = nextKey;
+    final cached = _expandedRecordIdsByScope[nextKey];
+    _expandedRecordIds = cached == null ? <String>{} : Set<String>.from(cached);
+  }
+
+  void _rememberExpansionState() {
+    final key = _expansionScopeKey;
+    if (key == null || key.isEmpty) return;
+    _expandedRecordIdsByScope.remove(key);
+    if (_expandedRecordIds.isNotEmpty) {
+      _expandedRecordIdsByScope[key] = Set<String>.unmodifiable(
+        _expandedRecordIds,
+      );
+    }
+    while (_expandedRecordIdsByScope.length > _kExpansionStateCacheLimit) {
+      _expandedRecordIdsByScope.remove(_expandedRecordIdsByScope.keys.first);
+    }
+  }
+
   void _ensureFutureBound() {
     final ctrl = _ctrl(context);
     final sessionId = ctrl.currentSession?.id ?? '';
     final toolCallId = _toolCallId;
+    _bindExpansionScope(sessionId: sessionId, toolCallId: toolCallId);
     if (_viewsFuture == null ||
         sessionId != _lastSessionId ||
         toolCallId != _lastToolCallId) {
@@ -358,11 +405,13 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   }
 
   void _toggleExpand(String recordId) {
+    _markToolCardInteractiveTap(context);
     setState(() {
       if (!_expandedRecordIds.add(recordId)) {
         _expandedRecordIds.remove(recordId);
       }
     });
+    _rememberExpansionState();
   }
 
   @override
@@ -542,7 +591,10 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                   )!.fileMutationRevealLedger,
                   waitDuration: const Duration(milliseconds: 600),
                   child: InkWell(
-                    onTap: _revealLedgerFile,
+                    onTap: () {
+                      _markToolCardInteractiveTap(context);
+                      unawaited(_revealLedgerFile());
+                    },
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
@@ -788,7 +840,10 @@ class _IconActionButton extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         borderRadius: _borderRadius999,
-        onTap: onTap,
+        onTap: () {
+          _markToolCardInteractiveTap(context);
+          onTap();
+        },
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Icon(icon, size: 16, color: cs.onSurfaceVariant),
@@ -1002,10 +1057,20 @@ class _FileMutationCardRow extends StatelessWidget {
               },
               child: InkWell(
                 onTap: onToggleExpand,
-                onDoubleTap: onOpenLegacyDialog,
-                onLongPress: () => _showRowContextMenu(context),
-                onSecondaryTapDown: (d) =>
+                onDoubleTap: () {
+                  _markToolCardInteractiveTap(context);
+                  onOpenLegacyDialog();
+                },
+                onLongPress: () {
+                  _markToolCardInteractiveTap(context);
+                  unawaited(_showRowContextMenu(context));
+                },
+                onSecondaryTapDown: (d) {
+                  _markToolCardInteractiveTap(context);
+                  unawaited(
                     _showRowContextMenu(context, position: d.globalPosition),
+                  );
+                },
                 // row hover 背景轻微高亮，让指针落点更清晰。
                 hoverColor: cs.primary.withValues(alpha: 0.05),
                 splashColor: cs.primary.withValues(alpha: 0.10),
@@ -1041,14 +1106,24 @@ class _FileMutationCardRow extends StatelessWidget {
                             waitDuration: const Duration(milliseconds: 500),
                             child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
-                              onSecondaryTap: () => _copyPathToClipboard(
-                                context,
-                                view.record.filePath,
-                              ),
-                              onLongPress: () => _copyPathToClipboard(
-                                context,
-                                view.record.filePath,
-                              ),
+                              onSecondaryTap: () {
+                                _markToolCardInteractiveTap(context);
+                                unawaited(
+                                  _copyPathToClipboard(
+                                    context,
+                                    view.record.filePath,
+                                  ),
+                                );
+                              },
+                              onLongPress: () {
+                                _markToolCardInteractiveTap(context);
+                                unawaited(
+                                  _copyPathToClipboard(
+                                    context,
+                                    view.record.filePath,
+                                  ),
+                                );
+                              },
                               child: Text(
                                 _FileMutationCard._shortenFilePath(
                                   view.record.filePath,
