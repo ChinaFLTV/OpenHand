@@ -201,6 +201,7 @@ void main() {
       final required = parameters?['required'];
 
       expect(definition, isNotNull);
+      expect(catalog.find('Agent')?.builtinKind, AiBuiltinToolKind.task);
       if (required is List) {
         expect(required, containsAll(<String>['description', 'prompt']));
         expect(required, isNot(contains('subagent_type')));
@@ -352,6 +353,82 @@ void main() {
       expect(result.metadata['routed_from_tool'], 'Bash');
       expect(result.metadata['routed_to_tool'], 'BashBackground');
       expect(result.metadata['bg_handle'], isA<String>());
+    });
+
+    test('rejects unsupported Claude Agent background parameters', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(runtime.dispose);
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+
+      final result = await runtime.execute(
+        sessionId: 'runtime-agent-unsupported-params-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-agent-1',
+          name: 'Agent',
+          arguments: jsonEncode(<String, Object?>{
+            'description': 'Inspect behavior',
+            'prompt': 'Inspect behavior and report.',
+            'run_in_background': true,
+            'isolation': 'worktree',
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.invalidArguments);
+      expect(result.command, 'Agent');
+      expect(result.stderr, contains('Unsupported Claude Agent parameter'));
+      expect(result.stderr, contains('run_in_background'));
+      expect(result.stderr, contains('isolation'));
+    });
+
+    test('executes Agent alias with supported Task arguments', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(runtime.dispose);
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+
+      final result = await runtime.execute(
+        sessionId: 'runtime-agent-alias-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-agent-2',
+          name: 'Agent',
+          arguments: jsonEncode(<String, Object?>{
+            'description': 'Inspect behavior',
+            'prompt': 'Inspect behavior and report.',
+            'subagent_type': 'research',
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.command, 'Task Inspect behavior');
+      expect(result.metadata['subagent_type'], 'research');
+      expect(result.metadata['subagent_terminal_status'], 'completed');
     });
 
     test(

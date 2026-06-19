@@ -80,6 +80,8 @@
 
 允许值：`general-purpose` / `research` / `verify` / `summarize` / `advice`。计划模式获得执行批准前必须显式使用 `research` / `summarize` / `advice`；不要省略类型。不要把类型写进 description；完整要求放进 prompt。不要让子任务再调用 `Task` 或 `ExitPlanMode`。子代理工具目录受限，写类 Bash 会被拒绝；父代理负责实际编辑、todo、计划审批和弹窗交互。
 
+Claude 规范名 `Agent` 会兼容路由到 `Task`；新调用仍优先使用当前工具目录中的规范名。`run_in_background`、`isolation`、`mode`、`name`、`team_name`、`model`、`cwd` 等 Claude Agent 扩展参数在 OpenHand 中不支持，传入会被拒绝，不能假定已后台运行或创建 worktree。
+
 `verify` 子代理规则：
 - 只验证，不修改项目，不提交，不安装依赖。
 - 必须运行命令或可观察检查；读代码不是验证。

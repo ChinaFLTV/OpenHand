@@ -23,6 +23,15 @@ class AiTaskTool extends AiTool {
   static const String _subagentStartEvent = 'SubagentStart';
   static const String _subagentStopEvent = 'SubagentStop';
   static const String defaultSubagentType = 'general-purpose';
+  static const Set<String> _unsupportedClaudeAgentParameterKeys = <String>{
+    'run_in_background',
+    'model',
+    'name',
+    'team_name',
+    'mode',
+    'isolation',
+    'cwd',
+  };
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
 
   final AiChatClient _backgroundChatClient;
@@ -100,16 +109,26 @@ class AiTaskTool extends AiTool {
     final description = '${args['description'] ?? ''}'.trim();
     final prompt = '${args['prompt'] ?? ''}'.trim();
     final subagentType = requestedSubagentTypeFromArguments(args);
+    final unsupportedClaudeAgentParameters = _unsupportedClaudeAgentParameters(
+      args,
+    );
+    if (unsupportedClaudeAgentParameters.isNotEmpty) {
+      return AiToolUtils.invalidResult(
+        _displayToolName(context),
+        'Unsupported Claude Agent parameter(s): ${unsupportedClaudeAgentParameters.join(', ')}. '
+        'OpenHand Task currently runs isolated foreground sub-agents only; omit these fields or use the supported subagent_type profiles.',
+      );
+    }
     if (description.isEmpty || prompt.isEmpty) {
       return AiToolUtils.invalidResult(
-        _toolName,
-        'Task requires non-empty description and prompt.',
+        _displayToolName(context),
+        '${_displayToolName(context)} requires non-empty description and prompt.',
       );
     }
     final canonicalSubagentType = resolveSubagentTypeFromArguments(args);
     if (canonicalSubagentType == null) {
       return AiToolUtils.invalidResult(
-        _toolName,
+        _displayToolName(context),
         'Unsupported subagent_type "$subagentType". Available types: ${subagentDescriptions.keys.join(', ')}',
       );
     }
@@ -467,6 +486,36 @@ class AiTaskTool extends AiTool {
   AiTaskTool withExecutor(AiSubToolExecutor executor) {
     _subToolExecutor = executor;
     return this;
+  }
+
+  List<String> _unsupportedClaudeAgentParameters(Map<String, Object?> args) {
+    final result = <String>[];
+    for (final key in _unsupportedClaudeAgentParameterKeys) {
+      if (!args.containsKey(key)) continue;
+      final rawValue = args[key];
+      if (rawValue == null) continue;
+      if (rawValue is String && rawValue.trim().isEmpty) continue;
+      result.add(key);
+    }
+    return result;
+  }
+
+  String _displayToolName(AiToolExecutionContext context) {
+    return _normalizedToolCallName(context.toolCall.name) == 'agent'
+        ? 'Agent'
+        : _toolName;
+  }
+
+  String _normalizedToolCallName(String value) {
+    final buffer = StringBuffer();
+    for (final code in value.codeUnits) {
+      if ((code >= 0x30 && code <= 0x39) ||
+          (code >= 0x41 && code <= 0x5A) ||
+          (code >= 0x61 && code <= 0x7A)) {
+        buffer.writeCharCode(code | 0x20);
+      }
+    }
+    return buffer.toString();
   }
 
   bool _isAllowedSubagentTool(

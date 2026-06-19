@@ -97,6 +97,7 @@ class AiResolvedToolCatalog {
 
   static AiBuiltinToolKind? _builtinAliasKind(String normalizedName) {
     return switch (normalizedName) {
+      'agent' => AiBuiltinToolKind.task,
       'bashoutputtool' || 'agentoutputtool' => AiBuiltinToolKind.taskOutput,
       'killshell' => AiBuiltinToolKind.taskStop,
       _ => null,
