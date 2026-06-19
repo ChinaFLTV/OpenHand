@@ -6,6 +6,7 @@ import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
 import 'package:openhand/features/ai/tools/ai_tool_execution_context.dart';
+import 'package:openhand/features/ai/tools/ai_tool_utils.dart';
 import 'package:openhand/features/ai/tools/fs/ai_notebook_edit_tool.dart';
 
 void main() {
@@ -81,6 +82,59 @@ void main() {
       final cells = (updated as Map<String, Object?>)['cells'] as List;
       expect(cells, hasLength(1));
       expect((cells.single as Map)['id'], 'keep');
+    });
+
+    test('rejects oversized notebooks before reading content', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_notebook_edit_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final notebook = File('${tempDir.path}/large.ipynb');
+      await notebook.create();
+      final handle = await notebook.open(mode: FileMode.write);
+      try {
+        await handle.truncate(AiToolUtils.maxEditableTextFileBytes + 1);
+      } finally {
+        await handle.close();
+      }
+
+      final result = await AiNotebookEditTool().execute(
+        AiToolExecutionContext(
+          sessionId: 'test-session',
+          catalog: const AiResolvedToolCatalog(
+            definitions: <AiToolDefinition>[],
+            toolsByName: <String, AiResolvedTool>{},
+          ),
+          toolCall: AiToolCall(
+            id: 'notebook-large',
+            name: 'NotebookEdit',
+            arguments: jsonEncode(<String, Object?>{
+              'notebook_path': notebook.path,
+              'cell_id': 'cell-1',
+              'new_source': 'print(1)\n',
+            }),
+          ),
+          decodedArguments: <String, Object?>{
+            'notebook_path': notebook.path,
+            'cell_id': 'cell-1',
+            'new_source': 'print(1)\n',
+          },
+          model: _testModel,
+          previouslyReadFiles: <String>{notebook.path},
+          denyCommandRules: const <Never>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: null,
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('File is too large to edit'));
+      expect(await notebook.length(), AiToolUtils.maxEditableTextFileBytes + 1);
     });
   });
 }

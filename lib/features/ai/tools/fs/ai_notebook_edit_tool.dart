@@ -97,7 +97,10 @@ class AiNotebookEditTool extends AiTool {
 
     late final Object? decoded;
     try {
-      decoded = jsonDecode(await file.readAsString());
+      final editableText = await AiToolUtils.readEditableTextFile(file);
+      decoded = jsonDecode(editableText.rawContent);
+    } on AiEditableTextFileTooLargeException catch (error) {
+      return AiToolUtils.invalidResult('NotebookEdit', error.message);
     } on FormatException catch (error) {
       return AiToolUtils.invalidResult('NotebookEdit', error.message);
     }
