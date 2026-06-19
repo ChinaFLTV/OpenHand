@@ -2578,9 +2578,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
                     child: SizedBox(
                       width: metrics.contentWidth,
                       height: metrics.contentHeight,
-                      child: _buildPreviewImage(
-                        context,
-                        Size(metrics.contentWidth, metrics.contentHeight),
+                      child: OpenHandInteractiveImagePreview(
+                        child: KeyedSubtree(
+                          key: ValueKey<String>(_imageSourceSignature),
+                          child: _buildPreviewImage(
+                            context,
+                            Size(metrics.contentWidth, metrics.contentHeight),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -2591,6 +2596,14 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
         ),
       ),
     );
+  }
+
+  String get _imageSourceSignature {
+    final filePath = widget.filePath;
+    if (filePath != null) return 'file:$filePath';
+    final imageUri = widget.imageUri;
+    if (imageUri != null) return 'network:$imageUri';
+    return 'empty:${widget.title}';
   }
 
   void _scheduleHeaderHeightSync() {

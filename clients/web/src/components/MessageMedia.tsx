@@ -65,6 +65,10 @@ const PREVIEW_HEADER_ESTIMATE = 66;
 const PREVIEW_MIN_PANEL_WIDTH = 360;
 const PREVIEW_FALLBACK_IMAGE_SIDE = 320;
 const PREVIEW_FALLBACK_VIDEO_RATIO = 16 / 9;
+const IMAGE_PREVIEW_MIN_SCALE = 1;
+const IMAGE_PREVIEW_MAX_SCALE = 6;
+const IMAGE_PREVIEW_WHEEL_SENSITIVITY = 0.0025;
+const IMAGE_PREVIEW_TRANSITION = 'transform 120ms cubic-bezier(0.2, 0, 0, 1)';
 const MARKDOWN_MEDIA_REF = /(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)/g;
 const HTML_MEDIA_SRC = /<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const INLINE_MEDIA_DIR = /(^|[\\/])openhand_media([\\/]|$)/i;
@@ -558,6 +562,315 @@ function MediaKindIcon({ kind, size = 16 }: { kind: MediaKind; size?: number }) 
   }
 }
 
+interface ImagePreviewTransform {
+  scale: number;
+  x: number;
+  y: number;
+}
+
+interface ImagePreviewPoint {
+  x: number;
+  y: number;
+}
+
+interface ImagePreviewDragStart {
+  pointerId: number;
+  x: number;
+  y: number;
+  transform: ImagePreviewTransform;
+}
+
+interface ImagePreviewPinchStart {
+  distance: number;
+  scale: number;
+}
+
+interface InteractiveImagePreviewProps {
+  item: MediaItem;
+  url: string;
+  style: JSX.CSSProperties;
+  onNaturalSize: (width: number, height: number) => void;
+}
+
+function clampPreviewTransform(
+  transform: ImagePreviewTransform,
+  viewport: HTMLElement,
+): ImagePreviewTransform {
+  const rect = viewport.getBoundingClientRect();
+  const width = Math.max(1, rect.width || viewport.clientWidth || 1);
+  const height = Math.max(1, rect.height || viewport.clientHeight || 1);
+  const scale = clampNumber(
+    transform.scale,
+    IMAGE_PREVIEW_MIN_SCALE,
+    IMAGE_PREVIEW_MAX_SCALE,
+  );
+  const maxX = Math.max(0, (width * scale - width) / 2);
+  const maxY = Math.max(0, (height * scale - height) / 2);
+  return {
+    scale,
+    x: clampNumber(transform.x, -maxX, maxX),
+    y: clampNumber(transform.y, -maxY, maxY),
+  };
+}
+
+function pointerCenterInViewport(
+  viewport: HTMLElement,
+  clientX: number,
+  clientY: number,
+): ImagePreviewPoint {
+  const rect = viewport.getBoundingClientRect();
+  return {
+    x: clientX - rect.left - rect.width / 2,
+    y: clientY - rect.top - rect.height / 2,
+  };
+}
+
+function pointerDistance(points: ImagePreviewPoint[]): number {
+  if (points.length < 2) return 0;
+  return Math.hypot(points[0]!.x - points[1]!.x, points[0]!.y - points[1]!.y);
+}
+
+function InteractiveImagePreview({
+  item,
+  url,
+  style,
+  onNaturalSize,
+}: InteractiveImagePreviewProps) {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const transformRef = useRef<ImagePreviewTransform>({ scale: 1, x: 0, y: 0 });
+  const pointersRef = useRef<Map<number, ImagePreviewPoint>>(new Map());
+  const dragStartRef = useRef<ImagePreviewDragStart | null>(null);
+  const pinchStartRef = useRef<ImagePreviewPinchStart | null>(null);
+
+  const applyTransform = useCallback((
+    next: ImagePreviewTransform,
+    options: { animated?: boolean; dragging?: boolean } = {},
+  ) => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+    const clamped = clampPreviewTransform(next, viewport);
+    transformRef.current = clamped;
+    content.style.transition = options.animated ? IMAGE_PREVIEW_TRANSITION : 'none';
+    content.style.transform = `translate3d(${clamped.x}px, ${clamped.y}px, 0) scale(${clamped.scale})`;
+    viewport.style.cursor = options.dragging
+      ? 'grabbing'
+      : clamped.scale > IMAGE_PREVIEW_MIN_SCALE + 0.01
+        ? 'grab'
+        : 'zoom-in';
+  }, []);
+
+  const resetTransform = useCallback((animated = true) => {
+    applyTransform({ scale: 1, x: 0, y: 0 }, { animated });
+  }, [applyTransform]);
+
+  useEffect(() => {
+    resetTransform(true);
+  }, [item.path, resetTransform, style.height, style.width, url]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return undefined;
+    const pointers = pointersRef.current;
+
+    const syncSinglePointerDragStart = (): void => {
+      if (pointers.size !== 1) {
+        dragStartRef.current = null;
+        return;
+      }
+      const entry = Array.from(pointers.entries())[0];
+      if (!entry) return;
+      dragStartRef.current = {
+        pointerId: entry[0],
+        x: entry[1].x,
+        y: entry[1].y,
+        transform: { ...transformRef.current },
+      };
+    };
+
+    const zoomAt = (
+      nextScale: number,
+      clientX: number,
+      clientY: number,
+    ): void => {
+      const current = transformRef.current;
+      const scale = clampNumber(
+        nextScale,
+        IMAGE_PREVIEW_MIN_SCALE,
+        IMAGE_PREVIEW_MAX_SCALE,
+      );
+      const ratio = scale / Math.max(IMAGE_PREVIEW_MIN_SCALE, current.scale);
+      const center = pointerCenterInViewport(viewport, clientX, clientY);
+      applyTransform({
+        scale,
+        x: center.x - (center.x - current.x) * ratio,
+        y: center.y - (center.y - current.y) * ratio,
+      });
+    };
+
+    const startPinchIfReady = (): void => {
+      if (pointers.size !== 2) {
+        pinchStartRef.current = null;
+        return;
+      }
+      const distance = pointerDistance(Array.from(pointers.values()));
+      pinchStartRef.current = {
+        distance: Math.max(1, distance),
+        scale: transformRef.current.scale,
+      };
+    };
+
+    const handlePointerDown = (event: PointerEvent): void => {
+      if (event.button != null && event.button !== 0) return;
+      event.preventDefault();
+      try {
+        viewport.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture can fail if the pointer has already been cancelled.
+      }
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size === 2) {
+        dragStartRef.current = null;
+        startPinchIfReady();
+        applyTransform(transformRef.current, { dragging: true });
+        return;
+      }
+      if (pointers.size === 1) {
+        syncSinglePointerDragStart();
+        applyTransform(transformRef.current, {
+          dragging: transformRef.current.scale > IMAGE_PREVIEW_MIN_SCALE + 0.01,
+        });
+      }
+    };
+
+    const handlePointerMove = (event: PointerEvent): void => {
+      if (!pointers.has(event.pointerId)) return;
+      event.preventDefault();
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.size === 2) {
+        const pinchStart = pinchStartRef.current;
+        const points = Array.from(pointers.values());
+        if (pinchStart != null) {
+          const distance = pointerDistance(points);
+          const centerX = (points[0]!.x + points[1]!.x) / 2;
+          const centerY = (points[0]!.y + points[1]!.y) / 2;
+          zoomAt(
+            pinchStart.scale * (distance / pinchStart.distance),
+            centerX,
+            centerY,
+          );
+        }
+        return;
+      }
+      const dragStart = dragStartRef.current;
+      if (pointers.size !== 1 || dragStart == null || dragStart.pointerId !== event.pointerId) {
+        return;
+      }
+      applyTransform({
+        scale: dragStart.transform.scale,
+        x: dragStart.transform.x + event.clientX - dragStart.x,
+        y: dragStart.transform.y + event.clientY - dragStart.y,
+      }, { dragging: dragStart.transform.scale > IMAGE_PREVIEW_MIN_SCALE + 0.01 });
+    };
+
+    const handlePointerEnd = (event: PointerEvent): void => {
+      pointers.delete(event.pointerId);
+      try {
+        viewport.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released by the browser.
+      }
+      if (pointers.size < 2) {
+        pinchStartRef.current = null;
+      }
+      if (pointers.size === 1) {
+        syncSinglePointerDragStart();
+      } else if (pointers.size === 0) {
+        dragStartRef.current = null;
+        applyTransform(transformRef.current, { animated: true });
+      }
+    };
+
+    const handleWheel = (event: WheelEvent): void => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+      const current = transformRef.current;
+      const delta = -event.deltaY * IMAGE_PREVIEW_WHEEL_SENSITIVITY;
+      zoomAt(current.scale * (1 + delta), event.clientX, event.clientY);
+    };
+
+    const handleDoubleClick = (event: MouseEvent): void => {
+      event.preventDefault();
+      resetTransform(true);
+    };
+
+    viewport.addEventListener('pointerdown', handlePointerDown);
+    viewport.addEventListener('pointermove', handlePointerMove);
+    viewport.addEventListener('pointerup', handlePointerEnd);
+    viewport.addEventListener('pointercancel', handlePointerEnd);
+    viewport.addEventListener('lostpointercapture', handlePointerEnd);
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    viewport.addEventListener('dblclick', handleDoubleClick);
+    return () => {
+      viewport.removeEventListener('pointerdown', handlePointerDown);
+      viewport.removeEventListener('pointermove', handlePointerMove);
+      viewport.removeEventListener('pointerup', handlePointerEnd);
+      viewport.removeEventListener('pointercancel', handlePointerEnd);
+      viewport.removeEventListener('lostpointercapture', handlePointerEnd);
+      viewport.removeEventListener('wheel', handleWheel);
+      viewport.removeEventListener('dblclick', handleDoubleClick);
+      pointers.clear();
+      dragStartRef.current = null;
+      pinchStartRef.current = null;
+    };
+  }, [applyTransform, resetTransform]);
+
+  return (
+    <div
+      ref={viewportRef}
+      aria-label={item.name}
+      style={{
+        ...style,
+        overflow: 'hidden',
+        touchAction: 'none',
+        userSelect: 'none',
+        cursor: 'zoom-in',
+      }}
+    >
+      <div
+        ref={contentRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          transform: 'translate3d(0, 0, 0) scale(1)',
+          transformOrigin: 'center center',
+          willChange: 'transform',
+        }}
+      >
+        <img
+          src={url}
+          alt={item.name}
+          decoding="async"
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
+          onLoad={(event) => {
+            const img = event.currentTarget;
+            onNaturalSize(img.naturalWidth, img.naturalHeight);
+          }}
+          style={{
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function attachmentLabel(item: MediaItem): string {
   return `${t('message.context.kind.attachment', '附件')} · ${mediaKindLabel(item.kind)}`;
 }
@@ -807,15 +1120,11 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
           style={stageStyle}
         >
           {item.kind === 'image' ? (
-            <img
-              src={url}
-              alt={item.name}
-              decoding="async"
-              onLoad={(event) => {
-                const img = event.currentTarget;
-                rememberNaturalSize(img.naturalWidth, img.naturalHeight);
-              }}
-              style={{ ...mediaBoxStyle, objectFit: 'contain' }}
+            <InteractiveImagePreview
+              item={item}
+              url={url}
+              style={mediaBoxStyle}
+              onNaturalSize={rememberNaturalSize}
             />
           ) : item.kind === 'video' ? (
             <video

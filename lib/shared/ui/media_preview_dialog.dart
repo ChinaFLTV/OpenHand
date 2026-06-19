@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../util/byte_size_format.dart';
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
+import 'interactive_image_preview.dart';
 import 'motion_preference.dart';
 import 'openhand_snack_bar.dart';
 
@@ -294,9 +295,11 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                     width: bodyW,
                     height: bodyH,
                     child: isImage
-                        ? InteractiveViewer(
-                            maxScale: 6,
-                            child: _buildImage(context, Size(bodyW, bodyH)),
+                        ? OpenHandInteractiveImagePreview(
+                            child: KeyedSubtree(
+                              key: ValueKey<String>(_imageSourceSignature),
+                              child: _buildImage(context, Size(bodyW, bodyH)),
+                            ),
                           )
                         : _MediaPlayerSurface(
                             bytes: widget.bytes,
@@ -319,6 +322,18 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         ),
       ),
     );
+  }
+
+  String get _imageSourceSignature {
+    final filePath = widget.filePath;
+    if (filePath != null) return 'file:$filePath';
+    final networkUrl = widget.networkUrl;
+    if (networkUrl != null) return 'network:$networkUrl';
+    final bytes = widget.bytes;
+    if (bytes != null) {
+      return 'bytes:${identityHashCode(bytes)}:${bytes.length}';
+    }
+    return 'empty:${widget.title}';
   }
 
   Future<void> _copyToClipboard(BuildContext context) async {
