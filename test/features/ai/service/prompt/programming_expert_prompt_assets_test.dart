@@ -51,6 +51,7 @@ void main() {
       expect(developer, contains('select:<exact_name>'));
       expect(developer, contains('PDF 可传 Claude 风格 `pages`'));
       expect(developer, contains('会拒绝可能阻塞或无限输出的特殊设备路径'));
+      expect(developer, contains('macOS 截图 AM/PM 空格变体会兜底'));
       expect(developer, contains('超大图片/PDF/notebook 只返回元信息'));
       expect(developer, contains('`verify` 子代理规则'));
       expect(developer, contains('VERDICT: PASS'));

@@ -195,7 +195,7 @@ class AiFileReadRenderer {
     String filePath,
     String extension,
   ) {
-    final decodedImage = img.decodeImage(Uint8List.fromList(bytes));
+    final decodedImage = _tryDecodeImage(bytes);
     final byteSize = bytes.length;
     final buffer = StringBuffer()
       ..writeln('file_type: image')
@@ -218,6 +218,14 @@ class AiFileReadRenderer {
       renderMode: 'image',
       lineAddressable: false,
     );
+  }
+
+  img.Image? _tryDecodeImage(List<int> bytes) {
+    try {
+      return img.decodeImage(Uint8List.fromList(bytes));
+    } catch (_) {
+      return null;
+    }
   }
 
   RenderedReadContent _renderPdf(

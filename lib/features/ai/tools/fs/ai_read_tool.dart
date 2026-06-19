@@ -16,6 +16,7 @@ class AiReadTool extends AiTool {
     : _renderer = renderer ?? const AiFileReadRenderer();
 
   static const int _maxPdfPageRangeCount = 20;
+  static const String _macScreenshotThinSpace = '\u202f';
 
   static const String _unchangedSinceLastReadMessage =
       'File unchanged since last read. The content from the earlier Read tool result in this conversation is still current; refer to that result instead of re-reading.';
@@ -58,16 +59,18 @@ class AiReadTool extends AiTool {
         'Refused to read special device path that may block, never reach EOF, or produce infinite output: $filePath',
       );
     }
-    final file = File(filePath);
-    if (!await file.exists()) {
+    final resolvedFile = await _resolveExistingReadFile(filePath);
+    if (resolvedFile == null) {
       return AiToolUtils.invalidResult(
         'Read',
         'File does not exist: $filePath',
       );
     }
+    final actualFilePath = resolvedFile.filePath;
+    final file = resolvedFile.file;
     final pdfPagesResult = _parsePdfPagesArgument(
       args['pages'],
-      filePath: filePath,
+      filePath: actualFilePath,
     );
     if (pdfPagesResult.error != null) {
       return pdfPagesResult.error!;
@@ -90,17 +93,17 @@ class AiReadTool extends AiTool {
     final effectiveOffset = offset == null || offset <= 1 ? 1 : offset;
     if (fileTracker != null &&
         await fileTracker.isReadResultUnchanged(
-          filePath: filePath,
+          filePath: actualFilePath,
           offset: effectiveOffset,
           limit: limit,
         )) {
       return AiToolUtils.simpleSuccessResult(
-        command: 'Read $filePath',
-        output: '$_unchangedSinceLastReadMessage\npath: $filePath',
+        command: 'Read $actualFilePath',
+        output: '$_unchangedSinceLastReadMessage\npath: $actualFilePath',
         durationMs: startedAt.elapsedMilliseconds,
-        workingDirectory: p.dirname(filePath),
+        workingDirectory: p.dirname(actualFilePath),
         metadata: <String, Object?>{
-          'read_file_path': filePath,
+          ..._pathMetadata(resolvedFile),
           'read_file_unchanged': true,
           'read_file_offset': effectiveOffset,
           'read_file_limit': limit,
@@ -109,7 +112,7 @@ class AiReadTool extends AiTool {
     }
     final renderedRead = await _renderer.render(
       file,
-      filePath,
+      actualFilePath,
       offset: effectiveOffset,
       limit: limit,
       pdfPages: pdfPages,
@@ -118,39 +121,39 @@ class AiReadTool extends AiTool {
 
     if (renderedRead.lineAddressable) {
       await fileTracker?.recordReadResult(
-        filePath: filePath,
+        filePath: actualFilePath,
         offset: effectiveOffset,
         limit: limit,
       );
     } else {
-      await fileTracker?.recordFileRead(filePath);
+      await fileTracker?.recordFileRead(actualFilePath);
     }
 
     if (rawContent.isEmpty && renderedRead.fileEmpty) {
       return AiToolUtils.simpleSuccessResult(
-        command: 'Read $filePath',
-        output: 'File is empty: $filePath',
+        command: 'Read $actualFilePath',
+        output: 'File is empty: $actualFilePath',
         durationMs: startedAt.elapsedMilliseconds,
         metadata: <String, Object?>{
-          'read_file_path': filePath,
+          ..._pathMetadata(resolvedFile),
           'read_file_kind': renderedRead.fileKind,
           'read_render_mode': renderedRead.renderMode,
           'read_file_offset': effectiveOffset,
           'read_file_limit': limit,
           aiHookSystemRemindersMetadataKey: <String>[
-            'Read opened an empty file: $filePath',
+            'Read opened an empty file: $actualFilePath',
           ],
         },
       );
     }
     if (!renderedRead.lineAddressable) {
       return AiToolUtils.simpleSuccessResult(
-        command: 'Read $filePath',
+        command: 'Read $actualFilePath',
         output: rawContent,
         durationMs: startedAt.elapsedMilliseconds,
-        workingDirectory: p.dirname(filePath),
+        workingDirectory: p.dirname(actualFilePath),
         metadata: <String, Object?>{
-          'read_file_path': filePath,
+          ..._pathMetadata(resolvedFile),
           'read_file_kind': renderedRead.fileKind,
           'read_render_mode': renderedRead.renderMode,
           'read_truncated': renderedRead.truncated,
@@ -186,12 +189,12 @@ class AiReadTool extends AiTool {
               })
               .join('\n');
     return AiToolUtils.simpleSuccessResult(
-      command: 'Read $filePath',
+      command: 'Read $actualFilePath',
       output: output,
       durationMs: startedAt.elapsedMilliseconds,
-      workingDirectory: p.dirname(filePath),
+      workingDirectory: p.dirname(actualFilePath),
       metadata: <String, Object?>{
-        'read_file_path': filePath,
+        ..._pathMetadata(resolvedFile),
         'read_file_kind': renderedRead.fileKind,
         'read_render_mode': renderedRead.renderMode,
         'read_truncated': renderedRead.truncated,
@@ -200,11 +203,56 @@ class AiReadTool extends AiTool {
         if (renderedRead.truncated)
           aiHookSystemRemindersMetadataKey: <String>[
             renderedRead.lineRangeApplied
-                ? 'Read returned a bounded file range: $filePath'
-                : 'Read truncated a large file preview: $filePath',
+                ? 'Read returned a bounded file range: $actualFilePath'
+                : 'Read truncated a large file preview: $actualFilePath',
           ],
       },
     );
+  }
+
+  Future<_ResolvedReadFile?> _resolveExistingReadFile(String filePath) async {
+    final file = File(filePath);
+    if (await file.exists()) {
+      return _ResolvedReadFile(file: file, filePath: filePath);
+    }
+    final alternatePath = _alternateMacScreenshotPath(filePath);
+    if (alternatePath == null || alternatePath == filePath) {
+      return null;
+    }
+    final alternateFile = File(alternatePath);
+    if (!await alternateFile.exists()) {
+      return null;
+    }
+    return _ResolvedReadFile(
+      file: alternateFile,
+      filePath: alternatePath,
+      requestedPath: filePath,
+      alternatePathUsed: true,
+    );
+  }
+
+  String? _alternateMacScreenshotPath(String filePath) {
+    final filename = p.basename(filePath);
+    final match = RegExp(
+      r'^(.+)([ \u202f])(AM|PM)(\.png)$',
+      caseSensitive: false,
+    ).firstMatch(filename);
+    if (match == null) return null;
+    final currentSpace = match.group(2);
+    if (currentSpace == null) return null;
+    final alternateSpace = currentSpace == ' ' ? _macScreenshotThinSpace : ' ';
+    final alternateFilename =
+        '${match.group(1)}$alternateSpace${match.group(3)}${match.group(4)}';
+    return p.join(p.dirname(filePath), alternateFilename);
+  }
+
+  Map<String, Object?> _pathMetadata(_ResolvedReadFile resolvedFile) {
+    return <String, Object?>{
+      'read_file_path': resolvedFile.filePath,
+      if (resolvedFile.requestedPath != null)
+        'read_file_requested_path': resolvedFile.requestedPath,
+      if (resolvedFile.alternatePathUsed) 'read_file_alternate_path_used': true,
+    };
   }
 
   List<String> _sliceLines(
@@ -285,6 +333,20 @@ class AiReadTool extends AiTool {
     if (!normalized.startsWith('/proc/')) return false;
     return RegExp(r'/fd/[0-2]$').hasMatch(normalized);
   }
+}
+
+class _ResolvedReadFile {
+  const _ResolvedReadFile({
+    required this.file,
+    required this.filePath,
+    this.requestedPath,
+    this.alternatePathUsed = false,
+  });
+
+  final File file;
+  final String filePath;
+  final String? requestedPath;
+  final bool alternatePathUsed;
 }
 
 class _PdfPagesParseResult {

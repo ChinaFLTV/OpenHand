@@ -61,6 +61,41 @@ void main() {
       }
     });
 
+    test('resolves macOS screenshot thin-space AM PM path variants', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final actualPath =
+          '${tempDir.path}/Screenshot 2026-06-20 at 10.15.30\u202fAM.png';
+      final requestedPath =
+          '${tempDir.path}/Screenshot 2026-06-20 at 10.15.30 AM.png';
+      await File(
+        actualPath,
+      ).writeAsBytes(<int>[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+      final result = await AiReadTool().execute(
+        _context(
+          id: 'read-screenshot-thin-space',
+          filePath: requestedPath,
+          offset: 1,
+          limit: 2,
+          fileTracker: AiFileTrackerService(),
+        ),
+      );
+
+      expect(result.status.storageValue, 'success');
+      expect(result.metadata['read_file_path'], actualPath);
+      expect(result.metadata['read_file_requested_path'], requestedPath);
+      expect(result.metadata['read_file_alternate_path_used'], true);
+      expect(result.stdout, contains('file_type: image'));
+    });
+
     test('returns metadata only for oversized structured files', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'openhand_read_tool_test_',

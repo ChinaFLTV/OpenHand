@@ -2442,6 +2442,7 @@ class AiToolRuntimeService {
       description:
           'Read a local file from disk. Accepts absolute or relative file_path values and resolves them against the working directory. '
           'Refuses special device paths that may block or produce infinite output. '
+          'macOS screenshot paths are retried with regular/thin-space AM/PM variants when the requested path is missing. '
           'Full image/PDF/notebook rendering is bounded; oversized structured files return metadata only.',
       parameters: const <String, Object?>{
         'type': 'object',
