@@ -2229,7 +2229,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String builtinToolTimeoutHelper(int seconds) {
-    return 'Leer = Standard ${seconds}s';
+    return 'Leer = Standard ${seconds}s. Laufzeit-Schutz nur für nebenwirkungsfreie Werkzeuge; Task/Bash/Schreibwerkzeuge nutzen eigene Grenzen.';
   }
 
   @override
@@ -2238,7 +2238,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      'Standardmäßig aus. Wiederholt nur nebenwirkungsfreie Werkzeuge bei echten failed/timed_out-Ergebnissen; keine ungültigen Argumente, abgelehnten Aufrufe, Schreibbefehle, Dateiänderungen, Hintergrundprozesse, Skill-Änderungen oder Speicher-Schreibvorgänge.';
+      'Standardmäßig aus. Wiederholt nur nebenwirkungsfreie Werkzeuge bei echten failed/timed_out-Ergebnissen; keine ungültigen Argumente, abgelehnten Aufrufe, Task-Aufrufe, Schreibbefehle, Dateiänderungen, Hintergrundprozesse, Skill-Änderungen oder Speicher-Schreibvorgänge.';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {

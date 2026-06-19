@@ -907,7 +907,7 @@
       }
     }
   },
-  "builtinToolTimeoutHelper": "Blank = default {seconds}s",
+  "builtinToolTimeoutHelper": "Blank = default {seconds}s. Runtime guard for side-effect-free tools; Task/Bash/write tools use their own limits.",
   "@builtinToolTimeoutHelper": {
     "placeholders": {
       "seconds": {
@@ -916,7 +916,7 @@
     }
   },
   "builtinToolRetryLabel": "Retry on failure / timeout",
-  "builtinToolRetryBody": "Off by default. Only retries side-effect-free tools on real failed/timed_out outcomes; never retries invalid arguments, denied calls, write commands, file edits, background processes, skill changes, or memory writes.",
+  "builtinToolRetryBody": "Off by default. Only retries side-effect-free tools on real failed/timed_out outcomes; never retries invalid arguments, denied calls, Task, write commands, file edits, background processes, skill changes, or memory writes.",
   "builtinToolMaxRetriesLabel": "Max Retries (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {

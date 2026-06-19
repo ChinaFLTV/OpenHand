@@ -907,7 +907,7 @@
       }
     }
   },
-  "builtinToolTimeoutHelper": "空欄＝既定 {seconds} 秒",
+  "builtinToolTimeoutHelper": "空欄＝既定 {seconds} 秒。副作用のないツールの実行時ガードです。Task/Bash/書き込みツールは独自の制限を使います。",
   "@builtinToolTimeoutHelper": {
     "placeholders": {
       "seconds": {
@@ -916,7 +916,7 @@
     }
   },
   "builtinToolRetryLabel": "失敗 / タイムアウト時に再試行",
-  "builtinToolRetryBody": "既定はオフ。副作用のないツールで実際の failed/timed_out の場合のみ再試行します。引数不正、拒否された呼び出し、書き込みコマンド、ファイル編集、バックグラウンドプロセス、スキル変更、メモリ書き込みは再試行しません。",
+  "builtinToolRetryBody": "既定はオフ。副作用のないツールで実際の failed/timed_out の場合のみ再試行します。引数不正、拒否された呼び出し、Task、書き込みコマンド、ファイル編集、バックグラウンドプロセス、スキル変更、メモリ書き込みは再試行しません。",
   "builtinToolMaxRetriesLabel": "最大再試行回数 (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {

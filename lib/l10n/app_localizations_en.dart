@@ -2202,7 +2202,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String builtinToolTimeoutHelper(int seconds) {
-    return 'Blank = default ${seconds}s';
+    return 'Blank = default ${seconds}s. Runtime guard for side-effect-free tools; Task/Bash/write tools use their own limits.';
   }
 
   @override
@@ -2210,7 +2210,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      'Off by default. Only retries side-effect-free tools on real failed/timed_out outcomes; never retries invalid arguments, denied calls, write commands, file edits, background processes, skill changes, or memory writes.';
+      'Off by default. Only retries side-effect-free tools on real failed/timed_out outcomes; never retries invalid arguments, denied calls, Task, write commands, file edits, background processes, skill changes, or memory writes.';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {

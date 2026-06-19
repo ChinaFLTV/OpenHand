@@ -907,7 +907,7 @@
       }
     }
   },
-  "builtinToolTimeoutHelper": "Vide = par défaut {seconds}s",
+  "builtinToolTimeoutHelper": "Vide = par défaut {seconds}s. Garde-fou d’exécution pour les outils sans effet de bord ; Task/Bash/écriture utilisent leurs propres limites.",
   "@builtinToolTimeoutHelper": {
     "placeholders": {
       "seconds": {
@@ -916,7 +916,7 @@
     }
   },
   "builtinToolRetryLabel": "Réessayer en cas d’échec / délai dépassé",
-  "builtinToolRetryBody": "Désactivé par défaut. Ne réessaie que les outils sans effet de bord lors de vrais résultats failed/timed_out ; jamais les arguments invalides, appels refusés, commandes d’écriture, modifications de fichiers, processus en arrière-plan, changements de compétence ou écritures mémoire.",
+  "builtinToolRetryBody": "Désactivé par défaut. Ne réessaie que les outils sans effet de bord lors de vrais résultats failed/timed_out ; jamais les arguments invalides, appels refusés, Task, commandes d’écriture, modifications de fichiers, processus en arrière-plan, changements de compétence ou écritures mémoire.",
   "builtinToolMaxRetriesLabel": "Tentatives max. (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {

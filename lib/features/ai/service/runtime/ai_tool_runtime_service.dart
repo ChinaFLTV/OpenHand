@@ -234,6 +234,7 @@ class AiToolRuntimeService {
 
   static const Set<AiBuiltinToolKind> _nonRetryableSideEffectBuiltinKinds =
       <AiBuiltinToolKind>{
+        AiBuiltinToolKind.task,
         AiBuiltinToolKind.bash,
         AiBuiltinToolKind.bashBackground,
         AiBuiltinToolKind.edit,
@@ -713,9 +714,9 @@ class AiToolRuntimeService {
     late AiToolExecutionResult rawResult;
     // 2026-04-29 — 用户层 timeout / retry 策略包裹真正的 dispatch。
     // 仅当工具来自 builtin 且携带 [builtinConfig] 时启用：
-    //   • timeout: Duration(seconds: cfg.effectiveTimeoutSeconds) 包裹 future；
-    //   • retry: 仅对无副作用工具的瞬时失败启用。写文件、Bash、后台进程、
-    //     技能管理、Memory 写入等可能产生副作用的调用不自动重放，避免重复写入。
+    //   • timeout: 仅包裹无副作用 builtin；Task/Bash/写工具使用各自可控边界。
+    //   • retry: 仅对无副作用工具的瞬时失败启用。Task、写文件、Bash、
+    //     后台进程、技能管理、Memory 写入等可能产生副作用的调用不自动重放。
     final builtinCfg = resolvedTool.builtinConfig;
     // MCP servers can become unresponsive (network hang, server crash, slow
     // remote tool). Without a guard, `_executeMcpTool` would await the
@@ -723,14 +724,12 @@ class AiToolRuntimeService {
     // generous default cap so MCP tools, like builtins, surface a
     // `timed_out` status instead of hanging.
     const defaultMcpTimeout = Duration(seconds: 120);
-    final Duration? timeoutDuration;
-    if (builtinCfg != null) {
-      timeoutDuration = Duration(seconds: builtinCfg.effectiveTimeoutSeconds);
-    } else if (resolvedTool.source == AiRuntimeToolSource.mcp) {
-      timeoutDuration = defaultMcpTimeout;
-    } else {
-      timeoutDuration = null;
-    }
+    final timeoutDuration = _runtimeTimeoutDuration(
+      tool: resolvedTool,
+      decodedArguments: decodedArguments,
+      builtinConfig: builtinCfg,
+      defaultMcpTimeout: defaultMcpTimeout,
+    );
     final maxRetries = builtinCfg?.effectiveMaxRetries ?? 0;
     Future<AiToolExecutionResult> dispatchOnce() async {
       return switch (resolvedTool.source) {
@@ -982,6 +981,21 @@ class AiToolRuntimeService {
     return config != null &&
         config.retryOnFailure &&
         config.effectiveMaxRetries > 0;
+  }
+
+  Duration? _runtimeTimeoutDuration({
+    required AiResolvedTool tool,
+    required Map<String, Object?> decodedArguments,
+    required AiBuiltinToolConfig? builtinConfig,
+    required Duration defaultMcpTimeout,
+  }) {
+    if (tool.source == AiRuntimeToolSource.mcp) return defaultMcpTimeout;
+    if (builtinConfig == null) return null;
+    if (tool.source == AiRuntimeToolSource.builtin &&
+        _builtinToolCallMayHaveSideEffects(tool, decodedArguments)) {
+      return null;
+    }
+    return Duration(seconds: builtinConfig.effectiveTimeoutSeconds);
   }
 
   AiToolExecutionResult _annotateRetrySuppressionIfNeeded({

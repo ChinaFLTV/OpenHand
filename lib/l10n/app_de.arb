@@ -907,7 +907,7 @@
       }
     }
   },
-  "builtinToolTimeoutHelper": "Leer = Standard {seconds}s",
+  "builtinToolTimeoutHelper": "Leer = Standard {seconds}s. Laufzeit-Schutz nur für nebenwirkungsfreie Werkzeuge; Task/Bash/Schreibwerkzeuge nutzen eigene Grenzen.",
   "@builtinToolTimeoutHelper": {
     "placeholders": {
       "seconds": {
@@ -916,7 +916,7 @@
     }
   },
   "builtinToolRetryLabel": "Bei Fehlschlag / Timeout erneut versuchen",
-  "builtinToolRetryBody": "Standardmäßig aus. Wiederholt nur nebenwirkungsfreie Werkzeuge bei echten failed/timed_out-Ergebnissen; keine ungültigen Argumente, abgelehnten Aufrufe, Schreibbefehle, Dateiänderungen, Hintergrundprozesse, Skill-Änderungen oder Speicher-Schreibvorgänge.",
+  "builtinToolRetryBody": "Standardmäßig aus. Wiederholt nur nebenwirkungsfreie Werkzeuge bei echten failed/timed_out-Ergebnissen; keine ungültigen Argumente, abgelehnten Aufrufe, Task-Aufrufe, Schreibbefehle, Dateiänderungen, Hintergrundprozesse, Skill-Änderungen oder Speicher-Schreibvorgänge.",
   "builtinToolMaxRetriesLabel": "Max. Wiederholungen (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {

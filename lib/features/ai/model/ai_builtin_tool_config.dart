@@ -138,15 +138,16 @@ class AiBuiltinToolConfig {
   /// 单次调用输出上限（字符数）。null 表示使用全局默认。
   final int? maxOutputChars;
 
-  /// 单次调用超时（秒）。null 表示使用全局默认。
+  /// 单次调用外层运行时超时（秒）。null 表示使用全局默认。
+  /// 仅作为无副作用工具的兜底护栏；Task / Bash / 写工具使用各自可控边界。
   final int? timeoutSeconds;
 
   /// 是否需要用户手动确认后才执行。null 表示使用工具自身默认行为。
   final bool? requireConfirmation;
 
   /// 失败或超时后是否自动重试。默认 false。
-  /// 仅用于无副作用工具的瞬时失败；写文件、Bash、后台进程、技能管理、
-  /// Memory 写入等可能产生副作用的调用会由运行时禁止自动重放。
+  /// 仅用于无副作用工具的瞬时失败；Task、写文件、Bash、后台进程、
+  /// 技能管理、Memory 写入等可能产生副作用的调用会由运行时禁止自动重放。
   /// invalid_arguments / 已确认拒绝执行等状态不会重试。
   final bool retryOnFailure;
 

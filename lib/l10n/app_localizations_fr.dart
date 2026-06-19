@@ -2246,7 +2246,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String builtinToolTimeoutHelper(int seconds) {
-    return 'Vide = par défaut ${seconds}s';
+    return 'Vide = par défaut ${seconds}s. Garde-fou d’exécution pour les outils sans effet de bord ; Task/Bash/écriture utilisent leurs propres limites.';
   }
 
   @override
@@ -2255,7 +2255,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get builtinToolRetryBody =>
-      'Désactivé par défaut. Ne réessaie que les outils sans effet de bord lors de vrais résultats failed/timed_out ; jamais les arguments invalides, appels refusés, commandes d’écriture, modifications de fichiers, processus en arrière-plan, changements de compétence ou écritures mémoire.';
+      'Désactivé par défaut. Ne réessaie que les outils sans effet de bord lors de vrais résultats failed/timed_out ; jamais les arguments invalides, appels refusés, Task, commandes d’écriture, modifications de fichiers, processus en arrière-plan, changements de compétence ou écritures mémoire.';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {

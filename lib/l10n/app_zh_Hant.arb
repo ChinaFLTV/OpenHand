@@ -907,7 +907,7 @@
       }
     }
   },
-  "builtinToolTimeoutHelper": "留空則使用預設 {seconds}s",
+  "builtinToolTimeoutHelper": "留空則預設 {seconds}s。僅作無副作用工具的執行時護欄；Task/Bash/寫入工具使用自身限制。",
   "@builtinToolTimeoutHelper": {
     "placeholders": {
       "seconds": {
@@ -916,7 +916,7 @@
     }
   },
   "builtinToolRetryLabel": "失敗/超時自動重試",
-  "builtinToolRetryBody": "預設關閉。僅對無副作用工具的真正失敗 (failed/timed_out) 自動重試；不會重試參數錯誤、被拒絕呼叫、寫入命令、檔案編輯、背景程序、技能變更或記憶寫入。",
+  "builtinToolRetryBody": "預設關閉。僅對無副作用工具的真正失敗 (failed/timed_out) 自動重試；不會重試參數錯誤、被拒絕呼叫、Task、寫入命令、檔案編輯、背景程序、技能變更或記憶寫入。",
   "builtinToolMaxRetriesLabel": "最大重試次數 (0–{max})",
   "@builtinToolMaxRetriesLabel": {
     "placeholders": {
