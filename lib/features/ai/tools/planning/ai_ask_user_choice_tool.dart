@@ -18,6 +18,7 @@ class AskUserChoiceRequest {
     this.cancelLabel,
     this.customOptionLabel,
     this.customInputHint,
+    this.cancelSignal,
   });
 
   final String title;
@@ -28,6 +29,7 @@ class AskUserChoiceRequest {
   final String? cancelLabel;
   final String? customOptionLabel;
   final String? customInputHint;
+  final Future<void>? cancelSignal;
 }
 
 class AskUserChoiceOption {
@@ -168,19 +170,33 @@ class AiAskUserChoiceTool extends AiTool {
     }
 
     AskUserChoiceResponse? response;
+    var cancelledBySignal = false;
+    context.cancelSignal?.then<void>(
+      (_) => cancelledBySignal = true,
+      onError: (Object _, StackTrace _) {
+        cancelledBySignal = true;
+      },
+    );
     try {
-      response = await presenter(
-        AskUserChoiceRequest(
-          title: title,
-          description: (description?.isEmpty ?? true) ? null : description,
-          options: parsedOptions,
-          allowCustomInput: allowCustomInput,
-          confirmLabel: _optionalString(args['confirm_label']),
-          cancelLabel: _optionalString(args['cancel_label']),
-          customOptionLabel: _optionalString(args['custom_option_label']),
-          customInputHint: _optionalString(args['custom_input_hint']),
-        ),
-      );
+      response =
+          await AiToolUtils.awaitWithCancellation<AskUserChoiceResponse?>(
+            presenter(
+              AskUserChoiceRequest(
+                title: title,
+                description: (description?.isEmpty ?? true)
+                    ? null
+                    : description,
+                options: parsedOptions,
+                allowCustomInput: allowCustomInput,
+                confirmLabel: _optionalString(args['confirm_label']),
+                cancelLabel: _optionalString(args['cancel_label']),
+                customOptionLabel: _optionalString(args['custom_option_label']),
+                customInputHint: _optionalString(args['custom_input_hint']),
+                cancelSignal: context.cancelSignal,
+              ),
+            ),
+            cancelSignal: context.cancelSignal,
+          );
     } on TimeoutException catch (error) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,
@@ -204,6 +220,15 @@ class AiAskUserChoiceTool extends AiTool {
     }
 
     if (response == null) {
+      if (cancelledBySignal) {
+        return AiToolUtils.cancelledResult(
+          command: 'AskUserChoice',
+          durationMs: stopwatch.elapsedMilliseconds,
+          metadata: const <String, Object?>{
+            'ask_user_choice_cancelled_by_signal': true,
+          },
+        );
+      }
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.cancelled,
         command: 'AskUserChoice',

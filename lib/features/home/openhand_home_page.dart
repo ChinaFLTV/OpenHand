@@ -885,6 +885,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       cancelLabel: request.cancelLabel,
       customOptionLabel: request.customOptionLabel,
       customInputHint: request.customInputHint,
+      cancelSignal: request.cancelSignal,
     );
     if (result == null) return null;
     return AskUserChoiceResponse(

@@ -69,6 +69,7 @@ Future<ChoiceInputResult?> showChoiceInputDialog({
   bool allowCustomInput = true,
   String? initialSelectedValue,
   String? initialCustomInput,
+  Future<void>? cancelSignal,
   bool barrierDismissible = true,
 }) {
   if (options.isEmpty && !allowCustomInput) {
@@ -88,6 +89,7 @@ Future<ChoiceInputResult?> showChoiceInputDialog({
       allowCustomInput: allowCustomInput,
       initialSelectedValue: initialSelectedValue,
       initialCustomInput: initialCustomInput,
+      cancelSignal: cancelSignal,
     ),
   );
 }
@@ -104,6 +106,7 @@ class _ChoiceInputDialog extends StatefulWidget {
     this.customInputHint,
     this.initialSelectedValue,
     this.initialCustomInput,
+    this.cancelSignal,
   });
 
   final String title;
@@ -116,6 +119,7 @@ class _ChoiceInputDialog extends StatefulWidget {
   final bool allowCustomInput;
   final String? initialSelectedValue;
   final String? initialCustomInput;
+  final Future<void>? cancelSignal;
 
   @override
   State<_ChoiceInputDialog> createState() => _ChoiceInputDialogState();
@@ -127,6 +131,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
   late String _selectedValue;
   late final TextEditingController _customController;
   final FocusNode _customFocusNode = FocusNode();
+  bool _dismissedByCancelSignal = false;
 
   @override
   void initState() {
@@ -157,6 +162,10 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
         if (mounted) _customFocusNode.requestFocus();
       });
     }
+    widget.cancelSignal?.then<void>(
+      (_) => _dismissForCancelSignal(),
+      onError: (Object _, StackTrace _) => _dismissForCancelSignal(),
+    );
   }
 
   @override
@@ -167,6 +176,15 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
   }
 
   bool get _isCustomSelected => _selectedValue == _customValueSentinel;
+
+  void _dismissForCancelSignal() {
+    if (!mounted || _dismissedByCancelSignal) return;
+    _dismissedByCancelSignal = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+    });
+  }
 
   bool get _canConfirm {
     if (_isCustomSelected) return _customController.text.trim().isNotEmpty;
