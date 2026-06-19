@@ -2494,8 +2494,8 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
 /// 颜色一目了然：
 ///   * 绿色 = 字符/卡片限速都开着，输出会被均匀放出；
 ///   * 灰色 = 任一限速被关闭（值为 0），即将看到"全速"输出；
-/// 点击打开对话框可临时调整本会话的字符/卡片速率（仅本进程生效，不
-/// 持久化），关闭对话框时若用户保留覆盖即生效，点"恢复"则清除。
+/// 点击打开对话框可调整本会话的字符/卡片速率；覆盖会随会话 metadata
+/// 持久化，点"恢复"则清除覆盖并回到全局设置。
 class _StreamThrottlePill extends StatelessWidget {
   const _StreamThrottlePill({required this.sessionId});
 
@@ -2505,7 +2505,7 @@ class _StreamThrottlePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final sessionController = context.watch<AiSessionController>();
     final settingsController = context.watch<SettingsController>();
-    // 监听临时覆盖变更信号，确保拨快慢即时反映在颜色与文案上。
+    // 监听会话覆盖变更信号，确保拨快慢即时反映在颜色与文案上。
     return ValueListenableBuilder<int>(
       valueListenable: sessionController.streamThrottleOverrideSignal,
       builder: (context, _, _) {
@@ -2728,14 +2728,14 @@ class _StreamThrottleSessionDialogState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isZh ? '本会话流式节流（临时）' : 'Session Throttle (Temporary)',
+                isZh ? '本会话流式节流' : 'Session Throttle',
                 style: theme.textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               Text(
                 isZh
-                    ? '仅在本进程内生效，重启即恢复。留空 = 沿用模板/全局值。'
-                    : 'In-memory only; resets on restart. Empty = use template/global.',
+                    ? '调整后随会话持久保存，重启后仍保留。留空 = 沿用全局值。'
+                    : 'Saved with this session and restored after restart. Empty = use global.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

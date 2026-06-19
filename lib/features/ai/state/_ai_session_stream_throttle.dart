@@ -214,7 +214,7 @@ class _StreamCharThrottle {
   }
 
   /// 每秒允许被「展示」的 grapheme 数；<=0 视为关闭限速。
-  /// 2026-05-24 — 改为可变，供「会话级临时节流」弹窗 Apply 立即生效。
+  /// 会话级节流弹窗 Apply 后可立即更新当前活跃 throttle。
   /// 写入新值时同步把 [_budget] 钳到新上限内，防止旧时钟下累积出超额令牌。
   int get maxCharsPerSecond => _budget.maxCharsPerSecond;
   set maxCharsPerSecond(int next) => _budget.maxCharsPerSecond = next;
@@ -404,7 +404,7 @@ class _StreamCardThrottle {
        _lastTickAt = DateTime.now();
 
   /// 每秒允许被「展示」的新卡片数；<=0 视为关闭限速。
-  /// 2026-05-24 — 改为可变，供「会话级临时节流」弹窗 Apply 立即生效。
+  /// 会话级节流弹窗 Apply 后可立即更新当前活跃 throttle。
   int _maxCardsPerSecond;
   int get maxCardsPerSecond => _maxCardsPerSecond;
   set maxCardsPerSecond(int next) {

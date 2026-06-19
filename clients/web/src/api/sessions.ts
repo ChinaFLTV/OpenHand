@@ -466,9 +466,9 @@ export async function forkSessionFromMessage(
   );
 }
 
-/// 2026-05-17 — 设置或更新会话级临时节流覆盖（仅本进程生效，重启后回退
-/// 到模板/全局值）。`charsPerSecond` / `cardsPerSecond` 为 null 表示不
-/// 修改对应方向；为 0 表示对应方向关闭节流。
+/// 设置或更新会话级节流覆盖。覆盖会写入会话 metadata，重启后继续生效；
+/// `charsPerSecond` / `cardsPerSecond` 为 null 表示清除对应方向覆盖；
+/// 为 0 表示对应方向关闭节流。
 export async function setSessionThrottle(
   sessionId: string,
   patch: {
@@ -499,7 +499,7 @@ export async function setSessionThrottle(
   );
 }
 
-/// 2026-05-17 — 清除指定会话的全部节流覆盖，恢复到模板/全局值。
+/// 清除指定会话的全部节流覆盖，恢复到全局节流设置。
 export async function clearSessionThrottle(
   sessionId: string,
 ): Promise<{ ok: boolean }> {

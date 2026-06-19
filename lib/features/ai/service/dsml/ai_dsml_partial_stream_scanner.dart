@@ -97,7 +97,6 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
     if (openMatch == null) {
       break;
     }
-    final absoluteOpenStart = cursor + openMatch.start;
     final absoluteOpenEnd = cursor + openMatch.end;
     final attributes = _parseAttributes(openMatch.group(1) ?? '');
     final name = (attributes['name'] ?? '').trim();
@@ -138,8 +137,6 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
       break; // trailing partial — nothing more to scan
     }
     cursor = absoluteOpenEnd + closeMatch.end;
-    // Use absoluteOpenStart to keep analyzer happy about field unused.
-    assert(absoluteOpenStart >= 0);
   }
   // Trailing "preparing" placeholder: if there is an unclosed
   // `<DSML:invoke` token after the last fully-scanned position AND no

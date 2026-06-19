@@ -1267,9 +1267,9 @@ class WebMessagePlatformService {
         (req, auth) => _respondWriteApproval(req, auth, sessionId, approvalId),
       ),
     );
-    // 2026-05-17 — 会话级临时节流覆盖（不持久化，仅本进程生效）。
-    // PUT 写覆盖（body: {chars_per_second?, cards_per_second?}），DELETE
-    // 清除全部覆盖。前端 TopBar 节流胶囊点开后用此路由设置 / 恢复速率。
+    // 会话级节流覆盖。PUT 写入覆盖（body:
+    // {chars_per_second?, cards_per_second?, enabled?}），DELETE 清除全部
+    // 覆盖并回到全局设置。
     router.put(
       '/api/sessions/<sessionId>/throttle',
       (shelf.Request r, String sessionId) => _withAuth(
@@ -3043,7 +3043,7 @@ class WebMessagePlatformService {
     });
   }
 
-  /// 2026-05-17 — 设置或更新会话级临时节流覆盖。
+  /// 设置或更新会话级节流覆盖。
   ///
   /// Body 形如 `{chars_per_second?: int, cards_per_second?: int}`，字段
   /// 缺失或 null = 清除该字段；两字段都缺失则等价于 DELETE。
@@ -3063,17 +3063,15 @@ class WebMessagePlatformService {
     final hasCards = body.containsKey('cards_per_second');
     final hasEnabled = body.containsKey('enabled');
     if (hasChars) {
-      final raw = body['chars_per_second'];
       _sessionController.setSessionStreamCharsOverride(
         session.id,
-        raw is int ? raw : (raw == null ? null : null),
+        _nullableThrottleRate(body['chars_per_second']),
       );
     }
     if (hasCards) {
-      final raw = body['cards_per_second'];
       _sessionController.setSessionStreamCardsOverride(
         session.id,
-        raw is int ? raw : (raw == null ? null : null),
+        _nullableThrottleRate(body['cards_per_second']),
       );
     }
     if (hasEnabled) {
@@ -3095,7 +3093,19 @@ class WebMessagePlatformService {
     });
   }
 
-  /// 2026-05-17 — 清除会话级临时节流覆盖，恢复到模板/全局值。
+  int? _nullableThrottleRate(Object? raw) {
+    if (raw == null) return null;
+    if (raw is int) return raw;
+    if (raw is num && raw.isFinite) return raw.round();
+    if (raw is String) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return null;
+      return int.tryParse(trimmed);
+    }
+    return null;
+  }
+
+  /// 清除会话级节流覆盖，恢复到全局设置。
   Future<shelf.Response> _clearSessionThrottle(
     shelf.Request request,
     _WebGatewayAuthSession auth,

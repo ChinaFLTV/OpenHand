@@ -3451,7 +3451,7 @@ export function SessionDetailPage() {
           key: 'stream-throttle',
           icon: 'throttle',
           label,
-          title: disabled ? t('topbar.throttle.off.title', '节流已关闭：AI 输出将以真实速率全速渲染。') : expired ? t('topbar.throttle.expired.title', '节流时长已耗尽：剩余流式响应将按 AI 真实速率追加渲染。') : t('topbar.throttle.on.title', '点击调整本会话节流速率（仅本进程生效）'),
+          title: disabled ? t('topbar.throttle.off.title', '节流已关闭：AI 输出将以真实速率全速渲染。') : expired ? t('topbar.throttle.expired.title', '节流时长已耗尽：剩余流式响应将按 AI 真实速率追加渲染。') : t('topbar.throttle.on.title', '点击调整本会话节流速率（重启后仍保留）'),
           tone: showAsGray ? 'muted' : 'success',
           onClick: () => setThrottleDialogOpen(true),
         });
@@ -5839,10 +5839,10 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
   );
 }
 
-/// 2026-05-17 — 「会话级临时节流」弹窗。
+/// 「会话级节流」弹窗。
 ///
-/// 仅本进程生效，重启即恢复模板/全局值；用户可分别为字符 / 卡片速率指定
-/// 0..上限内的整数；留空 = 沿用模板/全局值；0 = 该方向关闭节流并展示禁
+/// 覆盖写入会话 metadata，重启后仍保留；用户可分别为字符 / 卡片速率指定
+/// 0..上限内的整数；留空 = 沿用全局值；0 = 该方向关闭节流并展示禁
 /// 用提示。"恢复默认"清除全部覆盖。
 ///
 /// 2026-05-24 — UI 1:1 对齐 App 端：弹窗顶部贴 30s 字符吞吐柱状图（桶 0
@@ -5982,7 +5982,7 @@ function SessionThrottleDialog({
         {t('topbar.throttle.dialogTitle', '本会话流式节流')}
       </h2>
       <p class="text-xs mb-3" style={{ color: 'var(--m3-on-surface-variant)' }}>
-        {t('topbar.throttle.dialogHint', '调整后在本会话中持久生效（重启后仍会保留）。留空 = 沿用模板/全局值，0 = 关闭节流。')}
+        {t('topbar.throttle.dialogHint', '调整后在本会话中持久生效（重启后仍会保留）。留空 = 沿用全局值，0 = 关闭节流。')}
       </p>
       <div
         class="rounded-m3-sm p-3 mb-3"

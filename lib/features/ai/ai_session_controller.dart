@@ -726,9 +726,9 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
   final Map<String, int> _compressionFailureCountsBySession = <String, int>{};
 
-  /// 2026-05-17 — 会话级临时节流覆盖，仅本进程生效（不持久化）；用户可
-  /// 在线程会话顶部胶囊里临时调整字符 / 卡片限速，下次重启即恢复到全局
-  /// 值。优先级：session > global（task 4 删除了模板覆盖层，runtime
+  /// 会话级节流覆盖。用户在线程会话顶部胶囊里调整字符 / 卡片限速后，
+  /// 覆盖会写入 session metadata，重启后继续生效。优先级：
+  /// session > global（task 4 删除了模板覆盖层，runtime
   /// context 的 `effectiveStreamMaxCharsPerSecond` 已退化为只读全局）。
   final Map<String, AiStreamThrottleOverride> _sessionStreamThrottleOverrides =
       <String, AiStreamThrottleOverride>{};
@@ -862,8 +862,8 @@ class AiSessionController extends ChangeNotifier {
         _hydratingSessionMessageIds.contains(normalizedSessionId);
   }
 
-  /// 当前会话级节流覆盖（不持久化，仅本进程生效）。命中 sessionId 才返
-  /// 回；未配置时为 null。UI 可通过 [streamThrottleOverrideSignal] 监听
+  /// 当前会话级节流覆盖。命中 sessionId 才返回；未配置时为 null。
+  /// UI 可通过 [streamThrottleOverrideSignal] 监听
   /// 任何会话级覆盖的变更，实时刷新指示器。
   AiStreamThrottleOverride? sessionStreamThrottleOverride(String sessionId) =>
       _sessionStreamThrottleOverrides[sessionId];
@@ -1356,9 +1356,9 @@ class AiSessionController extends ChangeNotifier {
         _setSessions(_mergeHeaderSessionsWithLiveMessages(headerLoad.sessions));
         _persistenceIssues = headerLoad.issues;
         _pruneSessionScopedSendState();
-        // 2026-05-24 — 把每个 session.metadata['stream_throttle_override'] 重新
-        // 灌进 _sessionStreamThrottleOverrides，让上次设过临时节流的会话
-        // 重启后立刻继续生效。
+        // 把每个 session.metadata['stream_throttle_override'] 重新灌进
+        // _sessionStreamThrottleOverrides，让上次设过会话节流的会话
+        // 冷启动后立刻继续生效。
         _rehydrateThrottleOverrides();
         final currentSessionId = _currentSessionId;
         if (currentSessionId == null ||
@@ -4458,7 +4458,7 @@ class AiSessionController extends ChangeNotifier {
         }
       }
 
-      // 优先级：session 临时覆盖 > 全局值（task 4 已删除模板覆盖层）。
+      // 优先级：session 会话覆盖 > 全局值（task 4 已删除模板覆盖层）。
       final sessionThrottleOverride =
           _sessionStreamThrottleOverrides[workingSession.id];
       final effChars =

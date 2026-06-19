@@ -153,7 +153,7 @@ class _CronsBodyState extends State<_CronsBody> {
       name: name,
       code:
           '// ${isZh ? "周期性 JS。例：刷新登录态、轮询接口、自动点续期" : "Periodic JS. Heartbeat / polling / auto-renew."}\n'
-          'console.log("tick", new Date().toISOString());\n',
+          '// ${isZh ? "在这里写入需要定时执行的安静脚本。" : "Add quiet scheduled script logic here."}\n',
       intervalSeconds: 60,
     );
     widget.onPersist();
