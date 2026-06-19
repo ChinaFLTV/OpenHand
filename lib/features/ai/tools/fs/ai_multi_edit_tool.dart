@@ -85,6 +85,8 @@ class AiMultiEditTool extends AiTool {
     if (fileExists) {
       try {
         editableText = await AiToolUtils.readEditableTextFile(file);
+      } on AiEditableTextFileTooLargeException catch (error) {
+        return AiToolUtils.invalidResult('MultiEdit', error.message);
       } on FormatException {
         return AiToolUtils.invalidResult(
           'MultiEdit',

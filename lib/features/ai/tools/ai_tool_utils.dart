@@ -24,6 +24,7 @@ class AiToolUtils {
   static const int defaultReadLimit = 2000;
   static const int maxBinaryPreviewBytes = 32;
   static const int maxLedgerCaptureBytes = 16 * kBytesPerMiB;
+  static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;
 
   static String defaultWorkingDirectory() {
     return p.normalize(Directory.current.path);
@@ -546,6 +547,14 @@ class AiToolUtils {
   }
 
   static Future<AiEditableTextSnapshot> readEditableTextFile(File file) async {
+    final stat = await file.stat();
+    if (stat.size > maxEditableTextFileBytes) {
+      throw AiEditableTextFileTooLargeException(
+        filePath: file.path,
+        sizeBytes: stat.size,
+        limitBytes: maxEditableTextFileBytes,
+      );
+    }
     final rawContent = await file.readAsString();
     return AiEditableTextSnapshot.fromRaw(rawContent);
   }
@@ -1536,6 +1545,26 @@ class AiEditableTextSnapshot {
     if (value.contains('\r')) return '\r';
     return '\n';
   }
+}
+
+class AiEditableTextFileTooLargeException implements Exception {
+  const AiEditableTextFileTooLargeException({
+    required this.filePath,
+    required this.sizeBytes,
+    required this.limitBytes,
+  });
+
+  final String filePath;
+  final int sizeBytes;
+  final int limitBytes;
+
+  String get message =>
+      'File is too large to edit (${formatByteSize(sizeBytes)}). '
+      'Maximum editable text file size is ${formatByteSize(limitBytes)}: '
+      '$filePath';
+
+  @override
+  String toString() => message;
 }
 
 class ReplacementResult {

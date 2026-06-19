@@ -6,6 +6,7 @@ import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
 import 'package:openhand/features/ai/tools/ai_tool_execution_context.dart';
+import 'package:openhand/features/ai/tools/ai_tool_utils.dart';
 import 'package:openhand/features/ai/tools/fs/ai_apply_file_diffs_tool.dart';
 import 'package:openhand/features/ai/tools/fs/ai_edit_tool.dart';
 import 'package:openhand/features/ai/tools/fs/ai_multi_edit_tool.dart';
@@ -103,6 +104,33 @@ void main() {
 
       expect(result.status.storageValue, 'success');
       expect(await file.readAsString(), 'one\r\ngamma\r\ndelta\r\nend\r\n');
+    });
+
+    test('rejects oversized files before reading content', () async {
+      final file = File('${tempDir.path}/large.txt');
+      await file.create();
+      final handle = await file.open(mode: FileMode.write);
+      try {
+        await handle.truncate(AiToolUtils.maxEditableTextFileBytes + 1);
+      } finally {
+        await handle.close();
+      }
+
+      final result = await AiEditTool().execute(
+        _context(
+          toolName: 'Edit',
+          arguments: <String, Object?>{
+            'file_path': file.path,
+            'old_string': 'alpha',
+            'new_string': 'beta',
+          },
+          previouslyReadFiles: <String>{file.path},
+        ),
+      );
+
+      expect(result.status.storageValue, 'invalid_arguments');
+      expect(result.stderr, contains('File is too large to edit'));
+      expect(await file.length(), AiToolUtils.maxEditableTextFileBytes + 1);
     });
 
     test(

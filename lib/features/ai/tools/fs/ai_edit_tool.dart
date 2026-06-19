@@ -96,6 +96,8 @@ class AiEditTool extends AiTool {
     if (fileExists) {
       try {
         editableText = await AiToolUtils.readEditableTextFile(file);
+      } on AiEditableTextFileTooLargeException catch (error) {
+        return AiToolUtils.invalidResult('Edit', error.message);
       } on FormatException {
         return AiToolUtils.invalidResult(
           'Edit',

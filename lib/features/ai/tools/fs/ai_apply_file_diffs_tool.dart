@@ -110,6 +110,8 @@ class AiApplyFileDiffsTool extends AiTool {
       if (exists) {
         try {
           editableText = await AiToolUtils.readEditableTextFile(file);
+        } on AiEditableTextFileTooLargeException catch (error) {
+          return AiToolUtils.invalidResult('ApplyFileDiffs', error.message);
         } on FormatException {
           return AiToolUtils.invalidResult(
             'ApplyFileDiffs',
