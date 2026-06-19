@@ -285,6 +285,14 @@ class AiToolUtils {
     return int.tryParse('$value'.trim());
   }
 
+  static bool? readBool(Object? value) {
+    if (value is bool) return value;
+    final normalized = '$value'.trim().toLowerCase();
+    if (normalized == 'true') return true;
+    if (normalized == 'false') return false;
+    return null;
+  }
+
   static List<String> normalizeStringList(Object? value) {
     if (value is! List) return const <String>[];
     return value

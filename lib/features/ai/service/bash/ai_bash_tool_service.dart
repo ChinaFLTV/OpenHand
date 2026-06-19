@@ -537,6 +537,7 @@ class AiBashToolService {
     Future<void>? cancelSignal,
     int timeoutMs = defaultTimeoutMs,
     String? toolCallId,
+    bool dangerouslyDisableSandbox = false,
   }) async {
     _ensureProxyListenerAttached();
     final normalizedCommand = command.trim();
@@ -590,6 +591,7 @@ class AiBashToolService {
     final launchSpec = await _prepareLaunchSpec(
       command: normalizedCommand,
       workingDirectory: displayedWorkingDirectory,
+      dangerouslyDisableSandbox: dangerouslyDisableSandbox,
     );
     Future<void> closeLaunchProxy() async {
       await launchSpec.proxyLease?.close();
@@ -1241,6 +1243,7 @@ class AiBashToolService {
   Future<AiSandboxLaunchSpec> _prepareLaunchSpec({
     required String command,
     required String workingDirectory,
+    required bool dangerouslyDisableSandbox,
   }) {
     if (Platform.isWindows) {
       // Windows 一次性命令也注入用户级代理 env，让 curl/git/npm 等
@@ -1263,6 +1266,7 @@ class AiBashToolService {
       shellArguments: <String>['-lc', command],
       command: command,
       workingDirectory: workingDirectory,
+      dangerouslyDisableSandbox: dangerouslyDisableSandbox,
     );
   }
 

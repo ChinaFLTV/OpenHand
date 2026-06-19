@@ -279,6 +279,7 @@ class AiSandboxService {
     required String shellExecutable,
     required List<String> shellArguments,
     required String workingDirectory,
+    bool dangerouslyDisableSandbox = false,
   }) async {
     final normalizedWorkingDirectory = _normalizeWorkingDirectory(
       workingDirectory,
@@ -297,13 +298,53 @@ class AiSandboxService {
           growable: false,
         ),
     };
-    if (!settings.enabled || !settings.shouldSandboxBuiltinTool(toolName)) {
+    final shouldSandboxTool = settings.shouldSandboxBuiltinTool(toolName);
+    final overrideMetadata = <String, Object?>{
+      if (dangerouslyDisableSandbox) 'sandbox_override_requested': true,
+    };
+    if (!settings.enabled || !shouldSandboxTool) {
       return AiSandboxLaunchSpec.unsandboxed(
         executable: shellExecutable,
         arguments: shellArguments,
         workingDirectory: normalizedWorkingDirectory,
         environment: userProxyEnvironment,
-        metadata: baseMetadata,
+        metadata: <String, Object?>{
+          ...baseMetadata,
+          ...overrideMetadata,
+          if (dangerouslyDisableSandbox) 'sandbox_override_effective': false,
+          if (dangerouslyDisableSandbox)
+            'sandbox_override_reason': settings.enabled
+                ? 'tool_not_sandboxed'
+                : 'sandbox_disabled',
+        },
+      );
+    }
+    if (dangerouslyDisableSandbox) {
+      if (!settings.allowUnsandboxedCommands) {
+        return AiSandboxLaunchSpec.blocked(
+          executable: shellExecutable,
+          arguments: shellArguments,
+          workingDirectory: normalizedWorkingDirectory,
+          reason:
+              'dangerouslyDisableSandbox was requested, but OpenHand sandbox settings do not allow unsandboxed commands.',
+          metadata: <String, Object?>{
+            ...baseMetadata,
+            ...overrideMetadata,
+            'sandbox_override_denied': true,
+          },
+        );
+      }
+      return AiSandboxLaunchSpec.unsandboxed(
+        executable: shellExecutable,
+        arguments: shellArguments,
+        workingDirectory: normalizedWorkingDirectory,
+        environment: userProxyEnvironment,
+        metadata: <String, Object?>{
+          ...baseMetadata,
+          ...overrideMetadata,
+          'sandbox_override_effective': true,
+          'sandbox_override_reason': 'dangerouslyDisableSandbox',
+        },
       );
     }
 

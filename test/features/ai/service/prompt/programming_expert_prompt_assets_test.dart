@@ -35,6 +35,7 @@ void main() {
       expect(developer, contains('tool_output_recovery_hint'));
       expect(developer, contains('Claude 风格 `command`'));
       expect(developer, contains('run_in_background: true'));
+      expect(developer, contains('dangerouslyDisableSandbox: true'));
       expect(developer, contains('`TaskOutput` / `TaskStop`'));
       expect(
         developer,

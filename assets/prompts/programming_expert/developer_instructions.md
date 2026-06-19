@@ -91,7 +91,7 @@ Claude 规范名 `Agent` 会兼容路由到 `Task`；新调用仍优先使用当
 </task_tool>
 
 <execution>
-- `Bash`：短命令；可用 Claude 风格 `command` 或 OpenHand `cmd`；设置 working directory/cwd；搜索和读文件优先专用工具。`run_in_background: true` 会转为后台启动并返回 handle。
+- `Bash`：短命令；可用 Claude 风格 `command` 或 OpenHand `cmd`；设置 working directory/cwd；搜索和读文件优先专用工具。`run_in_background: true` 会转为后台启动并返回 handle。`dangerouslyDisableSandbox: true` 只在 OpenHand sandbox 设置允许 unsandboxed commands 时生效；否则按工具拒绝处理，不要反复重试绕过。
 - `BashBackground`：server、watch、REPL 等长驻进程；写类 start 仍走 Hook/确认，自己启动的会话必须自己停止。
 - `TaskOutput` / `TaskStop`：Claude 风格后台任务读出与停止；`task_id` 即后台 handle。旧名 `BashOutputTool` / `AgentOutputTool` / `KillShell` 仅用于恢复历史调用，新调用优先规范名。
 - 工具结果出现 `tool_output_persisted_path` 时，完整输出已保存到该路径；结论依赖省略内容时先 `Read` 它。

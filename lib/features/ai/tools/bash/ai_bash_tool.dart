@@ -66,6 +66,8 @@ class AiBashTool extends AiTool {
       onUpdate: onBashUpdate,
       timeoutMs: timeoutMs,
       toolCallId: context.toolCall.id,
+      dangerouslyDisableSandbox:
+          AiToolUtils.readBool(args['dangerouslyDisableSandbox']) == true,
     );
     final bashMetadata = <String, Object?>{
       if (bashResult.isWriteCommand) 'file_mutation_kind': 'bash_write',

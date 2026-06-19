@@ -2080,6 +2080,11 @@ class AiToolRuntimeService {
             'description':
                 'When true, route this command to BashBackground start and return a background handle instead of waiting for completion.',
           },
+          'dangerouslyDisableSandbox': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Claude-style sandbox override. OpenHand honors this only when sandbox settings allow unsandboxed commands; otherwise the call is denied.',
+          },
         },
         'anyOf': <Object?>[
           <String, Object?>{

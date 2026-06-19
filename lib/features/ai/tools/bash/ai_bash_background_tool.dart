@@ -194,7 +194,12 @@ class AiBashBackgroundTool extends AiTool {
     final cwd = AiToolUtils.resolvePath(
       '${args['working_directory'] ?? args['cwd'] ?? ''}',
     );
-    final launchSpec = await _prepareLaunchSpec(cmd: cmd, cwd: cwd);
+    final launchSpec = await _prepareLaunchSpec(
+      cmd: cmd,
+      cwd: cwd,
+      dangerouslyDisableSandbox:
+          AiToolUtils.readBool(args['dangerouslyDisableSandbox']) == true,
+    );
     if (launchSpec.blocked) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.denied,
@@ -352,6 +357,7 @@ class AiBashBackgroundTool extends AiTool {
   Future<AiSandboxLaunchSpec> _prepareLaunchSpec({
     required String cmd,
     required String cwd,
+    required bool dangerouslyDisableSandbox,
   }) {
     if (Platform.isWindows) {
       // Windows 也需要继承用户级代理 env（curl/git/ssh 等仍依赖标准变量）。
@@ -375,6 +381,7 @@ class AiBashBackgroundTool extends AiTool {
       shellExecutable: shell,
       shellArguments: <String>['-lc', cmd],
       workingDirectory: cwd,
+      dangerouslyDisableSandbox: dangerouslyDisableSandbox,
     );
   }
 

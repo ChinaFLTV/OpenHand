@@ -179,6 +179,10 @@ void main() {
         schemaProperties['run_in_background'],
         containsPair('type', 'boolean'),
       );
+      expect(
+        schemaProperties['dangerouslyDisableSandbox'],
+        containsPair('type', 'boolean'),
+      );
       final anyOf = parameters?['anyOf'];
       expect(anyOf, isA<List>());
       expect('$anyOf', contains('command'));
