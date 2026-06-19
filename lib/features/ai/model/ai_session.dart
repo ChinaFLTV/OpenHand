@@ -154,6 +154,46 @@ enum AiSessionPlanStatus {
   }
 }
 
+class AiSessionPlanAllowedPrompt {
+  const AiSessionPlanAllowedPrompt({required this.tool, required this.prompt});
+
+  final String tool;
+  final String prompt;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{'tool': tool, 'prompt': prompt};
+  }
+
+  static AiSessionPlanAllowedPrompt? fromJson(Map<String, Object?> json) {
+    final tool = '${json['tool'] ?? ''}'.trim();
+    final prompt = '${json['prompt'] ?? ''}'.trim();
+    if (tool.isEmpty || prompt.isEmpty) {
+      return null;
+    }
+    return AiSessionPlanAllowedPrompt(tool: tool, prompt: prompt);
+  }
+
+  static List<AiSessionPlanAllowedPrompt> listFromJson(Object? rawValue) {
+    if (rawValue is! List) {
+      return const <AiSessionPlanAllowedPrompt>[];
+    }
+    return rawValue
+        .map((item) {
+          if (item is Map<String, Object?>) {
+            return AiSessionPlanAllowedPrompt.fromJson(item);
+          }
+          if (item is Map) {
+            return AiSessionPlanAllowedPrompt.fromJson(
+              Map<String, Object?>.from(item),
+            );
+          }
+          return null;
+        })
+        .whereType<AiSessionPlanAllowedPrompt>()
+        .toList(growable: false);
+  }
+}
+
 class AiSessionPlanRecord {
   const AiSessionPlanRecord({
     required this.id,
@@ -162,6 +202,7 @@ class AiSessionPlanRecord {
     required this.status,
     this.plan = '',
     this.steps = const <AiSessionTodoItem>[],
+    this.allowedPrompts = const <AiSessionPlanAllowedPrompt>[],
   });
 
   final String id;
@@ -170,6 +211,7 @@ class AiSessionPlanRecord {
   final AiSessionPlanStatus status;
   final String plan;
   final List<AiSessionTodoItem> steps;
+  final List<AiSessionPlanAllowedPrompt> allowedPrompts;
 
   AiSessionPlanRecord copyWith({
     String? id,
@@ -178,6 +220,7 @@ class AiSessionPlanRecord {
     AiSessionPlanStatus? status,
     String? plan,
     List<AiSessionTodoItem>? steps,
+    List<AiSessionPlanAllowedPrompt>? allowedPrompts,
   }) {
     return AiSessionPlanRecord(
       id: id ?? this.id,
@@ -186,6 +229,7 @@ class AiSessionPlanRecord {
       status: status ?? this.status,
       plan: plan ?? this.plan,
       steps: steps ?? this.steps,
+      allowedPrompts: allowedPrompts ?? this.allowedPrompts,
     );
   }
 
@@ -197,6 +241,9 @@ class AiSessionPlanRecord {
       'status': status.storageValue,
       'plan': plan,
       'steps': steps.map((item) => item.toJson()).toList(growable: false),
+      'allowed_prompts': allowedPrompts
+          .map((item) => item.toJson())
+          .toList(growable: false),
     };
   }
 
@@ -218,6 +265,9 @@ class AiSessionPlanRecord {
                 )
                 .toList(growable: false)
           : const <AiSessionTodoItem>[],
+      allowedPrompts: AiSessionPlanAllowedPrompt.listFromJson(
+        json['allowed_prompts'],
+      ),
     );
   }
 }
@@ -299,6 +349,9 @@ class AiSession {
           ? sessionJson['awaiting_plan_approval'] as bool
           : false,
       pendingPlan: _readNullableString(sessionJson['pending_plan']),
+      pendingPlanAllowedPrompts: AiSessionPlanAllowedPrompt.listFromJson(
+        sessionJson['pending_plan_allowed_prompts'],
+      ),
       fullAccessPermission: sessionJson['full_access_permission'] is bool
           ? sessionJson['full_access_permission'] as bool
           : false,
@@ -365,6 +418,7 @@ class AiSession {
     this.mode = AiSessionMode.chat,
     this.awaitingPlanApproval = false,
     this.pendingPlan,
+    this.pendingPlanAllowedPrompts = const <AiSessionPlanAllowedPrompt>[],
     this.planHistory = const <AiSessionPlanRecord>[],
     this.fullAccessPermission = false,
     this.metadata = const <String, Object?>{},
@@ -383,7 +437,7 @@ class AiSession {
          messages.length,
        );
 
-  static const int schemaVersion = 5;
+  static const int schemaVersion = 6;
 
   final String id;
   final String title;
@@ -420,6 +474,7 @@ class AiSession {
   final AiSessionMode mode;
   final bool awaitingPlanApproval;
   final String? pendingPlan;
+  final List<AiSessionPlanAllowedPrompt> pendingPlanAllowedPrompts;
   final List<AiSessionPlanRecord> planHistory;
   final bool fullAccessPermission;
   final Map<String, Object?> metadata;
@@ -458,6 +513,7 @@ class AiSession {
     AiSessionMode? mode,
     bool? awaitingPlanApproval,
     String? pendingPlan,
+    List<AiSessionPlanAllowedPrompt>? pendingPlanAllowedPrompts,
     List<AiSessionPlanRecord>? planHistory,
     bool clearPendingPlan = false,
     bool? fullAccessPermission,
@@ -527,6 +583,9 @@ class AiSession {
       mode: mode ?? this.mode,
       awaitingPlanApproval: awaitingPlanApproval ?? this.awaitingPlanApproval,
       pendingPlan: clearPendingPlan ? null : pendingPlan ?? this.pendingPlan,
+      pendingPlanAllowedPrompts: clearPendingPlan
+          ? const <AiSessionPlanAllowedPrompt>[]
+          : pendingPlanAllowedPrompts ?? this.pendingPlanAllowedPrompts,
       planHistory: planHistory ?? this.planHistory,
       fullAccessPermission: fullAccessPermission ?? this.fullAccessPermission,
       metadata: metadata ?? this.metadata,
@@ -702,6 +761,9 @@ class AiSession {
         'mode': mode.storageValue,
         'awaiting_plan_approval': awaitingPlanApproval,
         'pending_plan': pendingPlan,
+        'pending_plan_allowed_prompts': pendingPlanAllowedPrompts
+            .map((item) => item.toJson())
+            .toList(growable: false),
         'full_access_permission': fullAccessPermission,
       },
       'metadata': metadata,

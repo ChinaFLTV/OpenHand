@@ -43,6 +43,27 @@ void main() {
         ],
         mode: AiSessionMode.plan,
         pendingPlan: '1. Inspect\n2. Change\n3. Verify',
+        pendingPlanAllowedPrompts: const <AiSessionPlanAllowedPrompt>[
+          AiSessionPlanAllowedPrompt(
+            tool: 'Bash',
+            prompt: 'run targeted tests',
+          ),
+        ],
+        planHistory: <AiSessionPlanRecord>[
+          AiSessionPlanRecord(
+            id: 'plan-1',
+            createdAt: now,
+            updatedAt: now,
+            status: AiSessionPlanStatus.pendingApproval,
+            plan: '1. Inspect\n2. Change\n3. Verify',
+            allowedPrompts: const <AiSessionPlanAllowedPrompt>[
+              AiSessionPlanAllowedPrompt(
+                tool: 'Bash',
+                prompt: 'run targeted tests',
+              ),
+            ],
+          ),
+        ],
         fullAccessPermission: true,
       );
 
@@ -61,6 +82,21 @@ void main() {
       expect(sessionState['full_access_permission'], isTrue);
       expect(sessionState['write_command_confirmation_enabled'], isTrue);
       expect(sessionState['write_command_confirmation_required'], isFalse);
+      expect(sessionState['pending_plan'], '1. Inspect\n2. Change\n3. Verify');
+      expect(
+        sessionState['pending_plan_allowed_prompts'],
+        <Map<String, String>>[
+          <String, String>{'tool': 'Bash', 'prompt': 'run targeted tests'},
+        ],
+      );
+      final recentPlanRecords =
+          sessionState['recent_plan_records'] as List<Object?>;
+      final recentPlanRecord = Map<String, Object?>.from(
+        recentPlanRecords.single as Map,
+      );
+      expect(recentPlanRecord['allowed_prompts'], <Map<String, String>>[
+        <String, String>{'tool': 'Bash', 'prompt': 'run targeted tests'},
+      ]);
 
       final planMode = sessionState['plan_mode'] as Map<String, Object?>;
       expect(planMode['has_incomplete_todo'], isTrue);

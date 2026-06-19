@@ -1339,6 +1339,10 @@ class AiPromptBuilder {
         if (session.pendingPlan != null &&
             session.pendingPlan!.trim().isNotEmpty)
           'pending_plan': session.pendingPlan!.trim(),
+        if (session.pendingPlanAllowedPrompts.isNotEmpty)
+          'pending_plan_allowed_prompts': _planAllowedPromptsSnapshot(
+            session.pendingPlanAllowedPrompts,
+          ),
       };
     }
 
@@ -1944,6 +1948,10 @@ class AiPromptBuilder {
       'write_command_confirmation_required': writeCommandConfirmationRequired,
       if (pendingPlan != null && pendingPlan.isNotEmpty)
         'pending_plan': _truncate(pendingPlan, _compressionPromptMaxPlanChars),
+      if (session.pendingPlanAllowedPrompts.isNotEmpty)
+        'pending_plan_allowed_prompts': _planAllowedPromptsSnapshot(
+          session.pendingPlanAllowedPrompts,
+        ),
       'current_todo_count': session.todoItems.length,
       if (session.todoItems.isNotEmpty)
         'current_todos': _compressionTodoListSnapshot(session.todoItems),
@@ -1981,6 +1989,8 @@ class AiPromptBuilder {
       'status': record.status.storageValue,
       if (plan.isNotEmpty)
         'plan': _truncate(plan, _compressionPromptMaxPlanChars),
+      if (record.allowedPrompts.isNotEmpty)
+        'allowed_prompts': _planAllowedPromptsSnapshot(record.allowedPrompts),
       'step_count': record.steps.length,
       if (record.steps.isNotEmpty)
         'steps': _compressionTodoListSnapshot(record.steps),
@@ -1999,6 +2009,24 @@ class AiPromptBuilder {
       if (items.length > visible.length)
         'omitted': items.length - visible.length,
     };
+  }
+
+  List<Map<String, String>> _planAllowedPromptsSnapshot(
+    List<AiSessionPlanAllowedPrompt> allowedPrompts,
+  ) {
+    return allowedPrompts
+        .map(
+          (item) => <String, String>{
+            'tool': item.tool,
+            'prompt': _truncate(item.prompt.trim(), 180),
+          },
+        )
+        .where(
+          (item) =>
+              (item['tool'] ?? '').isNotEmpty &&
+              (item['prompt'] ?? '').isNotEmpty,
+        )
+        .toList(growable: false);
   }
 
   Map<String, Object?> _compressionTodoSnapshot(AiSessionTodoItem item) {
@@ -3751,6 +3779,14 @@ $content
         ..writeln('```text')
         ..writeln(pendingPlan)
         ..writeln('```');
+      final allowedPromptLines = _renderPlanAllowedPromptLines(
+        session.pendingPlanAllowedPrompts,
+      );
+      if (allowedPromptLines.isNotEmpty) {
+        buffer
+          ..writeln('allowed_prompts:')
+          ..writeln(allowedPromptLines);
+      }
     }
 
     final recentPlanRecords = session.planHistory.reversed
@@ -3783,6 +3819,14 @@ $content
             ..writeln('steps:')
             ..writeln(steps);
         }
+        final allowedPromptLines = _renderPlanAllowedPromptLines(
+          record.allowedPrompts,
+        );
+        if (allowedPromptLines.isNotEmpty) {
+          buffer
+            ..writeln('allowed_prompts:')
+            ..writeln(allowedPromptLines);
+        }
       }
     }
 
@@ -3812,6 +3856,21 @@ $content
           ? 'unknown'
           : item.status.trim();
       lines.add('- [$status] $content');
+    }
+    return lines.join('\n');
+  }
+
+  String _renderPlanAllowedPromptLines(
+    List<AiSessionPlanAllowedPrompt> allowedPrompts,
+  ) {
+    final lines = <String>[];
+    for (final item in allowedPrompts) {
+      final tool = item.tool.trim();
+      final prompt = item.prompt.trim();
+      if (tool.isEmpty || prompt.isEmpty) {
+        continue;
+      }
+      lines.add('- $tool: $prompt');
     }
     return lines.join('\n');
   }

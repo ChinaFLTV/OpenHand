@@ -4729,6 +4729,9 @@ class WebMessagePlatformService {
       // blocked / cancelled / pending。
       'awaiting_plan_approval': session.awaitingPlanApproval,
       'pending_plan': session.pendingPlan,
+      'pending_plan_allowed_prompts': session.pendingPlanAllowedPrompts
+          .map((item) => item.toJson())
+          .toList(growable: false),
       'todo_items': session.todoItems
           .map((item) => item.toJson())
           .toList(growable: false),

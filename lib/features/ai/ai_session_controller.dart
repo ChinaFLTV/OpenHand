@@ -2721,6 +2721,9 @@ class AiSessionController extends ChangeNotifier {
               ? sourceSession.awaitingPlanApproval
               : false,
           pendingPlan: isForkingAtTail ? sourceSession.pendingPlan : null,
+          pendingPlanAllowedPrompts: isForkingAtTail
+              ? sourceSession.pendingPlanAllowedPrompts
+              : const <AiSessionPlanAllowedPrompt>[],
           planHistory: retainedPlanHistory,
           fullAccessPermission: sourceSession.fullAccessPermission,
           metadata: retainedMetadata,
@@ -3472,19 +3475,22 @@ class AiSessionController extends ChangeNotifier {
             metadata: const <String, Object?>{'plan_mode_approved': true},
           );
           session = _rebuildSession(
-            session.copyWith(
+            _syncPlanHistory(
+              session.copyWith(
+                updatedAt: statusMessage.createdAt,
+                awaitingPlanApproval: false,
+                messages: <AiSessionMessage>[
+                  ...session.messages,
+                  statusMessage,
+                ],
+              ),
+              statusOverride: AiSessionPlanStatus.inProgress,
+              trackedAt: statusMessage.createdAt,
+            ).copyWith(
               updatedAt: statusMessage.createdAt,
               awaitingPlanApproval: false,
               clearPendingPlan: true,
-              messages: <AiSessionMessage>[...session.messages, statusMessage],
             ),
-          );
-          session = _syncPlanHistory(
-            session,
-            statusOverride:
-                _deriveTrackedPlanStatus(session) ??
-                AiSessionPlanStatus.inProgress,
-            trackedAt: statusMessage.createdAt,
           );
           final approvedCommitted = await _commitSessionLocked(session);
           if (!approvedCommitted) {
@@ -5712,6 +5718,10 @@ class AiSessionController extends ChangeNotifier {
               toolMessageMetadata['plan_mode_awaiting_approval'] == true
               ? '${toolMessageMetadata['pending_plan'] ?? ''}'.trim()
               : workingSession.pendingPlan,
+          pendingPlanAllowedPrompts:
+              toolMessageMetadata['plan_mode_awaiting_approval'] == true
+              ? _planAllowedPromptsFromToolMetadata(toolMessageMetadata)
+              : workingSession.pendingPlanAllowedPrompts,
           messages: <AiSessionMessage>[...workingSession.messages, toolMessage],
         ),
       );
@@ -5916,6 +5926,10 @@ class AiSessionController extends ChangeNotifier {
               toolMessageMetadata['plan_mode_awaiting_approval'] == true
               ? '${toolMessageMetadata['pending_plan'] ?? ''}'.trim()
               : workingSession.pendingPlan,
+          pendingPlanAllowedPrompts:
+              toolMessageMetadata['plan_mode_awaiting_approval'] == true
+              ? _planAllowedPromptsFromToolMetadata(toolMessageMetadata)
+              : workingSession.pendingPlanAllowedPrompts,
           messages: <AiSessionMessage>[...workingSession.messages, toolMessage],
         ),
       );
@@ -6687,6 +6701,14 @@ class AiSessionController extends ChangeNotifier {
     return todoListReplaced ? const <AiSessionTodoItem>[] : currentTodoItems;
   }
 
+  List<AiSessionPlanAllowedPrompt> _planAllowedPromptsFromToolMetadata(
+    Map<String, Object?> metadata,
+  ) {
+    return AiSessionPlanAllowedPrompt.listFromJson(
+      metadata['plan_mode_allowed_prompts'],
+    );
+  }
+
   /// 2026-05-04 — MCP lazy loading is delegated to
   /// [McpLazyLoadingApplier.apply]. Built-in lazy/deferred tools are layered on
   /// top in the assistant loop so already-pulled tools stay live across turns.
@@ -7248,6 +7270,7 @@ class AiSessionController extends ChangeNotifier {
                 ),
               )
               .toList(growable: false);
+    final allowedPrompts = session.pendingPlanAllowedPrompts;
     final planHistory = List<AiSessionPlanRecord>.from(session.planHistory);
     final trackedIndex = _trackedPlanRecordIndex(
       planHistory,
@@ -7262,6 +7285,9 @@ class AiSessionController extends ChangeNotifier {
         status: effectiveStatus,
         plan: normalizedPlan.isNotEmpty ? normalizedPlan : existingRecord.plan,
         steps: nextSteps ?? existingRecord.steps,
+        allowedPrompts: allowedPrompts.isNotEmpty
+            ? allowedPrompts
+            : existingRecord.allowedPrompts,
       );
     } else {
       planHistory.add(
@@ -7272,6 +7298,7 @@ class AiSessionController extends ChangeNotifier {
           status: effectiveStatus,
           plan: normalizedPlan,
           steps: nextSteps ?? const <AiSessionTodoItem>[],
+          allowedPrompts: allowedPrompts,
         ),
       );
     }

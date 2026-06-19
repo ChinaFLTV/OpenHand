@@ -531,6 +531,7 @@ class AiSessionStore {
                + COALESCE(LENGTH(s.latest_compression_at), 0)
                + COALESCE(LENGTH(s.mode), 0)
                + COALESCE(LENGTH(s.pending_plan), 0)
+               + COALESCE(LENGTH(s.pending_plan_allowed_prompts_json), 0)
                + COALESCE(LENGTH(s.metadata_json), 0)
                + COALESCE(LENGTH(s.environment_json), 0)
                + COALESCE(LENGTH(s.statistics_json), 0)
@@ -1000,6 +1001,9 @@ class AiSessionStore {
       mode: AiSessionMode.fromStorage((row['mode'] as String?) ?? 'chat'),
       awaitingPlanApproval: (row['awaiting_plan_approval'] as int?) == 1,
       pendingPlan: row['pending_plan'] as String?,
+      pendingPlanAllowedPrompts: AiSessionPlanAllowedPrompt.listFromJson(
+        _decodeJsonList(row['pending_plan_allowed_prompts_json']),
+      ),
       fullAccessPermission: (row['full_access_permission'] as int?) == 1,
       metadata: _decodeJsonMap(row['metadata_json']),
       lastPromptMetadata: _decodeJsonMap(row['last_prompt_metadata_json']),
@@ -1045,6 +1049,11 @@ class AiSessionStore {
       'mode': session.mode.storageValue,
       'awaiting_plan_approval': session.awaitingPlanApproval ? 1 : 0,
       'pending_plan': session.pendingPlan,
+      'pending_plan_allowed_prompts_json': jsonEncode(
+        session.pendingPlanAllowedPrompts
+            .map((item) => item.toJson())
+            .toList(growable: false),
+      ),
       'full_access_permission': session.fullAccessPermission ? 1 : 0,
       'metadata_json': jsonEncode(session.metadata),
       'environment_json': jsonEncode(session.environment.toJson()),

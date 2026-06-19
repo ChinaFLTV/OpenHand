@@ -15,7 +15,7 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 5;
+  static const int schemaVersion = 6;
   static const String _databaseFileName = 'openhand.db';
 
   /// Returns the singleton instance.  Must call [initialize] first.
@@ -125,6 +125,7 @@ class DatabaseService {
         mode                                      TEXT NOT NULL DEFAULT 'chat',
         awaiting_plan_approval                    INTEGER NOT NULL DEFAULT 0,
         pending_plan                              TEXT,
+        pending_plan_allowed_prompts_json         TEXT NOT NULL DEFAULT '[]',
         full_access_permission                    INTEGER NOT NULL DEFAULT 0,
         metadata_json                             TEXT NOT NULL DEFAULT '{}',
         environment_json                          TEXT NOT NULL DEFAULT '{}',
@@ -309,6 +310,15 @@ class DatabaseService {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_sessions_archived '
         'ON sessions(archived)',
+      );
+    }
+    // 2026-06-19: schema v6 — persist semantic Bash action categories
+    // collected by ExitPlanMode.allowed_prompts for the currently pending
+    // plan. This records implementation intent only; runtime permissions and
+    // write-command confirmation remain authoritative.
+    if (oldVersion < 6) {
+      await db.execute(
+        "ALTER TABLE sessions ADD COLUMN pending_plan_allowed_prompts_json TEXT NOT NULL DEFAULT '[]'",
       );
     }
   }

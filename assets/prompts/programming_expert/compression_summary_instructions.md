@@ -8,7 +8,7 @@
 - **Code Context**：相关文件、符号、行号、当前改动意图。
 - **Architecture**：架构选择、设计模式、取舍依据。
 - **Plan State**：已完成、进行中、待办、阻塞项。
-- **Session State**：优先使用 `Compression Task Payload.session_state` 中的 mode、full_access_permission、write_command_confirmation_required、awaiting_plan_approval、pending_plan、plan_mode、current_todos、recent_plan_records。
+- **Session State**：优先使用 `Compression Task Payload.session_state` 中的 mode、full_access_permission、write_command_confirmation_required、awaiting_plan_approval、pending_plan、pending_plan_allowed_prompts、plan_mode、current_todos、recent_plan_records。
 - **Current Work**：压缩发生时正在处理的具体文件、符号、命令或工具调用意图。
 - **Next Step**：下一轮应直接执行的一个动作；若不能继续，说明阻塞输入。
 - **Approval Gates**：计划 / 映射 / 改造等用户确认状态；保留原文确认词。
