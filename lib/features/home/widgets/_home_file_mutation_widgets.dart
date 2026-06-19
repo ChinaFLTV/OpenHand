@@ -966,7 +966,7 @@ class _FileMutationCardRow extends StatelessWidget {
               const Icon(Icons.open_in_new_rounded, size: 16),
               const SizedBox(width: 8),
               Text(
-                _localizedTextStatic(
+                openHandLocalizedText(
                   context,
                   zh: '打开 diff 对话框',
                   en: 'Open diff dialog',
@@ -1540,7 +1540,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Text(
-            _localizedTextStatic(
+            openHandLocalizedText(
               context,
               zh: '内容相同或不可对比。',
               en: 'No textual diff available.',
@@ -1744,7 +1744,7 @@ class _CodexDiffFoldRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = _localizedTextStatic(
+    final label = openHandLocalizedText(
       context,
       zh: '$count 行未修改',
       en: '$count unmodified lines',
@@ -1797,8 +1797,8 @@ class _CodexDiffFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = showFull
-        ? _localizedTextStatic(context, zh: '收起 Diff 预览', en: 'Collapse diff')
-        : _localizedTextStatic(
+        ? openHandLocalizedText(context, zh: '收起 Diff 预览', en: 'Collapse diff')
+        : openHandLocalizedText(
             context,
             zh: '展开全部 Diff（还有 $hiddenCount 行）',
             en: 'Show full diff ($hiddenCount more lines)',
@@ -2936,14 +2936,6 @@ class _BulkUndoOverlay extends StatelessWidget {
   }
 }
 
-String _localizedTextStatic(
-  BuildContext context, {
-  required String zh,
-  required String en,
-}) {
-  return openHandLocalizedText(context, zh: zh, en: en);
-}
-
 /// 徽章用紧凑字节格式（B / KiB / MiB），保持单字符精度。
 String _compactBytes(int bytes) {
   if (bytes < 1024) return '${bytes}B';
@@ -3178,7 +3170,7 @@ class _RoundFileMutationSummaryCardState
               SnackBar(
                 duration: const Duration(milliseconds: 2800),
                 content: Text(
-                  _localizedTextStatic(
+                  openHandLocalizedText(
                     context,
                     zh: '目标消息位于上下文压缩点之前，已跳转到最早可见消息。',
                     en: 'Target message is before compression point. Jumped to earliest visible message.',
@@ -3198,7 +3190,7 @@ class _RoundFileMutationSummaryCardState
       SnackBar(
         duration: const Duration(milliseconds: 2200),
         content: Text(
-          _localizedTextStatic(
+          openHandLocalizedText(
             context,
             zh: '未能定位来源消息（可能已被删除）。',
             en: 'Could not locate source message (may have been deleted).',
@@ -3337,7 +3329,7 @@ class _RoundFileMutationSummaryCardState
         SnackBar(
           duration: const Duration(milliseconds: 2400),
           content: Text(
-            _localizedTextStatic(
+            openHandLocalizedText(
               context,
               zh: '导出取消（无法打开文件选择器）：$error',
               en: 'Export aborted (file picker unavailable): $error',
@@ -3355,7 +3347,7 @@ class _RoundFileMutationSummaryCardState
         SnackBar(
           duration: const Duration(milliseconds: 1600),
           content: Text(
-            _localizedTextStatic(
+            openHandLocalizedText(
               context,
               zh: '已取消导出。',
               en: 'Export cancelled.',
@@ -3380,7 +3372,7 @@ class _RoundFileMutationSummaryCardState
         SnackBar(
           duration: const Duration(milliseconds: 2800),
           content: Text(
-            _localizedTextStatic(
+            openHandLocalizedText(
               context,
               zh: '保存失败：$error',
               en: 'Save failed: $error',
@@ -3397,7 +3389,7 @@ class _RoundFileMutationSummaryCardState
       SnackBar(
         duration: const Duration(milliseconds: 2400),
         content: Text(
-          _localizedTextStatic(
+          openHandLocalizedText(
             context,
             zh: '已保存到 ${location.path}',
             en: 'Saved to ${location.path}',
@@ -3452,7 +3444,7 @@ class _RoundFileMutationSummaryCardState
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                _localizedTextStatic(
+                                openHandLocalizedText(
                                   context,
                                   zh: '正在汇总本轮文件变动…',
                                   en: 'Aggregating round mutations…',
@@ -3468,7 +3460,7 @@ class _RoundFileMutationSummaryCardState
                         Padding(
                           padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
                           child: Text(
-                            _localizedTextStatic(
+                            openHandLocalizedText(
                               context,
                               zh: '本轮无文件变动。',
                               en: 'No file mutations this round.',
@@ -3569,7 +3561,7 @@ class _RoundFileMutationSummaryCardState
           Icon(Icons.auto_awesome_motion_rounded, size: 18, color: cs.primary),
           const SizedBox(width: 8),
           Text(
-            _localizedTextStatic(
+            openHandLocalizedText(
               context,
               zh: '本轮文件变动汇总',
               en: 'Round File Mutations',
@@ -3617,7 +3609,7 @@ class _RoundFileMutationSummaryCardState
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: Tooltip(
-                message: _localizedTextStatic(
+                message: openHandLocalizedText(
                   context,
                   zh: '字节增减估算（基于文件大小）',
                   en: 'Byte delta (file-size estimate)',
@@ -3661,7 +3653,7 @@ class _RoundFileMutationSummaryCardState
               !_bulkUndoBusy)
             _IconActionButton(
               icon: Icons.undo_rounded,
-              tooltip: _localizedTextStatic(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '撤销本轮全部变动',
                 en: 'Undo all round mutations',
@@ -3671,7 +3663,7 @@ class _RoundFileMutationSummaryCardState
           if (rows.isNotEmpty)
             _IconActionButton(
               icon: Icons.data_object_rounded,
-              tooltip: _localizedTextStatic(
+              tooltip: openHandLocalizedText(
                 context,
                 zh: '导出本轮 JSON',
                 en: 'Export round as JSON',
@@ -3680,7 +3672,7 @@ class _RoundFileMutationSummaryCardState
             ),
           _IconActionButton(
             icon: Icons.refresh_rounded,
-            tooltip: _localizedTextStatic(
+            tooltip: openHandLocalizedText(
               context,
               zh: '刷新汇总',
               en: 'Refresh summary',
@@ -3825,7 +3817,7 @@ class _RoundFileMutationSummaryCardState
               ),
               icon: const Icon(Icons.unfold_more_rounded, size: 16),
               label: Text(
-                _localizedTextStatic(
+                openHandLocalizedText(
                   context,
                   zh: '展开剩余 $remaining 行',
                   en: 'Show $remaining more',
@@ -3856,7 +3848,7 @@ class _RoundFileMutationSummaryCardState
               ),
               icon: const Icon(Icons.unfold_less_rounded, size: 16),
               label: Text(
-                _localizedTextStatic(context, zh: '收起', en: 'Collapse'),
+                openHandLocalizedText(context, zh: '收起', en: 'Collapse'),
                 style: theme.textTheme.labelMedium,
               ),
               onPressed: () {
@@ -4073,7 +4065,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
               row.view.record.afterSha != null) ...[
             const SizedBox(width: 4),
             Tooltip(
-              message: _localizedTextStatic(
+              message: openHandLocalizedText(
                 context,
                 zh: '展开 / 收起 Diff 预览',
                 en: 'Expand / collapse diff preview',
@@ -4137,7 +4129,7 @@ class _RoundSummarySourceJumpButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Tooltip(
-      message: _localizedTextStatic(
+      message: openHandLocalizedText(
         context,
         zh: '跳转到产生该变动的工具调用',
         en: 'Jump to source tool-call message',
@@ -4394,7 +4386,7 @@ class _DiffLoadingPlaceholder extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              _localizedTextStatic(
+              openHandLocalizedText(
                 context,
                 zh: '加载 Diff…',
                 en: 'Loading diff…',
@@ -4430,7 +4422,7 @@ class _DiffEmptyPlaceholder extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Text(
-          _localizedTextStatic(
+          openHandLocalizedText(
             context,
             zh: '内容相同或不可对比。',
             en: 'No textual diff available.',

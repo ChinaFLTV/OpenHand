@@ -98,10 +98,6 @@ class MachineExpertDialogResult {
 class _MachineExpertDialogState extends State<MachineExpertDialog> {
   final TextEditingController _taskController = TextEditingController();
 
-  String _loc(BuildContext context, {required String zh, required String en}) {
-    return openHandLocalizedText(context, zh: zh, en: en);
-  }
-
   String? _selectedTerminal;
   String? _selectedWindow;
   String? _selectedTab;
@@ -262,7 +258,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         await Future.delayed(const Duration(milliseconds: 150));
         windows = List.generate(
           10,
-          (index) => '${_loc(context, zh: '窗口', en: 'Window')} ${index + 1}',
+          (index) =>
+              '${openHandLocalizedText(context, zh: '窗口', en: 'Window')} ${index + 1}',
         );
       }
 
@@ -326,8 +323,12 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   Future<void> _updateTabsForWindowInternal(String window, int fetchId) async {
     // Capture locale-dependent labels before any async gap to avoid
     // use_build_context_synchronously warnings.
-    final tabLabel = _loc(context, zh: '标签页', en: 'Tab');
-    final sessionLabel = _loc(context, zh: '会话', en: 'Session');
+    final tabLabel = openHandLocalizedText(context, zh: '标签页', en: 'Tab');
+    final sessionLabel = openHandLocalizedText(
+      context,
+      zh: '会话',
+      en: 'Session',
+    );
 
     var tabs = <String>[];
     var indices = <(int, int)>[];
@@ -562,7 +563,11 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           onTap: hasModels ? _showModelMenu : null,
           child: InputDecorator(
             decoration: InputDecoration(
-              labelText: _loc(context, zh: '使用模型（可选）', en: 'Model (Optional)'),
+              labelText: openHandLocalizedText(
+                context,
+                zh: '使用模型（可选）',
+                en: 'Model (Optional)',
+              ),
               border: const OutlineInputBorder(),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -582,7 +587,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
             ),
             child: Text(
               displayLabel ??
-                  _loc(
+                  openHandLocalizedText(
                     context,
                     zh: hasModels ? '点击选择模型' : '未配置可用模型，将沿用当前默认模型',
                     en: hasModels
@@ -600,7 +605,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         ),
         const SizedBox(height: 6),
         Text(
-          _loc(
+          openHandLocalizedText(
             context,
             zh: hasModels
                 ? '仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。'
@@ -727,7 +732,11 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                         ),
                         const SizedBox(width: 16),
                         _buildDropdownItem(
-                          label: _loc(context, zh: '窗口', en: 'Window'),
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '窗口',
+                            en: 'Window',
+                          ),
                           value: _selectedWindow,
                           items: _windows,
                           displayLabelBuilder: (w) => w,
@@ -742,7 +751,11 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                         ),
                         const SizedBox(width: 16),
                         _buildDropdownItem(
-                          label: _loc(context, zh: '会话', en: 'Session'),
+                          label: openHandLocalizedText(
+                            context,
+                            zh: '会话',
+                            en: 'Session',
+                          ),
                           value: _selectedTab,
                           items: _tabs,
                           displayLabelBuilder: (t) => t,

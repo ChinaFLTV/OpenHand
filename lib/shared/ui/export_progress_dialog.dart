@@ -92,7 +92,11 @@ class ExportProgressDialog extends StatelessWidget {
                   if (isCancelling) ...[
                     const SizedBox(height: 8),
                     Text(
-                      _localizedText(context, zh: '正在取消…', en: 'Cancelling…'),
+                      openHandLocalizedText(
+                        context,
+                        zh: '正在取消…',
+                        en: 'Cancelling…',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       ),
@@ -141,12 +145,4 @@ Future<void> showExportProgressDialog({
       cancelLabel: cancelLabel,
     ),
   );
-}
-
-String _localizedText(
-  BuildContext context, {
-  required String zh,
-  required String en,
-}) {
-  return openHandLocalizedText(context, zh: zh, en: en);
 }

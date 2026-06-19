@@ -114,7 +114,6 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
       _ticker.stop();
     }
     if (mounted) {
-      // ignore: invalid_use_of_protected_member
       setState(() {});
     }
   }

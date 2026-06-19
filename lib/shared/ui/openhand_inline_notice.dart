@@ -46,9 +46,6 @@ class OpenHandInlineNotice extends StatelessWidget {
   }
 }
 
-/// 错误 / 警告 / 信息三类通知的语义色调。
-enum OpenHandNoticeTone { error, warning, info, success }
-
 /// 工厂：按语气自动选择图标与配色，避免各处重复硬编码。
 class OpenHandInlineNoticeFactory {
   const OpenHandInlineNoticeFactory._();
@@ -72,26 +69,6 @@ class OpenHandInlineNoticeFactory {
       message: message,
     );
   }
-
-  static OpenHandInlineNotice info(BuildContext context, String message) {
-    final scheme = Theme.of(context).colorScheme;
-    return OpenHandInlineNotice(
-      icon: Icons.info_outline_rounded,
-      color: scheme.secondaryContainer,
-      foregroundColor: scheme.onSecondaryContainer,
-      message: message,
-    );
-  }
-
-  static OpenHandInlineNotice success(BuildContext context, String message) {
-    final scheme = Theme.of(context).colorScheme;
-    return OpenHandInlineNotice(
-      icon: Icons.check_circle_outline_rounded,
-      color: scheme.primaryContainer,
-      foregroundColor: scheme.onPrimaryContainer,
-      message: message,
-    );
-  }
 }
 
 /// 通知卡片容器：用 AnimatedSwitcher + SizeTransition + FadeTransition + SlideTransition
@@ -111,8 +88,10 @@ class OpenHandInlineNoticeSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasChild = child != null;
     final inMs = openHandMotionDurationMs(context, 320).inMilliseconds;
-    final outMs = (openHandMotionDurationMs(context, 240).inMilliseconds)
-        .clamp(0, inMs);
+    final outMs = (openHandMotionDurationMs(
+      context,
+      240,
+    ).inMilliseconds).clamp(0, inMs);
     return AnimatedSwitcher(
       duration: Duration(milliseconds: hasChild ? inMs : outMs),
       switchInCurve: Curves.easeOutCubic,
