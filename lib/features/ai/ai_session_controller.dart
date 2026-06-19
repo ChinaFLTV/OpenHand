@@ -6405,6 +6405,8 @@ class AiSessionController extends ChangeNotifier {
             .isWrite;
       case null:
       case AiBuiltinToolKind.bashBackground:
+      case AiBuiltinToolKind.taskOutput:
+      case AiBuiltinToolKind.taskStop:
       case AiBuiltinToolKind.exitPlanMode:
       case AiBuiltinToolKind.edit:
       case AiBuiltinToolKind.multiEdit:

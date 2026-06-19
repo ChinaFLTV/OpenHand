@@ -477,6 +477,8 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.toolSearch:
         return AiBuiltinToolLoadStrategy.eager;
       case AiBuiltinToolKind.bashBackground:
+      case AiBuiltinToolKind.taskOutput:
+      case AiBuiltinToolKind.taskStop:
       case AiBuiltinToolKind.multiEdit:
       case AiBuiltinToolKind.applyFileDiffs:
       case AiBuiltinToolKind.write:

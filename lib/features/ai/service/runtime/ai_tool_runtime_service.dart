@@ -125,6 +125,8 @@ enum AiBuiltinToolKind {
   task,
   bash,
   bashBackground,
+  taskOutput,
+  taskStop,
   glob,
   grep,
   ls,
@@ -258,6 +260,8 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.task,
         AiBuiltinToolKind.bash,
         AiBuiltinToolKind.bashBackground,
+        AiBuiltinToolKind.taskOutput,
+        AiBuiltinToolKind.taskStop,
         AiBuiltinToolKind.edit,
         AiBuiltinToolKind.multiEdit,
         AiBuiltinToolKind.applyFileDiffs,
@@ -1382,6 +1386,23 @@ class AiToolRuntimeService {
         'routed_from_tool': tool.name,
         'routed_to_tool': backgroundTool.name,
       };
+    } else if (kind == AiBuiltinToolKind.taskOutput ||
+        kind == AiBuiltinToolKind.taskStop) {
+      dispatchKind = AiBuiltinToolKind.bashBackground;
+      dispatchToolCall = AiToolCall(
+        id: toolCall.id,
+        name: kind == AiBuiltinToolKind.taskOutput ? 'TaskOutput' : 'TaskStop',
+        arguments: toolCall.arguments,
+      );
+      dispatchArguments = <String, Object?>{
+        ...decodedArguments,
+        'action': kind == AiBuiltinToolKind.taskOutput ? 'read' : 'stop',
+      };
+      dispatchMetadata = <String, Object?>{
+        'background_task_alias': true,
+        'routed_from_tool': tool.name,
+        'routed_to_tool': 'BashBackground',
+      };
     }
     // 2026-04-01 优先通过多态 Registry 路由（轻量工具已迁移）
     // 2026-04-12 通过 metadata 传递文件追踪和历史服务（遵循 AiToolExecutionContext 冻结约束）
@@ -1551,6 +1572,8 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.task => 'Task',
       AiBuiltinToolKind.bash => 'Bash',
       AiBuiltinToolKind.bashBackground => 'BashBackground',
+      AiBuiltinToolKind.taskOutput => 'TaskOutput',
+      AiBuiltinToolKind.taskStop => 'TaskStop',
       AiBuiltinToolKind.glob => 'Glob',
       AiBuiltinToolKind.grep => 'Grep',
       AiBuiltinToolKind.ls => 'LS',
@@ -2077,6 +2100,95 @@ class AiToolRuntimeService {
           'max_bytes': <String, Object?>{'type': 'integer'},
         },
         'required': <String>['action'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.taskOutput,
+      name: 'TaskOutput',
+      description:
+          'Claude-style compatibility tool for reading output from an OpenHand background shell task. '
+          'Use task_id with the BashBackground handle returned by Bash(run_in_background=true) or BashBackground start. '
+          'block defaults to true and waits until the task exits or timeout elapses; set block=false for a non-blocking status/output check. '
+          'This is routed internally to BashBackground read.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'task_id': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Background task ID. In OpenHand this is the BashBackground handle, e.g. bg_1.',
+          },
+          'handle': <String, Object?>{
+            'type': 'string',
+            'description': 'OpenHand alias for task_id.',
+          },
+          'block': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Whether to wait for completion before returning. Defaults to true.',
+          },
+          'timeout': <String, Object?>{
+            'type': 'integer',
+            'description':
+                'Maximum wait time in milliseconds when block=true. Defaults to 30000 and is capped at 600000.',
+          },
+          'timeout_ms': <String, Object?>{
+            'type': 'integer',
+            'description': 'Alias for timeout.',
+          },
+          'max_bytes': <String, Object?>{
+            'type': 'integer',
+            'description':
+                'Maximum stdout/stderr bytes to drain from each stream.',
+          },
+        },
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['task_id'],
+          },
+          <String, Object?>{
+            'required': <String>['handle'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.taskStop,
+      name: 'TaskStop',
+      description:
+          'Claude-style compatibility tool for stopping an OpenHand background shell task. '
+          'Use task_id with the BashBackground handle returned by Bash(run_in_background=true) or BashBackground start. '
+          'shell_id is accepted for deprecated KillShell compatibility. This is routed internally to BashBackground stop.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'task_id': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Background task ID. In OpenHand this is the BashBackground handle, e.g. bg_1.',
+          },
+          'shell_id': <String, Object?>{
+            'type': 'string',
+            'description': 'Deprecated alias for task_id.',
+          },
+          'handle': <String, Object?>{
+            'type': 'string',
+            'description': 'OpenHand alias for task_id.',
+          },
+        },
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['task_id'],
+          },
+          <String, Object?>{
+            'required': <String>['shell_id'],
+          },
+          <String, Object?>{
+            'required': <String>['handle'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

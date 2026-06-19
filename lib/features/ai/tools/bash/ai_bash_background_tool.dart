@@ -46,6 +46,9 @@ class AiBashBackgroundTool extends AiTool {
   static const int _maxConcurrentSessions = 8;
   static const int _defaultReadBytes = 8192;
   static const int _maxRetainedExitedSessions = 4;
+  static const int _defaultTaskOutputTimeoutMs = 30000;
+  static const int _maxTaskOutputTimeoutMs = 600000;
+  static const int _taskOutputPollMs = 100;
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
   final AiBashToolService _bashToolService;
@@ -55,6 +58,15 @@ class AiBashBackgroundTool extends AiTool {
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.bashBackground;
+
+  @override
+  List<String> get aliases => const <String>[
+    'TaskOutput',
+    'BashOutputTool',
+    'AgentOutputTool',
+    'TaskStop',
+    'KillShell',
+  ];
 
   @override
   bool get isDestructive => true;
@@ -74,7 +86,7 @@ class AiBashBackgroundTool extends AiTool {
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
-    final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+    final action = _resolveAction(context, args);
     if (action.isEmpty) {
       return AiToolUtils.invalidResult(
         'BashBackground',
@@ -87,9 +99,9 @@ class AiBashBackgroundTool extends AiTool {
       case 'write':
         return _write(args);
       case 'read':
-        return _read(args);
+        return _read(context, args, toolName: _taskAliasToolName(context));
       case 'stop':
-        return _stop(args);
+        return _stop(args, toolName: _taskAliasToolName(context));
       case 'list':
         return _list();
       default:
@@ -98,6 +110,49 @@ class AiBashBackgroundTool extends AiTool {
           'Unsupported action "$action". Use: start | write | read | stop | list.',
         );
     }
+  }
+
+  String _resolveAction(
+    AiToolExecutionContext context,
+    Map<String, Object?> args,
+  ) {
+    final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+    if (action.isNotEmpty) return action;
+    final toolName = _normalizedToolCallName(context.toolCall.name);
+    if (toolName == 'taskoutput' ||
+        toolName == 'bashoutputtool' ||
+        toolName == 'agentoutputtool') {
+      return 'read';
+    }
+    if (toolName == 'taskstop' || toolName == 'killshell') {
+      return 'stop';
+    }
+    return '';
+  }
+
+  String _taskAliasToolName(AiToolExecutionContext context) {
+    final toolName = _normalizedToolCallName(context.toolCall.name);
+    if (toolName == 'taskoutput' ||
+        toolName == 'bashoutputtool' ||
+        toolName == 'agentoutputtool') {
+      return 'TaskOutput';
+    }
+    if (toolName == 'taskstop' || toolName == 'killshell') {
+      return 'TaskStop';
+    }
+    return 'BashBackground';
+  }
+
+  String _normalizedToolCallName(String value) {
+    final buffer = StringBuffer();
+    for (final code in value.codeUnits) {
+      if ((code >= 0x30 && code <= 0x39) ||
+          (code >= 0x41 && code <= 0x5A) ||
+          (code >= 0x61 && code <= 0x7A)) {
+        buffer.writeCharCode(code | 0x20);
+      }
+    }
+    return buffer.toString();
   }
 
   Future<AiToolExecutionResult> _start(
@@ -359,22 +414,70 @@ class AiBashBackgroundTool extends AiTool {
     );
   }
 
-  Future<AiToolExecutionResult> _read(Map<String, Object?> args) async {
-    final handle = '${args['handle'] ?? ''}'.trim();
+  Future<AiToolExecutionResult> _read(
+    AiToolExecutionContext context,
+    Map<String, Object?> args, {
+    required String toolName,
+  }) async {
+    final startedAt = Stopwatch()..start();
+    final handle = _handleFromArgs(args);
     final maxBytes = _normalizeReadBytes(
       AiToolUtils.readInt(args['max_bytes']),
     );
     final session = _sessions[handle];
     if (session == null) {
       return AiToolUtils.invalidResult(
-        'BashBackground',
-        'Unknown handle "$handle".',
+        toolName,
+        handle.isEmpty
+            ? '$toolName requires task_id or handle.'
+            : 'Unknown handle "$handle".',
+      );
+    }
+    final isTaskOutputAlias = toolName == 'TaskOutput';
+    final block = _readBool(args['block'], defaultValue: isTaskOutputAlias);
+    final timeoutMs = _normalizeTaskOutputTimeoutMs(
+      AiToolUtils.readInt(args['timeout']) ??
+          AiToolUtils.readInt(args['timeout_ms']),
+    );
+    var cancelled = false;
+    if (block && session.alive) {
+      cancelled = await _waitForSessionExit(
+        session,
+        timeoutMs: timeoutMs,
+        cancelSignal: context.cancelSignal,
+      );
+    }
+    if (cancelled) {
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.cancelled,
+        command: '$toolName $handle',
+        workingDirectory: session.workingDirectory,
+        stdout: '',
+        stderr: 'TaskOutput wait cancelled.',
+        durationMs: startedAt.elapsedMilliseconds,
+        resultText: 'status: cancelled\nhandle: $handle',
+        metadata: <String, Object?>{
+          'bg_handle': handle,
+          'task_id': handle,
+          'task_output_alias': isTaskOutputAlias,
+          'task_output_cancelled': true,
+        },
       );
     }
     session.touch();
     final stdout = session.drainStdout(maxBytes);
     final stderr = session.drainStderr(maxBytes);
-    final out = StringBuffer()
+    final retrievalStatus = block && session.alive
+        ? 'timeout'
+        : (!block && session.alive ? 'not_ready' : 'success');
+    final out = StringBuffer();
+    if (isTaskOutputAlias) {
+      out
+        ..writeln('retrieval_status: $retrievalStatus')
+        ..writeln('task_id: $handle')
+        ..writeln('task_type: local_bash');
+    }
+    out
       ..writeln('handle: $handle')
       ..writeln('alive: ${session.alive}')
       ..writeln('exit_code: ${session.exitCode ?? -1}')
@@ -383,25 +486,40 @@ class AiBashBackgroundTool extends AiTool {
       ..writeln('--- stderr (new) ---')
       ..writeln(stderr);
     return AiToolUtils.simpleSuccessResult(
-      command: 'BashBackground read $handle',
+      command: isTaskOutputAlias
+          ? '$toolName $handle'
+          : 'BashBackground read $handle',
       output: out.toString().trimRight(),
-      durationMs: 0,
+      durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: session.workingDirectory,
       metadata: <String, Object?>{
         'bg_handle': handle,
         'bg_alive': session.alive,
         'bg_exit_code': session.exitCode,
+        if (isTaskOutputAlias) ...<String, Object?>{
+          'task_output_alias': true,
+          'task_id': handle,
+          'task_type': 'local_bash',
+          'task_output_retrieval_status': retrievalStatus,
+          'task_output_block': block,
+          'task_output_timeout_ms': timeoutMs,
+        },
       },
     );
   }
 
-  Future<AiToolExecutionResult> _stop(Map<String, Object?> args) async {
-    final handle = '${args['handle'] ?? ''}'.trim();
+  Future<AiToolExecutionResult> _stop(
+    Map<String, Object?> args, {
+    required String toolName,
+  }) async {
+    final handle = _handleFromArgs(args);
     final session = _sessions.remove(handle);
     if (session == null) {
       return AiToolUtils.invalidResult(
-        'BashBackground',
-        'Unknown handle "$handle".',
+        toolName,
+        handle.isEmpty
+            ? '$toolName requires task_id, shell_id, or handle.'
+            : 'Unknown handle "$handle".',
       );
     }
     bool killed = false;
@@ -411,13 +529,29 @@ class AiBashBackgroundTool extends AiTool {
     } catch (error, stack) {
       silentLog('ai_bash_background', 'stop $handle', error, stack);
     }
+    final isTaskStopAlias = toolName == 'TaskStop';
+    final output = isTaskStopAlias
+        ? 'status: ${killed ? "killed" : "already_exited"}\n'
+              'handle: $handle\n'
+              'task_id: $handle\n'
+              'task_type: local_bash'
+        : 'status: ${killed ? "killed" : "already_exited"}\nhandle: $handle';
     return AiToolUtils.simpleSuccessResult(
-      command: 'BashBackground stop $handle',
-      output:
-          'status: ${killed ? "killed" : "already_exited"}\nhandle: $handle',
+      command: isTaskStopAlias
+          ? '$toolName $handle'
+          : 'BashBackground stop $handle',
+      output: output,
       durationMs: 0,
       workingDirectory: session.workingDirectory,
-      metadata: <String, Object?>{'bg_handle': handle, 'bg_killed': killed},
+      metadata: <String, Object?>{
+        'bg_handle': handle,
+        'bg_killed': killed,
+        if (isTaskStopAlias) ...<String, Object?>{
+          'task_stop_alias': true,
+          'task_id': handle,
+          'task_type': 'local_bash',
+        },
+      },
     );
   }
 
@@ -460,6 +594,57 @@ class AiBashBackgroundTool extends AiTool {
   int _normalizeReadBytes(int? value) {
     final raw = value ?? _defaultReadBytes;
     return raw.clamp(0, _maxBufferBytes).toInt();
+  }
+
+  String _handleFromArgs(Map<String, Object?> args) {
+    for (final key in const <String>['handle', 'task_id', 'shell_id']) {
+      final value = '${args[key] ?? ''}'.trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  bool _readBool(Object? rawValue, {required bool defaultValue}) {
+    if (rawValue == null) return defaultValue;
+    if (rawValue is bool) return rawValue;
+    final normalized = '$rawValue'.trim().toLowerCase();
+    if (normalized == 'true') return true;
+    if (normalized == 'false') return false;
+    return defaultValue;
+  }
+
+  int _normalizeTaskOutputTimeoutMs(int? value) {
+    final raw = value ?? _defaultTaskOutputTimeoutMs;
+    return raw.clamp(0, _maxTaskOutputTimeoutMs).toInt();
+  }
+
+  Future<bool> _waitForSessionExit(
+    _BgSession session, {
+    required int timeoutMs,
+    Future<void>? cancelSignal,
+  }) async {
+    final startedAtMs = DateTime.now().millisecondsSinceEpoch;
+    while (session.alive) {
+      final elapsedMs = DateTime.now().millisecondsSinceEpoch - startedAtMs;
+      final remainingMs = timeoutMs - elapsedMs;
+      if (remainingMs <= 0) return false;
+      var cancelled = false;
+      final waitMs = remainingMs < _taskOutputPollMs
+          ? remainingMs
+          : _taskOutputPollMs;
+      if (cancelSignal == null) {
+        await Future<void>.delayed(Duration(milliseconds: waitMs));
+      } else {
+        await Future.any(<Future<void>>[
+          Future<void>.delayed(Duration(milliseconds: waitMs)),
+          cancelSignal.then((_) {
+            cancelled = true;
+          }),
+        ]);
+      }
+      if (cancelled) return true;
+    }
+    return false;
   }
 
   String _directoryConfirmationTarget(String directory) {

@@ -54,7 +54,9 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.grep ||
     AiBuiltinToolKind.codebaseSearch => HardnessToolCategory.search,
     AiBuiltinToolKind.bash ||
-    AiBuiltinToolKind.bashBackground => HardnessToolCategory.shell,
+    AiBuiltinToolKind.bashBackground ||
+    AiBuiltinToolKind.taskOutput ||
+    AiBuiltinToolKind.taskStop => HardnessToolCategory.shell,
     AiBuiltinToolKind.git => HardnessToolCategory.vcs,
     AiBuiltinToolKind.webFetch ||
     AiBuiltinToolKind.webSearch => HardnessToolCategory.web,

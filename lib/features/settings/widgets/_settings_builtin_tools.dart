@@ -30,6 +30,8 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.task => Icons.task_alt_rounded,
       AiBuiltinToolKind.bash => Icons.terminal_rounded,
       AiBuiltinToolKind.bashBackground => Icons.dvr_rounded,
+      AiBuiltinToolKind.taskOutput => Icons.output_rounded,
+      AiBuiltinToolKind.taskStop => Icons.stop_circle_outlined,
       AiBuiltinToolKind.glob => Icons.folder_copy_outlined,
       AiBuiltinToolKind.grep => Icons.search_rounded,
       AiBuiltinToolKind.ls => Icons.list_alt_rounded,

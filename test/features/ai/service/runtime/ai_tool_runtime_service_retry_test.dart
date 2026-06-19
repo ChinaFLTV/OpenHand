@@ -231,6 +231,36 @@ void main() {
         expect(required, isNull);
       }
     });
+
+    test('TaskOutput and TaskStop expose Claude-style schemas', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final taskOutput = catalog.find('TaskOutput')?.definition;
+      final taskStop = catalog.find('TaskStop')?.definition;
+
+      expect(taskOutput, isNotNull);
+      final taskOutputProperties = taskOutput?.parameters['properties'] as Map?;
+      expect(taskOutputProperties?['task_id'], containsPair('type', 'string'));
+      expect(taskOutputProperties?['block'], containsPair('type', 'boolean'));
+      expect(taskOutputProperties?['timeout'], containsPair('type', 'integer'));
+      expect(
+        taskOutputProperties?['max_bytes'],
+        containsPair('type', 'integer'),
+      );
+
+      expect(taskStop, isNotNull);
+      final taskStopProperties = taskStop?.parameters['properties'] as Map?;
+      expect(taskStopProperties?['task_id'], containsPair('type', 'string'));
+      expect(taskStopProperties?['shell_id'], containsPair('type', 'string'));
+    });
   });
 
   group('AiToolRuntimeService Bash background alias', () {
@@ -353,6 +383,127 @@ void main() {
         expect(result.stderr, contains('requires BashBackground'));
       },
     );
+
+    test('reads background output through TaskOutput', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(runtime.dispose);
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+
+      final startResult = await runtime.execute(
+        sessionId: 'runtime-task-output-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-task-output-start',
+          name: 'Bash',
+          arguments: jsonEncode(<String, Object?>{
+            'command': 'printf ready; sleep 0.1; printf done',
+            'working_directory': '/tmp',
+            'run_in_background': true,
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+      final handle = startResult.metadata['bg_handle'] as String;
+
+      final outputResult = await runtime.execute(
+        sessionId: 'runtime-task-output-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-task-output-read',
+          name: 'TaskOutput',
+          arguments: jsonEncode(<String, Object?>{
+            'task_id': handle,
+            'block': true,
+            'timeout': 5000,
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(outputResult.status, BashToolExecutionStatus.success);
+      expect(outputResult.command, 'TaskOutput $handle');
+      expect(outputResult.stdout, contains('retrieval_status: success'));
+      expect(outputResult.stdout, contains('task_id: $handle'));
+      expect(outputResult.stdout, contains('readydone'));
+      expect(outputResult.metadata['background_task_alias'], isTrue);
+      expect(outputResult.metadata['routed_from_tool'], 'TaskOutput');
+      expect(outputResult.metadata['routed_to_tool'], 'BashBackground');
+      expect(outputResult.metadata['task_output_alias'], isTrue);
+      expect(outputResult.metadata['task_output_retrieval_status'], 'success');
+    });
+
+    test('stops background task through TaskStop shell_id alias', () async {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(runtime.dispose);
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+
+      final startResult = await runtime.execute(
+        sessionId: 'runtime-task-stop-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-task-stop-start',
+          name: 'Bash',
+          arguments: jsonEncode(<String, Object?>{
+            'cmd': 'sleep 5',
+            'working_directory': '/tmp',
+            'run_in_background': true,
+          }),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+      final handle = startResult.metadata['bg_handle'] as String;
+
+      final stopResult = await runtime.execute(
+        sessionId: 'runtime-task-stop-test',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-task-stop-stop',
+          name: 'TaskStop',
+          arguments: jsonEncode(<String, Object?>{'shell_id': handle}),
+        ),
+        model: _testModel,
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(stopResult.status, BashToolExecutionStatus.success);
+      expect(stopResult.command, 'TaskStop $handle');
+      expect(stopResult.stdout, contains('status: killed'));
+      expect(stopResult.stdout, contains('task_id: $handle'));
+      expect(stopResult.metadata['background_task_alias'], isTrue);
+      expect(stopResult.metadata['routed_from_tool'], 'TaskStop');
+      expect(stopResult.metadata['routed_to_tool'], 'BashBackground');
+      expect(stopResult.metadata['task_stop_alias'], isTrue);
+      expect(stopResult.metadata['task_id'], handle);
+    });
   });
 
   group('AiToolRuntimeService output budget', () {
