@@ -46,10 +46,13 @@
 
 `ExitPlanMode` 参数：
 ```json
-{"plan": "1. Inspect ...\n2. Change ...\n3. Verify ..."}
+{
+  "plan": "1. Inspect ...\n2. Change ...\n3. Verify ...",
+  "allowed_prompts": [{"tool": "Bash", "prompt": "run targeted tests"}]
+}
 ```
 
-`plan` 必须非空，只放可执行编号清单与验收点。
+`plan` 必须非空，只放可执行编号清单与验收点。`allowed_prompts` 可省略；仅记录实现期可能需要的 Bash 行为类别，不授予权限、不放具体命令。
 </planning_tools>
 
 <ask_user_choice>

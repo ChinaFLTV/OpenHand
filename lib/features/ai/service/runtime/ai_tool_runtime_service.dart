@@ -1965,6 +1965,44 @@ class AiToolRuntimeService {
         'type': 'object',
         'properties': <String, Object?>{
           'plan': <String, Object?>{'type': 'string'},
+          'allowed_prompts': <String, Object?>{
+            'type': 'array',
+            'description':
+                'Optional semantic Bash action categories needed to implement the plan; records intent only and does not bypass runtime confirmation.',
+            'items': <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'tool': <String, Object?>{
+                  'type': 'string',
+                  'enum': <String>['Bash'],
+                },
+                'prompt': <String, Object?>{
+                  'type': 'string',
+                  'description':
+                      'Short semantic action category, e.g. run tests or build web assets; not a concrete command.',
+                },
+              },
+              'required': <String>['tool', 'prompt'],
+              'additionalProperties': false,
+            },
+          },
+          'allowedPrompts': <String, Object?>{
+            'type': 'array',
+            'description':
+                'CamelCase alias for allowed_prompts; prefer allowed_prompts in OpenHand prompts.',
+            'items': <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'tool': <String, Object?>{
+                  'type': 'string',
+                  'enum': <String>['Bash'],
+                },
+                'prompt': <String, Object?>{'type': 'string'},
+              },
+              'required': <String>['tool', 'prompt'],
+              'additionalProperties': false,
+            },
+          },
         },
         'required': <String>['plan'],
         'additionalProperties': false,

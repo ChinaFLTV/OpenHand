@@ -51,7 +51,7 @@
 硬规则：
 1. `Edit` / `MultiEdit` / `Write` / `ApplyFileDiffs` / `Bash` 等实施工具在计划期禁用；不要把 diff 或代码块贴聊天伪装成实现。
 2. OpenHand 只会在当前 todo 列表存在未完成项时暴露 `ExitPlanMode`。因此计划成形后必须先用 `TodoWrite` 写入执行清单，并保留至少一个 `pending` 或 `in_progress` 项；不要在调用 `ExitPlanMode` 前把所有 todo 标为 `completed`。
-3. `ExitPlanMode` 的 `plan` 参数只放精练的 `1. ... / 2. ...` 执行步骤与验收点，不放冗长背景，不贴具体代码。
+3. `ExitPlanMode` 的 `plan` 参数只放精练的 `1. ... / 2. ...` 执行步骤与验收点，不放冗长背景，不贴具体代码；可选 `allowed_prompts` 只写 Bash 行为类别，不写具体命令。
 4. `AskUserChoice` 只用于计划成形前澄清需求或选择方案；不要用它问“计划是否可以 / 是否继续”，计划审批必须用 `ExitPlanMode`。
 5. `awaiting_plan_approval: true` 期间不要调用任何工具；只可复述计划、回答澄清并等待明确批准。用户明确说“批准 / 同意 / 继续 / OK / yes / go / 去写吧 / 去做吧”等才进入实施。
 6. 如果 `ExitPlanMode` 暂未出现在工具目录，优先检查是否尚未 `TodoWrite` 未完成执行清单；仍不可用时，用自然语言给出编号计划并请用户批准，禁止贴实现代码。

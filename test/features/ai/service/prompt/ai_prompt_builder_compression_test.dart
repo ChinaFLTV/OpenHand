@@ -311,6 +311,74 @@ void main() {
     );
 
     test(
+      'preserves plan approval allowed prompts in compressed transcript',
+      () {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final messages = <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'u1',
+            content: 'Prepare an implementation plan',
+            createdAt: now,
+          ),
+          AiSessionMessage.toolResult(
+            id: 't1',
+            content: 'Plan captured.',
+            createdAt: now.add(const Duration(seconds: 1)),
+            metadata: const <String, Object?>{
+              'tool_name': 'ExitPlanMode',
+              'status': 'success',
+              'plan_mode_awaiting_approval': true,
+              'pending_plan': '1. Patch behavior.\n2. Run verification.',
+              'plan_mode_allowed_prompt_count': 2,
+              'plan_mode_allowed_prompts': <Map<String, String>>[
+                <String, String>{
+                  'tool': 'Bash',
+                  'prompt': 'run targeted tests',
+                },
+                <String, String>{'tool': 'Bash', 'prompt': 'build web assets'},
+              ],
+            },
+          ),
+        ];
+        final session = AiSession(
+          id: 'session-1',
+          title: 'Plan approval allowed prompt session',
+          templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+          templateName: '编程专家',
+          templateIconName: 'code_rounded',
+          templateInternalVersion: 'test',
+          createdAt: now,
+          updatedAt: now,
+          messages: messages,
+          environment: _testEnvironment,
+          statistics: const AiSessionStatistics.initial(),
+          recentErrors: const <AiSessionErrorRecord>[],
+        );
+
+        final turns = const AiPromptBuilder().buildCompressionPrompt(
+          templateBundle: _testBundle,
+          template: _testTemplate,
+          session: session,
+          runtimeContext: _testRuntimeContext,
+          messagesToCompress: messages,
+          previousCompressionPoint: null,
+        );
+
+        final content = turns.last.content;
+        expect(content, contains('plan_mode_awaiting_approval: true'));
+        expect(content, contains('plan_mode_allowed_prompt_count: 2'));
+        expect(
+          content,
+          contains('plan_mode_allowed_prompt: Bash: run targeted tests'),
+        );
+        expect(
+          content,
+          contains('plan_mode_allowed_prompt: Bash: build web assets'),
+        );
+      },
+    );
+
+    test(
       'surfaces write confirmation decision in post-compact focus context',
       () {
         final now = DateTime.utc(2026, 6, 19, 8);
@@ -548,6 +616,79 @@ void main() {
 
         expect(focusContext, contains('Bash · status=success'));
         expect(focusContext, contains('output_truncated=120000/20000'));
+      },
+    );
+
+    test(
+      'surfaces plan approval allowed prompts in post-compact focus context',
+      () {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final messages = <AiSessionMessage>[
+          AiSessionMessage.toolResult(
+            id: 't1',
+            content: 'Plan captured.',
+            createdAt: now,
+            metadata: const <String, Object?>{
+              'tool_name': 'ExitPlanMode',
+              'status': 'success',
+              'plan_mode_awaiting_approval': true,
+              'pending_plan': '1. Patch behavior.\n2. Run verification.',
+              'plan_mode_allowed_prompt_count': 2,
+              'plan_mode_allowed_prompts': <Map<String, String>>[
+                <String, String>{
+                  'tool': 'Bash',
+                  'prompt': 'run targeted tests',
+                },
+                <String, String>{'tool': 'Bash', 'prompt': 'build web assets'},
+              ],
+            },
+          ),
+          AiSessionMessage.compressionPoint(
+            id: 'c1',
+            content: 'Checkpoint after plan approval request.',
+            createdAt: now.add(const Duration(seconds: 1)),
+            metadata: const <String, Object?>{},
+          ),
+          AiSessionMessage.user(
+            id: 'u1',
+            content: 'What happened before compaction?',
+            createdAt: now.add(const Duration(seconds: 2)),
+          ),
+        ];
+        final session = AiSession(
+          id: 'session-1',
+          title: 'Plan approval focus context session',
+          templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+          templateName: '编程专家',
+          templateIconName: 'code_rounded',
+          templateInternalVersion: 'test',
+          createdAt: now,
+          updatedAt: now,
+          messages: messages,
+          environment: _testEnvironment,
+          statistics: const AiSessionStatistics.initial(),
+          recentErrors: const <AiSessionErrorRecord>[],
+        );
+
+        final result = const AiPromptBuilder().buildSessionPrompt(
+          templateBundle: _testBundle,
+          session: session,
+          model: _testModel,
+          runtimeContext: _testRuntimeContext,
+          memoryEntries: const <Never>[],
+          sessionMessages: messages,
+          latestUserMessageId: 'u1',
+        );
+        final focusContext = result.messages
+            .map((turn) => turn.content)
+            .firstWhere(
+              (content) =>
+                  content.startsWith(AiPromptSectionHeaders.focusContext),
+            );
+
+        expect(focusContext, contains('ExitPlanMode · status=success'));
+        expect(focusContext, contains('plan_approval=pending'));
+        expect(focusContext, contains('allowed_prompts=2'));
       },
     );
   });

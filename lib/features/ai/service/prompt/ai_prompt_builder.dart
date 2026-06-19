@@ -4499,6 +4499,7 @@ $content
     return <String>[
       ..._writeConfirmationSummaryLines(metadata),
       ..._planGateSummaryLines(metadata),
+      ..._planApprovalStateSummaryLines(metadata),
       ..._toolOutputBudgetSummaryLines(metadata),
     ];
   }
@@ -4581,7 +4582,50 @@ $content
     if (metadata['tool_catalog_empty'] == true) {
       parts.add('catalog_empty=true');
     }
+    if (metadata['plan_mode_awaiting_approval'] == true) {
+      parts.add('plan_approval=pending');
+      final allowedPromptCount = _metadataPositiveInt(
+        metadata['plan_mode_allowed_prompt_count'],
+      );
+      if (allowedPromptCount != null) {
+        parts.add('allowed_prompts=$allowedPromptCount');
+      }
+    }
     return parts;
+  }
+
+  List<String> _planApprovalStateSummaryLines(Map<String, Object?> metadata) {
+    if (metadata['plan_mode_awaiting_approval'] != true) {
+      return const <String>[];
+    }
+    final lines = <String>['plan_mode_awaiting_approval: true'];
+    final allowedPrompts = _planAllowedPromptSummaryLines(
+      metadata['plan_mode_allowed_prompts'],
+    );
+    if (allowedPrompts.isNotEmpty) {
+      lines.add('plan_mode_allowed_prompt_count: ${allowedPrompts.length}');
+      lines.addAll(allowedPrompts);
+    }
+    return lines;
+  }
+
+  List<String> _planAllowedPromptSummaryLines(Object? rawValue) {
+    if (rawValue is! List) {
+      return const <String>[];
+    }
+    final lines = <String>[];
+    for (final item in rawValue) {
+      if (item is! Map) {
+        continue;
+      }
+      final tool = '${item['tool'] ?? ''}'.trim();
+      final prompt = '${item['prompt'] ?? ''}'.trim();
+      if (tool.isEmpty || prompt.isEmpty) {
+        continue;
+      }
+      lines.add('plan_mode_allowed_prompt: $tool: $prompt');
+    }
+    return lines;
   }
 
   List<String> _toolOutputBudgetSummaryLines(Map<String, Object?> metadata) {

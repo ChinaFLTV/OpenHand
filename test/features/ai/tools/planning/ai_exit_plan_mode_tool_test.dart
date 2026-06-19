@@ -32,6 +32,66 @@ void main() {
       );
     });
 
+    test('captures optional allowed prompt categories', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _context(
+          plan: '1. Patch the behavior.\n2. Run verification.',
+          allowedPrompts: const <Map<String, String>>[
+            <String, String>{'tool': 'Bash', 'prompt': 'run targeted tests'},
+            <String, String>{'tool': 'Bash', 'prompt': 'build web assets'},
+            <String, String>{'tool': 'Bash', 'prompt': 'run targeted tests'},
+          ],
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('2 implementation permission prompt'));
+      expect(result.metadata['plan_mode_allowed_prompt_count'], 2);
+      expect(
+        result.metadata['plan_mode_allowed_prompts'],
+        <Map<String, String>>[
+          <String, String>{'tool': 'Bash', 'prompt': 'run targeted tests'},
+          <String, String>{'tool': 'Bash', 'prompt': 'build web assets'},
+        ],
+      );
+    });
+
+    test('accepts Claude-style camelCase allowedPrompts alias', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _context(
+          plan: '1. Inspect.\n2. Verify.',
+          allowedPrompts: const <Map<String, String>>[
+            <String, String>{'tool': 'Bash', 'prompt': 'run lint'},
+          ],
+          useCamelCaseAllowedPrompts: true,
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.metadata['plan_mode_allowed_prompt_count'], 1);
+      expect(
+        result.metadata['plan_mode_allowed_prompts'],
+        <Map<String, String>>[
+          <String, String>{'tool': 'Bash', 'prompt': 'run lint'},
+        ],
+      );
+    });
+
+    test('rejects unsupported allowed prompt tool', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _context(
+          plan: '1. Inspect.\n2. Verify.',
+          allowedPrompts: const <Map<String, String>>[
+            <String, String>{'tool': 'Write', 'prompt': 'edit source files'},
+          ],
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.invalidArguments);
+      expect(result.stderr, contains('supports only tool "Bash"'));
+      expect(result.metadata, isEmpty);
+    });
+
     test('rejects an empty plan', () async {
       final result = await AiExitPlanModeTool().execute(_context(plan: '   '));
 
@@ -42,8 +102,18 @@ void main() {
   });
 }
 
-AiToolExecutionContext _context({required String plan}) {
+AiToolExecutionContext _context({
+  required String plan,
+  List<Map<String, String>> allowedPrompts = const <Map<String, String>>[],
+  bool useCamelCaseAllowedPrompts = false,
+}) {
   final arguments = <String, Object?>{'plan': plan};
+  if (allowedPrompts.isNotEmpty) {
+    arguments[useCamelCaseAllowedPrompts
+            ? 'allowedPrompts'
+            : 'allowed_prompts'] =
+        allowedPrompts;
+  }
   return AiToolExecutionContext(
     sessionId: 'session-1',
     catalog: const AiResolvedToolCatalog(
