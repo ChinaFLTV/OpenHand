@@ -19,14 +19,6 @@ class AiFileReadRenderer {
     AiPdfPageRange? pdfPages,
   }) async {
     final extension = p.extension(filePath).toLowerCase();
-    if (extension == '.ipynb') {
-      return RenderedReadContent(
-        content: await _renderNotebookForRead(file),
-        fileKind: extension,
-        renderMode: 'notebook',
-        lineAddressable: true,
-      );
-    }
     final fileLength = await file.length();
     if (fileLength == 0) {
       return RenderedReadContent(
@@ -37,11 +29,44 @@ class AiFileReadRenderer {
         fileEmpty: true,
       );
     }
+    if (extension == '.ipynb') {
+      if (fileLength > AiToolUtils.maxStructuredReadBytes) {
+        return _renderOversizedStructuredFile(
+          filePath: filePath,
+          fileKind: extension,
+          renderMode: 'notebook',
+          totalByteSize: fileLength,
+        );
+      }
+      return RenderedReadContent(
+        content: await _renderNotebookForRead(file),
+        fileKind: extension,
+        renderMode: 'notebook',
+        lineAddressable: true,
+      );
+    }
     if (AiToolUtils.isRasterImageExtension(extension)) {
+      if (fileLength > AiToolUtils.maxStructuredReadBytes) {
+        return _renderOversizedStructuredFile(
+          filePath: filePath,
+          fileKind: extension,
+          renderMode: 'image',
+          totalByteSize: fileLength,
+        );
+      }
       final bytes = await file.readAsBytes();
       return _renderImage(bytes, filePath, extension);
     }
     if (extension == '.pdf') {
+      if (fileLength > AiToolUtils.maxStructuredReadBytes) {
+        return _renderOversizedStructuredFile(
+          filePath: filePath,
+          fileKind: extension,
+          renderMode: 'pdf',
+          totalByteSize: fileLength,
+          pdfPages: pdfPages,
+        );
+      }
       final bytes = await file.readAsBytes();
       return _renderPdf(bytes, filePath, pageRange: pdfPages);
     }
@@ -62,6 +87,36 @@ class AiFileReadRenderer {
       extension,
       offset: offset ?? 1,
       limit: limit ?? AiToolUtils.defaultReadLimit,
+    );
+  }
+
+  RenderedReadContent _renderOversizedStructuredFile({
+    required String filePath,
+    required String fileKind,
+    required String renderMode,
+    required int totalByteSize,
+    AiPdfPageRange? pdfPages,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln('file_type: ${renderMode == 'image' ? 'image' : renderMode}')
+      ..writeln('path: $filePath')
+      ..writeln('size_bytes: $totalByteSize')
+      ..writeln('size_limit_bytes: ${AiToolUtils.maxStructuredReadBytes}');
+    if (fileKind.isNotEmpty) buffer.writeln('extension: $fileKind');
+    if (pdfPages != null) {
+      buffer
+        ..writeln('requested_pages: ${pdfPages.label}')
+        ..writeln('requested_page_count: ${pdfPages.pageCount}');
+    }
+    buffer.writeln(
+      'preview: Full structured rendering is skipped because the file exceeds the bounded Read size. Use a narrower tool or external command if you need detailed inspection.',
+    );
+    return RenderedReadContent(
+      content: buffer.toString().trimRight(),
+      fileKind: fileKind.isEmpty ? renderMode : fileKind,
+      renderMode: renderMode,
+      lineAddressable: false,
+      truncated: true,
     );
   }
 

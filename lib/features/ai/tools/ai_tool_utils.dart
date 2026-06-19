@@ -23,6 +23,7 @@ class AiToolUtils {
   static const int maxReadLineLength = 2000;
   static const int defaultReadLimit = 2000;
   static const int maxBinaryPreviewBytes = 32;
+  static const int maxStructuredReadBytes = 16 * kBytesPerMiB;
   static const int maxLedgerCaptureBytes = 16 * kBytesPerMiB;
   static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;
   static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;

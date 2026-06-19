@@ -2441,7 +2441,8 @@ class AiToolRuntimeService {
       name: 'Read',
       description:
           'Read a local file from disk. Accepts absolute or relative file_path values and resolves them against the working directory. '
-          'Refuses special device paths that may block or produce infinite output.',
+          'Refuses special device paths that may block or produce infinite output. '
+          'Full image/PDF/notebook rendering is bounded; oversized structured files return metadata only.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

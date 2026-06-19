@@ -7,6 +7,7 @@ import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/fs/ai_file_tracker_service.dart';
 import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
 import 'package:openhand/features/ai/tools/ai_tool_execution_context.dart';
+import 'package:openhand/features/ai/tools/ai_tool_utils.dart';
 import 'package:openhand/features/ai/tools/fs/ai_read_tool.dart';
 
 void main() {
@@ -57,6 +58,56 @@ void main() {
         expect(result.status.storageValue, 'invalid_arguments');
         expect(result.stderr, contains('special device path'));
         expect(result.stderr, isNot(contains('File does not exist')));
+      }
+    });
+
+    test('returns metadata only for oversized structured files', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_read_tool_test_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final cases = <({String name, String fileType, String? pages})>[
+        (name: 'large.png', fileType: 'image', pages: null),
+        (name: 'large.pdf', fileType: 'pdf', pages: '1-2'),
+        (name: 'large.ipynb', fileType: 'notebook', pages: null),
+      ];
+
+      for (final item in cases) {
+        final file = File('${tempDir.path}/${item.name}');
+        final handle = await file.open(mode: FileMode.write);
+        try {
+          await handle.truncate(AiToolUtils.maxStructuredReadBytes + 1);
+        } finally {
+          await handle.close();
+        }
+
+        final result = await AiReadTool().execute(
+          _context(
+            id: 'read-oversized-${item.name}',
+            filePath: file.path,
+            offset: 1,
+            limit: 2,
+            fileTracker: AiFileTrackerService(),
+            pages: item.pages,
+          ),
+        );
+
+        expect(result.status.storageValue, 'success');
+        expect(result.stdout, contains('file_type: ${item.fileType}'));
+        expect(
+          result.stdout,
+          contains('size_limit_bytes: ${AiToolUtils.maxStructuredReadBytes}'),
+        );
+        expect(result.stdout, contains('Full structured rendering is skipped'));
+        expect(result.metadata['read_truncated'], isTrue);
+        if (item.pages != null) {
+          expect(result.stdout, contains('requested_pages: ${item.pages}'));
+        }
       }
     });
 

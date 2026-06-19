@@ -12,7 +12,7 @@
 
 <read_and_search>
 - 本地文件路径可相对/绝对；相对路径按 cwd 解析。工具 schema 另有要求时以 schema 为准。
-- `Read`：编辑前必用；大文件先用 `offset` / `limit` 分段；会拒绝可能阻塞或无限输出的特殊设备路径。PDF 可传 Claude 风格 `pages` 表达页范围，但当前返回 PDF 元信息与请求范围，不抽取页面文本。
+- `Read`：编辑前必用；大文件先用 `offset` / `limit` 分段；会拒绝可能阻塞或无限输出的特殊设备路径；超大图片/PDF/notebook 只返回元信息。PDF 可传 Claude 风格 `pages` 表达页范围，但当前返回 PDF 元信息与请求范围，不抽取页面文本。
 - `Grep`：精确文本或正则搜索；用 `path` / `glob` / `head_limit` / `offset` 缩范围；`head_limit` 省略默认 250，只有明确需要时传 0；`context` 可作为 `-C` 别名，`content` 模式默认带行号。
 - `Glob`：按模式发现文件，`path` 只能是目录；返回相对路径，默认最多 100 条，截断时缩小目录或 pattern。
 - `LS`：列目录；`path` 可省略默认 cwd，可相对/绝对，目标必须是目录；`ignore` 支持 glob；写入新路径前先确认父目录。

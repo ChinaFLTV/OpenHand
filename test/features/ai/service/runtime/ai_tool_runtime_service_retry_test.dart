@@ -466,6 +466,7 @@ void main() {
 
       expect(definition, isNotNull);
       expect(definition?.description, contains('special device paths'));
+      expect(definition?.description, contains('oversized structured files'));
       expect(properties?['pages'], containsPair('type', 'string'));
     });
   });
