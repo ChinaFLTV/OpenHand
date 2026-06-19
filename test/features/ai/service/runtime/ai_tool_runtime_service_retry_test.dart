@@ -318,6 +318,24 @@ void main() {
       expect('${properties?['-n']}', contains('Defaults to true'));
     });
 
+    test('Glob documents Claude-style directory roots and result cap', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('Glob')?.definition;
+      final properties = definition?.parameters['properties'] as Map?;
+
+      expect(definition?.description, contains('capped at 100'));
+      expect('${properties?['path']}', contains('do not pass a file path'));
+    });
+
     test('Read exposes Claude-style PDF pages parameter', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),

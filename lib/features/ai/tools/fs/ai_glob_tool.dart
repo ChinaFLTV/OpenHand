@@ -8,6 +8,8 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
 class AiGlobTool extends AiTool {
+  static const int _maxMatches = 100;
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.glob;
 
@@ -24,56 +26,52 @@ class AiGlobTool extends AiTool {
     if (rootEntity == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult(
         'Glob',
-        'Path does not exist: $rootPath',
+        'Directory does not exist: $rootPath',
       );
     }
-    // Safety limit to prevent memory exhaustion on broad patterns.
-    const maxMatches = 1000;
+    if (rootEntity != FileSystemEntityType.directory) {
+      return AiToolUtils.invalidResult(
+        'Glob',
+        'Path is not a directory: $rootPath',
+      );
+    }
     var hitLimit = false;
-    final matches = <String>[];
-    if (rootEntity == FileSystemEntityType.file) {
-      final filePath = p.normalize(rootPath);
-      final relative = p.basename(filePath);
-      if (AiToolUtils.globMatches(relative, pattern)) {
-        matches.add(filePath);
+    final matches = <_GlobMatch>[];
+    await for (final entity in Directory(
+      rootPath,
+    ).list(recursive: true, followLinks: false)) {
+      if (entity is! File) {
+        continue;
       }
-    } else {
-      await for (final entity in Directory(
-        rootPath,
-      ).list(recursive: true, followLinks: false)) {
-        final normalizedPath = p.normalize(entity.path);
-        final relativePath = p
-            .relative(normalizedPath, from: rootPath)
-            .replaceAll('\\', '/');
-        if (AiToolUtils.globMatches(relativePath, pattern)) {
-          matches.add(normalizedPath);
-          if (matches.length >= maxMatches) {
-            hitLimit = true;
-            break;
-          }
+      final normalizedPath = p.normalize(entity.path);
+      final relativePath = p
+          .relative(normalizedPath, from: rootPath)
+          .replaceAll('\\', '/');
+      if (AiToolUtils.globMatches(relativePath, pattern)) {
+        DateTime modified;
+        try {
+          modified = (await FileStat.stat(normalizedPath)).modified;
+        } catch (_) {
+          modified = DateTime.fromMillisecondsSinceEpoch(0);
+        }
+        matches.add(_GlobMatch(path: normalizedPath, modified: modified));
+        if (matches.length > _maxMatches) {
+          hitLimit = true;
+          matches.sort(_compareGlobMatches);
+          matches.removeLast();
         }
       }
     }
-    final fileStats = <String, DateTime>{};
-    for (final match in matches) {
-      try {
-        fileStats[match] = (await FileStat.stat(match)).modified;
-      } catch (_) {
-        fileStats[match] = DateTime.fromMillisecondsSinceEpoch(0);
-      }
-    }
-    matches.sort((left, right) {
-      final leftModified =
-          fileStats[left] ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final rightModified =
-          fileStats[right] ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final modifiedComparison = rightModified.compareTo(leftModified);
-      if (modifiedComparison != 0) return modifiedComparison;
-      return left.compareTo(right);
-    });
-    var output = matches.isEmpty ? '(no matches)' : matches.join('\n');
+    matches.sort(_compareGlobMatches);
+    final workingDirectory = AiToolUtils.defaultWorkingDirectory();
+    final outputPaths = matches
+        .map((match) => p.relative(match.path, from: workingDirectory))
+        .map((match) => match.replaceAll('\\', '/'))
+        .toList(growable: false);
+    var output = outputPaths.isEmpty ? '(no matches)' : outputPaths.join('\n');
     if (hitLimit) {
-      output += '\n... (results capped at $maxMatches matches)';
+      output +=
+          '\n(Results are truncated. Consider using a more specific path or pattern.)';
     }
     if (output.length > AiToolUtils.maxSearchOutputCharacters) {
       output =
@@ -85,6 +83,26 @@ class AiGlobTool extends AiTool {
       output: output,
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: rootPath,
+      metadata: <String, Object?>{
+        'glob_root_path': rootPath,
+        'glob_result_count': outputPaths.length,
+        'glob_result_truncated': hitLimit,
+        'glob_result_relative_to': workingDirectory,
+        'glob_max_results': _maxMatches,
+      },
     );
   }
+
+  static int _compareGlobMatches(_GlobMatch left, _GlobMatch right) {
+    final modifiedComparison = left.modified.compareTo(right.modified);
+    if (modifiedComparison != 0) return modifiedComparison;
+    return left.path.compareTo(right.path);
+  }
+}
+
+class _GlobMatch {
+  const _GlobMatch({required this.path, required this.modified});
+
+  final String path;
+  final DateTime modified;
 }

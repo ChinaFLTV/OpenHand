@@ -2220,7 +2220,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.glob,
       name: 'Glob',
       description:
-          'Match file paths against a glob pattern. Returns matching file paths.',
+          'Match file paths against a glob pattern. Returns relative matching file paths sorted by modification time, capped at 100 results.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2232,7 +2232,7 @@ class AiToolRuntimeService {
           'path': <String, Object?>{
             'type': 'string',
             'description':
-                'The directory to search in. Defaults to the working directory.',
+                'The directory to search in. Omit to use the working directory; do not pass a file path.',
           },
         },
         'required': <String>['pattern'],
