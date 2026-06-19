@@ -83,6 +83,9 @@ const PAGE_SIZE = 32;
 // 首屏只取最近少量消息；历史按 PAGE_SIZE 增量补齐，避免打开存量会话时
 // 浏览器一次挂载几十张复杂消息卡。
 const INITIAL_PAGE_SIZE = 16;
+const INITIAL_RENDERED_MESSAGE_COUNT = 6;
+const MESSAGE_RENDER_BATCH_SIZE = 4;
+const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 120;
 
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -108,6 +111,7 @@ const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
 const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
 const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
+const EMPTY_SESSION_MESSAGES: SessionMessage[] = [];
 type AwaitingCreationMode = Extract<MediaGenerationMode, 'image' | 'video' | 'audio'>;
 
 interface ComposerTriggerDismissal {
@@ -243,6 +247,38 @@ function persistComposerCollapsed(value: boolean): void {
   }
 }
 
+function scheduleProgressiveMessageRenderStep(task: () => void): () => void {
+  let cancelled = false;
+  const run = () => {
+    if (!cancelled) task();
+  };
+  const scheduler = globalThis as {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+  if (typeof scheduler.requestIdleCallback === 'function') {
+    const handle = scheduler.requestIdleCallback(run, {
+      timeout: MESSAGE_RENDER_IDLE_TIMEOUT_MS,
+    });
+    return () => {
+      cancelled = true;
+      scheduler.cancelIdleCallback?.(handle);
+    };
+  }
+  if (typeof requestAnimationFrame === 'function') {
+    const handle = requestAnimationFrame(run);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(handle);
+    };
+  }
+  const handle = window.setTimeout(run, 16);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(handle);
+  };
+}
+
 async function copyJsonWithFeedback(json: string): Promise<void> {
   const ok = await copyTextToClipboard(json);
   showSnackbar(ok ? t('common.copied', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
@@ -352,6 +388,7 @@ const MESSAGE_RENDER_METADATA_KEYS = [
 ] as const;
 
 const metadataRenderFingerprintCache = new WeakMap<object, string>();
+const messageRenderSignatureCache = new WeakMap<SessionMessage, string>();
 
 function metadataValueFingerprint(value: unknown): string {
   if (value == null) return '';
@@ -390,8 +427,10 @@ function usageRenderFingerprint(message: SessionMessage): string {
 }
 
 function messageRenderSignature(message: SessionMessage): string {
+  const cached = messageRenderSignatureCache.get(message);
+  if (cached != null) return cached;
   const content = message.content ?? '';
-  return [
+  const signature = [
     message.id,
     message.role,
     message.kind,
@@ -405,6 +444,8 @@ function messageRenderSignature(message: SessionMessage): string {
     usageRenderFingerprint(message),
     metadataRenderFingerprint(message.metadata),
   ].join('|');
+  messageRenderSignatureCache.set(message, signature);
+  return signature;
 }
 
 function messagesEquivalentForRender(a: SessionMessage, b: SessionMessage): boolean {
@@ -902,10 +943,11 @@ function collectEditableAttachmentAssets(message: SessionMessage): EditableAttac
 }
 
 function compareMessageCreatedAt(a: SessionMessage, b: SessionMessage): number {
-  const ta = new Date(a.created_at).getTime();
-  const tb = new Date(b.created_at).getTime();
-  if (Number.isNaN(ta) || Number.isNaN(tb)) return 0;
-  return ta - tb;
+  const ta = a.created_at ?? '';
+  const tb = b.created_at ?? '';
+  if (ta === tb) return 0;
+  if (ta && tb) return ta < tb ? -1 : 1;
+  return ta ? 1 : -1;
 }
 
 function messagesAreChronological(items: SessionMessage[]): boolean {
@@ -1307,9 +1349,13 @@ export function SessionDetailPage() {
   const resizeFollowFrameRef = useRef<number | null>(null);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailSignatureRef = useRef<string>('');
+  const renderedMessageCountRef = useRef(0);
+  const messageRenderGenerationRef = useRef(0);
+  const messageRenderSessionRef = useRef('');
   const lastLocalSendAtRef = useRef<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
+  const [renderedMessageCount, setRenderedMessageCount] = useState(0);
 
   // 消息操作栏：审计弹窗 + 删除确认。
   const [auditMessage, setAuditMessage] = useState<SessionMessage | null>(null);
@@ -1846,7 +1892,13 @@ export function SessionDetailPage() {
     messagesRef.current = messages;
   }, [messages]);
 
-  const messageWindowView = useMemo(() => deriveMessageWindowView(messages), [messages]);
+  const detailBelongsToRoute = detail?.session.id === sessionId;
+  const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
+  const messageWindowView = useMemo(() => deriveMessageWindowView(routeMessages), [routeMessages]);
+
+  useEffect(() => {
+    renderedMessageCountRef.current = renderedMessageCount;
+  }, [renderedMessageCount]);
 
   useEffect(() => {
     windowOffsetRef.current = windowOffset;
@@ -2167,6 +2219,8 @@ export function SessionDetailPage() {
     setLoadingOlder(false);
     setError(null);
     replaceMessageWindow([], 0);
+    renderedMessageCountRef.current = 0;
+    setRenderedMessageCount(0);
     updateTotalKnown(0);
     setActiveMessageId(null);
     setComposerModelKey('');
@@ -3302,7 +3356,8 @@ export function SessionDetailPage() {
     }
   }
 
-  const session = detail?.session;
+  const session = detailBelongsToRoute ? detail?.session : undefined;
+  const effectiveLoadingDetail = loadingDetail || Boolean(detail && !detailBelongsToRoute);
   const currentSessionMode: 'chat' | 'plan' = session?.mode === 'plan' ? 'plan' : 'chat';
   const nextSessionMode: 'chat' | 'plan' = currentSessionMode === 'plan' ? 'chat' : 'plan';
   const canToggleSessionMode = sessionModeOptions.includes(nextSessionMode);
@@ -3481,7 +3536,10 @@ export function SessionDetailPage() {
     return capsules;
   }, [session, totalKnown, sessionId, streamThrottle]);
   const pull = usePullToRefresh(mainRef, {
-    enabled: !loadingDetail && !loadingOlder,
+    enabled:
+      !effectiveLoadingDetail &&
+      !loadingOlder &&
+      renderedMessageCount >= routeMessages.length,
     onRefresh: async () => {
       if (remainingOlder > 0) {
         await loadOlder();
@@ -3495,6 +3553,82 @@ export function SessionDetailPage() {
   // 注意：服务端按 created_at 升序返回（store loadMessages 默认升序），
   // 直接渲染即是「上旧下新」。如果出现倒序问题，派生视图会做一次排序兜底。
   const sortedMessages = messageWindowView.ordered;
+  const messageRenderWindowKey = useMemo(() => {
+    const count = sortedMessages.length;
+    if (count === 0) return `${sessionId}|${windowOffset}|0`;
+    return [
+      sessionId,
+      windowOffset,
+      count,
+      sortedMessages[0]!.id,
+      sortedMessages[count - 1]!.id,
+    ].join('|');
+  }, [sessionId, windowOffset, sortedMessages]);
+
+  useEffect(() => {
+    messageRenderGenerationRef.current += 1;
+    const generation = messageRenderGenerationRef.current;
+    const total = sortedMessages.length;
+    const sessionChanged = messageRenderSessionRef.current !== sessionId;
+    messageRenderSessionRef.current = sessionId;
+    if (total === 0) {
+      renderedMessageCountRef.current = 0;
+      setRenderedMessageCount(0);
+      return;
+    }
+
+    const initialCount = Math.min(INITIAL_RENDERED_MESSAGE_COUNT, total);
+    const currentCount = renderedMessageCountRef.current;
+    const isSmallTailAppend =
+      !sessionChanged &&
+      currentCount > 0 &&
+      total <= currentCount + 1;
+    const startCount =
+      total <= INITIAL_RENDERED_MESSAGE_COUNT || isSmallTailAppend
+        ? total
+        : sessionChanged || currentCount <= 0
+        ? initialCount
+        : Math.min(total, Math.max(currentCount, initialCount));
+    renderedMessageCountRef.current = startCount;
+    setRenderedMessageCount(startCount);
+
+    let cancelStep: (() => void) | null = null;
+    const scheduleNext = () => {
+      cancelStep = scheduleProgressiveMessageRenderStep(() => {
+        cancelStep = null;
+        if (generation !== messageRenderGenerationRef.current) return;
+        const next = Math.min(
+          total,
+          renderedMessageCountRef.current + MESSAGE_RENDER_BATCH_SIZE,
+        );
+        if (next <= renderedMessageCountRef.current) return;
+        renderedMessageCountRef.current = next;
+        setRenderedMessageCount(next);
+        if (next < total) {
+          scheduleNext();
+        }
+      });
+    };
+    if (startCount < total) {
+      scheduleNext();
+    }
+    return () => {
+      cancelStep?.();
+    };
+  }, [messageRenderWindowKey, sessionId, sortedMessages.length]);
+
+  const visibleMessageStartIndex = Math.max(
+    0,
+    sortedMessages.length - Math.min(renderedMessageCount, sortedMessages.length),
+  );
+  const deferredLocalMessageCount = visibleMessageStartIndex;
+  const visibleSortedMessages = useMemo(
+    () =>
+      visibleMessageStartIndex > 0
+        ? sortedMessages.slice(visibleMessageStartIndex)
+        : sortedMessages,
+    [sortedMessages, visibleMessageStartIndex],
+  );
 
   const resumeToLatest = () => {
     setAutoFollowEnabled(true);
@@ -3593,7 +3727,7 @@ export function SessionDetailPage() {
             <button
               type="button"
               onClick={refresh}
-              disabled={refreshing || loadingDetail}
+              disabled={refreshing || effectiveLoadingDetail}
               class="oh-tap-press oh-icon-button oh-session-refresh-button flex-none disabled:opacity-50"
               style={{
                 border: '1px solid var(--m3-outline-variant)',
@@ -3620,7 +3754,7 @@ export function SessionDetailPage() {
         {/* 主区：只有这块滚动，顶部 TopBar / 底部 Composer 固定在视口内。 */}
         <section ref={mainRef} class="oh-session-messages relative flex-1 min-h-0 overflow-y-auto pr-1 pb-3">
           <div ref={messagesContentRef} class="oh-session-message-content">
-            {loadingDetail ? (
+            {effectiveLoadingDetail ? (
               <div class="oh-session-state-card is-loading">
                 <span class="oh-session-state-icon oh-spin" aria-hidden>
                   <ComposerIcon name="refresh" size={18} />
@@ -3640,13 +3774,17 @@ export function SessionDetailPage() {
             ) : (
               <>
                 {/* 加载更早 */}
-                {remainingOlder > 0 ? (
+                {deferredLocalMessageCount > 0 || remainingOlder > 0 ? (
                   <div class="text-center mb-3">
-                    <button type="button" onClick={loadOlder} disabled={loadingOlder} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
-                      <span class={loadingOlder ? 'oh-spin' : undefined} aria-hidden>
+                    <button type="button" onClick={loadOlder} disabled={loadingOlder || deferredLocalMessageCount > 0} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
+                      <span class={loadingOlder || deferredLocalMessageCount > 0 ? 'oh-spin' : undefined} aria-hidden>
                         <ComposerIcon name="refresh" size={13} />
                       </span>
-                      {loadingOlder ? t('detail.loadingOlder', '加载中…') : t('detail.loadOlder', '加载更早 ') + `(${remainingOlder})`}
+                      {deferredLocalMessageCount > 0
+                        ? t('detail.preparingEarlier', '正在准备更早消息…')
+                        : loadingOlder
+                        ? t('detail.loadingOlder', '加载中…')
+                        : t('detail.loadOlder', '加载更早 ') + `(${remainingOlder})`}
                     </button>
                   </div>
                 ) : null}
@@ -3660,9 +3798,9 @@ export function SessionDetailPage() {
                   </div>
                 ) : (
                   <>
-                    {detail?.session ? <PlanTimeline session={detail.session} modelKey={composerModelKey} /> : null}
+                    {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
                     <ul class="flex flex-col gap-3">
-                      {sortedMessages.map((m) => (
+                      {visibleSortedMessages.map((m) => (
                         <li key={m.id}>
                           <MessageCard message={m} active={activeMessageId === m.id} streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)} turnActive={stableResponseRunning} sessionId={sessionId} onActiveChange={handleMessageActiveChange} onCopy={handleCopyMessage} onDelete={handleDeleteMessage} onDeleteAfter={handleDeleteMessageCascade} onEdit={m.role === 'user' ? handleEditMessage : undefined} onAudit={handleAuditMessage} onFork={handleForkMessage} />
                         </li>

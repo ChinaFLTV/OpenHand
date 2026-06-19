@@ -644,7 +644,13 @@ class AiSessionStore {
       messageWindowStartIndex: offset,
       messageTotalCount: totalCount,
     );
-    return restoreCompressionCheckpointFromSidecar(session);
+    // Tail-window hydration is for first paint only. Restoring an older
+    // compression sidecar into a partial tail would both add extra disk I/O to
+    // the open path and place that historical checkpoint at the visible tail.
+    // Full-session loaders still restore the sidecar before prompt building.
+    return loadState == AiSessionMessageLoadState.complete
+        ? restoreCompressionCheckpointFromSidecar(session)
+        : session;
   }
 
   int _messageWindowStartOffset(

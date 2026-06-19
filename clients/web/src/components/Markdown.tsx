@@ -84,10 +84,10 @@ function loadRehypeKatex(): Promise<MarkdownPlugin> {
 const CONTENT_TOO_BIG_BYTES = 120 * 1024;
 /// 32 KB 以上才走帧节流 deferred 路径 (首帧 plain text 占位 + 下一空闲帧
 /// 补回 markdown)。早期 1 KB 阈值过保守：用户截图中的 mermaid 流程图 + 图例
-/// 文本普遍 2-4 KB，会被错误丢进占位符，长时间停留在 <pre> 原文态、永远
-/// 看不到 markdown 渲染结果。32 KB 已是「明显是大段长文」级别，长会话首屏
-/// N 张卡片同时挂载时的同帧 parse 抖动也只在这种规模下才值得节流。
-const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 32 * 1024;
+/// 文本普遍 2-4 KB，会被错误丢进占位符。8 KB 以上通常已经包含较长正文、
+/// 表格或代码块；打开长会话时将这类卡片推迟到空闲帧解析，能明显降低
+/// 首屏主线程尖峰，同时短消息仍保持同步渲染，避免闪烁。
+const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
 /// W1 流式节流：parseReady=true 后的内容变更，若增量很小且距上次 flush 不久，
 /// 短期 coalesce 到一帧。覆盖 SSE 80ms 一 tick 期间内容追加只增几字符的场景，
 /// 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。
@@ -107,7 +107,7 @@ const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
 /// 改为按帧节流, 每帧最多 1 个 markdown 升级渲染, 剩下的卡片以 plain
 /// text 占位, 直到本帧完成后下一帧再升级。与 App 端
 /// _MarkdownFrameScheduler 思路完全对齐。
-const MARKDOWN_FRAME_BUDGET_PER_FRAME = 2;
+const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
 class MarkdownFrameScheduler {
   private pending: Array<() => void> = [];
   private draining = false;
