@@ -1220,14 +1220,7 @@ class _InlineDiffPanel extends StatefulWidget {
 
 class _InlineDiffPanelState extends State<_InlineDiffPanel> {
   Future<({String? before, String? after})>? _future;
-  final ScrollController _scrollController = ScrollController();
   String? _key;
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
 
   String _keyOf(FileMutationView v) =>
       '${v.record.recordId}|${v.record.beforeSha ?? ''}|${v.record.afterSha ?? ''}';
@@ -1243,7 +1236,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
     final cs = theme.colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(40, 4, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       child: FutureBuilder<({String? before, String? after})>(
         future: _future,
         builder: (ctx, snap) {
@@ -1267,89 +1260,11 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
               ),
             );
           }
-          final diff = unifiedDiffLinesFromText(before, after);
-          // 复用 _CodeSyntaxHighlighter 给 diff 行加 token 着色。
-          // 缓存命中：相同 record（即 sha pair）在同一 brightness 下复用整段
-          // TextSpan，rebuild（hover/expand/收起）不再重新 tokenize。
-          final brightness = theme.brightness;
-          final isDark = brightness == Brightness.dark;
-          final lang = _languageFromFilePath(widget.view.record.filePath);
-          final baseStyle =
-              theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                height: 1.5,
-                fontSize: 11.5,
-              ) ??
-              const TextStyle(fontFamily: 'monospace', fontSize: 11.5);
-          final cacheKey =
-              ('diff::${widget.view.record.recordId}::${brightness.name}::'
-                      '${widget.view.record.beforeSha ?? "_"}::${widget.view.record.afterSha ?? "_"}::'
-                      '${lang ?? "_"}')
-                  .hashCode;
-          var rootSpan = _highlightSpanCache.get(cacheKey);
-          if (rootSpan == null) {
-            final highlighter = _CodeSyntaxHighlighter(
-              baseStyle: baseStyle,
-              darkSurface: isDark,
-            );
-            final children = <InlineSpan>[];
-            for (final l in diff) {
-              Color? bg;
-              Color? fg;
-              String prefix = '';
-              String code = l;
-              if (l.startsWith('+')) {
-                bg = cs.primaryContainer.withValues(alpha: 0.32);
-                fg = cs.onPrimaryContainer;
-                prefix = '+';
-                code = l.length > 2 ? l.substring(2) : '';
-              } else if (l.startsWith('-')) {
-                bg = cs.errorContainer.withValues(alpha: 0.30);
-                fg = cs.onErrorContainer;
-                prefix = '-';
-                code = l.length > 2 ? l.substring(2) : '';
-              } else if (l.startsWith('  ')) {
-                code = l.substring(2);
-                prefix = '  ';
-              }
-              final lineStyle = TextStyle(backgroundColor: bg, color: fg);
-              final lineChildren = <InlineSpan>[
-                if (prefix.isNotEmpty)
-                  TextSpan(text: prefix.length == 1 ? '$prefix ' : prefix),
-              ];
-              if (code.isEmpty) {
-                lineChildren.add(const TextSpan(text: ''));
-              } else {
-                // tokenize 单行；文件巨大时 _CodeSyntaxHighlighter 内部已防 nullable
-                lineChildren.add(highlighter.build(code, language: lang));
-              }
-              lineChildren.add(const TextSpan(text: '\n'));
-              children.add(TextSpan(style: lineStyle, children: lineChildren));
-            }
-            rootSpan = TextSpan(style: baseStyle, children: children);
-            _highlightSpanCache.put(cacheKey, rootSpan);
-          }
-          return Container(
-            constraints: const BoxConstraints(maxHeight: 280),
-            decoration: BoxDecoration(
-              color: cs.surface.withValues(alpha: 0.6),
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.45),
-                width: 0.5,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: PrimaryScrollController.none(
-              child: OpenHandSafeScrollbar(
-                controller: _scrollController,
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  primary: false,
-                  child: SelectableText.rich(rootSpan),
-                ),
-              ),
-            ),
+          return _CodexDiffViewer(
+            record: widget.view.record,
+            before: before,
+            after: after,
+            previewLineLimit: 28,
           );
         },
       ),
@@ -1357,36 +1272,561 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
   }
 
   Future<({String? before, String? after})> _load(FileMutationView v) async {
-    final ledger = context
-        .read<AiSessionController>()
-        .toolRuntimeService
-        .mutationLedger;
-    String? before = v.record.beforeSha == null
-        ? null
-        : await ledger.readBlob(v.record.beforeSha!);
-    String? after = v.record.afterSha == null
-        ? null
-        : await ledger.readBlob(v.record.afterSha!);
+    return _loadMutationDiffSnapshots(context, v.record);
+  }
+}
 
-    // 当 blob 丢失但文件仍存在于磁盘时，尝试读取当前磁盘内容作为回退。
-    if (after == null &&
-        v.record.afterSha != null &&
-        v.record.filePath.isNotEmpty) {
-      try {
-        final file = File(v.record.filePath);
-        if (await file.exists()) {
-          after = await file.readAsString();
-        }
-      } catch (error, stack) {
-        silentLog(
-          'home_file_mutation_widgets',
-          'read fallback ${v.record.filePath}',
-          error,
-          stack,
-        );
+Future<({String? before, String? after})> _loadMutationDiffSnapshots(
+  BuildContext context,
+  FileMutationRecord record,
+) async {
+  final ledger = context
+      .read<AiSessionController>()
+      .toolRuntimeService
+      .mutationLedger;
+  final before = record.beforeSha == null
+      ? null
+      : await ledger.readBlob(record.beforeSha!);
+  var after = record.afterSha == null
+      ? null
+      : await ledger.readBlob(record.afterSha!);
+
+  // 当 blob 丢失但文件仍存在于磁盘时，尝试读取当前磁盘内容作为回退。
+  if (after == null && record.afterSha != null && record.filePath.isNotEmpty) {
+    try {
+      final file = File(record.filePath);
+      if (await file.exists()) {
+        after = await file.readAsString();
       }
+    } catch (error, stack) {
+      silentLog(
+        'home_file_mutation_widgets',
+        'read fallback ${record.filePath}',
+        error,
+        stack,
+      );
     }
-    return (before: before, after: after);
+  }
+  return (before: before, after: after);
+}
+
+enum _CodexDiffLineKind { context, addition, deletion, folded }
+
+class _CodexDiffLine {
+  const _CodexDiffLine({
+    required this.kind,
+    this.lineNumber,
+    this.text = '',
+    this.foldedCount = 0,
+  });
+
+  final _CodexDiffLineKind kind;
+  final int? lineNumber;
+  final String text;
+  final int foldedCount;
+}
+
+class _CodexDiffViewer extends StatefulWidget {
+  const _CodexDiffViewer({
+    required this.record,
+    required this.before,
+    required this.after,
+    this.previewLineLimit = 24,
+  });
+
+  final FileMutationRecord record;
+  final String before;
+  final String after;
+  final int previewLineLimit;
+
+  @override
+  State<_CodexDiffViewer> createState() => _CodexDiffViewerState();
+}
+
+class _CodexDiffViewerState extends State<_CodexDiffViewer> {
+  static const int _kExpandedStateCacheLimit = 500;
+  static final Map<String, bool> _expandedByDiffKey = <String, bool>{};
+  static final RegExp _hunkHeaderPattern = RegExp(
+    r'^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+))?)?',
+  );
+
+  final ScrollController _verticalController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+  String? _diffKey;
+  List<_CodexDiffLine> _lines = const <_CodexDiffLine>[];
+  late bool _showFull;
+
+  @override
+  void initState() {
+    super.initState();
+    _rebuildDiffIfNeeded(force: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CodexDiffViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _rebuildDiffIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _rememberExpandedState();
+    _verticalController.dispose();
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  String _buildDiffKey() {
+    return [
+      widget.record.recordId,
+      widget.record.beforeSha ?? '_',
+      widget.record.afterSha ?? '_',
+      widget.before.length,
+      widget.after.length,
+      widget.before.hashCode,
+      widget.after.hashCode,
+    ].join('|');
+  }
+
+  void _rebuildDiffIfNeeded({bool force = false}) {
+    final nextKey = _buildDiffKey();
+    if (!force && _diffKey == nextKey) return;
+    _rememberExpandedState();
+    _diffKey = nextKey;
+    _showFull = _expandedByDiffKey[nextKey] ?? false;
+    _lines = _buildCodexDiffLines(widget.before, widget.after);
+  }
+
+  void _rememberExpandedState() {
+    final key = _diffKey;
+    if (key == null || key.isEmpty) return;
+    _expandedByDiffKey.remove(key);
+    if (_showFull) {
+      _expandedByDiffKey[key] = true;
+    }
+    while (_expandedByDiffKey.length > _kExpandedStateCacheLimit) {
+      _expandedByDiffKey.remove(_expandedByDiffKey.keys.first);
+    }
+  }
+
+  List<_CodexDiffLine> _buildCodexDiffLines(String before, String after) {
+    final diff = unifiedDiffLinesFromText(before, after);
+    if (diff.isEmpty) return const <_CodexDiffLine>[];
+    final lines = <_CodexDiffLine>[];
+    var oldLine = 1;
+    var newLine = 1;
+    var sawHunk = false;
+
+    for (final rawLine in diff) {
+      if (rawLine.startsWith('---') || rawLine.startsWith('+++')) {
+        continue;
+      }
+      final hunkMatch = _hunkHeaderPattern.firstMatch(rawLine);
+      if (hunkMatch != null) {
+        final hunkOldStart = int.tryParse(hunkMatch.group(1) ?? '') ?? oldLine;
+        final hunkNewStart =
+            int.tryParse(hunkMatch.group(3) ?? '') ?? hunkOldStart;
+        if (sawHunk) {
+          final folded = hunkOldStart - oldLine;
+          if (folded > 0) {
+            lines.add(
+              _CodexDiffLine(
+                kind: _CodexDiffLineKind.folded,
+                foldedCount: folded,
+              ),
+            );
+          }
+        }
+        oldLine = hunkOldStart;
+        newLine = hunkNewStart;
+        sawHunk = true;
+        continue;
+      }
+      if (rawLine.startsWith('+')) {
+        lines.add(
+          _CodexDiffLine(
+            kind: _CodexDiffLineKind.addition,
+            lineNumber: newLine,
+            text: rawLine.length > 1 ? rawLine.substring(1) : '',
+          ),
+        );
+        newLine += 1;
+        continue;
+      }
+      if (rawLine.startsWith('-')) {
+        lines.add(
+          _CodexDiffLine(
+            kind: _CodexDiffLineKind.deletion,
+            lineNumber: oldLine,
+            text: rawLine.length > 1 ? rawLine.substring(1) : '',
+          ),
+        );
+        oldLine += 1;
+        continue;
+      }
+      final text = rawLine.startsWith(' ') ? rawLine.substring(1) : rawLine;
+      lines.add(
+        _CodexDiffLine(
+          kind: _CodexDiffLineKind.context,
+          lineNumber: newLine,
+          text: text,
+        ),
+      );
+      oldLine += 1;
+      newLine += 1;
+    }
+    return lines;
+  }
+
+  void _setShowFull(bool value) {
+    if (_showFull == value) return;
+    _markToolCardInteractiveTap(context);
+    setState(() => _showFull = value);
+    _rememberExpandedState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visibleLimit = math.max(1, widget.previewLineLimit);
+    final clipped = !_showFull && _lines.length > visibleLimit;
+    final visibleLines = clipped ? _lines.take(visibleLimit).toList() : _lines;
+    final hiddenCount = _lines.length - visibleLines.length;
+    final maxTextLength = visibleLines.fold<int>(
+      0,
+      (max, line) => math.max(max, line.text.length),
+    );
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final maxBodyHeight = _showFull
+        ? math.min(viewportHeight * 0.64, 720.0)
+        : 320.0;
+    const rowExtent = 25.0;
+    final bodyHeight = math.min(
+      maxBodyHeight,
+      math.max(rowExtent, visibleLines.length * rowExtent),
+    );
+    final codeTheme = context.watch<SettingsController>().editorCodeTheme;
+    final brightness = theme.brightness;
+    final baseStyle =
+        theme.textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          fontSize: 12.5,
+          height: 1.34,
+          color: const Color(0xFFE8E8E8),
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ) ??
+        const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12.5,
+          height: 1.34,
+          color: Color(0xFFE8E8E8),
+          fontFeatures: [FontFeature.tabularFigures()],
+        );
+    final highlighter = _CodeSyntaxHighlighter(
+      baseStyle: baseStyle,
+      darkSurface: true,
+      codeTheme: codeTheme,
+    );
+    if (_lines.isEmpty) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 0.8,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Text(
+            _localizedTextStatic(
+              context,
+              zh: '内容相同或不可对比。',
+              en: 'No textual diff available.',
+            ),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: const Color(0xFFB9B9B9),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 0.8,
+          ),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final viewportWidth = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : 640.0;
+            final contentWidth = math.max(
+              viewportWidth,
+              math.min(3600.0, 92.0 + maxTextLength * 7.6),
+            );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: bodyHeight,
+                  child: PrimaryScrollController.none(
+                    child: OpenHandSafeScrollbar(
+                      controller: _verticalController,
+                      child: SingleChildScrollView(
+                        controller: _horizontalController,
+                        scrollDirection: Axis.horizontal,
+                        primary: false,
+                        child: SizedBox(
+                          width: contentWidth,
+                          child: SelectionArea(
+                            child: ListView.builder(
+                              controller: _verticalController,
+                              primary: false,
+                              padding: EdgeInsets.zero,
+                              itemExtent: rowExtent,
+                              itemCount: visibleLines.length,
+                              itemBuilder: (context, index) {
+                                final line = visibleLines[index];
+                                return _CodexDiffLineRow(
+                                  line: line,
+                                  minWidth: viewportWidth,
+                                  highlighter: highlighter,
+                                  language: _languageFromFilePath(
+                                    widget.record.filePath,
+                                  ),
+                                  baseStyle: baseStyle,
+                                  cacheKey:
+                                      '${_diffKey ?? widget.record.recordId}|${brightness.name}|$index',
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (clipped || (_showFull && _lines.length > visibleLimit))
+                  _CodexDiffFooter(
+                    hiddenCount: hiddenCount,
+                    showFull: _showFull,
+                    onToggle: () => _setShowFull(!_showFull),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _CodexDiffLineRow extends StatelessWidget {
+  const _CodexDiffLineRow({
+    required this.line,
+    required this.minWidth,
+    required this.highlighter,
+    required this.language,
+    required this.baseStyle,
+    required this.cacheKey,
+  });
+
+  final _CodexDiffLine line;
+  final double minWidth;
+  final _CodeSyntaxHighlighter highlighter;
+  final String? language;
+  final TextStyle baseStyle;
+  final String cacheKey;
+
+  Color get _background {
+    return switch (line.kind) {
+      _CodexDiffLineKind.addition => const Color(0xFF183622),
+      _CodexDiffLineKind.deletion => const Color(0xFF461D1D),
+      _CodexDiffLineKind.folded => const Color(0xFF1F1F1F),
+      _CodexDiffLineKind.context => Colors.transparent,
+    };
+  }
+
+  Color get _lineNumberColor {
+    return switch (line.kind) {
+      _CodexDiffLineKind.addition => const Color(0xFF35D782),
+      _CodexDiffLineKind.deletion => const Color(0xFFFF5C5C),
+      _CodexDiffLineKind.folded => const Color(0xFF9EA0A6),
+      _CodexDiffLineKind.context => const Color(0xFF8E8F94),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (line.kind == _CodexDiffLineKind.folded) {
+      return _CodexDiffFoldRow(count: line.foldedCount, minWidth: minWidth);
+    }
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: minWidth),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: _background),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 58,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Text(
+                    '${line.lineNumber ?? ''}',
+                    style: baseStyle.copyWith(
+                      color: _lineNumberColor,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(width: 1, color: Colors.white.withValues(alpha: 0.06)),
+            Padding(
+              padding: const EdgeInsets.only(left: 14, right: 18),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text.rich(
+                  _highlightedCodeSpan(),
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  TextSpan _highlightedCodeSpan() {
+    final text = line.text.isEmpty ? ' ' : line.text;
+    final spanKey =
+        'codex-diff::$cacheKey::${line.kind.name}::${line.lineNumber ?? 0}::$text'
+            .hashCode;
+    var span = _highlightSpanCache.get(spanKey);
+    if (span == null) {
+      span = highlighter.build(text, language: language);
+      _highlightSpanCache.put(spanKey, span);
+    }
+    if (line.kind == _CodexDiffLineKind.context) return span;
+    final fallbackColor = line.kind == _CodexDiffLineKind.addition
+        ? const Color(0xFFE9F8ED)
+        : const Color(0xFFFFDEDE);
+    return TextSpan(
+      style: baseStyle.copyWith(color: fallbackColor),
+      children:
+          span.children ??
+          <InlineSpan>[TextSpan(text: span.text ?? text, style: span.style)],
+    );
+  }
+}
+
+class _CodexDiffFoldRow extends StatelessWidget {
+  const _CodexDiffFoldRow({required this.count, required this.minWidth});
+
+  final int count;
+  final double minWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _localizedTextStatic(
+      context,
+      zh: '$count 行未修改',
+      en: '$count unmodified lines',
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: minWidth),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(color: Color(0xFF202020)),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 58,
+              child: Center(
+                child: Icon(
+                  Icons.unfold_more_rounded,
+                  size: 16,
+                  color: Color(0xFFA2A2A2),
+                ),
+              ),
+            ),
+            Container(width: 1, color: Colors.white10),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFFB9B9B9),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CodexDiffFooter extends StatelessWidget {
+  const _CodexDiffFooter({
+    required this.hiddenCount,
+    required this.showFull,
+    required this.onToggle,
+  });
+
+  final int hiddenCount;
+  final bool showFull;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = showFull
+        ? _localizedTextStatic(context, zh: '收起 Diff 预览', en: 'Collapse diff')
+        : _localizedTextStatic(
+            context,
+            zh: '展开全部 Diff（还有 $hiddenCount 行）',
+            en: 'Show full diff ($hiddenCount more lines)',
+          );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B1B1B),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
+        ),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFFD7D7D7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            visualDensity: VisualDensity.compact,
+          ),
+          onPressed: onToggle,
+          icon: Icon(
+            showFull ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
+            size: 16,
+          ),
+          label: Text(label),
+        ),
+      ),
+    );
   }
 }
 
@@ -3854,8 +4294,8 @@ class _PathSubGroupHeader extends StatelessWidget {
   }
 }
 
-/// 行内 Diff 预览 — lazy 加载 before/after blob，渲染压缩的统一
-/// diff 视图（≤ 10 行，超过截断 + 省略提示）。
+/// 行内 Diff 预览 — lazy 加载 before/after blob，交给 Codex 风 viewer
+/// 统一渲染行号、增删底色、未修改行折叠条和完整展开。
 class _DiffPreviewBox extends StatefulWidget {
   const _DiffPreviewBox({super.key, required this.record});
 
@@ -3866,82 +4306,29 @@ class _DiffPreviewBox extends StatefulWidget {
 }
 
 class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
-  Future<String>? _diffFuture;
+  Future<({String? before, String? after})>? _diffFuture;
+  String? _diffKey;
 
   @override
   void initState() {
     super.initState();
-    _diffFuture = _loadDiff();
+    _bindFuture();
   }
 
-  Future<String> _loadDiff() async {
-    final ledger = context
-        .read<AiSessionController>()
-        .toolRuntimeService
-        .mutationLedger;
-    final config = await ledger.loadConfig();
-    final r = widget.record;
-    String before;
-    String after;
+  @override
+  void didUpdateWidget(covariant _DiffPreviewBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _bindFuture();
+  }
 
-    if (r.beforeSha == null) {
-      before = '';
-    } else {
-      before = await ledger.readBlob(r.beforeSha!) ?? '';
-    }
+  String _keyOf(FileMutationRecord record) =>
+      '${record.recordId}|${record.beforeSha ?? ''}|${record.afterSha ?? ''}';
 
-    if (r.afterSha == null) {
-      after = '';
-    } else {
-      after = await ledger.readBlob(r.afterSha!) ?? '';
-    }
-
-    // 当 blob 丢失但文件仍存在于磁盘时，尝试读取当前磁盘内容作为 after
-    // 的回退（仅限 afterSha 不为 null 但 readBlob 返回 null 的情况）。
-    if (after.isEmpty && r.afterSha != null && r.filePath.isNotEmpty) {
-      try {
-        final file = File(r.filePath);
-        if (await file.exists()) {
-          after = await file.readAsString();
-        }
-      } catch (error, stack) {
-        silentLog(
-          'home_file_mutation_widgets',
-          'read fallback after blob',
-          error,
-          stack,
-        );
-      }
-    }
-
-    // 大文件（before+after > 24 KiB）走 isolate 计算 diff，避免
-    // 主线程长卡顿；小文件继续同步直跑（避免 spawn 开销）。
-    final totalBytes = before.length + after.length;
-    if (totalBytes > 24 * 1024) {
-      return developer.Timeline.timeSync<Future<String>>(
-        'openhand.diff.compute(isolate, ${totalBytes}c)',
-        () => compute<_DiffComputeArgs, String>(
-          _runDiffSummaryInIsolate,
-          _DiffComputeArgs(
-            before: before,
-            after: after,
-            beforeSha: r.beforeSha,
-            afterSha: r.afterSha,
-            miniDiffMaxBytes: config.miniDiffMaxBytes,
-          ),
-        ),
-      );
-    }
-    return developer.Timeline.timeSync<String>(
-      'openhand.diff.compute(sync, ${totalBytes}c)',
-      () => unifiedDiffLineSummary(
-        before,
-        after,
-        beforeSha: r.beforeSha,
-        afterSha: r.afterSha,
-        miniDiffMaxBytes: config.miniDiffMaxBytes,
-      ),
-    );
+  void _bindFuture() {
+    final nextKey = _keyOf(widget.record);
+    if (_diffKey == nextKey && _diffFuture != null) return;
+    _diffKey = nextKey;
+    _diffFuture = _loadMutationDiffSnapshots(context, widget.record);
   }
 
   @override
@@ -3949,148 +4336,110 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 2, 8, 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh.withValues(alpha: 0.45),
-          borderRadius: const BorderRadius.all(Radius.circular(10)),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.35),
-            width: 0.5,
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 6),
+      child: FutureBuilder<({String? before, String? after})>(
+        future: _diffFuture,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return _DiffLoadingPlaceholder(theme: theme, colorScheme: cs);
+          }
+          final before = snap.data?.before ?? '';
+          final after = snap.data?.after ?? '';
+          if (before.isEmpty && after.isEmpty) {
+            return _DiffEmptyPlaceholder(theme: theme, colorScheme: cs);
+          }
+          return _CodexDiffViewer(
+            record: widget.record,
+            before: before,
+            after: after,
+            previewLineLimit: 18,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DiffLoadingPlaceholder extends StatelessWidget {
+  const _DiffLoadingPlaceholder({
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.45),
+        borderRadius: const BorderRadius.all(Radius.circular(10)),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.4,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _localizedTextStatic(
+                context,
+                zh: '加载 Diff…',
+                en: 'Loading diff…',
+              ),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiffEmptyPlaceholder extends StatelessWidget {
+  const _DiffEmptyPlaceholder({required this.theme, required this.colorScheme});
+
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.45),
+        borderRadius: const BorderRadius.all(Radius.circular(10)),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Text(
+          _localizedTextStatic(
+            context,
+            zh: '内容相同或不可对比。',
+            en: 'No textual diff available.',
+          ),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
-        child: FutureBuilder<String>(
-          future: _diffFuture,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return Row(
-                children: [
-                  SizedBox(
-                    width: 10,
-                    height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.4,
-                      color: cs.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _localizedTextStatic(
-                      context,
-                      zh: '加载 Diff…',
-                      en: 'Loading diff…',
-                    ),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              );
-            }
-            final raw = (snap.data ?? '').trim();
-            if (raw.isEmpty) {
-              return Text(
-                _localizedTextStatic(
-                  context,
-                  zh: '内容相同或不可对比。',
-                  en: 'No textual diff available.',
-                ),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              );
-            }
-            final lines = raw.split('\n');
-            const maxLines = 10;
-            final shown = lines.length > maxLines
-                ? lines.take(maxLines).toList()
-                : lines;
-            final clipped = lines.length > maxLines;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final line in shown) _diffLine(theme, cs, line),
-                if (clipped)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      _localizedTextStatic(
-                        context,
-                        zh: '… 还有 ${lines.length - maxLines} 行，复制全部 Diff 查看完整内容。',
-                        en: '… ${lines.length - maxLines} more lines; copy full diff to inspect.',
-                      ),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
       ),
     );
   }
-
-  Widget _diffLine(ThemeData theme, ColorScheme cs, String line) {
-    // 暗色模式下用更亮的前景 + 更柔和的底色，避免对比度暴涨。
-    final isDark = theme.brightness == Brightness.dark;
-    Color? bg;
-    Color fg = cs.onSurface;
-    if (line.startsWith('+')) {
-      bg = isDark
-          ? const Color(0xFF66BB6A).withValues(alpha: 0.16)
-          : const Color(0xFF2E7D32).withValues(alpha: 0.10);
-      fg = isDark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20);
-    } else if (line.startsWith('-')) {
-      bg = cs.error.withValues(alpha: isDark ? 0.18 : 0.10);
-      fg = isDark ? cs.error.withValues(alpha: 0.95) : cs.error;
-    } else {
-      fg = cs.onSurfaceVariant;
-    }
-    return Container(
-      color: bg,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      child: Text(
-        line.isEmpty ? ' ' : line,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: fg,
-          fontFamily: 'monospace',
-          fontFeatures: const [FontFeature.tabularFigures()],
-          height: 1.3,
-        ),
-      ),
-    );
-  }
-}
-
-/// isolate 计算 diff 摘要的入参快照（必须可序列化跨 isolate）。
-class _DiffComputeArgs {
-  const _DiffComputeArgs({
-    required this.before,
-    required this.after,
-    required this.beforeSha,
-    required this.afterSha,
-    required this.miniDiffMaxBytes,
-  });
-  final String before;
-  final String after;
-  final String? beforeSha;
-  final String? afterSha;
-  final int miniDiffMaxBytes;
-}
-
-/// `compute` 入口必须是顶层函数。委托到纯函数 [unifiedDiffLineSummary]。
-String _runDiffSummaryInIsolate(_DiffComputeArgs args) {
-  return unifiedDiffLineSummary(
-    args.before,
-    args.after,
-    beforeSha: args.beforeSha,
-    afterSha: args.afterSha,
-    miniDiffMaxBytes: args.miniDiffMaxBytes,
-  );
 }
