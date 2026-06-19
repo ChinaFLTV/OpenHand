@@ -1,3 +1,4 @@
+import '../../model/ai_session.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -103,6 +104,13 @@ class AiExitPlanModeTool extends AiTool {
     final lines = <String>[];
     for (final rawTodo in rawTodos) {
       if (rawTodo is! Map) {
+        continue;
+      }
+      final status = AiSessionTodoState.normalizeStatus(
+        '${rawTodo['status'] ?? ''}',
+      );
+      if (status != AiSessionTodoState.pending &&
+          status != AiSessionTodoState.inProgress) {
         continue;
       }
       final content = '${rawTodo['content'] ?? ''}'.trim();

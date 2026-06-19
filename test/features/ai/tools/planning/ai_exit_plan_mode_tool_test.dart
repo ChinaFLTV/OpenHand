@@ -126,6 +126,44 @@ void main() {
       expect(result.metadata['pending_plan_source'], 'current_todos');
     });
 
+    test(
+      'derives omitted plan only from pending and in-progress todos',
+      () async {
+        final result = await AiExitPlanModeTool().execute(
+          _context(
+            metadata: const <String, Object?>{
+              'current_todos': <Map<String, String>>[
+                <String, String>{
+                  'content': 'Already inspected the runtime path',
+                  'status': 'completed',
+                },
+                <String, String>{
+                  'content': 'Patch the compatibility path',
+                  'status': 'in_progress',
+                },
+                <String, String>{
+                  'content': 'Run focused verification',
+                  'status': 'pending',
+                },
+                <String, String>{
+                  'content': 'Stale failed planning branch',
+                  'status': 'failed',
+                },
+              ],
+            },
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        expect(
+          result.metadata['pending_plan'],
+          '1. Patch the compatibility path\n'
+          '2. Run focused verification',
+        );
+        expect(result.metadata['pending_plan_source'], 'current_todos');
+      },
+    );
+
     test('rejects unsupported allowed prompt tool', () async {
       final result = await AiExitPlanModeTool().execute(
         _context(
@@ -203,6 +241,32 @@ void main() {
       expect(result.stderr, contains('recoverable plan context'));
       expect(result.metadata, isEmpty);
     });
+
+    test(
+      'rejects omitted plan when todos contain no executable work',
+      () async {
+        final result = await AiExitPlanModeTool().execute(
+          _context(
+            metadata: const <String, Object?>{
+              'current_todos': <Map<String, String>>[
+                <String, String>{
+                  'content': 'Already inspected the runtime path',
+                  'status': 'completed',
+                },
+                <String, String>{
+                  'content': 'Discarded an obsolete approach',
+                  'status': 'failed',
+                },
+              ],
+            },
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.stderr, contains('recoverable plan context'));
+        expect(result.metadata, isEmpty);
+      },
+    );
   });
 }
 
