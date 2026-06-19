@@ -16,18 +16,15 @@ class AiLsTool extends AiTool {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
     final rawPath = '${args['path'] ?? ''}'.trim();
-    if (rawPath.isEmpty) {
-      return AiToolUtils.invalidResult('LS', 'LS requires a non-empty path.');
-    }
-    // 2026-04-28: 与 Read/Write/Edit 等其它工具对齐 —— 模型经常传相对路径
-    // （如 "."、"src/"），原本的 requireAbsoluteDirectoryPath 会硬拒并返回
-    // invalid_arguments，让模型陷入“参数明明对、却被反复拒”的死循环。
-    // 改用 resolvePath，相对路径自动按当前工作目录展开为绝对路径。
     final path = AiToolUtils.resolvePath(rawPath);
-    final directory = Directory(path);
-    if (!await directory.exists()) {
+    final pathType = FileSystemEntity.typeSync(path);
+    if (pathType == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult('LS', 'Directory does not exist: $path');
     }
+    if (pathType != FileSystemEntityType.directory) {
+      return AiToolUtils.invalidResult('LS', 'Path is not a directory: $path');
+    }
+    final directory = Directory(path);
     final ignorePatterns = args['ignore'] is List
         ? (args['ignore'] as List)
               .map((item) => '$item'.trim())
@@ -37,10 +34,12 @@ class AiLsTool extends AiTool {
     final entries = await directory.list().toList();
     entries.sort((left, right) => left.path.compareTo(right.path));
     final lines = <String>[];
+    var ignoredCount = 0;
     for (final entry in entries) {
       final name = p.basename(entry.path);
       if (AiToolUtils.matchesAnyGlob(name, ignorePatterns) ||
           AiToolUtils.matchesAnyGlob(entry.path, ignorePatterns)) {
+        ignoredCount += 1;
         continue;
       }
       final type = entry is Directory
@@ -56,6 +55,12 @@ class AiLsTool extends AiTool {
       output: output,
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: path,
+      metadata: <String, Object?>{
+        'ls_path': path,
+        'ls_entry_count': lines.length,
+        'ls_ignored_count': ignoredCount,
+        'ls_defaulted_to_working_directory': rawPath.isEmpty,
+      },
     );
   }
 }

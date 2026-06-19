@@ -2338,21 +2338,22 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.ls,
       name: 'LS',
       description:
-          'List files and directories under a path. Returns names and types.',
+          'List files and directories under a directory path. Accepts absolute or relative paths and returns names with types.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'path': <String, Object?>{
             'type': 'string',
-            'description': 'The absolute directory path to list.',
+            'description':
+                'The directory path to list. Omit to use the working directory; do not pass a file path.',
           },
           'ignore': <String, Object?>{
             'type': 'array',
             'items': <String, Object?>{'type': 'string'},
-            'description': 'Patterns of file/directory names to ignore.',
+            'description':
+                'Glob patterns of file/directory names or paths to ignore.',
           },
         },
-        'required': <String>['path'],
         'additionalProperties': false,
       },
     ),

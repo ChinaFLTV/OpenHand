@@ -336,6 +336,32 @@ void main() {
       expect('${properties?['path']}', contains('do not pass a file path'));
     });
 
+    test('LS documents optional cwd default and relative paths', () {
+      final runtime = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _testRuntimeContext,
+      );
+      final definition = catalog.find('LS')?.definition;
+      final properties = definition?.parameters['properties'] as Map?;
+      final required = definition?.parameters['required'];
+
+      expect(definition?.description, contains('relative paths'));
+      expect('${properties?['path']}', contains('Omit to use'));
+      expect('${properties?['path']}', contains('do not pass a file path'));
+      expect('${properties?['ignore']}', contains('Glob patterns'));
+      if (required is List) {
+        expect(required, isNot(contains('path')));
+      } else {
+        expect(required, isNull);
+      }
+    });
+
     test('Read exposes Claude-style PDF pages parameter', () {
       final runtime = AiToolRuntimeService(
         bashToolService: AiBashToolService(),

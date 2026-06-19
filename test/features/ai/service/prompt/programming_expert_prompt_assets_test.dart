@@ -14,7 +14,7 @@ void main() {
       expect(system, isNot(contains('<task_tool>')));
       expect(system, isNot(contains('<file_editing>')));
       expect(system, isNot(contains('Task` 必须顶层传')));
-      expect(system, isNot(contains('`Edit`：单点替换')));
+      expect(system, isNot(contains('`Edit`：精确替换')));
       expect(system, contains('不要用普通文本请求计划批准'));
       expect(system, isNot(contains('用自然语言给出编号计划并请用户批准')));
 
@@ -26,7 +26,9 @@ void main() {
       expect(developer, contains('计划模式未获执行批准时省略 `Task.subagent_type`'));
       expect(developer, contains('Claude 规范名 `Agent`'));
       expect(developer, contains('`run_in_background`、`isolation`'));
-      expect(developer, contains('`Edit`：单点替换'));
+      expect(developer, contains('`Edit`：精确替换'));
+      expect(developer, contains('replace_all: true'));
+      expect(developer, contains('`LS`：列目录；`path` 可省略默认 cwd'));
       expect(developer, contains('ToolSearch'));
       expect(developer, contains('select:<exact_name>'));
       expect(developer, contains('PDF 可传 Claude 风格 `pages`'));
