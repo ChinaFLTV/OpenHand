@@ -35,6 +35,7 @@ import { writeBrowserStorage } from '../../../shared/util/browser_storage';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
+import { AnimatedTitleText } from '../../../components/AnimatedTitleText';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -521,12 +522,14 @@ export function SessionsPage() {
                             </button>
                           </div>
                         ) : (
-                          <span
-                            class="text-base font-medium text-left truncate block w-full"
+                          <AnimatedTitleText
+                            text={
+                              item.title ||
+                              t('sessions.untitled', '未命名会话')
+                            }
+                            className="text-base font-medium text-left truncate block w-full"
                             style={{ color: 'var(--m3-on-surface)' }}
-                          >
-                            {item.title || t('sessions.untitled', '未命名会话')}
-                          </span>
+                          />
                         )}
                         <p
                           class="text-xs mt-1 truncate"

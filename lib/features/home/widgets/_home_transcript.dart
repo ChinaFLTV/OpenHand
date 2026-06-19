@@ -2817,25 +2817,78 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
 class _AnimatedSessionTitleText extends StatelessWidget {
   const _AnimatedSessionTitleText({required this.text, required this.style});
 
+  static const Duration _switchInDuration = Duration(milliseconds: 320);
+  static const Duration _switchOutDuration = Duration(milliseconds: 200);
+
   final String text;
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
+    final trimmed = text.trim();
     final body = Text(
+      key: ValueKey<String>(text),
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+      softWrap: false,
       style: style,
     );
-    final trimmed = text.trim();
+    final animatedBody = MediaQuery.disableAnimationsOf(context)
+        ? body
+        : ClipRect(
+            child: AnimatedSwitcher(
+              duration: _switchInDuration,
+              reverseDuration: _switchOutDuration,
+              switchInCurve: kCardMotionCurve,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.centerLeft,
+                  children: <Widget>[
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                );
+              },
+              transitionBuilder: (child, animation) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: kCardMotionCurve,
+                  reverseCurve: Curves.easeInCubic,
+                );
+                return FadeTransition(
+                  opacity: curved,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.18),
+                      end: Offset.zero,
+                    ).animate(curved),
+                    child: ScaleTransition(
+                      alignment: Alignment.centerLeft,
+                      scale: Tween<double>(
+                        begin: 0.985,
+                        end: 1,
+                      ).animate(curved),
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: body,
+            ),
+          );
     if (trimmed.isEmpty) {
-      return body;
+      return animatedBody;
     }
+    final semanticBody = Semantics(
+      label: trimmed,
+      child: ExcludeSemantics(child: animatedBody),
+    );
     return Tooltip(
       message: trimmed,
       waitDuration: const Duration(milliseconds: 380),
-      child: body,
+      child: semanticBody,
     );
   }
 }

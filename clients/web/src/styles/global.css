@@ -163,15 +163,14 @@ html, body, #root {
   0%   { opacity: 0.3; transform: scaleY(0.92); }
   100% { opacity: 1;   transform: scaleY(1); }
 }
-@keyframes oh-title-spring {
-  0%   { opacity: 0.72; transform: translate3d(0, 6px, 0) scale(0.985); }
-  62%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.012); }
+@keyframes oh-title-text-enter {
+  0%   { opacity: 0; transform: translate3d(0, 7px, 0) scale(0.985); }
+  62%  { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.01); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
-@keyframes oh-title-glow {
-  0%   { text-shadow: 0 0 0 color-mix(in srgb, var(--m3-primary) 0%, transparent); }
-  34%  { text-shadow: 0 0 18px color-mix(in srgb, var(--m3-primary) 34%, transparent); }
-  100% { text-shadow: 0 0 0 color-mix(in srgb, var(--m3-primary) 0%, transparent); }
+@keyframes oh-title-text-exit {
+  0%   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(0, -7px, 0) scale(0.985); }
 }
 /* 数字翻牌：旧字符向上滑出（easeInCubic），新字符从下方滑入
    (easeOutBack, 带轻微 overshoot)。与 App 端 _RollingDigit 1:1 对齐。 */
@@ -219,10 +218,36 @@ html, body, #root {
   animation: oh-rolling-digit-in 360ms var(--oh-motion-spring) both;
   will-change: transform, opacity;
 }
-.oh-title-spring {
-  animation:
-    oh-title-spring 360ms var(--oh-motion-spring) both,
-    oh-title-glow 720ms var(--oh-motion-emphasized) both;
+.oh-animated-title-text {
+  position: relative;
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+.oh-animated-title-text-current,
+.oh-animated-title-text-exit {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform-origin: left center;
+}
+.oh-animated-title-text-current {
+  will-change: transform, opacity;
+}
+.oh-animated-title-text-enter {
+  animation: oh-title-text-enter 340ms var(--oh-motion-spring) both;
+}
+.oh-animated-title-text-exit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: oh-title-text-exit 220ms var(--oh-motion-emphasized) both;
   will-change: transform, opacity;
 }
 

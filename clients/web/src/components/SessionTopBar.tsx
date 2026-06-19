@@ -17,6 +17,7 @@ import { isOperationTimeoutError, runWithTimeout } from '../utils/timed_abort';
 import { OverlayPortal } from './OverlayPortal';
 import { showSnackbar } from './Snackbar';
 import { RollingText } from './RollingText';
+import { AnimatedTitleText } from './AnimatedTitleText';
 
 export interface SessionToolbarCapsule {
   key: string;
@@ -288,13 +289,11 @@ export function SessionTopBar(props: SessionTopBarProps) {
                 : onRename ? t('topbar.renameHint', '点击重命名') : undefined}
             >
               <span class="flex items-center gap-1.5 min-w-0">
-                <span
-                  key={title}
-                  class="oh-title-spring block text-sm font-semibold truncate"
+                <AnimatedTitleText
+                  text={title}
+                  className="block text-sm font-semibold truncate"
                   style={{ color: 'var(--m3-on-surface)' }}
-                >
-                  {title}
-                </span>
+                />
                 {titleGenerating ? (
                   <span class="oh-title-generating-spinner flex-none" aria-label={t('topbar.titleGenerating', '标题生成中…')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="oh-spin" style={{ color: 'var(--m3-primary)', opacity: 0.7 }}>
