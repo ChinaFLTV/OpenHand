@@ -1,11 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
 import 'package:openhand/features/ai/model/ai_thread_template.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_sections.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
 
@@ -136,6 +138,76 @@ void main() {
       expect(content, contains('mutation: bash_write'));
       expect(content, contains('reason: mutating command touch'));
     });
+
+    test(
+      'surfaces write confirmation decision in post-compact focus context',
+      () {
+        final now = DateTime.utc(2026, 6, 19, 8);
+        final messages = <AiSessionMessage>[
+          AiSessionMessage.toolResult(
+            id: 't1',
+            content:
+                'status: rejected\n'
+                'write_confirmation_decision: dismissed\n'
+                'write_confirmation_dismissed: true',
+            createdAt: now,
+            metadata: const <String, Object?>{
+              'tool_name': 'Bash',
+              'status': 'rejected',
+              'command': 'touch /tmp/openhand-focus-test',
+              'tool_execution_is_write_command': true,
+              'write_confirmation_decision': 'dismissed',
+              'write_confirmation_dismissed': true,
+            },
+          ),
+          AiSessionMessage.compressionPoint(
+            id: 'c1',
+            content: 'Checkpoint after rejected write confirmation.',
+            createdAt: now.add(const Duration(seconds: 1)),
+            metadata: const <String, Object?>{},
+          ),
+          AiSessionMessage.user(
+            id: 'u1',
+            content: 'What happened before compaction?',
+            createdAt: now.add(const Duration(seconds: 2)),
+          ),
+        ];
+        final session = AiSession(
+          id: 'session-1',
+          title: 'Focus context session',
+          templateId: AiPromptTemplatePolicies.programmingExpertTemplateId,
+          templateName: '编程专家',
+          templateIconName: 'code_rounded',
+          templateInternalVersion: 'test',
+          createdAt: now,
+          updatedAt: now,
+          messages: messages,
+          environment: _testEnvironment,
+          statistics: const AiSessionStatistics.initial(),
+          recentErrors: const <AiSessionErrorRecord>[],
+        );
+
+        final result = const AiPromptBuilder().buildSessionPrompt(
+          templateBundle: _testBundle,
+          session: session,
+          model: _testModel,
+          runtimeContext: _testRuntimeContext,
+          memoryEntries: const <Never>[],
+          sessionMessages: messages,
+          latestUserMessageId: 'u1',
+        );
+        final focusContext = result.messages
+            .map((turn) => turn.content)
+            .firstWhere(
+              (content) =>
+                  content.startsWith(AiPromptSectionHeaders.focusContext),
+            );
+
+        expect(focusContext, contains('Bash · status=rejected'));
+        expect(focusContext, contains('write_confirmation=dismissed'));
+        expect(focusContext, contains('cmd=touch /tmp/openhand-focus-test'));
+      },
+    );
   });
 }
 
@@ -163,6 +235,15 @@ const AiPromptTemplateBundle _testBundle = AiPromptTemplateBundle(
   systemInstructions: 'system',
   developerInstructions: 'developer',
   compressionSummaryInstructions: 'compression',
+);
+
+const AiModelConfig _testModel = AiModelConfig(
+  id: 'test',
+  baseUrl: 'http://localhost',
+  authScheme: AiAuthScheme.none,
+  token: '',
+  modelId: 'test-model',
+  protocolType: AiProtocolType.openai,
 );
 
 const AiSessionEnvironment _testEnvironment = AiSessionEnvironment(

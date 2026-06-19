@@ -3248,11 +3248,16 @@ $tail''';
             '${message.metadata['tool_name'] ?? message.metadata['name'] ?? 'tool'}';
         final status = '${message.metadata['status'] ?? ''}'.trim();
         final command = '${message.metadata['command'] ?? ''}'.trim();
+        final writeConfirmationDecision = _writeConfirmationDecision(
+          message.metadata,
+        );
         final pathHint = _fileContextAnchorPathPreview(message);
         final snippet = _firstNonEmptyLine(message.content, 160);
         final descriptor = <String>[
           toolName,
           if (status.isNotEmpty) 'status=$status',
+          if (writeConfirmationDecision.isNotEmpty)
+            'write_confirmation=$writeConfirmationDecision',
           if (command.isNotEmpty) 'cmd=${_truncate(command, 60)}',
           if (pathHint.isNotEmpty) 'path=$pathHint',
         ].join(' · ');
@@ -4480,8 +4485,12 @@ $content
     return lines.join('\n');
   }
 
+  String _writeConfirmationDecision(Map<String, Object?> metadata) {
+    return '${metadata['write_confirmation_decision'] ?? ''}'.trim();
+  }
+
   List<String> _writeConfirmationSummaryLines(Map<String, Object?> metadata) {
-    final decision = '${metadata['write_confirmation_decision'] ?? ''}'.trim();
+    final decision = _writeConfirmationDecision(metadata);
     if (decision.isEmpty) return const <String>[];
     final lines = <String>['write_confirmation_decision: $decision'];
     for (final key in const <String>[
