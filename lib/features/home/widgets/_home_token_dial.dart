@@ -348,6 +348,14 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     );
     final displayData = trend.displayData(_displayMode);
     final cacheHitRatio = displayData.averageHitRatio;
+    final hasTokenAccounting =
+        promptTokensTotal > 0 || total > 0 || cacheRead > 0 || cacheWrite > 0;
+    final showCacheHitMetrics = hasTokenAccounting || trend.points.isNotEmpty;
+    final cacheBarPromptTokens = displayData.uncachedPromptTokens > 0
+        ? displayData.uncachedPromptTokens
+        : promptTokens > 0
+        ? promptTokens
+        : promptTokensTotal;
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -437,7 +445,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
                 fontSize: (valueStyle.fontSize ?? 14) + 1,
               ),
             ),
-            if (cacheRead > 0 || cacheWrite > 0) ...[
+            if (showCacheHitMetrics) ...[
               const SizedBox(height: 6),
               _PopupRow(
                 label: AppLocalizations.of(context)!.tokenPopupCacheHit,
@@ -452,7 +460,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
                 ratio: cacheHitRatio,
                 cacheRead: displayData.cacheReadTokens,
                 cacheWrite: displayData.cacheWriteTokens,
-                prompt: displayData.uncachedPromptTokens,
+                prompt: cacheBarPromptTokens,
               ),
             ],
             if (trend.points.isNotEmpty) ...[
@@ -474,7 +482,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
                 cacheHitRatio: cacheHitRatio,
                 cacheRead: cacheRead,
                 cacheWrite: cacheWrite,
-                promptTokens: promptTokens.clamp(0, promptTokensTotal),
+                promptTokens: cacheBarPromptTokens,
               ),
             ],
             const SizedBox(height: 10),

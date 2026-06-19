@@ -4761,7 +4761,7 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
           }}
         >
           <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
-          {cacheReadTokens > 0 || cacheWriteTokens > 0 ? (
+          {cacheHit.hasCacheHitMetrics ? (
             <>
               <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
               <CacheHitBar readWeight={readWeight} writeWeight={writeWeight} missWeight={missWeight} />
@@ -5210,6 +5210,7 @@ interface SessionCacheHitDisplay {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   cacheHitRatio: number;
+  hasCacheHitMetrics: boolean;
   readWeight: number;
   writeWeight: number;
   missWeight: number;
@@ -5226,6 +5227,8 @@ function buildSessionCacheHitDisplay(
 ): SessionCacheHitDisplay {
   const cacheReadTokens = readStatNumber(stats['cache_read_tokens'], 0);
   const cacheWriteTokens = readStatNumber(stats['cache_creation_tokens'], 0);
+  const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
+  const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens);
   const backendHitRatio = readDouble(stats['cache_hit_ratio'], 0);
   const cacheHitRatio = backendHitRatio > 0.0001 ? Math.round(backendHitRatio * 100) : 0;
   const backendTrendPoints = (stats['cache_hit_trend_points'] ?? []) as SessionCacheHitTrendPoint[] | undefined;
@@ -5239,6 +5242,12 @@ function buildSessionCacheHitDisplay(
       averageRatio: backendHitRatio,
     }
     : null;
+  const hasCacheHitMetrics =
+    cacheReadTokens > 0 ||
+    cacheWriteTokens > 0 ||
+    promptTokensTotal > 0 ||
+    totalTokens > 0 ||
+    Boolean(trendData && trendData.points.length > 0);
   const cacheHitFrac = cacheHitRatio / 100;
   const hasWrite = cacheWriteTokens > 0;
   const readWeight = hasWrite && cacheReadTokens + cacheWriteTokens > 0
@@ -5251,6 +5260,7 @@ function buildSessionCacheHitDisplay(
     cacheReadTokens,
     cacheWriteTokens,
     cacheHitRatio,
+    hasCacheHitMetrics,
     readWeight,
     writeWeight,
     missWeight: 1 - cacheHitFrac,
@@ -5487,7 +5497,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   );
 
   const renderCacheHitPanel = (withTopMargin: boolean) => {
-    if (cacheHit.cacheReadTokens <= 0 && cacheHit.cacheWriteTokens <= 0 && (!cacheHit.trendData || cacheHit.trendData.points.length === 0)) {
+    if (!cacheHit.hasCacheHitMetrics) {
       return null;
     }
     return (
