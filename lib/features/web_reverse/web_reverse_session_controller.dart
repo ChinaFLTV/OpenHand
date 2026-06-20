@@ -65,6 +65,7 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _preserveLog = true;
   bool _reattachAfterReconnectInFlight = false;
   bool _reattachAfterReconnectQueued = false;
+  bool _restartBrowserInFlight = false;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -670,16 +671,7 @@ class WebReverseSessionController extends ChangeNotifier {
       case '__cdp_dead__':
         // 重连彻底失败：浏览器可能已经被用户手动关掉。把 screencast 状态
         // 复位、清掉缓存帧、通知 UI 切到"已断开 / 可重启"占位。
-        _screencastActive = false;
-        _latestScreencastFrame = null;
-        _screencastFrameSeq = 0;
-        _screencastStartedAt = null;
-        _lastScreencastFrameAt = null;
-        if (!_disposed) {
-          // 帧序号 +1 而不是赋 0，让 ValueListenableBuilder 一定能 rebuild
-          // 拿到 null 帧切换到 placeholder。
-          screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
-        }
+        _resetScreencastRuntimeState(resetRefCount: false);
         _errorMessage = '浏览器已断开（CDP 自动重连失败），可点击「重启浏览器」恢复。';
         _safeNotify();
         return;
@@ -2442,16 +2434,7 @@ class WebReverseSessionController extends ChangeNotifier {
               closeStack,
             );
           }
-          if (_screencastActive) {
-            _screencastActive = false;
-            _latestScreencastFrame = null;
-            _screencastFrameSeq = 0;
-            _screencastStartedAt = null;
-            _lastScreencastFrameAt = null;
-            if (!_disposed) {
-              screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
-            }
-          }
+          _resetScreencastRuntimeState(resetRefCount: false);
           _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
           _safeNotify();
         } finally {
@@ -3484,16 +3467,8 @@ class WebReverseSessionController extends ChangeNotifier {
           stack,
         );
       }
-      _screencastActive = false;
-      _screencastRefCount = 0;
-      _latestScreencastFrame = null;
-      _screencastFrameSeq = 0;
-      _screencastStartedAt = null;
-      _lastScreencastFrameAt = null;
-      if (!_disposed) {
-        screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
-      }
     }
+    _resetScreencastRuntimeState(resetRefCount: false);
     await _pageEventsSub?.cancel();
     _pageEventsSub = null;
     _pageSessionId = null;
@@ -3543,20 +3518,38 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 复用 [start] 的全部启动逻辑，只是重置 stopped 标记。
   Future<void> restartBrowser() async {
     if (_disposed) return;
+    if (_restartBrowserInFlight) return;
+    _restartBrowserInFlight = true;
+    final restoreScreencastRefCount = _screencastRefCount;
+    final restoreScreencastWidth = _screencastWidth;
+    final restoreScreencastHeight = _screencastHeight;
+    final restoreScreencastQuality = _screencastQuality;
     silentLog(
       'web_reverse_session_controller',
       'restartBrowser',
       'user requested',
       StackTrace.current,
     );
-    // 先确保旧资源完全释放。
-    await stopBrowser();
-    _stopped = false;
-    _started = false;
-    _errorMessage = null;
-    _safeNotify();
     try {
+      // 先确保旧资源完全释放。
+      await stopBrowser();
+      _stopped = false;
+      _started = false;
+      _screencastRefCount = restoreScreencastRefCount;
+      _screencastWidth = restoreScreencastWidth;
+      _screencastHeight = restoreScreencastHeight;
+      _screencastQuality = restoreScreencastQuality;
+      _errorMessage = null;
+      _safeNotify();
       await start();
+      if (restoreScreencastRefCount > 0) {
+        _screencastRefCount = restoreScreencastRefCount;
+        await _startScreencastForCurrentSubscribers(
+          maxWidth: restoreScreencastWidth,
+          maxHeight: restoreScreencastHeight,
+          quality: restoreScreencastQuality,
+        );
+      }
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -3564,9 +3557,12 @@ class WebReverseSessionController extends ChangeNotifier {
         error,
         stack,
       );
+      _screencastRefCount = restoreScreencastRefCount;
       _errorMessage = '浏览器重启失败：$error';
       _safeNotify();
       rethrow;
+    } finally {
+      _restartBrowserInFlight = false;
     }
   }
 
@@ -3590,16 +3586,8 @@ class WebReverseSessionController extends ChangeNotifier {
           stack,
         );
       }
-      _screencastActive = false;
-      _screencastRefCount = 0;
-      _latestScreencastFrame = null;
-      _screencastFrameSeq = 0;
-      _screencastStartedAt = null;
-      _lastScreencastFrameAt = null;
-      if (!_disposed) {
-        screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
-      }
     }
+    _resetScreencastRuntimeState(resetRefCount: true);
     await _pageEventsSub?.cancel();
     await _closeAuxiliaryServices();
     _pageEventsSub = null;
@@ -4093,10 +4081,55 @@ class WebReverseSessionController extends ChangeNotifier {
     int quality = _screencastDefaultQuality,
     int everyNthFrame = 1,
   }) async {
-    final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return false;
     _screencastRefCount++;
     if (_screencastActive) return true;
+    final ok = await _startScreencastForCurrentSubscribers(
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      quality: quality,
+      everyNthFrame: everyNthFrame,
+    );
+    if (!ok) {
+      _screencastRefCount = (_screencastRefCount - 1).clamp(0, 1 << 30);
+    }
+    return ok;
+  }
+
+  /// dashboard "浏览器" tab 切走 / 关闭时调用。引用计数归零后才真正
+  /// `Page.stopScreencast` + 清空缓存帧，避免 widget 重新挂载时拿到陈旧画面。
+  Future<void> releaseScreencast() async {
+    if (_screencastRefCount > 0) _screencastRefCount--;
+    if (_screencastRefCount > 0) return;
+    if (!_screencastActive) return;
+    final cdp = _browserCdp;
+    try {
+      if (cdp != null && _pageSessionId != null) {
+        await cdp
+            .send('Page.stopScreencast', sessionId: _pageSessionId)
+            .timeout(const Duration(seconds: 3));
+      }
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'releaseScreencast',
+        error,
+        stack,
+      );
+    }
+    _resetScreencastRuntimeState(resetRefCount: false);
+    _safeNotify();
+  }
+
+  Future<bool> _startScreencastForCurrentSubscribers({
+    int maxWidth = _screencastDefaultMaxWidth,
+    int maxHeight = _screencastDefaultMaxHeight,
+    int quality = _screencastDefaultQuality,
+    int everyNthFrame = 1,
+  }) async {
+    final cdp = _browserCdp;
+    if (cdp == null || _pageSessionId == null || _screencastActive) {
+      return _screencastActive;
+    }
     try {
       final clampedQuality = quality.clamp(20, 95);
       final clampedW = maxWidth.clamp(160, 4096);
@@ -4126,45 +4159,26 @@ class WebReverseSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
-        'acquireScreencast',
+        'startScreencastForCurrentSubscribers',
         error,
         stack,
       );
-      _screencastRefCount = (_screencastRefCount - 1).clamp(0, 1 << 30);
       return false;
     }
   }
 
-  /// dashboard "浏览器" tab 切走 / 关闭时调用。引用计数归零后才真正
-  /// `Page.stopScreencast` + 清空缓存帧，避免 widget 重新挂载时拿到陈旧画面。
-  Future<void> releaseScreencast() async {
-    if (_screencastRefCount > 0) _screencastRefCount--;
-    if (_screencastRefCount > 0) return;
-    if (!_screencastActive) return;
-    final cdp = _browserCdp;
-    try {
-      if (cdp != null && _pageSessionId != null) {
-        await cdp
-            .send('Page.stopScreencast', sessionId: _pageSessionId)
-            .timeout(const Duration(seconds: 3));
-      }
-    } catch (error, stack) {
-      silentLog(
-        'web_reverse_session_controller',
-        'releaseScreencast',
-        error,
-        stack,
-      );
-    }
+  void _resetScreencastRuntimeState({required bool resetRefCount}) {
     _screencastActive = false;
+    if (resetRefCount) _screencastRefCount = 0;
     _latestScreencastFrame = null;
     _screencastFrameSeq = 0;
     _screencastStartedAt = null;
     _lastScreencastFrameAt = null;
     if (!_disposed) {
+      // 帧序号 +1 而不是只写 0，让 ValueListenableBuilder 一定能 rebuild
+      // 拿到 null 帧切换到 placeholder。
       screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
     }
-    _safeNotify();
   }
 
   /// 调整 screencast 输出尺寸 / 质量。widget 矩形变化或用户手动切档位时调用。

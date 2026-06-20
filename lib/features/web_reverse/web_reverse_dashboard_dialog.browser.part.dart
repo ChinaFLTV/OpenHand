@@ -100,6 +100,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 让按钮、placeholder 立刻响应。
   bool _wasAlive = false;
   bool _wasScreencastActive = false;
+  bool _restartBrowserInFlight = false;
   // 浏览器侧 setPageScaleFactor 的当前值；面板内独立维护，下次切到 dashboard
   // 重新 attach 时不会保留（Chromium 重启即丢）。
   double _zoom = 1;
@@ -296,6 +297,47 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         state?.restoreBrowserTabs();
         state?.restoreBreakpoints();
       });
+    }
+  }
+
+  String _restartFailureMessage(Object error) {
+    final raw = '$error'.trim();
+    final clipped = raw.length > 220 ? '${raw.substring(0, 220)}...' : raw;
+    return widget.isZh
+        ? '浏览器重启失败：$clipped'
+        : 'Browser restart failed: $clipped';
+  }
+
+  Future<void> _restartBrowserFromUi(String source) async {
+    if (_restartBrowserInFlight) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _restartBrowserInFlight = true);
+    try {
+      await widget.controller.restartBrowser();
+      if (!mounted) return;
+      _lastConfiguredSize = null;
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        widget.isZh ? '浏览器已重启' : 'Browser restarted',
+        duration: const Duration(seconds: 1),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'restart browser from $source',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        _restartFailureMessage(error),
+        duration: const Duration(seconds: 5),
+      );
+    } finally {
+      if (mounted) setState(() => _restartBrowserInFlight = false);
     }
   }
 
@@ -1817,19 +1859,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             tooltip: alive
                 ? (isZh ? '重启浏览器' : 'Restart browser')
                 : (isZh ? '启动浏览器' : 'Start browser'),
-            icon: Icons.restart_alt_rounded,
-            onPressed: () async {
-              try {
-                await ctrl.restartBrowser();
-              } catch (error, stack) {
-                silentLog(
-                  'web_reverse_dashboard_dialog',
-                  'restart browser from toolbar',
-                  error,
-                  stack,
-                );
-              }
-            },
+            icon: _restartBrowserInFlight
+                ? Icons.hourglass_top_rounded
+                : Icons.restart_alt_rounded,
+            onPressed: _restartBrowserInFlight
+                ? null
+                : () => _restartBrowserFromUi('toolbar'),
           ),
           const SizedBox(width: 6),
           _NavIconButton(
@@ -1887,20 +1922,24 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: () async {
-                  try {
-                    await ctrl.restartBrowser();
-                  } catch (error, stack) {
-                    silentLog(
-                      'web_reverse_dashboard_dialog',
-                      'restart browser from placeholder',
-                      error,
-                      stack,
-                    );
-                  }
-                },
-                icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                label: Text(isZh ? '重启浏览器' : 'Restart browser'),
+                onPressed: _restartBrowserInFlight
+                    ? null
+                    : () => _restartBrowserFromUi('placeholder'),
+                icon: _restartBrowserInFlight
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(cs.onPrimary),
+                        ),
+                      )
+                    : const Icon(Icons.restart_alt_rounded, size: 16),
+                label: Text(
+                  _restartBrowserInFlight
+                      ? (isZh ? '重启中...' : 'Restarting...')
+                      : (isZh ? '重启浏览器' : 'Restart browser'),
+                ),
               ),
             ],
           ),
@@ -1997,20 +2036,26 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                         label: Text(isZh ? '刷新页面' : 'Reload'),
                       ),
                     FilledButton.icon(
-                      onPressed: () async {
-                        try {
-                          await ctrl.restartBrowser();
-                        } catch (error, stack) {
-                          silentLog(
-                            'web_reverse_dashboard_dialog',
-                            'restart browser from frame placeholder',
-                            error,
-                            stack,
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                      label: Text(isZh ? '重启浏览器' : 'Restart'),
+                      onPressed: _restartBrowserInFlight
+                          ? null
+                          : () => _restartBrowserFromUi('frame placeholder'),
+                      icon: _restartBrowserInFlight
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(
+                                  cs.onPrimary,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.restart_alt_rounded, size: 16),
+                      label: Text(
+                        _restartBrowserInFlight
+                            ? (isZh ? '重启中...' : 'Restarting...')
+                            : (isZh ? '重启浏览器' : 'Restart'),
+                      ),
                     ),
                   ],
                 ),
