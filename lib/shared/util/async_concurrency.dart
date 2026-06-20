@@ -2,13 +2,21 @@ import 'dart:async';
 
 typedef OpenHandAsyncContinuePredicate = bool Function();
 
+const int kOpenHandMaxAsyncConcurrency = 64;
+
 int _boundedConcurrency({required int itemCount, required int maxConcurrency}) {
   if (itemCount <= 0) return 0;
-  final safeLimit = maxConcurrency < 1 ? 1 : maxConcurrency;
+  final requestedLimit = maxConcurrency < 1 ? 1 : maxConcurrency;
+  final safeLimit = requestedLimit > kOpenHandMaxAsyncConcurrency
+      ? kOpenHandMaxAsyncConcurrency
+      : requestedLimit;
   return safeLimit < itemCount ? safeLimit : itemCount;
 }
 
 /// Runs indexed async work with a bounded worker pool and preserves result order.
+///
+/// [maxConcurrency] is clamped to [kOpenHandMaxAsyncConcurrency] so accidental
+/// oversized inputs cannot spawn an unbounded number of workers.
 Future<List<T>> runOrderedWithConcurrencyLimit<T>({
   required int itemCount,
   required int maxConcurrency,
@@ -42,6 +50,7 @@ Future<List<T>> runOrderedWithConcurrencyLimit<T>({
 ///
 /// [shouldContinue] is checked before acquiring each new item and after each
 /// task, so disposed widgets/controllers can stop scheduling new work promptly.
+/// [maxConcurrency] is clamped to [kOpenHandMaxAsyncConcurrency].
 Future<void> forEachIndexWithConcurrencyLimit({
   required int itemCount,
   required int maxConcurrency,
@@ -65,7 +74,9 @@ Future<void> forEachIndexWithConcurrencyLimit({
       if (index >= itemCount) return;
       await task(index);
       if (!keepGoing()) return;
-      if (delayBetweenItems > Duration.zero && index < itemCount - 1) {
+      if (delayBetweenItems > Duration.zero &&
+          index < itemCount - 1 &&
+          nextIndex < itemCount) {
         await Future<void>.delayed(delayBetweenItems);
       }
     }

@@ -271,317 +271,303 @@ class _CorsDialogState extends State<_CorsDialog> {
     final loc = AppLocalizations.of(context);
     final res = _result;
     final diags = _diagnose(loc);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.shield_moon_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 760,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+            child: Row(
+              children: [
+                Icon(Icons.shield_moon_rounded, color: cs.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        loc?.webReverseCorsTitle ?? 'CORS Preflight',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        loc?.webReverseCorsSubtitle ??
+                            'OPTIONS · diagnose Allow-Origin / Methods / Headers / Credentials',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: res == null ? null : _copy,
+                  icon: const Icon(Icons.copy_rounded),
+                  tooltip: loc?.webReverseCorsCopyJson ?? 'Copy JSON',
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                TextField(
+                  controller: _urlCtl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: loc?.webReverseCorsTargetUrl ?? 'Target URL',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: TextField(
+                        controller: _methodCtl,
+                        decoration: InputDecoration(
+                          labelText:
+                              loc?.webReverseCorsActualMethod ??
+                              'Actual Method',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _originCtl,
+                        decoration: InputDecoration(
+                          labelText:
+                              loc?.webReverseCorsOriginOverride ??
+                              'Origin override (optional, display only)',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _headersCtl,
+                  maxLines: 4,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  decoration: InputDecoration(
+                    labelText:
+                        loc?.webReverseCorsCustomHeaders ??
+                        'Custom headers (one K: V per line; only names sent in preflight)',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Switch(
+                      value: _withCredentials,
+                      onChanged: (v) => setState(() => _withCredentials = v),
+                    ),
+                    const SizedBox(width: 4),
+                    Text('withCredentials', style: theme.textTheme.labelMedium),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _run,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: Text(
+                        loc?.webReverseCorsRunButton ?? 'Run Preflight',
+                      ),
+                    ),
+                  ],
+                ),
+                if (_busy)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: cs.errorContainer.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: cs.error, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                if (res != null) ...[
+                  const SizedBox(height: 16),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) {
+                      return SizeTransition(
+                        sizeFactor: animation,
+                        axisAlignment: -1.0,
+                        child: FadeTransition(opacity: animation, child: child),
+                      );
+                    },
+                    child: res['ok'] == true
+                        ? const SizedBox.shrink(key: ValueKey('cors-result-ok'))
+                        : Container(
+                            key: const ValueKey('cors-result-err'),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: cs.errorContainer.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${res['error'] ?? 'failed'}',
+                              style: TextStyle(color: cs.error, fontSize: 12),
+                            ),
+                          ),
+                  ),
+                  if (res['ok'] == true) ...[
+                    Row(
                       children: [
-                        Text(
-                          loc?.webReverseCorsTitle ?? 'CORS Preflight',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cs.primaryContainer.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'HTTP ${res['status']} ${res['statusText']}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 10),
                         Text(
-                          loc?.webReverseCorsSubtitle ??
-                              'OPTIONS · diagnose Allow-Origin / Methods / Headers / Credentials',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                          'origin: ${res['origin']}',
+                          style: theme.textTheme.labelSmall,
                         ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    onPressed: res == null ? null : _copy,
-                    icon: const Icon(Icons.copy_rounded),
-                    tooltip: loc?.webReverseCorsCopyJson ?? 'Copy JSON',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  TextField(
-                    controller: _urlCtl,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      labelText: loc?.webReverseCorsTargetUrl ?? 'Target URL',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 140,
-                        child: TextField(
-                          controller: _methodCtl,
-                          decoration: InputDecoration(
-                            labelText:
-                                loc?.webReverseCorsActualMethod ??
-                                'Actual Method',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _originCtl,
-                          decoration: InputDecoration(
-                            labelText:
-                                loc?.webReverseCorsOriginOverride ??
-                                'Origin override (optional, display only)',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _headersCtl,
-                    maxLines: 4,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                    decoration: InputDecoration(
-                      labelText:
-                          loc?.webReverseCorsCustomHeaders ??
-                          'Custom headers (one K: V per line; only names sent in preflight)',
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Switch(
-                        value: _withCredentials,
-                        onChanged: (v) => setState(() => _withCredentials = v),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'withCredentials',
-                        style: theme.textTheme.labelMedium,
-                      ),
-                      const Spacer(),
-                      FilledButton.icon(
-                        onPressed: _busy ? null : _run,
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text(
-                          loc?.webReverseCorsRunButton ?? 'Run Preflight',
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_busy)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: LinearProgressIndicator(minHeight: 3),
-                    ),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.errorContainer.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _error!,
-                          style: TextStyle(color: cs.error, fontSize: 12),
-                        ),
+                    const SizedBox(height: 12),
+                    Text(
+                      loc?.webReverseCorsDiagnostics ?? 'Diagnostics',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  if (res != null) ...[
-                    const SizedBox(height: 16),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 280),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        return SizeTransition(
-                          sizeFactor: animation,
-                          axisAlignment: -1.0,
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: res['ok'] == true
-                          ? const SizedBox.shrink(
-                              key: ValueKey('cors-result-ok'),
-                            )
-                          : Container(
-                              key: const ValueKey('cors-result-err'),
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: cs.errorContainer.withValues(alpha: 0.4),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${res['error'] ?? 'failed'}',
-                                style: TextStyle(color: cs.error, fontSize: 12),
-                              ),
-                            ),
-                    ),
-                    if (res['ok'] == true) ...[
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.primaryContainer.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'HTTP ${res['status']} ${res['statusText']}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'origin: ${res['origin']}',
-                            style: theme.textTheme.labelSmall,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        loc?.webReverseCorsDiagnostics ?? 'Diagnostics',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      for (final d in diags)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: d.pass
-                                  ? cs.primary.withValues(alpha: 0.5)
-                                  : cs.error.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    d.pass
-                                        ? Icons.check_circle_rounded
-                                        : Icons.cancel_rounded,
-                                    size: 16,
-                                    color: d.pass ? cs.primary : cs.error,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    d.label,
-                                    style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              SelectableText(
-                                d.value.isEmpty ? '—' : d.value,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                d.hint,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 10),
-                      Text(
-                        loc?.webReverseCorsAllHeaders ?? 'All response headers',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                    for (final d in diags)
                       Container(
+                        margin: const EdgeInsets.only(bottom: 6),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: SelectableText(
-                          ((res['respHeaders'] as Map?) ?? {}).entries
-                              .map((e) => '${e.key}: ${e.value}')
-                              .join('\n'),
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
+                          border: Border.all(
+                            color: d.pass
+                                ? cs.primary.withValues(alpha: 0.5)
+                                : cs.error.withValues(alpha: 0.5),
                           ),
                         ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  d.pass
+                                      ? Icons.check_circle_rounded
+                                      : Icons.cancel_rounded,
+                                  size: 16,
+                                  color: d.pass ? cs.primary : cs.error,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  d.label,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            SelectableText(
+                              d.value.isEmpty ? '—' : d.value,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              d.hint,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    const SizedBox(height: 10),
+                    Text(
+                      loc?.webReverseCorsAllHeaders ?? 'All response headers',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SelectableText(
+                        ((res['respHeaders'] as Map?) ?? {}).entries
+                            .map((e) => '${e.key}: ${e.value}')
+                            .join('\n'),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
                   ],
                 ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: loc?.webReverseCorsClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseCorsClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

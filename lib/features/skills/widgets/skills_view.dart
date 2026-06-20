@@ -23,6 +23,11 @@ import 'skill_market_dialog.dart';
 
 enum _SkillCardAction { openDirectory, edit, delete }
 
+const double _kSkillEditDialogMaxWidth = 960;
+const double _kSkillCreateDialogMaxWidth = 920;
+const double _kSkillDialogMaxHeight = 760;
+const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
+
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
   '📄',
@@ -397,70 +402,69 @@ class _SkillsViewState extends State<SkillsView> {
       await showAnimatedDialog<void>(
         context: context,
         builder: (dialogContext) {
-          return Dialog(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900, maxHeight: 720),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      skill.name,
-                      style: Theme.of(context).textTheme.headlineSmall,
+          return buildOpenHandToolDialogShell(
+            context: dialogContext,
+            maxHeight: _kSkillDialogMaxHeight,
+            child: Padding(
+              padding: _kSkillDialogContentPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    skill.name,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    skill.displayDirectoryPath,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      skill.displayDirectoryPath,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  if (skill.defaultPrompt != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                    ),
-                    if (skill.defaultPrompt != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Text(
-                          skill.defaultPrompt!,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: ColoredBox(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerLow,
-                          child: Markdown(
-                            data: content,
-                            selectable: true,
-                            padding: const EdgeInsets.all(20),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OpenHandDialogActionButton.primary(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        label: l10n.skillsPreviewClose,
+                      child: Text(
+                        skill.defaultPrompt!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
                   ],
-                ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: ColoredBox(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerLow,
+                        child: Markdown(
+                          data: content,
+                          selectable: true,
+                          padding: const EdgeInsets.all(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OpenHandDialogActionButton.primary(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      label: l10n.skillsPreviewClose,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -628,215 +632,209 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
 
     return PopScope(
       canPop: !_isSaving,
-      child: Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 960, maxHeight: 760),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${l10n.skillsEdit}: ${widget.skill.name}',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _nameController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: l10n.skillsCreateNameLabel,
-                            ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.skillsCreateNameRequired;
-                              }
-                              return null;
-                            },
+      child: buildOpenHandToolDialogShell(
+        context: context,
+        maxWidth: _kSkillEditDialogMaxWidth,
+        maxHeight: _kSkillDialogMaxHeight,
+        child: Padding(
+          padding: _kSkillDialogContentPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${l10n.skillsEdit}: ${widget.skill.name}',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: l10n.skillsCreateNameLabel,
                           ),
-                          const SizedBox(height: 16),
-                          FormField<bool>(
-                            initialValue: _hasEffectiveIcon,
-                            validator: (value) {
-                              if (!_hasEffectiveIcon) {
-                                return l10n.skillsCreateIconRequired;
-                              }
-                              return null;
-                            },
-                            builder: (field) {
-                              final theme = Theme.of(context);
-                              final colorScheme = theme.colorScheme;
+                          validator: (value) {
+                            if ((value?.trim() ?? '').isEmpty) {
+                              return l10n.skillsCreateNameRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        FormField<bool>(
+                          initialValue: _hasEffectiveIcon,
+                          validator: (value) {
+                            if (!_hasEffectiveIcon) {
+                              return l10n.skillsCreateIconRequired;
+                            }
+                            return null;
+                          },
+                          builder: (field) {
+                            final theme = Theme.of(context);
+                            final colorScheme = theme.colorScheme;
 
-                              return InputDecorator(
-                                isEmpty: !_hasEffectiveIcon,
-                                decoration: InputDecoration(
-                                  labelText: l10n.skillsCreateIconLabel,
-                                  hintText: l10n.skillsCreateIconHint,
-                                  errorText: field.errorText,
-                                ),
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Container(
-                                        width: 48,
-                                        height: 48,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color:
-                                              colorScheme.surfaceContainerHigh,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
+                            return InputDecorator(
+                              isEmpty: !_hasEffectiveIcon,
+                              decoration: InputDecoration(
+                                labelText: l10n.skillsCreateIconLabel,
+                                hintText: l10n.skillsCreateIconHint,
+                                errorText: field.errorText,
+                              ),
+                              child: Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Container(
+                                      width: 48,
+                                      height: 48,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.surfaceContainerHigh,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: _buildSelectedIconPreview(),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _buildIconLabel(l10n),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: _hasEffectiveIcon
+                                                ? colorScheme.onSurface
+                                                : colorScheme.onSurfaceVariant,
                                           ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Builder(
+                                    builder: (btnContext) {
+                                      return OutlinedButton.icon(
+                                        onPressed: _isSaving
+                                            ? null
+                                            : () {
+                                                _showEmojiMenu(
+                                                  btnContext,
+                                                  onSelected: (emoji) {
+                                                    field.didChange(true);
+                                                    setState(() {
+                                                      _selectedEmoji = emoji;
+                                                      _selectedImageBytes =
+                                                          null;
+                                                      _existingIconPath = null;
+                                                      _existingIconKind = null;
+                                                      _errorMessage = null;
+                                                    });
+                                                  },
+                                                );
+                                              },
+                                        icon: const Icon(
+                                          Icons.emoji_emotions_outlined,
                                         ),
-                                        child: _buildSelectedIconPreview(),
-                                      ),
+                                        label: Text(
+                                          _hasEffectiveIcon
+                                              ? l10n.skillsCreateIconChange
+                                              : l10n.skillsCreateIconChoose,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: _isSaving
+                                        ? null
+                                        : () => _pickLocalImage(field),
+                                    icon: const Icon(Icons.image_outlined),
+                                    label: Text(
+                                      _selectedImageBytes != null ||
+                                              _existingIconPath != null
+                                          ? l10n.skillsCreateImageChange
+                                          : l10n.skillsCreateImageChoose,
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        _buildIconLabel(l10n),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color: _hasEffectiveIcon
-                                                  ? colorScheme.onSurface
-                                                  : colorScheme
-                                                        .onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Builder(
-                                      builder: (btnContext) {
-                                        return OutlinedButton.icon(
-                                          onPressed: _isSaving
-                                              ? null
-                                              : () {
-                                                  _showEmojiMenu(
-                                                    btnContext,
-                                                    onSelected: (emoji) {
-                                                      field.didChange(true);
-                                                      setState(() {
-                                                        _selectedEmoji = emoji;
-                                                        _selectedImageBytes =
-                                                            null;
-                                                        _existingIconPath =
-                                                            null;
-                                                        _existingIconKind =
-                                                            null;
-                                                        _errorMessage = null;
-                                                      });
-                                                    },
-                                                  );
-                                                },
-                                          icon: const Icon(
-                                            Icons.emoji_emotions_outlined,
-                                          ),
-                                          label: Text(
-                                            _hasEffectiveIcon
-                                                ? l10n.skillsCreateIconChange
-                                                : l10n.skillsCreateIconChoose,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      onPressed: _isSaving
-                                          ? null
-                                          : () => _pickLocalImage(field),
-                                      icon: const Icon(Icons.image_outlined),
-                                      label: Text(
-                                        _selectedImageBytes != null ||
-                                                _existingIconPath != null
-                                            ? l10n.skillsCreateImageChange
-                                            : l10n.skillsCreateImageChoose,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descriptionController,
+                          enabled: !_isSaving,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: l10n.skillsCreateDescriptionLabel,
                           ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _descriptionController,
-                            enabled: !_isSaving,
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                              labelText: l10n.skillsCreateDescriptionLabel,
-                            ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.skillsCreateDescriptionRequired;
-                              }
-                              return null;
-                            },
+                          validator: (value) {
+                            if ((value?.trim() ?? '').isEmpty) {
+                              return l10n.skillsCreateDescriptionRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _contentController,
+                          enabled: !_isSaving,
+                          minLines: 14,
+                          maxLines: 20,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: InputDecoration(
+                            labelText: l10n.skillsEditorLabel,
+                            alignLabelWithHint: true,
                           ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _contentController,
-                            enabled: !_isSaving,
-                            minLines: 14,
-                            maxLines: 20,
-                            textAlignVertical: TextAlignVertical.top,
-                            decoration: InputDecoration(
-                              labelText: l10n.skillsEditorLabel,
-                              alignLabelWithHint: true,
-                            ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.skillsCreateContentRequired;
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
+                          validator: (value) {
+                            if ((value?.trim() ?? '').isEmpty) {
+                              return l10n.skillsCreateContentRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage!,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-                if (_isSaving) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
+              ),
+              if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      label: l10n.skillsEditorCancel,
-                    ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _isSaving ? null : _handleSave,
-                      label: l10n.skillsEditorSave,
-                    ),
-                  ],
+                Text(
+                  _errorMessage!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               ],
-            ),
+              if (_isSaving) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    label: l10n.skillsEditorCancel,
+                  ),
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _isSaving ? null : _handleSave,
+                    label: l10n.skillsEditorSave,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -1074,227 +1072,224 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
 
     return PopScope(
       canPop: !_isSaving,
-      child: Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.skillsCreateDialogTitle,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _nameController,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: l10n.skillsCreateNameLabel,
-                            ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.skillsCreateNameRequired;
-                              }
-                              return null;
-                            },
+      child: buildOpenHandToolDialogShell(
+        context: context,
+        maxWidth: _kSkillCreateDialogMaxWidth,
+        maxHeight: _kSkillDialogMaxHeight,
+        child: Padding(
+          padding: _kSkillDialogContentPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.skillsCreateDialogTitle,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: l10n.skillsCreateNameLabel,
                           ),
-                          const SizedBox(height: 16),
-                          FormField<bool>(
-                            initialValue: _selectedEmoji != null,
-                            validator: (value) {
-                              if (_selectedEmoji == null &&
-                                  _selectedImageBytes == null) {
-                                return l10n.skillsCreateIconRequired;
-                              }
-                              return null;
-                            },
-                            builder: (field) {
-                              final theme = Theme.of(context);
-                              final colorScheme = theme.colorScheme;
-                              final selectedEmoji = _selectedEmoji;
-                              final selectedImageBytes = _selectedImageBytes;
+                          validator: (value) {
+                            if ((value?.trim() ?? '').isEmpty) {
+                              return l10n.skillsCreateNameRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        FormField<bool>(
+                          initialValue: _selectedEmoji != null,
+                          validator: (value) {
+                            if (_selectedEmoji == null &&
+                                _selectedImageBytes == null) {
+                              return l10n.skillsCreateIconRequired;
+                            }
+                            return null;
+                          },
+                          builder: (field) {
+                            final theme = Theme.of(context);
+                            final colorScheme = theme.colorScheme;
+                            final selectedEmoji = _selectedEmoji;
+                            final selectedImageBytes = _selectedImageBytes;
 
-                              return InputDecorator(
-                                isEmpty:
-                                    selectedEmoji == null &&
-                                    selectedImageBytes == null,
-                                decoration: InputDecoration(
-                                  labelText: l10n.skillsCreateIconLabel,
-                                  hintText: l10n.skillsCreateIconHint,
-                                  errorText: field.errorText,
-                                ),
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Container(
-                                        width: 48,
-                                        height: 48,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color:
-                                              colorScheme.surfaceContainerHigh,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        child: selectedImageBytes != null
-                                            ? Image.memory(
-                                                selectedImageBytes,
-                                                fit: BoxFit.cover,
-                                              )
-                                            : _SkillEmojiGlyph(
-                                                emoji: selectedEmoji ?? '🙂',
-                                                fontSize: 28,
-                                              ),
+                            return InputDecorator(
+                              isEmpty:
+                                  selectedEmoji == null &&
+                                  selectedImageBytes == null,
+                              decoration: InputDecoration(
+                                labelText: l10n.skillsCreateIconLabel,
+                                hintText: l10n.skillsCreateIconHint,
+                                errorText: field.errorText,
+                              ),
+                              child: Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Container(
+                                      width: 48,
+                                      height: 48,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.surfaceContainerHigh,
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        selectedImageBytes != null
-                                            ? l10n.skillsCreateImageSelected
-                                            : selectedEmoji ??
-                                                  l10n.skillsCreateIconHint,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color:
-                                                  selectedEmoji == null &&
-                                                      selectedImageBytes == null
-                                                  ? colorScheme.onSurfaceVariant
-                                                  : colorScheme.onSurface,
+                                      child: selectedImageBytes != null
+                                          ? Image.memory(
+                                              selectedImageBytes,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : _SkillEmojiGlyph(
+                                              emoji: selectedEmoji ?? '🙂',
+                                              fontSize: 28,
                                             ),
-                                      ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Builder(
-                                      builder: (btnContext) {
-                                        return OutlinedButton.icon(
-                                          onPressed: _isSaving
-                                              ? null
-                                              : () {
-                                                  _showEmojiMenu(
-                                                    btnContext,
-                                                    onSelected: (emoji) {
-                                                      field.didChange(true);
-                                                      setState(() {
-                                                        _selectedEmoji = emoji;
-                                                        _selectedImageBytes =
-                                                            null;
-                                                      });
-                                                    },
-                                                  );
-                                                },
-                                          icon: const Icon(
-                                            Icons.emoji_emotions_outlined,
-                                          ),
-                                          label: Text(
-                                            selectedEmoji == null
-                                                ? l10n.skillsCreateIconChoose
-                                                : l10n.skillsCreateIconChange,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      onPressed: _isSaving
-                                          ? null
-                                          : () => _pickLocalImage(field),
-                                      icon: const Icon(Icons.image_outlined),
-                                      label: Text(
-                                        selectedImageBytes == null
-                                            ? l10n.skillsCreateImageChoose
-                                            : l10n.skillsCreateImageChange,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _descriptionController,
-                            enabled: !_isSaving,
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                              labelText: l10n.skillsCreateDescriptionLabel,
-                            ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.skillsCreateDescriptionRequired;
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _contentController,
-                            enabled: !_isSaving,
-                            minLines: 14,
-                            maxLines: 20,
-                            textAlignVertical: TextAlignVertical.top,
-                            decoration: InputDecoration(
-                              labelText: l10n.skillsEditorLabel,
-                              alignLabelWithHint: true,
-                            ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.skillsCreateContentRequired;
-                              }
-                              return null;
-                            },
-                          ),
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.error,
                                   ),
-                            ),
-                          ],
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      selectedImageBytes != null
+                                          ? l10n.skillsCreateImageSelected
+                                          : selectedEmoji ??
+                                                l10n.skillsCreateIconHint,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color:
+                                                selectedEmoji == null &&
+                                                    selectedImageBytes == null
+                                                ? colorScheme.onSurfaceVariant
+                                                : colorScheme.onSurface,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Builder(
+                                    builder: (btnContext) {
+                                      return OutlinedButton.icon(
+                                        onPressed: _isSaving
+                                            ? null
+                                            : () {
+                                                _showEmojiMenu(
+                                                  btnContext,
+                                                  onSelected: (emoji) {
+                                                    field.didChange(true);
+                                                    setState(() {
+                                                      _selectedEmoji = emoji;
+                                                      _selectedImageBytes =
+                                                          null;
+                                                    });
+                                                  },
+                                                );
+                                              },
+                                        icon: const Icon(
+                                          Icons.emoji_emotions_outlined,
+                                        ),
+                                        label: Text(
+                                          selectedEmoji == null
+                                              ? l10n.skillsCreateIconChoose
+                                              : l10n.skillsCreateIconChange,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: _isSaving
+                                        ? null
+                                        : () => _pickLocalImage(field),
+                                    icon: const Icon(Icons.image_outlined),
+                                    label: Text(
+                                      selectedImageBytes == null
+                                          ? l10n.skillsCreateImageChoose
+                                          : l10n.skillsCreateImageChange,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descriptionController,
+                          enabled: !_isSaving,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: l10n.skillsCreateDescriptionLabel,
+                          ),
+                          validator: (value) {
+                            if ((value?.trim() ?? '').isEmpty) {
+                              return l10n.skillsCreateDescriptionRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _contentController,
+                          enabled: !_isSaving,
+                          minLines: 14,
+                          maxLines: 20,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: InputDecoration(
+                            labelText: l10n.skillsEditorLabel,
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (value) {
+                            if ((value?.trim() ?? '').isEmpty) {
+                              return l10n.skillsCreateContentRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
-                if (_isSaving) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      label: l10n.commonCancel,
-                    ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _isSaving ? null : _handleSave,
-                      label: l10n.commonSave,
-                    ),
-                  ],
-                ),
+              ),
+              if (_isSaving) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
               ],
-            ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    label: l10n.commonCancel,
+                  ),
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _isSaving ? null : _handleSave,
+                    label: l10n.commonSave,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

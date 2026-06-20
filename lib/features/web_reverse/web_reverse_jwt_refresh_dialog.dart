@@ -319,222 +319,219 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     final loc = AppLocalizations.of(context);
     final threshold = _refreshThresholdSeconds;
 
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 980, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.vpn_key_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseJwtTitle ?? 'JWT Auto Refresh',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+      maxWidth: 980,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+            child: Row(
+              children: [
+                Icon(Icons.vpn_key_rounded, color: cs.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        loc?.webReverseJwtTitle ?? 'JWT Auto Refresh',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                        Text(
-                          loc?.webReverseJwtSubtitle ??
-                              'Scan JWTs in cookies/storage, run refresh JS when near exp',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                      ),
+                      Text(
+                        loc?.webReverseJwtSubtitle ??
+                            'Scan JWTs in cookies/storage, run refresh JS when near exp',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        FilledButton.tonalIcon(
-                          onPressed: _busy ? null : _doScan,
-                          icon: const Icon(Icons.radar_rounded),
-                          label: Text(loc?.webReverseJwtScanNow ?? 'Scan now'),
-                        ),
-                        FilledButton.tonalIcon(
-                          onPressed: _busy
-                              ? null
-                              : () async {
-                                  final ok = await _runRefresh();
-                                  if (ok) await _doScan();
-                                  if (mounted) setState(() {});
-                                },
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: Text(
-                            loc?.webReverseJwtRefreshNow ?? 'Refresh now',
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Switch(value: _autoRefresh, onChanged: _toggleAuto),
-                            Text(loc?.webReverseJwtAuto ?? 'Auto'),
-                          ],
-                        ),
-                        SizedBox(
-                          width: 100,
-                          child: TextField(
-                            controller: _intervalCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText:
-                                  loc?.webReverseJwtIntervalSec ??
-                                  'Interval(s)',
-                              isDense: true,
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 120,
-                          child: TextField(
-                            controller: _thresholdCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText:
-                                  loc?.webReverseJwtThresholdSec ??
-                                  'Threshold(s)',
-                              isDense: true,
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _refreshExpr,
-                      maxLines: 3,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: _busy ? null : _doScan,
+                        icon: const Icon(Icons.radar_rounded),
+                        label: Text(loc?.webReverseJwtScanNow ?? 'Scan now'),
                       ),
-                      decoration: InputDecoration(
-                        labelText:
-                            loc?.webReverseJwtRefreshExpr ??
-                            'Refresh expression (async JS)',
-                        border: const OutlineInputBorder(),
-                        isDense: true,
+                      FilledButton.tonalIcon(
+                        onPressed: _busy
+                            ? null
+                            : () async {
+                                final ok = await _runRefresh();
+                                if (ok) await _doScan();
+                                if (mounted) setState(() {});
+                              },
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: Text(
+                          loc?.webReverseJwtRefreshNow ?? 'Refresh now',
+                        ),
                       ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Switch(value: _autoRefresh, onChanged: _toggleAuto),
+                          Text(loc?.webReverseJwtAuto ?? 'Auto'),
+                        ],
+                      ),
+                      SizedBox(
+                        width: 100,
+                        child: TextField(
+                          controller: _intervalCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText:
+                                loc?.webReverseJwtIntervalSec ?? 'Interval(s)',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 120,
+                        child: TextField(
+                          controller: _thresholdCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText:
+                                loc?.webReverseJwtThresholdSec ??
+                                'Threshold(s)',
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _refreshExpr,
+                    maxLines: 3,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
                     ),
-                    const SizedBox(height: 16),
+                    decoration: InputDecoration(
+                      labelText:
+                          loc?.webReverseJwtRefreshExpr ??
+                          'Refresh expression (async JS)',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc?.webReverseJwtFoundCount(_samples.length) ??
+                        'JWTs (${_samples.length})',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (_samples.isEmpty)
                     Text(
-                      loc?.webReverseJwtFoundCount(_samples.length) ??
-                          'JWTs (${_samples.length})',
+                      loc?.webReverseJwtNoneFound ?? 'No JWT found',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  for (final s in _samples)
+                    _SampleCard(
+                      sample: s,
+                      now: _now,
+                      threshold: threshold,
+                      formatRemaining: _formatRemaining,
+                    ),
+                  if (_logs.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      loc?.webReverseJwtRefreshLog ?? 'Refresh log',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    if (_samples.isEmpty)
-                      Text(
-                        loc?.webReverseJwtNoneFound ?? 'No JWT found',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                    for (final l in _logs.take(20))
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: l.ok
+                              ? cs.surfaceContainerHigh
+                              : cs.errorContainer,
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                      ),
-                    for (final s in _samples)
-                      _SampleCard(
-                        sample: s,
-                        now: _now,
-                        threshold: threshold,
-                        formatRemaining: _formatRemaining,
-                      ),
-                    if (_logs.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      Text(
-                        loc?.webReverseJwtRefreshLog ?? 'Refresh log',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      for (final l in _logs.take(20))
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: l.ok
-                                ? cs.surfaceContainerHigh
-                                : cs.errorContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                l.ok
-                                    ? Icons.check_circle_outline_rounded
-                                    : Icons.error_outline_rounded,
-                                size: 14,
-                                color: l.ok ? cs.primary : cs.onErrorContainer,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              l.ok
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.error_outline_rounded,
+                              size: 14,
+                              color: l.ok ? cs.primary : cs.onErrorContainer,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _hms(l.at),
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _hms(l.at),
-                                style: const TextStyle(
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SelectableText(
+                                l.detail,
+                                style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 11,
+                                  color: l.ok
+                                      ? cs.onSurface
+                                      : cs.onErrorContainer,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SelectableText(
-                                  l.detail,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                    color: l.ok
-                                        ? cs.onSurface
-                                        : cs.onErrorContainer,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                    ],
+                      ),
                   ],
-                ),
+                ],
               ),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            buildOpenHandDialogFooter(
-              primaryLabel: loc?.webReverseJwtClose ?? 'Close',
-              onPrimaryPressed: () {
-                _timer?.cancel();
-                Navigator.of(context).pop();
-              },
-              padding: const EdgeInsets.all(12),
-            ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseJwtClose ?? 'Close',
+            onPrimaryPressed: () {
+              _timer?.cancel();
+              Navigator.of(context).pop();
+            },
+            padding: const EdgeInsets.all(12),
+          ),
+        ],
       ),
     );
   }

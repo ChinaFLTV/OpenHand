@@ -200,6 +200,7 @@ class OpenHandSnackBar {
 
   static const Duration _minimumDisplayDuration = Duration(milliseconds: 900);
   static const Duration _maximumDisplayDuration = Duration(seconds: 8);
+  static const double _actionMaxWidth = 220;
 
   static DialogAnimationSettings _resolveMotionSettings(BuildContext context) {
     return openHandMotionSettingsOf(
@@ -629,7 +630,7 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
         TextStyle(color: foregroundColor, fontWeight: FontWeight.w500);
     final body = DefaultTextStyle(
       style: textStyle,
-      child: _OpenHandGlobalSnackBarContent(
+      child: _OpenHandSnackBarContent(
         message: OpenHandSnackBar._modernizeLegacyTextContent(
           context,
           snackBar.content,
@@ -737,62 +738,43 @@ class _OpenHandSnackBarMessage extends StatelessWidget {
 }
 
 class _OpenHandSnackBarContent extends StatelessWidget {
-  const _OpenHandSnackBarContent({required this.message, required this.action});
+  const _OpenHandSnackBarContent({
+    required this.message,
+    required this.action,
+    this.onDismiss,
+    this.onActionPressed,
+  });
 
   final Widget message;
   final SnackBarAction? action;
+  final VoidCallback? onDismiss;
+  final VoidCallback? onActionPressed;
 
   @override
   Widget build(BuildContext context) {
     final action = this.action;
+    final onActionPressed = this.onActionPressed;
     return Row(
       children: [
         Expanded(child: message),
         if (action != null) ...[
           const SizedBox(width: 10),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: action,
-          ),
-        ],
-        const SizedBox(width: 6),
-        const _SnackBarCloseButton(),
-      ],
-    );
-  }
-}
-
-class _OpenHandGlobalSnackBarContent extends StatelessWidget {
-  const _OpenHandGlobalSnackBarContent({
-    required this.message,
-    required this.action,
-    required this.onDismiss,
-    required this.onActionPressed,
-  });
-
-  final Widget message;
-  final SnackBarAction? action;
-  final VoidCallback onDismiss;
-  final VoidCallback? onActionPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final action = this.action;
-    return Row(
-      children: [
-        Expanded(child: message),
-        if (action != null && onActionPressed != null) ...[
-          const SizedBox(width: 10),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: _OpenHandGlobalSnackBarActionButton(
-              action: action,
-              onPressed: onActionPressed!,
+            constraints: const BoxConstraints(
+              maxWidth: OpenHandSnackBar._actionMaxWidth,
             ),
+            child: onActionPressed == null
+                ? action
+                : _OpenHandGlobalSnackBarActionButton(
+                    action: action,
+                    onPressed: onActionPressed,
+                  ),
           ),
         ],
         const SizedBox(width: 6),
-        _OpenHandGlobalSnackBarCloseButton(onTap: onDismiss),
+        onDismiss == null
+            ? const _SnackBarCloseButton()
+            : _OpenHandGlobalSnackBarCloseButton(onTap: onDismiss!),
       ],
     );
   }
