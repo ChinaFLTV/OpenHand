@@ -12,6 +12,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -21,6 +22,12 @@ import '../../shared/util/date_time_format.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
+
+const int _kWatchMaxExpressions = 32;
+const int _kWatchMaxNameChars = 80;
+const int _kWatchMaxExpressionChars = 16 * 1024;
+const int _kWatchMaxResultChars = 800;
+const int _kWatchMaxSamples = 50;
 
 Future<void> showWebReverseWatchDialog(
   BuildContext context, {
@@ -67,7 +74,6 @@ class _WatchDialogState extends State<_WatchDialog> {
   Timer? _timer;
   Duration _interval = const Duration(milliseconds: 1500);
   bool _running = false;
-  static const int _maxSamples = 50;
 
   final TextEditingController _newCode = TextEditingController();
   final TextEditingController _newName = TextEditingController();
@@ -130,6 +136,7 @@ class _WatchDialogState extends State<_WatchDialog> {
           'allowUnsafeEvalBlockedByCSP': true,
           'timeout': 800,
         }),
+        timeout: const Duration(seconds: 2),
       );
       String text;
       bool err = false;
@@ -151,27 +158,36 @@ class _WatchDialogState extends State<_WatchDialog> {
           text = '${result['description'] ?? result['type'] ?? 'undefined'}';
         }
       }
-      if (text.length > 800) text = '${text.substring(0, 800)}…';
-      e.last = text;
-      e.error = err;
-      e.samples.insert(
-        0,
-        _WatchSample(at: DateTime.now(), value: text, isError: err),
-      );
-      while (e.samples.length > _maxSamples) {
-        e.samples.removeLast();
-      }
+      _pushWatchSample(e, text, err);
     } catch (err, st) {
       silentLog('web_reverse_watch', 'evalOne', err, st);
-      e.last = '$err';
-      e.error = true;
+      _pushWatchSample(e, '$err', true);
     }
   }
 
   void _addExpr() {
+    final loc = AppLocalizations.of(context);
+    if (_exprs.length >= _kWatchMaxExpressions) {
+      final isZh = loc?.localeName.startsWith('zh') ?? false;
+      OpenHandSnackBar.showError(
+        context,
+        isZh
+            ? '监视表达式最多 $_kWatchMaxExpressions 条'
+            : 'Watch limit reached ($_kWatchMaxExpressions)',
+      );
+      return;
+    }
     final code = _newCode.text.trim();
     if (code.isEmpty) return;
-    final name = _newName.text.trim().isEmpty ? code : _newName.text.trim();
+    if (code.length > _kWatchMaxExpressionChars) {
+      OpenHandSnackBar.showError(
+        context,
+        'Expression too large: ${code.length}/$_kWatchMaxExpressionChars',
+      );
+      return;
+    }
+    final rawName = _newName.text.trim().isEmpty ? code : _newName.text.trim();
+    final name = _capWatchText(rawName, _kWatchMaxNameChars);
     setState(() {
       _exprs.add(
         _WatchExpr(
@@ -230,6 +246,19 @@ class _WatchDialogState extends State<_WatchDialog> {
     }
   }
 
+  void _pushWatchSample(_WatchExpr expr, String text, bool isError) {
+    final capped = _capWatchText(text, _kWatchMaxResultChars);
+    expr.last = capped;
+    expr.error = isError;
+    expr.samples.insert(
+      0,
+      _WatchSample(at: DateTime.now(), value: capped, isError: isError),
+    );
+    while (expr.samples.length > _kWatchMaxSamples) {
+      expr.samples.removeLast();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -265,9 +294,9 @@ class _WatchDialogState extends State<_WatchDialog> {
                         Text(
                           loc?.webReverseWatchSubtitleHint(
                                 _interval.inMilliseconds,
-                                _maxSamples,
+                                _kWatchMaxSamples,
                               ) ??
-                              'Polls Runtime.evaluate every ${_interval.inMilliseconds}ms, keeps last $_maxSamples samples',
+                              'Polls Runtime.evaluate every ${_interval.inMilliseconds}ms, keeps last $_kWatchMaxSamples samples',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -424,6 +453,10 @@ class _WatchDialogState extends State<_WatchDialog> {
                             children: [
                               TextField(
                                 controller: _newName,
+                                maxLength: _kWatchMaxNameChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideWatchCounter,
                                 decoration: InputDecoration(
                                   labelText:
                                       loc?.webReverseWatchNameLabel ??
@@ -437,6 +470,10 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 controller: _newCode,
                                 minLines: 2,
                                 maxLines: 4,
+                                maxLength: _kWatchMaxExpressionChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideWatchCounter,
                                 style: const TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 12,
@@ -646,3 +683,15 @@ class _HistoryPane extends StatelessWidget {
 
   String _fmt(DateTime t) => formatHourMinuteSecondMillis(t);
 }
+
+String _capWatchText(String text, int maxChars) {
+  if (text.length <= maxChars) return text;
+  return '${text.substring(0, maxChars)}…';
+}
+
+Widget? _hideWatchCounter(
+  BuildContext context, {
+  required int currentLength,
+  required bool isFocused,
+  required int? maxLength,
+}) => null;

@@ -72,6 +72,12 @@ const String _kList = r'''
 })();
 ''';
 
+const int _kWsInjectMaxRows = 200;
+const int _kWsInjectMaxPayloadChars = 512 * 1024;
+const int _kWsInjectMaxLogPayloadChars = 64 * 1024;
+const int _kWsInjectMaxUrlChars = 2048;
+const int _kWsInjectMaxLogEntries = 60;
+
 Future<void> showWebReverseWsInjectDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -128,6 +134,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
   int? _selectedId;
   Timer? _pollTimer;
   final List<_LogEntry> _log = [];
+  String? _scriptId;
 
   @override
   void initState() {
@@ -142,8 +149,22 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _removeBootstrapScript();
     _payloadCtrl.dispose();
     super.dispose();
+  }
+
+  void _removeBootstrapScript() {
+    final scriptId = _scriptId;
+    if (scriptId == null) return;
+    _scriptId = null;
+    unawaited(
+      widget.controller.sendRawCdp(
+        method: 'Page.removeScriptToEvaluateOnNewDocument',
+        paramsJson: jsonEncode(<String, Object?>{'identifier': scriptId}),
+        timeout: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _install() async {
@@ -157,6 +178,8 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
       );
       if (addRes != null && addRes['error'] != null) {
         _installError = '${addRes['error']}';
+      } else if (addRes != null && addRes['identifier'] != null) {
+        _scriptId = '${addRes['identifier']}';
       }
       // 立即在当前 document 应用一次。
       final evalRes = await widget.controller.sendRawCdp(
@@ -195,12 +218,12 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
       if (value == null) return;
       final decoded = jsonDecode(value);
       if (decoded is! List) return;
-      final parsed = decoded.whereType<Map>().map((m) {
+      final parsed = decoded.whereType<Map>().take(_kWsInjectMaxRows).map((m) {
         return _WsRow(
           id: (m['id'] as num?)?.toInt() ?? 0,
-          url: '${m['url'] ?? ''}',
+          url: _capWsInjectText('${m['url'] ?? ''}', _kWsInjectMaxUrlChars),
           readyState: (m['readyState'] as num?)?.toInt() ?? -1,
-          protocol: '${m['protocol'] ?? ''}',
+          protocol: _capWsInjectText('${m['protocol'] ?? ''}', 128),
           bufferedAmount: (m['bufferedAmount'] as num?)?.toInt() ?? 0,
         );
       }).toList();
@@ -222,6 +245,17 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     final raw = _payloadCtrl.text;
     if (raw.isEmpty) return;
     final loc = AppLocalizations.of(context);
+    if (raw.length > _kWsInjectMaxPayloadChars) {
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          m,
+          'Payload too large: ${raw.length}/$_kWsInjectMaxPayloadChars',
+        );
+      }
+      return;
+    }
     setState(() => _busy = true);
     try {
       final encoded = jsonEncode(raw);
@@ -250,10 +284,10 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                     'Sent ${raw.length} bytes')
               : (loc?.webReverseWsInjectFailedReason('$value') ??
                     'Failed: $value'),
-          payload: raw,
+          payload: _capWsInjectText(raw, _kWsInjectMaxLogPayloadChars),
         ),
       );
-      if (_log.length > 60) _log.removeLast();
+      if (_log.length > _kWsInjectMaxLogEntries) _log.removeLast();
       if (!mounted) return;
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
@@ -464,6 +498,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 controller: _payloadCtrl,
                 minLines: 4,
                 maxLines: 8,
+                maxLength: _kWsInjectMaxPayloadChars,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                buildCounter: _hideWsInjectCounter,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 decoration: InputDecoration(
                   labelText:
@@ -480,9 +517,26 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 children: [
                   TextButton.icon(
                     onPressed: () async {
+                      final clippedSnackBar = OpenHandSnackBar.info(
+                        context,
+                        'Pasted payload clipped to $_kWsInjectMaxPayloadChars chars',
+                      );
                       final data = await Clipboard.getData('text/plain');
+                      if (!mounted) return;
                       if (data?.text != null) {
-                        setState(() => _payloadCtrl.text = data!.text!);
+                        final raw = data!.text!;
+                        final clipped = raw.length > _kWsInjectMaxPayloadChars;
+                        setState(
+                          () => _payloadCtrl.text = _capWsInjectText(
+                            raw,
+                            _kWsInjectMaxPayloadChars,
+                          ),
+                        );
+                        if (clipped) {
+                          OpenHandGlobalSnackBarHost.showSnackBar(
+                            clippedSnackBar,
+                          );
+                        }
                       }
                     },
                     icon: const Icon(Icons.paste_rounded, size: 16),
@@ -616,3 +670,15 @@ class _LogEntry {
   final String summary;
   final String payload;
 }
+
+String _capWsInjectText(String text, int maxChars) {
+  if (text.length <= maxChars) return text;
+  return text.substring(0, maxChars);
+}
+
+Widget? _hideWsInjectCounter(
+  BuildContext context, {
+  required int currentLength,
+  required bool isFocused,
+  required int? maxLength,
+}) => null;

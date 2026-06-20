@@ -151,8 +151,22 @@ class _PmDialogState extends State<_PmDialog> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _removeNewDocumentHook();
     _filterCtrl.dispose();
     super.dispose();
+  }
+
+  void _removeNewDocumentHook() {
+    final scriptId = _hookScriptId;
+    if (scriptId == null) return;
+    _hookScriptId = null;
+    unawaited(
+      widget.controller.sendRawCdp(
+        method: 'Page.removeScriptToEvaluateOnNewDocument',
+        paramsJson: jsonEncode({'identifier': scriptId}),
+        timeout: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _toggleHook() async {
@@ -194,12 +208,13 @@ class _PmDialogState extends State<_PmDialog> {
         _pollTimer?.cancel();
         _pollTimer = null;
         // 清理：撤销 on-new-document + 还原（页面侧 hook 一旦注入只能等 reload）
-        if (_hookScriptId != null) {
+        final hookScriptId = _hookScriptId;
+        _hookScriptId = null;
+        if (hookScriptId != null) {
           await widget.controller.sendRawCdp(
             method: 'Page.removeScriptToEvaluateOnNewDocument',
-            paramsJson: jsonEncode({'identifier': _hookScriptId}),
+            paramsJson: jsonEncode({'identifier': hookScriptId}),
           );
-          _hookScriptId = null;
         }
         if (mounted) {
           setState(() {
