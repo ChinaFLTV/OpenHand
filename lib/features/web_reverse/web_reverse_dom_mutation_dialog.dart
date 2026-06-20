@@ -145,6 +145,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
   @override
   void dispose() {
     _drainTimer?.cancel();
+    unawaited(_cleanupInstalledScript(notify: false));
     _scroll.dispose();
     super.dispose();
   }
@@ -207,14 +208,19 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
     }
   }
 
-  Future<void> _stop() async {
+  Future<void> _stop() => _cleanupInstalledScript();
+
+  Future<void> _cleanupInstalledScript({bool notify = true}) async {
     _drainTimer?.cancel();
     _drainTimer = null;
+    final scriptIdentifier = _scriptIdentifier;
+    _scriptIdentifier = null;
     try {
-      if (_scriptIdentifier != null) {
+      if (scriptIdentifier != null) {
         await widget.controller.sendRawCdp(
           method: 'Page.removeScriptToEvaluateOnNewDocument',
-          paramsJson: jsonEncode({'identifier': _scriptIdentifier}),
+          paramsJson: jsonEncode({'identifier': scriptIdentifier}),
+          timeout: const Duration(seconds: 3),
         );
       }
       await widget.controller.sendRawCdp(
@@ -223,11 +229,17 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
           'expression':
               'window.__OH_DOM_MUT_STOP__ && window.__OH_DOM_MUT_STOP__()',
         }),
+        timeout: const Duration(seconds: 3),
       );
     } catch (e, st) {
       silentLog('web_reverse_dom_mutation', 'stop', e, st);
     }
-    if (mounted) setState(() => _recording = false);
+    if (notify && mounted) {
+      setState(() {
+        _recording = false;
+        _installing = false;
+      });
+    }
   }
 
   Future<void> _drain() async {
@@ -277,14 +289,14 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
-    OpenHandSnackBar.showSuccessOn(
-      context,
-      m,
-      webReverseClipboardSnackMessage(
-        isZh: Localizations.localeOf(context).languageCode.startsWith('zh'),
-        base:
-            loc?.webReverseDomMutCopiedRecords(_records.length) ??
-            'Copied ${_records.length} records',
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        m,
+        webReverseClipboardSnackMessage(
+          isZh: Localizations.localeOf(context).languageCode.startsWith('zh'),
+          base:
+              loc?.webReverseDomMutCopiedRecords(_records.length) ??
+              'Copied ${_records.length} records',
           result: copied,
         ),
       );
