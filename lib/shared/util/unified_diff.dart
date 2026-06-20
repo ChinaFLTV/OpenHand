@@ -264,22 +264,20 @@ List<({String type, String text})> _myersDiffEdits(
   List<String> before,
   List<String> after,
 ) {
-  var prefix = 0;
-  while (prefix < before.length &&
-      prefix < after.length &&
-      before[prefix] == after[prefix]) {
-    prefix += 1;
+  final window = _fallbackWindow(before, after);
+  var added = 0;
+  var removed = 0;
+  final beforeCount = window.beforeEnd - window.beforeStart;
+  final afterCount = window.afterEnd - window.afterStart;
+  final maxLen = beforeCount > afterCount ? beforeCount : afterCount;
+  for (var i = 0; i < maxLen; i++) {
+    final beforeLine = i < beforeCount ? before[window.beforeStart + i] : null;
+    final afterLine = i < afterCount ? after[window.afterStart + i] : null;
+    if (beforeLine == afterLine) continue;
+    if (beforeLine != null) removed += 1;
+    if (afterLine != null) added += 1;
   }
-  var suffix = 0;
-  while (suffix < before.length - prefix &&
-      suffix < after.length - prefix &&
-      before[before.length - 1 - suffix] == after[after.length - 1 - suffix]) {
-    suffix += 1;
-  }
-  return (
-    addedLines: after.length - prefix - suffix,
-    removedLines: before.length - prefix - suffix,
-  );
+  return (addedLines: added, removedLines: removed);
 }
 
 List<(int, int)> _hunkRanges(
@@ -313,21 +311,35 @@ List<(int, int)> _hunkRanges(
 
 List<String> _fallbackDiff(List<String> before, List<String> after) {
   final result = <String>['--- a/file', '+++ b/file'];
-  final maxLen = before.length > after.length ? before.length : after.length;
+  final window = _fallbackWindow(before, after);
+  final beforeCount = window.beforeEnd - window.beforeStart;
+  final afterCount = window.afterEnd - window.afterStart;
+  final maxLen = beforeCount > afterCount ? beforeCount : afterCount;
   var diffStart = -1;
   final hunkLines = <String>[];
 
   void flush() {
     if (hunkLines.isEmpty) return;
-    result.add('@@ -${(diffStart < 0 ? 0 : diffStart) + 1} @@');
+    final beforeStart = window.beforeStart + diffStart;
+    final afterStart = window.afterStart + diffStart;
+    var beforeLineCount = 0;
+    var afterLineCount = 0;
+    for (final line in hunkLines) {
+      if (!line.startsWith('+')) beforeLineCount += 1;
+      if (!line.startsWith('-')) afterLineCount += 1;
+    }
+    result.add(
+      '@@ -${beforeStart + 1},$beforeLineCount '
+      '+${afterStart + 1},$afterLineCount @@',
+    );
     result.addAll(hunkLines);
     hunkLines.clear();
     diffStart = -1;
   }
 
   for (var i = 0; i < maxLen; i++) {
-    final beforeLine = i < before.length ? before[i] : null;
-    final afterLine = i < after.length ? after[i] : null;
+    final beforeLine = i < beforeCount ? before[window.beforeStart + i] : null;
+    final afterLine = i < afterCount ? after[window.afterStart + i] : null;
     if (beforeLine == afterLine) {
       flush();
       continue;
@@ -338,4 +350,28 @@ List<String> _fallbackDiff(List<String> before, List<String> after) {
   }
   flush();
   return result.length == 2 ? const <String>[] : result;
+}
+
+({int beforeStart, int beforeEnd, int afterStart, int afterEnd})
+_fallbackWindow(List<String> before, List<String> after) {
+  var prefix = 0;
+  while (prefix < before.length &&
+      prefix < after.length &&
+      before[prefix] == after[prefix]) {
+    prefix += 1;
+  }
+
+  var suffix = 0;
+  while (suffix < before.length - prefix &&
+      suffix < after.length - prefix &&
+      before[before.length - 1 - suffix] == after[after.length - 1 - suffix]) {
+    suffix += 1;
+  }
+
+  return (
+    beforeStart: prefix,
+    beforeEnd: before.length - suffix,
+    afterStart: prefix,
+    afterEnd: after.length - suffix,
+  );
 }
