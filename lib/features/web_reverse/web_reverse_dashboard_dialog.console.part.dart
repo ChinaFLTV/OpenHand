@@ -27,8 +27,11 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   // build 中按身份 identical(slot.entry, e) 与最新列表对齐，过滤命中
   // 当前 filter 才显示，但 _slots 持续保留以保证退场过程不丢失。
   final List<_ConsoleSlot> _slots = <_ConsoleSlot>[];
+  final Set<CdpConsoleEntry> _expandedConsoleEntries = <CdpConsoleEntry>{};
 
   static const Duration _kConsoleExitDuration = Duration(milliseconds: 240);
+  static const int _kConsoleCollapsedChars = 420;
+  static const int _kConsoleCollapsedLines = 4;
 
   List<String> get _history => widget.controller.replHistory;
 
@@ -71,6 +74,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   /// build 中触发 setState），exitTimer 回调里才会 setState 真正抠掉。
   void _syncSlots() {
     final current = widget.controller.consoleMessages;
+    final currentSet = current.toSet();
+    _expandedConsoleEntries.removeWhere((entry) => !currentSet.contains(entry));
 
     // 已存在的 slot 中，找出在新列表里不再出现且尚未在退场的 → 标记退场。
     for (final s in _slots) {
@@ -138,6 +143,36 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         duration: const Duration(seconds: 2),
       );
     }
+  }
+
+  bool _isLongConsoleText(String text) {
+    if (text.runes.length > _kConsoleCollapsedChars) return true;
+    return '\n'.allMatches(text).length >= _kConsoleCollapsedLines;
+  }
+
+  String _previewConsoleText(String text) {
+    final lines = text.split('\n');
+    final lineLimited = lines.take(_kConsoleCollapsedLines).join('\n');
+    final truncatedByLines = lines.length > _kConsoleCollapsedLines;
+    final runes = lineLimited.runes.toList(growable: false);
+    final truncatedByChars = runes.length > _kConsoleCollapsedChars;
+    final charLimited = truncatedByChars
+        ? String.fromCharCodes(runes.take(_kConsoleCollapsedChars))
+        : lineLimited;
+    return truncatedByLines || truncatedByChars
+        ? '$charLimited...'
+        : charLimited;
+  }
+
+  Future<void> _copyConsoleText(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    final isZh = openHandIsChineseLocale(context);
+    OpenHandSnackBar.showInfo(
+      context,
+      isZh ? '控制台全文已复制' : 'Console text copied',
+      duration: const Duration(seconds: 2),
+    );
   }
 
   KeyEventResult _onReplKey(KeyEvent ev) {
@@ -228,6 +263,12 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                       'repl-result' => cs.onSecondaryContainer,
                       _ => cs.onSurface,
                     };
+                    final longText = _isLongConsoleText(e.text);
+                    final expanded = _expandedConsoleEntries.contains(e);
+                    final displayText = longText && !expanded
+                        ? _previewConsoleText(e.text)
+                        : e.text;
+                    final isZh = openHandIsChineseLocale(context);
                     final card = Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -252,12 +293,73 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                             ),
                           ),
                           Expanded(
-                            child: SelectableText(
-                              e.text,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                color: onColor,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SelectableText(
+                                  displayText,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    color: onColor,
+                                  ),
+                                ),
+                                if (longText) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [
+                                      TextButton.icon(
+                                        onPressed: () {
+                                          setState(() {
+                                            if (expanded) {
+                                              _expandedConsoleEntries.remove(e);
+                                            } else {
+                                              _expandedConsoleEntries.add(e);
+                                            }
+                                          });
+                                        },
+                                        icon: Icon(
+                                          expanded
+                                              ? Icons.unfold_less_rounded
+                                              : Icons.unfold_more_rounded,
+                                          size: 15,
+                                        ),
+                                        label: Text(
+                                          expanded
+                                              ? (isZh ? '收起' : 'Collapse')
+                                              : (isZh ? '展开全文' : 'Expand'),
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: onColor,
+                                          visualDensity: VisualDensity.compact,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                        ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: () =>
+                                            _copyConsoleText(e.text),
+                                        icon: const Icon(
+                                          Icons.copy_rounded,
+                                          size: 14,
+                                        ),
+                                        label: Text(
+                                          isZh ? '复制全文' : 'Copy full',
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: onColor,
+                                          visualDensity: VisualDensity.compact,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
