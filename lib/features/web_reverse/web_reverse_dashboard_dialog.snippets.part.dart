@@ -11,10 +11,7 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
 class _SnippetsBody extends StatefulWidget {
-  const _SnippetsBody({
-    required this.controller,
-    required this.onPersist,
-  });
+  const _SnippetsBody({required this.controller, required this.onPersist});
   final WebReverseSessionController controller;
   final VoidCallback onPersist;
 
@@ -323,6 +320,11 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                             Expanded(
                               child: TextField(
                                 controller: _nameCtrl,
+                                maxLength: WebReverseSessionController
+                                    .maxSavedScriptNameChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideTextFieldCounter,
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
@@ -417,6 +419,11 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
                                 focusNode: _codeFocus,
                                 maxLines: null,
                                 expands: true,
+                                maxLength: WebReverseSessionController
+                                    .maxSavedScriptCodeChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideTextFieldCounter,
                                 textAlignVertical: TextAlignVertical.top,
                                 style: const TextStyle(
                                   fontFamily: 'monospace',

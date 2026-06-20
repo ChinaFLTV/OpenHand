@@ -168,16 +168,20 @@ class _CronsBodyState extends State<_CronsBody> {
     });
   }
 
-  Future<void> _save() async {
+  Future<bool> _save() async {
     final id = _selectedId;
-    if (id == null) return;
+    if (id == null) return false;
     final iv = int.tryParse(_intervalCtrl.text);
-    if (iv == null || iv < 1) {
+    if (iv == null ||
+        iv < WebReverseSessionController.minCronIntervalSeconds ||
+        iv > WebReverseSessionController.maxCronIntervalSeconds) {
       OpenHandSnackBar.showError(
         context,
-        widget.isZh ? '周期需为 ≥1 的整数秒' : 'Interval must be ≥1 second',
+        widget.isZh
+            ? '周期需为 ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} 秒'
+            : 'Interval must be ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} seconds',
       );
-      return;
+      return false;
     }
     await widget.controller.updateCron(
       id: id,
@@ -190,12 +194,13 @@ class _CronsBodyState extends State<_CronsBody> {
       setState(() => _dirty = false);
       OpenHandSnackBar.showSuccess(context, widget.isZh ? '已保存' : 'Saved');
     }
+    return true;
   }
 
   Future<void> _runNow() async {
     final id = _selectedId;
     if (id == null) return;
-    if (_dirty) await _save();
+    if (_dirty && !await _save()) return;
     setState(() {
       _runningNow = true;
       _lastResultPreview = null;
@@ -382,6 +387,11 @@ class _CronsBodyState extends State<_CronsBody> {
                               flex: 3,
                               child: TextField(
                                 controller: _nameCtrl,
+                                maxLength: WebReverseSessionController
+                                    .maxSavedScriptNameChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideTextFieldCounter,
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
@@ -395,6 +405,13 @@ class _CronsBodyState extends State<_CronsBody> {
                               child: TextField(
                                 controller: _intervalCtrl,
                                 keyboardType: TextInputType.number,
+                                maxLength: 5,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideTextFieldCounter,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
@@ -484,6 +501,11 @@ class _CronsBodyState extends State<_CronsBody> {
                                 focusNode: _codeFocus,
                                 maxLines: null,
                                 expands: true,
+                                maxLength: WebReverseSessionController
+                                    .maxSavedScriptCodeChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideTextFieldCounter,
                                 textAlignVertical: TextAlignVertical.top,
                                 style: const TextStyle(
                                   fontFamily: 'monospace',

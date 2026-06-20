@@ -16,6 +16,10 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
+const int _kReplLogMaxEntries = 100;
+const int _kReplLogExpressionChars = 64 * 1024;
+const int _kReplLogResultChars = 64 * 1024;
+
 Future<void> showWebReverseReplDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -57,6 +61,17 @@ class _ReplDialogState extends State<_ReplDialog> {
   Future<void> _run() async {
     final expr = _input.text.trim();
     if (expr.isEmpty || _busy) return;
+    if (expr.length > WebReverseSessionController.maxReplExpressionChars) {
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          m,
+          'Expression too large: ${expr.length} chars, limit ${WebReverseSessionController.maxReplExpressionChars}',
+        );
+      }
+      return;
+    }
     final noResultLabel =
         AppLocalizations.of(context)?.webReverseReplNoResult ?? '(no result)';
     setState(() => _busy = true);
@@ -79,7 +94,16 @@ class _ReplDialogState extends State<_ReplDialog> {
     }
     if (!mounted) return;
     setState(() {
-      _log.add(_ReplEntry(expr, result, error));
+      _log.add(
+        _ReplEntry(
+          _capReplDialogText(expr, _kReplLogExpressionChars, 'expression'),
+          _capReplDialogText(result, _kReplLogResultChars, 'result'),
+          error,
+        ),
+      );
+      while (_log.length > _kReplLogMaxEntries) {
+        _log.removeAt(0);
+      }
       _busy = false;
       _input.clear();
     });
@@ -371,6 +395,15 @@ class _ReplInput extends StatelessWidget {
           controller: controller,
           minLines: 3,
           maxLines: 8,
+          maxLength: WebReverseSessionController.maxReplExpressionChars,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          buildCounter:
+              (
+                _, {
+                required currentLength,
+                required isFocused,
+                required maxLength,
+              }) => null,
           enabled: !busy,
           autofocus: true,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
@@ -395,4 +428,10 @@ class _HistUpIntent extends Intent {
 
 class _HistDownIntent extends Intent {
   const _HistDownIntent();
+}
+
+String _capReplDialogText(String text, int maxChars, String label) {
+  if (text.length <= maxChars) return text;
+  final omitted = text.length - maxChars;
+  return '${text.substring(0, maxChars)}\n\n[OpenHand clipped REPL $label: $omitted chars omitted]';
 }

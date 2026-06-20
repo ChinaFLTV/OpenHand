@@ -13,10 +13,7 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
 class _HooksBody extends StatefulWidget {
-  const _HooksBody({
-    required this.controller,
-    required this.onPersist,
-  });
+  const _HooksBody({required this.controller, required this.onPersist});
   final WebReverseSessionController controller;
   final VoidCallback onPersist;
 
@@ -177,7 +174,8 @@ class _HooksBodyState extends State<_HooksBody> {
       context: context,
       title: loc?.webReverseHooksDeleteTitle ?? 'Delete hook?',
       message:
-          loc?.webReverseHooksDeleteContent ?? 'Will be uninstalled immediately.',
+          loc?.webReverseHooksDeleteContent ??
+          'Will be uninstalled immediately.',
       cancelLabel: loc?.commonCancel ?? 'Cancel',
       confirmLabel: loc?.webReverseHooksDelete ?? 'Delete',
       destructive: true,
@@ -319,6 +317,11 @@ class _HooksBodyState extends State<_HooksBody> {
                             Expanded(
                               child: TextField(
                                 controller: _nameCtrl,
+                                maxLength: WebReverseSessionController
+                                    .maxSavedScriptNameChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideTextFieldCounter,
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
@@ -380,6 +383,11 @@ class _HooksBodyState extends State<_HooksBody> {
                                 focusNode: _codeFocus,
                                 maxLines: null,
                                 expands: true,
+                                maxLength: WebReverseSessionController
+                                    .maxSavedScriptCodeChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                buildCounter: _hideTextFieldCounter,
                                 textAlignVertical: TextAlignVertical.top,
                                 style: const TextStyle(
                                   fontFamily: 'monospace',

@@ -106,6 +106,13 @@ const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const Curve _kSwitchOutCurve = Curves.easeInCubic;
 
+Widget? _hideTextFieldCounter(
+  BuildContext context, {
+  required int currentLength,
+  required bool isFocused,
+  required int? maxLength,
+}) => null;
+
 String _formatHeaderLines(Map<String, String> headers) {
   if (headers.isEmpty) return '';
   return headers.entries

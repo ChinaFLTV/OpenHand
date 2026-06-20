@@ -109,6 +109,17 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxTracePayloadChars = 48 * 1024 * 1024;
   static const int _maxScreenshotBase64Chars = 64 * 1024 * 1024;
   static const int _maxRawCdpParamsJsonChars = 2 * 1024 * 1024;
+  static const int maxReplExpressionChars = 2 * 1024 * 1024;
+  static const int _maxReplHistoryExpressionChars = 64 * 1024;
+  static const int _maxReplPreviewChars = 2048;
+  static const int _maxConsoleTextChars = 64 * 1024;
+  static const int maxSavedScriptCodeChars = maxReplExpressionChars;
+  static const int maxSavedScriptNameChars = 120;
+  static const int maxSavedSnippets = 200;
+  static const int maxSavedHooks = 100;
+  static const int maxSavedCrons = 100;
+  static const int minCronIntervalSeconds = 5;
+  static const int maxCronIntervalSeconds = 24 * 60 * 60;
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
   static final RegExp _rawCdpMethodPattern = RegExp(
@@ -2495,15 +2506,20 @@ class WebReverseSessionController extends ChangeNotifier {
 
   void _appendConsole(String level, String text) {
     final ts = DateTime.now();
+    final cappedText = _capWebReverseText(
+      text,
+      _maxConsoleTextChars,
+      'console text',
+    );
     _consoleMessages.add(
-      CdpConsoleEntry(level: level, text: text, timestamp: ts),
+      CdpConsoleEntry(level: level, text: cappedText, timestamp: ts),
     );
     while (_consoleMessages.length > _maxConsoleEntries) {
       _consoleMessages.removeAt(0);
     }
     _artifacts.appendConsole(<String, Object?>{
       'level': level,
-      'text': text,
+      'text': cappedText,
       'ts': ts.toUtc().toIso8601String(),
     });
     _safeNotify();
@@ -2517,7 +2533,11 @@ class WebReverseSessionController extends ChangeNotifier {
   List<String> get replHistory => List<String>.unmodifiable(_replHistory);
 
   void pushReplHistory(String expr) {
-    final t = expr.trim();
+    final t = _capWebReverseText(
+      expr.trim(),
+      _maxReplHistoryExpressionChars,
+      'REPL history expression',
+    );
     if (t.isEmpty) return;
     if (_replHistory.isNotEmpty && _replHistory.last == t) return;
     _replHistory.add(t);
@@ -2528,9 +2548,23 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void replaceReplHistory(List<String> items) {
+    final normalized = items
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .map(
+          (e) => _capWebReverseText(
+            e,
+            _maxReplHistoryExpressionChars,
+            'REPL history expression',
+          ),
+        )
+        .toList(growable: false);
+    final start = normalized.length > _kReplHistoryMax
+        ? normalized.length - _kReplHistoryMax
+        : 0;
     _replHistory
       ..clear()
-      ..addAll(items.where((e) => e.trim().isNotEmpty));
+      ..addAll(normalized.skip(start));
     _safeNotify();
   }
 
@@ -2541,9 +2575,25 @@ class WebReverseSessionController extends ChangeNotifier {
   List<WebReverseSnippet> get snippets => List.unmodifiable(_snippets);
 
   void replaceSnippets(List<WebReverseSnippet> items) {
+    final normalized = items
+        .where(
+          (e) => e.id.isNotEmpty && e.code.length <= maxSavedScriptCodeChars,
+        )
+        .map(
+          (e) => WebReverseSnippet(
+            id: _capPlainWebReverseText(e.id, 128),
+            name: _normalizeSavedScriptName(e.name),
+            code: e.code,
+            updatedAt: e.updatedAt,
+          ),
+        )
+        .toList(growable: false);
+    final start = normalized.length > maxSavedSnippets
+        ? normalized.length - maxSavedSnippets
+        : 0;
     _snippets
       ..clear()
-      ..addAll(items);
+      ..addAll(normalized.skip(start));
     _safeNotify();
   }
 
@@ -2552,11 +2602,14 @@ class WebReverseSessionController extends ChangeNotifier {
         'snip_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
     final s = WebReverseSnippet(
       id: id,
-      name: name.trim().isEmpty ? 'untitled' : name.trim(),
-      code: code,
+      name: _normalizeSavedScriptName(name),
+      code: _capPlainWebReverseText(code, maxSavedScriptCodeChars),
       updatedAt: DateTime.now(),
     );
     _snippets.add(s);
+    while (_snippets.length > maxSavedSnippets) {
+      _snippets.removeAt(0);
+    }
     _safeNotify();
     return s;
   }
@@ -2567,10 +2620,12 @@ class WebReverseSessionController extends ChangeNotifier {
     final old = _snippets[i];
     _snippets[i] = WebReverseSnippet(
       id: old.id,
-      name: (name ?? old.name).trim().isEmpty
+      name: name == null
           ? old.name
-          : (name ?? old.name).trim(),
-      code: code ?? old.code,
+          : _normalizeSavedScriptName(name, fallback: old.name),
+      code: code == null
+          ? old.code
+          : _capPlainWebReverseText(code, maxSavedScriptCodeChars),
       updatedAt: DateTime.now(),
     );
     _safeNotify();
@@ -2605,12 +2660,29 @@ class WebReverseSessionController extends ChangeNotifier {
   List<WebReverseHook> get hooks => List.unmodifiable(_hooks);
 
   Future<void> replaceHooks(List<WebReverseHook> items) async {
+    final normalized = items
+        .where(
+          (e) => e.id.isNotEmpty && e.code.length <= maxSavedScriptCodeChars,
+        )
+        .map(
+          (e) => WebReverseHook(
+            id: _capPlainWebReverseText(e.id, 128),
+            name: _normalizeSavedScriptName(e.name),
+            code: e.code,
+            enabled: e.enabled,
+            updatedAt: e.updatedAt,
+          ),
+        )
+        .toList(growable: false);
+    final start = normalized.length > maxSavedHooks
+        ? normalized.length - maxSavedHooks
+        : 0;
     for (final old in List<WebReverseHook>.from(_hooks)) {
       await _uninstallHook(old.id);
     }
     _hooks
       ..clear()
-      ..addAll(items);
+      ..addAll(normalized.skip(start));
     for (final h in _hooks.where((e) => e.enabled)) {
       await _installHook(h);
     }
@@ -2625,12 +2697,16 @@ class WebReverseSessionController extends ChangeNotifier {
         'hook_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
     final h = WebReverseHook(
       id: id,
-      name: name.trim().isEmpty ? 'untitled' : name.trim(),
-      code: code,
+      name: _normalizeSavedScriptName(name),
+      code: _capPlainWebReverseText(code, maxSavedScriptCodeChars),
       enabled: true,
       updatedAt: DateTime.now(),
     );
     _hooks.add(h);
+    while (_hooks.length > maxSavedHooks) {
+      final removed = _hooks.removeAt(0);
+      await _uninstallHook(removed.id);
+    }
     await _installHook(h);
     _safeNotify();
     return h;
@@ -2646,10 +2722,12 @@ class WebReverseSessionController extends ChangeNotifier {
     final old = _hooks[i];
     final next = WebReverseHook(
       id: old.id,
-      name: (name ?? old.name).trim().isEmpty
+      name: name == null
           ? old.name
-          : (name ?? old.name).trim(),
-      code: code ?? old.code,
+          : _normalizeSavedScriptName(name, fallback: old.name),
+      code: code == null
+          ? old.code
+          : _capPlainWebReverseText(code, maxSavedScriptCodeChars),
       enabled: old.enabled,
       updatedAt: DateTime.now(),
     );
@@ -2694,6 +2772,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> _installHook(WebReverseHook h) async {
+    if (h.code.length > maxSavedScriptCodeChars) return;
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
     try {
@@ -2745,13 +2824,31 @@ class WebReverseSessionController extends ChangeNotifier {
   DateTime? cronLastRunAt(String id) => _cronLastRun[id];
 
   Future<void> replaceCrons(List<WebReverseCron> items) async {
+    final normalized = items
+        .where(
+          (e) => e.id.isNotEmpty && e.code.length <= maxSavedScriptCodeChars,
+        )
+        .map(
+          (e) => WebReverseCron(
+            id: _capPlainWebReverseText(e.id, 128),
+            name: _normalizeSavedScriptName(e.name),
+            code: e.code,
+            intervalSeconds: _normalizeCronInterval(e.intervalSeconds),
+            enabled: e.enabled,
+            updatedAt: e.updatedAt,
+          ),
+        )
+        .toList(growable: false);
+    final start = normalized.length > maxSavedCrons
+        ? normalized.length - maxSavedCrons
+        : 0;
     for (final t in _cronTimers.values) {
       t.cancel();
     }
     _cronTimers.clear();
     _crons
       ..clear()
-      ..addAll(items);
+      ..addAll(normalized.skip(start));
     for (final c in _crons.where((e) => e.enabled)) {
       _scheduleCron(c);
     }
@@ -2767,13 +2864,18 @@ class WebReverseSessionController extends ChangeNotifier {
         'cron_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
     final c = WebReverseCron(
       id: id,
-      name: name.trim().isEmpty ? 'untitled' : name.trim(),
-      code: code,
-      intervalSeconds: intervalSeconds < 1 ? 1 : intervalSeconds,
+      name: _normalizeSavedScriptName(name),
+      code: _capPlainWebReverseText(code, maxSavedScriptCodeChars),
+      intervalSeconds: _normalizeCronInterval(intervalSeconds),
       enabled: true,
       updatedAt: DateTime.now(),
     );
     _crons.add(c);
+    while (_crons.length > maxSavedCrons) {
+      final removed = _crons.removeAt(0);
+      _cronTimers.remove(removed.id)?.cancel();
+      _cronLastRun.remove(removed.id);
+    }
     _scheduleCron(c);
     _safeNotify();
     return c;
@@ -2790,14 +2892,15 @@ class WebReverseSessionController extends ChangeNotifier {
     final old = _crons[i];
     final next = WebReverseCron(
       id: old.id,
-      name: (name ?? old.name).trim().isEmpty
+      name: name == null
           ? old.name
-          : (name ?? old.name).trim(),
-      code: code ?? old.code,
-      intervalSeconds: () {
-        final v = intervalSeconds ?? old.intervalSeconds;
-        return v < 1 ? 1 : v;
-      }(),
+          : _normalizeSavedScriptName(name, fallback: old.name),
+      code: code == null
+          ? old.code
+          : _capPlainWebReverseText(code, maxSavedScriptCodeChars),
+      intervalSeconds: _normalizeCronInterval(
+        intervalSeconds ?? old.intervalSeconds,
+      ),
       enabled: old.enabled,
       updatedAt: DateTime.now(),
     );
@@ -2854,6 +2957,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _scheduleCron(WebReverseCron c) {
+    _cronTimers.remove(c.id)?.cancel();
     final dur = Duration(seconds: c.intervalSeconds);
     _cronTimers[c.id] = startNonOverlappingPeriodicTimer(
       dur,
@@ -2868,6 +2972,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<String?> _executeCronOnce(WebReverseCron c) async {
+    if (c.code.length > maxSavedScriptCodeChars) return null;
     try {
       final r = await runReplExpression(c.code);
       _cronLastRun[c.id] = DateTime.now();
@@ -3128,6 +3233,12 @@ class WebReverseSessionController extends ChangeNotifier {
     if (cdp == null || _pageSessionId == null) return null;
     final raw = expression.trim();
     if (raw.isEmpty) return null;
+    if (raw.length > maxReplExpressionChars) {
+      final message =
+          'REPL expression too large: ${raw.length} chars, limit $maxReplExpressionChars';
+      _appendConsole('error', message);
+      return null;
+    }
     _appendConsole('repl-input', '> $raw');
     try {
       // 暂停态下走 evaluateOnCallFrame，求值发生在用户当前栈帧的作用域里，
@@ -3196,8 +3307,8 @@ class WebReverseSessionController extends ChangeNotifier {
       } else {
         preview = '$res';
       }
-      if (preview.length > 2048) {
-        preview = '${preview.substring(0, 2048)}\n…(truncated)';
+      if (preview.length > _maxReplPreviewChars) {
+        preview = '${preview.substring(0, _maxReplPreviewChars)}\n…(truncated)';
       }
       _appendConsole('repl-result', preview);
       return preview;
@@ -7001,7 +7112,11 @@ class WebReverseSessionController extends ChangeNotifier {
           _consoleMessages.add(
             CdpConsoleEntry(
               level: '${m['level'] ?? 'log'}',
-              text: '${m['text'] ?? ''}',
+              text: _capWebReverseText(
+                '${m['text'] ?? ''}',
+                _maxConsoleTextChars,
+                'console text',
+              ),
               timestamp:
                   DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
             ),
@@ -7480,6 +7595,35 @@ class CdpConsoleEntry {
   final String level;
   final String text;
   final DateTime timestamp;
+}
+
+String _capWebReverseText(String text, int maxChars, String label) {
+  if (text.length <= maxChars) return text;
+  final omitted = text.length - maxChars;
+  return '${text.substring(0, maxChars)}\n\n[OpenHand clipped $label: $omitted chars omitted]';
+}
+
+String _capPlainWebReverseText(String text, int maxChars) {
+  if (text.length <= maxChars) return text;
+  return text.substring(0, maxChars);
+}
+
+String _normalizeSavedScriptName(String name, {String fallback = 'untitled'}) {
+  final trimmed = name.trim();
+  return _capPlainWebReverseText(
+    trimmed.isEmpty ? fallback : trimmed,
+    WebReverseSessionController.maxSavedScriptNameChars,
+  );
+}
+
+int _normalizeCronInterval(int seconds) {
+  if (seconds < WebReverseSessionController.minCronIntervalSeconds) {
+    return WebReverseSessionController.minCronIntervalSeconds;
+  }
+  if (seconds > WebReverseSessionController.maxCronIntervalSeconds) {
+    return WebReverseSessionController.maxCronIntervalSeconds;
+  }
+  return seconds;
 }
 
 /// CDP 网络节流预设，对标 DevTools 的 Throttling 下拉。
