@@ -72,6 +72,5 @@ class AiInputCachePolicy {
   bool get usesAutomaticProviderCache =>
       strategy == AiInputCacheControlStrategy.automaticProviderCache;
 
-  bool get defersBackgroundRequests =>
-      stablePromptPrefixEnabled && usesAutomaticProviderCache;
+  bool get defersBackgroundRequests => false;
 }

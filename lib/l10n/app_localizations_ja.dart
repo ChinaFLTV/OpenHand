@@ -1488,7 +1488,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '圧縮チェックポイント生成時に使うツール結果サマリ閾値です。通常の会話履歴はターン間 Prompt キャッシュ前綴を安定させるため原文を保持し、閾値超過の結果は能動/受動圧縮プロンプト内でのみ構造化サマリに圧縮されます。既定値は 1024 です。';
+      '会話履歴に入るツール結果の要約しきい値です。未消費の最新の大きな結果は制限付きプレビューを使い、消費済みの古い結果はしきい値超過時に構造化サマリへ圧縮されます。既定値は 1024 です。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '閾値を保存';
@@ -1504,7 +1504,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '圧縮チェックポイント生成時にツール出力を要約するかを制御します。通常の会話履歴は Prompt キャッシュ前綴を安定させるため原文を保持します。';
+      '会話履歴と圧縮チェックポイントで長いツール出力を要約するかを制御します。無効にすると原文を保持し、コンテキストとキャッシュのコストが大きく増える可能性があります。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微圧縮';
@@ -4348,7 +4348,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '圧縮チェックポイント生成時に使うツール結果サマリ閾値です。通常の会話履歴はターン間 Prompt キャッシュ前綴を安定させるため原文を保持し、閾値超過の結果は能動/受動圧縮プロンプト内でのみ構造化サマリに圧縮されます。既定値は 1024。';
+      '会話履歴に入るツール結果の要約しきい値です。未消費の最新の大きな結果は制限付きプレビューを使い、消費済みの古い結果はしきい値超過時に構造化サマリへ圧縮されます。既定値は 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

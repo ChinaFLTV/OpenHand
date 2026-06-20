@@ -353,7 +353,7 @@ class AiToolRuntimeService {
   /// 2026-04-01 工具输出单轮最大字符数限制。
   /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
   /// 2026-04-29 — Group B: 由用户设置注入，可运行时调整。
-  int maxToolOutputChars = 200000;
+  int maxToolOutputChars = 150000;
 
   /// Template ID for which `skill_manager` is exposed as a builtin. All other
   /// templates never see `skill_manager` in their tool catalog regardless of

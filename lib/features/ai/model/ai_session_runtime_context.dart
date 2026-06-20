@@ -124,7 +124,7 @@ class AiSessionRuntimeContext {
     this.maxPlanHistoryEntries = 20,
     this.maxTruncationContinuations = 5,
     this.estimatedCharactersPerToken = 4,
-    this.maxToolOutputChars = 200000,
+    this.maxToolOutputChars = 150000,
     this.writeConfirmationTimeoutMs = 300000,
     this.fastPathWriteAnalysisThreshold = 512,
     this.maxHookTextCharacters = 4000,

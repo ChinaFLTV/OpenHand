@@ -2879,7 +2879,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiToolResultCompressionThresholdBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。'**
+  /// **'工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。'**
   String get aiToolResultCompressionThresholdBody;
 
   /// No description provided for @aiToolResultCompressionThresholdSave.
@@ -8135,7 +8135,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsWhenAToolCallReturnsMore.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。'**
+  /// **'工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。'**
   String get settingsWhenAToolCallReturnsMore;
 
   /// No description provided for @settingsDefaultsTo40IfOneAssistant.

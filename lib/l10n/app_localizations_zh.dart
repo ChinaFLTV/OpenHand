@@ -1472,7 +1472,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '保存阈值';
@@ -4283,7 +4283,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -9355,7 +9355,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '保存阈值';
@@ -12166,7 +12166,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -17237,7 +17237,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '工具結果進入對話歷史時使用的摘要閾值。尚未被模型消費的最新工具結果保留原文；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
+      '工具結果進入對話歷史時使用的摘要閾值。最新未消費的超大工具結果會使用有界預覽；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '儲存閾值';
@@ -17431,7 +17431,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiMaxToolOutputCharsBody =>
-      '預設 200000。單次工具呼叫結果若超過此字元數會截斷，避免 Context 溢出。';
+      '預設 150000。單次工具呼叫結果若超過此字元數會截斷，避免 Context 溢出。';
 
   @override
   String get aiMaxToolOutputCharsSave => '儲存上限';
@@ -20048,7 +20048,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '工具結果進入對話歷史時使用的摘要閾值。尚未被模型消費的最新工具結果保留原文；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
+      '工具結果進入對話歷史時使用的摘要閾值。最新未消費的超大工具結果會使用有界預覽；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

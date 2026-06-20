@@ -430,7 +430,7 @@ class AppSettingsSnapshot {
   static const int maxAiEstimatedCharactersPerToken = 32;
 
   /// 2026-04-29 — Group B: 工具调用与确认参数。
-  static const int defaultAiMaxToolOutputChars = 200000;
+  static const int defaultAiMaxToolOutputChars = 150000;
   static const int minAiMaxToolOutputChars = 1000;
   static const int maxAiMaxToolOutputChars = 10000000;
 

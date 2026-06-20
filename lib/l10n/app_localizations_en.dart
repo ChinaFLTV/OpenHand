@@ -1532,7 +1532,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'Threshold used when tool results enter conversation history. The latest unconsumed tool result stays raw; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.';
+      'Threshold used when tool results enter conversation history. Very large latest unconsumed results use a bounded preview; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.';
 
   @override
   String get aiToolResultCompressionThresholdSave => 'Save Threshold';
@@ -4505,7 +4505,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Threshold used when tool results enter conversation history. The latest unconsumed tool result stays raw; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.';
+      'Threshold used when tool results enter conversation history. Very large latest unconsumed results use a bounded preview; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

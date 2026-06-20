@@ -1552,7 +1552,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'Schwellwert für Werkzeugergebnis-Zusammenfassungen beim Erstellen von Kompressions-Checkpoints. Der normale Gesprächsverlauf behält Rohausgaben, damit Prompt-Cache-Präfixe zwischen Runden stabil bleiben; Ergebnisse über dem Schwellwert werden nur in aktiven/passiven Kompressions-Prompts verdichtet. Standard: 1024.';
+      'Schwellwert für Werkzeugergebnisse im Gesprächsverlauf. Sehr große, noch nicht verbrauchte neue Ergebnisse verwenden eine begrenzte Vorschau; ältere verbrauchte Ergebnisse über dem Schwellenwert werden strukturiert zusammengefasst. Standard: 1024.';
 
   @override
   String get aiToolResultCompressionThresholdSave => 'Schwellwert speichern';
@@ -1571,7 +1571,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Steuert, ob Werkzeugausgaben beim Erstellen von Kompressions-Checkpoints verdichtet werden. Der normale Gesprächsverlauf behält Rohausgaben, damit Prompt-Cache-Präfixe stabil bleiben.';
+      'Steuert, ob lange Werkzeugausgaben im Gesprächsverlauf und in Kompressions-Checkpoints verdichtet werden. Deaktivieren behält Rohausgaben und kann Kontext- sowie Cache-Kosten deutlich erhöhen.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Mikro-Kompression';
@@ -4550,7 +4550,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Schwellwert für Werkzeugergebnis-Zusammenfassungen beim Erstellen von Kompressions-Checkpoints. Der normale Gesprächsverlauf behält Rohausgaben, damit Prompt-Cache-Präfixe zwischen Runden stabil bleiben; Ergebnisse über dem Schwellwert werden nur in aktiven/passiven Kompressions-Prompts verdichtet. Standard: 1024.';
+      'Schwellwert für Werkzeugergebnisse im Gesprächsverlauf. Sehr große, noch nicht verbrauchte neue Ergebnisse verwenden eine begrenzte Vorschau; ältere verbrauchte Ergebnisse über dem Schwellenwert werden strukturiert zusammengefasst. Standard: 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

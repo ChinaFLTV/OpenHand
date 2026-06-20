@@ -75,6 +75,8 @@ class AiPromptBuilder {
   static const int _compressionAttachmentDetailMaxChars = 2000;
   static const int _compressionPromptToolResultThresholdChars = 4096;
   static const int _compressionPromptToolResultHeadTailChars = 384;
+  static const int _freshToolResultPromptThresholdChars = 16000;
+  static const int _freshToolResultPromptHeadTailChars = 1024;
   static const int _compressionPromptMaxPlanRecords = 3;
   static const int _compressionPromptMaxPlanChars = 6000;
   static const int _compressionPromptMaxTodoItems = 40;
@@ -212,12 +214,14 @@ class AiPromptBuilder {
       // 没有续写场景：把 latestUser 从 history 里剥离，走原来的“附加到末尾”路径。
       historyMessages.removeAt(latestUserHistoryIndex);
     }
+    final historyToolCompressionConfig =
+        _ToolCompressionConfig.forConversationHistory(runtimeContext);
     final historyTurns = _sanitizeToolSequence(
       _mapHistoryMessages(
         historyMessages,
         session,
         model,
-        _ToolCompressionConfig.forConversationHistory(runtimeContext),
+        historyToolCompressionConfig,
         latestUserMessageIdForInlineAttachments: latestUserInline
             ? latestUserMessage.id
             : null,
@@ -646,8 +650,16 @@ class AiPromptBuilder {
           inputCachePolicy.injectsExplicitCacheControl
       ..['cache_provider_automatic_cache_protected'] =
           inputCachePolicy.usesAutomaticProviderCache
+      ..['cache_provider_automatic_cache_best_effort'] =
+          inputCachePolicy.usesAutomaticProviderCache
       ..['cache_background_requests_deferred'] =
           inputCachePolicy.defersBackgroundRequests
+      ..['fresh_tool_result_prompt_guard_enabled'] =
+          historyToolCompressionConfig.guardsFreshToolResults
+      ..['fresh_tool_result_prompt_threshold_chars'] =
+          historyToolCompressionConfig.freshResultThresholdChars
+      ..['fresh_tool_result_prompt_head_tail_chars'] =
+          historyToolCompressionConfig.freshResultHeadTailWindowChars
       ..['stable_cache_key'] = stableCacheKey
       ..['previous_stable_cache_key'] =
           '${session.lastPromptMetadata['stable_cache_key'] ?? ''}'.trim()
@@ -4446,14 +4458,25 @@ $content
       );
     }
     if (isFreshUnconsumedResult) {
-      // 2026-04-27 (修复): 最新一轮工具调用的结果是即将交给模型 *首次*
-      // 消费的内容（例如它刚 Read 完一个文件，准备据此回答）。这一轮的
-      // 内容若被压缩成 head/tail 摘要，模型就拿不到必要的原始数据，
-      // 会被迫凭空猜测或反复重试。仅对"已被模型消费过"的历史轮次
-      // 启用压缩，未消费的最新一轮始终保留原文。
-      return _promptContentForMessage(
+      final original = _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,
+      );
+      if (!compressionConfig.guardsFreshToolResults ||
+          original.length <= compressionConfig.freshResultThresholdChars) {
+        return original;
+      }
+      return _compressGenericToolResultContent(
+        message,
+        compressionConfig,
+        inlineSystemReminders: inlineSystemReminders,
+        originalOverride: original,
+        summaryMarker: '[fresh_tool_result_preview]',
+        thresholdOverride: compressionConfig.freshResultThresholdChars,
+        headTailWindowOverride:
+            compressionConfig.freshResultHeadTailWindowChars,
+        recoveryFallback:
+            'Fresh tool result exceeded the prompt budget and was previewed before first use. Use the original path, offsets, or a narrower rerun before relying on omitted content.',
       );
     }
     if (!_isWriteLikeToolHistoryMessage(message)) {
@@ -5037,16 +5060,23 @@ $content
     AiSessionMessage message,
     _ToolCompressionConfig compressionConfig, {
     bool inlineSystemReminders = false,
+    String? originalOverride,
+    String summaryMarker = '[tool_result_summary]',
+    int? thresholdOverride,
+    int? headTailWindowOverride,
+    String? recoveryFallback,
   }) {
-    final original = _promptContentForMessage(
-      message,
-      inlineSystemReminders: inlineSystemReminders,
-    );
+    final original =
+        originalOverride ??
+        _promptContentForMessage(
+          message,
+          inlineSystemReminders: inlineSystemReminders,
+        );
     final metadata = message.metadata;
     final toolStateLines = _toolStateSummaryLines(
       metadata,
     ).where((line) => !original.contains(line)).toList(growable: false);
-    final threshold = compressionConfig.thresholdChars;
+    final threshold = thresholdOverride ?? compressionConfig.thresholdChars;
     if (original.length <= threshold) {
       if (toolStateLines.isEmpty) return original;
       return '$original\n${toolStateLines.join('\n')}';
@@ -5062,14 +5092,15 @@ $content
             original,
             maxHits: compressionConfig.maxPathHits,
           );
-    final headTail = compressionConfig.headTailWindowChars;
+    final headTail =
+        headTailWindowOverride ?? compressionConfig.headTailWindowChars;
     final head = headTail <= 0
         ? ''
         : original.substring(0, math.min(original.length, headTail)).trim();
     final tailStart = math.max(0, original.length - headTail);
     final tail = headTail <= 0 ? '' : original.substring(tailStart).trim();
     final lines = <String>[
-      '[tool_result_summary] ${toolName.isEmpty ? 'Tool' : toolName}',
+      '$summaryMarker ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
       if (status.isNotEmpty) 'status: $status',
       ...toolStateLines,
@@ -5081,6 +5112,7 @@ $content
       _toolResultRecoveryNote(
         metadata,
         fallback:
+            recoveryFallback ??
             'Tool result exceeded $threshold chars and was condensed for the prompt history. Re-run the tool or read the local file directly if exact contents are needed.',
       ),
     ];
@@ -5597,20 +5629,25 @@ class _ToolCompressionConfig {
     required this.maxPathHits,
     required this.writeSummaryMaxChars,
     required this.microCompressionEnabled,
+    required this.freshResultThresholdChars,
+    required this.freshResultHeadTailWindowChars,
   });
 
   factory _ToolCompressionConfig.forConversationHistory(
     AiSessionRuntimeContext runtimeContext,
   ) {
+    final thresholdChars =
+        runtimeContext.toolResultCompressionThresholdChars > 0
+        ? runtimeContext.toolResultCompressionThresholdChars
+        : 1024;
+    final headTailWindowChars = runtimeContext
+        .toolResultCompressionHeadTailWindowChars
+        .clamp(0, 1 << 20);
     return _ToolCompressionConfig(
       enabled: runtimeContext.toolResultCompressionEnabled,
       summarizeResults: runtimeContext.toolResultCompressionEnabled,
-      thresholdChars: runtimeContext.toolResultCompressionThresholdChars > 0
-          ? runtimeContext.toolResultCompressionThresholdChars
-          : 1024,
-      headTailWindowChars: runtimeContext
-          .toolResultCompressionHeadTailWindowChars
-          .clamp(0, 1 << 20),
+      thresholdChars: thresholdChars,
+      headTailWindowChars: headTailWindowChars,
       maxPathHits: runtimeContext.toolResultCompressionMaxPathHits.clamp(
         0,
         1 << 20,
@@ -5620,6 +5657,24 @@ class _ToolCompressionConfig {
         1 << 20,
       ),
       microCompressionEnabled: runtimeContext.microCompressionEnabled,
+      freshResultThresholdChars: math.max(
+        thresholdChars,
+        math.min(
+          runtimeContext.maxToolOutputChars > 0
+              ? runtimeContext.maxToolOutputChars
+              : AiPromptBuilder._freshToolResultPromptThresholdChars,
+          AiPromptBuilder._freshToolResultPromptThresholdChars,
+        ),
+      ),
+      freshResultHeadTailWindowChars: headTailWindowChars <= 0
+          ? 0
+          : math.max(
+              headTailWindowChars,
+              math.min(
+                AiPromptBuilder._freshToolResultPromptHeadTailChars,
+                AiPromptBuilder._freshToolResultPromptThresholdChars ~/ 4,
+              ),
+            ),
     );
   }
 
@@ -5644,6 +5699,14 @@ class _ToolCompressionConfig {
         AiPromptBuilder._compressionPromptToolResultHeadTailChars,
       ),
       microCompressionEnabled: true,
+      freshResultThresholdChars: math.min(
+        base.freshResultThresholdChars,
+        AiPromptBuilder._freshToolResultPromptThresholdChars,
+      ),
+      freshResultHeadTailWindowChars: math.min(
+        base.freshResultHeadTailWindowChars,
+        AiPromptBuilder._freshToolResultPromptHeadTailChars,
+      ),
     );
   }
 
@@ -5654,6 +5717,10 @@ class _ToolCompressionConfig {
   final int maxPathHits;
   final int writeSummaryMaxChars;
   final bool microCompressionEnabled;
+  final int freshResultThresholdChars;
+  final int freshResultHeadTailWindowChars;
+
+  bool get guardsFreshToolResults => enabled && summarizeResults;
 }
 
 class _ExtractedReminderContent {
