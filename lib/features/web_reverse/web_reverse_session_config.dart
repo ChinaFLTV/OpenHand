@@ -117,8 +117,11 @@ class WebReverseSessionConfig {
       buf.writeln('- 代理：【${proxy!.trim()}】');
     }
     if (keywords.isNotEmpty) {
-      buf.writeln('- 关键关键字：【${keywords.join(', ')}】');
+      buf.writeln('- 关键字：【${keywords.join(', ')}】');
     }
+    buf.writeln(
+      '- 取证纪律：【先用 CDP MCP / 本地 jsonl/HAR；禁止 WebFetch/WebSearch/Bash/curl 直接抓目标源】',
+    );
     buf.write('- 验收标准：【可在 curl / Dart / Python 中独立复现，无需浏览器】');
     return buf.toString();
   }
