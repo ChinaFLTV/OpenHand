@@ -21,11 +21,13 @@ class _CdpHistoryEntry {
   _CdpHistoryEntry({
     required this.method,
     required this.paramsJson,
+    required this.paramsClipped,
     required this.useSession,
     required this.timestamp,
   });
   final String method;
   final String paramsJson;
+  final bool paramsClipped;
   final bool useSession;
   final DateTime timestamp;
   String? error;
@@ -33,6 +35,9 @@ class _CdpHistoryEntry {
 }
 
 final List<_CdpHistoryEntry> _cdpConsoleHistory = <_CdpHistoryEntry>[];
+const int _kCdpConsoleMaxParamsJsonChars = 2 * 1024 * 1024;
+const int _kCdpConsoleHistoryParamsChars = 64 * 1024;
+const int _kCdpConsoleHistoryResultChars = 512 * 1024;
 
 Future<void> showWebReverseCdpConsoleDialog(
   BuildContext context, {
@@ -77,6 +82,17 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     final paramsText = _paramsCtl.text.trim();
     String? paramsJson;
     if (paramsText.isNotEmpty && paramsText != '{}') {
+      if (paramsText.length > _kCdpConsoleMaxParamsJsonChars) {
+        final m = ScaffoldMessenger.maybeOf(context);
+        if (m != null) {
+          OpenHandSnackBar.showErrorOn(
+            context,
+            m,
+            'Params JSON too large: ${paramsText.length} chars, limit $_kCdpConsoleMaxParamsJsonChars',
+          );
+        }
+        return;
+      }
       try {
         jsonDecode(paramsText);
         paramsJson = paramsText;
@@ -95,7 +111,11 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     setState(() => _busy = true);
     final entry = _CdpHistoryEntry(
       method: method,
-      paramsJson: paramsJson ?? '',
+      paramsJson: _capCdpConsoleHistoryText(
+        paramsJson ?? '',
+        _kCdpConsoleHistoryParamsChars,
+      ),
+      paramsClipped: (paramsJson ?? '').length > _kCdpConsoleHistoryParamsChars,
       useSession: _useSession,
       timestamp: DateTime.now(),
     );
@@ -110,7 +130,10 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       } else if (r['error'] != null) {
         entry.error = '${r['error']}';
       } else {
-        entry.resultJson = const JsonEncoder.withIndent('  ').convert(r);
+        entry.resultJson = _capCdpConsoleHistoryText(
+          const JsonEncoder.withIndent('  ').convert(r),
+          _kCdpConsoleHistoryResultChars,
+        );
       }
     } catch (err, st) {
       silentLog('web-reverse', 'cdp-console.send', err, st);
@@ -123,7 +146,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _historyCursor = -1;
+      _historyCursor = 0;
     });
   }
 
@@ -133,9 +156,23 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     setState(() {
       _historyCursor = idx;
       _methodCtl.text = h.method;
-      _paramsCtl.text = h.paramsJson.isEmpty ? '{}' : h.paramsJson;
+      _paramsCtl.text = h.paramsClipped
+          ? '{}'
+          : h.paramsJson.isEmpty
+          ? '{}'
+          : h.paramsJson;
       _useSession = h.useSession;
     });
+    if (h.paramsClipped) {
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showInfoOn(
+          context,
+          m,
+          'Params were clipped in history; input reset to {}.',
+        );
+      }
+    }
   }
 
   KeyEventResult _onKey(FocusNode _, KeyEvent e) {
@@ -153,6 +190,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       return KeyEventResult.handled;
     }
     if (ctrl && e.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_cdpConsoleHistory.isEmpty) return KeyEventResult.handled;
       _loadHistoryAt(
         (_historyCursor + 1).clamp(0, _cdpConsoleHistory.length - 1),
       );
@@ -433,7 +471,9 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
           if (h.paramsJson.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              loc?.webReverseCdpParams ?? 'Params',
+              h.paramsClipped
+                  ? '${loc?.webReverseCdpParams ?? 'Params'} (clipped)'
+                  : loc?.webReverseCdpParams ?? 'Params',
               style: Theme.of(context).textTheme.labelSmall,
             ),
             Container(
@@ -482,4 +522,10 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
       ),
     );
   }
+}
+
+String _capCdpConsoleHistoryText(String text, int maxChars) {
+  if (text.length <= maxChars) return text;
+  final omitted = text.length - maxChars;
+  return '${text.substring(0, maxChars)}\n\n[OpenHand clipped CDP console history: $omitted chars omitted]';
 }
