@@ -20,6 +20,7 @@ import '../../service/web_search/web_search_telemetry_store.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+import '../web_reverse_cdp_first_guard.dart';
 
 /// WebSearch sub-agent 实现：
 /// 1. 从 [AiBuiltinToolConfig.webSearchSettings] 读取引擎清单 / 并行 / 模型策略
@@ -64,6 +65,20 @@ class AiWebSearchTool extends AiTool {
     final blockedDomains = AiToolUtils.normalizeStringList(
       args['blocked_domains'],
     );
+    final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateTextReference(
+      text: <String>[
+        query,
+        if (allowedDomains.isNotEmpty) allowedDomains.join(' '),
+      ].join(' '),
+      metadata: context.metadata,
+    );
+    if (cdpFirstDecision != null) {
+      return _webReverseCdpFirstBlock(
+        decision: cdpFirstDecision,
+        query: query,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+    }
 
     final command = 'WebSearch $query';
     final workingDirectory = AiToolUtils.defaultWorkingDirectory();
@@ -602,6 +617,35 @@ language. Honor detail=<<DETAIL>>, style=<<STYLE>>, char bounds
       silentLog('ai_web_search_tool', '_maybeFireHealthAlerts', error, stack);
     }
   }
+}
+
+AiToolExecutionResult _webReverseCdpFirstBlock({
+  required WebReverseCdpFirstDecision decision,
+  required String query,
+  required int durationMs,
+}) {
+  final message = decision.blockedMessage('WebSearch');
+  return AiToolExecutionResult(
+    status: BashToolExecutionStatus.invalidArguments,
+    command: 'WebSearch $query',
+    workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+    stdout:
+        'cdp_first_required: true\n'
+        'target_origin: ${decision.targetOrigin}\n'
+        'requested_origin: ${decision.requestedOrigin}\n'
+        'cdp_route: ${decision.routeKind}\n'
+        'cdp_tools: ${decision.toolText}',
+    stderr: message,
+    durationMs: durationMs,
+    resultText: 'status: invalid_arguments\nerror: $message',
+    metadata: <String, Object?>{
+      'web_reverse_websearch_blocked_query_char_count': query.length,
+      ...decision.metadata(
+        requestedUrl: decision.requestedUri.toString(),
+        blockedFlag: 'web_reverse_websearch_blocked_for_cdp_first',
+      ),
+    },
+  );
 }
 
 class _SummaryPrompts {

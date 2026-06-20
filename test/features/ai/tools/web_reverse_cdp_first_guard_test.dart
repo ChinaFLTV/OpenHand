@@ -142,6 +142,26 @@ void main() {
       expect(decision, isNull);
     });
 
+    test('blocks plain text target URL reference', () {
+      final decision = WebReverseCdpFirstGuard.evaluateTextReference(
+        text: 'site:https://linux.do/t/topic/2401043',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.requestedOrigin, 'https://linux.do');
+    });
+
+    test('blocks plain text target host reference', () {
+      final decision = WebReverseCdpFirstGuard.evaluateTextReference(
+        text: 'site:linux.do topic 2401043',
+        metadata: _legacyLiveMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.targetOrigin, 'https://linux.do');
+    });
+
     test('blocks command URL with Chinese punctuation', () {
       final decision = WebReverseCdpFirstGuard.evaluateCommand(
         command: 'curl https://linux.do/t/topic/2401043.json。',
