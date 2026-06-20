@@ -9,6 +9,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
+import 'web_reverse_har_io.dart';
 import 'web_reverse_har_replay_server.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -6373,7 +6374,9 @@ class WebReverseSessionController extends ChangeNotifier {
       String? path = _lastHarPath;
       path ??= await _artifacts.exportHar();
       if (path == null) return null;
-      final bytes = await File(path).readAsBytes();
+      final read = await readWebReverseHarPath(path);
+      if (read.isTooLarge) return null;
+      final bytes = read.bytes!;
       final s = await WebReverseHarReplayServer.start(harBytes: bytes);
       if (s == null) return null;
       _harReplayServer = s;

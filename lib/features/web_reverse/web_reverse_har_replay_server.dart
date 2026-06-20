@@ -23,6 +23,11 @@ class WebReverseHarReplayServer {
   final int entryCount;
   final HttpServer _server;
 
+  static const int _maxReplayEntries = 1000;
+  static const int _maxReplayHeaders = 128;
+  static const int _maxReplayHeaderValueChars = 8192;
+  static const int _maxReplayBodyChars = 5 * 1024 * 1024;
+
   /// 从 HAR 字节启动一个本地 mock。失败返回 null。
   /// [requestedPort] 为 0 时让 OS 随机分配。
   static Future<WebReverseHarReplayServer?> start({
@@ -35,7 +40,9 @@ class WebReverseHarReplayServer {
       final har = jsonDecode(raw) as Map;
       final entries = (har['log'] as Map?)?['entries'] as List? ?? const [];
       map = <String, _HarHit>{};
+      var accepted = 0;
       for (final e in entries.whereType<Map>()) {
+        if (accepted >= _maxReplayEntries) break;
         final req = e['request'] as Map?;
         final res = e['response'] as Map?;
         if (req == null || res == null) continue;
@@ -47,23 +54,31 @@ class WebReverseHarReplayServer {
         final pathKey = _pathKey(url);
         final headers = <String, String>{};
         for (final h
-            in (res['headers'] as List? ?? const []).whereType<Map>()) {
-          headers['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
+            in (res['headers'] as List? ?? const []).whereType<Map>().take(
+              _maxReplayHeaders,
+            )) {
+          headers['${h['name'] ?? ''}'] = _clipText(
+            '${h['value'] ?? ''}',
+            _maxReplayHeaderValueChars,
+          );
         }
         final content = res['content'] as Map? ?? const {};
-        final body = '${content['text'] ?? ''}';
+        final bodyRaw = '${content['text'] ?? ''}';
         final isB64 = '${content['encoding'] ?? ''}'.toLowerCase() == 'base64';
+        final body = _clipReplayBody(bodyRaw, isBase64: isB64);
         final hit = _HarHit(
           status: (res['status'] as num?)?.toInt() ?? 200,
           headers: headers,
           body: body,
           isBase64: isB64,
           mime: '${content['mimeType'] ?? 'application/octet-stream'}',
+          truncated: body.length < bodyRaw.length,
         );
         // 同时按 full URL 与 path-only 两种 key 存：远端 origin 的 mock 走 full，
         // 本地复现脚本走 127.0.0.1:N/<path> 走 path-only。
         map[fullKey] = hit;
         if (pathKey.isNotEmpty) map[pathKey] = hit;
+        accepted++;
       }
     } catch (error, stack) {
       silentLog('web_reverse_har_replay_server', 'parse', error, stack);
@@ -123,6 +138,9 @@ class WebReverseHarReplayServer {
           );
         }
       });
+      if (byPath.truncated) {
+        req.response.headers.set('x-openhand-har-body-truncated', '1');
+      }
       try {
         if (byPath.isBase64) {
           req.response.add(base64Decode(byPath.body));
@@ -175,6 +193,21 @@ class WebReverseHarReplayServer {
         )
         .join('&');
   }
+
+  static String _clipReplayBody(String body, {required bool isBase64}) {
+    if (body.length <= _maxReplayBodyChars) return body;
+    var keep = _maxReplayBodyChars;
+    if (isBase64) {
+      keep -= keep % 4;
+    }
+    if (keep <= 0) return '';
+    return body.substring(0, keep);
+  }
+
+  static String _clipText(String text, int maxChars) {
+    if (text.length <= maxChars) return text;
+    return '${text.substring(0, maxChars)}...';
+  }
 }
 
 class _HarHit {
@@ -184,10 +217,12 @@ class _HarHit {
     required this.body,
     required this.isBase64,
     required this.mime,
+    required this.truncated,
   });
   final int status;
   final Map<String, String> headers;
   final String body;
   final bool isBase64;
   final String mime;
+  final bool truncated;
 }

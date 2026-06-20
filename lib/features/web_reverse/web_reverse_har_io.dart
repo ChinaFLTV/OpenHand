@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_selector/file_selector.dart';
 
 import '../../shared/util/byte_size_format.dart';
@@ -36,6 +38,19 @@ Future<WebReverseHarReadResult> readWebReverseHarFile(XFile file) async {
   return WebReverseHarReadResult.ok(bytes);
 }
 
+Future<WebReverseHarReadResult> readWebReverseHarPath(String path) async {
+  final file = File(path);
+  final knownLength = await _safeFileLength(file);
+  if (knownLength != null && knownLength > kWebReverseHarFileMaxBytes) {
+    return WebReverseHarReadResult.tooLarge(knownLength);
+  }
+  final bytes = await file.readAsBytes();
+  if (bytes.length > kWebReverseHarFileMaxBytes) {
+    return WebReverseHarReadResult.tooLarge(bytes.length);
+  }
+  return WebReverseHarReadResult.ok(bytes);
+}
+
 String webReverseHarTooLargeMessage(int bytes, {required bool isZh}) {
   final size = formatByteSize(bytes);
   final max = formatByteSize(kWebReverseHarFileMaxBytes);
@@ -55,6 +70,14 @@ String webReverseHarDiffCappedMessage(
 }
 
 Future<int?> _safeLength(XFile file) async {
+  try {
+    return await file.length();
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<int?> _safeFileLength(File file) async {
   try {
     return await file.length();
   } catch (_) {
