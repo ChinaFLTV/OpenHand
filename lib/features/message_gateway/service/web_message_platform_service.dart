@@ -1091,8 +1091,8 @@ class WebMessagePlatformService {
   /// `_WebGatewayAuthSession` 给 handler。
   Router _buildRouter() {
     final router = Router(notFoundHandler: _shelfNotFound);
-    // SPA shell：优先返回 clients/web 构建产物（assets/web/index.html），缺失
-    // 时 fallback 到 legacy 内嵌模板，保证未跑过 build_web.sh 的环境也可访问。
+    // SPA shell：仅返回 clients/web 构建产物（assets/web/index.html）。
+    // 缺失时由 _serveWebShell 返回 503 和构建脚本提示。
     router.get('/', (shelf.Request _) => _serveWebShell());
     router.get('/login', (shelf.Request _) => _serveWebShell());
     router.get('/thread', (shelf.Request _) => _serveWebShell());
@@ -5297,9 +5297,7 @@ class WebMessagePlatformService {
   }
 
   /// Web shell 入口。仅从 bundle `assets/web/index.html`（由 clients/web
-  /// 的 Vite 构建产出）加载。缺失时返回 503 + 人可读提示，
-  /// 提醒开发者在 OpenHand 仓库下执行 `pnpm --filter @openhand/web build`。
-  /// (Stage 6 下架了遗留的 inline legacy SPA fallback。)
+  /// 的 Vite 构建产出）加载。缺失时返回 503 + 人可读提示。
   Future<shelf.Response> _serveWebShell() async {
     try {
       final html = await rootBundle.loadString('assets/web/index.html');
@@ -5322,7 +5320,7 @@ class WebMessagePlatformService {
         '<h1>Web client bundle is missing</h1>'
         '<p>The Web shell could not load <code>assets/web/index.html</code>.</p>'
         '<p>Run the following inside the OpenHand repository to produce the bundle:</p>'
-        '<pre><code>cd clients/web &amp;&amp; pnpm install &amp;&amp; pnpm build</code></pre>'
+        '<pre><code>env CI=true scripts/build_web.sh</code></pre>'
         '<p>Then restart the Web service.</p>';
   }
 

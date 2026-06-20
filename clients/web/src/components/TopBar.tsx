@@ -24,7 +24,7 @@ export interface TopBarProps {
   leadingSlot?: ComponentChildren;
   /// 标题右侧操作槽（可选，例如线程列表页放浏览器全屏按钮）。
   actionSlot?: ComponentChildren;
-  /// 历史属性，向后兼容；当前已无次级导航按钮，传任何值都不会改变渲染。
+  /// 隐藏右侧登出入口；旧二级页面用自定义返回按钮承接导航。
   hideNav?: boolean;
 }
 
