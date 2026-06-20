@@ -314,12 +314,15 @@ class WebReverseCdpMcpBridge {
     _pruneCatalogCache(now);
     final cached = _catalogCache[cacheKey];
     if (cached != null) {
+      final cachedCatalog = cached.catalog;
+      if (cachedCatalog == null) {
+        return cached.future;
+      }
       final age = now.difference(cached.createdAt);
       if (age >= catalogCacheTtl) {
         _catalogCache.remove(cacheKey);
       } else {
-        final cachedCatalog = cached.catalog;
-        if (cachedCatalog?.status == McpToolCatalogStatus.failed &&
+        if (cachedCatalog.status == McpToolCatalogStatus.failed &&
             age >= failedCatalogRetryTtl) {
           _catalogCache.remove(cacheKey);
         } else {
@@ -369,7 +372,9 @@ class WebReverseCdpMcpBridge {
 
   void _pruneCatalogCache(DateTime now) {
     _catalogCache.removeWhere(
-      (_, entry) => now.difference(entry.createdAt) >= catalogCacheTtl,
+      (_, entry) =>
+          entry.catalog != null &&
+          now.difference(entry.createdAt) >= catalogCacheTtl,
     );
   }
 
