@@ -1,5 +1,8 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
+const int _kNetworkBatchReplayLimit = 20;
+const int _kNetworkBatchCurlCopyLimit = 100;
+
 extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
   Widget _buildToolbar(
     ThemeData theme,
@@ -676,8 +679,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         ),
         content: Text(
           isZh
-              ? '基于当前网络面板的过滤结果进行批量操作：可批量屏蔽所有 URL（精确匹配）、批量重放（上限 20 条）或导出 curl 列表到剪贴板。'
-              : 'Operate on the currently filtered ${filtered.length} requests.',
+              ? '基于当前网络面板的过滤结果进行批量操作：可批量屏蔽所有 URL（精确匹配）、批量重放（上限 $_kNetworkBatchReplayLimit 条）或复制 curl 列表（上限 $_kNetworkBatchCurlCopyLimit 条）。'
+              : 'Operate on the currently filtered ${filtered.length} requests. Replay is capped at $_kNetworkBatchReplayLimit; curl copy is capped at $_kNetworkBatchCurlCopyLimit.',
         ),
         actions: [
           OpenHandDialogActionButton.secondary(
@@ -712,7 +715,10 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     Navigator.of(dialogContext).pop();
                     final messenger = ScaffoldMessenger.of(context);
                     var ok = 0;
-                    final cap = math.min(filtered.length, 20);
+                    final cap = math.min(
+                      filtered.length,
+                      _kNetworkBatchReplayLimit,
+                    );
                     for (final e in filtered.take(cap)) {
                       final r = await ctrl.replayRequest(e);
                       if (r != null) ok++;
@@ -722,12 +728,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       context,
                       messenger,
                       isZh
-                          ? '批量重放：成功 $ok / 共 $cap（上限 20）'
-                          : 'Replayed $ok of $cap (cap 20)',
+                          ? '批量重放：成功 $ok / 共 $cap（上限 $_kNetworkBatchReplayLimit）'
+                          : 'Replayed $ok of $cap (cap $_kNetworkBatchReplayLimit)',
                     );
                   },
             icon: Icons.replay_rounded,
-            label: isZh ? '批量重放（≤20）' : 'Replay (≤20)',
+            label: isZh
+                ? '批量重放（≤$_kNetworkBatchReplayLimit）'
+                : 'Replay (≤$_kNetworkBatchReplayLimit)',
           ),
           OpenHandDialogActionButton.primary(
             onPressed: filtered.isEmpty
@@ -736,7 +744,11 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     Navigator.of(dialogContext).pop();
                     final messenger = ScaffoldMessenger.of(context);
                     final buf = StringBuffer();
-                    for (final e in filtered) {
+                    final copyCount = math.min(
+                      filtered.length,
+                      _kNetworkBatchCurlCopyLimit,
+                    );
+                    for (final e in filtered.take(copyCount)) {
                       buf.writeln('# ${e.method} ${e.url}');
                       buf.write('curl ');
                       if (e.method != 'GET') buf.write('-X ${e.method} ');
@@ -764,12 +776,14 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       context,
                       messenger,
                       isZh
-                          ? '已复制 ${filtered.length} 条 curl 到剪贴板'
-                          : 'Copied ${filtered.length} curl entries',
+                          ? '已复制 $copyCount 条 curl 到剪贴板${filtered.length > copyCount ? '（已按上限裁剪）' : ''}'
+                          : 'Copied $copyCount curl entries${filtered.length > copyCount ? ' (capped)' : ''}',
                     );
                   },
             icon: Icons.copy_all_rounded,
-            label: isZh ? '复制 curl 列表' : 'Copy curl',
+            label: isZh
+                ? '复制 curl（≤$_kNetworkBatchCurlCopyLimit）'
+                : 'Copy curl (≤$_kNetworkBatchCurlCopyLimit)',
           ),
         ],
       ),
