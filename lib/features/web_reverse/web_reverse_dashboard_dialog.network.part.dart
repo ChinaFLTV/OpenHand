@@ -2,6 +2,9 @@ part of 'web_reverse_dashboard_dialog.dart';
 
 const double _kReplayResultDialogWidth = 640;
 const double _kReplayResultDialogHeight = 360;
+const double _kNetworkMethodColumnWidth = 64;
+const double _kNetworkStatusColumnWidth = 42;
+const double _kNetworkTypeColumnWidth = 72;
 const Duration _kReplaySnackBarDuration = Duration(seconds: 2);
 const Duration _kReplayCopySnackBarDuration = Duration(seconds: 1);
 
@@ -421,6 +424,32 @@ class _AnimatedAppearOnceState extends State<_AnimatedAppearOnce>
   }
 }
 
+class _NetworkMetaCell extends StatelessWidget {
+  const _NetworkMetaCell({
+    required this.width,
+    required this.text,
+    required this.style,
+  });
+
+  final double width;
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: style,
+      ),
+    );
+  }
+}
+
 class _NetworkRow extends StatelessWidget {
   const _NetworkRow({
     required this.entry,
@@ -474,35 +503,30 @@ class _NetworkRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             children: [
-              SizedBox(
-                width: 44,
-                child: Text(
-                  entry.method,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontFamily: 'monospace',
-                    color: onColor,
-                    fontWeight: FontWeight.w700,
-                  ),
+              _NetworkMetaCell(
+                width: _kNetworkMethodColumnWidth,
+                text: entry.method,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: onColor,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              SizedBox(
-                width: 38,
-                child: Text(
-                  entry.statusCode?.toString() ??
-                      (entry.failed ? 'ERR' : '...'),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontFamily: 'monospace',
-                    color: onColor,
-                  ),
+              _NetworkMetaCell(
+                width: _kNetworkStatusColumnWidth,
+                text:
+                    entry.statusCode?.toString() ??
+                    (entry.failed ? 'ERR' : '...'),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: onColor,
                 ),
               ),
-              SizedBox(
-                width: 64,
-                child: Text(
-                  entry.resourceType,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: onColor.withValues(alpha: 0.75),
-                  ),
+              _NetworkMetaCell(
+                width: _kNetworkTypeColumnWidth,
+                text: entry.resourceType,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: onColor.withValues(alpha: 0.75),
                 ),
               ),
               Expanded(
