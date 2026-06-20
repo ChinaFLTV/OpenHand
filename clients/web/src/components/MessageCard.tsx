@@ -1158,6 +1158,9 @@ function MessageCardImpl({
     );
   }, [message.id]);
   const badgeCollapsed = badgeCollapsedOverride ?? defaultBadgeCollapsed;
+  const badgeBodyCollapsed = (isCollapsibleByBadge && badgeCollapsed) || collapsed;
+  const reasoningPreviewCollapsed =
+    isReasoningMessage && isCollapsibleByBadge && badgeCollapsed;
 
   // ── 入场动画：仅首次挂载时播放，防止流式更新重播 ──
   const [shouldAnimate] = useState(() => !appearedMessageIds.has(message.id));
@@ -1501,12 +1504,13 @@ function MessageCardImpl({
       <MessageToolMeta message={message} />
       {isUserBubble ? media : null}
       <ReasoningCollapsibleBody
-        collapsed={(isCollapsibleByBadge && badgeCollapsed) || collapsed}
+        collapsed={badgeBodyCollapsed}
         previewMaxHeight={
           isCollapsibleByBadge && badgeCollapsed
             ? REASONING_PREVIEW_MAX_HEIGHT_PX
             : RESPONSE_PREVIEW_MAX_HEIGHT_PX
         }
+        fadeBackground={style.background}
       >
         {message.kind === 'file_mutation_summary' ? (
           <FileMutationSummaryCard message={message} />
@@ -1522,7 +1526,7 @@ function MessageCardImpl({
           (activelyStreaming && effectiveFormat === 'plain_text') ? (
             <StreamingPlainTextReveal
               content={visibleContent}
-              streaming
+              streaming={!reasoningPreviewCollapsed}
               reduceMotion={reduceMotion}
               mono={style.mono === true}
             />
@@ -1757,16 +1761,17 @@ export const MessageCard = memo(MessageCardImpl);
 function ReasoningCollapsibleBody({
   collapsed,
   previewMaxHeight,
+  fadeBackground,
   children,
 }: {
   collapsed: boolean;
   previewMaxHeight: number;
+  fadeBackground: string;
   children: ComponentChildren;
 }) {
   // 始终设置 max-height（展开态 = 充分大的上限），以便 CSS transition 生效。
-  // mask-image 不能跨浏览器稳定 transition，由 [data-collapsed] 状态直接切换即可：
-  //  - 折叠中：max-height 动画下降，mask 同时生效，视觉上便是“窗帘拉下”；
-  //  - 展开中：max-height 上升同时饱和黑色 mask，不产生闪牌。
+  // 底部渐隐用 overlay 而不是 mask-image，避免和流式文本 reveal 的 inline
+  // mask 叠加后让已稳定文本在折叠态反复明暗闪动。
   return (
     <div
       class="oh-reasoning-collapsible-body"
@@ -1776,15 +1781,18 @@ function ReasoningCollapsibleBody({
         // 4000px 足以覆盖绝大多数长文本；超过部分不会被裁剪、不影响实际高度。
         maxHeight: collapsed ? `${previewMaxHeight}px` : '4000px',
         overflow: 'hidden',
-        WebkitMaskImage: collapsed
-          ? 'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)'
-          : 'linear-gradient(to bottom, #000 0, #000 100%, transparent 100%)',
-        maskImage: collapsed
-          ? 'linear-gradient(to bottom, #000 0, #000 65%, transparent 100%)'
-          : 'linear-gradient(to bottom, #000 0, #000 100%, transparent 100%)',
       }}
     >
       {children}
+      {collapsed ? (
+        <div
+          class="oh-reasoning-collapsible-fade"
+          aria-hidden="true"
+          style={{
+            background: `linear-gradient(to bottom, transparent, ${fadeBackground})`,
+          }}
+        />
+      ) : null}
     </div>
   );
 }

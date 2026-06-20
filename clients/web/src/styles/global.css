@@ -2495,15 +2495,14 @@ html, body, #root {
 }
 
 /* 思考/工具调用类型消息卡片的折叠正文容器。展开时无附加样式，折叠时
-   JSX 通过 inline style 设置 max-height + mask-image；data-collapsed 属性
+   JSX 通过 inline style 设置 max-height + 底部渐隐层；data-collapsed 属性
    用作状态 hook 以便未来扩展（如深色主题调色）。 */
 .oh-reasoning-collapsible-body {
+  position: relative;
   display: block;
-  /* 给 mask-image 留一个微妙的透出缓冲，避免最后一行紧贴底部。 */
+  /* 给底部渐隐层留一个微妙的透出缓冲，避免最后一行紧贴底部。 */
   padding-bottom: 2px;
-  /* 折叠 / 展开过渡：max-height 平滑变化，避免回合结束后或手动收起时生硬跳变。
-     mask-image 与 max-height 状态保持同步，由 inline style 直接切换（CSS 对
-     mask 的 transition 跨浏览器支持不稳定，不强行动画）。 */
+  /* 折叠 / 展开过渡：max-height 平滑变化，避免回合结束后或手动收起时生硬跳变。 */
   transition: max-height 360ms cubic-bezier(0.2, 0, 0, 1);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2512,9 +2511,16 @@ html, body, #root {
   }
 }
 .oh-reasoning-collapsible-body[data-collapsed='true'] {
-  /* mask-image 已在 inline style 处给出，这里只负责固定 box-sizing，
-     防止 box 继承 border-box 计算偏离。 */
+  /* 固定 box-sizing，防止 box 继承 border-box 计算偏离。 */
   box-sizing: border-box;
+}
+.oh-reasoning-collapsible-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  pointer-events: none;
 }
 
 .oh-message-action-button {

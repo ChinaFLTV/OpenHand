@@ -302,8 +302,17 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
   @override
   void didUpdateWidget(covariant _PlainTextPreviewBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data) {
+    final appendOnlyDataUpdate =
+        widget.data.length >= oldWidget.data.length &&
+        widget.data.startsWith(oldWidget.data);
+    final layoutInputsChanged =
+        oldWidget.maxHeight != widget.maxHeight ||
+        oldWidget.style != widget.style ||
+        oldWidget.textColor != widget.textColor;
+    if (layoutInputsChanged || !appendOnlyDataUpdate) {
       _contentHeight = null;
+      _atBottom = false;
+    } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
     }
   }
