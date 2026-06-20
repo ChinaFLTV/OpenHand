@@ -4389,7 +4389,6 @@ class WebMessagePlatformService {
     final hasExisting =
         existingRatio is num &&
         (existingRatio is double ? existingRatio > 0.0001 : existingRatio > 0);
-    if (hasExisting) return stats;
     final cacheRead = (stats['cache_read_tokens'] is int)
         ? stats['cache_read_tokens'] as int
         : 0;
@@ -4397,6 +4396,10 @@ class WebMessagePlatformService {
         ? stats['total_prompt_tokens'] as int
         : 0;
     if (cacheRead <= 0 || prompt <= 0) return stats;
+    final trendSchemaCurrent = _cacheHitTrendUsesRoundStarterSchema(
+      stats['cache_hit_trend_points'],
+    );
+    if (hasExisting && trendSchemaCurrent) return stats;
     final protocol = _lastModelProtocolForSession(session);
     final claudeStyle =
         protocol != null && protocol.trim().toLowerCase() == 'claude';
@@ -4415,6 +4418,9 @@ class WebMessagePlatformService {
             'prompt_tokens': p.promptTokens,
             'cache_read_tokens': p.cacheReadTokens,
             'cache_write_tokens': p.cacheWriteTokens,
+            'starter_message_id': p.starterMessageId,
+            'starter_message_kind': p.starterMessageKind,
+            'starter_origin': p.starterOrigin,
             if (p.idleGapSeconds != null) 'idle_gap_seconds': p.idleGapSeconds,
           },
         )
@@ -4424,6 +4430,21 @@ class WebMessagePlatformService {
     stats['cache_hit_trend_excluded_count'] =
         trend.points.length - display.trend.points.length;
     return stats;
+  }
+
+  bool _cacheHitTrendUsesRoundStarterSchema(Object? value) {
+    if (value is! List || value.isEmpty) return false;
+    for (final item in value) {
+      final Map<String, Object?>? point = switch (item) {
+        final Map<String, Object?> typed => typed,
+        final Map raw => Map<String, Object?>.from(raw),
+        _ => null,
+      };
+      if (point == null || !point.containsKey('starter_origin')) {
+        return false;
+      }
+    }
+    return true;
   }
 
   _WebSessionMessageWindow _messageWindowFromDisplayMessages(
@@ -4796,6 +4817,9 @@ class WebMessagePlatformService {
       'model_id': message.modelId,
       'model_label': message.modelLabel,
       if (usage != null) 'usage': usage.toJson(),
+      'sender_origin': message.senderOrigin,
+      'conversation_side': message.conversationSide,
+      'starts_conversation_round': message.startsConversationRound,
       'metadata': message.metadata,
     };
   }

@@ -48,6 +48,14 @@ enum AiSessionMessageRole {
 
 const String aiSessionMessageMetadataStreamingKey = 'streaming';
 const String aiSessionMessageContentFormatKey = 'content_format';
+const String aiSessionMessageSenderOriginExplicitUser = 'explicit_user';
+const String aiSessionMessageSenderOriginOpenHandBackground =
+    'openhand_background';
+const String aiSessionMessageSenderOriginAiModel = 'ai_model';
+const String aiSessionMessageSenderOriginOpenHandSystem = 'openhand_system';
+const String aiSessionMessageConversationSideNonAi = 'non_ai';
+const String aiSessionMessageConversationSideAi = 'ai';
+const String aiSessionMessageConversationSideSystem = 'system';
 
 class AiSessionMessage {
   factory AiSessionMessage.fromJson(Map<String, Object?> json) {
@@ -334,6 +342,56 @@ class AiSessionMessage {
   final AiTokenUsage? usage;
   final Map<String, Object?> metadata;
 
+  bool get isOpenHandBackgroundInput {
+    return kind == AiSessionMessageKind.tool ||
+        kind == AiSessionMessageKind.mcp ||
+        kind == AiSessionMessageKind.skill ||
+        kind == AiSessionMessageKind.hook;
+  }
+
+  bool get startsConversationRound {
+    if (isDeleted) {
+      return false;
+    }
+    return kind == AiSessionMessageKind.user || isOpenHandBackgroundInput;
+  }
+
+  bool get isAiSideConversationMessage {
+    if (isDeleted) {
+      return false;
+    }
+    return kind == AiSessionMessageKind.assistant ||
+        kind == AiSessionMessageKind.reasoning ||
+        kind == AiSessionMessageKind.toolCall;
+  }
+
+  String get senderOrigin {
+    if (kind == AiSessionMessageKind.user) {
+      return aiSessionMessageSenderOriginExplicitUser;
+    }
+    if (isOpenHandBackgroundInput) {
+      return aiSessionMessageSenderOriginOpenHandBackground;
+    }
+    if (kind == AiSessionMessageKind.assistant ||
+        kind == AiSessionMessageKind.reasoning ||
+        kind == AiSessionMessageKind.toolCall) {
+      return aiSessionMessageSenderOriginAiModel;
+    }
+    return aiSessionMessageSenderOriginOpenHandSystem;
+  }
+
+  String get conversationSide {
+    if (kind == AiSessionMessageKind.user || isOpenHandBackgroundInput) {
+      return aiSessionMessageConversationSideNonAi;
+    }
+    if (kind == AiSessionMessageKind.assistant ||
+        kind == AiSessionMessageKind.reasoning ||
+        kind == AiSessionMessageKind.toolCall) {
+      return aiSessionMessageConversationSideAi;
+    }
+    return aiSessionMessageConversationSideSystem;
+  }
+
   bool get isVisible =>
       !isDeleted &&
       (kind != AiSessionMessageKind.status ||
@@ -388,8 +446,8 @@ class AiSessionMessage {
     );
   }
 
-  Map<String, Object?> toJson() {
-    return <String, Object?>{
+  Map<String, Object?> toJson({bool includeDerivedFields = false}) {
+    final payload = <String, Object?>{
       'id': id,
       'kind': kind.storageValue,
       'role': role.storageValue,
@@ -402,6 +460,14 @@ class AiSessionMessage {
       'usage': usage?.toJson(),
       'metadata': metadata,
     };
+    if (includeDerivedFields) {
+      payload.addAll(<String, Object?>{
+        'sender_origin': senderOrigin,
+        'conversation_side': conversationSide,
+        'starts_conversation_round': startsConversationRound,
+      });
+    }
+    return payload;
   }
 
   static int countCharacters(String input) {

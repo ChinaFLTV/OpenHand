@@ -1083,8 +1083,9 @@ class AiSessionStatistics {
   /// 漂移。范围 0.0..1.0。无任何 token 数据时为 null。
   final double? cacheHitRatio;
 
-  /// 2026-06-08 — 后端预计算的逐轮次趋势点（turnIndex, hitRatio,
-  /// idleGapSeconds）。WEB 端不再独立 walk messages 重算，直接消费。
+  /// 2026-06-08 — 后端预计算的逐轮次趋势点。轮次从非 AI 侧消息开始：
+  /// 显式用户消息或 OpenHand 后台写入的工具结果。WEB 端不再独立 walk
+  /// messages 重算，直接消费。
   final List<AiSessionCacheHitTrendPoint> cacheHitTrendPoints;
 
   /// 2026-06-08 — 被「排除极端值」模式过滤掉的轮次数（idle_gap>=30min 且
@@ -1309,6 +1310,9 @@ class AiSessionCacheHitTrendPoint {
     required this.promptTokens,
     required this.cacheReadTokens,
     required this.cacheWriteTokens,
+    this.starterMessageId,
+    this.starterMessageKind,
+    this.starterOrigin,
     this.idleGapSeconds,
   });
 
@@ -1329,6 +1333,9 @@ class AiSessionCacheHitTrendPoint {
       cacheWriteTokens: (json['cache_write_tokens'] is num)
           ? (json['cache_write_tokens'] as num).toInt()
           : 0,
+      starterMessageId: _readString(json['starter_message_id']),
+      starterMessageKind: _readString(json['starter_message_kind']),
+      starterOrigin: _readString(json['starter_origin']),
       idleGapSeconds: (json['idle_gap_seconds'] is num)
           ? (json['idle_gap_seconds'] as num).toInt()
           : null,
@@ -1340,6 +1347,9 @@ class AiSessionCacheHitTrendPoint {
   final int promptTokens;
   final int cacheReadTokens;
   final int cacheWriteTokens;
+  final String? starterMessageId;
+  final String? starterMessageKind;
+  final String? starterOrigin;
   final int? idleGapSeconds;
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -1348,8 +1358,17 @@ class AiSessionCacheHitTrendPoint {
     'prompt_tokens': promptTokens,
     'cache_read_tokens': cacheReadTokens,
     'cache_write_tokens': cacheWriteTokens,
+    if (starterMessageId != null) 'starter_message_id': starterMessageId,
+    if (starterMessageKind != null) 'starter_message_kind': starterMessageKind,
+    if (starterOrigin != null) 'starter_origin': starterOrigin,
     if (idleGapSeconds != null) 'idle_gap_seconds': idleGapSeconds,
   };
+
+  static String? _readString(Object? value) {
+    final text = '${value ?? ''}'.trim();
+    if (text.isEmpty || text == 'null') return null;
+    return text;
+  }
 }
 
 class AiSessionErrorRecord {

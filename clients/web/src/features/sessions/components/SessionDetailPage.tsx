@@ -5295,6 +5295,9 @@ function buildSessionCacheHitDisplay(
       points: backendTrendPoints.map((p) => ({
         turnIndex: p.turn_index,
         hitRatio: p.hit_ratio,
+        starterMessageId: p.starter_message_id ?? null,
+        starterMessageKind: p.starter_message_kind ?? null,
+        starterOrigin: p.starter_origin ?? null,
         idleGapSeconds: p.idle_gap_seconds ?? null,
       })),
       averageRatio: backendHitRatio,

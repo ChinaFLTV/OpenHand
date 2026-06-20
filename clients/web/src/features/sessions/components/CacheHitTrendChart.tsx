@@ -3,6 +3,9 @@ import { useRef, useState, useEffect, useCallback, useMemo } from 'preact/hooks'
 interface TrendPoint {
   turnIndex: number;
   hitRatio: number;
+  starterMessageId?: string | null;
+  starterMessageKind?: string | null;
+  starterOrigin?: string | null;
   idleGapSeconds?: number | null;
 }
 
@@ -131,7 +134,9 @@ export default function CacheHitTrendChart({
 
   const filteredPoints = useMemo(() => {
     if (displayMode === 'includeAll') return points;
-    return points.filter((p) => !isExtremeIdleExpiryMiss(p));
+    return points.filter(
+      (p) => p.turnIndex !== 1 && !isExtremeIdleExpiryMiss(p),
+    );
   }, [points, displayMode]);
 
   const excludedCount = points.length - filteredPoints.length;

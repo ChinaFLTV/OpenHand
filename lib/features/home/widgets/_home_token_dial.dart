@@ -31,7 +31,9 @@ class _TokenDial extends StatefulWidget {
   /// 永远显示同一数字。
   double get cacheHitRatio {
     final precomputed = session.statistics.cacheHitRatio;
-    if (precomputed != null) return precomputed.clamp(0.0, 1.0);
+    if (precomputed != null && _cacheHitTrendUsesRoundStarterSchema) {
+      return precomputed.clamp(0.0, 1.0);
+    }
     final trend = SessionCacheHitTrend.fromSession(
       session,
       claudeStyle: claudeStyle,
@@ -39,6 +41,12 @@ class _TokenDial extends StatefulWidget {
     return trend
         .displayData(SessionCacheHitDisplayMode.excludeExtremeMisses)
         .averageHitRatio;
+  }
+
+  bool get _cacheHitTrendUsesRoundStarterSchema {
+    final points = session.statistics.cacheHitTrendPoints;
+    return points.isNotEmpty &&
+        points.every((point) => point.starterOrigin != null);
   }
 
   @override

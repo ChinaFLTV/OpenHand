@@ -9529,6 +9529,9 @@ $tail''';
                 promptTokens: p.promptTokens,
                 cacheReadTokens: p.cacheReadTokens,
                 cacheWriteTokens: p.cacheWriteTokens,
+                starterMessageId: p.starterMessageId,
+                starterMessageKind: p.starterMessageKind,
+                starterOrigin: p.starterOrigin,
                 idleGapSeconds: p.idleGapSeconds,
               ),
             )

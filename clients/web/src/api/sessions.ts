@@ -116,6 +116,14 @@ export interface SessionMessage {
   model_id?: string;
   model_label?: string;
   usage?: SessionMessageUsage | null;
+  sender_origin?:
+    | 'explicit_user'
+    | 'openhand_background'
+    | 'ai_model'
+    | 'openhand_system'
+    | string;
+  conversation_side?: 'non_ai' | 'ai' | 'system' | string;
+  starts_conversation_round?: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -161,6 +169,9 @@ export interface SessionCacheHitTrendPoint {
   prompt_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  starter_message_id?: string | null;
+  starter_message_kind?: string | null;
+  starter_origin?: string | null;
   idle_gap_seconds?: number | null;
 }
 

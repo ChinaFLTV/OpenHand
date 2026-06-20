@@ -67,6 +67,9 @@ int resolveSessionCacheHitBarPromptTokens({
 class SessionCacheHitTurnPoint {
   const SessionCacheHitTurnPoint({
     required this.turnIndex,
+    required this.starterMessageId,
+    required this.starterMessageKind,
+    required this.starterOrigin,
     required this.timestamp,
     required this.hitRatio,
     required this.averageHitRatio,
@@ -80,6 +83,9 @@ class SessionCacheHitTurnPoint {
   });
 
   final int turnIndex;
+  final String starterMessageId;
+  final String starterMessageKind;
+  final String starterOrigin;
   final DateTime timestamp;
   final double hitRatio;
   final double averageHitRatio;
@@ -185,11 +191,18 @@ class SessionCacheHitTrend {
   bool get hasExtremeIdleExpiryMisses => points.any(_isExtremeIdleExpiryMiss);
 
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
+    // A cache round starts at each non-AI-side input: explicit user messages
+    // and OpenHand-produced tool results. The first round is still visible in
+    // "include all", but excluded from the cleaned trend and averages because
+    // it is a structural cold miss.
     final filteredPoints = switch (mode) {
       SessionCacheHitDisplayMode.includeAll => points,
       SessionCacheHitDisplayMode.excludeExtremeMisses =>
         points
-            .where((point) => !_isExtremeIdleExpiryMiss(point))
+            .where(
+              (point) =>
+                  point.turnIndex != 1 && !_isExtremeIdleExpiryMiss(point),
+            )
             .toList(growable: false),
     };
     var cacheReadTokens = 0;
@@ -235,20 +248,19 @@ class SessionCacheHitTrend {
     var averagePromptTotal = 0;
     var averageCacheReadTotal = 0;
 
-    for (var index = 0; index < session.visibleMessages.length; index++) {
-      final message = session.visibleMessages[index];
-      if (message.kind != AiSessionMessageKind.user) {
+    for (var index = 0; index < session.messages.length; index++) {
+      final message = session.messages[index];
+      if (!message.startsConversationRound) {
         continue;
       }
-      final assistantMessage = _cacheHitRelatedTelemetryMessage(
+      final telemetryMessage = _cacheHitRelatedTelemetryMessage(
         session,
         message,
       );
-      if (assistantMessage == null ||
-          assistantMessage.kind != AiSessionMessageKind.assistant) {
+      if (telemetryMessage == null) {
         continue;
       }
-      final usage = assistantMessage.usage ?? message.usage;
+      final usage = telemetryMessage.usage ?? message.usage;
       final promptTokens = usage?.promptTokens ?? 0;
       final cacheReadTokens = usage?.cacheReadTokens ?? 0;
       final cacheWriteTokens = usage?.cacheCreationTokens ?? 0;
@@ -273,14 +285,17 @@ class SessionCacheHitTrend {
         cacheReadTokens: averageCacheReadTotal,
         claudeStyle: claudeStyle,
       );
-      final previousUserMessage = _previousUserMessage(session, message.id);
-      final fallbackIdleGapSeconds = previousUserMessage == null
+      final previousRoundStarter = _previousRoundStarterMessage(
+        session,
+        message.id,
+      );
+      final fallbackIdleGapSeconds = previousRoundStarter == null
           ? null
           : message.createdAt
-                .difference(previousUserMessage.createdAt)
+                .difference(previousRoundStarter.createdAt)
                 .inSeconds;
       final diagnostics = _cacheHitDiagnostics(
-        primaryMetadata: assistantMessage.metadata,
+        primaryMetadata: telemetryMessage.metadata,
         relatedMetadata: message.metadata,
         fallbackIdleGapSeconds: fallbackIdleGapSeconds,
         hitRatio: hitRatio,
@@ -289,7 +304,10 @@ class SessionCacheHitTrend {
       points.add(
         SessionCacheHitTurnPoint(
           turnIndex: turnIndex,
-          timestamp: assistantMessage.createdAt,
+          starterMessageId: message.id,
+          starterMessageKind: message.kind.storageValue,
+          starterOrigin: message.senderOrigin,
+          timestamp: telemetryMessage.createdAt,
           hitRatio: hitRatio.clamp(0.0, 1.0),
           averageHitRatio: averageHitRatio.isFinite
               ? averageHitRatio.clamp(0.0, 1.0)
@@ -335,19 +353,19 @@ class _CacheHitDiagnostics {
   final bool automaticProviderMissSuspected;
 }
 
-AiSessionMessage? _previousUserMessage(
+AiSessionMessage? _previousRoundStarterMessage(
   AiSession session,
-  String currentUserMessageId,
+  String currentStarterMessageId,
 ) {
   final startIndex = session.messages.indexWhere(
-    (item) => item.id == currentUserMessageId,
+    (item) => item.id == currentStarterMessageId,
   );
   if (startIndex <= 0) {
     return null;
   }
   for (var index = startIndex - 1; index >= 0; index--) {
     final candidate = session.messages[index];
-    if (!candidate.isDeleted && candidate.kind == AiSessionMessageKind.user) {
+    if (candidate.startsConversationRound) {
       return candidate;
     }
   }
@@ -356,29 +374,30 @@ AiSessionMessage? _previousUserMessage(
 
 AiSessionMessage? _cacheHitRelatedTelemetryMessage(
   AiSession session,
-  AiSessionMessage userMessage,
+  AiSessionMessage starterMessage,
 ) {
   final startIndex = session.messages.indexWhere(
-    (item) => item.id == userMessage.id,
+    (item) => item.id == starterMessage.id,
   );
   if (startIndex == -1) {
     return null;
   }
-  AiSessionMessage? firstAssistantReply;
+  AiSessionMessage? firstAiReply;
   AiSessionMessage? fallbackTelemetry;
   for (var index = startIndex + 1; index < session.messages.length; index++) {
     final candidate = session.messages[index];
-    if (candidate.kind == AiSessionMessageKind.user) {
-      break;
-    }
     if (candidate.isDeleted) {
       continue;
     }
-    if (candidate.kind == AiSessionMessageKind.assistant) {
-      firstAssistantReply ??= candidate;
-      if (candidate.usage != null) {
-        return candidate;
-      }
+    if (candidate.startsConversationRound) {
+      break;
+    }
+    if (!candidate.isAiSideConversationMessage) {
+      continue;
+    }
+    firstAiReply ??= candidate;
+    if (candidate.usage != null) {
+      return candidate;
     }
     final metadata = candidate.metadata;
     final hasTelemetry =
@@ -392,7 +411,7 @@ AiSessionMessage? _cacheHitRelatedTelemetryMessage(
         metadata.containsKey('telemetry');
     fallbackTelemetry ??= hasTelemetry ? candidate : null;
   }
-  return firstAssistantReply ?? fallbackTelemetry;
+  return fallbackTelemetry ?? firstAiReply;
 }
 
 _CacheHitDiagnostics _cacheHitDiagnostics({

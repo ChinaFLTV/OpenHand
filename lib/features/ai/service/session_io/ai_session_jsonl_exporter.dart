@@ -203,7 +203,10 @@ String encodeAiSessionToJsonlText({
   );
   for (final message in selection.messages) {
     buffer.writeln(
-      _encodePayload(<String, Object?>{'type': 'message', ...message.toJson()}),
+      _encodePayload(<String, Object?>{
+        'type': 'message',
+        ...message.toJson(includeDerivedFields: true),
+      }),
     );
   }
   return buffer.toString();
@@ -334,7 +337,10 @@ Future<ExportResult> exportAiSessionToJsonl({
         );
       }
       final message = messages[i];
-      await emit(<String, Object?>{'type': 'message', ...message.toJson()});
+      await emit(<String, Object?>{
+        'type': 'message',
+        ...message.toJson(includeDerivedFields: true),
+      });
       if ((i + 1) % _flushEvery == 0) {
         await localSink.flush();
         onProgress?.call(ExportProgress(processed: lines, total: total));
