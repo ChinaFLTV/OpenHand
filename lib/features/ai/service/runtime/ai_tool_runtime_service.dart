@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -19,6 +20,7 @@ import '../../model/ai_session_runtime_context.dart';
 import '../../tools/ai_tool_registry.dart';
 import '../../tools/ai_tool_utils.dart';
 import '../../tools/memory/ai_memory_tool.dart';
+import '../../tools/web_reverse_cdp_first_guard.dart';
 import '../bash/ai_bash_tool_service.dart';
 import '../chat/ai_chat_service.dart';
 import '../chat/ai_protocol_adapter.dart';
@@ -807,6 +809,7 @@ class AiToolRuntimeService {
           tool: resolvedTool,
           toolCall: toolCall,
           decodedArguments: decodedArguments,
+          metadata: metadata,
         ),
         AiRuntimeToolSource.skill => _executeSkillTool(
           tool: resolvedTool,
@@ -1489,12 +1492,21 @@ class AiToolRuntimeService {
     required AiResolvedTool tool,
     required AiToolCall toolCall,
     required Map<String, Object?> decodedArguments,
+    required Map<String, Object?> metadata,
   }) async {
     final server = tool.mcpServer;
     final mcpTool = tool.mcpTool;
     if (server == null || mcpTool == null) {
       return _invalidToolResult(toolCall.name, 'Missing MCP tool metadata.');
     }
+    final cdpFirstBlock = _webReverseMcpCdpFirstBlock(
+      tool: tool,
+      toolCall: toolCall,
+      decodedArguments: decodedArguments,
+      metadata: metadata,
+    );
+    if (cdpFirstBlock != null) return cdpFirstBlock;
+
     final startedAt = Stopwatch()..start();
     final result = await _mcpToolService.callTool(
       server: server,
@@ -1523,6 +1535,163 @@ class AiToolRuntimeService {
         'mcp_is_error': result.isError,
       },
     );
+  }
+
+  AiToolExecutionResult? _webReverseMcpCdpFirstBlock({
+    required AiResolvedTool tool,
+    required AiToolCall toolCall,
+    required Map<String, Object?> decodedArguments,
+    required Map<String, Object?> metadata,
+  }) {
+    if (!WebReverseCdpFirstGuard.isRequired(metadata: metadata)) {
+      return null;
+    }
+    if (_isCdpMcpTool(tool)) {
+      return null;
+    }
+    if (_isNonCdpBrowserAutomationMcpTool(tool)) {
+      final message =
+          '${tool.name} is blocked for Web Reverse because target-origin browser automation must use the OpenHand-managed CDP session. Use CDP MCP tools or local jsonl/HAR artifacts instead.';
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.invalidArguments,
+        command: tool.name,
+        workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+        stdout: '',
+        stderr: message,
+        durationMs: 0,
+        resultText: 'status: invalid_arguments\nerror: $message',
+        metadata: <String, Object?>{
+          'tool_source': 'mcp',
+          'mcp_server_name': tool.mcpServer?.name,
+          'mcp_tool_id': tool.mcpTool?.id,
+          'mcp_tool_name': tool.mcpTool?.name,
+          'web_reverse_mcp_blocked_for_cdp_first': true,
+          'web_reverse_mcp_block_reason': 'non_cdp_browser_automation',
+        },
+      );
+    }
+
+    final argumentsText = _jsonishText(decodedArguments);
+    final decision = WebReverseCdpFirstGuard.evaluateTextReference(
+      text: argumentsText,
+      metadata: metadata,
+    );
+    if (decision == null) return null;
+    final message = decision.blockedMessage('MCP');
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.invalidArguments,
+      command: tool.name,
+      workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+      stdout: '',
+      stderr: message,
+      durationMs: 0,
+      resultText: 'status: invalid_arguments\nerror: $message',
+      metadata: <String, Object?>{
+        'tool_source': 'mcp',
+        'mcp_server_name': tool.mcpServer?.name,
+        'mcp_tool_id': tool.mcpTool?.id,
+        'mcp_tool_name': tool.mcpTool?.name,
+        ...decision.metadata(
+          requestedUrl: argumentsText,
+          blockedFlag: 'web_reverse_mcp_blocked_for_cdp_first',
+        ),
+      },
+    );
+  }
+
+  bool _isNonCdpBrowserAutomationMcpTool(AiResolvedTool tool) {
+    final identity = _mcpToolIdentity(tool);
+    if (identity.isEmpty) return false;
+    if (_hasCdpMcpSignal(identity)) return false;
+    if (_containsAny(identity, const <String>[
+      '@playwright/mcp',
+      'playwright',
+      'puppeteer',
+      'selenium',
+      'webdriver',
+      'browserless',
+    ])) {
+      return true;
+    }
+    final hasBrowserHost = _containsAny(identity, const <String>[
+      'browser',
+      'chrome',
+      'chromium',
+      'edge',
+      'page',
+    ]);
+    final hasBrowserAction = _containsAny(identity, const <String>[
+      'click',
+      'evaluate',
+      'fill',
+      'hover',
+      'navigate',
+      'navigation',
+      'press',
+      'screenshot',
+      'select',
+      'upload',
+      'wait',
+    ]);
+    return hasBrowserHost && hasBrowserAction;
+  }
+
+  bool _isCdpMcpTool(AiResolvedTool tool) {
+    return _hasCdpMcpSignal(_mcpToolIdentity(tool));
+  }
+
+  bool _hasCdpMcpSignal(String identity) {
+    return _containsAny(identity, const <String>[
+          'chrome-devtools-mcp',
+          'chrome devtools protocol',
+          'chrome-devtools',
+          'chrome_devtools',
+          'devtools protocol',
+        ]) ||
+        RegExp(r'(^|[^a-z0-9])cdp([^a-z0-9]|$)').hasMatch(identity);
+  }
+
+  String _mcpToolIdentity(AiResolvedTool tool) {
+    final server = tool.mcpServer;
+    final mcpTool = tool.mcpTool;
+    final parts = <Object?>[
+      tool.name,
+      tool.definition.name,
+      tool.definition.description,
+      server?.name,
+      server?.summary,
+      server?.command,
+      if (server != null) ...server.args,
+      server?.url,
+      mcpTool?.id,
+      mcpTool?.name,
+      mcpTool?.description,
+      mcpTool?.outputDescription,
+      mcpTool?.annotations,
+      mcpTool?.execution,
+      mcpTool?.rawMetadata,
+    ];
+    return parts
+        .where((part) => part != null)
+        .map((part) => '$part'.trim())
+        .where((part) => part.isNotEmpty)
+        .join('\n')
+        .toLowerCase();
+  }
+
+  bool _containsAny(String value, Iterable<String> needles) {
+    for (final needle in needles) {
+      if (value.contains(needle)) return true;
+    }
+    return false;
+  }
+
+  String _jsonishText(Map<String, Object?> value) {
+    try {
+      return jsonEncode(value);
+    } catch (_) {
+      return value.toString();
+    }
   }
 
   Future<AiToolExecutionResult> _executeSkillTool({

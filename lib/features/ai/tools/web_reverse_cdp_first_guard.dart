@@ -79,6 +79,11 @@ class WebReverseCdpFirstDecision {
 class WebReverseCdpFirstGuard {
   const WebReverseCdpFirstGuard._();
 
+  static bool isRequired({required Map<String, Object?> metadata}) {
+    final runtime = _webReverseRuntimeFromMetadata(metadata);
+    return runtime != null && _boolValue(runtime['cdp_first_required']);
+  }
+
   static WebReverseCdpFirstDecision? evaluateUrl({
     required Uri requestedUri,
     required Map<String, Object?> metadata,
