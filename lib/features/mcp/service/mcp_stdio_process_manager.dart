@@ -602,7 +602,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         if (result.exitCode == 0) {
           final rssKb = int.tryParse(result.stdout.toString().trim());
           if (rssKb != null) {
-            info['内存 (RSS)'] = _formatBytes(rssKb * 1024);
+            info['内存 (RSS)'] = formatByteSize(rssKb * 1024);
           }
         }
       } catch (error, stack) {
@@ -645,7 +645,7 @@ class McpStdioProcessManager extends ChangeNotifier {
             fileCount++;
           }
         }
-        info['缓存大小'] = _formatBytes(totalSize);
+        info['缓存大小'] = formatByteSize(totalSize);
         info['缓存文件数'] = '$fileCount';
       } catch (error, stack) {
         silentLog(
@@ -674,8 +674,6 @@ class McpStdioProcessManager extends ChangeNotifier {
     if (d.inMinutes > 0) return '${d.inMinutes}分 ${d.inSeconds % 60}秒';
     return '${d.inSeconds}秒';
   }
-
-  static String _formatBytes(int bytes) => formatByteSize(bytes);
 
   @override
   void dispose() {

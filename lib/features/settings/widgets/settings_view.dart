@@ -723,7 +723,7 @@ class _SettingsViewState extends State<SettingsView> {
       _estimatedCharactersPerTokenController.text =
           estimatedCharactersPerTokenText;
     }
-    final imageSizeLimitText = _formatImageSizeLimitInput(
+    final imageSizeLimitText = formatMegabytesInput(
       settingsController.aiImageSizeLimitBytes,
     );
     if (!_imageSizeLimitFocusNode.hasFocus &&
@@ -5258,19 +5258,6 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  /// Renders [bytes] as a human-friendly MB value used by the limit field.
-  ///
-  /// Examples: `1048576 -> '1'`, `1572864 -> '1.5'`. Trims trailing
-  /// zeros so values like `2.0` show as `'2'`.
-  String _formatImageSizeLimitInput(int bytes) {
-    final mb = bytes / kBytesPerMiB;
-    final fixed = mb.toStringAsFixed(2);
-    final trimmed = fixed
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
-    return trimmed.isEmpty ? '1' : trimmed;
-  }
-
   Future<void> _saveImageSizeLimit(
     BuildContext context,
     String rawValue,
@@ -5285,7 +5272,12 @@ class _SettingsViewState extends State<SettingsView> {
       );
       return;
     }
-    final bytes = (parsedValue * kBytesPerMiB).round();
+    final bytes = megabytesTextToBytes(
+      rawValue,
+      fallbackBytes: AppSettingsSnapshot.defaultAiImageSizeLimitBytes,
+      minBytes: AppSettingsSnapshot.minAiImageSizeLimitBytes,
+      maxBytes: AppSettingsSnapshot.maxAiImageSizeLimitBytes,
+    );
     final saved = await context
         .read<SettingsController>()
         .updateAiImageSizeLimitBytes(bytes);
@@ -5293,7 +5285,7 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     if (!saved) {
-      _imageSizeLimitController.text = _formatImageSizeLimitInput(
+      _imageSizeLimitController.text = formatMegabytesInput(
         context.read<SettingsController>().aiImageSizeLimitBytes,
       );
       _showPersistenceFailureSnackBar(context);
@@ -5302,7 +5294,7 @@ class _SettingsViewState extends State<SettingsView> {
     final effectiveBytes = context
         .read<SettingsController>()
         .aiImageSizeLimitBytes;
-    _imageSizeLimitController.text = _formatImageSizeLimitInput(effectiveBytes);
+    _imageSizeLimitController.text = formatMegabytesInput(effectiveBytes);
     _showSnackBar(
       context,
       l10n.aiImageSizeLimitSaved,

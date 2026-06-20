@@ -1198,7 +1198,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                     .take(12)
                     .map((file) {
                       return _TinyTextChip(
-                        label: '${file.path} · ${_formatBytes(file.size)}',
+                        label: '${file.path} · ${formatByteSize(file.size)}',
                       );
                     })
                     .toList(growable: false),
@@ -1538,8 +1538,6 @@ String _formatCount(int value) {
   }
   return '$value';
 }
-
-String _formatBytes(int bytes) => formatByteSize(bytes);
 
 String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
   if (markdown.length <= maxChars) {

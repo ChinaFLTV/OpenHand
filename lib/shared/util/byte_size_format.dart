@@ -27,9 +27,10 @@ String formatNullableByteSize(int? bytes, {String pendingLabel = '...'}) {
 String formatMegabytesInput(int bytes) {
   if (bytes <= 0) return '0';
   final mb = bytes / kBytesPerMiB;
-  return mb >= 100
+  final fixed = mb >= 100
       ? mb.toStringAsFixed(0)
       : (mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2));
+  return _trimFractionZeros(fixed);
 }
 
 int megabytesTextToBytes(
@@ -47,4 +48,12 @@ int megabytesTextToBytes(
   final lower = minBytes <= maxBytes ? minBytes : maxBytes;
   final upper = minBytes <= maxBytes ? maxBytes : minBytes;
   return bytes.clamp(lower, upper).toInt();
+}
+
+String _trimFractionZeros(String value) {
+  if (!value.contains('.')) return value;
+  final trimmed = value
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
+  return trimmed.isEmpty ? '0' : trimmed;
 }
