@@ -677,25 +677,33 @@ class _NetworkRow extends StatelessWidget {
           duration: const Duration(seconds: 1),
         );
       case 'copy_curl':
-        await Clipboard.setData(
-          ClipboardData(text: _asCurl(entry, windows: false)),
+        final copied = await setWebReverseClipboardText(
+          _asCurl(entry, windows: false),
         );
         if (!context.mounted) return;
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          isZh ? '已复制 cURL' : 'cURL copied',
+          webReverseClipboardSnackMessage(
+            isZh: isZh,
+            base: isZh ? '已复制 cURL' : 'cURL copied',
+            result: copied,
+          ),
           duration: const Duration(seconds: 1),
         );
       case 'copy_fetch':
-        await Clipboard.setData(
-          ClipboardData(text: _asFetch(entry, node: false)),
+        final copied = await setWebReverseClipboardText(
+          _asFetch(entry, node: false),
         );
         if (!context.mounted) return;
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          isZh ? '已复制 fetch' : 'fetch copied',
+          webReverseClipboardSnackMessage(
+            isZh: isZh,
+            base: isZh ? '已复制 fetch' : 'fetch copied',
+            result: copied,
+          ),
           duration: const Duration(seconds: 1),
         );
       case 'block':
@@ -828,12 +836,16 @@ class _NetworkRow extends StatelessWidget {
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: body));
+              final copied = await setWebReverseClipboardText(body);
               if (!dialogContext.mounted) return;
               OpenHandSnackBar.showSuccessOn(
                 dialogContext,
                 messenger,
-                isZh ? '响应体已复制' : 'Body copied',
+                webReverseClipboardSnackMessage(
+                  isZh: isZh,
+                  base: isZh ? '响应体已复制' : 'Body copied',
+                  result: copied,
+                ),
                 duration: _kReplayCopySnackBarDuration,
               );
             },

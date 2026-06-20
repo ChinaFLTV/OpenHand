@@ -20,12 +20,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseSignatureDiffDialog(
@@ -63,9 +63,8 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
       if (_selected != null) {
         _selected = _groups.firstWhere(
           (g) => g.key == _selected!.key,
-          orElse: () => _groups.isEmpty
-              ? _EndpointGroup.empty()
-              : _groups.first,
+          orElse: () =>
+              _groups.isEmpty ? _EndpointGroup.empty() : _groups.first,
         );
         if (_selected!.samples.isEmpty) _selected = null;
       } else if (_groups.isNotEmpty) {
@@ -82,8 +81,8 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     final filtered = _filter.isEmpty
         ? _groups
         : _groups
-            .where((g) => g.key.toLowerCase().contains(_filter.toLowerCase()))
-            .toList(growable: false);
+              .where((g) => g.key.toLowerCase().contains(_filter.toLowerCase()))
+              .toList(growable: false);
     return Dialog(
       backgroundColor: cs.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -129,7 +128,8 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  loc?.webReverseSignatureDiffHeaderTitle ?? 'Signature Field Locator',
+                  loc?.webReverseSignatureDiffHeaderTitle ??
+                      'Signature Field Locator',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -173,7 +173,8 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             decoration: InputDecoration(
               isDense: true,
               prefixIcon: const Icon(Icons.search_rounded, size: 18),
-              hintText: loc?.webReverseSignatureDiffSearchHint ?? 'Search endpoint',
+              hintText:
+                  loc?.webReverseSignatureDiffSearchHint ?? 'Search endpoint',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -184,7 +185,8 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
           child: filtered.isEmpty
               ? Center(
                   child: Text(
-                    loc?.webReverseSignatureDiffNoGroups ?? 'No analyzable groups (need ≥2 samples)',
+                    loc?.webReverseSignatureDiffNoGroups ??
+                        'No analyzable groups (need ≥2 samples)',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -226,9 +228,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                       g.method,
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        fontFamily: 'monospace',
-                                      ),
+                                            fontWeight: FontWeight.w800,
+                                            fontFamily: 'monospace',
+                                          ),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
@@ -245,9 +247,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                       '×${g.samples.length}',
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        color: cs.onTertiaryContainer,
-                                      ),
+                                            fontWeight: FontWeight.w800,
+                                            color: cs.onTertiaryContainer,
+                                          ),
                                     ),
                                   ),
                                   const Spacer(),
@@ -265,9 +267,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                         '${g.dynamicCount} dyn',
                                         style: theme.textTheme.labelSmall
                                             ?.copyWith(
-                                          color: cs.onErrorContainer,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                              color: cs.onErrorContainer,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                       ),
                                     ),
                                 ],
@@ -344,7 +346,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               TextButton.icon(
                 onPressed: () => _copyReport(g, loc),
                 icon: const Icon(Icons.copy_rounded, size: 16),
-                label: Text(loc?.webReverseSignatureDiffCopyReport ?? 'Copy report'),
+                label: Text(
+                  loc?.webReverseSignatureDiffCopyReport ?? 'Copy report',
+                ),
               ),
             ],
           ),
@@ -392,11 +396,26 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             padding: const EdgeInsets.all(12),
             children: [
               if (g.queryFields.isNotEmpty)
-                _section(theme, cs, loc?.webReverseSignatureDiffSectionQuery ?? 'Query', g.queryFields),
+                _section(
+                  theme,
+                  cs,
+                  loc?.webReverseSignatureDiffSectionQuery ?? 'Query',
+                  g.queryFields,
+                ),
               if (g.headerFields.isNotEmpty)
-                _section(theme, cs, loc?.webReverseSignatureDiffSectionHeaders ?? 'Headers', g.headerFields),
+                _section(
+                  theme,
+                  cs,
+                  loc?.webReverseSignatureDiffSectionHeaders ?? 'Headers',
+                  g.headerFields,
+                ),
               if (g.bodyFields.isNotEmpty)
-                _section(theme, cs, loc?.webReverseSignatureDiffSectionBody ?? 'Body fields', g.bodyFields),
+                _section(
+                  theme,
+                  cs,
+                  loc?.webReverseSignatureDiffSectionBody ?? 'Body fields',
+                  g.bodyFields,
+                ),
             ],
           ),
         ),
@@ -404,13 +423,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     );
   }
 
-  Widget _summaryChip(
-    ColorScheme cs,
-    String label,
-    int n,
-    Color bg,
-    Color fg,
-  ) {
+  Widget _summaryChip(ColorScheme cs, String label, int n, Color bg, Color fg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -548,10 +561,14 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
     return '$shown$more';
   }
 
-  void _copyReport(_EndpointGroup g, AppLocalizations? loc) {
+  Future<void> _copyReport(_EndpointGroup g, AppLocalizations? loc) async {
     final buf = StringBuffer()
-      ..writeln('# ${loc?.webReverseSignatureDiffReportTitle ?? 'Signature Diff'}: ${g.key}')
-      ..writeln('${loc?.webReverseSignatureDiffReportSamples ?? 'samples'}: ${g.samples.length}')
+      ..writeln(
+        '# ${loc?.webReverseSignatureDiffReportTitle ?? 'Signature Diff'}: ${g.key}',
+      )
+      ..writeln(
+        '${loc?.webReverseSignatureDiffReportSamples ?? 'samples'}: ${g.samples.length}',
+      )
       ..writeln();
     void dumpSection(String title, List<_FieldStat> fields) {
       if (fields.isEmpty) return;
@@ -567,15 +584,23 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
       }
       buf.writeln();
     }
+
     dumpSection('Query', g.queryFields);
     dumpSection('Headers', g.headerFields);
     dumpSection('Body', g.bodyFields);
-    Clipboard.setData(ClipboardData(text: buf.toString()));
+    final copied = await setWebReverseClipboardText(buf.toString());
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      loc?.webReverseSignatureDiffReportCopied ?? 'Report copied to clipboard',
+      webReverseClipboardSnackMessage(
+        isZh: loc?.localeName.startsWith('zh') ?? false,
+        base:
+            loc?.webReverseSignatureDiffReportCopied ??
+            'Report copied to clipboard',
+        result: copied,
+      ),
     );
   }
 }
@@ -667,18 +692,19 @@ List<_FieldStat> _diffBody(List<CdpNetworkEntry> samples) {
   for (final e in samples) {
     final body = e.requestPostData;
     if (body == null || body.isEmpty) continue;
-    final ct = (e.requestHeaders['Content-Type'] ??
-            e.requestHeaders['content-type'] ??
-            '')
-        .toLowerCase();
+    final ct =
+        (e.requestHeaders['Content-Type'] ??
+                e.requestHeaders['content-type'] ??
+                '')
+            .toLowerCase();
     if (ct.contains('json') || _looksLikeJson(body)) {
       _flattenJson(body, map);
     } else if (ct.contains('form-urlencoded') || body.contains('=')) {
       _flattenForm(body, map);
     } else {
-      map.putIfAbsent('(raw body)', () => <String>[]).add(
-        body.length > 80 ? '${body.substring(0, 80)}…' : body,
-      );
+      map
+          .putIfAbsent('(raw body)', () => <String>[])
+          .add(body.length > 80 ? '${body.substring(0, 80)}…' : body);
     }
   }
   return _classifyAll(map);
@@ -709,6 +735,7 @@ void _flattenJson(String body, Map<String, List<String>> out) {
       out.putIfAbsent(path, () => <String>[]).add(node?.toString() ?? '');
     }
   }
+
   walk(decoded, '');
 }
 
@@ -730,11 +757,11 @@ List<_FieldStat> _classifyAll(Map<String, List<String>> map) {
   });
   // 排序：动态在前 → 定长哈希 → 递增 → 稳定
   int rank(_FieldClass c) => switch (c) {
-        _FieldClass.fixedHash => 0,
-        _FieldClass.increasing => 1,
-        _FieldClass.dynamic_ => 2,
-        _FieldClass.stable => 3,
-      };
+    _FieldClass.fixedHash => 0,
+    _FieldClass.increasing => 1,
+    _FieldClass.dynamic_ => 2,
+    _FieldClass.stable => 3,
+  };
   out.sort((a, b) {
     final r = rank(a.classification).compareTo(rank(b.classification));
     if (r != 0) return r;
@@ -746,7 +773,11 @@ List<_FieldStat> _classifyAll(Map<String, List<String>> map) {
 _FieldStat _classify(String name, List<String> values) {
   final unique = values.toSet().toList();
   if (unique.length == 1) {
-    return _FieldStat(name: name, values: unique, classification: _FieldClass.stable);
+    return _FieldStat(
+      name: name,
+      values: unique,
+      classification: _FieldClass.stable,
+    );
   }
   // 全部能解析为数字 → 检查严格递增
   final asInts = <int>[];
@@ -790,7 +821,11 @@ _FieldStat _classify(String name, List<String> values) {
       );
     }
   }
-  return _FieldStat(name: name, values: unique, classification: _FieldClass.dynamic_);
+  return _FieldStat(
+    name: name,
+    values: unique,
+    classification: _FieldClass.dynamic_,
+  );
 }
 
 final RegExp _hexRe = RegExp(r'^[0-9a-fA-F]+$');

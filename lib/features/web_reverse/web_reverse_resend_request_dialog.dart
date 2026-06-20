@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -741,13 +742,24 @@ print(resp.text[:2000])''';
                 tooltip:
                     loc?.webReverseResendRequestCopyResponse ?? 'Copy response',
                 icon: const Icon(Icons.content_copy_rounded, size: 14),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: r.body));
-                  final loc2 = AppLocalizations.of(context);
-                  OpenHandSnackBar.showSuccess(
-                    context,
-                    loc2?.webReverseResendRequestResponseCopied ??
-                        'Response copied',
+                onPressed: () async {
+                  final dialogContext = context;
+                  final messenger = ScaffoldMessenger.of(dialogContext);
+                  final loc2 = AppLocalizations.of(dialogContext);
+                  final isZh = loc2?.localeName.startsWith('zh') ?? false;
+                  final base =
+                      loc2?.webReverseResendRequestResponseCopied ??
+                      'Response copied';
+                  final copied = await setWebReverseClipboardText(r.body);
+                  if (!dialogContext.mounted) return;
+                  OpenHandSnackBar.showSuccessOn(
+                    dialogContext,
+                    messenger,
+                    webReverseClipboardSnackMessage(
+                      isZh: isZh,
+                      base: base,
+                      result: copied,
+                    ),
                     duration: const Duration(seconds: 1),
                   );
                 },

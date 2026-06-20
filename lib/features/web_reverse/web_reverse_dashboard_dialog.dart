@@ -33,6 +33,7 @@ import 'web_reverse_ai_crypto_dialog.dart';
 import 'web_reverse_animations_dialog.dart';
 import 'web_reverse_callgraph_dialog.dart';
 import 'web_reverse_cdp_console_dialog.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_collection_export_dialog.dart';
 import 'web_reverse_console_cluster_dialog.dart';
 import 'web_reverse_cookie_editor_dialog.dart';

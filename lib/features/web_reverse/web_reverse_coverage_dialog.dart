@@ -15,6 +15,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseCoverageDialog(
@@ -179,9 +180,16 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         '(${row.coveredFunctions}/${row.functions} fn)  ${row.url}',
       );
     }
-    await Clipboard.setData(ClipboardData(text: buf.toString()));
+    final copied = await setWebReverseClipboardText(buf.toString());
     if (!mounted) return;
-    _toast(true, loc?.webReverseCoverageReportCopied ?? 'Report copied');
+    _toast(
+      true,
+      webReverseClipboardSnackMessage(
+        isZh: loc?.localeName.startsWith('zh') ?? false,
+        base: loc?.webReverseCoverageReportCopied ?? 'Report copied',
+        result: copied,
+      ),
+    );
   }
 
   void _toast(bool ok, String msg) {

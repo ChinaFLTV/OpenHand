@@ -1163,12 +1163,16 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 child: OutlinedButton.icon(
                   onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);
-                    await Clipboard.setData(ClipboardData(text: source));
+                    final copied = await setWebReverseClipboardText(source);
                     if (!mounted) return;
                     OpenHandSnackBar.showSuccessOn(
                       context,
                       messenger,
-                      isZh ? '已复制' : 'Copied',
+                      webReverseClipboardSnackMessage(
+                        isZh: isZh,
+                        base: isZh ? '已复制' : 'Copied',
+                        result: copied,
+                      ),
                       duration: const Duration(seconds: 1),
                     );
                   },

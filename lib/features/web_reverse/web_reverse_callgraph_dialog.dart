@@ -16,13 +16,13 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -666,12 +666,20 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       '${fn.name} -> ${fn.callees.take(20).join(', ')}',
                     );
                   }
-                  await Clipboard.setData(ClipboardData(text: buf.toString()));
+                  final copied = await setWebReverseClipboardText(
+                    buf.toString(),
+                  );
                   if (messenger != null && mounted) {
                     OpenHandSnackBar.showSuccessOn(
                       context,
                       messenger,
-                      loc?.webReverseCallgraphGraphCopied ?? 'Graph copied',
+                      webReverseClipboardSnackMessage(
+                        isZh: widget.isZh,
+                        base:
+                            loc?.webReverseCallgraphGraphCopied ??
+                            'Graph copied',
+                        result: copied,
+                      ),
                     );
                   }
                 },
