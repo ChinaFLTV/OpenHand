@@ -1730,6 +1730,20 @@ String? _cachedLoginShellPath;
 Completer<String>? _loginShellPathProbe;
 const Duration _loginShellProbeTimeout = Duration(seconds: 3);
 
+int _firstNpxPackageArgIndex(List<String> args) {
+  for (var i = 0; i < args.length; i++) {
+    final arg = args[i].trim();
+    if (arg.isEmpty) continue;
+    if (arg == '--') continue;
+    if (arg == '-y' || arg == '--yes' || arg == '--no-install') {
+      continue;
+    }
+    if (arg.startsWith('-')) continue;
+    return i;
+  }
+  return -1;
+}
+
 Future<String> _probeLoginShellPath() {
   if (_cachedLoginShellPath != null) {
     return Future.value(_cachedLoginShellPath!);
@@ -1885,11 +1899,14 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   // 快速路径：对 npx 命令，尝试直接定位已全局安装的包入口脚本用 node 执行。
   // 这避免了 npx 的启动开销和隔离缓存中的下载/兼容性问题。
   final isNpxCommand = rawCommand == 'npx' || rawCommand.endsWith('/npx');
-  if (isNpxCommand && args.isNotEmpty && !Platform.isWindows) {
-    final packageName = args.first;
+  final packageArgIndex = isNpxCommand ? _firstNpxPackageArgIndex(args) : -1;
+  if (isNpxCommand && packageArgIndex >= 0 && !Platform.isWindows) {
+    final packageName = args[packageArgIndex];
     final resolved = _resolveNpxPackageDirectly(packageName, home);
     if (resolved != null) {
-      final extraArgs = args.length > 1 ? args.sublist(1) : const <String>[];
+      final extraArgs = packageArgIndex + 1 < args.length
+          ? args.sublist(packageArgIndex + 1)
+          : const <String>[];
       return _ResolvedStdioLaunch(
         executable: resolved.nodeBin,
         args: [resolved.entryScript, ...extraArgs],

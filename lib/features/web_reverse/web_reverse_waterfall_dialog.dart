@@ -790,9 +790,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         context: context,
         builder: (dctx) {
           final dloc = AppLocalizations.of(dctx);
-          return AlertDialog(
-            actionsAlignment: MainAxisAlignment.center,
-            actionsOverflowAlignment: OverflowBarAlignment.center,
+          return buildOpenHandAlertDialog(
             title: Text(dloc?.webReverseWaterfallLoadHarTitle ?? 'Load HAR'),
             content: Text(
               dloc?.webReverseWaterfallLoadHarPrompt(existing) ??

@@ -837,10 +837,11 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
 
   final isNpx = executable == 'npx' || executable.endsWith('/npx');
 
-  if (isNpx && allArgs.isNotEmpty) {
-    final packageName = allArgs.first.trim();
-    final extraArgs = allArgs.length > 1
-        ? allArgs.sublist(1)
+  final packageArgIndex = isNpx ? _firstNpxPackageArgIndex(allArgs) : -1;
+  if (isNpx && packageArgIndex >= 0) {
+    final packageName = allArgs[packageArgIndex].trim();
+    final extraArgs = packageArgIndex + 1 < allArgs.length
+        ? allArgs.sublist(packageArgIndex + 1)
         : const <String>[];
 
     // 尝试通过 login shell 定位已安装包的实际路径
@@ -861,6 +862,20 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   ].map((p) => p.contains(' ') ? "'$p'" : p).join(' ');
   // 使用 exec 替换 shell 进程，确保 stdin 直接连接到目标进程
   return _DirectLaunch(executable: shell, args: ['-l', '-c', 'exec $cmdLine']);
+}
+
+int _firstNpxPackageArgIndex(List<String> args) {
+  for (var i = 0; i < args.length; i++) {
+    final arg = args[i].trim();
+    if (arg.isEmpty) continue;
+    if (arg == '--') continue;
+    if (arg == '-y' || arg == '--yes' || arg == '--no-install') {
+      continue;
+    }
+    if (arg.startsWith('-')) continue;
+    return i;
+  }
+  return -1;
 }
 
 class _ResolvedNpxPackage {

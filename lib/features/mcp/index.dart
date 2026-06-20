@@ -7,6 +7,7 @@ export 'model/mcp_server_health.dart';
 export 'model/mcp_stdio_mirror_mode.dart';
 export 'model/mcp_tool.dart';
 export 'service/mcp_lazy_loading_applier.dart';
+export 'service/mcp_stdio_process_manager.dart';
 export 'service/mcp_tool_discovery_service.dart';
 export 'service/tool_search_history_export_prefs.dart';
 export 'service/tool_search_replay_dispatcher.dart';

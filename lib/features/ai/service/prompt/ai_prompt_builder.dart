@@ -2108,7 +2108,7 @@ class AiPromptBuilder {
               : 'CDP / Chrome DevTools MCP tools are present only as deferred ToolSearch entries, but live CDP actions are still blocked until cdp_runtime.browser_alive=true. Use ToolSearch only to load schemas, and ask the user to restart/restore the Web Reverse browser before live CDP actions.',
         } else if (cdpMcpToolNames.isEmpty)
           'warning':
-              'No CDP / Chrome DevTools MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. Use local jsonl/HAR artifacts, or ask the user to enable/refresh chrome-devtools-mcp before live CDP actions.'
+              'No CDP / Chrome DevTools MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. OpenHand normally auto-injects a transient chrome-devtools-mcp for live Web Reverse sessions; if it is absent, use local jsonl/HAR artifacts, or ask the user to install/refresh chrome-devtools-mcp before live CDP actions.'
         else if (!cdpRuntimeLive)
           'guidance':
               'Exact CDP / Chrome DevTools MCP tool names are visible, but do not use them for live browser actions until cdp_runtime.browser_alive=true and the current CDP endpoint/port is present.'
