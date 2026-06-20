@@ -74,6 +74,35 @@ void main() {
         );
       },
     );
+
+    test(
+      'blocks same target host WebSearch over alternate HTTP scheme',
+      () async {
+        final tool = AiWebSearchTool(
+          backgroundChatClient: _ThrowingChatClient(),
+          httpClient: _FailingHttpClient(),
+        );
+
+        final result = await tool.execute(
+          _context(
+            arguments: const <String, Object?>{
+              'query': 'site:http://linux.do/t/topic/2401043 api json',
+            },
+            metadata: _liveWebReverseRuntimeMetadata(),
+          ),
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(
+          result.metadata['web_reverse_websearch_blocked_for_cdp_first'],
+          true,
+        );
+        expect(
+          result.metadata['web_reverse_requested_origin'],
+          'http://linux.do',
+        );
+      },
+    );
   });
 }
 

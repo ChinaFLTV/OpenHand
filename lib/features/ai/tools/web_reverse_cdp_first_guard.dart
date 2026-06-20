@@ -92,7 +92,7 @@ class WebReverseCdpFirstGuard {
     if (route == null) return null;
 
     for (final targetUri in _webReverseTargetUris(runtime)) {
-      if (_isSameHttpOrigin(requestedUri, targetUri)) {
+      if (_isSameHttpTargetHost(requestedUri, targetUri)) {
         return WebReverseCdpFirstDecision(
           requestedUri: requestedUri,
           targetUri: targetUri,
@@ -421,10 +421,15 @@ void _addUrl(List<String> urls, Object? raw) {
   if (value.isNotEmpty) urls.add(value);
 }
 
-bool _isSameHttpOrigin(Uri a, Uri b) {
-  return a.scheme.toLowerCase() == b.scheme.toLowerCase() &&
-      a.host.toLowerCase() == b.host.toLowerCase() &&
-      _effectivePort(a) == _effectivePort(b);
+bool _isSameHttpTargetHost(Uri a, Uri b) {
+  return _isHttpScheme(a.scheme) &&
+      _isHttpScheme(b.scheme) &&
+      a.host.toLowerCase() == b.host.toLowerCase();
+}
+
+bool _isHttpScheme(String scheme) {
+  final normalized = scheme.toLowerCase();
+  return normalized == 'http' || normalized == 'https';
 }
 
 String _httpOriginLabel(Uri uri) {

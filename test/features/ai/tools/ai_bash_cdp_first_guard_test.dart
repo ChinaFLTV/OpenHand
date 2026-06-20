@@ -42,6 +42,30 @@ void main() {
       },
     );
 
+    test('blocks same target host Bash over alternate HTTP scheme', () async {
+      final tool = AiBashTool(
+        bashToolService: _FailingBashToolService(),
+        hookService: AiNoopClaudeHookService(),
+      );
+
+      final result = await tool.execute(
+        _context(
+          toolName: 'Bash',
+          arguments: const <String, Object?>{
+            'cmd': 'curl http://linux.do/t/topic/2401043.json',
+          },
+          metadata: _liveWebReverseMetadata(),
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.denied);
+      expect(result.metadata['web_reverse_bash_blocked_for_cdp_first'], true);
+      expect(
+        result.metadata['web_reverse_requested_origin'],
+        'http://linux.do',
+      );
+    });
+
     test(
       'blocks target-origin BashBackground start before deny or spawn',
       () async {

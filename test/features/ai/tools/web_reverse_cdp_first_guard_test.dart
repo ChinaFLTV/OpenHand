@@ -142,6 +142,27 @@ void main() {
       expect(decision, isNull);
     });
 
+    test('blocks same target host over alternate HTTP scheme', () {
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('http://linux.do/t/topic/2401043.json'),
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.targetOrigin, 'https://linux.do');
+      expect(decision.requestedOrigin, 'http://linux.do');
+    });
+
+    test('blocks same target host over alternate port', () {
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('https://linux.do:8443/t/topic/2401043.json'),
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.requestedOrigin, 'https://linux.do:8443');
+    });
+
     test('blocks plain text target URL reference', () {
       final decision = WebReverseCdpFirstGuard.evaluateTextReference(
         text: 'site:https://linux.do/t/topic/2401043',
