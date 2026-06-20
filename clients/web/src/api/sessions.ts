@@ -106,6 +106,19 @@ export interface SessionDetailResponse {
   };
 }
 
+export type SessionMessageSenderOrigin =
+  | 'explicit_user'
+  | 'openhand_background'
+  | 'ai_model'
+  | 'openhand_system'
+  | (string & {});
+
+export type SessionMessageConversationSide =
+  | 'non_ai'
+  | 'ai'
+  | 'system'
+  | (string & {});
+
 export interface SessionMessage {
   id: string;
   kind: string;
@@ -116,13 +129,8 @@ export interface SessionMessage {
   model_id?: string;
   model_label?: string;
   usage?: SessionMessageUsage | null;
-  sender_origin?:
-    | 'explicit_user'
-    | 'openhand_background'
-    | 'ai_model'
-    | 'openhand_system'
-    | string;
-  conversation_side?: 'non_ai' | 'ai' | 'system' | string;
+  sender_origin?: SessionMessageSenderOrigin;
+  conversation_side?: SessionMessageConversationSide;
   starts_conversation_round?: boolean;
   metadata?: Record<string, unknown>;
 }

@@ -56,6 +56,10 @@ const String aiSessionMessageSenderOriginOpenHandSystem = 'openhand_system';
 const String aiSessionMessageConversationSideNonAi = 'non_ai';
 const String aiSessionMessageConversationSideAi = 'ai';
 const String aiSessionMessageConversationSideSystem = 'system';
+const String aiSessionMessageSenderOriginJsonKey = 'sender_origin';
+const String aiSessionMessageConversationSideJsonKey = 'conversation_side';
+const String aiSessionMessageStartsConversationRoundJsonKey =
+    'starts_conversation_round';
 
 class AiSessionMessage {
   factory AiSessionMessage.fromJson(Map<String, Object?> json) {
@@ -392,6 +396,14 @@ class AiSessionMessage {
     return aiSessionMessageConversationSideSystem;
   }
 
+  Map<String, Object?> derivedConversationJson() {
+    return <String, Object?>{
+      aiSessionMessageSenderOriginJsonKey: senderOrigin,
+      aiSessionMessageConversationSideJsonKey: conversationSide,
+      aiSessionMessageStartsConversationRoundJsonKey: startsConversationRound,
+    };
+  }
+
   bool get isVisible =>
       !isDeleted &&
       (kind != AiSessionMessageKind.status ||
@@ -461,11 +473,7 @@ class AiSessionMessage {
       'metadata': metadata,
     };
     if (includeDerivedFields) {
-      payload.addAll(<String, Object?>{
-        'sender_origin': senderOrigin,
-        'conversation_side': conversationSide,
-        'starts_conversation_round': startsConversationRound,
-      });
+      payload.addAll(derivedConversationJson());
     }
     return payload;
   }

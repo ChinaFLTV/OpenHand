@@ -4411,19 +4411,7 @@ class WebMessagePlatformService {
       SessionCacheHitDisplayMode.excludeExtremeMisses,
     );
     final trendPoints = trend.points
-        .map(
-          (p) => <String, Object?>{
-            'turn_index': p.turnIndex,
-            'hit_ratio': p.hitRatio,
-            'prompt_tokens': p.promptTokens,
-            'cache_read_tokens': p.cacheReadTokens,
-            'cache_write_tokens': p.cacheWriteTokens,
-            'starter_message_id': p.starterMessageId,
-            'starter_message_kind': p.starterMessageKind,
-            'starter_origin': p.starterOrigin,
-            if (p.idleGapSeconds != null) 'idle_gap_seconds': p.idleGapSeconds,
-          },
-        )
+        .map((point) => point.toJson())
         .toList(growable: false);
     stats['cache_hit_ratio'] = display.averageHitRatio;
     stats['cache_hit_trend_points'] = trendPoints;
@@ -4440,7 +4428,10 @@ class WebMessagePlatformService {
         final Map raw => Map<String, Object?>.from(raw),
         _ => null,
       };
-      if (point == null || !point.containsKey('starter_origin')) {
+      if (point == null ||
+          !point.containsKey(
+            AiSessionCacheHitTrendPoint.starterOriginJsonKey,
+          )) {
         return false;
       }
     }
@@ -4817,9 +4808,7 @@ class WebMessagePlatformService {
       'model_id': message.modelId,
       'model_label': message.modelLabel,
       if (usage != null) 'usage': usage.toJson(),
-      'sender_origin': message.senderOrigin,
-      'conversation_side': message.conversationSide,
-      'starts_conversation_round': message.startsConversationRound,
+      ...message.derivedConversationJson(),
       'metadata': message.metadata,
     };
   }

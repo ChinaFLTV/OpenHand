@@ -36,6 +36,10 @@ function isExtremeIdleExpiryMiss(p: TrendPoint): boolean {
   return p.hitRatio < EXTREME_HIT_RATIO_THRESHOLD;
 }
 
+function isCleanTrendPoint(p: TrendPoint): boolean {
+  return p.turnIndex !== 1 && !isExtremeIdleExpiryMiss(p);
+}
+
 interface Viewport {
   start: number;
   end: number;
@@ -134,9 +138,7 @@ export default function CacheHitTrendChart({
 
   const filteredPoints = useMemo(() => {
     if (displayMode === 'includeAll') return points;
-    return points.filter(
-      (p) => p.turnIndex !== 1 && !isExtremeIdleExpiryMiss(p),
-    );
+    return points.filter(isCleanTrendPoint);
   }, [points, displayMode]);
 
   const excludedCount = points.length - filteredPoints.length;

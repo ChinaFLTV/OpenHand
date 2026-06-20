@@ -105,6 +105,22 @@ class SessionCacheHitTurnPoint {
     }
     return SessionCacheMissKind.normal;
   }
+
+  AiSessionCacheHitTrendPoint toStatisticsPoint() {
+    return AiSessionCacheHitTrendPoint(
+      turnIndex: turnIndex,
+      hitRatio: hitRatio,
+      promptTokens: promptTokens,
+      cacheReadTokens: cacheReadTokens,
+      cacheWriteTokens: cacheWriteTokens,
+      starterMessageId: starterMessageId,
+      starterMessageKind: starterMessageKind,
+      starterOrigin: starterOrigin,
+      idleGapSeconds: idleGapSeconds,
+    );
+  }
+
+  Map<String, Object?> toJson() => toStatisticsPoint().toJson();
 }
 
 class SessionCacheHitViewport {

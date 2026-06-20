@@ -9522,19 +9522,7 @@ $tail''';
             trackedSession.statistics.lastPromptHistoryMessageCount,
         cacheHitRatio: trendDisplay.averageHitRatio,
         cacheHitTrendPoints: cacheTrend.points
-            .map(
-              (p) => AiSessionCacheHitTrendPoint(
-                turnIndex: p.turnIndex,
-                hitRatio: p.hitRatio,
-                promptTokens: p.promptTokens,
-                cacheReadTokens: p.cacheReadTokens,
-                cacheWriteTokens: p.cacheWriteTokens,
-                starterMessageId: p.starterMessageId,
-                starterMessageKind: p.starterMessageKind,
-                starterOrigin: p.starterOrigin,
-                idleGapSeconds: p.idleGapSeconds,
-              ),
-            )
+            .map((point) => point.toStatisticsPoint())
             .toList(growable: false),
         cacheHitTrendExcludedCount:
             cacheTrend.points.length - trendDisplay.trend.points.length,

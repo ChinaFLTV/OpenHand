@@ -1318,29 +1318,39 @@ class AiSessionCacheHitTrendPoint {
 
   factory AiSessionCacheHitTrendPoint.fromJson(Map<String, Object?> json) {
     return AiSessionCacheHitTrendPoint(
-      turnIndex: (json['turn_index'] is num)
-          ? (json['turn_index'] as num).toInt()
+      turnIndex: (json[turnIndexJsonKey] is num)
+          ? (json[turnIndexJsonKey] as num).toInt()
           : 0,
-      hitRatio: (json['hit_ratio'] is num)
-          ? (json['hit_ratio'] as num).toDouble().clamp(0.0, 1.0)
+      hitRatio: (json[hitRatioJsonKey] is num)
+          ? (json[hitRatioJsonKey] as num).toDouble().clamp(0.0, 1.0)
           : 0.0,
-      promptTokens: (json['prompt_tokens'] is num)
-          ? (json['prompt_tokens'] as num).toInt()
+      promptTokens: (json[promptTokensJsonKey] is num)
+          ? (json[promptTokensJsonKey] as num).toInt()
           : 0,
-      cacheReadTokens: (json['cache_read_tokens'] is num)
-          ? (json['cache_read_tokens'] as num).toInt()
+      cacheReadTokens: (json[cacheReadTokensJsonKey] is num)
+          ? (json[cacheReadTokensJsonKey] as num).toInt()
           : 0,
-      cacheWriteTokens: (json['cache_write_tokens'] is num)
-          ? (json['cache_write_tokens'] as num).toInt()
+      cacheWriteTokens: (json[cacheWriteTokensJsonKey] is num)
+          ? (json[cacheWriteTokensJsonKey] as num).toInt()
           : 0,
-      starterMessageId: _readString(json['starter_message_id']),
-      starterMessageKind: _readString(json['starter_message_kind']),
-      starterOrigin: _readString(json['starter_origin']),
-      idleGapSeconds: (json['idle_gap_seconds'] is num)
-          ? (json['idle_gap_seconds'] as num).toInt()
+      starterMessageId: _readString(json[starterMessageIdJsonKey]),
+      starterMessageKind: _readString(json[starterMessageKindJsonKey]),
+      starterOrigin: _readString(json[starterOriginJsonKey]),
+      idleGapSeconds: (json[idleGapSecondsJsonKey] is num)
+          ? (json[idleGapSecondsJsonKey] as num).toInt()
           : null,
     );
   }
+
+  static const String turnIndexJsonKey = 'turn_index';
+  static const String hitRatioJsonKey = 'hit_ratio';
+  static const String promptTokensJsonKey = 'prompt_tokens';
+  static const String cacheReadTokensJsonKey = 'cache_read_tokens';
+  static const String cacheWriteTokensJsonKey = 'cache_write_tokens';
+  static const String starterMessageIdJsonKey = 'starter_message_id';
+  static const String starterMessageKindJsonKey = 'starter_message_kind';
+  static const String starterOriginJsonKey = 'starter_origin';
+  static const String idleGapSecondsJsonKey = 'idle_gap_seconds';
 
   final int turnIndex;
   final double hitRatio;
@@ -1353,15 +1363,16 @@ class AiSessionCacheHitTrendPoint {
   final int? idleGapSeconds;
 
   Map<String, Object?> toJson() => <String, Object?>{
-    'turn_index': turnIndex,
-    'hit_ratio': hitRatio,
-    'prompt_tokens': promptTokens,
-    'cache_read_tokens': cacheReadTokens,
-    'cache_write_tokens': cacheWriteTokens,
-    if (starterMessageId != null) 'starter_message_id': starterMessageId,
-    if (starterMessageKind != null) 'starter_message_kind': starterMessageKind,
-    if (starterOrigin != null) 'starter_origin': starterOrigin,
-    if (idleGapSeconds != null) 'idle_gap_seconds': idleGapSeconds,
+    turnIndexJsonKey: turnIndex,
+    hitRatioJsonKey: hitRatio,
+    promptTokensJsonKey: promptTokens,
+    cacheReadTokensJsonKey: cacheReadTokens,
+    cacheWriteTokensJsonKey: cacheWriteTokens,
+    if (starterMessageId != null) starterMessageIdJsonKey: starterMessageId,
+    if (starterMessageKind != null)
+      starterMessageKindJsonKey: starterMessageKind,
+    if (starterOrigin != null) starterOriginJsonKey: starterOrigin,
+    if (idleGapSeconds != null) idleGapSecondsJsonKey: idleGapSeconds,
   };
 
   static String? _readString(Object? value) {
