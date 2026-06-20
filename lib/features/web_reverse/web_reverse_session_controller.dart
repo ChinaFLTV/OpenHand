@@ -104,6 +104,12 @@ class WebReverseSessionController extends ChangeNotifier {
 
   static const int _maxNetworkEntries = 2000;
   static const int _maxConsoleEntries = 2000;
+  static const int _maxHeapSnapshotChars = 120 * 1024 * 1024;
+  static const int _maxTraceEvents = 120000;
+  static const int _maxTracePayloadChars = 48 * 1024 * 1024;
+  static const int _maxScreenshotBase64Chars = 64 * 1024 * 1024;
+  static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
+  static const double _maxFullPageScreenshotCssSide = 32767;
 
   final List<CdpNetworkEntry> _networkRequests = <CdpNetworkEntry>[];
   final Map<String, CdpNetworkEntry> _networkByRequestId =
@@ -723,12 +729,21 @@ class WebReverseSessionController extends ChangeNotifier {
     if (cdp == null || _pageSessionId == null) return null;
     final buffer = StringBuffer();
     final completer = Completer<void>();
+    var totalChars = 0;
+    var tooLarge = false;
     StreamSubscription<CdpEvent>? sub;
     try {
       await cdp.send('HeapProfiler.enable', sessionId: _pageSessionId);
       sub = cdp.events.where((e) => e.sessionId == _pageSessionId).listen((e) {
         if (e.method == 'HeapProfiler.addHeapSnapshotChunk') {
-          buffer.write('${e.params['chunk'] ?? ''}');
+          final chunk = '${e.params['chunk'] ?? ''}';
+          totalChars += chunk.length;
+          if (totalChars <= _maxHeapSnapshotChars) {
+            buffer.write(chunk);
+          } else {
+            tooLarge = true;
+            if (!completer.isCompleted) completer.complete();
+          }
         } else if (e.method == 'HeapProfiler.reportHeapSnapshotProgress') {
           if (e.params['finished'] == true && !completer.isCompleted) {
             completer.complete();
@@ -750,6 +765,7 @@ class WebReverseSessionController extends ChangeNotifier {
         completer.future,
         Future<void>.delayed(const Duration(milliseconds: 250)),
       ]);
+      if (tooLarge) return null;
       final raw = buffer.toString();
       return (json: raw, bytes: raw.length);
     } catch (error, stack) {
@@ -781,6 +797,10 @@ class WebReverseSessionController extends ChangeNotifier {
     final cdp = _browserCdp;
     if (cdp == null) return null; // tracing 用 root session
     final events = <Map<String, Object?>>[];
+    var seenEvents = 0;
+    var droppedEvents = 0;
+    var tracePayloadChars = 0;
+    var traceCapped = false;
     final completer = Completer<void>();
     StreamSubscription<CdpEvent>? sub;
     try {
@@ -789,7 +809,21 @@ class WebReverseSessionController extends ChangeNotifier {
           final list = e.params['value'] as List?;
           if (list != null) {
             for (final item in list.whereType<Map>()) {
-              events.add(Map<String, Object?>.from(item));
+              seenEvents += 1;
+              if (traceCapped) {
+                droppedEvents += 1;
+                continue;
+              }
+              final mapped = Map<String, Object?>.from(item);
+              final estimatedChars = mapped.toString().length;
+              if (events.length >= _maxTraceEvents ||
+                  tracePayloadChars + estimatedChars > _maxTracePayloadChars) {
+                traceCapped = true;
+                droppedEvents += 1;
+                continue;
+              }
+              tracePayloadChars += estimatedChars;
+              events.add(mapped);
             }
           }
         } else if (e.method == 'Tracing.tracingComplete') {
@@ -819,6 +853,12 @@ class WebReverseSessionController extends ChangeNotifier {
         'metadata': <String, Object?>{
           'source': 'OpenHand WebReverseExpert',
           'duration_ms': duration.inMilliseconds,
+          'events_seen': seenEvents,
+          'events_recorded': events.length,
+          'events_dropped': droppedEvents,
+          'events_capped': traceCapped,
+          'event_count_cap': _maxTraceEvents,
+          'payload_chars_cap': _maxTracePayloadChars,
         },
       });
     } catch (error, stack) {
@@ -4538,11 +4578,20 @@ class WebReverseSessionController extends ChangeNotifier {
         );
         final content = metrics['cssContentSize'] as Map?;
         if (content != null) {
+          final width = (content['width'] as num?)?.toDouble() ?? 0;
+          final height = (content['height'] as num?)?.toDouble() ?? 0;
+          if (width <= 0 ||
+              height <= 0 ||
+              width > _maxFullPageScreenshotCssSide ||
+              height > _maxFullPageScreenshotCssSide ||
+              width * height > _maxFullPageScreenshotCssPixels) {
+            return null;
+          }
           params['clip'] = <String, Object?>{
             'x': 0,
             'y': 0,
-            'width': (content['width'] as num?)?.toDouble() ?? 0,
-            'height': (content['height'] as num?)?.toDouble() ?? 0,
+            'width': width,
+            'height': height,
             'scale': 1,
           };
         }
@@ -4555,6 +4604,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final data = r['data'] as String?;
       if (data == null || data.isEmpty) return null;
+      if (data.length > _maxScreenshotBase64Chars) return null;
       return base64Decode(data);
     } catch (error, stack) {
       silentLog(

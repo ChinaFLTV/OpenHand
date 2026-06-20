@@ -9,6 +9,7 @@ const int kWebReverseHeadlessBatchMaxUrls = 50;
 const int kWebReverseHeadlessBatchMaxNetworkEventsPerUrl = 1500;
 const int kWebReverseHeadlessBatchMaxConsoleEventsPerUrl = 1000;
 const int kWebReverseHeadlessBatchMaxConsoleTextChars = 4096;
+const int kWebReverseHeadlessBatchMaxScreenshotBase64Chars = 64 * 1024 * 1024;
 
 /// Headless 批量采集：复用现有 [WebReverseCdpClient]，按 URL 列表逐个建一个
 /// 后台 Page target，做最小可用的事件采集（network response 列表 / console /
@@ -358,7 +359,9 @@ class WebReverseHeadlessBatch {
             timeout: const Duration(seconds: 10),
           );
           final data = shot['data'];
-          if (data is String && data.isNotEmpty) {
+          if (data is String &&
+              data.isNotEmpty &&
+              data.length <= kWebReverseHeadlessBatchMaxScreenshotBase64Chars) {
             final path = '${perDir.path}/screenshot.png';
             await File(path).writeAsBytes(base64Decode(data));
             screenshotPath = path;
