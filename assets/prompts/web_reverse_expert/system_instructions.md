@@ -19,7 +19,7 @@
 
 <environment>
 **浏览器**：用户机的 Chrome / Edge / Brave / Chromium，会话创建时拉起，画面 screencast 镜像进 dashboard「浏览器」tab。崩溃时面板切到「重启浏览器」占位。
-**通道**：CDP WebSocket；活连接必须满足 `web_reverse_runtime.cdp_runtime.browser_alive=true` 且有 `cdp_http_endpoint` / `json_list_url` / `cdp_port`。`last_cdp_port` / `last_*` 只作离线诊断，不能当活端点。legacy metadata `web_reverse_cdp_runtime` 仅作兼容回退。`config.desired_cdp_port` / `web_reverse_config.cdp_port` 只是期望端口。抖动自动重连并恢复持久 Header / 屏蔽 URL / screencast / page target。
+**通道**：CDP WebSocket；活连接必须满足注入的 `cdp_runtime.browser_alive=true` 且有 `cdp_http_endpoint` / `json_list_url` / `cdp_port`。`last_cdp_port` / `last_*` 只作离线诊断，不能当活端点。`web_reverse_cdp_runtime` 是当前控制器态，会优先覆盖旧 prompt runtime。`config.desired_cdp_port` / `web_reverse_config.cdp_port` 只是期望端口。抖动自动重连并恢复持久 Header / 屏蔽 URL / screencast / page target。
 **状态一致性**：dashboard 的浏览器 / 网络 / 控制台 / 源码 / 元素 / 应用 / 性能等面板都来自同一 CDP 通道与本地 jsonl/HAR 落盘；回答前若不确定，以 CDP 工具或落盘文件重新读取，不猜。
 **本地工件**：以 `web_reverse_runtime.local_artifacts` 为准，通常在 `~/.openhand/web_reverse/sessions/<session_id>/`。
 </environment>
@@ -83,7 +83,7 @@
 <tool_priority>
 CDP MCP 是第一优先级；OpenHand 负责管理真实 Chrome/CDP runtime、dashboard 状态和本地 jsonl/HAR 工件。导航、点击、DOM/元素、网络、控制台、存储、截图、Raw CDP 命令、WebSocket/SSE、HAR 都先用 CDP 路径完成。
 
-推荐顺序：CDP MCP（包括 chrome-devtools-mcp；必要时结合 `web_reverse_runtime.cdp_runtime`）> 本地 jsonl/HAR 读取 > Bash / Read / Write / Edit / Grep / WebFetch > Skill。若 `browser_alive=false` 或无当前端点 / 端口，`last_*` 只是历史诊断值，不能当活 CDP 连接；先读本地工件或要求用户重启浏览器后再做实时 CDP。Playwright、Puppeteer 或其他非 CDP 浏览器自动化只在 CDP MCP 无法暴露所需状态、目标能力缺失、CDP 不可用或 CDP 调用连续失败后作为 fallback，并先说明原因。
+推荐顺序：CDP MCP（包括 chrome-devtools-mcp；必要时结合注入的 `cdp_runtime`）> 本地 jsonl/HAR 读取 > Bash / Read / Write / Edit / Grep / WebFetch > Skill。若 `browser_alive=false` 或无当前端点 / 端口，`last_*` 只是历史诊断值，不能当活 CDP 连接；先读本地工件或要求用户重启浏览器后再做实时 CDP。Playwright、Puppeteer 或其他非 CDP 浏览器自动化只在 CDP MCP 无法暴露所需状态、目标能力缺失、CDP 不可用或 CDP 调用连续失败后作为 fallback，并先说明原因。
 
 活跃 Web 逆向会话会自动注入临时 chrome-devtools-mcp（常见前缀 `mcp__web_reverse_cdp_<session>__*`）。CDP 调用由工具目录中的 MCP 工具承载；OpenHand 的 runtime metadata 与 dashboard 状态不是可调用工具名。不要用 Bash 直发 osascript 控制浏览器。
 
