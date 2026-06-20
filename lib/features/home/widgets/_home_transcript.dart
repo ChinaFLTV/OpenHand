@@ -415,6 +415,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   bool _historyRevealCacheBoost = false;
   TranscriptScrollActivity? _scrollActivity;
   _PendingRevealRestore? _pendingRevealRestore;
+  Future<void>? _activeRevealOlderFuture;
 
   ThemeData? _warmupTheme;
   SettingsController? _warmupSettings;
@@ -564,11 +565,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       } else {
         _syncWindowStartIndex();
       }
-      _syncRenderEntries(
-        forceReset:
-            previousWindowStartIndex != _windowStartIndex ||
-            prependedHistoricalMessages,
-      );
+      final windowChanged = previousWindowStartIndex != _windowStartIndex;
+      if (prependedHistoricalMessages) {
+        _syncRenderEntriesAfterHistoryPrepend();
+      } else {
+        _syncRenderEntries(forceReset: windowChanged);
+      }
     }
     if (oldWidget.session.id != widget.session.id ||
         oldWidget.session.recentErrors != widget.session.recentErrors) {
@@ -703,6 +705,51 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     } finally {
       developer.Timeline.finishSync();
     }
+  }
+
+  void _syncRenderEntriesAfterHistoryPrepend() {
+    final visibleMessages = _visibleMessagesForWindow();
+    if (_renderEntries.isEmpty || visibleMessages.isEmpty) {
+      _replaceRenderEntries(visibleMessages, animate: false);
+      return;
+    }
+
+    final activeEntriesById = <String, _TranscriptRenderEntry>{
+      for (final entry in _renderEntries)
+        if (!entry.exiting) entry.id: entry,
+    };
+    final nextEntries = <_TranscriptRenderEntry>[];
+    final addedMessages = <AiSessionMessage>[];
+    var sawExistingEntry = false;
+    var nonPrefixAddition = false;
+
+    for (final message in visibleMessages) {
+      final existingEntry = activeEntriesById[message.id];
+      if (existingEntry != null) {
+        sawExistingEntry = true;
+        nextEntries.add(
+          identical(existingEntry.message, message)
+              ? existingEntry
+              : existingEntry.copyWith(message: message),
+        );
+        continue;
+      }
+      if (sawExistingEntry) {
+        nonPrefixAddition = true;
+        break;
+      }
+      _animatedMessageIds.add(message.id);
+      addedMessages.add(message);
+      nextEntries.add(_TranscriptRenderEntry(message: message));
+    }
+
+    if (nonPrefixAddition) {
+      _replaceRenderEntries(visibleMessages, animate: false);
+      return;
+    }
+
+    _scheduleWarmRichRenderEntries(addedMessages);
+    _renderEntries = nextEntries;
   }
 
   void _warmCurrentRenderEntriesIfReady() {
@@ -1049,6 +1096,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _scrollActivity = null;
     _materializationGeneration += 1;
     _warmupGeneration += 1;
+    _activeRevealOlderFuture = null;
     _warmupScheduler.clear();
     _TranscriptScrollDispatcher.instance.unregister(widget.session.id, this);
     _bubbleRegistry.clear();
@@ -1627,11 +1675,27 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return '${normalized.substring(0, maxLength)}...';
   }
 
-  Future<void> _revealOlderMessages() async {
+  Future<void> _revealOlderMessages() {
+    final existing = _activeRevealOlderFuture;
+    if (existing != null) {
+      return existing;
+    }
+    late final Future<void> future;
+    future = _runRevealOlderMessages().whenComplete(() {
+      if (identical(_activeRevealOlderFuture, future)) {
+        _activeRevealOlderFuture = null;
+      }
+    });
+    _activeRevealOlderFuture = future;
+    return future;
+  }
+
+  Future<void> _runRevealOlderMessages() async {
     if (_loadingOlderMessages ||
         (_windowStartIndex <= 0 && !widget.session.hasMoreHistoricalMessages)) {
       return;
     }
+    widget.onRevealOlderMessages();
 
     // Remember current scroll metrics so we can restore visual position later.
     final scrollController = widget.controller;
@@ -1647,7 +1711,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     var revealStarted = false;
     setState(() {
       _loadingOlderMessages = true;
-      _historyRevealCacheBoost = true;
+      _historyRevealCacheBoost = false;
     });
     revealStarted = true;
 
@@ -1663,7 +1727,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             0,
             _windowStartIndex - _transcriptWindowIncrement,
           );
-          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+          _syncRenderEntriesAfterHistoryPrepend();
         });
       } else {
         await context.read<AiSessionController>().loadOlderSessionMessages(
@@ -1676,6 +1740,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) {
         return;
+      }
+      if (!_historyRevealCacheBoost) {
+        setState(() => _historyRevealCacheBoost = true);
       }
 
       if (preserveTriggerOffset && hadClients) {
@@ -2244,10 +2311,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         child: _TranscriptLoadEarlierButton(
                           hiddenMessageCount: hiddenMessageCount,
                           loading: _loadingOlderMessages,
-                          onPressed: () {
-                            widget.onRevealOlderMessages();
-                            unawaited(_revealOlderMessages());
-                          },
+                          onPressed: _revealOlderMessages,
                         ),
                       );
                     }
@@ -2556,7 +2620,7 @@ class _PendingRevealRestore {
   final double targetPixels;
 }
 
-class _TranscriptLoadEarlierButton extends StatelessWidget {
+class _TranscriptLoadEarlierButton extends StatefulWidget {
   const _TranscriptLoadEarlierButton({
     required this.hiddenMessageCount,
     required this.loading,
@@ -2565,22 +2629,44 @@ class _TranscriptLoadEarlierButton extends StatelessWidget {
 
   final int hiddenMessageCount;
   final bool loading;
-  final VoidCallback onPressed;
+  final Future<void> Function() onPressed;
+
+  @override
+  State<_TranscriptLoadEarlierButton> createState() =>
+      _TranscriptLoadEarlierButtonState();
+}
+
+class _TranscriptLoadEarlierButtonState
+    extends State<_TranscriptLoadEarlierButton> {
+  bool _pressing = false;
+
+  Future<void> _handlePressed() async {
+    if (_pressing || widget.loading) return;
+    setState(() => _pressing = true);
+    try {
+      await widget.onPressed();
+    } finally {
+      if (mounted) {
+        setState(() => _pressing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final loading = widget.loading || _pressing;
     final label = _localizedText(
       context,
-      zh: loading ? '加载更早消息中...' : '加载更早消息（$hiddenMessageCount）',
+      zh: loading ? '加载更早消息中...' : '加载更早消息（${widget.hiddenMessageCount}）',
       en: loading
           ? 'Loading earlier messages...'
-          : 'Load earlier messages ($hiddenMessageCount)',
+          : 'Load earlier messages (${widget.hiddenMessageCount})',
     );
     return Center(
       child: OutlinedButton.icon(
-        onPressed: loading ? null : onPressed,
+        onPressed: loading ? null : () => unawaited(_handlePressed()),
         icon: loading
             ? const SizedBox(
                 width: 16,
