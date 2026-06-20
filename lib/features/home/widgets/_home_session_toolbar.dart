@@ -2554,15 +2554,24 @@ class _WebReverseDebugCdpStatus {
     final runtimeMap = _asMap(runtime);
     final bridge = _asMap(runtimeMap?['cdp_mcp_bridge']);
     final rawStatus = '${bridge?['status'] ?? ''}'.trim();
-    final toolCount = (bridge?['tool_count'] as num?)?.toInt() ?? 0;
-    final liveCallable = bridge?['live_actions_callable'] == true;
+    final toolCount = _metadataInt(bridge?['tool_count']);
+    final liveCallable = webReverseRuntimeBoolTrue(
+      bridge?['live_actions_callable'],
+    );
     final message = '${bridge?['message'] ?? ''}'.trim();
     final error = '${bridge?['error_message'] ?? ''}'.trim();
     final warning = '${bridge?['warning_message'] ?? ''}'.trim();
+    final bridgePort = _metadataInt(bridge?['cdp_port']);
+    final runtimePort = _metadataInt(runtimeMap?['cdp_port']);
+    final port = bridgePort > 0
+        ? bridgePort
+        : runtimePort > 0
+        ? runtimePort
+        : controller?.cdpPort;
     final browserAlive =
-        bridge?['browser_alive'] == true ||
+        webReverseRuntimeBoolTrue(bridge?['browser_alive']) ||
         controller?.isBrowserAlive == true ||
-        runtimeMap?['browser_alive'] == true;
+        webReverseRuntimeBoolTrue(runtimeMap?['browser_alive']);
 
     late final _WebReverseDebugCdpTone tone;
     late final String label;
@@ -2588,6 +2597,7 @@ class _WebReverseDebugCdpStatus {
       isZh ? 'AI 侧 CDP MCP' : 'AI-side CDP MCP',
       '${isZh ? '状态' : 'Status'}: ${rawStatus.isEmpty ? 'unknown' : rawStatus}',
       '${isZh ? '可调用工具' : 'Callable tools'}: $toolCount',
+      if (port != null && port > 0) '${isZh ? 'CDP 端口' : 'CDP port'}: $port',
       if (message.isNotEmpty) message,
       if (warning.isNotEmpty) '${isZh ? '提示' : 'Warning'}: $warning',
       if (error.isNotEmpty) '${isZh ? '错误' : 'Error'}: $error',
