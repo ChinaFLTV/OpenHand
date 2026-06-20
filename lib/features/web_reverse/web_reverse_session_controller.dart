@@ -108,8 +108,12 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxTraceEvents = 120000;
   static const int _maxTracePayloadChars = 48 * 1024 * 1024;
   static const int _maxScreenshotBase64Chars = 64 * 1024 * 1024;
+  static const int _maxRawCdpParamsJsonChars = 2 * 1024 * 1024;
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
+  static final RegExp _rawCdpMethodPattern = RegExp(
+    r'^[A-Za-z][A-Za-z0-9_.]*$',
+  );
 
   final List<CdpNetworkEntry> _networkRequests = <CdpNetworkEntry>[];
   final Map<String, CdpNetworkEntry> _networkByRequestId =
@@ -3219,10 +3223,22 @@ class WebReverseSessionController extends ChangeNotifier {
   }) async {
     final cdp = _browserCdp;
     if (cdp == null) return null;
+    final trimmedMethod = method.trim();
+    if (trimmedMethod.isEmpty ||
+        !_rawCdpMethodPattern.hasMatch(trimmedMethod)) {
+      return <String, Object?>{'error': 'invalid CDP method name'};
+    }
     Map<String, Object?>? params;
-    if (paramsJson != null && paramsJson.trim().isNotEmpty) {
+    final rawParamsJson = paramsJson?.trim();
+    if (rawParamsJson != null && rawParamsJson.isNotEmpty) {
+      if (rawParamsJson.length > _maxRawCdpParamsJsonChars) {
+        return <String, Object?>{
+          'error':
+              'params JSON too large: ${rawParamsJson.length} chars, limit $_maxRawCdpParamsJsonChars',
+        };
+      }
       try {
-        final decoded = jsonDecode(paramsJson);
+        final decoded = jsonDecode(rawParamsJson);
         if (decoded is Map) params = Map<String, Object?>.from(decoded);
       } catch (e) {
         return <String, Object?>{'error': 'invalid params JSON: $e'};
@@ -3230,7 +3246,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     try {
       return await cdp.send(
-        method,
+        trimmedMethod,
         params: params,
         sessionId: useSession ? _pageSessionId : null,
         timeout: timeout,
