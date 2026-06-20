@@ -3203,9 +3203,9 @@ class WebReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// 用户主动停止调试：杀掉外部浏览器进程并保留会话本身。后续可调
-  /// [restartBrowser] 再起一个新的。会话工作目录 / artifacts / dashboard
-  /// 网络/控制台缓冲全部保留以便回看。
+  /// 用户主动停止调试：杀掉外部浏览器进程并关闭临时桥接服务，保留会话本身。
+  /// 后续可调 [restartBrowser] 再起一个新的。会话工作目录 / artifacts /
+  /// dashboard 网络/控制台缓冲全部保留以便回看。
   Future<void> stopBrowser() async {
     if (_stopped) return;
     silentLog(
@@ -3242,6 +3242,7 @@ class WebReverseSessionController extends ChangeNotifier {
     await _pageEventsSub?.cancel();
     _pageEventsSub = null;
     _pageSessionId = null;
+    await _closeAuxiliaryServices();
     try {
       await _pageCdp?.close();
     } catch (error, stack) {
@@ -3343,35 +3344,7 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     }
     await _pageEventsSub?.cancel();
-    await _mitmSub?.cancel();
-    final br = _mitmBridge;
-    _mitmBridge = null;
-    if (br != null) {
-      try {
-        await br.close();
-      } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'close mitm bridge',
-          error,
-          stack,
-        );
-      }
-    }
-    final har = _harReplayServer;
-    _harReplayServer = null;
-    if (har != null) {
-      try {
-        await har.close();
-      } catch (error, stack) {
-        silentLog(
-          'web_reverse_session_controller',
-          'close har replay server',
-          error,
-          stack,
-        );
-      }
-    }
+    await _closeAuxiliaryServices();
     _pageEventsSub = null;
     _pageSessionId = null;
     try {
@@ -3416,6 +3389,39 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog('web_reverse_session_controller', 'export HAR', error, stack);
     }
     await _artifacts.close();
+  }
+
+  Future<void> _closeAuxiliaryServices() async {
+    await _mitmSub?.cancel();
+    _mitmSub = null;
+    final br = _mitmBridge;
+    _mitmBridge = null;
+    if (br != null) {
+      try {
+        await br.close();
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'close mitm bridge',
+          error,
+          stack,
+        );
+      }
+    }
+    final har = _harReplayServer;
+    _harReplayServer = null;
+    if (har != null) {
+      try {
+        await har.close();
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'close har replay server',
+          error,
+          stack,
+        );
+      }
+    }
   }
 
   /// 清空 dashboard 缓冲（用户在 dashboard 点"清空"按钮时调用）。
