@@ -4008,7 +4008,18 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     }
     if (file == null) return;
     try {
-      final raw = await file.readAsString();
+      final read = await readWebReverseTextFile(file);
+      if (!mounted) return;
+      if (read.isTooLarge) {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          webReverseTextFileTooLargeMessage(read.tooLargeBytes!, isZh: isZh),
+          duration: const Duration(seconds: 2),
+        );
+        return;
+      }
+      final raw = read.text!;
       final decoded = jsonDecode(raw);
       if (decoded is! List) throw const FormatException('not a list');
       final steps = decoded

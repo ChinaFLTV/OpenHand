@@ -44,6 +44,7 @@ import 'web_reverse_css_coverage_dialog.dart';
 import 'web_reverse_device_emulation_dialog.dart';
 import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_dom_search_dialog.dart';
+import 'web_reverse_file_io.dart';
 import 'web_reverse_frame_tree_dialog.dart';
 import 'web_reverse_geo_override_dialog.dart';
 import 'web_reverse_har_io.dart';
@@ -1467,7 +1468,18 @@ class _OverviewBodyState extends State<_OverviewBody> {
       const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
       final file = await openFile(acceptedTypeGroups: const [typeGroup]);
       if (file == null) return;
-      final raw = await File(file.path).readAsString();
+      final read = await readWebReverseTextFile(file);
+      if (!mounted) return;
+      if (read.isTooLarge) {
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          webReverseTextFileTooLargeMessage(read.tooLargeBytes!, isZh: isZh),
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+      final raw = read.text!;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
         if (!mounted) return;
