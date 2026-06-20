@@ -3,6 +3,7 @@ export 'web_reverse_browser_detector.dart';
 export 'web_reverse_browser_kind.dart';
 export 'web_reverse_browser_launcher.dart';
 export 'web_reverse_cdp_client.dart';
+export 'web_reverse_cdp_http.dart';
 export 'web_reverse_cdp_mcp_bridge.dart';
 export 'web_reverse_dashboard_dialog.dart';
 export 'web_reverse_har_replay_server.dart';

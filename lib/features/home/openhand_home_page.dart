@@ -3149,10 +3149,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (port != null && !browserAlive) 'last_cdp_port': port,
       if (port != null && browserAlive) ...<String, Object?>{
         'cdp_port': port,
-        'cdp_host': '127.0.0.1',
-        'cdp_http_endpoint': 'http://127.0.0.1:$port',
-        'json_version_url': 'http://127.0.0.1:$port/json/version',
-        'json_list_url': 'http://127.0.0.1:$port/json/list',
+        'cdp_host': webReverseCdpLoopbackHost,
+        'cdp_http_endpoint': webReverseCdpHttpOrigin(port),
+        'json_version_url': webReverseCdpHttpUri(
+          port,
+          '/json/version',
+        ).toString(),
+        'json_list_url': webReverseCdpHttpUri(port, '/json/list').toString(),
       },
       if (browserVersion != null && browserVersion.isNotEmpty)
         'browser_version': browserVersion,
