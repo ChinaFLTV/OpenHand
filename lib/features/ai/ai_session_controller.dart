@@ -5735,6 +5735,7 @@ class AiSessionController extends ChangeNotifier {
         model: model,
         toolCatalog: toolCatalogForRound,
         toolCalls: result.toolCalls,
+        promptMetadata: promptResult.metadata,
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
@@ -5812,6 +5813,7 @@ class AiSessionController extends ChangeNotifier {
     required AiModelConfig model,
     required AiResolvedToolCatalog toolCatalog,
     required List<AiToolCall> toolCalls,
+    required Map<String, Object?> promptMetadata,
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
@@ -5834,6 +5836,7 @@ class AiSessionController extends ChangeNotifier {
         model: model,
         toolCatalog: toolCatalog,
         toolCalls: toolCalls,
+        promptMetadata: promptMetadata,
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
@@ -5885,6 +5888,7 @@ class AiSessionController extends ChangeNotifier {
         model: model,
         toolCatalog: workingToolCatalog,
         readFilePaths: _readFileHistory(workingSession),
+        promptMetadata: promptMetadata,
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
@@ -6018,6 +6022,7 @@ class AiSessionController extends ChangeNotifier {
     required AiModelConfig model,
     required AiResolvedToolCatalog toolCatalog,
     required List<AiToolCall> toolCalls,
+    required Map<String, Object?> promptMetadata,
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
@@ -6088,6 +6093,7 @@ class AiSessionController extends ChangeNotifier {
           model: model,
           toolCatalog: toolCatalog,
           readFilePaths: readFilePaths,
+          promptMetadata: promptMetadata,
           denyCommandRules: denyCommandRules,
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
           confirmWriteCommand: confirmWriteCommand,
@@ -6276,6 +6282,7 @@ class AiSessionController extends ChangeNotifier {
     required AiModelConfig model,
     required AiResolvedToolCatalog toolCatalog,
     required Set<String> readFilePaths,
+    Map<String, Object?> promptMetadata = const <String, Object?>{},
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
@@ -6289,7 +6296,10 @@ class AiSessionController extends ChangeNotifier {
       final sessionMode = currentSession?.mode;
       final planModeActive = sessionMode == AiSessionMode.plan;
       final pendingPlan = currentSession?.pendingPlan?.trim() ?? '';
-      final toolMetadata = _toolExecutionBaseMetadata(currentSession);
+      final toolMetadata = _toolExecutionBaseMetadata(
+        currentSession,
+        promptMetadata: promptMetadata,
+      );
       toolMetadata.addAll(<String, Object?>{
         if (sessionMode != null) 'session_mode': sessionMode.storageValue,
         'plan_mode_active': planModeActive,
@@ -6331,14 +6341,17 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  Map<String, Object?> _toolExecutionBaseMetadata(AiSession? session) {
+  Map<String, Object?> _toolExecutionBaseMetadata(
+    AiSession? session, {
+    Map<String, Object?> promptMetadata = const <String, Object?>{},
+  }) {
     if (session == null) {
       return <String, Object?>{};
     }
     final metadata = <String, Object?>{...session.metadata};
-    final webReverseRuntime = _metadataMap(
-      session.lastPromptMetadata['web_reverse_runtime'],
-    );
+    final webReverseRuntime =
+        _metadataMap(promptMetadata['web_reverse_runtime']) ??
+        _metadataMap(session.lastPromptMetadata['web_reverse_runtime']);
     if (webReverseRuntime != null && webReverseRuntime.isNotEmpty) {
       metadata['web_reverse_runtime'] = webReverseRuntime;
     }
