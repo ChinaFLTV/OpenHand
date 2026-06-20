@@ -225,8 +225,6 @@ class _WebReverseDashboardDialogState
   // Network 面板状态
   String _networkFilter = '';
   _ResourceFilter _resourceFilter = _ResourceFilter.all;
-  bool _cacheDisabled = false;
-  WebReverseThrottlePreset _throttle = WebReverseThrottlePreset.none;
   CdpNetworkEntry? _selectedRequest;
   final TextEditingController _filterCtrl = TextEditingController();
 

@@ -99,9 +99,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       _ToolbarTogglePill(
                         label: isZh ? '禁用缓存' : 'Disable cache',
                         icon: Icons.no_drinks_rounded,
-                        selected: _cacheDisabled,
+                        selected: ctrl.cacheDisabled,
                         onChanged: (v) async {
-                          rebuildFromExternal(() => _cacheDisabled = v);
                           await ctrl.setCacheDisabled(v);
                         },
                         reduceMotion: reduceMotion,
@@ -116,10 +115,9 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       ),
                       const SizedBox(width: 8),
                       _ToolbarThrottleButton(
-                        value: _throttle,
+                        value: ctrl.networkThrottlePreset,
                         isZh: isZh,
                         onChanged: (preset) async {
-                          rebuildFromExternal(() => _throttle = preset);
                           final ok = await ctrl.setNetworkThrottling(preset);
                           if (!ok && mounted) {
                             OpenHandSnackBar.showError(

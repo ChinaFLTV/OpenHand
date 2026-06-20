@@ -482,6 +482,7 @@ class WebReverseSessionController extends ChangeNotifier {
     await cdp.send('Page.enable', sessionId: _pageSessionId);
     await cdp.send('Runtime.enable', sessionId: _pageSessionId);
     await cdp.send('Log.enable', sessionId: _pageSessionId);
+    await _restoreNetworkDomainState();
     // 当前 target 换了，上轮拿到的 hook scriptId 在新 target 上
     // 无意义，重新沿着新 _pageSessionId 装载 enabled hook。
     await _reapplyEnabledHooks();
@@ -2464,21 +2465,6 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       // 重新 attach；CDP 重连后 sessionId 失效。
       await _attachToFirstPage();
-      // 把"已选好的"用户配置重新下发给浏览器：节流 / 持久 Header / 屏蔽 URL / 拦截开关。
-      if (_extraHeaders.isNotEmpty) {
-        await cdp.send(
-          'Network.setExtraHTTPHeaders',
-          params: <String, Object?>{'headers': _extraHeaders},
-          sessionId: _pageSessionId,
-        );
-      }
-      if (_blockedUrls.isNotEmpty) {
-        await cdp.send(
-          'Network.setBlockedURLs',
-          params: <String, Object?>{'urls': _blockedUrls.toList()},
-          sessionId: _pageSessionId,
-        );
-      }
       // 内嵌浏览器 widget 仍处于激活状态时，要把 screencast 拉起来续上画面。
       if (_screencastActive || _screencastRefCount > 0) {
         try {
@@ -3615,13 +3601,27 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 在浏览器主 page 上启用/关闭缓存。
   Future<void> setCacheDisabled(bool disabled) async {
+    _cacheDisabled = disabled;
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
-    await cdp.send(
-      'Network.setCacheDisabled',
-      params: <String, Object?>{'cacheDisabled': disabled},
-      sessionId: _pageSessionId,
-    );
+    if (cdp == null || _pageSessionId == null) {
+      _safeNotify();
+      return;
+    }
+    try {
+      await cdp.send(
+        'Network.setCacheDisabled',
+        params: <String, Object?>{'cacheDisabled': disabled},
+        sessionId: _pageSessionId,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_session_controller',
+        'setCacheDisabled',
+        error,
+        stack,
+      );
+    }
+    _safeNotify();
   }
 
   /// 安装一个轻量 FPS 计数器到 page：基于 requestAnimationFrame 的滚动计数。
@@ -5341,6 +5341,8 @@ class WebReverseSessionController extends ChangeNotifier {
         params: params,
         sessionId: _pageSessionId,
       );
+      _networkThrottlePreset = preset;
+      _safeNotify();
       return true;
     } catch (error, stack) {
       silentLog(
@@ -6461,6 +6463,53 @@ class WebReverseSessionController extends ChangeNotifier {
   final Map<String, String> _extraHeaders = <String, String>{};
   Map<String, String> get extraHeaders =>
       Map<String, String>.unmodifiable(_extraHeaders);
+
+  bool _cacheDisabled = false;
+  bool get cacheDisabled => _cacheDisabled;
+
+  WebReverseThrottlePreset _networkThrottlePreset =
+      WebReverseThrottlePreset.none;
+  WebReverseThrottlePreset get networkThrottlePreset => _networkThrottlePreset;
+
+  Future<void> _restoreNetworkDomainState() async {
+    final cdp = _browserCdp;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return;
+
+    Future<void> send(String method, {Map<String, Object?>? params}) async {
+      try {
+        await cdp.send(method, params: params, sessionId: sessionId);
+      } catch (error, stack) {
+        silentLog(
+          'web_reverse_session_controller',
+          'restore $method',
+          error,
+          stack,
+        );
+      }
+    }
+
+    await send(
+      'Network.setCacheDisabled',
+      params: <String, Object?>{'cacheDisabled': _cacheDisabled},
+    );
+    if (_extraHeaders.isNotEmpty) {
+      await send(
+        'Network.setExtraHTTPHeaders',
+        params: <String, Object?>{'headers': _extraHeaders},
+      );
+    }
+    await send(
+      'Network.setBlockedURLs',
+      params: <String, Object?>{'urls': _blockedUrls.toList()},
+    );
+    if (_networkThrottlePreset != WebReverseThrottlePreset.none) {
+      await send(
+        'Network.emulateNetworkConditions',
+        params: _networkThrottlePreset.cdpParams,
+      );
+    }
+  }
 
   Future<bool> setExtraHttpHeaders(Map<String, String> headers) async {
     final cdp = _browserCdp;
