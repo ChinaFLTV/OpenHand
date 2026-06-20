@@ -421,6 +421,8 @@ List<_CodexDiffLine> _codexDiffLinesFromUnifiedLines(Iterable<String> diff) {
             _CodexDiffLine(
               kind: _CodexDiffLineKind.folded,
               foldedCount: folded,
+              foldedOldStart: oldLine,
+              foldedNewStart: newLine,
             ),
           );
         }

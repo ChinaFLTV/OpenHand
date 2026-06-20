@@ -1505,12 +1505,16 @@ class _CodexDiffLine {
     this.lineNumber,
     this.text = '',
     this.foldedCount = 0,
+    this.foldedOldStart,
+    this.foldedNewStart,
   });
 
   final _CodexDiffLineKind kind;
   final int? lineNumber;
   final String text;
   final int foldedCount;
+  final int? foldedOldStart;
+  final int? foldedNewStart;
 }
 
 class _CodexDiffViewer extends StatefulWidget {
@@ -1533,11 +1537,14 @@ class _CodexDiffViewer extends StatefulWidget {
 class _CodexDiffViewerState extends State<_CodexDiffViewer> {
   static const int _kExpandedStateCacheLimit = 500;
   static final Map<String, bool> _expandedByDiffKey = <String, bool>{};
+  static final Map<String, Set<String>> _expandedFoldKeysByDiffKey =
+      <String, Set<String>>{};
 
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
   String? _diffKey;
   List<_CodexDiffLine> _lines = const <_CodexDiffLine>[];
+  Set<String> _expandedFoldKeys = <String>{};
   late bool _showFull;
 
   @override
@@ -1578,6 +1585,9 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     _rememberExpandedState();
     _diffKey = nextKey;
     _showFull = _expandedByDiffKey[nextKey] ?? false;
+    _expandedFoldKeys = Set<String>.of(
+      _expandedFoldKeysByDiffKey[nextKey] ?? const <String>{},
+    );
     _lines = _codexDiffLinesFromUnifiedLines(
       unifiedDiffLinesFromText(widget.before, widget.after),
     );
@@ -1590,8 +1600,17 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     if (_showFull) {
       _expandedByDiffKey[key] = true;
     }
+    _expandedFoldKeysByDiffKey.remove(key);
+    if (_expandedFoldKeys.isNotEmpty) {
+      _expandedFoldKeysByDiffKey[key] = Set<String>.unmodifiable(
+        _expandedFoldKeys,
+      );
+    }
     while (_expandedByDiffKey.length > _kExpandedStateCacheLimit) {
       _expandedByDiffKey.remove(_expandedByDiffKey.keys.first);
+    }
+    while (_expandedFoldKeysByDiffKey.length > _kExpandedStateCacheLimit) {
+      _expandedFoldKeysByDiffKey.remove(_expandedFoldKeysByDiffKey.keys.first);
     }
   }
 
@@ -1602,14 +1621,86 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     _rememberExpandedState();
   }
 
+  void _toggleFold(_CodexDiffLine line) {
+    final key = _foldKey(line);
+    if (key == null) return;
+    _markToolCardInteractiveTap(context);
+    setState(() {
+      if (!_expandedFoldKeys.remove(key)) {
+        _expandedFoldKeys.add(key);
+      }
+    });
+    _rememberExpandedState();
+  }
+
+  String? _foldKey(_CodexDiffLine line) {
+    final oldStart = line.foldedOldStart;
+    final newStart = line.foldedNewStart;
+    if (oldStart == null || newStart == null || line.foldedCount <= 0) {
+      return null;
+    }
+    return '$oldStart:$newStart:${line.foldedCount}';
+  }
+
+  List<_CodexDiffLine> _materializeFoldedLines() {
+    if (_expandedFoldKeys.isEmpty) return _lines;
+    final out = <_CodexDiffLine>[];
+    final beforeLines = widget.before.isEmpty
+        ? const <String>[]
+        : const LineSplitter().convert(widget.before);
+    final afterLines = widget.after.isEmpty
+        ? const <String>[]
+        : const LineSplitter().convert(widget.after);
+    for (final line in _lines) {
+      out.add(line);
+      final key = _foldKey(line);
+      if (key == null || !_expandedFoldKeys.contains(key)) continue;
+      out.addAll(_expandedContextLines(line, beforeLines, afterLines));
+    }
+    return out;
+  }
+
+  Iterable<_CodexDiffLine> _expandedContextLines(
+    _CodexDiffLine folded,
+    List<String> beforeLines,
+    List<String> afterLines,
+  ) sync* {
+    final lineNumberStart = folded.foldedNewStart ?? folded.foldedOldStart;
+    if (lineNumberStart == null || folded.foldedCount <= 0) return;
+    for (var offset = 0; offset < folded.foldedCount; offset++) {
+      final afterIndex = folded.foldedNewStart == null
+          ? -1
+          : folded.foldedNewStart! - 1 + offset;
+      final beforeIndex = folded.foldedOldStart == null
+          ? -1
+          : folded.foldedOldStart! - 1 + offset;
+      final text = afterIndex >= 0 && afterIndex < afterLines.length
+          ? afterLines[afterIndex]
+          : (beforeIndex >= 0 && beforeIndex < beforeLines.length
+                ? beforeLines[beforeIndex]
+                : '');
+      yield _CodexDiffLine(
+        kind: _CodexDiffLineKind.context,
+        lineNumber: lineNumberStart + offset,
+        text: text,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final palette = _CodexDiffPalette.resolve(theme);
     final visibleLimit = math.max(1, widget.previewLineLimit);
-    final clipped = !_showFull && _lines.length > visibleLimit;
-    final visibleLines = clipped ? _lines.take(visibleLimit).toList() : _lines;
-    final hiddenCount = _lines.length - visibleLines.length;
+    final materializedLines = _materializeFoldedLines();
+    final clipped =
+        !_showFull &&
+        _expandedFoldKeys.isEmpty &&
+        materializedLines.length > visibleLimit;
+    final visibleLines = clipped
+        ? materializedLines.take(visibleLimit).toList()
+        : materializedLines;
+    final hiddenCount = materializedLines.length - visibleLines.length;
     final maxTextLength = visibleLines.fold<int>(
       0,
       (max, line) => math.max(max, line.text.length),
@@ -1687,41 +1778,53 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(
-                  height: bodyHeight,
-                  child: PrimaryScrollController.none(
-                    child: OpenHandSafeScrollbar(
-                      controller: _verticalController,
-                      child: SingleChildScrollView(
-                        controller: _horizontalController,
-                        scrollDirection: Axis.horizontal,
-                        primary: false,
-                        child: SizedBox(
-                          width: contentWidth,
-                          child: SelectionArea(
-                            child: ListView.builder(
-                              controller: _verticalController,
-                              primary: false,
-                              padding: EdgeInsets.zero,
-                              itemExtent: rowExtent,
-                              itemCount: visibleLines.length,
-                              itemBuilder: (context, index) {
-                                final line = visibleLines[index];
-                                return _CodexDiffLineRow(
-                                  line: line,
-                                  minWidth: viewportWidth,
-                                  highlighter: highlighter,
-                                  language: _languageFromFilePath(
-                                    widget.record.filePath,
-                                  ),
-                                  baseStyle: baseStyle,
-                                  palette: palette,
-                                  cacheKey:
-                                      '${_diffKey ?? widget.record.recordId}|'
-                                      '${brightness.name}|${codeTheme.name}|'
-                                      '$paletteSignature|$index',
-                                );
-                              },
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    height: bodyHeight,
+                    child: PrimaryScrollController.none(
+                      child: OpenHandSafeScrollbar(
+                        controller: _verticalController,
+                        child: SingleChildScrollView(
+                          controller: _horizontalController,
+                          scrollDirection: Axis.horizontal,
+                          primary: false,
+                          child: SizedBox(
+                            width: contentWidth,
+                            child: SelectionArea(
+                              child: ListView.builder(
+                                controller: _verticalController,
+                                primary: false,
+                                padding: EdgeInsets.zero,
+                                itemExtent: rowExtent,
+                                itemCount: visibleLines.length,
+                                itemBuilder: (context, index) {
+                                  final line = visibleLines[index];
+                                  final foldKey = _foldKey(line);
+                                  return _CodexDiffLineRow(
+                                    line: line,
+                                    minWidth: viewportWidth,
+                                    highlighter: highlighter,
+                                    language: _languageFromFilePath(
+                                      widget.record.filePath,
+                                    ),
+                                    baseStyle: baseStyle,
+                                    palette: palette,
+                                    cacheKey:
+                                        '${_diffKey ?? widget.record.recordId}|'
+                                        '${brightness.name}|${codeTheme.name}|'
+                                        '$paletteSignature|$index',
+                                    foldedExpanded:
+                                        foldKey != null &&
+                                        _expandedFoldKeys.contains(foldKey),
+                                    onToggleFold: foldKey == null
+                                        ? null
+                                        : () => _toggleFold(line),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -1729,7 +1832,8 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
                     ),
                   ),
                 ),
-                if (clipped || (_showFull && _lines.length > visibleLimit))
+                if (clipped ||
+                    (_showFull && materializedLines.length > visibleLimit))
                   _CodexDiffFooter(
                     hiddenCount: hiddenCount,
                     showFull: _showFull,
@@ -1754,6 +1858,8 @@ class _CodexDiffLineRow extends StatelessWidget {
     required this.baseStyle,
     required this.palette,
     required this.cacheKey,
+    this.foldedExpanded = false,
+    this.onToggleFold,
   });
 
   final _CodexDiffLine line;
@@ -1763,6 +1869,8 @@ class _CodexDiffLineRow extends StatelessWidget {
   final TextStyle baseStyle;
   final _CodexDiffPalette palette;
   final String cacheKey;
+  final bool foldedExpanded;
+  final VoidCallback? onToggleFold;
 
   Color get _background {
     return switch (line.kind) {
@@ -1798,6 +1906,8 @@ class _CodexDiffLineRow extends StatelessWidget {
         count: line.foldedCount,
         minWidth: minWidth,
         palette: palette,
+        expanded: foldedExpanded,
+        onToggle: onToggleFold,
       );
     }
     return ConstrainedBox(
@@ -1871,20 +1981,26 @@ class _CodexDiffFoldRow extends StatelessWidget {
     required this.count,
     required this.minWidth,
     required this.palette,
+    required this.expanded,
+    this.onToggle,
   });
 
   final int count;
   final double minWidth;
   final _CodexDiffPalette palette;
+  final bool expanded;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
     final label = openHandLocalizedText(
       context,
-      zh: '$count 行未修改',
-      en: '$count unmodified lines',
+      zh: expanded ? '收起 $count 行未修改' : '$count 行未修改',
+      en: expanded
+          ? 'Collapse $count unmodified lines'
+          : '$count unmodified lines',
     );
-    return ConstrainedBox(
+    final row = ConstrainedBox(
       constraints: BoxConstraints(minWidth: minWidth),
       child: DecoratedBox(
         decoration: BoxDecoration(color: palette.foldedBackground),
@@ -1898,7 +2014,9 @@ class _CodexDiffFoldRow extends StatelessWidget {
               width: 58,
               child: Center(
                 child: Icon(
-                  Icons.unfold_more_rounded,
+                  expanded
+                      ? Icons.unfold_less_rounded
+                      : Icons.unfold_more_rounded,
                   size: 16,
                   color: palette.foldedLineNumber,
                 ),
@@ -1916,6 +2034,26 @@ class _CodexDiffFoldRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+    if (onToggle == null) return row;
+    return MicroPressFeedback(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onToggle,
+          child: Tooltip(
+            message: openHandLocalizedText(
+              context,
+              zh: expanded ? '折叠未修改内容' : '展开未修改内容',
+              en: expanded
+                  ? 'Collapse unchanged content'
+                  : 'Expand unchanged content',
+            ),
+            waitDuration: const Duration(milliseconds: 500),
+            child: row,
+          ),
         ),
       ),
     );
