@@ -124,6 +124,29 @@ void main() {
       expect(status.port, isNull);
     });
 
+    test('current offline controller overrides stale ready bridge runtime', () {
+      final status = WebReverseCdpMcpRuntimeStatus.fromRuntime(
+        <String, Object?>{
+          'browser_alive': true,
+          'cdp_port': 9224,
+          'cdp_mcp_bridge': <String, Object?>{
+            'status': 'ready',
+            'browser_alive': true,
+            'live_actions_callable': true,
+            'tool_count': 2,
+            'cdp_port': 9223,
+          },
+        },
+        controllerBrowserAlive: false,
+        controllerPort: 9225,
+      );
+
+      expect(status.browserAlive, isFalse);
+      expect(status.liveActionsCallable, isFalse);
+      expect(status.ready, isFalse);
+      expect(status.port, isNull);
+    });
+
     test('prefers current controller CDP runtime over prompt runtime', () {
       final runtime = webReverseCurrentCdpRuntimeMetadata(<Object?, Object?>{
         'web_reverse_runtime': <String, Object?>{

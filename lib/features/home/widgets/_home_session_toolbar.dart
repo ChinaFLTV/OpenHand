@@ -2548,7 +2548,7 @@ class _WebReverseDebugCdpStatus {
   }) {
     final runtimeStatus = WebReverseCdpMcpRuntimeStatus.fromRuntime(
       runtime,
-      controllerBrowserAlive: controller?.isBrowserAlive == true,
+      controllerBrowserAlive: controller?.isBrowserAlive,
       controllerPort: controller?.cdpPort,
     );
 
@@ -2559,15 +2559,15 @@ class _WebReverseDebugCdpStatus {
       label = isZh
           ? 'CDP ${runtimeStatus.toolCount}'
           : 'CDP ${runtimeStatus.toolCount}';
+    } else if (!runtimeStatus.browserAlive) {
+      tone = _WebReverseDebugCdpTone.unavailable;
+      label = isZh ? 'CDP离线' : 'CDP off';
     } else if (runtimeStatus.rawStatus == 'preparing') {
       tone = _WebReverseDebugCdpTone.preparing;
       label = isZh ? 'CDP…' : 'CDP…';
     } else if (runtimeStatus.rawStatus == 'failed') {
       tone = _WebReverseDebugCdpTone.failed;
       label = isZh ? 'CDP!' : 'CDP!';
-    } else if (!runtimeStatus.browserAlive) {
-      tone = _WebReverseDebugCdpTone.unavailable;
-      label = isZh ? 'CDP离线' : 'CDP off';
     } else {
       tone = _WebReverseDebugCdpTone.unavailable;
       label = isZh ? 'CDP待同步' : 'CDP pending';

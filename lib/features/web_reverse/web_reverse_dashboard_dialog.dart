@@ -1012,7 +1012,6 @@ class _WebReverseDashboardDialogState
 
   Widget _buildHeader(ThemeData theme, ColorScheme cs, bool isZh) {
     final ctrl = widget.controller;
-    final port = ctrl.cdpPort;
     final version = ctrl.browserVersion ?? '-';
     final cdpRuntimeMeta = context.select<AiSessionController, Object?>((
       controller,
@@ -1060,7 +1059,7 @@ class _WebReverseDashboardDialogState
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$version · CDP :$port',
+                  _cdpHeaderSubtitle(ctrl, version, isZh),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -1082,6 +1081,23 @@ class _WebReverseDashboardDialogState
         ],
       ),
     );
+  }
+
+  String _cdpHeaderSubtitle(
+    WebReverseSessionController ctrl,
+    String version,
+    bool isZh,
+  ) {
+    final normalizedVersion = version.trim().isEmpty ? '-' : version.trim();
+    final port = ctrl.cdpPort;
+    final cdpLabel = ctrl.isBrowserAlive
+        ? port == null
+              ? (isZh ? 'CDP 待同步' : 'CDP pending')
+              : 'CDP :$port'
+        : port == null
+        ? (isZh ? 'CDP 离线' : 'CDP offline')
+        : (isZh ? 'CDP 离线 · 上次 :$port' : 'CDP offline · last :$port');
+    return '$normalizedVersion · $cdpLabel';
   }
 
   Widget _buildBody(
@@ -1303,6 +1319,10 @@ class _CdpMcpBridgeHeaderStatus {
       label = isZh
           ? 'AI CDP 就绪 · ${runtimeStatus.toolCount}'
           : 'AI CDP ready · ${runtimeStatus.toolCount}';
+    } else if (!runtimeStatus.browserAlive) {
+      tone = _CdpMcpBridgeHeaderTone.unavailable;
+      icon = Icons.power_off_rounded;
+      label = isZh ? 'AI CDP 离线' : 'AI CDP offline';
     } else if (runtimeStatus.rawStatus == 'preparing') {
       tone = _CdpMcpBridgeHeaderTone.preparing;
       icon = Icons.sync_rounded;
@@ -1311,10 +1331,6 @@ class _CdpMcpBridgeHeaderStatus {
       tone = _CdpMcpBridgeHeaderTone.failed;
       icon = Icons.error_outline_rounded;
       label = isZh ? 'AI CDP 异常' : 'AI CDP failed';
-    } else if (!runtimeStatus.browserAlive) {
-      tone = _CdpMcpBridgeHeaderTone.unavailable;
-      icon = Icons.power_off_rounded;
-      label = isZh ? 'AI CDP 离线' : 'AI CDP offline';
     } else {
       tone = _CdpMcpBridgeHeaderTone.unavailable;
       icon = Icons.link_off_rounded;

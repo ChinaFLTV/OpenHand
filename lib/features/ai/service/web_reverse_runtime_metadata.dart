@@ -61,29 +61,34 @@ class WebReverseCdpMcpRuntimeStatus {
 
   factory WebReverseCdpMcpRuntimeStatus.fromRuntime(
     Object? runtime, {
-    bool controllerBrowserAlive = false,
+    bool? controllerBrowserAlive,
     int? controllerPort,
   }) {
     final runtimeMap = webReverseRuntimeObjectMap(runtime);
     final bridge = webReverseRuntimeObjectMap(runtimeMap?['cdp_mcp_bridge']);
+    final controllerSaysOffline = controllerBrowserAlive == false;
     final bridgePort = webReverseRuntimeInt(bridge?['cdp_port']);
     final runtimePort = webReverseRuntimeInt(runtimeMap?['cdp_port']);
-    final port = bridgePort != null && bridgePort > 0
+    final port = controllerSaysOffline
+        ? null
+        : bridgePort != null && bridgePort > 0
         ? bridgePort
         : runtimePort != null && runtimePort > 0
         ? runtimePort
         : controllerPort;
+    final browserAlive =
+        !controllerSaysOffline &&
+        (controllerBrowserAlive == true ||
+            webReverseRuntimeBoolTrue(bridge?['browser_alive']) ||
+            webReverseCdpRuntimeIsLive(runtimeMap));
 
     return WebReverseCdpMcpRuntimeStatus(
       rawStatus: '${bridge?['status'] ?? ''}'.trim(),
       toolCount: webReverseRuntimeInt(bridge?['tool_count']) ?? 0,
-      liveActionsCallable: webReverseRuntimeBoolTrue(
-        bridge?['live_actions_callable'],
-      ),
-      browserAlive:
-          webReverseRuntimeBoolTrue(bridge?['browser_alive']) ||
-          controllerBrowserAlive ||
-          webReverseCdpRuntimeIsLive(runtimeMap),
+      liveActionsCallable:
+          !controllerSaysOffline &&
+          webReverseRuntimeBoolTrue(bridge?['live_actions_callable']),
+      browserAlive: browserAlive,
       port: port,
       serverName: '${bridge?['server_name'] ?? ''}'.trim(),
       message: '${bridge?['message'] ?? ''}'.trim(),
