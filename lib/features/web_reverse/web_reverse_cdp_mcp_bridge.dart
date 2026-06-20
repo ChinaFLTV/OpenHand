@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../app/support/silent_log.dart';
 import '../mcp/index.dart';
+import 'web_reverse_cdp_http.dart';
 import 'web_reverse_session_controller.dart';
 
 class WebReverseTransientMcpSnapshot {
@@ -259,7 +260,7 @@ class WebReverseCdpMcpBridge {
       args: <String>[
         '--yes',
         cdpMcpPackage,
-        '--browser-url=http://127.0.0.1:$port',
+        '--browser-url=${webReverseCdpHttpOrigin(port)}',
       ],
     );
     if (syncLifecycle) {
@@ -414,7 +415,7 @@ class WebReverseCdpMcpBridge {
         browserAlive: false,
         toolCount: 0,
         cdpPort: port,
-        browserUrl: port == null ? null : 'http://127.0.0.1:$port',
+        browserUrl: port == null ? null : webReverseCdpHttpOrigin(port),
         message:
             'The Web Reverse browser is not alive; live CDP MCP actions are unavailable.',
       );
@@ -424,7 +425,7 @@ class WebReverseCdpMcpBridge {
       browserAlive: true,
       toolCount: 0,
       cdpPort: port,
-      browserUrl: port == null ? null : 'http://127.0.0.1:$port',
+      browserUrl: port == null ? null : webReverseCdpHttpOrigin(port),
       message: 'The live Web Reverse CDP port is not available yet.',
     );
   }
@@ -435,7 +436,7 @@ class WebReverseCdpMcpBridge {
     required McpToolCatalog catalog,
   }) {
     final port = controller.cdpPort;
-    final browserUrl = port == null ? null : 'http://127.0.0.1:$port';
+    final browserUrl = port == null ? null : webReverseCdpHttpOrigin(port);
     final status = switch (catalog.status) {
       McpToolCatalogStatus.ready =>
         catalog.tools.isEmpty

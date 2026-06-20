@@ -24,6 +24,7 @@ import '../../../app/support/silent_log.dart';
 enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 
 const int _kMaxLspFrameBytes = 8 * 1024 * 1024;
+const int _kMaxLspHeaderBytes = 64 * 1024;
 
 class WebReverseLspClient {
   WebReverseLspClient({this.command, this.args});
@@ -353,29 +354,25 @@ class WebReverseLspClient {
     while (true) {
       final all = _buf.toBytes();
       final end = _findHeaderEnd(all);
-      if (end < 0) return;
-      final header = utf8.decode(all.sublist(0, end));
+      if (end < 0) {
+        if (all.length > _kMaxLspHeaderBytes) {
+          _failProtocol('LSP header exceeded $_kMaxLspHeaderBytes bytes');
+        }
+        return;
+      }
+      final header = utf8.decode(all.sublist(0, end), allowMalformed: true);
       final m = RegExp(
         r'Content-Length:\s*(\d+)',
         caseSensitive: false,
       ).firstMatch(header);
       if (m == null) {
         // 不识别头，丢掉之前数据避免死循环。
-        _buf.clear();
+        _failProtocol('missing Content-Length header');
         return;
       }
       final clen = int.parse(m.group(1)!);
       if (clen <= 0 || clen > _kMaxLspFrameBytes) {
-        _buf.clear();
-        status = WebReverseLspStatus.failed;
-        final errorMessage = 'invalid Content-Length: $clen';
-        lastError = errorMessage;
-        silentLog(
-          'web_reverse_lsp_client',
-          'invalid content length',
-          errorMessage,
-          StackTrace.current,
-        );
+        _failProtocol('invalid Content-Length: $clen');
         return;
       }
       final bodyStart = end + 4;
@@ -397,6 +394,33 @@ class WebReverseLspClient {
         silentLog('web_reverse_lsp_client', 'parse', e, st);
       }
     }
+  }
+
+  void _failProtocol(String message) {
+    _buf.clear();
+    status = WebReverseLspStatus.failed;
+    lastError = message;
+    try {
+      _proc?.kill();
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_lsp_client',
+        'kill protocol failure',
+        error,
+        stack,
+      );
+    }
+    _proc = null;
+    for (final c in _pending.values) {
+      if (!c.isCompleted) c.complete(<String, Object?>{'error': message});
+    }
+    _pending.clear();
+    silentLog(
+      'web_reverse_lsp_client',
+      'protocol',
+      message,
+      StackTrace.current,
+    );
   }
 
   int _findHeaderEnd(List<int> buf) {

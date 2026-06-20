@@ -33,6 +33,7 @@ import 'web_reverse_ai_crypto_dialog.dart';
 import 'web_reverse_animations_dialog.dart';
 import 'web_reverse_callgraph_dialog.dart';
 import 'web_reverse_cdp_console_dialog.dart';
+import 'web_reverse_cdp_http.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_collection_export_dialog.dart';
 import 'web_reverse_console_cluster_dialog.dart';
@@ -1187,11 +1188,12 @@ Future<void> _openOfficialDevToolsForController(
   final messenger = ScaffoldMessenger.of(context);
   String? frontendUrl;
   try {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+    final client = createWebReverseCdpHttpClient(
+      connectionTimeout: const Duration(seconds: 3),
+      idleTimeout: const Duration(seconds: 3),
+    );
     try {
-      final req = await client.getUrl(
-        Uri.parse('http://127.0.0.1:$port/json/list'),
-      );
+      final req = await client.getUrl(webReverseCdpHttpUri(port, '/json/list'));
       final res = await req.close().timeout(const Duration(seconds: 3));
       final body = await res.transform(utf8.decoder).join();
       final list = jsonDecode(body);
@@ -1228,7 +1230,8 @@ Future<void> _openOfficialDevToolsForController(
   } catch (error, stack) {
     silentLog('web_reverse_dashboard_dialog', 'fetch /json/list', error, stack);
   }
-  final url = frontendUrl ?? 'http://127.0.0.1:$port/json/list';
+  final url =
+      frontendUrl ?? webReverseCdpHttpUri(port, '/json/list').toString();
   try {
     if (Platform.isMacOS) {
       await runTrackedProcessOrFailed(

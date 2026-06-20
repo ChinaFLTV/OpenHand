@@ -7,6 +7,7 @@ import 'package:http/io_client.dart' as http_io;
 
 import '../../app/support/silent_log.dart';
 import 'web_reverse_browser_kind.dart';
+import 'web_reverse_cdp_http.dart';
 
 /// 启动失败原因。UI 层据此给出可操作的提示。
 enum WebReverseLaunchFailure { noFreePort, spawnFailed, cdpHandshakeFailed }
@@ -44,10 +45,7 @@ class WebReverseBrowserLauncher {
   /// CDP 探测目标是 127.0.0.1，如果走 HTTP/SOCKS 代理会被路由到外网拒绝
   /// 或卡死，所以这里用空 findProxy 直连。同样设置短连接超时避免悬挂。
   static http.Client _newDirectClient() {
-    final inner = HttpClient();
-    inner.findProxy = (_) => 'DIRECT';
-    inner.connectionTimeout = const Duration(seconds: 2);
-    inner.idleTimeout = const Duration(seconds: 2);
+    final inner = createWebReverseCdpHttpClient();
     return http_io.IOClient(inner);
   }
 
@@ -67,7 +65,7 @@ class WebReverseBrowserLauncher {
         // 1) 是否已被 CDP 占用？
         try {
           final resp = await probeClient
-              .get(Uri.parse('http://127.0.0.1:$port/json/version'))
+              .get(webReverseCdpHttpUri(port, '/json/version'))
               .timeout(const Duration(milliseconds: 400));
           if (resp.statusCode >= 200 && resp.statusCode < 500) {
             // 端口活着且响应——大概率是别的浏览器实例占用，跳过。
@@ -222,7 +220,7 @@ class WebReverseBrowserLauncher {
         attempts++;
         try {
           final resp = await client
-              .get(Uri.parse('http://127.0.0.1:$port/json/version'))
+              .get(webReverseCdpHttpUri(port, '/json/version'))
               .timeout(const Duration(seconds: 2));
           if (resp.statusCode == 200) {
             final data = jsonDecode(resp.body) as Map<String, dynamic>;

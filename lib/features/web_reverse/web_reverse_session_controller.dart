@@ -9,6 +9,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
+import 'web_reverse_cdp_http.dart';
 import 'web_reverse_har_io.dart';
 import 'web_reverse_har_replay_server.dart';
 import 'web_reverse_mitmproxy_bridge.dart';
@@ -2401,12 +2402,13 @@ class WebReverseSessionController extends ChangeNotifier {
         if (port == null) return;
         final cdp = _browserCdp;
         if (cdp == null || cdp.isClosed) return;
-        final client = HttpClient();
-        client.findProxy = (_) => 'DIRECT';
-        client.connectionTimeout = const Duration(seconds: 1);
+        final client = createWebReverseCdpHttpClient(
+          connectionTimeout: const Duration(seconds: 1),
+          idleTimeout: const Duration(seconds: 1),
+        );
         try {
           final req = await client
-              .getUrl(Uri.parse('http://127.0.0.1:$port/json/version'))
+              .getUrl(webReverseCdpHttpUri(port, '/json/version'))
               .timeout(const Duration(seconds: 1));
           final res = await req.close().timeout(const Duration(seconds: 1));
           await res.drain<void>().timeout(const Duration(seconds: 1));

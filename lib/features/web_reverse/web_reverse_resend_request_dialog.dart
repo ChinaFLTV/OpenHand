@@ -59,6 +59,7 @@ class _ResendRequestDialog extends StatefulWidget {
 class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   static const int _kMaxResponseBytes = 2 * 1024 * 1024;
   static const Duration _kRequestTimeout = Duration(seconds: 30);
+  static const Duration _kResponseReadIdleTimeout = Duration(seconds: 5);
 
   static const _kMethods = [
     'GET',
@@ -317,10 +318,15 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       final resp = await req.close().timeout(_kRequestTimeout);
       final bodyBytes = <int>[];
       var truncated = false;
-      await for (final chunk in resp) {
+      final readDeadline = DateTime.now().add(_kRequestTimeout);
+      await for (final chunk in resp.timeout(_kResponseReadIdleTimeout)) {
         bodyBytes.addAll(chunk);
         if (bodyBytes.length > _kMaxResponseBytes) {
           bodyBytes.removeRange(_kMaxResponseBytes, bodyBytes.length);
+          truncated = true;
+          break;
+        }
+        if (DateTime.now().isAfter(readDeadline)) {
           truncated = true;
           break;
         }
@@ -463,25 +469,29 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     let truncated = false;
     const reader = response.body && response.body.getReader ? response.body.getReader() : null;
     if (reader) {
-      while (true) {
-        const part = await reader.read();
-        if (part.done) break;
-        const value = part.value || new Uint8Array();
-        const remaining = maxBytes - total;
-        if (value.length > remaining) {
-          chunks.push(value.slice(0, Math.max(remaining, 0)));
-          total += Math.max(remaining, 0);
-          truncated = true;
-          try { await reader.cancel(); } catch (_) {}
-          break;
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          const value = part.value || new Uint8Array();
+          const remaining = maxBytes - total;
+          if (value.length > remaining) {
+            chunks.push(value.slice(0, Math.max(remaining, 0)));
+            total += Math.max(remaining, 0);
+            truncated = true;
+            try { await reader.cancel(); } catch (_) {}
+            break;
+          }
+          chunks.push(value);
+          total += value.length;
+          if (total >= maxBytes) {
+            truncated = true;
+            try { await reader.cancel(); } catch (_) {}
+            break;
+          }
         }
-        chunks.push(value);
-        total += value.length;
-        if (total >= maxBytes) {
-          truncated = true;
-          try { await reader.cancel(); } catch (_) {}
-          break;
-        }
+      } finally {
+        try { reader.releaseLock(); } catch (_) {}
       }
     } else {
       const all = new Uint8Array(await response.arrayBuffer());
