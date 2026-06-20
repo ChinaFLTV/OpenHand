@@ -1431,7 +1431,7 @@ class AiPromptBuilder {
         buffer.writeln(
           'Capability invocation priority for the Web Reverse Expert template: '
           'CDP MCP tools backed by the OpenHand-managed Chrome CDP runtime and local jsonl/HAR artifacts are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. '
-          'Live CDP requires `web_reverse_runtime.cdp_runtime.browser_alive=true` plus a current CDP endpoint/port; while live, do not launch a new browser or attach via Bash. '
+          'Live CDP requires the injected `cdp_runtime` to report `browser_alive=true` plus a current CDP endpoint/port; while live, do not launch a new browser or attach via Bash. '
           'When `browser_alive` is false or no current endpoint/port exists, live CDP MCP actions are unavailable: use local jsonl/HAR artifacts and ask the user to restart the browser before live browser operations. '
           'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
           'When the live CDP runtime is available, Bash/WebFetch target-origin HTTP(S) access is blocked; use CDP MCP tools, ToolSearch, or local jsonl/HAR first. '
@@ -2213,8 +2213,9 @@ class AiPromptBuilder {
   }
 
   Object? _sanitizeWebReverseCdpRuntime(Object? value) {
-    if (value is! Map) return value;
-    final runtime = Map<String, Object?>.from(value);
+    final mapped = webReverseRuntimeObjectMap(value);
+    if (mapped == null) return value;
+    final runtime = Map<String, Object?>.from(mapped);
     final browserAlive = runtime['browser_alive'];
     if (webReverseRuntimeBoolTrue(browserAlive)) {
       runtime['browser_alive'] = true;
@@ -2253,10 +2254,7 @@ class AiPromptBuilder {
   }
 
   bool _isWebReverseCdpRuntimeLive(Object? value) {
-    if (value is! Map || !webReverseRuntimeBoolTrue(value['browser_alive'])) {
-      return false;
-    }
-    return webReverseCdpRuntimeHasLiveLocator(value);
+    return webReverseCdpRuntimeIsLive(value);
   }
 
   void _disambiguateWebReverseConfigPort(
@@ -2264,9 +2262,7 @@ class AiPromptBuilder {
     Object? cdpRuntime,
   ) {
     if (!config.containsKey('cdp_port')) return;
-    if (cdpRuntime is! Map || !webReverseCdpRuntimeHasLiveLocator(cdpRuntime)) {
-      return;
-    }
+    if (!webReverseCdpRuntimeIsLive(cdpRuntime)) return;
     config['desired_cdp_port'] = config.remove('cdp_port');
   }
 

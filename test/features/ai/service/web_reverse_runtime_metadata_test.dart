@@ -49,6 +49,38 @@ void main() {
       );
     });
 
+    test('normalizes runtime maps with non-string keys', () {
+      final mapped = webReverseRuntimeObjectMap(<Object?, Object?>{
+        1: 'one',
+        'browser_alive': true,
+      });
+
+      expect(mapped, isNotNull);
+      expect(mapped!['1'], 'one');
+      expect(mapped['browser_alive'], isTrue);
+    });
+
+    test('requires browser_alive and a current locator for live CDP', () {
+      expect(
+        webReverseCdpRuntimeIsLive(<String, Object?>{'browser_alive': true}),
+        isFalse,
+      );
+      expect(
+        webReverseCdpRuntimeIsLive(<String, Object?>{
+          'browser_alive': false,
+          'cdp_port': 9223,
+        }),
+        isFalse,
+      );
+      expect(
+        webReverseCdpRuntimeIsLive(<String, Object?>{
+          'browser_alive': 'yes',
+          'json_version_url': 'http://127.0.0.1:9223/json/version',
+        }),
+        isTrue,
+      );
+    });
+
     test('prefers current controller CDP runtime over prompt runtime', () {
       final runtime = webReverseCurrentCdpRuntimeMetadata(<Object?, Object?>{
         'web_reverse_runtime': <String, Object?>{

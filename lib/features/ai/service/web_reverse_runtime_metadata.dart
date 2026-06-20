@@ -24,6 +24,21 @@ bool webReverseCdpRuntimeHasLiveLocator(Map<Object?, Object?> value) {
       hasText(value['json_list_url']);
 }
 
+Map<String, Object?>? webReverseRuntimeObjectMap(Object? raw) {
+  if (raw is Map<String, Object?>) return raw;
+  if (raw is! Map) return null;
+  return <String, Object?>{
+    for (final entry in raw.entries) '${entry.key}': entry.value,
+  };
+}
+
+bool webReverseCdpRuntimeIsLive(Object? raw) {
+  final value = webReverseRuntimeObjectMap(raw);
+  if (value == null) return false;
+  return webReverseRuntimeBoolTrue(value['browser_alive']) &&
+      webReverseCdpRuntimeHasLiveLocator(value);
+}
+
 Object? webReverseCurrentCdpRuntimeMetadata(Map<Object?, Object?> metadata) {
   final currentRuntime = metadata['web_reverse_cdp_runtime'];
   if (currentRuntime != null) {

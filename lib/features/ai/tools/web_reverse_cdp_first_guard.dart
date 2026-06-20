@@ -240,20 +240,21 @@ class WebReverseCdpFirstGuard {
 Map<String, Object?>? _webReverseRuntimeFromMetadata(
   Map<String, Object?> metadata,
 ) {
-  final runtime = _stringObjectMap(metadata['web_reverse_runtime']);
+  final runtime = webReverseRuntimeObjectMap(metadata['web_reverse_runtime']);
   if (runtime != null) {
-    final currentCdpRuntime = _stringObjectMap(
+    final currentCdpRuntime = webReverseRuntimeObjectMap(
       metadata['web_reverse_cdp_runtime'],
     );
     if (currentCdpRuntime == null) return runtime;
     return _runtimeWithCurrentCdpRuntime(runtime, currentCdpRuntime);
   }
 
-  final config = _stringObjectMap(metadata['web_reverse_config']);
-  final cdpRuntime = _stringObjectMap(metadata['web_reverse_cdp_runtime']);
+  final config = webReverseRuntimeObjectMap(metadata['web_reverse_config']);
+  final cdpRuntime = webReverseRuntimeObjectMap(
+    metadata['web_reverse_cdp_runtime'],
+  );
   if (config == null || cdpRuntime == null) return null;
-  if (!webReverseRuntimeBoolTrue(cdpRuntime['browser_alive']) ||
-      !webReverseCdpRuntimeHasLiveLocator(cdpRuntime)) {
+  if (!webReverseCdpRuntimeIsLive(cdpRuntime)) {
     return null;
   }
 
@@ -285,8 +286,10 @@ Map<String, Object?> _runtimeWithCurrentCdpRuntime(
   Map<String, Object?> currentCdpRuntime,
 ) {
   final next = <String, Object?>{...runtime, 'cdp_runtime': currentCdpRuntime};
-  if (!_cdpRuntimeLive(currentCdpRuntime)) {
-    final availability = _stringObjectMap(runtime['cdp_mcp_tool_availability']);
+  if (!webReverseCdpRuntimeIsLive(currentCdpRuntime)) {
+    final availability = webReverseRuntimeObjectMap(
+      runtime['cdp_mcp_tool_availability'],
+    );
     if (availability != null) {
       next['cdp_mcp_tool_availability'] = <String, Object?>{
         ...availability,
@@ -299,15 +302,17 @@ Map<String, Object?> _runtimeWithCurrentCdpRuntime(
 }
 
 _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
-  final availability = _stringObjectMap(runtime['cdp_mcp_tool_availability']);
-  final cdpRuntime = _stringObjectMap(runtime['cdp_runtime']);
-  if (cdpRuntime != null && !_cdpRuntimeLive(cdpRuntime)) {
+  final availability = webReverseRuntimeObjectMap(
+    runtime['cdp_mcp_tool_availability'],
+  );
+  final cdpRuntime = webReverseRuntimeObjectMap(runtime['cdp_runtime']);
+  if (cdpRuntime != null && !webReverseCdpRuntimeIsLive(cdpRuntime)) {
     return null;
   }
 
   final runtimeLive =
       _boolValue(availability?['browser_runtime_live']) ||
-      (cdpRuntime != null && _cdpRuntimeLive(cdpRuntime));
+      (cdpRuntime != null && webReverseCdpRuntimeIsLive(cdpRuntime));
   if (!runtimeLive) return null;
 
   final currentToolNames = _stringList(
@@ -355,22 +360,27 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
 
 List<Uri> _webReverseTargetUris(Map<String, Object?> runtime) {
   final urls = <String>[];
-  final config = _stringObjectMap(runtime['config']);
+  final config = webReverseRuntimeObjectMap(runtime['config']);
   _addUrl(urls, config?['target_url']);
 
-  final cdpRuntime = _stringObjectMap(runtime['cdp_runtime']);
-  _addUrl(urls, _stringObjectMap(cdpRuntime?['current_target'])?['url']);
-
-  final dashboardState = _stringObjectMap(runtime['dashboard_state']);
+  final cdpRuntime = webReverseRuntimeObjectMap(runtime['cdp_runtime']);
   _addUrl(
     urls,
-    _stringObjectMap(dashboardState?['browser_current_target'])?['url'],
+    webReverseRuntimeObjectMap(cdpRuntime?['current_target'])?['url'],
+  );
+
+  final dashboardState = webReverseRuntimeObjectMap(runtime['dashboard_state']);
+  _addUrl(
+    urls,
+    webReverseRuntimeObjectMap(
+      dashboardState?['browser_current_target'],
+    )?['url'],
   );
   final tabUrls = dashboardState?['browser_tab_urls'];
   if (tabUrls is List) {
     for (final entry in tabUrls) {
       if (entry is Map) {
-        _addUrl(urls, _stringObjectMap(entry)?['url']);
+        _addUrl(urls, webReverseRuntimeObjectMap(entry)?['url']);
       } else {
         _addUrl(urls, entry);
       }
@@ -421,14 +431,6 @@ int _defaultPort(String scheme) {
   };
 }
 
-Map<String, Object?>? _stringObjectMap(Object? raw) {
-  if (raw is Map<String, Object?>) return raw;
-  if (raw is! Map) return null;
-  return <String, Object?>{
-    for (final entry in raw.entries) '${entry.key}': entry.value,
-  };
-}
-
 List<String> _stringList(Object? raw) {
   if (raw is! List) return const <String>[];
   return raw
@@ -441,11 +443,6 @@ bool _boolValue(Object? raw) {
   if (raw is bool) return raw;
   final normalized = '${raw ?? ''}'.trim().toLowerCase();
   return normalized == 'true' || normalized == '1' || normalized == 'yes';
-}
-
-bool _cdpRuntimeLive(Map<Object?, Object?> value) {
-  return webReverseRuntimeBoolTrue(value['browser_alive']) &&
-      webReverseCdpRuntimeHasLiveLocator(value);
 }
 
 int _intValue(Object? raw) {
