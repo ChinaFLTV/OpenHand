@@ -41,7 +41,10 @@ class WebReverseCdpFirstDecision {
   }
 
   String blockedMessage(String toolName) {
-    return '$toolName is blocked for this Web Reverse target because live CDP is available.\n'
+    final reason = routeKind == _WebReverseCdpRoute.unavailableKind
+        ? 'because live CDP is unavailable and this Web Reverse target must use local artifacts or restored CDP.'
+        : 'because live CDP is available.';
+    return '$toolName is blocked for this Web Reverse target $reason\n'
         'target_origin: $targetOrigin\n'
         'requested_origin: $requestedOrigin\n'
         'next_action: $nextAction\n'
@@ -55,7 +58,9 @@ class WebReverseCdpFirstDecision {
     return <String, Object?>{
       blockedFlag: true,
       'web_reverse_cdp_first_block_reason':
-          'same_target_origin_with_live_cdp_runtime',
+          routeKind == _WebReverseCdpRoute.unavailableKind
+          ? 'same_target_origin_without_live_cdp_runtime'
+          : 'same_target_origin_with_live_cdp_runtime',
       'web_reverse_cdp_route': routeKind,
       'web_reverse_cdp_route_requires_tool_search': requiresToolSearch,
       'web_reverse_target_url': targetUri.toString(),
@@ -253,10 +258,7 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
   final cdpRuntime = webReverseRuntimeObjectMap(
     metadata['web_reverse_cdp_runtime'],
   );
-  if (config == null || cdpRuntime == null) return null;
-  if (!webReverseCdpRuntimeIsLive(cdpRuntime)) {
-    return null;
-  }
+  if (config == null) return null;
 
   final dashboardState = <String, Object?>{};
   final currentTarget = metadata['web_reverse_browser_current_target'];
@@ -271,10 +273,10 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
   return <String, Object?>{
     'cdp_first_required': true,
     'config': config,
-    'cdp_runtime': cdpRuntime,
+    if (cdpRuntime != null) 'cdp_runtime': cdpRuntime,
     if (dashboardState.isNotEmpty) 'dashboard_state': dashboardState,
     'cdp_mcp_tool_availability': <String, Object?>{
-      'browser_runtime_live': true,
+      'browser_runtime_live': webReverseCdpRuntimeIsLive(cdpRuntime),
       'tool_search_available': false,
       'legacy_metadata_fallback': true,
     },
@@ -307,13 +309,13 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
   );
   final cdpRuntime = webReverseRuntimeObjectMap(runtime['cdp_runtime']);
   if (cdpRuntime != null && !webReverseCdpRuntimeIsLive(cdpRuntime)) {
-    return null;
+    return _WebReverseCdpRoute.runtimeUnavailable();
   }
 
   final runtimeLive =
       _boolValue(availability?['browser_runtime_live']) ||
       (cdpRuntime != null && webReverseCdpRuntimeIsLive(cdpRuntime));
-  if (!runtimeLive) return null;
+  if (!runtimeLive) return _WebReverseCdpRoute.runtimeUnavailable();
 
   final currentToolNames = _stringList(
     availability?['current_turn_callable_names'],
@@ -496,6 +498,19 @@ class _WebReverseCdpRoute {
           : 'Wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts; ask the user to restart or refresh CDP MCP if tools remain unavailable. Do not use target-origin WebFetch/Bash while a live CDP endpoint is available.',
     );
   }
+
+  factory _WebReverseCdpRoute.runtimeUnavailable() {
+    return const _WebReverseCdpRoute._(
+      kind: unavailableKind,
+      toolNames: <String>[],
+      requiresToolSearch: false,
+      fallbackToolLabel: 'Web Reverse local jsonl/HAR artifacts',
+      nextActionOverride:
+          'Live CDP is unavailable for this Web Reverse target. Use local jsonl/HAR artifacts, or ask the user to restart/restore the Web Reverse browser before live browser operations. Do not use target-origin WebFetch/Bash.',
+    );
+  }
+
+  static const String unavailableKind = 'runtime_unavailable_without_live_cdp';
 
   final String kind;
   final List<String> toolNames;

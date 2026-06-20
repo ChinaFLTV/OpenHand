@@ -33,25 +33,29 @@ void main() {
       expect(decision!.routeKind, 'runtime_live_without_callable_cdp_tools');
     });
 
-    test('ignores legacy metadata with only historical CDP locator', () {
-      final decision = WebReverseCdpFirstGuard.evaluateUrl(
-        requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
-        metadata: <String, Object?>{
-          'web_reverse_config': <String, Object?>{
-            'target_url': 'https://linux.do/t/topic/2401043/5',
+    test(
+      'blocks legacy target-origin URL with only historical CDP locator',
+      () {
+        final decision = WebReverseCdpFirstGuard.evaluateUrl(
+          requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
+          metadata: <String, Object?>{
+            'web_reverse_config': <String, Object?>{
+              'target_url': 'https://linux.do/t/topic/2401043/5',
+            },
+            'web_reverse_cdp_runtime': <String, Object?>{
+              'browser_alive': true,
+              'last_cdp_port': 9223,
+            },
           },
-          'web_reverse_cdp_runtime': <String, Object?>{
-            'browser_alive': true,
-            'last_cdp_port': 9223,
-          },
-        },
-      );
+        );
 
-      expect(decision, isNull);
-    });
+        expect(decision, isNotNull);
+        expect(decision!.routeKind, 'runtime_unavailable_without_live_cdp');
+      },
+    );
 
     test(
-      'allows target-origin URL when runtime explicitly says CDP is offline',
+      'blocks target-origin URL when runtime explicitly says CDP is offline',
       () {
         final decision = WebReverseCdpFirstGuard.evaluateUrl(
           requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
@@ -76,11 +80,16 @@ void main() {
           },
         );
 
-        expect(decision, isNull);
+        expect(decision, isNotNull);
+        expect(decision!.routeKind, 'runtime_unavailable_without_live_cdp');
+        expect(
+          decision.nextAction,
+          contains('Live CDP is unavailable for this Web Reverse target'),
+        );
       },
     );
 
-    test('allows target-origin URL when runtime lacks live CDP locator', () {
+    test('blocks target-origin URL when runtime lacks live CDP locator', () {
       final decision = WebReverseCdpFirstGuard.evaluateUrl(
         requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
         metadata: <String, Object?>{
@@ -101,23 +110,28 @@ void main() {
         },
       );
 
-      expect(decision, isNull);
+      expect(decision, isNotNull);
+      expect(decision!.routeKind, 'runtime_unavailable_without_live_cdp');
     });
 
-    test('uses current session CDP runtime over stale prompt runtime', () {
-      final metadata = _liveRuntimeMetadata();
-      metadata['web_reverse_cdp_runtime'] = <String, Object?>{
-        'browser_alive': false,
-        'last_cdp_port': 9223,
-      };
+    test(
+      'uses current offline session CDP runtime over stale prompt runtime',
+      () {
+        final metadata = _liveRuntimeMetadata();
+        metadata['web_reverse_cdp_runtime'] = <String, Object?>{
+          'browser_alive': false,
+          'last_cdp_port': 9223,
+        };
 
-      final decision = WebReverseCdpFirstGuard.evaluateUrl(
-        requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
-        metadata: metadata,
-      );
+        final decision = WebReverseCdpFirstGuard.evaluateUrl(
+          requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
+          metadata: metadata,
+        );
 
-      expect(decision, isNull);
-    });
+        expect(decision, isNotNull);
+        expect(decision!.routeKind, 'runtime_unavailable_without_live_cdp');
+      },
+    );
 
     test('allows unrelated external URLs', () {
       final decision = WebReverseCdpFirstGuard.evaluateUrl(
