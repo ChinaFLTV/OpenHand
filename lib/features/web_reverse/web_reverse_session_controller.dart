@@ -3357,15 +3357,63 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     }
     try {
-      return await cdp.send(
+      final result = await cdp.send(
         trimmedMethod,
         params: params,
         sessionId: useSession ? _pageSessionId : null,
         timeout: timeout,
       );
+      _syncRawCdpNetworkState(trimmedMethod, params);
+      return result;
     } catch (error) {
       return <String, Object?>{'error': '$error'};
     }
+  }
+
+  void _syncRawCdpNetworkState(String method, Map<String, Object?>? params) {
+    if (params == null) return;
+    var changed = false;
+    switch (method) {
+      case 'Network.setCacheDisabled':
+        final disabled = params['cacheDisabled'];
+        if (disabled is bool && _cacheDisabled != disabled) {
+          _cacheDisabled = disabled;
+          changed = true;
+        }
+        break;
+      case 'Network.emulateNetworkConditions':
+        final next = WebReverseNetworkConditions.fromCdpParams(params);
+        if (_networkConditions != next) {
+          _networkConditions = next;
+          changed = true;
+        }
+        break;
+      case 'Network.setExtraHTTPHeaders':
+        final headers = params['headers'];
+        if (headers is Map) {
+          _extraHeaders
+            ..clear()
+            ..addEntries(
+              headers.entries
+                  .map((entry) => MapEntry('${entry.key}', '${entry.value}'))
+                  .where((entry) => entry.key.trim().isNotEmpty),
+            );
+          changed = true;
+        }
+        break;
+      case 'Network.setBlockedURLs':
+        final urls = params['urls'];
+        if (urls is List) {
+          _blockedUrls
+            ..clear()
+            ..addAll(
+              urls.map((url) => '$url').where((url) => url.trim().isNotEmpty),
+            );
+          changed = true;
+        }
+        break;
+    }
+    if (changed) _safeNotify();
   }
 
   Future<void> stop() async {
@@ -5334,19 +5382,25 @@ class WebReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
-  /// 设置网络节流模式：normal / offline / slow3g / fast3g。
+  /// 设置网络节流模式：固定预设由 toolbar 使用，自定义值由高级弹窗使用。
   /// 失败/未启用时返回 false。
   Future<bool> setNetworkThrottling(WebReverseThrottlePreset preset) async {
+    return setNetworkConditions(WebReverseNetworkConditions.fromPreset(preset));
+  }
+
+  Future<bool> setNetworkConditions(
+    WebReverseNetworkConditions conditions,
+  ) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return false;
-    final params = preset.cdpParams;
+    final normalized = conditions.normalized;
     try {
       await cdp.send(
         'Network.emulateNetworkConditions',
-        params: params,
+        params: normalized.cdpParams,
         sessionId: _pageSessionId,
       );
-      _networkThrottlePreset = preset;
+      _networkConditions = normalized;
       _safeNotify();
       return true;
     } catch (error, stack) {
@@ -6472,9 +6526,11 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _cacheDisabled = false;
   bool get cacheDisabled => _cacheDisabled;
 
-  WebReverseThrottlePreset _networkThrottlePreset =
-      WebReverseThrottlePreset.none;
-  WebReverseThrottlePreset get networkThrottlePreset => _networkThrottlePreset;
+  WebReverseNetworkConditions _networkConditions =
+      WebReverseNetworkConditions.none;
+  WebReverseNetworkConditions get networkConditions => _networkConditions;
+  WebReverseThrottlePreset get networkThrottlePreset =>
+      _networkConditions.preset;
 
   Future<void> _restoreNetworkDomainState() async {
     final cdp = _browserCdp;
@@ -6508,10 +6564,10 @@ class WebReverseSessionController extends ChangeNotifier {
       'Network.setBlockedURLs',
       params: <String, Object?>{'urls': _blockedUrls.toList()},
     );
-    if (_networkThrottlePreset != WebReverseThrottlePreset.none) {
+    if (!_networkConditions.isNoThrottle) {
       await send(
         'Network.emulateNetworkConditions',
-        params: _networkThrottlePreset.cdpParams,
+        params: _networkConditions.cdpParams,
       );
     }
   }
@@ -7784,35 +7840,81 @@ int _normalizeCronInterval(int seconds) {
 /// CDP 网络节流预设，对标 DevTools 的 Throttling 下拉。
 enum WebReverseThrottlePreset {
   none(
+    id: 'no-throttle',
+    zhLabel: '不限速',
     label: 'No throttling',
     isOffline: false,
     latencyMs: 0,
-    downloadKbps: -1,
-    uploadKbps: -1,
+    downloadKbps: 0,
+    uploadKbps: 0,
   ),
   offline(
+    id: 'offline',
+    zhLabel: '离线',
     label: 'Offline',
     isOffline: true,
     latencyMs: 0,
     downloadKbps: 0,
     uploadKbps: 0,
   ),
+  gprs(
+    id: 'gprs',
+    zhLabel: 'GPRS (50/20kbps, 500ms)',
+    label: 'GPRS (50/20kbps, 500ms)',
+    isOffline: false,
+    latencyMs: 500,
+    downloadKbps: 50,
+    uploadKbps: 20,
+  ),
   slow3g(
+    id: 'slow-3g',
+    zhLabel: '慢速 3G (400/400kbps, 400ms)',
     label: 'Slow 3G',
     isOffline: false,
-    latencyMs: 2000,
-    downloadKbps: 500,
-    uploadKbps: 500,
+    latencyMs: 400,
+    downloadKbps: 400,
+    uploadKbps: 400,
   ),
   fast3g(
+    id: 'fast-3g',
+    zhLabel: '快速 3G (1.6/750kbps, 150ms)',
     label: 'Fast 3G',
     isOffline: false,
-    latencyMs: 562,
-    downloadKbps: 1500,
+    latencyMs: 150,
+    downloadKbps: 1600,
     uploadKbps: 750,
+  ),
+  fourG(
+    id: '4g',
+    zhLabel: '4G (4/3 Mbps, 80ms)',
+    label: '4G (4/3 Mbps, 80ms)',
+    isOffline: false,
+    latencyMs: 80,
+    downloadKbps: 4000,
+    uploadKbps: 3000,
+  ),
+  weakWifi(
+    id: 'wifi',
+    zhLabel: '弱 Wi-Fi (10/5 Mbps, 40ms)',
+    label: 'Weak Wi-Fi (10/5 Mbps, 40ms)',
+    isOffline: false,
+    latencyMs: 40,
+    downloadKbps: 10000,
+    uploadKbps: 5000,
+  ),
+  custom(
+    id: 'custom',
+    zhLabel: '自定义',
+    label: 'Custom',
+    isOffline: false,
+    latencyMs: 0,
+    downloadKbps: 0,
+    uploadKbps: 0,
   );
 
   const WebReverseThrottlePreset({
+    required this.id,
+    required this.zhLabel,
     required this.label,
     required this.isOffline,
     required this.latencyMs,
@@ -7820,19 +7922,161 @@ enum WebReverseThrottlePreset {
     required this.uploadKbps,
   });
 
+  final String id;
+  final String zhLabel;
   final String label;
   final bool isOffline;
   final int latencyMs;
   final int downloadKbps;
   final int uploadKbps;
 
+  bool get isSelectable => this != WebReverseThrottlePreset.custom;
+
+  String displayLabel(bool isZh) => isZh ? zhLabel : label;
+
   Map<String, Object?> get cdpParams => <String, Object?>{
     'offline': isOffline,
     'latency': latencyMs,
-    'downloadThroughput': downloadKbps < 0 ? -1 : downloadKbps * 1024 / 8,
-    'uploadThroughput': uploadKbps < 0 ? -1 : uploadKbps * 1024 / 8,
+    'downloadThroughput': _networkThroughputFromKbps(downloadKbps),
+    'uploadThroughput': _networkThroughputFromKbps(uploadKbps),
   };
 }
+
+class WebReverseNetworkConditions {
+  const WebReverseNetworkConditions({
+    required this.preset,
+    required this.offline,
+    required this.latencyMs,
+    required this.downloadKbps,
+    required this.uploadKbps,
+  });
+
+  factory WebReverseNetworkConditions.fromPreset(
+    WebReverseThrottlePreset preset,
+  ) {
+    if (preset == WebReverseThrottlePreset.custom) {
+      return none;
+    }
+    return WebReverseNetworkConditions(
+      preset: preset,
+      offline: preset.isOffline,
+      latencyMs: preset.latencyMs,
+      downloadKbps: preset.downloadKbps,
+      uploadKbps: preset.uploadKbps,
+    );
+  }
+
+  factory WebReverseNetworkConditions.fromCdpParams(
+    Map<String, Object?> params,
+  ) {
+    final offline = params['offline'] == true;
+    final latencyMs = _objectAsNonNegativeInt(params['latency']);
+    final downloadKbps = _networkKbpsFromThroughput(
+      params['downloadThroughput'],
+    );
+    final uploadKbps = _networkKbpsFromThroughput(params['uploadThroughput']);
+    final preset = _matchNetworkPreset(
+      offline: offline,
+      latencyMs: latencyMs,
+      downloadKbps: downloadKbps,
+      uploadKbps: uploadKbps,
+    );
+    return WebReverseNetworkConditions(
+      preset: preset,
+      offline: offline,
+      latencyMs: latencyMs,
+      downloadKbps: downloadKbps,
+      uploadKbps: uploadKbps,
+    ).normalized;
+  }
+
+  static const none = WebReverseNetworkConditions(
+    preset: WebReverseThrottlePreset.none,
+    offline: false,
+    latencyMs: 0,
+    downloadKbps: 0,
+    uploadKbps: 0,
+  );
+
+  final WebReverseThrottlePreset preset;
+  final bool offline;
+  final int latencyMs;
+  final int downloadKbps;
+  final int uploadKbps;
+
+  bool get isNoThrottle =>
+      !offline && latencyMs <= 0 && downloadKbps <= 0 && uploadKbps <= 0;
+
+  WebReverseNetworkConditions get normalized {
+    if (isNoThrottle) return none;
+    return WebReverseNetworkConditions(
+      preset: preset == WebReverseThrottlePreset.none
+          ? WebReverseThrottlePreset.custom
+          : preset,
+      offline: offline,
+      latencyMs: _nonNegativeInt(latencyMs),
+      downloadKbps: _nonNegativeInt(downloadKbps),
+      uploadKbps: _nonNegativeInt(uploadKbps),
+    );
+  }
+
+  Map<String, Object?> get cdpParams => <String, Object?>{
+    'offline': offline,
+    'latency': _nonNegativeInt(latencyMs),
+    'downloadThroughput': _networkThroughputFromKbps(downloadKbps),
+    'uploadThroughput': _networkThroughputFromKbps(uploadKbps),
+  };
+
+  @override
+  bool operator ==(Object other) {
+    return other is WebReverseNetworkConditions &&
+        other.preset == preset &&
+        other.offline == offline &&
+        other.latencyMs == latencyMs &&
+        other.downloadKbps == downloadKbps &&
+        other.uploadKbps == uploadKbps;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(preset, offline, latencyMs, downloadKbps, uploadKbps);
+}
+
+int _networkThroughputFromKbps(int kbps) {
+  if (kbps <= 0) return -1;
+  return (kbps * 1024 / 8).round();
+}
+
+int _networkKbpsFromThroughput(Object? value) {
+  final throughput = value is num ? value : num.tryParse('$value');
+  if (throughput == null || throughput <= 0) return 0;
+  return (throughput * 8 / 1024).round();
+}
+
+WebReverseThrottlePreset _matchNetworkPreset({
+  required bool offline,
+  required int latencyMs,
+  required int downloadKbps,
+  required int uploadKbps,
+}) {
+  for (final preset in WebReverseThrottlePreset.values) {
+    if (!preset.isSelectable) continue;
+    if (preset.isOffline == offline &&
+        preset.latencyMs == latencyMs &&
+        preset.downloadKbps == downloadKbps &&
+        preset.uploadKbps == uploadKbps) {
+      return preset;
+    }
+  }
+  return WebReverseThrottlePreset.custom;
+}
+
+int _objectAsNonNegativeInt(Object? value) {
+  final parsed = value is num ? value.round() : int.tryParse('$value') ?? 0;
+  return _nonNegativeInt(parsed);
+}
+
+int _nonNegativeInt(int value) => value < 0 ? 0 : value;
 
 /// CDP page target 的精简快照，给 dashboard 浏览器面板的 tab strip 渲染用。
 class CdpPageTargetSnapshot {

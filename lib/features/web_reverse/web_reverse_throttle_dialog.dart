@@ -6,8 +6,6 @@
 /// 单位换算：CDP 接受 bytes/s（吞吐量）+ ms（延迟）。
 library;
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -26,91 +24,6 @@ Future<void> showWebReverseThrottleDialog(
     builder: (_) => _ThrottleDialog(controller: controller, isZh: isZh),
   );
 }
-
-class _Preset {
-  const _Preset({
-    required this.id,
-    required this.zh,
-    required this.en,
-    required this.offline,
-    required this.downKbps,
-    required this.upKbps,
-    required this.latencyMs,
-  });
-  final String id;
-  final String zh;
-  final String en;
-  final bool offline;
-  final int downKbps; // 0 = unlimited
-  final int upKbps;
-  final int latencyMs;
-}
-
-const _presets = <_Preset>[
-  _Preset(
-    id: 'no-throttle',
-    zh: '不限速',
-    en: 'No throttle',
-    offline: false,
-    downKbps: 0,
-    upKbps: 0,
-    latencyMs: 0,
-  ),
-  _Preset(
-    id: 'offline',
-    zh: '离线',
-    en: 'Offline',
-    offline: true,
-    downKbps: 0,
-    upKbps: 0,
-    latencyMs: 0,
-  ),
-  _Preset(
-    id: 'gprs',
-    zh: 'GPRS (50/20kbps, 500ms)',
-    en: 'GPRS (50/20kbps, 500ms)',
-    offline: false,
-    downKbps: 50,
-    upKbps: 20,
-    latencyMs: 500,
-  ),
-  _Preset(
-    id: 'slow-3g',
-    zh: '慢速 3G (400/400kbps, 400ms)',
-    en: 'Slow 3G (400/400kbps, 400ms)',
-    offline: false,
-    downKbps: 400,
-    upKbps: 400,
-    latencyMs: 400,
-  ),
-  _Preset(
-    id: 'fast-3g',
-    zh: '快速 3G (1.6/750kbps, 150ms)',
-    en: 'Fast 3G (1.6/750kbps, 150ms)',
-    offline: false,
-    downKbps: 1600,
-    upKbps: 750,
-    latencyMs: 150,
-  ),
-  _Preset(
-    id: '4g',
-    zh: '4G (4/3 Mbps, 80ms)',
-    en: '4G (4/3 Mbps, 80ms)',
-    offline: false,
-    downKbps: 4000,
-    upKbps: 3000,
-    latencyMs: 80,
-  ),
-  _Preset(
-    id: 'wifi',
-    zh: '弱 Wi-Fi (10/5 Mbps, 40ms)',
-    en: 'Weak Wi-Fi (10/5 Mbps, 40ms)',
-    offline: false,
-    downKbps: 10000,
-    upKbps: 5000,
-    latencyMs: 40,
-  ),
-];
 
 class _ThrottleDialog extends StatefulWidget {
   const _ThrottleDialog({required this.controller, required this.isZh});
@@ -131,6 +44,15 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
   String _status = '';
 
   @override
+  void initState() {
+    super.initState();
+    final conditions = widget.controller.networkConditions;
+    _disableCache = widget.controller.cacheDisabled;
+    _selectedId = conditions.preset.id;
+    _loadConditionsToCustom(conditions);
+  }
+
+  @override
   void dispose() {
     _downCtrl.dispose();
     _upCtrl.dispose();
@@ -138,57 +60,42 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     super.dispose();
   }
 
-  Future<void> _apply({_Preset? preset}) async {
+  Future<void> _apply({WebReverseThrottlePreset? preset}) async {
     if (_applying) return;
     final loc = AppLocalizations.of(context);
     setState(() {
       _applying = true;
       _status =
-          loc?.webReverseThrottleEnableNetwork ?? 'Enable Network domain...';
+          loc?.webReverseThrottleEnableNetwork ?? 'Apply Network state...';
     });
     try {
-      // 先确保 Network 域已开启。
-      await widget.controller.sendRawCdp(
-        method: 'Network.enable',
-        paramsJson: '{}',
-      );
       bool offline;
       int downKbps;
       int upKbps;
       int latencyMs;
       if (preset != null) {
-        offline = preset.offline;
-        downKbps = preset.downKbps;
-        upKbps = preset.upKbps;
+        offline = preset.isOffline;
+        downKbps = preset.downloadKbps;
+        upKbps = preset.uploadKbps;
         latencyMs = preset.latencyMs;
       } else {
         offline = _customOffline;
-        downKbps = int.tryParse(_downCtrl.text.trim()) ?? 0;
-        upKbps = int.tryParse(_upCtrl.text.trim()) ?? 0;
-        latencyMs = int.tryParse(_latencyCtrl.text.trim()) ?? 0;
+        downKbps = _parseNonNegative(_downCtrl.text);
+        upKbps = _parseNonNegative(_upCtrl.text);
+        latencyMs = _parseNonNegative(_latencyCtrl.text);
       }
-      final downBps = downKbps <= 0 ? -1 : (downKbps * 1024 / 8).round();
-      final upBps = upKbps <= 0 ? -1 : (upKbps * 1024 / 8).round();
-      final params = jsonEncode({
-        'offline': offline,
-        'latency': latencyMs,
-        'downloadThroughput': downBps,
-        'uploadThroughput': upBps,
-      });
-      final r = await widget.controller.sendRawCdp(
-        method: 'Network.emulateNetworkConditions',
-        paramsJson: params,
-      );
-      // 缓存开关
-      await widget.controller.sendRawCdp(
-        method: 'Network.setCacheDisabled',
-        paramsJson: jsonEncode({'cacheDisabled': _disableCache}),
+      final ok = await widget.controller.setNetworkConditions(
+        WebReverseNetworkConditions(
+          preset: preset ?? WebReverseThrottlePreset.custom,
+          offline: offline,
+          latencyMs: latencyMs,
+          downloadKbps: downKbps,
+          uploadKbps: upKbps,
+        ),
       );
       if (!mounted) return;
-      if (r == null || r['error'] != null) {
-        final reason =
-            (r?['error']?.toString()) ??
-            (loc?.webReverseThrottleUnknownError ?? 'unknown');
+      if (!ok) {
+        final reason = loc?.webReverseThrottleUnknownError ?? 'unknown';
         setState(
           () => _status =
               loc?.webReverseThrottleStatusFailed(reason) ?? 'Failed: $reason',
@@ -203,9 +110,16 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
         }
         return;
       }
-      final summary = offline
+      await widget.controller.setCacheDisabled(_disableCache);
+      if (!mounted) return;
+      final current = widget.controller.networkConditions;
+      _selectedId = current.preset.id;
+      _loadConditionsToCustom(current);
+      final summary = current.isNoThrottle
+          ? current.preset.displayLabel(widget.isZh)
+          : current.offline
           ? (loc?.webReverseThrottleOffline ?? 'Offline')
-          : 'down=${downKbps}kbps · up=${upKbps}kbps · ${latencyMs}ms';
+          : 'down=${current.downloadKbps}kbps · up=${current.uploadKbps}kbps · ${current.latencyMs}ms';
       final body = '$summary · cache=${_disableCache ? 'disabled' : 'enabled'}';
       setState(() {
         _status =
@@ -226,7 +140,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
   }
 
   Future<void> _reset() async {
-    final defaultPreset = _presets.first;
+    const defaultPreset = WebReverseThrottlePreset.none;
     setState(() {
       _selectedId = defaultPreset.id;
       _disableCache = false;
@@ -235,11 +149,20 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     await _apply(preset: defaultPreset);
   }
 
-  void _loadPresetToCustom(_Preset p) {
-    _customOffline = p.offline;
-    _downCtrl.text = '${p.downKbps}';
-    _upCtrl.text = '${p.upKbps}';
-    _latencyCtrl.text = '${p.latencyMs}';
+  void _loadPresetToCustom(WebReverseThrottlePreset p) {
+    _loadConditionsToCustom(WebReverseNetworkConditions.fromPreset(p));
+  }
+
+  void _loadConditionsToCustom(WebReverseNetworkConditions conditions) {
+    _customOffline = conditions.offline;
+    _downCtrl.text = '${conditions.downloadKbps}';
+    _upCtrl.text = '${conditions.uploadKbps}';
+    _latencyCtrl.text = '${conditions.latencyMs}';
+  }
+
+  int _parseNonNegative(String text) {
+    final value = int.tryParse(text.trim()) ?? 0;
+    return value < 0 ? 0 : value;
   }
 
   @override
@@ -306,22 +229,25 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _presets.map((p) {
-                        final selected = _selectedId == p.id;
-                        return ChoiceChip(
-                          label: Text(isZh ? p.zh : p.en),
-                          selected: selected,
-                          onSelected: _applying
-                              ? null
-                              : (_) {
-                                  setState(() {
-                                    _selectedId = p.id;
-                                    _loadPresetToCustom(p);
-                                  });
-                                  _apply(preset: p);
-                                },
-                        );
-                      }).toList(),
+                      children: WebReverseThrottlePreset.values
+                          .where((p) => p.isSelectable)
+                          .map((p) {
+                            final selected = _selectedId == p.id;
+                            return ChoiceChip(
+                              label: Text(p.displayLabel(isZh)),
+                              selected: selected,
+                              onSelected: _applying
+                                  ? null
+                                  : (_) {
+                                      setState(() {
+                                        _selectedId = p.id;
+                                        _loadPresetToCustom(p);
+                                      });
+                                      _apply(preset: p);
+                                    },
+                            );
+                          })
+                          .toList(),
                     ),
                     const SizedBox(height: 18),
                     Text(

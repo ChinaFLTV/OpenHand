@@ -1471,7 +1471,10 @@ class _ToolbarThrottleButton extends StatelessWidget {
         initialValue: value,
         onSelected: onChanged,
         itemBuilder: (context) => WebReverseThrottlePreset.values
-            .map((p) => PopupMenuItem(value: p, child: Text(p.label)))
+            .where((p) => p.isSelectable)
+            .map(
+              (p) => PopupMenuItem(value: p, child: Text(p.displayLabel(isZh))),
+            )
             .toList(growable: false),
         child: Container(
           decoration: BoxDecoration(
@@ -1498,7 +1501,7 @@ class _ToolbarThrottleButton extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                value.label,
+                value.displayLabel(isZh),
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: value == WebReverseThrottlePreset.none
