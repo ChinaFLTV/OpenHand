@@ -63,6 +63,8 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _stopped = false;
   bool _disposed = false;
   bool _preserveLog = true;
+  bool _reattachAfterReconnectInFlight = false;
+  bool _reattachAfterReconnectQueued = false;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -662,8 +664,8 @@ class WebReverseSessionController extends ChangeNotifier {
     switch (ev.method) {
       case '__cdp_reconnected__':
         // CDP 抖动断开后自动重连成功 → 重新 enable 各 domain。
-        // 不阻塞事件循环，全部 fire-and-forget。
-        unawaited(_reattachAfterReconnect());
+        // 串行化 reattach，避免连续重连事件互相覆盖 page sessionId。
+        _scheduleReattachAfterReconnect();
         return;
       case '__cdp_dead__':
         // 重连彻底失败：浏览器可能已经被用户手动关掉。把 screencast 状态
@@ -2472,7 +2474,26 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// CDP 重连成功后调用：把 Page / Network / Runtime / Log 等 domain 重新 enable，
   /// 同时再次 attach 到 page target，确保事件不丢。
+  void _scheduleReattachAfterReconnect() {
+    if (_reattachAfterReconnectInFlight) {
+      _reattachAfterReconnectQueued = true;
+      return;
+    }
+    _reattachAfterReconnectInFlight = true;
+    unawaited(() async {
+      try {
+        do {
+          _reattachAfterReconnectQueued = false;
+          await _reattachAfterReconnect();
+        } while (_reattachAfterReconnectQueued && !_disposed && !_stopped);
+      } finally {
+        _reattachAfterReconnectInFlight = false;
+      }
+    }());
+  }
+
   Future<void> _reattachAfterReconnect() async {
+    if (_disposed || _stopped) return;
     final cdp = _browserCdp;
     if (cdp == null) return;
     try {
