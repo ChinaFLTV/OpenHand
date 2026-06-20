@@ -26,6 +26,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/unified_diff.dart' as unified_diff;
 
 enum FileMutationKind { create, modify, delete }
@@ -160,6 +161,20 @@ class FileMutationLineDelta {
       available: available || other.available,
     );
   }
+}
+
+class _FileMutationUndoState {
+  const _FileMutationUndoState({
+    required this.directlyUndone,
+    required this.cascadeUndone,
+    required this.canUndo,
+    required this.canRedo,
+  });
+
+  final bool directlyUndone;
+  final bool cascadeUndone;
+  final bool canUndo;
+  final bool canRedo;
 }
 
 class FileMutationOutcome {
@@ -298,6 +313,7 @@ class AiFileMutationLedger {
   static const Duration _staleAtomicArtifactAge = Duration(days: 1);
   static const int _legacyBlobRecoveryMaxFiles = 2000;
   static const int _blobRecoveryMaxBytes = 16 * 1024 * 1024;
+  static const int _lineDeltaConcurrency = 4;
 
   final String? _rootOverride;
   final Random _rand = Random.secure();
@@ -592,16 +608,8 @@ class AiFileMutationLedger {
         .where((record) => record.toolCallId == toolCallId)
         .toList(growable: false);
     if (matching.isEmpty) return const <FileMutationView>[];
-    return Future.wait(
-      matching.map(
-        (record) async => _buildView(
-          record,
-          all,
-          undone,
-          lineDelta: await _lineDeltaForRecord(record),
-        ),
-      ),
-    );
+    final undoStates = _buildUndoStates(all, undone);
+    return _buildViewsWithLineDeltas(matching, undoStates);
   }
 
   Future<FileMutationView?> viewForRecord({
@@ -612,10 +620,10 @@ class AiFileMutationLedger {
     final record = all.where((r) => r.recordId == recordId).firstOrNull;
     if (record == null) return null;
     final undone = await _loadUndoneSet(sessionId);
+    final undoStates = _buildUndoStates(all, undone);
     return _buildView(
       record,
-      all,
-      undone,
+      undoStates[record.recordId]!,
       lineDelta: await _lineDeltaForRecord(record),
     );
   }
@@ -626,57 +634,63 @@ class AiFileMutationLedger {
     final all = await recordsForSession(sessionId);
     if (all.isEmpty) return const <FileMutationView>[];
     final undone = await _loadUndoneSet(sessionId);
-    return Future.wait(
-      all.map(
-        (r) async =>
-            _buildView(r, all, undone, lineDelta: await _lineDeltaForRecord(r)),
-      ),
+    final undoStates = _buildUndoStates(all, undone);
+    return _buildViewsWithLineDeltas(all, undoStates);
+  }
+
+  Future<List<FileMutationView>> _buildViewsWithLineDeltas(
+    List<FileMutationRecord> records,
+    Map<String, _FileMutationUndoState> undoStates,
+  ) {
+    return runOrderedWithConcurrencyLimit<FileMutationView>(
+      itemCount: records.length,
+      maxConcurrency: _lineDeltaConcurrency,
+      task: (index) async {
+        final record = records[index];
+        return _buildView(
+          record,
+          undoStates[record.recordId]!,
+          lineDelta: await _lineDeltaForRecord(record),
+        );
+      },
     );
   }
 
   FileMutationView _buildView(
     FileMutationRecord record,
-    List<FileMutationRecord> all,
-    Set<String> undoneSet, {
+    _FileMutationUndoState undoState, {
     required FileMutationLineDelta lineDelta,
   }) {
-    final directlyUndone = undoneSet.contains(record.recordId);
-    var cascadeUndone = false;
-    if (!directlyUndone) {
-      // 级联：同文件上、时间更早的记录被直接撤销 → 由于撤销会把"X 及之后
-      // 同文件记录"全部置为 undone，理论上若是级联也会落入 undoneSet。这
-      // 里再做一次保险性推断：若 undoneSet 里存在同文件更早记录，则视为
-      // 级联失效。
-      for (final earlier in all) {
-        if (earlier.recordId == record.recordId) break;
-        if (earlier.filePath != record.filePath) continue;
-        if (undoneSet.contains(earlier.recordId)) {
-          cascadeUndone = true;
-          break;
-        }
-      }
-    } else {
-      // directlyUndone 也可能是被级联打的；如果同文件更早记录也在 undoneSet
-      // 里，则视为"被级联"而非"直接撤销"。
-      for (final earlier in all) {
-        if (earlier.recordId == record.recordId) break;
-        if (earlier.filePath != record.filePath) continue;
-        if (undoneSet.contains(earlier.recordId)) {
-          cascadeUndone = true;
-          break;
-        }
-      }
-    }
-    final canUndo = !directlyUndone && !cascadeUndone;
-    final canRedo = directlyUndone || cascadeUndone;
     return FileMutationView(
       record: record,
-      directlyUndone: directlyUndone && !cascadeUndone,
-      cascadeUndone: cascadeUndone,
-      canUndo: canUndo,
-      canRedo: canRedo,
+      directlyUndone: undoState.directlyUndone,
+      cascadeUndone: undoState.cascadeUndone,
+      canUndo: undoState.canUndo,
+      canRedo: undoState.canRedo,
       lineDelta: lineDelta,
     );
+  }
+
+  Map<String, _FileMutationUndoState> _buildUndoStates(
+    List<FileMutationRecord> all,
+    Set<String> undoneSet,
+  ) {
+    final undoneFiles = <String>{};
+    final states = <String, _FileMutationUndoState>{};
+    for (final record in all) {
+      final directlyUndone = undoneSet.contains(record.recordId);
+      final cascadeUndone = undoneFiles.contains(record.filePath);
+      states[record.recordId] = _FileMutationUndoState(
+        directlyUndone: directlyUndone && !cascadeUndone,
+        cascadeUndone: cascadeUndone,
+        canUndo: !directlyUndone && !cascadeUndone,
+        canRedo: directlyUndone || cascadeUndone,
+      );
+      if (directlyUndone) {
+        undoneFiles.add(record.filePath);
+      }
+    }
+    return states;
   }
 
   Future<FileMutationLineDelta> _lineDeltaForRecord(FileMutationRecord record) {
@@ -697,22 +711,33 @@ class AiFileMutationLedger {
   Future<FileMutationLineDelta> _computeLineDeltaForRecord(
     FileMutationRecord record,
   ) async {
-    final snapshots = await readSnapshots(record);
-    final beforeUnavailable =
-        record.beforeSha != null && snapshots.before == null;
-    final afterUnavailable = record.afterSha != null && snapshots.after == null;
-    if (beforeUnavailable || afterUnavailable) {
+    try {
+      final snapshots = await readSnapshots(record);
+      final beforeUnavailable =
+          record.beforeSha != null && snapshots.before == null;
+      final afterUnavailable =
+          record.afterSha != null && snapshots.after == null;
+      if (beforeUnavailable || afterUnavailable) {
+        return const FileMutationLineDelta.unavailable();
+      }
+      final stats = unified_diff.unifiedDiffLineStatsFromText(
+        snapshots.before ?? '',
+        snapshots.after ?? '',
+      );
+      return FileMutationLineDelta(
+        addedLines: stats.addedLines,
+        removedLines: stats.removedLines,
+        available: true,
+      );
+    } catch (error, stack) {
+      silentLog(
+        'ai_file_mutation_ledger',
+        'computeLineDeltaForRecord',
+        error,
+        stack,
+      );
       return const FileMutationLineDelta.unavailable();
     }
-    final stats = unified_diff.unifiedDiffLineStatsFromText(
-      snapshots.before ?? '',
-      snapshots.after ?? '',
-    );
-    return FileMutationLineDelta(
-      addedLines: stats.addedLines,
-      removedLines: stats.removedLines,
-      available: true,
-    );
   }
 
   /// 撤销：把磁盘恢复到 [recordId] 的 before 状态，并把同文件上 ts >=
@@ -1565,8 +1590,10 @@ class AiFileMutationLedger {
       final all = await recordsForSession(sid);
       if (all.isEmpty) continue;
       final undone = await _loadUndoneSet(sid);
+      final undoStates = _buildUndoStates(all, undone);
+      final filtered = <FileMutationRecord>[];
       for (final r in all) {
-        if (out.length >= limit) break;
+        if (out.length + filtered.length >= limit) break;
         if (kindSet != null && !kindSet.contains(r.kind)) continue;
         if (toolSet != null &&
             toolSet.isNotEmpty &&
@@ -1580,9 +1607,10 @@ class AiFileMutationLedger {
         }
         if (since != null && r.createdAt.isBefore(since)) continue;
         if (until != null && r.createdAt.isAfter(until)) continue;
-        out.add(
-          _buildView(r, all, undone, lineDelta: await _lineDeltaForRecord(r)),
-        );
+        filtered.add(r);
+      }
+      if (filtered.isNotEmpty) {
+        out.addAll(await _buildViewsWithLineDeltas(filtered, undoStates));
       }
     }
     // 最近优先。
