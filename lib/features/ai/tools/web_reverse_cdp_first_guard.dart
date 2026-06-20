@@ -495,8 +495,8 @@ class _WebReverseCdpRoute {
       requiresToolSearch: false,
       fallbackToolLabel: 'live OpenHand CDP runtime',
       nextActionOverride: toolSearchAvailable
-          ? 'Call ToolSearch for CDP / Chrome DevTools MCP tools if available; otherwise wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts. Do not use target-origin WebFetch/Bash while browser_alive=true.'
-          : 'Wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts; ask the user to restart or refresh CDP MCP if tools remain unavailable. Do not use target-origin WebFetch/Bash while browser_alive=true.',
+          ? 'Call ToolSearch for CDP / Chrome DevTools MCP tools if available; otherwise wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts. Do not use target-origin WebFetch/Bash while a live CDP endpoint is available.'
+          : 'Wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts; ask the user to restart or refresh CDP MCP if tools remain unavailable. Do not use target-origin WebFetch/Bash while a live CDP endpoint is available.',
     );
   }
 

@@ -352,7 +352,7 @@ $_fallbackNotice
 
 - Treat CDP as the source of truth for browser state, network, console, DOM, storage, screenshots, WebSocket/SSE, and HAR work.
 - Use exact CDP / Chrome DevTools MCP tool names from the runtime catalog. If absent, ask the user to recover prompt assets or refresh the CDP MCP catalog.
-- When `web_reverse_runtime.cdp_runtime.browser_alive` is true, do not launch another browser and do not use Bash/WebFetch for target-origin HTTP(S) capture.
+- Live CDP requires `web_reverse_runtime.cdp_runtime.browser_alive=true` plus `cdp_http_endpoint` / `json_list_url` / `cdp_port`; while live, do not launch another browser or use Bash/WebFetch for target-origin HTTP(S) capture.
 - If live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restart the Web Reverse browser.
 ''';
 
