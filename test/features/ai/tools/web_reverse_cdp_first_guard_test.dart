@@ -163,6 +163,37 @@ void main() {
       expect(decision!.requestedOrigin, 'https://linux.do:8443');
     });
 
+    test('blocks target site subdomain for apex target', () {
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('https://api.linux.do/t/topic/2401043.json'),
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.targetOrigin, 'https://linux.do');
+      expect(decision.requestedOrigin, 'https://api.linux.do');
+    });
+
+    test('blocks sibling subdomain when target uses common web prefix', () {
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('https://api.example.com/v1/feed'),
+        metadata: _liveRuntimeMetadataFor('https://www.example.com/app'),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.targetOrigin, 'https://www.example.com');
+      expect(decision.requestedOrigin, 'https://api.example.com');
+    });
+
+    test('does not block unrelated sibling for deep target host', () {
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('https://bar.github.io/data.json'),
+        metadata: _liveRuntimeMetadataFor('https://foo.github.io/app'),
+      );
+
+      expect(decision, isNull);
+    });
+
     test('blocks plain text target URL reference', () {
       final decision = WebReverseCdpFirstGuard.evaluateTextReference(
         text: 'site:https://linux.do/t/topic/2401043',
@@ -177,6 +208,16 @@ void main() {
       final decision = WebReverseCdpFirstGuard.evaluateTextReference(
         text: 'site:linux.do topic 2401043',
         metadata: _legacyLiveMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.targetOrigin, 'https://linux.do');
+    });
+
+    test('blocks plain text target subdomain host reference', () {
+      final decision = WebReverseCdpFirstGuard.evaluateTextReference(
+        text: 'site:api.linux.do topic 2401043',
+        metadata: _liveRuntimeMetadata(),
       );
 
       expect(decision, isNotNull);
@@ -309,12 +350,14 @@ void main() {
 }
 
 Map<String, Object?> _liveRuntimeMetadata() {
+  return _liveRuntimeMetadataFor('https://linux.do/t/topic/2401043/5');
+}
+
+Map<String, Object?> _liveRuntimeMetadataFor(String targetUrl) {
   return <String, Object?>{
     'web_reverse_runtime': <String, Object?>{
       'cdp_first_required': true,
-      'config': <String, Object?>{
-        'target_url': 'https://linux.do/t/topic/2401043/5',
-      },
+      'config': <String, Object?>{'target_url': targetUrl},
       'cdp_runtime': <String, Object?>{'browser_alive': true, 'cdp_port': 9223},
       'cdp_mcp_tool_availability': <String, Object?>{
         'browser_runtime_live': true,

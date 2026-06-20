@@ -157,6 +157,49 @@ void main() {
         );
       },
     );
+
+    test('blocks target site subdomain WebFetch for Web Reverse', () async {
+      final tool = AiWebFetchTool(
+        backgroundChatClient: _ThrowingChatClient(),
+        httpClient: _FailingHttpClient(),
+        scraplingBridge: WebFetchScraplingBridge(),
+      );
+
+      final result = await tool.execute(
+        AiToolExecutionContext(
+          sessionId: 'session-web-reverse',
+          catalog: _catalog(),
+          toolCall: AiToolCall(
+            id: 'call-webfetch-subdomain',
+            name: 'WebFetch',
+            arguments: jsonEncode(<String, Object?>{
+              'url': 'https://api.linux.do/t/topic/2401043.json',
+              'prompt': 'Summarize the JSON.',
+            }),
+          ),
+          decodedArguments: const <String, Object?>{
+            'url': 'https://api.linux.do/t/topic/2401043.json',
+            'prompt': 'Summarize the JSON.',
+          },
+          model: _model,
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const [],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: null,
+          metadata: _liveWebReverseRuntimeMetadata(),
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.invalidArguments);
+      expect(
+        result.metadata['web_reverse_webfetch_blocked_for_cdp_first'],
+        isTrue,
+      );
+      expect(
+        result.metadata['web_reverse_requested_origin'],
+        'https://api.linux.do',
+      );
+    });
   });
 }
 

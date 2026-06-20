@@ -11595,7 +11595,7 @@ abstract class AppLocalizations {
   /// web reverse setup dialog: webReverseSetupKeywords
   ///
   /// In zh_Hans, this message translates to:
-  /// **'关键关键字（可选，逗号分隔）'**
+  /// **'关键字（可选，逗号分隔）'**
   String get webReverseSetupKeywords;
 
   /// web reverse setup dialog: webReverseSetupCreateThread

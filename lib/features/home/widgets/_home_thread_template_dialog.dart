@@ -403,7 +403,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
         _MetadataEntryRow(label: isZh ? '代理' : 'Proxy', value: config.proxy!),
       if (config.keywords.isNotEmpty)
         _MetadataEntryRow(
-          label: isZh ? '关键关键字' : 'Keywords',
+          label: isZh ? '关键字' : 'Keywords',
           value: config.keywords.join(', '),
         ),
       if (config.triggerActions != null && config.triggerActions!.isNotEmpty)

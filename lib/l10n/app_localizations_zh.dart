@@ -6262,7 +6262,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webReverseSetupProxy => '代理（可选）';
 
   @override
-  String get webReverseSetupKeywords => '关键关键字（可选，逗号分隔）';
+  String get webReverseSetupKeywords => '关键字（可选，逗号分隔）';
 
   @override
   String get webReverseSetupCreateThread => '创建线程';
@@ -14145,7 +14145,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get webReverseSetupProxy => '代理（可选）';
 
   @override
-  String get webReverseSetupKeywords => '关键关键字（可选，逗号分隔）';
+  String get webReverseSetupKeywords => '关键字（可选，逗号分隔）';
 
   @override
   String get webReverseSetupCreateThread => '创建线程';
@@ -22024,7 +22024,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get webReverseSetupProxy => '代理（可选）';
 
   @override
-  String get webReverseSetupKeywords => '关键关键字（可选，逗号分隔）';
+  String get webReverseSetupKeywords => '關鍵字（可選，逗號分隔）';
 
   @override
   String get webReverseSetupCreateThread => '创建线程';

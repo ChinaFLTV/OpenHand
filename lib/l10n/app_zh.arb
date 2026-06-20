@@ -4159,7 +4159,7 @@
   "@webReverseSetupProxy": {
     "description": "web reverse setup dialog: webReverseSetupProxy"
   },
-  "webReverseSetupKeywords": "关键关键字（可选，逗号分隔）",
+  "webReverseSetupKeywords": "关键字（可选，逗号分隔）",
   "@webReverseSetupKeywords": {
     "description": "web reverse setup dialog: webReverseSetupKeywords"
   },

@@ -148,7 +148,7 @@ class WebReverseCdpFirstGuard {
     if (route == null) return null;
 
     for (final targetUri in _webReverseTargetUris(runtime)) {
-      if (_commandContainsHostToken(command, targetUri.host)) {
+      if (_commandContainsTargetHostReference(command, targetUri.host)) {
         return WebReverseCdpFirstDecision(
           requestedUri: targetUri,
           targetUri: targetUri,
@@ -251,11 +251,11 @@ class WebReverseCdpFirstGuard {
     return extractHttpUrisFromText(command);
   }
 
-  static bool _commandContainsHostToken(String command, String host) {
-    final normalizedHost = host.trim();
-    if (normalizedHost.isEmpty) return false;
+  static bool _commandContainsTargetHostReference(String command, String host) {
+    final siteHost = _protectedTargetSiteHost(host);
+    if (siteHost.isEmpty) return false;
     final pattern = RegExp(
-      '(^|[^A-Za-z0-9.-])${RegExp.escape(normalizedHost)}([^A-Za-z0-9.-]|\$)',
+      '(^|[^A-Za-z0-9.-])(?:[A-Za-z0-9-]+\\.)*${RegExp.escape(siteHost)}([^A-Za-z0-9.-]|\$)',
       caseSensitive: false,
     );
     return pattern.hasMatch(command);
@@ -426,10 +426,19 @@ void _addUrl(List<String> urls, Object? raw) {
   if (value.isNotEmpty) urls.add(value);
 }
 
-bool _isSameHttpTargetHost(Uri a, Uri b) {
-  return _isHttpScheme(a.scheme) &&
-      _isHttpScheme(b.scheme) &&
-      a.host.toLowerCase() == b.host.toLowerCase();
+bool _isSameHttpTargetHost(Uri requested, Uri target) {
+  if (!_isHttpScheme(requested.scheme) || !_isHttpScheme(target.scheme)) {
+    return false;
+  }
+  final requestedHost = _normalizeHttpHost(requested.host);
+  final targetHost = _normalizeHttpHost(target.host);
+  if (requestedHost.isEmpty || targetHost.isEmpty) return false;
+  if (requestedHost == targetHost) return true;
+
+  final protectedSite = _protectedTargetSiteHost(targetHost);
+  if (protectedSite.isEmpty) return false;
+  return requestedHost == protectedSite ||
+      requestedHost.endsWith('.$protectedSite');
 }
 
 bool _isHttpScheme(String scheme) {
@@ -456,6 +465,31 @@ int _defaultPort(String scheme) {
     'https' => 443,
     _ => 0,
   };
+}
+
+const Set<String> _targetSiteHostPrefixes = <String>{
+  'www',
+  'm',
+  'mobile',
+  'h5',
+  'app',
+};
+
+String _protectedTargetSiteHost(String host) {
+  final normalized = _normalizeHttpHost(host);
+  final parts = normalized.split('.');
+  if (parts.length >= 3 && _targetSiteHostPrefixes.contains(parts.first)) {
+    return parts.skip(1).join('.');
+  }
+  return normalized;
+}
+
+String _normalizeHttpHost(String host) {
+  var normalized = host.trim().toLowerCase();
+  if (normalized.startsWith('[') && normalized.endsWith(']')) {
+    normalized = normalized.substring(1, normalized.length - 1);
+  }
+  return normalized;
 }
 
 List<String> _stringList(Object? raw) {
