@@ -1312,6 +1312,133 @@ Future<({String? before, String? after})> _loadMutationDiffSnapshots(
 
 enum _CodexDiffLineKind { context, addition, deletion, folded }
 
+class _CodexDiffPalette {
+  const _CodexDiffPalette({
+    required this.surface,
+    required this.border,
+    required this.separator,
+    required this.text,
+    required this.mutedText,
+    required this.contextLineNumber,
+    required this.additionBackground,
+    required this.deletionBackground,
+    required this.foldedBackground,
+    required this.additionLineNumber,
+    required this.deletionLineNumber,
+    required this.foldedLineNumber,
+    required this.additionFallbackText,
+    required this.deletionFallbackText,
+    required this.additionAccent,
+    required this.deletionAccent,
+    required this.footerSurface,
+    required this.footerBorder,
+    required this.footerForeground,
+  });
+
+  final Color surface;
+  final Color border;
+  final Color separator;
+  final Color text;
+  final Color mutedText;
+  final Color contextLineNumber;
+  final Color additionBackground;
+  final Color deletionBackground;
+  final Color foldedBackground;
+  final Color additionLineNumber;
+  final Color deletionLineNumber;
+  final Color foldedLineNumber;
+  final Color additionFallbackText;
+  final Color deletionFallbackText;
+  final Color additionAccent;
+  final Color deletionAccent;
+  final Color footerSurface;
+  final Color footerBorder;
+  final Color footerForeground;
+
+  int get signature => Object.hashAll([
+    surface,
+    border,
+    separator,
+    text,
+    mutedText,
+    contextLineNumber,
+    additionBackground,
+    deletionBackground,
+    foldedBackground,
+    additionLineNumber,
+    deletionLineNumber,
+    foldedLineNumber,
+    additionFallbackText,
+    deletionFallbackText,
+    additionAccent,
+    deletionAccent,
+    footerSurface,
+    footerForeground,
+  ]);
+
+  static _CodexDiffPalette resolve(ThemeData theme) {
+    final cs = theme.colorScheme;
+    if (theme.brightness == Brightness.dark) {
+      return const _CodexDiffPalette(
+        surface: Color(0xFF151515),
+        border: Color(0x14FFFFFF),
+        separator: Color(0x0FFFFFFF),
+        text: Color(0xFFE8E8E8),
+        mutedText: Color(0xFFB9B9B9),
+        contextLineNumber: Color(0xFF8E8F94),
+        additionBackground: Color(0xFF183622),
+        deletionBackground: Color(0xFF461D1D),
+        foldedBackground: Color(0xFF202020),
+        additionLineNumber: Color(0xFF35D782),
+        deletionLineNumber: Color(0xFFFF5C5C),
+        foldedLineNumber: Color(0xFF9EA0A6),
+        additionFallbackText: Color(0xFFE9F8ED),
+        deletionFallbackText: Color(0xFFFFDEDE),
+        additionAccent: Color(0xFF35D782),
+        deletionAccent: Color(0xFFFF5C5C),
+        footerSurface: Color(0xFF1B1B1B),
+        footerBorder: Color(0x12FFFFFF),
+        footerForeground: Color(0xFFD7D7D7),
+      );
+    }
+    const addition = Color(0xFF00A341);
+    final deletion = cs.error;
+    return _CodexDiffPalette(
+      surface: cs.surface,
+      border: cs.outlineVariant.withValues(alpha: 0.52),
+      separator: cs.outlineVariant.withValues(alpha: 0.78),
+      text: cs.onSurface,
+      mutedText: cs.onSurfaceVariant,
+      contextLineNumber: cs.onSurfaceVariant.withValues(alpha: 0.86),
+      additionBackground: Color.alphaBlend(
+        addition.withValues(alpha: 0.11),
+        cs.surface,
+      ),
+      deletionBackground: Color.alphaBlend(
+        deletion.withValues(alpha: 0.12),
+        cs.surface,
+      ),
+      foldedBackground: Color.alphaBlend(
+        cs.onSurface.withValues(alpha: 0.045),
+        cs.surface,
+      ),
+      additionLineNumber: addition,
+      deletionLineNumber: deletion,
+      foldedLineNumber: cs.onSurfaceVariant,
+      additionFallbackText: cs.onSurface,
+      deletionFallbackText: cs.onSurface,
+      additionAccent: addition,
+      deletionAccent: deletion,
+      footerSurface: Color.alphaBlend(
+        cs.onSurface.withValues(alpha: 0.025),
+        cs.surface,
+      ),
+      footerBorder: cs.outlineVariant.withValues(alpha: 0.58),
+      footerForeground: cs.primary,
+    );
+  }
+}
+
 class _CodexDiffLine {
   const _CodexDiffLine({
     required this.kind,
@@ -1488,6 +1615,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = _CodexDiffPalette.resolve(theme);
     final visibleLimit = math.max(1, widget.previewLineLimit);
     final clipped = !_showFull && _lines.length > visibleLimit;
     final visibleLines = clipped ? _lines.take(visibleLimit).toList() : _lines;
@@ -1507,36 +1635,35 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     );
     final codeTheme = context.watch<SettingsController>().editorCodeTheme;
     final brightness = theme.brightness;
+    final paletteSignature = palette.signature;
+    final diffDecoration = BoxDecoration(
+      color: palette.surface,
+      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      border: Border.all(color: palette.border, width: 0.8),
+    );
     final baseStyle =
         theme.textTheme.bodySmall?.copyWith(
           fontFamily: 'monospace',
           fontSize: 12.5,
           height: 1.34,
-          color: const Color(0xFFE8E8E8),
+          color: palette.text,
           fontFeatures: const [FontFeature.tabularFigures()],
         ) ??
-        const TextStyle(
+        TextStyle(
           fontFamily: 'monospace',
           fontSize: 12.5,
           height: 1.34,
-          color: Color(0xFFE8E8E8),
-          fontFeatures: [FontFeature.tabularFigures()],
+          color: palette.text,
+          fontFeatures: const [FontFeature.tabularFigures()],
         );
     final highlighter = _CodeSyntaxHighlighter(
       baseStyle: baseStyle,
-      darkSurface: true,
+      darkSurface: brightness == Brightness.dark,
       codeTheme: codeTheme,
     );
     if (_lines.isEmpty) {
       return DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.08),
-            width: 0.8,
-          ),
-        ),
+        decoration: diffDecoration,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Text(
@@ -1546,7 +1673,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
               en: 'No textual diff available.',
             ),
             style: theme.textTheme.labelSmall?.copyWith(
-              color: const Color(0xFFB9B9B9),
+              color: palette.mutedText,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1557,14 +1684,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     return ClipRRect(
       borderRadius: const BorderRadius.all(Radius.circular(12)),
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.08),
-            width: 0.8,
-          ),
-        ),
+        decoration: diffDecoration,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final viewportWidth = constraints.maxWidth.isFinite
@@ -1572,7 +1692,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
                 : 640.0;
             final contentWidth = math.max(
               viewportWidth,
-              math.min(3600.0, 92.0 + maxTextLength * 7.6),
+              math.min(3600.0, 96.0 + maxTextLength * 7.6),
             );
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1605,8 +1725,11 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
                                     widget.record.filePath,
                                   ),
                                   baseStyle: baseStyle,
+                                  palette: palette,
                                   cacheKey:
-                                      '${_diffKey ?? widget.record.recordId}|${brightness.name}|$index',
+                                      '${_diffKey ?? widget.record.recordId}|'
+                                      '${brightness.name}|${codeTheme.name}|'
+                                      '$paletteSignature|$index',
                                 );
                               },
                             ),
@@ -1620,6 +1743,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
                   _CodexDiffFooter(
                     hiddenCount: hiddenCount,
                     showFull: _showFull,
+                    palette: palette,
                     onToggle: () => _setShowFull(!_showFull),
                   ),
               ],
@@ -1638,6 +1762,7 @@ class _CodexDiffLineRow extends StatelessWidget {
     required this.highlighter,
     required this.language,
     required this.baseStyle,
+    required this.palette,
     required this.cacheKey,
   });
 
@@ -1646,30 +1771,44 @@ class _CodexDiffLineRow extends StatelessWidget {
   final _CodeSyntaxHighlighter highlighter;
   final String? language;
   final TextStyle baseStyle;
+  final _CodexDiffPalette palette;
   final String cacheKey;
 
   Color get _background {
     return switch (line.kind) {
-      _CodexDiffLineKind.addition => const Color(0xFF183622),
-      _CodexDiffLineKind.deletion => const Color(0xFF461D1D),
-      _CodexDiffLineKind.folded => const Color(0xFF1F1F1F),
+      _CodexDiffLineKind.addition => palette.additionBackground,
+      _CodexDiffLineKind.deletion => palette.deletionBackground,
+      _CodexDiffLineKind.folded => palette.foldedBackground,
       _CodexDiffLineKind.context => Colors.transparent,
     };
   }
 
   Color get _lineNumberColor {
     return switch (line.kind) {
-      _CodexDiffLineKind.addition => const Color(0xFF35D782),
-      _CodexDiffLineKind.deletion => const Color(0xFFFF5C5C),
-      _CodexDiffLineKind.folded => const Color(0xFF9EA0A6),
-      _CodexDiffLineKind.context => const Color(0xFF8E8F94),
+      _CodexDiffLineKind.addition => palette.additionLineNumber,
+      _CodexDiffLineKind.deletion => palette.deletionLineNumber,
+      _CodexDiffLineKind.folded => palette.foldedLineNumber,
+      _CodexDiffLineKind.context => palette.contextLineNumber,
+    };
+  }
+
+  Color get _accentColor {
+    return switch (line.kind) {
+      _CodexDiffLineKind.addition => palette.additionAccent,
+      _CodexDiffLineKind.deletion => palette.deletionAccent,
+      _CodexDiffLineKind.context ||
+      _CodexDiffLineKind.folded => Colors.transparent,
     };
   }
 
   @override
   Widget build(BuildContext context) {
     if (line.kind == _CodexDiffLineKind.folded) {
-      return _CodexDiffFoldRow(count: line.foldedCount, minWidth: minWidth);
+      return _CodexDiffFoldRow(
+        count: line.foldedCount,
+        minWidth: minWidth,
+        palette: palette,
+      );
     }
     return ConstrainedBox(
       constraints: BoxConstraints(minWidth: minWidth),
@@ -1679,6 +1818,7 @@ class _CodexDiffLineRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            ColoredBox(color: _accentColor, child: const SizedBox(width: 4)),
             SizedBox(
               width: 58,
               child: Align(
@@ -1695,7 +1835,7 @@ class _CodexDiffLineRow extends StatelessWidget {
                 ),
               ),
             ),
-            Container(width: 1, color: Colors.white.withValues(alpha: 0.06)),
+            Container(width: 1, color: palette.separator),
             Padding(
               padding: const EdgeInsets.only(left: 14, right: 18),
               child: Align(
@@ -1725,8 +1865,8 @@ class _CodexDiffLineRow extends StatelessWidget {
     }
     if (line.kind == _CodexDiffLineKind.context) return span;
     final fallbackColor = line.kind == _CodexDiffLineKind.addition
-        ? const Color(0xFFE9F8ED)
-        : const Color(0xFFFFDEDE);
+        ? palette.additionFallbackText
+        : palette.deletionFallbackText;
     return TextSpan(
       style: baseStyle.copyWith(color: fallbackColor),
       children:
@@ -1737,10 +1877,15 @@ class _CodexDiffLineRow extends StatelessWidget {
 }
 
 class _CodexDiffFoldRow extends StatelessWidget {
-  const _CodexDiffFoldRow({required this.count, required this.minWidth});
+  const _CodexDiffFoldRow({
+    required this.count,
+    required this.minWidth,
+    required this.palette,
+  });
 
   final int count;
   final double minWidth;
+  final _CodexDiffPalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -1752,25 +1897,29 @@ class _CodexDiffFoldRow extends StatelessWidget {
     return ConstrainedBox(
       constraints: BoxConstraints(minWidth: minWidth),
       child: DecoratedBox(
-        decoration: const BoxDecoration(color: Color(0xFF202020)),
+        decoration: BoxDecoration(color: palette.foldedBackground),
         child: Row(
           children: [
-            const SizedBox(
+            const ColoredBox(
+              color: Colors.transparent,
+              child: SizedBox(width: 4),
+            ),
+            SizedBox(
               width: 58,
               child: Center(
                 child: Icon(
                   Icons.unfold_more_rounded,
                   size: 16,
-                  color: Color(0xFFA2A2A2),
+                  color: palette.foldedLineNumber,
                 ),
               ),
             ),
-            Container(width: 1, color: Colors.white10),
+            Container(width: 1, color: palette.separator),
             const SizedBox(width: 14),
             Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFFB9B9B9),
+              style: TextStyle(
+                color: palette.mutedText,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
                 fontFamily: 'monospace',
@@ -1787,11 +1936,13 @@ class _CodexDiffFooter extends StatelessWidget {
   const _CodexDiffFooter({
     required this.hiddenCount,
     required this.showFull,
+    required this.palette,
     required this.onToggle,
   });
 
   final int hiddenCount;
   final bool showFull;
+  final _CodexDiffPalette palette;
   final VoidCallback onToggle;
 
   @override
@@ -1805,16 +1956,14 @@ class _CodexDiffFooter extends StatelessWidget {
           );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B1B),
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
-        ),
+        color: palette.footerSurface,
+        border: Border(top: BorderSide(color: palette.footerBorder)),
       ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
           style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFFD7D7D7),
+            foregroundColor: palette.footerForeground,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             visualDensity: VisualDensity.compact,
           ),
