@@ -2404,92 +2404,205 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final cdpRuntimeMeta = context.select<AiSessionController, Object?>((
+      controller,
+    ) {
+      for (final session in controller.sessions) {
+        if (session.id != widget.sessionId) continue;
+        final runtime = session.metadata['web_reverse_runtime'];
+        if (runtime is Map) {
+          final cdpRuntime = runtime['cdp_runtime'];
+          if (cdpRuntime != null) return cdpRuntime;
+        }
+        return session.metadata['web_reverse_cdp_runtime'];
+      }
+      return null;
+    });
 
     final running = ctrl?.isRunning ?? false;
     final reqs = ctrl?.networkRequests.length ?? 0;
     final errs = ctrl?.errorCount ?? 0;
-    final dotColor = !running ? cs.outline : (errs > 0 ? cs.error : cs.primary);
+    final cdpStatus = _WebReverseDebugCdpStatus.fromRuntime(
+      cdpRuntimeMeta,
+      controller: ctrl,
+      isZh: isZh,
+    );
+    final dotColor = !running
+        ? cs.outline
+        : errs > 0 || cdpStatus.tone == _WebReverseDebugCdpTone.failed
+        ? cs.error
+        : cdpStatus.tone == _WebReverseDebugCdpTone.ready
+        ? cs.primary
+        : cs.tertiary;
     final label = _restoring
         ? (isZh ? '启动中…' : 'starting…')
         : running
-        ? '$reqs · ${isZh ? "$errs 错" : "$errs err"}'
+        ? '$reqs · ${isZh ? "$errs 错" : "$errs err"} · ${cdpStatus.label}'
         : (isZh ? '点击连接' : 'click to connect');
+    final tooltip = <String>[
+      isZh ? 'Web 逆向调试面板' : 'Web Reverse Debugger',
+      '${isZh ? '浏览器' : 'Browser'}: ${running ? (isZh ? '运行中' : 'running') : (isZh ? '未连接' : 'not connected')}',
+      '${isZh ? '请求数' : 'Requests'}: $reqs',
+      '${isZh ? '错误数' : 'Errors'}: $errs',
+      cdpStatus.tooltip,
+    ].join('\n');
 
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: AnimatedContainer(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: !running
-                ? cs.outlineVariant
-                : (errs > 0 ? cs.error : cs.primary).withValues(alpha: 0.4),
-          ),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 350),
+        child: AnimatedContainer(
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(999),
-            onTap: _restoring ? null : _onPillTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedContainer(
-                    duration: reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 220),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: dotColor,
-                      shape: BoxShape.circle,
-                      boxShadow: running && errs == 0
-                          ? [
-                              BoxShadow(
-                                color: dotColor.withValues(alpha: 0.55),
-                                blurRadius: 6,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.bug_report_rounded,
-                    size: 13,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  AnimatedSwitcher(
-                    duration: reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 220),
-                    transitionBuilder: (c, a) =>
-                        FadeTransition(opacity: a, child: c),
-                    child: Text(
-                      label,
-                      key: ValueKey<String>(label),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
+            border: Border.all(color: dotColor.withValues(alpha: 0.4)),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: _restoring ? null : _onPillTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 220),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                        boxShadow: running && errs == 0
+                            ? [
+                                BoxShadow(
+                                  color: dotColor.withValues(alpha: 0.55),
+                                  blurRadius: 6,
+                                ),
+                              ]
+                            : null,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.bug_report_rounded,
+                      size: 13,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 136),
+                      child: AnimatedSwitcher(
+                        duration: reduceMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
+                        transitionBuilder: (c, a) =>
+                            FadeTransition(opacity: a, child: c),
+                        child: Text(
+                          label,
+                          key: ValueKey<String>(label),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+enum _WebReverseDebugCdpTone { ready, preparing, failed, unavailable }
+
+class _WebReverseDebugCdpStatus {
+  const _WebReverseDebugCdpStatus({
+    required this.tone,
+    required this.label,
+    required this.tooltip,
+  });
+
+  final _WebReverseDebugCdpTone tone;
+  final String label;
+  final String tooltip;
+
+  static _WebReverseDebugCdpStatus fromRuntime(
+    Object? runtime, {
+    required WebReverseSessionController? controller,
+    required bool isZh,
+  }) {
+    final runtimeMap = _asMap(runtime);
+    final bridge = _asMap(runtimeMap?['cdp_mcp_bridge']);
+    final rawStatus = '${bridge?['status'] ?? ''}'.trim();
+    final toolCount = (bridge?['tool_count'] as num?)?.toInt() ?? 0;
+    final liveCallable = bridge?['live_actions_callable'] == true;
+    final message = '${bridge?['message'] ?? ''}'.trim();
+    final error = '${bridge?['error_message'] ?? ''}'.trim();
+    final warning = '${bridge?['warning_message'] ?? ''}'.trim();
+    final browserAlive =
+        bridge?['browser_alive'] == true ||
+        controller?.isBrowserAlive == true ||
+        runtimeMap?['browser_alive'] == true;
+
+    late final _WebReverseDebugCdpTone tone;
+    late final String label;
+    if (liveCallable ||
+        (rawStatus == 'ready' && browserAlive && toolCount > 0)) {
+      tone = _WebReverseDebugCdpTone.ready;
+      label = isZh ? 'CDP $toolCount' : 'CDP $toolCount';
+    } else if (rawStatus == 'preparing') {
+      tone = _WebReverseDebugCdpTone.preparing;
+      label = isZh ? 'CDP…' : 'CDP…';
+    } else if (rawStatus == 'failed') {
+      tone = _WebReverseDebugCdpTone.failed;
+      label = isZh ? 'CDP!' : 'CDP!';
+    } else if (!browserAlive) {
+      tone = _WebReverseDebugCdpTone.unavailable;
+      label = isZh ? 'CDP离线' : 'CDP off';
+    } else {
+      tone = _WebReverseDebugCdpTone.unavailable;
+      label = isZh ? 'CDP待同步' : 'CDP pending';
+    }
+
+    final tooltipLines = <String>[
+      isZh ? 'AI 侧 CDP MCP' : 'AI-side CDP MCP',
+      '${isZh ? '状态' : 'Status'}: ${rawStatus.isEmpty ? 'unknown' : rawStatus}',
+      '${isZh ? '可调用工具' : 'Callable tools'}: $toolCount',
+      if (message.isNotEmpty) message,
+      if (warning.isNotEmpty) '${isZh ? '提示' : 'Warning'}: $warning',
+      if (error.isNotEmpty) '${isZh ? '错误' : 'Error'}: $error',
+    ];
+    return _WebReverseDebugCdpStatus(
+      tone: tone,
+      label: label,
+      tooltip: tooltipLines.join('\n'),
+    );
+  }
+
+  static Map<String, Object?>? _asMap(Object? value) {
+    if (value is Map<String, Object?>) return value;
+    if (value is Map) return Map<String, Object?>.from(value);
+    return null;
   }
 }
 
