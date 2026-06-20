@@ -59,8 +59,8 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     if (path != null && mounted) setState(() => _outDir = path);
   }
 
-  List<String> _parsedUrls() {
-    return _urlsCtrl.text
+  List<String> _parsedUrls({bool capped = true}) {
+    final urls = _urlsCtrl.text
         .split(RegExp(r'[\r\n]+'))
         .map((e) => e.trim())
         .where(
@@ -69,11 +69,15 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
               (e.startsWith('http://') || e.startsWith('https://')),
         )
         .toList();
+    return capped
+        ? urls.take(kWebReverseHeadlessBatchMaxUrls).toList(growable: false)
+        : urls;
   }
 
   Future<void> _start() async {
     if (_running) return;
-    final urls = _parsedUrls();
+    final allUrls = _parsedUrls(capped: false);
+    final urls = allUrls.take(kWebReverseHeadlessBatchMaxUrls).toList();
     final messenger = ScaffoldMessenger.of(context);
     final loc0 = AppLocalizations.of(context);
     if (urls.isEmpty || _outDir == null) {
@@ -85,6 +89,15 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
         duration: const Duration(seconds: 3),
       );
       return;
+    }
+    if (allUrls.length > urls.length) {
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        widget.isZh
+            ? 'Headless 批量采集已按上限取前 $kWebReverseHeadlessBatchMaxUrls 个 URL'
+            : 'Headless batch is capped to the first $kWebReverseHeadlessBatchMaxUrls URLs',
+      );
     }
     final cdp = widget.controller.browserCdpForBatch;
     if (cdp == null) {
@@ -192,6 +205,9 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                       'URL list (one per line)',
                   hintText:
                       'https://example.com/page1\nhttps://example.com/page2',
+                  helperText: widget.isZh
+                      ? '最多采集 $kWebReverseHeadlessBatchMaxUrls 个 URL'
+                      : 'Captures up to $kWebReverseHeadlessBatchMaxUrls URLs',
                   border: const OutlineInputBorder(),
                 ),
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
@@ -339,12 +355,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                                 ),
                                 subtitle: Text(
                                   r.ok
-                                      ? (loc?.webReverseHeadlessBatchResultStats(
-                                              r.networkCount,
-                                              r.consoleCount,
-                                              r.outDir ?? "",
-                                            ) ??
-                                            '${r.networkCount} net · ${r.consoleCount} log · ${r.outDir}')
+                                      ? _resultStats(r, loc)
                                       : (r.error ?? 'failed'),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -384,6 +395,21 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
         ),
       ),
     );
+  }
+
+  String _resultStats(HeadlessBatchUrlResult r, AppLocalizations? loc) {
+    final base =
+        loc?.webReverseHeadlessBatchResultStats(
+          r.networkCount,
+          r.consoleCount,
+          r.outDir ?? "",
+        ) ??
+        '${r.networkCount} net · ${r.consoleCount} log · ${r.outDir}';
+    final dropped = r.networkDropped + r.consoleDropped;
+    if (dropped <= 0) return base;
+    return widget.isZh
+        ? '$base · 已截断 $dropped 条'
+        : '$base · truncated $dropped';
   }
 
   Widget _phaseIcon(HeadlessBatchPhase phase, ColorScheme cs) {

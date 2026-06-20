@@ -5,6 +5,11 @@ import 'dart:io';
 import '../../app/support/silent_log.dart';
 import 'web_reverse_cdp_client.dart';
 
+const int kWebReverseHeadlessBatchMaxUrls = 50;
+const int kWebReverseHeadlessBatchMaxNetworkEventsPerUrl = 1500;
+const int kWebReverseHeadlessBatchMaxConsoleEventsPerUrl = 1000;
+const int kWebReverseHeadlessBatchMaxConsoleTextChars = 4096;
+
 /// Headless 批量采集：复用现有 [WebReverseCdpClient]，按 URL 列表逐个建一个
 /// 后台 Page target，做最小可用的事件采集（network response 列表 / console /
 /// 截图），完成后落盘并关闭 target。完全运行在现有浏览器进程里，不另起进程，
@@ -36,69 +41,118 @@ class WebReverseHeadlessBatch {
   final void Function(HeadlessBatchProgress progress)? onProgress;
 
   bool _cancelled = false;
-  void cancel() => _cancelled = true;
+  final Completer<void> _cancelCompleter = Completer<void>();
+
+  void cancel() {
+    if (_cancelled) return;
+    _cancelled = true;
+    if (!_cancelCompleter.isCompleted) _cancelCompleter.complete();
+  }
+
   bool get isCancelled => _cancelled;
 
   Future<List<HeadlessBatchUrlResult>> run() async {
     final results = <HeadlessBatchUrlResult>[];
+    final cappedUrls = urls
+        .map((url) => url.trim())
+        .where(_isHttpUrl)
+        .take(kWebReverseHeadlessBatchMaxUrls)
+        .toList();
     await Directory(outputDir).create(recursive: true);
-    for (var i = 0; i < urls.length; i++) {
+    for (var i = 0; i < cappedUrls.length; i++) {
       if (_cancelled) {
-        results.add(HeadlessBatchUrlResult(
-          url: urls[i],
-          ok: false,
-          error: 'cancelled',
-        ));
-        _emit(i, urls[i], HeadlessBatchPhase.cancelled);
+        results.add(
+          HeadlessBatchUrlResult(
+            url: cappedUrls[i],
+            ok: false,
+            error: 'cancelled',
+          ),
+        );
+        _emit(
+          i,
+          cappedUrls[i],
+          HeadlessBatchPhase.cancelled,
+          cappedUrls.length,
+        );
         continue;
       }
-      final url = urls[i].trim();
-      _emit(i, url, HeadlessBatchPhase.starting);
+      final url = cappedUrls[i];
+      _emit(i, url, HeadlessBatchPhase.starting, cappedUrls.length);
       try {
-        final r = await _runOne(i, url);
+        final r = await _runOne(i, url, cappedUrls.length);
         results.add(r);
-        _emit(i, url, r.ok ? HeadlessBatchPhase.done : HeadlessBatchPhase.failed,
-            message: r.error);
+        _emit(
+          i,
+          url,
+          r.ok ? HeadlessBatchPhase.done : HeadlessBatchPhase.failed,
+          cappedUrls.length,
+          message: r.error,
+        );
       } catch (e, st) {
         silentLog('web_reverse_headless_batch', 'run', e, st);
         results.add(HeadlessBatchUrlResult(url: url, ok: false, error: '$e'));
-        _emit(i, url, HeadlessBatchPhase.failed, message: '$e');
+        _emit(
+          i,
+          url,
+          HeadlessBatchPhase.failed,
+          cappedUrls.length,
+          message: '$e',
+        );
       }
     }
     return results;
   }
 
-  void _emit(int index, String url, HeadlessBatchPhase phase,
-      {String? message}) {
+  void _emit(
+    int index,
+    String url,
+    HeadlessBatchPhase phase,
+    int total, {
+    String? message,
+  }) {
     final cb = onProgress;
     if (cb == null) return;
     try {
-      cb(HeadlessBatchProgress(
-        index: index,
-        total: urls.length,
-        url: url,
-        phase: phase,
-        message: message,
-      ));
+      cb(
+        HeadlessBatchProgress(
+          index: index,
+          total: total,
+          url: url,
+          phase: phase,
+          message: message,
+        ),
+      );
     } catch (e, st) {
       silentLog('web_reverse_headless_batch', '_emit', e, st);
     }
   }
 
-  Future<HeadlessBatchUrlResult> _runOne(int index, String url) async {
+  Future<HeadlessBatchUrlResult> _runOne(
+    int index,
+    String url,
+    int total,
+  ) async {
     String? targetId;
     String? sessionId;
     StreamSubscription<CdpEvent>? sub;
     final networkResponses = <Map<String, Object?>>[];
     final consoleEntries = <Map<String, Object?>>[];
+    var networkDropped = 0;
+    var consoleDropped = 0;
     final loadCompleter = Completer<void>();
+    HeadlessBatchUrlResult cancelledResult() => HeadlessBatchUrlResult(
+      url: url,
+      ok: false,
+      error: 'cancelled',
+      networkCount: networkResponses.length,
+      consoleCount: consoleEntries.length,
+      networkDropped: networkDropped,
+      consoleDropped: consoleDropped,
+    );
     try {
       final created = await cdp.send(
         'Target.createTarget',
-        params: <String, Object?>{
-          'url': 'about:blank',
-          'background': true,
-        },
+        params: <String, Object?>{'url': 'about:blank', 'background': true},
         timeout: const Duration(seconds: 10),
       );
       targetId = created['targetId'] as String?;
@@ -111,10 +165,7 @@ class WebReverseHeadlessBatch {
       }
       final attached = await cdp.send(
         'Target.attachToTarget',
-        params: <String, Object?>{
-          'targetId': targetId,
-          'flatten': true,
-        },
+        params: <String, Object?>{'targetId': targetId, 'flatten': true},
         timeout: const Duration(seconds: 10),
       );
       sessionId = attached['sessionId'] as String?;
@@ -135,6 +186,11 @@ class WebReverseHeadlessBatch {
           case 'Network.responseReceived':
             final resp = ev.params['response'];
             if (resp is Map) {
+              if (networkResponses.length >=
+                  kWebReverseHeadlessBatchMaxNetworkEventsPerUrl) {
+                networkDropped++;
+                break;
+              }
               final r = resp.cast<String, Object?>();
               networkResponses.add(<String, Object?>{
                 'request_id': ev.params['requestId'],
@@ -154,6 +210,11 @@ class WebReverseHeadlessBatch {
             }
             break;
           case 'Network.loadingFailed':
+            if (networkResponses.length >=
+                kWebReverseHeadlessBatchMaxNetworkEventsPerUrl) {
+              networkDropped++;
+              break;
+            }
             networkResponses.add(<String, Object?>{
               'request_id': ev.params['requestId'],
               'failed': true,
@@ -163,56 +224,95 @@ class WebReverseHeadlessBatch {
             break;
           case 'Runtime.consoleAPICalled':
           case 'Log.entryAdded':
+            if (consoleEntries.length >=
+                kWebReverseHeadlessBatchMaxConsoleEventsPerUrl) {
+              consoleDropped++;
+              break;
+            }
             final args = ev.params['args'];
             final text = args is List
                 ? args
-                    .whereType<Map>()
-                    .map((m) => m['value']?.toString() ?? m['description']?.toString() ?? '')
-                    .where((s) => s.isNotEmpty)
-                    .join(' ')
+                      .whereType<Map>()
+                      .map(
+                        (m) =>
+                            m['value']?.toString() ??
+                            m['description']?.toString() ??
+                            '',
+                      )
+                      .where((s) => s.isNotEmpty)
+                      .join(' ')
                 : ev.params['entry'] is Map
-                    ? '${(ev.params['entry'] as Map)['text']}'
-                    : '';
+                ? '${(ev.params['entry'] as Map)['text']}'
+                : '';
+            final clippedText =
+                text.length > kWebReverseHeadlessBatchMaxConsoleTextChars
+                ? '${text.substring(0, kWebReverseHeadlessBatchMaxConsoleTextChars)}...'
+                : text;
             consoleEntries.add(<String, Object?>{
-              'level': ev.params['type']?.toString() ??
+              'level':
+                  ev.params['type']?.toString() ??
                   (ev.params['entry'] is Map
                       ? '${(ev.params['entry'] as Map)['level']}'
                       : 'log'),
-              'text': text,
+              'text': clippedText,
+              'text_truncated':
+                  text.length > kWebReverseHeadlessBatchMaxConsoleTextChars,
               'ts': DateTime.now().toIso8601String(),
             });
             break;
         }
       });
 
-      await cdp.send('Page.enable',
-          sessionId: sessionId, timeout: const Duration(seconds: 5));
+      await cdp.send(
+        'Page.enable',
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 5),
+      );
       if (captureNetwork) {
-        await cdp.send('Network.enable',
-            sessionId: sessionId, timeout: const Duration(seconds: 5));
+        await cdp.send(
+          'Network.enable',
+          sessionId: sessionId,
+          timeout: const Duration(seconds: 5),
+        );
       }
       if (captureConsole) {
-        await cdp.send('Runtime.enable',
-            sessionId: sessionId, timeout: const Duration(seconds: 5));
-        await cdp.send('Log.enable',
-            sessionId: sessionId, timeout: const Duration(seconds: 5));
+        await cdp.send(
+          'Runtime.enable',
+          sessionId: sessionId,
+          timeout: const Duration(seconds: 5),
+        );
+        await cdp.send(
+          'Log.enable',
+          sessionId: sessionId,
+          timeout: const Duration(seconds: 5),
+        );
       }
 
-      _emit(index, url, HeadlessBatchPhase.navigating);
-      await cdp.send('Page.navigate',
-          params: <String, Object?>{'url': url},
-          sessionId: sessionId,
-          timeout: const Duration(seconds: 10));
+      _emit(index, url, HeadlessBatchPhase.navigating, total);
+      await cdp.send(
+        'Page.navigate',
+        params: <String, Object?>{'url': url},
+        sessionId: sessionId,
+        timeout: const Duration(seconds: 10),
+      );
 
-      _emit(index, url, HeadlessBatchPhase.waitingLoad);
+      _emit(index, url, HeadlessBatchPhase.waitingLoad, total);
       try {
-        await loadCompleter.future.timeout(perUrlTimeout);
+        await Future.any<void>([
+          loadCompleter.future.timeout(perUrlTimeout),
+          _cancelCompleter.future,
+        ]);
       } on TimeoutException {
         // 即使 load 没 fire 也继续把已采集到的东西落盘。
       }
+      if (_cancelled) return cancelledResult();
       if (settleAfterLoad > Duration.zero) {
-        await Future<void>.delayed(settleAfterLoad);
+        await Future.any<void>([
+          Future<void>.delayed(settleAfterLoad),
+          _cancelCompleter.future,
+        ]);
       }
+      if (_cancelled) return cancelledResult();
 
       final dirName = _sanitizeDir(url, index);
       final perDir = Directory('$outputDir/$dirName');
@@ -220,23 +320,43 @@ class WebReverseHeadlessBatch {
 
       if (captureNetwork) {
         await File('${perDir.path}/network.json').writeAsString(
-            const JsonEncoder.withIndent('  ')
-                .convert(<String, Object?>{'url': url, 'responses': networkResponses}));
+          const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+            'url': url,
+            'captured': networkResponses.length,
+            'dropped': networkDropped,
+            'truncated':
+                networkDropped > 0 ||
+                networkResponses.length >=
+                    kWebReverseHeadlessBatchMaxNetworkEventsPerUrl,
+            'responses': networkResponses,
+          }),
+        );
       }
       if (captureConsole) {
         await File('${perDir.path}/console.json').writeAsString(
-            const JsonEncoder.withIndent('  ')
-                .convert(<String, Object?>{'url': url, 'entries': consoleEntries}));
+          const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+            'url': url,
+            'captured': consoleEntries.length,
+            'dropped': consoleDropped,
+            'truncated':
+                consoleDropped > 0 ||
+                consoleEntries.length >=
+                    kWebReverseHeadlessBatchMaxConsoleEventsPerUrl,
+            'entries': consoleEntries,
+          }),
+        );
       }
 
       String? screenshotPath;
       if (captureScreenshot && !_cancelled) {
-        _emit(index, url, HeadlessBatchPhase.capturingScreenshot);
+        _emit(index, url, HeadlessBatchPhase.capturingScreenshot, total);
         try {
-          final shot = await cdp.send('Page.captureScreenshot',
-              params: <String, Object?>{'format': 'png'},
-              sessionId: sessionId,
-              timeout: const Duration(seconds: 10));
+          final shot = await cdp.send(
+            'Page.captureScreenshot',
+            params: <String, Object?>{'format': 'png'},
+            sessionId: sessionId,
+            timeout: const Duration(seconds: 10),
+          );
           final data = shot['data'];
           if (data is String && data.isNotEmpty) {
             final path = '${perDir.path}/screenshot.png';
@@ -254,6 +374,8 @@ class WebReverseHeadlessBatch {
         outDir: perDir.path,
         networkCount: networkResponses.length,
         consoleCount: consoleEntries.length,
+        networkDropped: networkDropped,
+        consoleDropped: consoleDropped,
         screenshotPath: screenshotPath,
       );
     } catch (e, st) {
@@ -263,9 +385,11 @@ class WebReverseHeadlessBatch {
       await sub?.cancel();
       if (targetId != null) {
         try {
-          await cdp.send('Target.closeTarget',
-              params: <String, Object?>{'targetId': targetId},
-              timeout: const Duration(seconds: 5));
+          await cdp.send(
+            'Target.closeTarget',
+            params: <String, Object?>{'targetId': targetId},
+            timeout: const Duration(seconds: 5),
+          );
         } catch (e, st) {
           silentLog('web_reverse_headless_batch', 'closeTarget', e, st);
         }
@@ -281,6 +405,9 @@ class WebReverseHeadlessBatch {
     final idx = (index + 1).toString().padLeft(3, '0');
     return '${idx}_$clipped';
   }
+
+  static bool _isHttpUrl(String url) =>
+      url.startsWith('http://') || url.startsWith('https://');
 }
 
 enum HeadlessBatchPhase {
@@ -316,6 +443,8 @@ class HeadlessBatchUrlResult {
     this.outDir,
     this.networkCount = 0,
     this.consoleCount = 0,
+    this.networkDropped = 0,
+    this.consoleDropped = 0,
     this.screenshotPath,
     this.error,
   });
@@ -325,6 +454,8 @@ class HeadlessBatchUrlResult {
   final String? outDir;
   final int networkCount;
   final int consoleCount;
+  final int networkDropped;
+  final int consoleDropped;
   final String? screenshotPath;
   final String? error;
 }
