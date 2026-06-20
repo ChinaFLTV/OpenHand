@@ -93,6 +93,8 @@ class WebReverseSessionController extends ChangeNotifier {
   /// CDP 端口（已分配；可能与 config.cdpPort 不同——后者是 desired）。
   int? get cdpPort => _launchResult?.cdpPort;
   String? get browserVersion => _launchResult?.browserVersion;
+  int get cdpConnectionGeneration =>
+      _browserCdp == null ? 0 : identityHashCode(_browserCdp);
 
   // ── Dashboard 数据缓冲 ────────────────────────────────────────────────
   // 目标：让 UI 用 ListenableBuilder 直接拉数据，CDP 事件 → 这里 → UI。

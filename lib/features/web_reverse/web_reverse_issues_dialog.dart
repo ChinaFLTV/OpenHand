@@ -22,39 +22,77 @@ import 'web_reverse_session_controller.dart';
 // 进程级缓冲，跨弹窗保留。每次 controller 切换不清空——刻意保留多会话证据。
 final List<_IssueEntry> _issueBuffer = <_IssueEntry>[];
 StreamSubscription<CdpEvent>? _issueGlobalSub;
+String? _issueBindingKey;
 bool _issueDomainEnabled = false;
+const Duration _issueEnableTimeout = Duration(seconds: 5);
 
 Future<void> showWebReverseIssuesDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
   required bool isZh,
 }) async {
-  // 第一次打开时 enable Audits + 挂全局订阅，后续保持常驻。
-  if (!_issueDomainEnabled) {
-    final res = await controller.sendRawCdp(method: 'Audits.enable');
-    if (res?['error'] == null) _issueDomainEnabled = true;
-  }
-  _issueGlobalSub ??= controller.rawCdpEvents.listen((ev) {
-    if (ev.method != 'Audits.issueAdded') return;
-    final issue = (ev.params['issue'] as Map?)?.cast<String, Object?>();
-    if (issue == null) return;
-    final code = issue['code']?.toString() ?? 'Unknown';
-    final details =
-        (issue['details'] as Map?)?.cast<String, Object?>() ?? const {};
-    _issueBuffer.insert(
-      0,
-      _IssueEntry(ts: DateTime.now(), code: code, details: details, raw: issue),
-    );
-    if (_issueBuffer.length > 500) {
-      _issueBuffer.removeRange(500, _issueBuffer.length);
+  await _bindIssueStream(controller);
+  if (controller.isBrowserAlive) {
+    try {
+      final res = await controller
+          .sendRawCdp(method: 'Audits.enable')
+          .timeout(_issueEnableTimeout);
+      _issueDomainEnabled = res?['error'] == null;
+    } catch (error, stack) {
+      _issueDomainEnabled = false;
+      silentLog('web_reverse_issues_dialog', 'Audits.enable', error, stack);
     }
-  });
+  } else {
+    _issueDomainEnabled = false;
+  }
 
   if (!context.mounted) return;
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) => _IssuesDialog(controller: controller, isZh: isZh),
   );
+}
+
+Future<void> _bindIssueStream(WebReverseSessionController controller) async {
+  final bindingKey =
+      '${identityHashCode(controller)}:${controller.artifactsRootDir}:${controller.cdpConnectionGeneration}';
+  if (_issueBindingKey != bindingKey) {
+    await _issueGlobalSub?.cancel();
+    _issueGlobalSub = null;
+    _issueBindingKey = bindingKey;
+    _issueDomainEnabled = false;
+  }
+  _issueGlobalSub ??= controller.rawCdpEvents.listen(
+    _handleIssueEvent,
+    onDone: () => _resetIssueBinding(bindingKey),
+    onError: (Object error, StackTrace stack) {
+      silentLog('web_reverse_issues_dialog', 'raw issue stream', error, stack);
+      _resetIssueBinding(bindingKey);
+    },
+  );
+}
+
+void _resetIssueBinding(String bindingKey) {
+  if (_issueBindingKey != bindingKey) return;
+  _issueGlobalSub = null;
+  _issueBindingKey = null;
+  _issueDomainEnabled = false;
+}
+
+void _handleIssueEvent(CdpEvent ev) {
+  if (ev.method != 'Audits.issueAdded') return;
+  final issue = (ev.params['issue'] as Map?)?.cast<String, Object?>();
+  if (issue == null) return;
+  final code = issue['code']?.toString() ?? 'Unknown';
+  final details =
+      (issue['details'] as Map?)?.cast<String, Object?>() ?? const {};
+  _issueBuffer.insert(
+    0,
+    _IssueEntry(ts: DateTime.now(), code: code, details: details, raw: issue),
+  );
+  if (_issueBuffer.length > 500) {
+    _issueBuffer.removeRange(500, _issueBuffer.length);
+  }
 }
 
 class _IssueEntry {
