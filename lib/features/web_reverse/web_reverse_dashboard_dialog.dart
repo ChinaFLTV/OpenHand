@@ -1296,15 +1296,18 @@ class _CdpMcpBridgeHeaderStatus {
     final runtimeMap = _asMap(runtime);
     final bridge = _asMap(runtimeMap?['cdp_mcp_bridge']);
     final rawStatus = '${bridge?['status'] ?? ''}'.trim();
-    final toolCount = (bridge?['tool_count'] as num?)?.toInt() ?? 0;
-    final liveCallable = bridge?['live_actions_callable'] == true;
+    final toolCount = _intValue(bridge?['tool_count']) ?? 0;
+    final liveCallable = webReverseRuntimeBoolTrue(
+      bridge?['live_actions_callable'],
+    );
     final serverName = '${bridge?['server_name'] ?? ''}'.trim();
     final message = '${bridge?['message'] ?? ''}'.trim();
     final error = '${bridge?['error_message'] ?? ''}'.trim();
     final warning = '${bridge?['warning_message'] ?? ''}'.trim();
-    final port = (bridge?['cdp_port'] as num?)?.toInt() ?? controller.cdpPort;
+    final port = _intValue(bridge?['cdp_port']) ?? controller.cdpPort;
     final browserAlive =
-        bridge?['browser_alive'] == true || controller.isBrowserAlive;
+        webReverseRuntimeBoolTrue(bridge?['browser_alive']) ||
+        controller.isBrowserAlive;
 
     late final _CdpMcpBridgeHeaderTone tone;
     late final IconData icon;
@@ -1358,6 +1361,11 @@ class _CdpMcpBridgeHeaderStatus {
       return Map<String, Object?>.from(value);
     }
     return null;
+  }
+
+  static int? _intValue(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}'.trim());
   }
 }
 
