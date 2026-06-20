@@ -88,7 +88,7 @@ class AiPromptTemplateRepository {
       iconName: 'travel_explore_rounded',
       description:
           '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。',
-      internalVersion: '1.1.1',
+      internalVersion: '1.1.2',
       promptAssetDirectory:
           AiPromptTemplatePolicies.webReverseExpertPromptAssetDirectory,
     ),
