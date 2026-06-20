@@ -88,6 +88,9 @@ const INITIAL_RENDERED_MESSAGE_COUNT = 4;
 const MESSAGE_RENDER_BATCH_SIZE = 2;
 const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 180;
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
+const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
+const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 1;
+const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 900;
 
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -1381,6 +1384,7 @@ export function SessionDetailPage() {
   // recalc 仅在 scrollTop 真正减小 (用户上滑) 时才允许 setAutoFollowPaused=true。
   // 否则 (内容增长 / 程序滚动) 不应自动暂停跟随，让 ResizeObserver follow 接管。
   const lastScrollTopRef = useRef<number>(0);
+  const lastUserScrollIntentAtRef = useRef<number>(0);
   const followFrameRef = useRef<number | null>(null);
   const followSettleFrameRef = useRef<number | null>(null);
   const resizeFollowFrameRef = useRef<number | null>(null);
@@ -1578,6 +1582,14 @@ export function SessionDetailPage() {
     autoFollowPausedRef.current = value;
     setAutoFollowPaused((current) => (current === value ? current : value));
   };
+
+  const markUserScrollIntent = useCallback(() => {
+    lastUserScrollIntentAtRef.current = Date.now();
+  }, []);
+
+  const hasRecentUserScrollIntent = useCallback(() => {
+    return Date.now() - lastUserScrollIntentAtRef.current <= AUTO_FOLLOW_USER_SCROLL_INTENT_MS;
+  }, []);
 
   const setOlderRenderSettlingValue = (value: boolean) => {
     olderRenderSettlingRef.current = value;
@@ -1865,15 +1877,42 @@ export function SessionDetailPage() {
   }, []);
 
   useEffect(() => {
+    const upwardScrollKeys = new Set(['ArrowUp', 'PageUp', 'Home']);
+    const isScrollbarPointerIntent = (event: PointerEvent, el: HTMLElement): boolean => {
+      if (event.button !== 0) return false;
+      const scrollbarWidth = el.offsetWidth - el.clientWidth;
+      if (scrollbarWidth <= 0) return false;
+      const rect = el.getBoundingClientRect();
+      const hitInset = Math.max(14, scrollbarWidth + 2);
+      const direction = window.getComputedStyle(el).direction;
+      if (direction === 'rtl') {
+        return event.clientX >= rect.left && event.clientX <= rect.left + hitInset;
+      }
+      return event.clientX <= rect.right && event.clientX >= rect.right - hitInset;
+    };
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY < -AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX) markUserScrollIntent();
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      const el = mainRef.current;
+      if (el && isScrollbarPointerIntent(event, el)) markUserScrollIntent();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableShortcutTarget(event.target)) return;
+      if (upwardScrollKeys.has(event.key) || (event.key === ' ' && event.shiftKey)) {
+        markUserScrollIntent();
+      }
+    };
+
     function recalc() {
       const el = mainRef.current;
       if (!el) return;
       const currentScrollTop = el.scrollTop;
       const prevScrollTop = lastScrollTopRef.current;
-      const scrolledUp = currentScrollTop < prevScrollTop - 1; // 1px 容差
+      const scrolledUp = currentScrollTop < prevScrollTop - AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX;
       lastScrollTopRef.current = currentScrollTop;
       const dist = el.scrollHeight - (currentScrollTop + el.clientHeight);
-      isNearBottomRef.current = dist <= 64;
+      isNearBottomRef.current = dist <= AUTO_FOLLOW_NEAR_BOTTOM_PX;
       if (Date.now() <= programmaticScrollUntilRef.current) {
         if (autoFollowRef.current && autoFollowPausedRef.current) {
           setAutoFollowPausedValue(false);
@@ -1887,22 +1926,33 @@ export function SessionDetailPage() {
       if (isNearBottomRef.current) {
         if (unreadCount !== 0) clearUnreadCount();
         if (autoFollowPaused) setAutoFollowPausedValue(false);
-      } else if (!autoFollowPaused && scrolledUp && Date.now() > programmaticScrollUntilRef.current) {
-        // 仅在用户主动上滑时暂停跟随。tool-call 内容暴涨导致的「视觉远离底部」
-        // 不再触发暂停，由 ResizeObserver-driven follow 兜底拉回底部。
+      } else if (!autoFollowPaused && scrolledUp && hasRecentUserScrollIntent()) {
+        // 仅在用户近期有明确滚动意图且 scrollTop 确实向上时暂停跟随。
+        // 浏览器滚动锚点、代码高亮、Markdown/工具卡片测高等流式布局变化也可能
+        // 让 scrollTop 回退；这些内容增长场景不能自动取消用户开启的贴底跟随。
         setAutoFollowPausedValue(true);
       }
     }
     recalc();
     const el = mainRef.current;
     if (el) lastScrollTopRef.current = el.scrollTop;
+    el?.addEventListener('wheel', handleWheel, { passive: true });
+    el?.addEventListener('touchstart', markUserScrollIntent, { passive: true });
+    el?.addEventListener('touchmove', markUserScrollIntent, { passive: true });
+    el?.addEventListener('pointerdown', handlePointerDown, { passive: true });
     el?.addEventListener('scroll', recalc, { passive: true });
     window.addEventListener('resize', recalc);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
+      el?.removeEventListener('wheel', handleWheel);
+      el?.removeEventListener('touchstart', markUserScrollIntent);
+      el?.removeEventListener('touchmove', markUserScrollIntent);
+      el?.removeEventListener('pointerdown', handlePointerDown);
       el?.removeEventListener('scroll', recalc);
       window.removeEventListener('resize', recalc);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [autoFollow, autoFollowPaused, unreadCount]);
+  }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent, markUserScrollIntent, unreadCount]);
 
   useEffect(() => {
     const target = messagesContentRef.current;

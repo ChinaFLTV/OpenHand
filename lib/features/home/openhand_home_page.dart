@@ -827,10 +827,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _pointerSignalScrollActivityWindow;
   }
 
-  // 2026-06-07 修复：桌面端 WebView 平台视图可能拦截 PointerScrollEvent，
-  // 导致 _userScrollInProgress 和 pointerSignalScroll 检测双双失效。
-  // 此处直接观察外层 ListView 的 ScrollUpdateNotification 作为后备检测源，
-  // 覆盖 trackpad / 滚轮在 HTML 卡片上的滚动场景。
+  // 仅记录已确认的用户滚动活动。不要把普通 ScrollUpdateNotification
+  // 当作兜底输入源：流式输出、Markdown 测高和 Sliver 几何修正同样会
+  // 产生无 dragDetails 的 update，误记后会暂停自动跟随。
   bool _hasRecentScrollActivity() {
     final last = _lastScrollActivityAt;
     if (last == null) {
@@ -1933,35 +1932,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
-    final fallbackScrollDelta = notification is ScrollUpdateNotification
-        ? notification.scrollDelta ?? 0.0
-        : 0.0;
-    final fallbackPointerSignalScroll =
-        notification is ScrollUpdateNotification &&
-        notification.depth == 0 &&
-        notification.dragDetails == null &&
-        !_isProgrammaticMessageScrollInProgress() &&
-        fallbackScrollDelta.abs() > 0.5;
     final userScrollActivity =
-        explicitUserScroll ||
-        implicitPointerSignalScroll ||
-        fallbackPointerSignalScroll;
-    // 后备检测：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
-    // 导致 implicitPointerSignalScroll 为 false。直接观察外层 ListView
-    // 的 ScrollUpdateNotification（depth == 0）作为兜底，并归类为用户
-    // 滚动，避免 HTML 卡片期间因检测失效而被 layout-change 拽回底部。
-    if (notification is ScrollUpdateNotification &&
-        notification.depth == 0 &&
-        !_isProgrammaticMessageScrollInProgress() &&
-        (notification.scrollDelta ?? 0).abs() > 0.5) {
-      _lastScrollActivityAt = DateTime.now();
-    }
+        explicitUserScroll || implicitPointerSignalScroll;
     if (userScrollActivity) {
-      if (fallbackPointerSignalScroll) {
-        _lastScrollActivityAt = DateTime.now();
-        _markUserScrollInProgress();
-        _scheduleUserScrollEndGrace();
-      } else if (!implicitPointerSignalScroll || explicitUserScroll) {
+      _lastScrollActivityAt = DateTime.now();
+      if (!implicitPointerSignalScroll || explicitUserScroll) {
         _markUserScrollInProgress();
       }
       if (explicitUserScrollStart) {
@@ -2019,13 +1994,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (notification.scrollDelta ?? 0) < -0.5;
     final explicitUserScrollUpward =
         explicitUserScrollUpdate && (notification.scrollDelta ?? 0) < -0.5;
-    final fallbackScrolledUpwardFromBottom =
-        fallbackPointerSignalScroll && fallbackScrollDelta < -0.5;
     if (userScrolledAwayFromBottom ||
         userScrolledUpwardFromBottom ||
         pointerSignalScrolledUpwardFromBottom ||
-        explicitUserScrollUpward ||
-        fallbackScrolledUpwardFromBottom) {
+        explicitUserScrollUpward) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
