@@ -2333,6 +2333,7 @@ $identity''';
     final turns = <AiChatTurn>[];
     var index = 0;
     String? roundReasoning;
+    var roundReasoningHasAssistantTurn = false;
     var previousMappedUserWasContinuation = false;
     // 2026-04-27 (修复): 找出"已被模型消费"的边界。任何 assistant /
     // toolCall 消息都意味着模型已经基于之前的工具结果产出了下一步动作；
@@ -2369,12 +2370,17 @@ $identity''';
         roundReasoning = shouldEchoReasoning && trimmed.isNotEmpty
             ? trimmed
             : null;
+        roundReasoningHasAssistantTurn = false;
         index += 1;
         continue;
       }
       if (message.kind == AiSessionMessageKind.user) {
         // User message ends the previous thinking round.
+        if (roundReasoning != null && !roundReasoningHasAssistantTurn) {
+          turns.add(_reasoningOnlyAssistantTurn(roundReasoning));
+        }
         roundReasoning = null;
+        roundReasoningHasAssistantTurn = false;
         final isContinuation = _isContinuationOnlyMessage(message.content);
         if (isContinuation && previousMappedUserWasContinuation) {
           index += 1;
@@ -2396,9 +2402,14 @@ $identity''';
           preferInlineSystemReminders: preferInlineSystemReminders,
         );
         if (mappedGroup.turns.isNotEmpty) {
-          turns.addAll(
-            _attachReasoningToAssistantTurns(mappedGroup.turns, roundReasoning),
+          final attachedTurns = _attachReasoningToAssistantTurns(
+            mappedGroup.turns,
+            roundReasoning,
           );
+          turns.addAll(attachedTurns);
+          if (roundReasoning != null && _containsAssistantTurn(attachedTurns)) {
+            roundReasoningHasAssistantTurn = true;
+          }
         }
         index = mappedGroup.nextIndex;
         continue;
@@ -2422,11 +2433,33 @@ $identity''';
         preferInlineSystemArtifacts: preferInlineSystemArtifacts,
       );
       if (mapped.isNotEmpty) {
-        turns.addAll(_attachReasoningToAssistantTurns(mapped, roundReasoning));
+        final attachedTurns = _attachReasoningToAssistantTurns(
+          mapped,
+          roundReasoning,
+        );
+        turns.addAll(attachedTurns);
+        if (roundReasoning != null && _containsAssistantTurn(attachedTurns)) {
+          roundReasoningHasAssistantTurn = true;
+        }
       }
       index += 1;
     }
+    if (roundReasoning != null && !roundReasoningHasAssistantTurn) {
+      turns.add(_reasoningOnlyAssistantTurn(roundReasoning));
+    }
     return turns;
+  }
+
+  static AiChatTurn _reasoningOnlyAssistantTurn(String reasoning) {
+    return AiChatTurn(
+      role: AiChatRole.assistant,
+      content: '',
+      reasoningContent: reasoning,
+    );
+  }
+
+  static bool _containsAssistantTurn(List<AiChatTurn> turns) {
+    return turns.any((turn) => turn.role == AiChatRole.assistant);
   }
 
   static List<AiChatTurn> _attachReasoningToAssistantTurns(

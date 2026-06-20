@@ -695,6 +695,13 @@ class AiModelConfig {
            protocolType == AiProtocolType.claude &&
            (explicitPromptCacheEnabled ?? true);
 
+  static final RegExp _reasoningModelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
+  static final RegExp _reasoningModelIdRepeatedDashPattern = RegExp(r'-+');
+  static final RegExp _reasoningModelIdEdgeDashPattern = RegExp(r'^-|-$');
+  static const Set<String> _deepSeekPlainChatModelIds = <String>{
+    'deepseek-chat',
+  };
+
   static const String _explicitPromptCacheEnabledJsonKey =
       'explicit_prompt_cache_enabled';
 
@@ -847,19 +854,83 @@ class AiModelConfig {
       supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
 
   bool get requiresReasoningEcho {
-    final profile = profileFor(modelId);
-    final explicit = profile.requiresReasoningEcho;
-    if (explicit != null) {
-      return explicit;
+    final trimmedModelId = modelId.trim();
+    final userOverride = modelProfiles[trimmedModelId]?.requiresReasoningEcho;
+    if (userOverride != null) {
+      return userOverride;
     }
-    final normalizedModelId = modelId.trim().toLowerCase();
+    final profile = profileFor(trimmedModelId);
+    final catalogProfile = AiModelCatalog.lookup(trimmedModelId, protocolType);
+    final catalogEcho = catalogProfile?.requiresReasoningEcho;
+    if (catalogEcho == true) {
+      return true;
+    }
+    final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (normalizedModelId.isEmpty) {
       return false;
     }
+    if (_usesDeepSeekReasoningGateway &&
+        _shouldEchoDeepSeekReasoning(
+          normalizedModelId: normalizedModelId,
+          profile: profile,
+        )) {
+      return true;
+    }
+    if (catalogEcho != null) {
+      return catalogEcho;
+    }
+    if (_looksLikeDeepSeekReasoningModel(normalizedModelId)) {
+      return true;
+    }
+    return false;
+  }
+
+  bool get _usesDeepSeekReasoningGateway =>
+      protocolType == AiProtocolType.deepseek ||
+      _containsDeepSeekMarker(baseUrl) ||
+      _containsDeepSeekMarker(name);
+
+  static bool _containsDeepSeekMarker(String value) {
+    return value.toLowerCase().contains('deepseek');
+  }
+
+  static String _normalizeReasoningModelId(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(_reasoningModelIdSeparatorPattern, '-')
+        .replaceAll(_reasoningModelIdRepeatedDashPattern, '-')
+        .replaceAll(_reasoningModelIdEdgeDashPattern, '');
+  }
+
+  static bool _shouldEchoDeepSeekReasoning({
+    required String normalizedModelId,
+    required AiModelProfile profile,
+  }) {
+    if (_deepSeekPlainChatModelIds.contains(normalizedModelId)) {
+      return false;
+    }
+    return _looksLikeDeepSeekReasoningModel(normalizedModelId) ||
+        _looksLikeDeepSeekHybridThinkingModel(normalizedModelId) ||
+        (profile.maxThinkingLength ?? 0) > 0;
+  }
+
+  static bool _looksLikeDeepSeekHybridThinkingModel(String normalizedModelId) {
+    return normalizedModelId.contains('deepseek-v3-1') ||
+        normalizedModelId.contains('deepseek-v3-2');
+  }
+
+  static bool _looksLikeDeepSeekReasoningModel(String normalizedModelId) {
     return normalizedModelId.startsWith('deepseek-reasoner') ||
+        normalizedModelId.contains('deepseek-reasoner') ||
         normalizedModelId.startsWith('deepseek-r1') ||
-        normalizedModelId.startsWith('deepseek-v4-pro') ||
-        normalizedModelId == 'deepseek-v4';
+        normalizedModelId.contains('deepseek-r1') ||
+        normalizedModelId.startsWith('deepseek-v4') ||
+        normalizedModelId.contains('deepseek-v4') ||
+        (normalizedModelId.contains('deepseek') &&
+            (normalizedModelId.contains('reasoner') ||
+                normalizedModelId.contains('thinking') ||
+                normalizedModelId.contains('think')));
   }
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);

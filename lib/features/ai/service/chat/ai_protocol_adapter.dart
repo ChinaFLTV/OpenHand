@@ -722,6 +722,12 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
         .join('\n\n');
     merged['content'] = content;
     merged['tool_calls'] = toolCalls;
+    final reasoning = _mergedAssistantReasoningContent(assistantMessages);
+    if (reasoning != null) {
+      merged['reasoning_content'] = reasoning;
+    } else {
+      merged.remove('reasoning_content');
+    }
     return merged;
   }
 
@@ -757,7 +763,10 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       for (final toolMessage in toolMessages)
         _orphanToolMessageText(toolMessage),
     ];
-    return _assistantTextMessage(lines.join('\n'));
+    return _assistantTextMessage(
+      lines.join('\n'),
+      reasoningContent: _mergedAssistantReasoningContent(assistantMessages),
+    );
   }
 
   static Map<String, Object?> _assistantSummaryForOrphanToolMessage(
@@ -783,11 +792,37 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     ].join('\n');
   }
 
-  static Map<String, Object?> _assistantTextMessage(String content) {
-    return <String, Object?>{
+  static Map<String, Object?> _assistantTextMessage(
+    String content, {
+    String? reasoningContent,
+  }) {
+    final message = <String, Object?>{
       'role': 'assistant',
       'content': _boundedRepairSummary(content),
     };
+    final reasoning = reasoningContent?.trim();
+    if (reasoning != null && reasoning.isNotEmpty) {
+      message['reasoning_content'] = reasoning;
+    }
+    return message;
+  }
+
+  static String? _mergedAssistantReasoningContent(
+    List<Map<String, Object?>> assistantMessages,
+  ) {
+    final seen = <String>{};
+    final parts = <String>[];
+    for (final message in assistantMessages) {
+      final reasoning = _trimmedField(message, 'reasoning_content');
+      if (reasoning.isEmpty || !seen.add(reasoning)) {
+        continue;
+      }
+      parts.add(reasoning);
+    }
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join('\n\n');
   }
 
   static String _boundedRepairSummary(String value) {
