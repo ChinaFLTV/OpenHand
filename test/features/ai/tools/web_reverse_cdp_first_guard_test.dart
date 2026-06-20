@@ -134,6 +134,58 @@ void main() {
       expect(decision!.requestedOrigin, 'https://linux.do');
     });
 
+    test('blocks compiled runtime command with target URL', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command: 'go run ./cmd/scrape https://linux.do/t/topic/2401043.json',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.requestedOrigin, 'https://linux.do');
+    });
+
+    test('blocks JVM command with target URL', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command: 'java -jar fetcher.jar "https://linux.do/t/topic/2401043/5"',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.requestedOrigin, 'https://linux.do');
+    });
+
+    test('blocks runtime command with target host reference', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command: 'dotnet run --project tools/Scraper --host linux.do',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.targetOrigin, 'https://linux.do');
+    });
+
+    test('allows non-network command that only prints target URL', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command: 'echo https://linux.do/t/topic/2401043/5',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNull);
+    });
+
+    test(
+      'blocks HTTPie https command without treating URL scheme as command',
+      () {
+        final decision = WebReverseCdpFirstGuard.evaluateCommand(
+          command: 'https GET https://linux.do/t/topic/2401043.json',
+          metadata: _liveRuntimeMetadata(),
+        );
+
+        expect(decision, isNotNull);
+        expect(decision!.requestedOrigin, 'https://linux.do');
+      },
+    );
+
     test('allows command against unrelated external URLs', () {
       final decision = WebReverseCdpFirstGuard.evaluateCommand(
         command: 'curl https://docs.flutter.dev/',
