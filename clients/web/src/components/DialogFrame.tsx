@@ -1,4 +1,5 @@
 import type { ComponentChildren, JSX } from 'preact';
+import { useEffect } from 'preact/hooks';
 import { clampNumber, normalizeInteger } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
@@ -37,6 +38,7 @@ export const DIALOG_PANEL_DEFAULT_BACKGROUND = 'var(--m3-surface-container)';
 export const DIALOG_PANEL_DEFAULT_COLOR = 'var(--m3-on-surface)';
 export const DIALOG_PANEL_DEFAULT_SHADOW = 'var(--m3-elev-3)';
 export const DIALOG_PANEL_DEFAULT_BORDER = '1px solid var(--m3-outline-variant)';
+const DIALOG_SCROLL_LOCK_STYLE_VALUE = 'hidden';
 
 export interface DialogPanelSurfaceStyleOptions {
   background?: string;
@@ -153,6 +155,34 @@ function dialogPanelStyle(
   };
 }
 
+let dialogScrollLockCount = 0;
+let previousBodyOverflow = '';
+let previousDocumentOverflow = '';
+
+function acquireDialogScrollLock(): () => void {
+  if (typeof document === 'undefined') return () => {};
+  const { body, documentElement } = document;
+  if (dialogScrollLockCount === 0) {
+    previousBodyOverflow = body.style.overflow;
+    previousDocumentOverflow = documentElement.style.overflow;
+    body.style.overflow = DIALOG_SCROLL_LOCK_STYLE_VALUE;
+    documentElement.style.overflow = DIALOG_SCROLL_LOCK_STYLE_VALUE;
+  }
+  dialogScrollLockCount += 1;
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    dialogScrollLockCount = Math.max(0, dialogScrollLockCount - 1);
+    if (dialogScrollLockCount > 0) return;
+    body.style.overflow = previousBodyOverflow;
+    documentElement.style.overflow = previousDocumentOverflow;
+    previousBodyOverflow = '';
+    previousDocumentOverflow = '';
+  };
+}
+
 export function DialogFrame({
   children,
   closing,
@@ -166,6 +196,8 @@ export function DialogFrame({
   ariaLabel,
   ariaLabelledBy,
 }: DialogFrameProps) {
+  useEffect(() => acquireDialogScrollLock(), []);
+
   const overlayMotionClass = closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in';
   const panelClass = panelMotionClass(panelAnimation, closing);
   const overlayClass = dialogClassNames(overlayMotionClass, overlayClassName);

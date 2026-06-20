@@ -178,150 +178,143 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
     final file = widget.file;
     final diffLines = _diffLines ?? const <String>[];
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 900,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Title ──
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          file.relativePath,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            fontFamily: 'monospace',
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Title ──
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        file.relativePath,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'monospace',
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            _DiffStatChip(
-                              label: _changeTypeLabel(),
-                              color: switch (file.changeType) {
-                                HardnessFileChangeType.added => const Color(
-                                  0xFF4CAF50,
-                                ),
-                                HardnessFileChangeType.modified =>
-                                  colorScheme.primary,
-                                HardnessFileChangeType.deleted =>
-                                  colorScheme.error,
-                              },
-                            ),
-                            if (!_computing) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                '${diffLines.where((l) => l.startsWith('+')).length - 1} additions, '
-                                '${diffLines.where((l) => l.startsWith('-')).length - 1} deletions',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _DiffStatChip(
+                            label: _changeTypeLabel(),
+                            color: switch (file.changeType) {
+                              HardnessFileChangeType.added => const Color(
+                                0xFF4CAF50,
                               ),
-                            ],
+                              HardnessFileChangeType.modified =>
+                                colorScheme.primary,
+                              HardnessFileChangeType.deleted =>
+                                colorScheme.error,
+                            },
+                          ),
+                          if (!_computing) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '${diffLines.where((l) => l.startsWith('+')).length - 1} additions, '
+                              '${diffLines.where((l) => l.startsWith('-')).length - 1} deletions',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // ── Diff view ──
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.6,
-                    ),
-                    borderRadius: _br16,
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.40),
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: _br16,
-                    child: _computing
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(32),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const CircularProgressIndicator(),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    isZh ? '正在计算差异…' : 'Computing diff…',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            cacheExtent: 400,
-                            itemCount: diffLines.length,
-                            itemBuilder: (_, i) => _DiffLine(
-                              line: diffLines[i],
-                              isDark: isDark,
-                              cs: colorScheme,
-                            ),
-                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: _computing
-                        ? null
-                        : () {
-                            Clipboard.setData(
-                              ClipboardData(text: diffLines.join('\n')),
-                            );
-                            _showHardnessSnackBar(
-                              context,
-                              SnackBar(
-                                content: Text(
-                                  isZh ? 'Diff 已复制' : 'Diff copied',
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // ── Diff view ──
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.6,
+                  ),
+                  borderRadius: _br16,
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.40),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: _br16,
+                  child: _computing
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(),
+                                const SizedBox(height: 16),
+                                Text(
+                                  isZh ? '正在计算差异…' : 'Computing diff…',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                    label: isZh ? '复制 Diff' : 'Copy Diff',
-                  ),
-                  const SizedBox(width: 10),
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: isZh ? '关闭' : 'Close',
-                  ),
-                ],
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          cacheExtent: 400,
+                          itemCount: diffLines.length,
+                          itemBuilder: (_, i) => _DiffLine(
+                            line: diffLines[i],
+                            isDark: isDark,
+                            cs: colorScheme,
+                          ),
+                        ),
+                ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: _computing
+                      ? null
+                      : () {
+                          Clipboard.setData(
+                            ClipboardData(text: diffLines.join('\n')),
+                          );
+                          _showHardnessSnackBar(
+                            context,
+                            SnackBar(
+                              content: Text(isZh ? 'Diff 已复制' : 'Diff copied'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                  label: isZh ? '复制 Diff' : 'Copy Diff',
+                ),
+                const SizedBox(width: 10),
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(context).pop(),
+                  label: isZh ? '关闭' : 'Close',
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

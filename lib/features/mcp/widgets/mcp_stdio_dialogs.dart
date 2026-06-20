@@ -87,233 +87,233 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     final info = McpStdioProcessManager.instance.infoFor(widget.server.name);
     final logs = info.logs;
 
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 580),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 720,
+      maxHeight: 580,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 标题栏
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
                   ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.terminal_rounded,
-                    size: 20,
-                    color: info.isRunning
-                        ? const Color(0xFF16A34A)
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${widget.server.name} ${isZh ? "日志" : "Logs"}',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          info.isRunning
-                              ? (isZh
-                                    ? '运行中 · PID ${info.pid}'
-                                    : 'Running · PID ${info.pid}')
-                              : (isZh ? '已停止' : 'Stopped'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // 操作按钮组
-                  Wrap(
-                    spacing: 4,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.terminal_rounded,
+                  size: 20,
+                  color: info.isRunning
+                      ? const Color(0xFF16A34A)
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Tooltip(
-                        message: isZh ? '自动滚动' : 'Auto-scroll',
-                        child: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: IconButton(
-                            onPressed: () =>
-                                setState(() => _autoScroll = !_autoScroll),
-                            icon: Icon(
-                              _autoScroll
-                                  ? Icons.vertical_align_bottom
-                                  : Icons.pause,
-                              size: 18,
-                            ),
-                            isSelected: _autoScroll,
-                          ),
+                      Text(
+                        '${widget.server.name} ${isZh ? "日志" : "Logs"}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Tooltip(
-                        message: isZh ? '复制日志' : 'Copy logs',
-                        child: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: IconButton(
-                            onPressed: logs.isEmpty
-                                ? null
-                                : () {
-                                    Clipboard.setData(
-                                      ClipboardData(text: logs.join('\n')),
-                                    );
-                                    OpenHandSnackBar.showSuccess(
-                                      context,
-                                      isZh ? '已复制到剪贴板' : 'Copied to clipboard',
-                                    );
-                                  },
-                            icon: const Icon(Icons.copy_rounded, size: 18),
-                          ),
-                        ),
-                      ),
-                      Tooltip(
-                        message: isZh ? '清除日志' : 'Clear logs',
-                        child: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: IconButton(
-                            onPressed: logs.isEmpty
-                                ? null
-                                : () => McpStdioProcessManager.instance
-                                      .clearLogs(widget.server.name),
-                            icon: const Icon(
-                              Icons.delete_sweep_rounded,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close, size: 18),
+                      Text(
+                        info.isRunning
+                            ? (isZh
+                                  ? '运行中 · PID ${info.pid}'
+                                  : 'Running · PID ${info.pid}')
+                            : (isZh ? '已停止' : 'Stopped'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontFamily: 'monospace',
+                          fontSize: 11,
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            // 状态指示条
-            Container(
-              height: 3,
-              color: info.isRunning
-                  ? const Color(0xFF16A34A)
-                  : info.isTransitioning
-                  ? OpenHandStatusColors.warning
-                  : theme.colorScheme.outlineVariant,
-            ),
-            // 终端输出区域
-            Flexible(
-              child: Container(
-                color: const Color(0xFF1A1A2E),
-                child: logs.isEmpty
-                    ? Center(
-                        child: Text(
-                          isZh ? '暂无日志输出' : 'No log output yet',
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            color: Color(0xFF808080),
+                ),
+                // 操作按钮组
+                Wrap(
+                  spacing: 4,
+                  children: [
+                    Tooltip(
+                      message: isZh ? '自动滚动' : 'Auto-scroll',
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: IconButton(
+                          onPressed: () =>
+                              setState(() => _autoScroll = !_autoScroll),
+                          icon: Icon(
+                            _autoScroll
+                                ? Icons.vertical_align_bottom
+                                : Icons.pause,
+                            size: 18,
                           ),
-                        ),
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: _scrollGuard.handleNotification,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: logs.length,
-                          itemBuilder: (context, index) {
-                            final line = logs[index];
-                            final style = _resolveLogLineStyle(line);
-                            return Padding(
-                              padding: EdgeInsets.only(
-                                top: style.topPadding,
-                                bottom: 0.5,
-                              ),
-                              child: Text(
-                                line,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: style.fontSize,
-                                  height: 1.5,
-                                  color: style.color,
-                                  fontWeight: style.bold
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            );
-                          },
+                          isSelected: _autoScroll,
                         ),
                       ),
-              ),
-            ),
-            // 底部状态栏
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  top: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
                     ),
+                    Tooltip(
+                      message: isZh ? '复制日志' : 'Copy logs',
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: IconButton(
+                          onPressed: logs.isEmpty
+                              ? null
+                              : () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: logs.join('\n')),
+                                  );
+                                  OpenHandSnackBar.showSuccess(
+                                    context,
+                                    isZh ? '已复制到剪贴板' : 'Copied to clipboard',
+                                  );
+                                },
+                          icon: const Icon(Icons.copy_rounded, size: 18),
+                        ),
+                      ),
+                    ),
+                    Tooltip(
+                      message: isZh ? '清除日志' : 'Clear logs',
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: IconButton(
+                          onPressed: logs.isEmpty
+                              ? null
+                              : () => McpStdioProcessManager.instance.clearLogs(
+                                  widget.server.name,
+                                ),
+                          icon: const Icon(
+                            Icons.delete_sweep_rounded,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // 状态指示条
+          Container(
+            height: 3,
+            color: info.isRunning
+                ? const Color(0xFF16A34A)
+                : info.isTransitioning
+                ? OpenHandStatusColors.warning
+                : theme.colorScheme.outlineVariant,
+          ),
+          // 终端输出区域
+          Flexible(
+            child: Container(
+              color: const Color(0xFF1A1A2E),
+              child: logs.isEmpty
+                  ? Center(
+                      child: Text(
+                        isZh ? '暂无日志输出' : 'No log output yet',
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: Color(0xFF808080),
+                        ),
+                      ),
+                    )
+                  : NotificationListener<ScrollNotification>(
+                      onNotification: _scrollGuard.handleNotification,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: logs.length,
+                        itemBuilder: (context, index) {
+                          final line = logs[index];
+                          final style = _resolveLogLineStyle(line);
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              top: style.topPadding,
+                              bottom: 0.5,
+                            ),
+                            child: Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: style.fontSize,
+                                height: 1.5,
+                                color: style.color,
+                                fontWeight: style.bold
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ),
+          // 底部状态栏
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border(
+                top: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
                   ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.article_outlined,
-                    size: 14,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.article_outlined,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isZh ? '${logs.length} 行' : '${logs.length} lines',
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 6),
+                ),
+                const Spacer(),
+                if (info.uptime != null)
                   Text(
-                    isZh ? '${logs.length} 行' : '${logs.length} lines',
+                    isZh
+                        ? '运行 ${_formatUptime(info.uptime!)}'
+                        : 'Up ${_formatUptime(info.uptime!)}',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const Spacer(),
-                  if (info.uptime != null)
-                    Text(
-                      isZh
-                          ? '运行 ${_formatUptime(info.uptime!)}'
-                          : 'Up ${_formatUptime(info.uptime!)}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -480,170 +480,164 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
       widget.server.name,
     );
 
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 560),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 560,
+      maxHeight: 560,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 标题栏
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
                   ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.analytics_outlined,
-                    size: 20,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${widget.server.name} ${isZh ? "运行时详情" : "Runtime Details"}',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          widget.server.summary,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  // 操作按钮组
-                  Wrap(
-                    spacing: 4,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.analytics_outlined,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Tooltip(
-                        message: isZh ? '刷新' : 'Refresh',
-                        child: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: IconButton(
-                            onPressed: _loading ? null : _loadInfo,
-                            icon: const Icon(Icons.refresh_rounded, size: 18),
-                          ),
+                      Text(
+                        '${widget.server.name} ${isZh ? "运行时详情" : "Runtime Details"}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close, size: 18),
+                      Text(
+                        widget.server.summary,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontFamily: 'monospace',
+                          fontSize: 11,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                // 操作按钮组
+                Wrap(
+                  spacing: 4,
+                  children: [
+                    Tooltip(
+                      message: isZh ? '刷新' : 'Refresh',
+                      child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: IconButton(
+                          onPressed: _loading ? null : _loadInfo,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            // 内容
-            Flexible(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        // 进程状态
-                        _InfoSection(
-                          title: isZh ? '进程状态' : 'Process Status',
-                          icon: Icons.memory_rounded,
-                          color: processInfo.isRunning
-                              ? const Color(0xFF16A34A)
-                              : theme.colorScheme.onSurfaceVariant,
-                          children: [
-                            for (final entry in _runtimeInfo.entries.take(5))
-                              _InfoRow(label: entry.key, value: entry.value),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // 服务配置
-                        _InfoSection(
-                          title: isZh ? '服务配置' : 'Service Config',
-                          icon: Icons.settings_rounded,
-                          children: [
+          ),
+          // 内容
+          Flexible(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      // 进程状态
+                      _InfoSection(
+                        title: isZh ? '进程状态' : 'Process Status',
+                        icon: Icons.memory_rounded,
+                        color: processInfo.isRunning
+                            ? const Color(0xFF16A34A)
+                            : theme.colorScheme.onSurfaceVariant,
+                        children: [
+                          for (final entry in _runtimeInfo.entries.take(5))
+                            _InfoRow(label: entry.key, value: entry.value),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // 服务配置
+                      _InfoSection(
+                        title: isZh ? '服务配置' : 'Service Config',
+                        icon: Icons.settings_rounded,
+                        children: [
+                          _InfoRow(label: isZh ? '类型' : 'Type', value: 'STDIO'),
+                          _InfoRow(
+                            label: isZh ? '命令' : 'Command',
+                            value: widget.server.command,
+                          ),
+                          if (widget.server.args.isNotEmpty)
                             _InfoRow(
-                              label: isZh ? '类型' : 'Type',
-                              value: 'STDIO',
+                              label: isZh ? '参数' : 'Args',
+                              value: widget.server.args.join(' '),
                             ),
-                            _InfoRow(
-                              label: isZh ? '命令' : 'Command',
-                              value: widget.server.command,
-                            ),
-                            if (widget.server.args.isNotEmpty)
-                              _InfoRow(
-                                label: isZh ? '参数' : 'Args',
-                                value: widget.server.args.join(' '),
-                              ),
-                            _InfoRow(
-                              label: isZh ? '已启用' : 'Enabled',
-                              value: widget.server.enabled
-                                  ? (isZh ? '是' : 'Yes')
-                                  : (isZh ? '否' : 'No'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // 环境信息
-                        _InfoSection(
-                          title: isZh ? '环境信息' : 'Environment',
-                          icon: Icons.computer_rounded,
-                          children: [
-                            for (final entry in _runtimeInfo.entries.skip(5))
-                              _InfoRow(label: entry.key, value: entry.value),
-                          ],
-                        ),
-                        if (processInfo.errorMessage != null) ...[
-                          const SizedBox(height: 16),
-                          _InfoSection(
-                            title: isZh ? '错误信息' : 'Error',
-                            icon: Icons.error_outline_rounded,
-                            color: theme.colorScheme.error,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: Text(
-                                  processInfo.errorMessage!,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.error,
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          _InfoRow(
+                            label: isZh ? '已启用' : 'Enabled',
+                            value: widget.server.enabled
+                                ? (isZh ? '是' : 'Yes')
+                                : (isZh ? '否' : 'No'),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      // 环境信息
+                      _InfoSection(
+                        title: isZh ? '环境信息' : 'Environment',
+                        icon: Icons.computer_rounded,
+                        children: [
+                          for (final entry in _runtimeInfo.entries.skip(5))
+                            _InfoRow(label: entry.key, value: entry.value),
+                        ],
+                      ),
+                      if (processInfo.errorMessage != null) ...[
+                        const SizedBox(height: 16),
+                        _InfoSection(
+                          title: isZh ? '错误信息' : 'Error',
+                          icon: Icons.error_outline_rounded,
+                          color: theme.colorScheme.error,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                processInfo.errorMessage!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.error,
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
-            ),
-          ],
-        ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -1026,229 +1020,226 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         _installedVersion != null &&
         _latestVersion != _installedVersion;
 
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 540),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 620,
+      maxHeight: 540,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 标题栏
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
                   ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.inventory_2_outlined,
-                    size: 20,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isZh ? '依赖管理' : 'Dependency Management',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (cleanPkg.isNotEmpty)
                         Text(
-                          isZh ? '依赖管理' : 'Dependency Management',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                          cleanPkg,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontFamily: 'monospace',
+                            fontSize: 11,
                           ),
                         ),
-                        if (cleanPkg.isNotEmpty)
-                          Text(
-                            cleanPkg,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                            ),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
-                  SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, size: 18),
-                    ),
+                ),
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, size: 18),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            // 状态 + 操作按钮
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-              child: _checking
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.2),
-                        ),
+          ),
+          // 状态 + 操作按钮
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+            child: _checking
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
                       ),
-                    )
-                  : !_isPackageManagerService || cleanPkg.isEmpty
-                  ? Text(
-                      isZh
-                          ? '此服务非包管理器类型（npx / uvx），无需管理依赖。'
-                          : 'This service is not package-manager-based (npx / uvx). No deps to manage.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
+                    ),
+                  )
+                : !_isPackageManagerService || cleanPkg.isEmpty
+                ? Text(
+                    isZh
+                        ? '此服务非包管理器类型（npx / uvx），无需管理依赖。'
+                        : 'This service is not package-manager-based (npx / uvx). No deps to manage.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _packageInstalled
+                                ? Icons.check_circle
+                                : Icons.cancel,
+                            size: 18,
+                            color: _packageInstalled
+                                ? const Color(0xFF16A34A)
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
                               _packageInstalled
-                                  ? Icons.check_circle
-                                  : Icons.cancel,
-                              size: 18,
-                              color: _packageInstalled
-                                  ? const Color(0xFF16A34A)
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _packageInstalled
-                                    ? '${isZh ? "已安装" : "Installed"} v${_installedVersion ?? "?"}'
-                                    : (isZh
-                                          ? '未全局安装'
-                                          : 'Not globally installed'),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                  ? '${isZh ? "已安装" : "Installed"} v${_installedVersion ?? "?"}'
+                                  : (isZh ? '未全局安装' : 'Not globally installed'),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            // 操作按钮
-                            if (!_packageInstalled)
-                              FilledButton.tonalIcon(
-                                onPressed: _operating ? null : _installDeps,
-                                icon: const Icon(
-                                  Icons.download_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(isZh ? '安装' : 'Install'),
-                              )
-                            else ...[
-                              if (hasUpdate)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: FilledButton.tonalIcon(
-                                    onPressed: _operating ? null : _updateDeps,
-                                    icon: const Icon(
-                                      Icons.system_update_alt_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(isZh ? '更新' : 'Update'),
+                          ),
+                          // 操作按钮
+                          if (!_packageInstalled)
+                            FilledButton.tonalIcon(
+                              onPressed: _operating ? null : _installDeps,
+                              icon: const Icon(
+                                Icons.download_rounded,
+                                size: 18,
+                              ),
+                              label: Text(isZh ? '安装' : 'Install'),
+                            )
+                          else ...[
+                            if (hasUpdate)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: FilledButton.tonalIcon(
+                                  onPressed: _operating ? null : _updateDeps,
+                                  icon: const Icon(
+                                    Icons.system_update_alt_rounded,
+                                    size: 18,
                                   ),
-                                ),
-                              IconButton.filledTonal(
-                                tooltip: isZh ? '卸载' : 'Uninstall',
-                                onPressed: _operating ? null : _uninstallDeps,
-                                style: IconButton.styleFrom(
-                                  foregroundColor: theme.colorScheme.error,
-                                ),
-                                icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 18,
+                                  label: Text(isZh ? '更新' : 'Update'),
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
-                        if (_latestVersion != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            '${isZh ? "最新版本" : "Latest"}: $_latestVersion'
-                            '${hasUpdate ? (isZh ? " (可更新)" : " (update available)") : ""}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: hasUpdate
-                                  ? OpenHandStatusColors.warning
-                                  : theme.colorScheme.onSurfaceVariant,
+                            IconButton.filledTonal(
+                              tooltip: isZh ? '卸载' : 'Uninstall',
+                              onPressed: _operating ? null : _uninstallDeps,
+                              style: IconButton.styleFrom(
+                                foregroundColor: theme.colorScheme.error,
+                              ),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
-                    ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Text(
-                  _error!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ),
-            // 进度指示
-            if (_operating)
-              LinearProgressIndicator(
-                minHeight: 3,
-                color: theme.colorScheme.primary,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              )
-            else
-              const SizedBox(height: 3),
-            // 终端输出区域
-            if (_logs.isNotEmpty || _operating)
-              Flexible(
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _logs.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : NotificationListener<ScrollNotification>(
-                          onNotification: _logGuard.handleNotification,
-                          child: ListView.builder(
-                            controller: _logScroll,
-                            padding: const EdgeInsets.all(10),
-                            itemCount: _logs.length,
-                            itemBuilder: (context, index) {
-                              final line = _logs[index];
-                              return Text(
-                                line,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  height: 1.5,
-                                  color: _depsLogColor(line),
-                                ),
-                              );
-                            },
+                      ),
+                      if (_latestVersion != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          '${isZh ? "最新版本" : "Latest"}: $_latestVersion'
+                          '${hasUpdate ? (isZh ? " (可更新)" : " (update available)") : ""}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: hasUpdate
+                                ? OpenHandStatusColors.warning
+                                : theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                      ],
+                    ],
+                  ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                _error!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
                 ),
               ),
-          ],
-        ),
+            ),
+          // 进度指示
+          if (_operating)
+            LinearProgressIndicator(
+              minHeight: 3,
+              color: theme.colorScheme.primary,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            )
+          else
+            const SizedBox(height: 3),
+          // 终端输出区域
+          if (_logs.isNotEmpty || _operating)
+            Flexible(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _logs.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _logGuard.handleNotification,
+                        child: ListView.builder(
+                          controller: _logScroll,
+                          padding: const EdgeInsets.all(10),
+                          itemCount: _logs.length,
+                          itemBuilder: (context, index) {
+                            final line = _logs[index];
+                            return Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                height: 1.5,
+                                color: _depsLogColor(line),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ),
+        ],
       ),
     );
   }

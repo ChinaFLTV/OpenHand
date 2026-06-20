@@ -386,166 +386,162 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
 
     return PopScope(
       canPop: !_isSaving,
-      child: Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 2026-04-25: 标题字段（可选）。AI 自我学习写入与
-                          // 用户编辑都共用此字段；空字符串表示未设置（卡片
-                          // 头部会回退到正文 preview）。
-                          TextFormField(
-                            controller: _titleController,
-                            enabled: !_isSaving,
-                            maxLength: UserMemoryEntry.maxTitleLength,
-                            decoration: const InputDecoration(
-                              labelText: '标题（可选）',
-                              hintText: '一句话浓缩本条记忆的主旨；留空则使用正文预览',
-                              counterText: '',
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 760,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 2026-04-25: 标题字段（可选）。AI 自我学习写入与
+                        // 用户编辑都共用此字段；空字符串表示未设置（卡片
+                        // 头部会回退到正文 preview）。
+                        TextFormField(
+                          controller: _titleController,
+                          enabled: !_isSaving,
+                          maxLength: UserMemoryEntry.maxTitleLength,
+                          decoration: const InputDecoration(
+                            labelText: '标题（可选）',
+                            hintText: '一句话浓缩本条记忆的主旨；留空则使用正文预览',
+                            counterText: '',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _contentController,
+                          minLines: 7,
+                          maxLines: 12,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: l10n.memoryContentField,
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (value) {
+                            if (UserMemoryEntry.normalizeContent(
+                              value ?? '',
+                            ).isEmpty) {
+                              return l10n.memoryContentRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _tagInputController,
+                          focusNode: _tagInputFocusNode,
+                          enabled: !_isSaving,
+                          textInputAction: TextInputAction.done,
+                          onChanged: _handleTagInputChanged,
+                          onSubmitted: (_) => _addTagsFromInput(),
+                          decoration: InputDecoration(
+                            labelText: l10n.memoryTagsField,
+                            hintText: l10n.memoryTagsHint,
+                            suffixIconConstraints: const BoxConstraints(
+                              minWidth: 56,
+                              minHeight: 40,
+                            ),
+                            suffixIcon: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                end: 10,
+                              ),
+                              child: IconButton(
+                                onPressed: _isSaving ? null : _addTagsFromInput,
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  foregroundColor: colorScheme.onSurfaceVariant,
+                                  disabledForegroundColor: colorScheme
+                                      .onSurfaceVariant
+                                      .withValues(alpha: 0.38),
+                                  minimumSize: const Size(36, 36),
+                                  maximumSize: const Size(36, 36),
+                                  padding: EdgeInsets.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: const Icon(Icons.add_rounded, size: 22),
+                              ),
                             ),
                           ),
+                        ),
+                        if (_tags.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _contentController,
-                            minLines: 7,
-                            maxLines: 12,
-                            enabled: !_isSaving,
-                            decoration: InputDecoration(
-                              labelText: l10n.memoryContentField,
-                              alignLabelWithHint: true,
-                            ),
-                            validator: (value) {
-                              if (UserMemoryEntry.normalizeContent(
-                                value ?? '',
-                              ).isEmpty) {
-                                return l10n.memoryContentRequired;
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _tagInputController,
-                            focusNode: _tagInputFocusNode,
-                            enabled: !_isSaving,
-                            textInputAction: TextInputAction.done,
-                            onChanged: _handleTagInputChanged,
-                            onSubmitted: (_) => _addTagsFromInput(),
-                            decoration: InputDecoration(
-                              labelText: l10n.memoryTagsField,
-                              hintText: l10n.memoryTagsHint,
-                              suffixIconConstraints: const BoxConstraints(
-                                minWidth: 56,
-                                minHeight: 40,
-                              ),
-                              suffixIcon: Padding(
-                                padding: const EdgeInsetsDirectional.only(
-                                  end: 10,
-                                ),
-                                child: IconButton(
-                                  onPressed: _isSaving
-                                      ? null
-                                      : _addTagsFromInput,
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    foregroundColor:
-                                        colorScheme.onSurfaceVariant,
-                                    disabledForegroundColor: colorScheme
-                                        .onSurfaceVariant
-                                        .withValues(alpha: 0.38),
-                                    minimumSize: const Size(36, 36),
-                                    maximumSize: const Size(36, 36),
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _tags
+                                .map(
+                                  (tag) => InputChip(
+                                    label: Text(tag),
+                                    // 自主学习标签在自主学习记忆上不可删除：
+                                    // 不渲染 onDeleted 回调即可隐藏 X 手柄。
+                                    onDeleted:
+                                        _isSaving ||
+                                            (_isAutoLearnedEntry &&
+                                                _isAutoLearnedTag(tag))
+                                        ? null
+                                        : () => _removeTag(tag),
                                   ),
-                                  icon: const Icon(Icons.add_rounded, size: 22),
-                                ),
-                              ),
-                            ),
+                                )
+                                .toList(growable: false),
                           ),
-                          if (_tags.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _tags
-                                  .map(
-                                    (tag) => InputChip(
-                                      label: Text(tag),
-                                      // 自主学习标签在自主学习记忆上不可删除：
-                                      // 不渲染 onDeleted 回调即可隐藏 X 手柄。
-                                      onDeleted:
-                                          _isSaving ||
-                                              (_isAutoLearnedEntry &&
-                                                  _isAutoLearnedTag(tag))
-                                          ? null
-                                          : () => _removeTag(tag),
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                            ),
-                          ],
-                          // 防误操作提示：解释为什么 `自主学习` 标签被特殊处理。
-                          const SizedBox(height: 8),
-                          Text(
-                            _isAutoLearnedEntry
-                                ? '"${UserMemoryEntry.autoLearnedTag}" 是自主学习记忆的固定标识，不可移除。'
-                                : '"${UserMemoryEntry.autoLearnedTag}" 是自主学习专用标签，普通记忆无法手动添加。',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
-                          ),
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.error,
-                                  ),
-                            ),
-                          ],
                         ],
-                      ),
+                        // 防误操作提示：解释为什么 `自主学习` 标签被特殊处理。
+                        const SizedBox(height: 8),
+                        Text(
+                          _isAutoLearnedEntry
+                              ? '"${UserMemoryEntry.autoLearnedTag}" 是自主学习记忆的固定标识，不可移除。'
+                              : '"${UserMemoryEntry.autoLearnedTag}" 是自主学习专用标签，普通记忆无法手动添加。',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-                if (_isSaving) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      label: l10n.commonCancel,
-                    ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _isSaving ? null : _handleSave,
-                      label: l10n.commonSave,
-                    ),
-                  ],
-                ),
+              ),
+              if (_isSaving) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
               ],
-            ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    label: l10n.commonCancel,
+                  ),
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _isSaving ? null : _handleSave,
+                    label: l10n.commonSave,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
