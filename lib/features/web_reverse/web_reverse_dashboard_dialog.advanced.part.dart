@@ -2,6 +2,9 @@ part of 'web_reverse_dashboard_dialog.dart';
 
 /// 高级工具弹窗：列出"持久化 Header / CDP 命令面板 / 体检报告 / 反向脚本 /
 /// 调用图聚合 / 对比模式 / Service Worker 干预"等低频但有用的入口。
+const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
+const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
+
 class _AdvancedMenuDialog extends StatelessWidget {
   const _AdvancedMenuDialog({required this.controller, required this.isZh});
 
@@ -2484,6 +2487,9 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
 Future<String> _runWebcrack(String src) async {
   // 写入 temp 文件 + 跑 `npx -y webcrack@latest -o <outDir> <inFile>`，
   // 完成后读 outDir/deobfuscated.js（或 webcrack 默认输出）回显。
+  if (src.length > _kWebcrackMaxInputChars) {
+    return '[webcrack 输入过大：${src.length} chars，limit $_kWebcrackMaxInputChars chars]';
+  }
   final tmpDir = await Directory.systemTemp.createTemp('oh-webcrack-');
   final input = File('${tmpDir.path}/input.js');
   await input.writeAsString(src);
@@ -2503,15 +2509,24 @@ Future<String> _runWebcrack(String src) async {
     // webcrack 默认输出 deobfuscated.js + 其他文件；优先取它。
     final out = File('${tmpDir.path}/deobfuscated.js');
     if (await out.exists()) {
-      return await out.readAsString();
+      return await _readWebcrackOutputFile(out);
     }
     // 兜底：把整个 outDir 下所有 .js 拼起来。
     final buf = StringBuffer();
+    var totalBytes = 0;
     for (final entity in tmpDir.listSync(recursive: true)) {
       if (entity is File && entity.path.endsWith('.js')) {
+        final bytes = await entity.length();
+        if (totalBytes + bytes > _kWebcrackMaxOutputBytes) {
+          buf.writeln(
+            '[webcrack 输出已按上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+          );
+          break;
+        }
+        totalBytes += bytes;
         buf
           ..writeln('// ─── ${entity.path} ───')
-          ..writeln(await entity.readAsString())
+          ..writeln(await _readWebcrackOutputFile(entity))
           ..writeln();
       }
     }
@@ -2532,6 +2547,14 @@ Future<String> _runWebcrack(String src) async {
       );
     }
   }
+}
+
+Future<String> _readWebcrackOutputFile(File file) async {
+  final bytes = await file.length();
+  if (bytes > _kWebcrackMaxOutputBytes) {
+    return '[webcrack 输出过大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]';
+  }
+  return file.readAsString();
 }
 
 Future<void> _showInterceptRulesDialog(
