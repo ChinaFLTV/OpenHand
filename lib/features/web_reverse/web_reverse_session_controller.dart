@@ -104,6 +104,8 @@ class WebReverseSessionController extends ChangeNotifier {
 
   static const int _maxNetworkEntries = 2000;
   static const int _maxConsoleEntries = 2000;
+  static const int _maxWebSocketFramesPerEntry = 2000;
+  static const int _maxWebSocketFramePayloadChars = 8192;
   static const int _maxHeapSnapshotChars = 120 * 1024 * 1024;
   static const int _maxTraceEvents = 120000;
   static const int _maxTracePayloadChars = 48 * 1024 * 1024;
@@ -120,6 +122,9 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxSavedCrons = 100;
   static const int minCronIntervalSeconds = 5;
   static const int maxCronIntervalSeconds = 24 * 60 * 60;
+  static const int _maxImportedUrlChars = 16 * 1024;
+  static const int _maxImportedBodyChars = 2 * 1024 * 1024;
+  static const int _maxImportedHeaderValueChars = 16 * 1024;
   static const double _maxFullPageScreenshotCssPixels = 32 * 1000 * 1000;
   static const double _maxFullPageScreenshotCssSide = 32767;
   static final RegExp _rawCdpMethodPattern = RegExp(
@@ -2144,7 +2149,9 @@ class WebReverseSessionController extends ChangeNotifier {
     final opcode = (response?['opcode'] as num?)?.toInt() ?? 0;
     final mask = response?['mask'] == true;
     var payload = '${response?['payloadData'] ?? ''}';
-    if (payload.length > 8192) payload = '${payload.substring(0, 8192)}…';
+    if (payload.length > _maxWebSocketFramePayloadChars) {
+      payload = '${payload.substring(0, _maxWebSocketFramePayloadChars)}…';
+    }
     entry.wsFrames.add(
       CdpWebSocketFrame(
         direction: direction,
@@ -2158,7 +2165,7 @@ class WebReverseSessionController extends ChangeNotifier {
       ),
     );
     // 防止单条 WS 累积爆炸。
-    while (entry.wsFrames.length > 2000) {
+    while (entry.wsFrames.length > _maxWebSocketFramesPerEntry) {
       entry.wsFrames.removeAt(0);
     }
     _artifacts.appendNetwork(<String, Object?>{
@@ -6842,8 +6849,11 @@ class WebReverseSessionController extends ChangeNotifier {
       // merge=true 时与现有列表按时间归并并 dedup。
       final candidates = <CdpNetworkEntry>[];
       var loaded = 0;
-      var skipped = 0;
-      for (var i = 0; i < entries.length; i++) {
+      final parseStart = entries.length > _maxNetworkEntries
+          ? entries.length - _maxNetworkEntries
+          : 0;
+      var skipped = parseStart;
+      for (var i = parseStart; i < entries.length; i++) {
         final raw = entries[i];
         if (raw is! Map) {
           skipped++;
@@ -6855,18 +6865,13 @@ class WebReverseSessionController extends ChangeNotifier {
           skipped++;
           continue;
         }
-        final url = '${req['url'] ?? ''}';
-        final method = '${req['method'] ?? 'GET'}';
-        final reqHeaders = <String, String>{};
-        for (final h
-            in (req['headers'] as List? ?? const []).whereType<Map>()) {
-          reqHeaders['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
-        }
-        final resHeaders = <String, String>{};
-        for (final h
-            in (res?['headers'] as List? ?? const []).whereType<Map>()) {
-          resHeaders['${h['name'] ?? ''}'] = '${h['value'] ?? ''}';
-        }
+        final url = _capPlainWebReverseText(
+          '${req['url'] ?? ''}',
+          _maxImportedUrlChars,
+        );
+        final method = _capPlainWebReverseText('${req['method'] ?? 'GET'}', 32);
+        final reqHeaders = _headersFromHarList(req['headers']);
+        final resHeaders = _headersFromHarList(res?['headers']);
         final startedRaw = '${raw['startedDateTime'] ?? ''}';
         DateTime started;
         try {
@@ -6892,7 +6897,10 @@ class WebReverseSessionController extends ChangeNotifier {
                 ),
               )
               ..requestHeaders = reqHeaders
-              ..requestPostData = (req['postData'] as Map?)?['text'] as String?
+              ..requestPostData = _importedTextOrNull(
+                (req['postData'] as Map?)?['text'],
+                label: 'HAR request body',
+              )
               ..responseHeaders = resHeaders
               ..statusCode = (res?['status'] as num?)?.toInt()
               ..statusText = res?['statusText'] as String?
@@ -7037,43 +7045,65 @@ class WebReverseSessionController extends ChangeNotifier {
       _consoleMessages.clear();
       final rawNet = snap['network'];
       if (rawNet is List) {
-        for (final raw in rawNet) {
+        final netStart = rawNet.length > _maxNetworkEntries
+            ? rawNet.length - _maxNetworkEntries
+            : 0;
+        final usedRequestIds = <String>{};
+        for (final raw in rawNet.skip(netStart)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, Object?>();
-          final entry = CdpNetworkEntry(
-            requestId: '${m['request_id'] ?? ''}',
-            url: '${m['url'] ?? ''}',
-            method: '${m['method'] ?? 'GET'}',
-            timestamp: DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
-            resourceType: '${m['resource_type'] ?? 'Other'}',
+          final requestId = _uniqueImportedRequestId(
+            m['request_id'],
+            usedRequestIds,
           );
-          entry.requestHeaders =
-              (m['request_headers'] as Map?)?.map(
-                (k, v) => MapEntry('$k', '$v'),
-              ) ??
-              const <String, String>{};
-          entry.requestPostData = m['request_post'] as String?;
+          final entry = CdpNetworkEntry(
+            requestId: requestId,
+            url: _capPlainWebReverseText(
+              '${m['url'] ?? ''}',
+              _maxImportedUrlChars,
+            ),
+            method: _capPlainWebReverseText('${m['method'] ?? 'GET'}', 32),
+            timestamp: DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
+            resourceType: _capPlainWebReverseText(
+              '${m['resource_type'] ?? 'Other'}',
+              64,
+            ),
+          );
+          entry.requestHeaders = _headersFromSnapshotMap(m['request_headers']);
+          entry.requestPostData = _importedTextOrNull(
+            m['request_post'],
+            label: 'snapshot request body',
+          );
           entry.statusCode = m['status'] as int?;
-          entry.statusText = m['status_text'] as String?;
-          entry.mimeType = m['mime_type'] as String?;
-          entry.responseHeaders =
-              (m['response_headers'] as Map?)?.map(
-                (k, v) => MapEntry('$k', '$v'),
-              ) ??
-              const <String, String>{};
-          entry.remoteAddress = m['remote'] as String?;
-          entry.protocol = m['protocol'] as String?;
+          entry.statusText = _importedShortTextOrNull(m['status_text']);
+          entry.mimeType = _importedShortTextOrNull(m['mime_type']);
+          entry.responseHeaders = _headersFromSnapshotMap(
+            m['response_headers'],
+          );
+          entry.remoteAddress = _importedShortTextOrNull(m['remote']);
+          entry.protocol = _importedShortTextOrNull(m['protocol']);
           entry.fromCache = m['from_cache'] == true;
           entry.encodedDataLength = m['encoded_len'] as int?;
           entry.decodedBodyLength = m['decoded_len'] as int?;
-          entry.initiatorType = m['initiator_type'] as String?;
-          entry.initiatorUrl = m['initiator_url'] as String?;
+          entry.initiatorType = _importedShortTextOrNull(m['initiator_type']);
+          entry.initiatorUrl = _importedTextOrNull(
+            m['initiator_url'],
+            maxChars: _maxImportedUrlChars,
+            label: 'snapshot initiator URL',
+          );
           entry.initiatorLineNumber = m['initiator_line'] as int?;
           entry.initiatorColumnNumber = m['initiator_col'] as int?;
-          entry.cachedBody = m['cached_body'] as String?;
-          entry.cachedBodyBase64 = m['cached_body_b64'] == true;
+          final cachedBody = m['cached_body'];
+          if (cachedBody is String &&
+              cachedBody.length <= _maxImportedBodyChars) {
+            entry.cachedBody = cachedBody;
+            entry.cachedBodyBase64 = m['cached_body_b64'] == true;
+          }
           entry.failed = m['failed'] == true;
-          entry.errorText = m['error_text'] as String?;
+          entry.errorText = _importedTextOrNull(
+            m['error_text'],
+            label: 'snapshot error text',
+          );
           final rrMs = m['response_received_ms'];
           if (rrMs is int) {
             entry.responseReceivedAt = DateTime.fromMillisecondsSinceEpoch(
@@ -7086,7 +7116,10 @@ class WebReverseSessionController extends ChangeNotifier {
           }
           final rawWs = m['ws_frames'];
           if (rawWs is List) {
-            for (final rf in rawWs) {
+            final wsStart = rawWs.length > _maxWebSocketFramesPerEntry
+                ? rawWs.length - _maxWebSocketFramesPerEntry
+                : 0;
+            for (final rf in rawWs.skip(wsStart)) {
               if (rf is! Map) continue;
               final fm = rf.cast<String, Object?>();
               final dirName = '${fm['dir'] ?? 'received'}';
@@ -7101,8 +7134,11 @@ class WebReverseSessionController extends ChangeNotifier {
                       DateTime.tryParse('${fm['ts'] ?? ''}') ?? DateTime.now(),
                   opcode: fm['opcode'] is int ? fm['opcode'] as int : 1,
                   mask: fm['mask'] == true,
-                  payload: '${fm['payload'] ?? ''}',
-                  errorMessage: fm['error'] as String?,
+                  payload: _capPlainWebReverseText(
+                    '${fm['payload'] ?? ''}',
+                    _maxWebSocketFramePayloadChars,
+                  ),
+                  errorMessage: _importedShortTextOrNull(fm['error']),
                 ),
               );
             }
@@ -7113,7 +7149,10 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       final rawCon = snap['console'];
       if (rawCon is List) {
-        for (final raw in rawCon) {
+        final conStart = rawCon.length > _maxConsoleEntries
+            ? rawCon.length - _maxConsoleEntries
+            : 0;
+        for (final raw in rawCon.skip(conStart)) {
           if (raw is! Map) continue;
           final m = raw.cast<String, Object?>();
           _consoleMessages.add(
@@ -7613,6 +7652,61 @@ String _capWebReverseText(String text, int maxChars, String label) {
 String _capPlainWebReverseText(String text, int maxChars) {
   if (text.length <= maxChars) return text;
   return text.substring(0, maxChars);
+}
+
+String? _importedTextOrNull(
+  Object? value, {
+  int maxChars = WebReverseSessionController._maxImportedBodyChars,
+  required String label,
+}) {
+  if (value == null) return null;
+  final text = '$value';
+  return _capWebReverseText(text, maxChars, label);
+}
+
+String? _importedShortTextOrNull(Object? value) {
+  if (value == null) return null;
+  return _capPlainWebReverseText('$value', 512);
+}
+
+Map<String, String> _headersFromHarList(Object? raw) {
+  if (raw is! List) return const <String, String>{};
+  final out = <String, String>{};
+  for (final header in raw.whereType<Map>()) {
+    final name = _capPlainWebReverseText('${header['name'] ?? ''}', 256).trim();
+    if (name.isEmpty) continue;
+    out[name] = _capPlainWebReverseText(
+      '${header['value'] ?? ''}',
+      WebReverseSessionController._maxImportedHeaderValueChars,
+    );
+  }
+  return out;
+}
+
+Map<String, String> _headersFromSnapshotMap(Object? raw) {
+  if (raw is! Map) return const <String, String>{};
+  final out = <String, String>{};
+  for (final entry in raw.entries) {
+    final name = _capPlainWebReverseText('${entry.key}', 256).trim();
+    if (name.isEmpty) continue;
+    out[name] = _capPlainWebReverseText(
+      '${entry.value}',
+      WebReverseSessionController._maxImportedHeaderValueChars,
+    );
+  }
+  return out;
+}
+
+String _uniqueImportedRequestId(Object? raw, Set<String> used) {
+  var base = _capPlainWebReverseText('${raw ?? ''}', 256).trim();
+  if (base.isEmpty) base = 'snapshot-${used.length}';
+  var candidate = base;
+  var suffix = 1;
+  while (!used.add(candidate)) {
+    candidate = _capPlainWebReverseText('$base-$suffix', 256);
+    suffix++;
+  }
+  return candidate;
 }
 
 String _normalizeSavedScriptName(String name, {String fallback = 'untitled'}) {
