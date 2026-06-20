@@ -22,6 +22,7 @@ import remarkGfm from 'remark-gfm';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
+import { downloadBlobWithAnchor } from '../utils/save_blob';
 import 'katex/dist/katex.min.css';
 
 /// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
@@ -100,6 +101,8 @@ const MATH_DELIMITER_RE = /\\\(|\\\[|\$\$/;
 const FENCED_CODE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
 const LOCAL_MEDIA_EXT = /\.(?:png|jpe?g|gif|webp|bmp|heic|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)(?:[?#].*)?$/i;
 const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
+const INLINE_DIFF_PREVIEW_LINE_LIMIT = 28;
+const INLINE_DIFF_HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+))?)?/;
 
 /// 全局帧节流的 markdown 解析调度器。打开长会话时多张消息卡片
 /// 在同一帧内全部 mount, 之前每张都同步走 react-markdown / rehype 解析,
@@ -458,6 +461,248 @@ interface CodeBlockSurfaceProps {
   children: any;
 }
 
+type InlineDiffLineKind = 'context' | 'addition' | 'deletion' | 'folded';
+
+interface InlineDiffLine {
+  kind: InlineDiffLineKind;
+  text: string;
+  lineNumber?: number;
+  foldedCount?: number;
+}
+
+function isDiffFenceLanguage(lang: string | null | undefined): boolean {
+  const value = (lang ?? '').trim().toLowerCase();
+  return value === 'diff'
+    || value === 'patch'
+    || value === 'udiff'
+    || value === 'unified-diff'
+    || value === 'unified_diff'
+    || value.startsWith('diff-')
+    || value.startsWith('patch-');
+}
+
+function looksLikeInlineDiffCodeBlock(lang: string | null, source: string): boolean {
+  const trimmed = source.trim();
+  if (!trimmed) return false;
+  const lines = trimmed.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (lines.length < 2) return false;
+
+  let additions = 0;
+  let deletions = 0;
+  let structural = 0;
+  let diffLike = 0;
+  let other = 0;
+  for (const line of lines) {
+    if (line.startsWith('+++') || line.startsWith('---')) {
+      structural += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith('diff --git ') || line.startsWith('index ') || INLINE_DIFF_HUNK_HEADER_RE.test(line)) {
+      structural += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith('+')) {
+      additions += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith('-')) {
+      deletions += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith(' ')) {
+      diffLike += 1;
+      continue;
+    }
+    other += 1;
+  }
+
+  if (isDiffFenceLanguage(lang)) return additions + deletions + structural > 0;
+  if (structural > 0) return additions + deletions > 0;
+  if (additions === 0 || deletions === 0 || additions + deletions < 2) return false;
+  const toleratedOtherLines = Math.max(1, Math.floor(lines.length * 0.25));
+  return diffLike / lines.length >= 0.55 && other <= toleratedOtherLines;
+}
+
+function inlineDiffLines(source: string): InlineDiffLine[] {
+  const rawLines = source.replace(/\n$/, '');
+  if (!rawLines.trim()) return [];
+  const lines = rawLines.split(/\r?\n/);
+  const hasUnifiedStructure = lines.some((line) => (
+    line.startsWith('diff --git ')
+    || line.startsWith('index ')
+    || line.startsWith('---')
+    || line.startsWith('+++')
+    || INLINE_DIFF_HUNK_HEADER_RE.test(line)
+  ));
+  if (!hasUnifiedStructure) {
+    return lines.map((line) => {
+      if (line.startsWith('+')) {
+        return { kind: 'addition', text: line.length > 1 ? line.slice(1) : '' };
+      }
+      if (line.startsWith('-')) {
+        return { kind: 'deletion', text: line.length > 1 ? line.slice(1) : '' };
+      }
+      return { kind: 'context', text: line.startsWith(' ') ? line.slice(1) : line };
+    });
+  }
+
+  const out: InlineDiffLine[] = [];
+  let oldLine = 1;
+  let newLine = 1;
+  let sawHunk = false;
+  for (const rawLine of lines) {
+    if (rawLine.startsWith('diff --git ') || rawLine.startsWith('index ')) continue;
+    if (rawLine.startsWith('---') || rawLine.startsWith('+++')) continue;
+    const hunkMatch = INLINE_DIFF_HUNK_HEADER_RE.exec(rawLine);
+    if (hunkMatch != null) {
+      const oldStart = Number.parseInt(hunkMatch[1] ?? '', 10);
+      const newStart = Number.parseInt(hunkMatch[3] ?? '', 10);
+      const hunkOldStart = Number.isFinite(oldStart) ? oldStart : oldLine;
+      const hunkNewStart = Number.isFinite(newStart) ? newStart : hunkOldStart;
+      if (sawHunk) {
+        const folded = hunkOldStart - oldLine;
+        if (folded > 0) out.push({ kind: 'folded', text: '', foldedCount: folded });
+      }
+      oldLine = hunkOldStart;
+      newLine = hunkNewStart;
+      sawHunk = true;
+      continue;
+    }
+    if (rawLine.startsWith('+')) {
+      out.push({
+        kind: 'addition',
+        lineNumber: sawHunk ? newLine : undefined,
+        text: rawLine.length > 1 ? rawLine.slice(1) : '',
+      });
+      newLine += 1;
+      continue;
+    }
+    if (rawLine.startsWith('-')) {
+      out.push({
+        kind: 'deletion',
+        lineNumber: sawHunk ? oldLine : undefined,
+        text: rawLine.length > 1 ? rawLine.slice(1) : '',
+      });
+      oldLine += 1;
+      continue;
+    }
+    out.push({
+      kind: 'context',
+      lineNumber: sawHunk ? newLine : undefined,
+      text: rawLine.startsWith(' ') ? rawLine.slice(1) : rawLine,
+    });
+    oldLine += 1;
+    newLine += 1;
+  }
+  return out;
+}
+
+function downloadInlineDiff(source: string, lang: string | null): boolean {
+  const normalized = (lang ?? '').trim().toLowerCase();
+  const ext = normalized === 'patch' || normalized.startsWith('patch-') ? 'patch' : 'diff';
+  try {
+    const blob = new Blob([source], { type: 'text/x-diff;charset=utf-8' });
+    downloadBlobWithAnchor(blob, `diff_block.${ext}`);
+    showSnackbar('Diff 已下载', { tone: 'success' });
+    return true;
+  } catch {
+    showSnackbar('下载 Diff 失败', { tone: 'error' });
+    return false;
+  }
+}
+
+function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: string }) {
+  const [showFull, setShowFull] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const lines = useMemo(() => inlineDiffLines(plainText), [plainText]);
+  const visibleLines = !showFull && lines.length > INLINE_DIFF_PREVIEW_LINE_LIMIT
+    ? lines.slice(0, INLINE_DIFF_PREVIEW_LINE_LIMIT)
+    : lines;
+  const hiddenCount = lines.length - visibleLines.length;
+  const clipped = hiddenCount > 0;
+  const showFooter = clipped || (showFull && lines.length > INLINE_DIFF_PREVIEW_LINE_LIMIT);
+
+  useEffect(() => {
+    setCopied(false);
+    setDownloaded(false);
+    setShowFull(false);
+  }, [plainText]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const handle = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(handle);
+  }, [copied]);
+
+  useEffect(() => {
+    if (!downloaded) return;
+    const handle = window.setTimeout(() => setDownloaded(false), 1600);
+    return () => window.clearTimeout(handle);
+  }, [downloaded]);
+
+  return (
+    <div class="oh-inline-diff-block">
+      <div class="oh-inline-diff-header">
+        <span class="oh-inline-diff-chip">diff</span>
+        <span style={{ flex: 1 }} />
+        <button
+          type="button"
+          class="oh-code-block-copy"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(plainText);
+              setCopied(true);
+              showSnackbar('Diff 内容已复制', { tone: 'success' });
+            } catch {
+              showSnackbar('复制 Diff 失败，请检查浏览器权限', { tone: 'error' });
+            }
+          }}
+        >{copied ? '已复制' : '复制'}</button>
+        <button
+          type="button"
+          class="oh-code-block-copy"
+          onClick={() => {
+            if (downloadInlineDiff(plainText, lang)) {
+              setDownloaded(true);
+            }
+          }}
+        >{downloaded ? '已下载' : '下载'}</button>
+      </div>
+      {lines.length === 0 ? (
+        <div class="oh-inline-diff-empty">内容相同或不可对比。</div>
+      ) : (
+        <div class="oh-inline-diff-body" data-expanded={showFull ? 'true' : 'false'}>
+          {visibleLines.map((line, index) => (
+            <div key={`${index}-${line.kind}-${line.lineNumber ?? ''}-${line.text}`} class={`oh-inline-diff-row is-${line.kind}`}>
+              <span class="oh-inline-diff-accent" aria-hidden />
+              <span class="oh-inline-diff-gutter">
+                {line.kind === 'folded' ? '⋯' : line.lineNumber ?? ''}
+              </span>
+              <span class="oh-inline-diff-code">
+                {line.kind === 'folded' ? `${line.foldedCount ?? 0} 行未修改` : line.text || ' '}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {showFooter ? (
+        <button
+          type="button"
+          class="oh-inline-diff-footer"
+          onClick={() => setShowFull((value) => !value)}
+        >
+          {showFull ? '收起 Diff 预览' : `展开全部 Diff（还有 ${hiddenCount} 行）`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /// 代码块外层 (header + body),承载 mermaid 视图/代码 toggle 与 HTML
 /// 浏览器打开按钮。状态局部于本组件,跨消息实例完全独立;未在视图
 /// 态时 MermaidView 不挂载,主线程不付出 mermaid 解析代价。
@@ -472,6 +717,9 @@ function CodeBlockSurface({
   const isMermaid = (lang ?? '').trim().toLowerCase() === 'mermaid';
   const isHtmlLang = lang != null && /^x?html\d?$/i.test(lang);
   const effectivePlainText = plainText.replace(/\n$/, '');
+  if (looksLikeInlineDiffCodeBlock(lang, effectivePlainText)) {
+    return <InlineDiffBlock lang={lang} plainText={effectivePlainText} />;
+  }
   return (
     <div class="oh-code-block">
       <div class="oh-code-block-header">

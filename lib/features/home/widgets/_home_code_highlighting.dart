@@ -237,6 +237,14 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
         .replaceFirst(_trailingNewlineCodeBlockPattern, '');
     final language = _extractCodeLanguage(codeElement);
     final content = rawCode.isEmpty ? ' ' : rawCode;
+    if (_looksLikeInlineDiffCodeBlock(language: language, content: content)) {
+      return RepaintBoundary(
+        child: _InlineCodexDiffPanel(
+          content: content,
+          language: _languageForInlineDiffHighlight(language),
+        ),
+      );
+    }
     return RepaintBoundary(
       child: _HighlightedCodePanel(
         content: content,
@@ -257,6 +265,651 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
       }
     }
     return null;
+  }
+}
+
+const int _inlineDiffPreviewLineLimit = 28;
+final RegExp _inlineDiffHunkHeaderPattern = RegExp(
+  r'^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+))?)?',
+);
+
+bool _isDiffFenceLanguage(String? language) {
+  final value = (language ?? '').trim().toLowerCase();
+  return value == 'diff' ||
+      value == 'patch' ||
+      value == 'udiff' ||
+      value == 'unified-diff' ||
+      value == 'unified_diff' ||
+      value.startsWith('diff-') ||
+      value.startsWith('patch-');
+}
+
+String? _languageForInlineDiffHighlight(String? language) {
+  final value = (language ?? '').trim().toLowerCase();
+  if (value.startsWith('diff-')) {
+    return _normalizeCodeLanguage(value.substring(5));
+  }
+  if (value.startsWith('patch-')) {
+    return _normalizeCodeLanguage(value.substring(6));
+  }
+  if (_isDiffFenceLanguage(value)) {
+    return null;
+  }
+  return _normalizeCodeLanguage(value);
+}
+
+bool _looksLikeInlineDiffCodeBlock({
+  required String? language,
+  required String content,
+}) {
+  final trimmed = content.trim();
+  if (trimmed.isEmpty) return false;
+  final lines = const LineSplitter()
+      .convert(trimmed)
+      .where((line) => line.trim().isNotEmpty)
+      .toList(growable: false);
+  if (lines.length < 2) return false;
+
+  var additions = 0;
+  var deletions = 0;
+  var structural = 0;
+  var diffLike = 0;
+  var other = 0;
+  for (final line in lines) {
+    if (line.startsWith('+++') || line.startsWith('---')) {
+      structural += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith('diff --git ') ||
+        line.startsWith('index ') ||
+        _inlineDiffHunkHeaderPattern.hasMatch(line)) {
+      structural += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith('+')) {
+      additions += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith('-')) {
+      deletions += 1;
+      diffLike += 1;
+      continue;
+    }
+    if (line.startsWith(' ')) {
+      diffLike += 1;
+      continue;
+    }
+    other += 1;
+  }
+
+  final hasChanges = additions > 0 && deletions > 0;
+  if (_isDiffFenceLanguage(language)) {
+    return additions + deletions + structural > 0;
+  }
+  if (structural > 0) {
+    return additions + deletions > 0;
+  }
+  if (!hasChanges || additions + deletions < 2) {
+    return false;
+  }
+  final toleratedOtherLines = math.max(1, (lines.length * 0.25).floor());
+  return diffLike / lines.length >= 0.55 && other <= toleratedOtherLines;
+}
+
+List<_CodexDiffLine> _inlineCodexDiffLines(String content) {
+  final rawLines = content.replaceFirst(_trailingNewlineCodeBlockPattern, '');
+  if (rawLines.trim().isEmpty) {
+    return const <_CodexDiffLine>[];
+  }
+  final lines = const LineSplitter().convert(rawLines);
+  final hasUnifiedStructure = lines.any(
+    (line) =>
+        line.startsWith('diff --git ') ||
+        line.startsWith('index ') ||
+        line.startsWith('---') ||
+        line.startsWith('+++') ||
+        _inlineDiffHunkHeaderPattern.hasMatch(line),
+  );
+  if (!hasUnifiedStructure) {
+    return <_CodexDiffLine>[
+      for (final line in lines)
+        if (line.startsWith('+'))
+          _CodexDiffLine(
+            kind: _CodexDiffLineKind.addition,
+            text: line.length > 1 ? line.substring(1) : '',
+          )
+        else if (line.startsWith('-'))
+          _CodexDiffLine(
+            kind: _CodexDiffLineKind.deletion,
+            text: line.length > 1 ? line.substring(1) : '',
+          )
+        else
+          _CodexDiffLine(
+            kind: _CodexDiffLineKind.context,
+            text: line.startsWith(' ') ? line.substring(1) : line,
+          ),
+    ];
+  }
+  return _codexDiffLinesFromUnifiedLines(lines);
+}
+
+List<_CodexDiffLine> _codexDiffLinesFromUnifiedLines(Iterable<String> diff) {
+  final lines = <_CodexDiffLine>[];
+  var oldLine = 1;
+  var newLine = 1;
+  var sawHunk = false;
+
+  for (final rawLine in diff) {
+    if (rawLine.startsWith('diff --git ') || rawLine.startsWith('index ')) {
+      continue;
+    }
+    if (rawLine.startsWith('---') || rawLine.startsWith('+++')) {
+      continue;
+    }
+    final hunkMatch = _inlineDiffHunkHeaderPattern.firstMatch(rawLine);
+    if (hunkMatch != null) {
+      final hunkOldStart = int.tryParse(hunkMatch.group(1) ?? '') ?? oldLine;
+      final hunkNewStart =
+          int.tryParse(hunkMatch.group(3) ?? '') ?? hunkOldStart;
+      if (sawHunk) {
+        final folded = hunkOldStart - oldLine;
+        if (folded > 0) {
+          lines.add(
+            _CodexDiffLine(
+              kind: _CodexDiffLineKind.folded,
+              foldedCount: folded,
+            ),
+          );
+        }
+      }
+      oldLine = hunkOldStart;
+      newLine = hunkNewStart;
+      sawHunk = true;
+      continue;
+    }
+    if (rawLine.startsWith('+')) {
+      lines.add(
+        _CodexDiffLine(
+          kind: _CodexDiffLineKind.addition,
+          lineNumber: sawHunk ? newLine : null,
+          text: rawLine.length > 1 ? rawLine.substring(1) : '',
+        ),
+      );
+      newLine += 1;
+      continue;
+    }
+    if (rawLine.startsWith('-')) {
+      lines.add(
+        _CodexDiffLine(
+          kind: _CodexDiffLineKind.deletion,
+          lineNumber: sawHunk ? oldLine : null,
+          text: rawLine.length > 1 ? rawLine.substring(1) : '',
+        ),
+      );
+      oldLine += 1;
+      continue;
+    }
+    final text = rawLine.startsWith(' ') ? rawLine.substring(1) : rawLine;
+    lines.add(
+      _CodexDiffLine(
+        kind: _CodexDiffLineKind.context,
+        lineNumber: sawHunk ? newLine : null,
+        text: text,
+      ),
+    );
+    oldLine += 1;
+    newLine += 1;
+  }
+  return lines;
+}
+
+class _InlineCodexDiffPanel extends StatefulWidget {
+  const _InlineCodexDiffPanel({required this.content, this.language});
+
+  final String content;
+  final String? language;
+
+  @override
+  State<_InlineCodexDiffPanel> createState() => _InlineCodexDiffPanelState();
+}
+
+class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
+  static const Duration _actionResetDelay = Duration(milliseconds: 1600);
+  static const int _expandedStateCacheLimit = 500;
+  static final Map<int, bool> _expandedByContentKey = <int, bool>{};
+
+  final ScrollController _verticalController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+  late List<_CodexDiffLine> _lines;
+  late int _contentKey;
+  late bool _showFull;
+  bool _copied = false;
+  bool _downloaded = false;
+  Timer? _copiedResetTimer;
+  Timer? _downloadedResetTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _rebuildLines(force: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _InlineCodexDiffPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content ||
+        oldWidget.language != widget.language) {
+      _copiedResetTimer?.cancel();
+      _downloadedResetTimer?.cancel();
+      _copied = false;
+      _downloaded = false;
+      _rebuildLines();
+    }
+  }
+
+  @override
+  void dispose() {
+    _rememberExpandedState();
+    _copiedResetTimer?.cancel();
+    _downloadedResetTimer?.cancel();
+    _verticalController.dispose();
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  void _rebuildLines({bool force = false}) {
+    final nextKey = Object.hash(widget.content, widget.language);
+    if (!force && _contentKey == nextKey) return;
+    if (!force) _rememberExpandedState();
+    _contentKey = nextKey;
+    _showFull = _expandedByContentKey[nextKey] ?? false;
+    _lines = _inlineCodexDiffLines(widget.content);
+  }
+
+  void _rememberExpandedState() {
+    _expandedByContentKey.remove(_contentKey);
+    if (_showFull) {
+      _expandedByContentKey[_contentKey] = true;
+    }
+    while (_expandedByContentKey.length > _expandedStateCacheLimit) {
+      _expandedByContentKey.remove(_expandedByContentKey.keys.first);
+    }
+  }
+
+  void _setShowFull(bool value) {
+    if (_showFull == value) return;
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    setState(() => _showFull = value);
+    _rememberExpandedState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = _CodexDiffPalette.resolve(theme);
+    final visibleLimit = math.max(1, _inlineDiffPreviewLineLimit);
+    final clipped = !_showFull && _lines.length > visibleLimit;
+    final visibleLines = clipped ? _lines.take(visibleLimit).toList() : _lines;
+    final hiddenCount = _lines.length - visibleLines.length;
+    final maxTextLength = visibleLines.fold<int>(
+      0,
+      (max, line) => math.max(max, line.text.length),
+    );
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final maxBodyHeight = _showFull
+        ? math.min(viewportHeight * 0.58, 640.0)
+        : 320.0;
+    const rowExtent = 25.0;
+    final bodyHeight = math.min(
+      maxBodyHeight,
+      math.max(rowExtent, visibleLines.length * rowExtent),
+    );
+    final codeTheme = context.watch<SettingsController>().editorCodeTheme;
+    final brightness = theme.brightness;
+    final paletteSignature = palette.signature;
+    final baseStyle =
+        theme.textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          fontSize: 12.5,
+          height: 1.34,
+          color: palette.text,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ) ??
+        TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12.5,
+          height: 1.34,
+          color: palette.text,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
+    final highlighter = _CodeSyntaxHighlighter(
+      baseStyle: baseStyle,
+      darkSurface: brightness == Brightness.dark,
+      codeTheme: codeTheme,
+    );
+    final diffDecoration = BoxDecoration(
+      color: palette.surface,
+      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      border: Border.all(color: palette.border, width: 0.8),
+    );
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      child: DecoratedBox(
+        decoration: diffDecoration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _InlineCodexDiffHeader(
+              copied: _copied,
+              downloaded: _downloaded,
+              onCopy: _copyDiff,
+              onDownload: () => _downloadDiff(widget.language),
+              palette: palette,
+            ),
+            if (_lines.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '内容相同或不可对比。',
+                    en: 'No textual diff available.',
+                  ),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: palette.mutedText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final viewportWidth = constraints.maxWidth.isFinite
+                      ? constraints.maxWidth
+                      : 640.0;
+                  final contentWidth = math.max(
+                    viewportWidth,
+                    math.min(3600.0, 96.0 + maxTextLength * 7.6),
+                  );
+                  return SizedBox(
+                    height: bodyHeight,
+                    child: PrimaryScrollController.none(
+                      child: OpenHandSafeScrollbar(
+                        controller: _verticalController,
+                        child: SingleChildScrollView(
+                          controller: _horizontalController,
+                          scrollDirection: Axis.horizontal,
+                          primary: false,
+                          child: SizedBox(
+                            width: contentWidth,
+                            child: SelectionArea(
+                              child: ListView.builder(
+                                controller: _verticalController,
+                                primary: false,
+                                padding: EdgeInsets.zero,
+                                itemExtent: rowExtent,
+                                itemCount: visibleLines.length,
+                                itemBuilder: (context, index) {
+                                  final line = visibleLines[index];
+                                  return _CodexDiffLineRow(
+                                    line: line,
+                                    minWidth: viewportWidth,
+                                    highlighter: highlighter,
+                                    language: widget.language,
+                                    baseStyle: baseStyle,
+                                    palette: palette,
+                                    cacheKey:
+                                        'inline-diff|$_contentKey|'
+                                        '${brightness.name}|${codeTheme.name}|'
+                                        '$paletteSignature|$index',
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            if (clipped || (_showFull && _lines.length > visibleLimit))
+              _CodexDiffFooter(
+                hiddenCount: hiddenCount,
+                showFull: _showFull,
+                palette: palette,
+                onToggle: () => _setShowFull(!_showFull),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _copyDiff() {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    _copiedResetTimer?.cancel();
+    setState(() => _copied = true);
+    final messenger = ScaffoldMessenger.of(context);
+    OpenHandSnackBar.hideCurrentOn(messenger);
+    _showHomeSnackBarWithMessenger(
+      context,
+      messenger,
+      SnackBar(
+        content: Text(
+          _localizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
+        ),
+      ),
+    );
+    _copiedResetTimer = startSafeTimer(_actionResetDelay, () {
+      if (!mounted) return;
+      setState(() => _copied = false);
+    });
+    unawaited(_writeDiffToClipboard());
+  }
+
+  Future<void> _writeDiffToClipboard() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.content));
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'copy inline diff', error, stack);
+      if (!mounted) return;
+      _copiedResetTimer?.cancel();
+      setState(() => _copied = false);
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.hideCurrentOn(messenger);
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '复制 Diff 失败。',
+              en: 'Failed to copy diff.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _downloadDiff(String? language) {
+    _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+    _downloadedResetTimer?.cancel();
+    unawaited(_performDiffDownload(language));
+  }
+
+  Future<void> _performDiffDownload(String? language) async {
+    final inferredExtension = _getFileExtensionForLanguage(language);
+    final extension = inferredExtension == '.txt' ? '.diff' : inferredExtension;
+    try {
+      final selectedLocation = await getSaveLocation(
+        suggestedName: 'diff_block$extension',
+      );
+      final selectedPath = selectedLocation?.path;
+      if (!mounted || selectedPath == null || selectedPath.isEmpty) {
+        return;
+      }
+      await File(selectedPath).writeAsString(widget.content);
+      if (!mounted) return;
+      setState(() => _downloaded = true);
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.hideCurrentOn(messenger);
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: 'Diff 已下载为 ${p.basename(selectedPath)}',
+              en: 'Diff downloaded as ${p.basename(selectedPath)}',
+            ),
+          ),
+        ),
+      );
+      _downloadedResetTimer = startSafeTimer(_actionResetDelay, () {
+        if (!mounted) return;
+        setState(() => _downloaded = false);
+      });
+    } catch (error, stack) {
+      silentLog('home_code_highlighting', 'download inline diff', error, stack);
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      OpenHandSnackBar.hideCurrentOn(messenger);
+      _showHomeSnackBarWithMessenger(
+        context,
+        messenger,
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '下载 Diff 失败。', en: 'Download failed.'),
+          ),
+        ),
+      );
+    }
+  }
+}
+
+class _InlineCodexDiffHeader extends StatelessWidget {
+  const _InlineCodexDiffHeader({
+    required this.copied,
+    required this.downloaded,
+    required this.onCopy,
+    required this.onDownload,
+    required this.palette,
+  });
+
+  final bool copied;
+  final bool downloaded;
+  final VoidCallback onCopy;
+  final VoidCallback onDownload;
+  final _CodexDiffPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.footerSurface,
+        border: Border(bottom: BorderSide(color: palette.footerBorder)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        child: Row(
+          children: [
+            _InlineDiffPill(
+              label: 'diff',
+              icon: Icons.difference_rounded,
+              backgroundColor: palette.foldedBackground,
+              foregroundColor: palette.mutedText,
+            ),
+            const Spacer(),
+            _InlineDiffPill(
+              label: _localizedText(
+                context,
+                zh: copied ? '已复制' : '复制',
+                en: copied ? 'Copied' : 'Copy',
+              ),
+              icon: copied ? Icons.check_rounded : Icons.content_copy_rounded,
+              backgroundColor: palette.footerBorder,
+              foregroundColor: palette.footerForeground,
+              onTap: onCopy,
+            ),
+            const SizedBox(width: 8),
+            _InlineDiffPill(
+              label: _localizedText(
+                context,
+                zh: downloaded ? '已下载' : '下载',
+                en: downloaded ? 'Downloaded' : 'Download',
+              ),
+              icon: downloaded ? Icons.check_rounded : Icons.download_rounded,
+              backgroundColor: palette.footerBorder,
+              foregroundColor: palette.footerForeground,
+              onTap: onDownload,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineDiffPill extends StatelessWidget {
+  const _InlineDiffPill({
+    required this.label,
+    required this.icon,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: foregroundColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+    final decoration = BoxDecoration(
+      color: backgroundColor,
+      borderRadius: _borderRadius999,
+    );
+    if (onTap == null) {
+      return DecoratedBox(decoration: decoration, child: child);
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: _borderRadius999,
+        child: Ink(decoration: decoration, child: child),
+      ),
+    );
   }
 }
 

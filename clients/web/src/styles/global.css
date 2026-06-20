@@ -5090,6 +5090,107 @@ button.oh-composer-pill:not(:disabled):hover {
   background: var(--m3-surface-container-high, rgba(0,0,0,0.1));
 }
 
+.oh-inline-diff-block {
+  margin: 0.5rem 0;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant, rgba(127,127,127,0.3)) 78%, transparent);
+  background: var(--m3-surface, #fff);
+}
+.oh-inline-diff-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--m3-surface-container-high, rgba(0,0,0,0.05)) 86%, var(--m3-surface, #fff));
+  border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant, rgba(127,127,127,0.2)) 78%, transparent);
+}
+.oh-inline-diff-chip {
+  font-size: 0.78em;
+  font-weight: 800;
+  color: var(--m3-on-surface-variant, #666);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--m3-surface-container-highest, rgba(0,0,0,0.06));
+}
+.oh-inline-diff-body {
+  max-height: 320px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  line-height: 1.45;
+}
+.oh-inline-diff-body[data-expanded='true'] {
+  max-height: min(64vh, 720px);
+}
+.oh-inline-diff-row {
+  display: grid;
+  grid-template-columns: 4px 58px minmax(max-content, 1fr);
+  min-width: 100%;
+  min-height: 25px;
+  color: var(--m3-on-surface, #202124);
+}
+.oh-inline-diff-row.is-addition {
+  background: color-mix(in srgb, #00a341 12%, var(--m3-surface, #fff));
+}
+.oh-inline-diff-row.is-deletion {
+  background: color-mix(in srgb, var(--m3-error, #ba1a1a) 13%, var(--m3-surface, #fff));
+}
+.oh-inline-diff-row.is-folded {
+  background: color-mix(in srgb, var(--m3-on-surface, #202124) 5%, var(--m3-surface, #fff));
+}
+.oh-inline-diff-row.is-addition .oh-inline-diff-accent {
+  background: #00a341;
+}
+.oh-inline-diff-row.is-deletion .oh-inline-diff-accent {
+  background: var(--m3-error, #ba1a1a);
+}
+.oh-inline-diff-gutter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  border-right: 1px solid color-mix(in srgb, var(--m3-outline-variant, rgba(127,127,127,0.3)) 78%, transparent);
+  color: var(--m3-on-surface-variant, #666);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.oh-inline-diff-row.is-addition .oh-inline-diff-gutter {
+  color: #008f39;
+}
+.oh-inline-diff-row.is-deletion .oh-inline-diff-gutter {
+  color: var(--m3-error, #ba1a1a);
+}
+.oh-inline-diff-code {
+  padding: 3px 18px 3px 14px;
+  white-space: pre;
+}
+.oh-inline-diff-row.is-folded .oh-inline-diff-code {
+  color: var(--m3-on-surface-variant, #666);
+  font-weight: 700;
+}
+.oh-inline-diff-footer {
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--m3-outline-variant, rgba(127,127,127,0.3)) 72%, transparent);
+  background: color-mix(in srgb, var(--m3-surface-container-high, rgba(0,0,0,0.05)) 70%, var(--m3-surface, #fff));
+  color: var(--m3-primary, #0057d9);
+  font-size: 0.82em;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+.oh-inline-diff-footer:hover {
+  background: var(--m3-surface-container-high, rgba(0,0,0,0.08));
+}
+.oh-inline-diff-empty {
+  padding: 10px 12px;
+  color: var(--m3-on-surface-variant, #666);
+  font-size: 0.84em;
+  font-weight: 700;
+}
+
 /* Mermaid diagram stage (MermaidView.tsx) */
 .oh-mermaid-shell {
   display: grid;

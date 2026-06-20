@@ -1467,9 +1467,6 @@ class _CodexDiffViewer extends StatefulWidget {
 class _CodexDiffViewerState extends State<_CodexDiffViewer> {
   static const int _kExpandedStateCacheLimit = 500;
   static final Map<String, bool> _expandedByDiffKey = <String, bool>{};
-  static final RegExp _hunkHeaderPattern = RegExp(
-    r'^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+))?)?',
-  );
 
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
@@ -1515,7 +1512,9 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     _rememberExpandedState();
     _diffKey = nextKey;
     _showFull = _expandedByDiffKey[nextKey] ?? false;
-    _lines = _buildCodexDiffLines(widget.before, widget.after);
+    _lines = _codexDiffLinesFromUnifiedLines(
+      unifiedDiffLinesFromText(widget.before, widget.after),
+    );
   }
 
   void _rememberExpandedState() {
@@ -1528,75 +1527,6 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     while (_expandedByDiffKey.length > _kExpandedStateCacheLimit) {
       _expandedByDiffKey.remove(_expandedByDiffKey.keys.first);
     }
-  }
-
-  List<_CodexDiffLine> _buildCodexDiffLines(String before, String after) {
-    final diff = unifiedDiffLinesFromText(before, after);
-    if (diff.isEmpty) return const <_CodexDiffLine>[];
-    final lines = <_CodexDiffLine>[];
-    var oldLine = 1;
-    var newLine = 1;
-    var sawHunk = false;
-
-    for (final rawLine in diff) {
-      if (rawLine.startsWith('---') || rawLine.startsWith('+++')) {
-        continue;
-      }
-      final hunkMatch = _hunkHeaderPattern.firstMatch(rawLine);
-      if (hunkMatch != null) {
-        final hunkOldStart = int.tryParse(hunkMatch.group(1) ?? '') ?? oldLine;
-        final hunkNewStart =
-            int.tryParse(hunkMatch.group(3) ?? '') ?? hunkOldStart;
-        if (sawHunk) {
-          final folded = hunkOldStart - oldLine;
-          if (folded > 0) {
-            lines.add(
-              _CodexDiffLine(
-                kind: _CodexDiffLineKind.folded,
-                foldedCount: folded,
-              ),
-            );
-          }
-        }
-        oldLine = hunkOldStart;
-        newLine = hunkNewStart;
-        sawHunk = true;
-        continue;
-      }
-      if (rawLine.startsWith('+')) {
-        lines.add(
-          _CodexDiffLine(
-            kind: _CodexDiffLineKind.addition,
-            lineNumber: newLine,
-            text: rawLine.length > 1 ? rawLine.substring(1) : '',
-          ),
-        );
-        newLine += 1;
-        continue;
-      }
-      if (rawLine.startsWith('-')) {
-        lines.add(
-          _CodexDiffLine(
-            kind: _CodexDiffLineKind.deletion,
-            lineNumber: oldLine,
-            text: rawLine.length > 1 ? rawLine.substring(1) : '',
-          ),
-        );
-        oldLine += 1;
-        continue;
-      }
-      final text = rawLine.startsWith(' ') ? rawLine.substring(1) : rawLine;
-      lines.add(
-        _CodexDiffLine(
-          kind: _CodexDiffLineKind.context,
-          lineNumber: newLine,
-          text: text,
-        ),
-      );
-      oldLine += 1;
-      newLine += 1;
-    }
-    return lines;
   }
 
   void _setShowFull(bool value) {
