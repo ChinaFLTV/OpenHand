@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -181,7 +182,18 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
       _status = loc0?.webReverseHarParsing ?? 'Parsing HAR...';
     });
     try {
-      final bytes = await file.readAsBytes();
+      final read = await readWebReverseHarFile(file);
+      if (read.isTooLarge) {
+        if (!mounted) return;
+        final message = webReverseHarTooLargeMessage(
+          read.tooLargeBytes!,
+          isZh: widget.isZh,
+        );
+        setState(() => _status = message);
+        OpenHandSnackBar.showErrorOn(context, messenger, message);
+        return;
+      }
+      final bytes = read.bytes!;
       final r = widget.controller.loadHarBytes(bytes, merge: _mergeOnLoad);
       if (!mounted) return;
       final loc1 = AppLocalizations.of(context);

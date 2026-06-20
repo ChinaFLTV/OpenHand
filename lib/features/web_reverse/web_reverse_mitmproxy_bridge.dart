@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
@@ -26,9 +27,19 @@ class WebReverseMitmproxyBridge {
     required this.callbackPort,
     required Process process,
     required HttpServer server,
-    required this.eventStream,
+    required StreamController<Map<String, Object?>> controller,
+    required StreamSubscription<HttpRequest> serverSub,
+    required StreamSubscription<List<int>> stdoutSub,
+    required StreamSubscription<List<int>> stderrSub,
+    required String addonPath,
   }) : _process = process,
-       _server = server;
+       _server = server,
+       _controller = controller,
+       _serverSub = serverSub,
+       _stdoutSub = stdoutSub,
+       _stderrSub = stderrSub,
+       _addonPath = addonPath,
+       eventStream = controller.stream;
 
   /// mitmdump 监听端口（用户客户端把流量代理到这）。
   final int mitmPort;
@@ -39,8 +50,16 @@ class WebReverseMitmproxyBridge {
   /// 解析后的请求-响应事件流。每条都是 `{kind, ts, ...}` 形式 JSON map。
   final Stream<Map<String, Object?>> eventStream;
 
+  static const int _kMaxMitmBodyBytes = 256 * 1024;
+  static const int _kMaxCallbackPayloadBytes = 2 * 1024 * 1024;
+
   final Process _process;
   final HttpServer _server;
+  final StreamController<Map<String, Object?>> _controller;
+  final StreamSubscription<HttpRequest> _serverSub;
+  final StreamSubscription<List<int>> _stdoutSub;
+  final StreamSubscription<List<int>> _stderrSub;
+  final String _addonPath;
   bool _closed = false;
 
   /// 探测 mitmdump 是否可用，返回可执行路径或 null。
@@ -92,16 +111,21 @@ class WebReverseMitmproxyBridge {
     }
     final actualCbPort = cbServer.port;
     final controller = StreamController<Map<String, Object?>>.broadcast();
-    cbServer.listen((req) async {
+    final serverSub = cbServer.listen((req) async {
       try {
         if (req.method == 'POST') {
-          final raw = await utf8.decoder.bind(req).join();
+          final raw = await _readCallbackBody(req);
+          if (raw == null) {
+            req.response.statusCode = 413;
+            await req.response.close();
+            return;
+          }
           for (final line in raw.split('\n')) {
             final t = line.trim();
             if (t.isEmpty) continue;
             try {
               final m = jsonDecode(t);
-              if (m is Map) {
+              if (m is Map && !controller.isClosed) {
                 controller.add(Map<String, Object?>.from(m));
               }
             } catch (error, stack) {
@@ -149,24 +173,61 @@ class WebReverseMitmproxyBridge {
       ]);
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', 'spawn', error, stack);
+      await serverSub.cancel();
       await cbServer.close(force: true);
       await controller.close();
+      await _deleteAddon(addonPath);
       return null;
     }
     // drain stdout / stderr 避免管道阻塞
-    p.stdout.listen((_) {});
-    p.stderr.listen((_) {});
+    final stdoutSub = p.stdout.listen((_) {});
+    final stderrSub = p.stderr.listen((_) {});
 
     // 等 1.5s 看进程没立刻挂；mitmdump 启动慢，再快也会有 tls 初始化。
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    final earlyExit = await Future.any<int?>([
+      p.exitCode,
+      Future<int?>.delayed(const Duration(milliseconds: 1500), () => null),
+    ]);
+    if (earlyExit != null) {
+      silentLog(
+        'web_reverse_mitmproxy_bridge',
+        'early exit',
+        'mitmdump exited with code $earlyExit',
+      );
+      await stdoutSub.cancel();
+      await stderrSub.cancel();
+      await serverSub.cancel();
+      await cbServer.close(force: true);
+      await controller.close();
+      await _deleteAddon(addonPath);
+      return null;
+    }
 
     return WebReverseMitmproxyBridge._(
       mitmPort: mitmPort,
       callbackPort: actualCbPort,
       process: p,
       server: cbServer,
-      eventStream: controller.stream,
+      controller: controller,
+      serverSub: serverSub,
+      stdoutSub: stdoutSub,
+      stderrSub: stderrSub,
+      addonPath: addonPath,
     );
+  }
+
+  static Future<String?> _readCallbackBody(HttpRequest req) async {
+    final builder = BytesBuilder(copy: false);
+    var total = 0;
+    await for (final chunk in req) {
+      total += chunk.length;
+      if (total > _kMaxCallbackPayloadBytes) {
+        await req.drain<void>();
+        return null;
+      }
+      builder.add(chunk);
+    }
+    return utf8.decode(builder.takeBytes(), allowMalformed: true);
   }
 
   static Future<String> _writeAddon(int callbackPort) async {
@@ -179,6 +240,16 @@ import json
 import urllib.request
 
 CALLBACK = "http://127.0.0.1:$callbackPort/"
+MAX_BODY_BYTES = $_kMaxMitmBodyBytes
+
+def _body(raw):
+    raw = raw or b""
+    clipped = raw[:MAX_BODY_BYTES]
+    return {
+        "body_b64": base64.b64encode(clipped).decode("ascii"),
+        "body_size": len(raw),
+        "body_truncated": len(raw) > MAX_BODY_BYTES,
+    }
 
 def _send(payload):
     try:
@@ -192,27 +263,29 @@ def _send(payload):
 
 def request(flow):
     try:
-        _send({
+        payload = {
             "kind": "request",
             "ts": flow.request.timestamp_start,
             "method": flow.request.method,
             "url": flow.request.pretty_url,
             "headers": list(flow.request.headers.items(multi=True)),
-            "body_b64": base64.b64encode(flow.request.raw_content or b"").decode("ascii"),
-        })
+        }
+        payload.update(_body(flow.request.raw_content))
+        _send(payload)
     except Exception:
         pass
 
 def response(flow):
     try:
-        _send({
+        payload = {
             "kind": "response",
             "ts": flow.response.timestamp_end,
             "url": flow.request.pretty_url,
             "status": flow.response.status_code,
             "headers": list(flow.response.headers.items(multi=True)),
-            "body_b64": base64.b64encode(flow.response.raw_content or b"").decode("ascii"),
-        })
+        }
+        payload.update(_body(flow.response.raw_content))
+        _send(payload)
     except Exception:
         pass
 ''';
@@ -222,6 +295,14 @@ def response(flow):
     );
     await f.writeAsString(addon);
     return f.path;
+  }
+
+  static Future<void> _deleteAddon(String addonPath) async {
+    try {
+      await File(addonPath).delete();
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', 'delete addon', error, stack);
+    }
   }
 
   Future<void> close() async {
@@ -243,9 +324,35 @@ def response(flow):
       );
     }
     try {
+      await _stdoutSub.cancel();
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', 'cancel stdout', error, stack);
+    }
+    try {
+      await _stderrSub.cancel();
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', 'cancel stderr', error, stack);
+    }
+    try {
+      await _serverSub.cancel();
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_mitmproxy_bridge',
+        'cancel server sub',
+        error,
+        stack,
+      );
+    }
+    try {
       await _server.close(force: true);
     } catch (error, stack) {
       silentLog('web_reverse_mitmproxy_bridge', 'close server', error, stack);
     }
+    try {
+      await _controller.close();
+    } catch (error, stack) {
+      silentLog('web_reverse_mitmproxy_bridge', 'close stream', error, stack);
+    }
+    await _deleteAddon(_addonPath);
   }
 }

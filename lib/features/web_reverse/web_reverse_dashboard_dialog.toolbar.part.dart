@@ -468,7 +468,18 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       merge = mode == 'merge';
     }
     try {
-      final bytes = await file.readAsBytes();
+      final read = await readWebReverseHarFile(file);
+      if (read.isTooLarge) {
+        if (!mounted) return;
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          webReverseHarTooLargeMessage(read.tooLargeBytes!, isZh: isZh),
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+      final bytes = read.bytes!;
       final r = ctrl.loadHarBytes(bytes, merge: merge);
       if (!mounted) return;
       OpenHandSnackBar.showSuccessOn(
@@ -524,14 +535,33 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
 
     /// 把一份 HAR 解析成 method+url → _HarEntrySummary 的 map。同一 url
     /// 多次出现只保留首条（用户面板上很少有同 url 重放需求）。
-    Future<Map<String, _HarEntrySummary>?> parse(XFile f) async {
+    Future<
+      ({
+        Map<String, _HarEntrySummary> map,
+        int total,
+        int parsed,
+        int? tooLargeBytes,
+      })?
+    >
+    parse(XFile f) async {
       try {
-        final raw = await f.readAsBytes();
-        final decoded = jsonDecode(utf8.decode(raw));
+        final raw = await readWebReverseHarFile(f);
+        if (raw.isTooLarge) {
+          return (
+            map: <String, _HarEntrySummary>{},
+            total: 0,
+            parsed: 0,
+            tooLargeBytes: raw.tooLargeBytes,
+          );
+        }
+        final bytes = raw.bytes!;
+        final decoded = jsonDecode(utf8.decode(bytes));
         final entries = (decoded as Map?)?['log']?['entries'];
         if (entries is! List) return null;
         final map = <String, _HarEntrySummary>{};
-        for (final e in entries.whereType<Map>()) {
+        final total = entries.length;
+        final parsed = math.min(total, kWebReverseHarDiffEntryLimit);
+        for (final e in entries.take(parsed).whereType<Map>()) {
           final req = e['request'] as Map?;
           final res = e['response'] as Map?;
           final method = '${req?['method'] ?? ''}';
@@ -543,6 +573,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           final text = content?['text'] is String
               ? content!['text'] as String
               : '';
+          final digest = crypto.sha256.convert(utf8.encode(text)).toString();
           final key = '$method $url';
           map.putIfAbsent(
             key,
@@ -552,11 +583,12 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
               status: status,
               bodySize: size,
               mimeType: mime,
-              bodyText: text,
+              bodyText: _clipHarDiffBody(text),
+              bodyDigest: digest,
             ),
           );
         }
-        return map;
+        return (map: map, total: total, parsed: parsed, tooLargeBytes: null);
       } catch (error, stack) {
         silentLog(
           'web_reverse_dashboard_dialog',
@@ -571,6 +603,16 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     final setA = await parse(a);
     final setB = await parse(b);
     if (!context.mounted) return;
+    final tooLargeBytes = setA?.tooLargeBytes ?? setB?.tooLargeBytes;
+    if (tooLargeBytes != null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        webReverseHarTooLargeMessage(tooLargeBytes, isZh: isZh),
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
     if (setA == null || setB == null) {
       OpenHandSnackBar.showErrorOn(
         context,
@@ -580,20 +622,22 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       );
       return;
     }
-    final onlyAKeys = setA.keys.toSet().difference(setB.keys.toSet()).toList()
+    final mapA = setA.map;
+    final mapB = setB.map;
+    final onlyAKeys = mapA.keys.toSet().difference(mapB.keys.toSet()).toList()
       ..sort();
-    final onlyBKeys = setB.keys.toSet().difference(setA.keys.toSet()).toList()
+    final onlyBKeys = mapB.keys.toSet().difference(mapA.keys.toSet()).toList()
       ..sort();
-    final shared = setA.keys.toSet().intersection(setB.keys.toSet()).toList()
+    final shared = mapA.keys.toSet().intersection(mapB.keys.toSet()).toList()
       ..sort();
     final changed = <_HarChange>[];
     var sameCount = 0;
     for (final k in shared) {
-      final ea = setA[k]!;
-      final eb = setB[k]!;
+      final ea = mapA[k]!;
+      final eb = mapB[k]!;
       final statusChanged = ea.status != eb.status;
       final sizeChanged = ea.bodySize != eb.bodySize;
-      final textChanged = ea.bodyText != eb.bodyText;
+      final textChanged = ea.bodyDigest != eb.bodyDigest;
       if (!statusChanged && !sizeChanged && !textChanged) {
         sameCount++;
       } else {
@@ -609,6 +653,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       }
     }
     if (!context.mounted) return;
+    final capped = setA.parsed < setA.total || setB.parsed < setB.total;
     await showOpenHandInfoDialog(
       context: context,
       title: isZh ? 'HAR 对比' : 'HAR diff',
@@ -624,6 +669,16 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                   ? '一致 $sameCount 条 · 变化 ${changed.length} · A 独有 ${onlyAKeys.length} · B 独有 ${onlyBKeys.length}'
                   : '$sameCount same · ${changed.length} changed · ${onlyAKeys.length} only-A · ${onlyBKeys.length} only-B',
             ),
+            if (capped) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${webReverseHarDiffCappedMessage(setA.parsed, setA.total, isZh: isZh)} · '
+                '${webReverseHarDiffCappedMessage(setB.parsed, setB.total, isZh: isZh)}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Expanded(
               child: Row(
@@ -1532,8 +1587,13 @@ class _HarDiffColumn extends StatelessWidget {
   }
 }
 
-/// HAR 单条请求摘要：HAR diff 的最小比较单元。bodyText 全文保留供二级
-/// diff 使用，超长内容会在 _HarChangedColumn 渲染时再做截断。
+String _clipHarDiffBody(String text) {
+  if (text.length <= kWebReverseHarDiffBodyPreviewChars) return text;
+  return '${text.substring(0, kWebReverseHarDiffBodyPreviewChars)}...';
+}
+
+/// HAR 单条请求摘要：HAR diff 的最小比较单元。bodyDigest 用于判断正文
+/// 是否变化，bodyText 只保留预览，避免大 HAR 在弹窗模型里长期驻留全文。
 class _HarEntrySummary {
   const _HarEntrySummary({
     required this.method,
@@ -1542,6 +1602,7 @@ class _HarEntrySummary {
     required this.bodySize,
     required this.mimeType,
     required this.bodyText,
+    required this.bodyDigest,
   });
   final String method;
   final String url;
@@ -1549,6 +1610,7 @@ class _HarEntrySummary {
   final int bodySize;
   final String mimeType;
   final String bodyText;
+  final String bodyDigest;
 }
 
 /// 同 (method,url) 在两份 HAR 中的差异：status 不同 / body 大小不同 /

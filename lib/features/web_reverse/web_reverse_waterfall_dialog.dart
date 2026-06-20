@@ -18,6 +18,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -818,7 +819,18 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
       merge = mode == 'merge';
     }
     try {
-      final bytes = await file.readAsBytes();
+      final read = await readWebReverseHarFile(file);
+      if (read.isTooLarge) {
+        if (!mounted) return;
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          webReverseHarTooLargeMessage(read.tooLargeBytes!, isZh: widget.isZh),
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+      final bytes = read.bytes!;
       final r = widget.controller.loadHarBytes(bytes, merge: merge);
       if (!mounted) return;
       setState(() {});
