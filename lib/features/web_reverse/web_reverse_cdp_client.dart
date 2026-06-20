@@ -21,10 +21,7 @@ import '../../app/support/silent_log.dart';
 /// 上限 5s）尝试最多 [reconnectMaxAttempts] 次。重连成功后会自动 emit
 /// [CdpReconnectEvent] 给上层，上层负责重新 enable 各 domain。
 class WebReverseCdpClient {
-  WebReverseCdpClient({
-    required this.endpoint,
-    this.reconnectMaxAttempts = 6,
-  });
+  WebReverseCdpClient({required this.endpoint, this.reconnectMaxAttempts = 6});
 
   /// `webSocketDebuggerUrl`，形如 `ws://127.0.0.1:9222/devtools/browser/<uuid>`。
   final String endpoint;
@@ -35,6 +32,7 @@ class WebReverseCdpClient {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   bool _reconnecting = false;
+  bool _connected = false;
 
   /// 已发出但尚未收到响应的命令。
   final Map<int, Completer<Map<String, Object?>>> _pending =
@@ -52,9 +50,24 @@ class WebReverseCdpClient {
 
   /// 建立连接。
   Future<void> connect() async {
+    if (_closed) {
+      throw StateError('CDP client is closed');
+    }
+    await _disposeCurrentConnection();
     final channel = WebSocketChannel.connect(Uri.parse(endpoint));
-    await channel.ready;
+    try {
+      await channel.ready;
+    } catch (error, stack) {
+      await _closeChannelQuietly(channel, 'close failed connection');
+      silentLog('web_reverse_cdp_client', 'connect ready', error, stack);
+      rethrow;
+    }
+    if (_closed) {
+      await _closeChannelQuietly(channel, 'close late connection');
+      throw StateError('CDP client is closed');
+    }
     _channel = channel;
+    _connected = true;
     _subscription = channel.stream.listen(
       _onMessage,
       onError: _onError,
@@ -70,8 +83,12 @@ class WebReverseCdpClient {
     String? sessionId,
     Duration timeout = const Duration(seconds: 8),
   }) async {
-    if (_closed || _channel == null) {
+    final channel = _channel;
+    if (_closed || channel == null || !_connected) {
       throw StateError('CDP client is closed');
+    }
+    if (_reconnecting) {
+      throw StateError('CDP client is reconnecting');
     }
     final id = _nextId++;
     final completer = Completer<Map<String, Object?>>();
@@ -82,7 +99,13 @@ class WebReverseCdpClient {
       if (params != null) 'params': params,
       if (sessionId != null) 'sessionId': sessionId,
     };
-    _channel!.sink.add(jsonEncode(payload));
+    try {
+      channel.sink.add(jsonEncode(payload));
+    } catch (error, stack) {
+      _pending.remove(id);
+      if (!completer.isCompleted) completer.completeError(error, stack);
+      Error.throwWithStackTrace(error, stack);
+    }
     try {
       return await completer.future.timeout(timeout);
     } on TimeoutException {
@@ -103,10 +126,12 @@ class WebReverseCdpClient {
         if (pending == null || pending.isCompleted) return;
         if (map['error'] is Map) {
           final err = Map<String, Object?>.from(map['error'] as Map);
-          pending.completeError(CdpException(
-            code: err['code'] is int ? err['code'] as int : -1,
-            message: '${err['message'] ?? 'unknown error'}',
-          ));
+          pending.completeError(
+            CdpException(
+              code: err['code'] is int ? err['code'] as int : -1,
+              message: '${err['message'] ?? 'unknown error'}',
+            ),
+          );
         } else {
           pending.complete(
             map['result'] is Map
@@ -123,7 +148,9 @@ class WebReverseCdpClient {
             : const <String, Object?>{};
         final sessionId = map['sessionId'] as String?;
         if (!_eventCtrl.isClosed) {
-          _eventCtrl.add(CdpEvent(method: method, params: params, sessionId: sessionId));
+          _eventCtrl.add(
+            CdpEvent(method: method, params: params, sessionId: sessionId),
+          );
         }
       }
     } catch (error, stack) {
@@ -133,10 +160,17 @@ class WebReverseCdpClient {
 
   void _onError(Object error, StackTrace stack) {
     silentLog('web_reverse_cdp_client', 'ws error', error, stack);
+    _connected = false;
     _failAllPending(error);
+    if (!_closed) {
+      _scheduleReconnect();
+    }
   }
 
   void _onDone() {
+    _connected = false;
+    _channel = null;
+    _subscription = null;
     _failAllPending(StateError('CDP WebSocket closed'));
     if (!_closed) {
       // 非主动 close → 异常断开，尝试自动重连。
@@ -148,47 +182,59 @@ class WebReverseCdpClient {
     if (_reconnecting || _closed) return;
     _reconnecting = true;
     () async {
-      var delayMs = 200;
-      for (var attempt = 1; attempt <= reconnectMaxAttempts; attempt++) {
-        if (_closed) return;
-        await Future<void>.delayed(Duration(milliseconds: delayMs));
-        try {
-          final channel = WebSocketChannel.connect(Uri.parse(endpoint));
-          await channel.ready;
-          _channel = channel;
-          _subscription = channel.stream.listen(
-            _onMessage,
-            onError: _onError,
-            onDone: _onDone,
-            cancelOnError: false,
-          );
-          _reconnecting = false;
-          if (!_eventCtrl.isClosed) {
-            _eventCtrl.add(CdpEvent(
-              method: '__cdp_reconnected__',
-              params: <String, Object?>{'attempt': attempt},
-            ));
+      try {
+        await _disposeCurrentConnection();
+        var delayMs = 200;
+        for (var attempt = 1; attempt <= reconnectMaxAttempts; attempt++) {
+          if (_closed) return;
+          await Future<void>.delayed(Duration(milliseconds: delayMs));
+          if (_closed) return;
+          try {
+            final channel = WebSocketChannel.connect(Uri.parse(endpoint));
+            await channel.ready;
+            if (_closed) {
+              await _closeChannelQuietly(channel, 'close late reconnect');
+              return;
+            }
+            _channel = channel;
+            _connected = true;
+            _subscription = channel.stream.listen(
+              _onMessage,
+              onError: _onError,
+              onDone: _onDone,
+              cancelOnError: false,
+            );
+            if (!_eventCtrl.isClosed) {
+              _eventCtrl.add(
+                CdpEvent(
+                  method: '__cdp_reconnected__',
+                  params: <String, Object?>{'attempt': attempt},
+                ),
+              );
+            }
+            return;
+          } catch (error, stack) {
+            silentLog(
+              'web_reverse_cdp_client',
+              'reconnect attempt $attempt',
+              error,
+              stack,
+            );
+            delayMs = (delayMs * 2).clamp(200, 5000);
           }
-          return;
-        } catch (error, stack) {
-          silentLog(
-            'web_reverse_cdp_client',
-            'reconnect attempt $attempt',
-            error,
-            stack,
-          );
-          delayMs = (delayMs * 2).clamp(200, 5000);
         }
-      }
-      _reconnecting = false;
-      _closed = true;
-      // 重连彻底失败：上层 controller 据此把状态切换到「浏览器已挂掉」，
-      // UI 拿到事件后展示"重启浏览器"按钮，避免用户停留在静默 placeholder。
-      if (!_eventCtrl.isClosed) {
-        _eventCtrl.add(const CdpEvent(
-          method: '__cdp_dead__',
-          params: <String, Object?>{},
-        ));
+        _closed = true;
+        _connected = false;
+        _failAllPending(StateError('CDP reconnect failed'));
+        // 重连彻底失败：上层 controller 据此把状态切换到「浏览器已挂掉」，
+        // UI 拿到事件后展示"重启浏览器"按钮，避免用户停留在静默 placeholder。
+        if (!_eventCtrl.isClosed) {
+          _eventCtrl.add(
+            const CdpEvent(method: '__cdp_dead__', params: <String, Object?>{}),
+          );
+        }
+      } finally {
+        _reconnecting = false;
       }
     }();
   }
@@ -202,21 +248,44 @@ class WebReverseCdpClient {
 
   Future<void> close() async {
     _closed = true;
-    await _subscription?.cancel();
-    _subscription = null;
-    await _channel?.sink.close();
-    _channel = null;
+    _connected = false;
+    await _disposeCurrentConnection();
     _failAllPending(StateError('CDP client manually closed'));
     if (!_eventCtrl.isClosed) await _eventCtrl.close();
+  }
+
+  Future<void> _disposeCurrentConnection() async {
+    final sub = _subscription;
+    final channel = _channel;
+    _subscription = null;
+    _channel = null;
+    _connected = false;
+    try {
+      await sub?.cancel();
+    } catch (error, stack) {
+      silentLog('web_reverse_cdp_client', 'cancel subscription', error, stack);
+    }
+    try {
+      await channel?.sink.close();
+    } catch (error, stack) {
+      silentLog('web_reverse_cdp_client', 'close sink', error, stack);
+    }
+  }
+
+  Future<void> _closeChannelQuietly(
+    WebSocketChannel channel,
+    String where,
+  ) async {
+    try {
+      await channel.sink.close();
+    } catch (error, stack) {
+      silentLog('web_reverse_cdp_client', where, error, stack);
+    }
   }
 }
 
 class CdpEvent {
-  const CdpEvent({
-    required this.method,
-    required this.params,
-    this.sessionId,
-  });
+  const CdpEvent({required this.method, required this.params, this.sessionId});
 
   final String method;
   final Map<String, Object?> params;
