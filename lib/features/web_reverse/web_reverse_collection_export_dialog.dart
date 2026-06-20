@@ -19,22 +19,20 @@ import 'web_reverse_session_controller.dart';
 
 enum _CollectionFormat { postman, insomnia, bruno, curl, har }
 
+const int _kCollectionExportMaxEntries = 200;
+
 Future<void> showWebReverseCollectionExportDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _CollectionExportDialog(
-      controller: controller,
-    ),
+    builder: (_) => _CollectionExportDialog(controller: controller),
   );
 }
 
 class _CollectionExportDialog extends StatefulWidget {
-  const _CollectionExportDialog({
-    required this.controller,
-  });
+  const _CollectionExportDialog({required this.controller});
   final WebReverseSessionController controller;
   @override
   State<_CollectionExportDialog> createState() =>
@@ -44,8 +42,9 @@ class _CollectionExportDialog extends StatefulWidget {
 class _CollectionExportDialogState extends State<_CollectionExportDialog> {
   _CollectionFormat _format = _CollectionFormat.postman;
   final TextEditingController _filterCtrl = TextEditingController();
-  final TextEditingController _nameCtrl =
-      TextEditingController(text: 'OpenHand Capture');
+  final TextEditingController _nameCtrl = TextEditingController(
+    text: 'OpenHand Capture',
+  );
   bool _xhrOnly = true;
 
   @override
@@ -95,10 +94,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           'method': e.method,
           'header': headerArr,
           if (e.requestPostData != null)
-            'body': <String, Object?>{
-              'mode': 'raw',
-              'raw': e.requestPostData,
-            },
+            'body': <String, Object?>{'mode': 'raw', 'raw': e.requestPostData},
           'url': <String, Object?>{
             'raw': e.url,
             if (uri != null) ...{
@@ -108,10 +104,9 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
               'path': uri.pathSegments,
               if (uri.hasQuery)
                 'query': uri.queryParameters.entries
-                    .map((q) => <String, Object?>{
-                          'key': q.key,
-                          'value': q.value,
-                        })
+                    .map(
+                      (q) => <String, Object?>{'key': q.key, 'value': q.value},
+                    )
                     .toList(),
             },
           },
@@ -153,10 +148,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           'url': e.url,
           'name': '${e.method} ${Uri.tryParse(e.url)?.path ?? e.url}',
           'headers': e.requestHeaders.entries
-              .map((h) => <String, Object?>{
-                    'name': h.key,
-                    'value': h.value,
-                  })
+              .map((h) => <String, Object?>{'name': h.key, 'value': h.value})
               .toList(),
           if (e.requestPostData != null)
             'body': <String, Object?>{
@@ -238,17 +230,11 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           'url': e.url,
           'httpVersion': e.protocol ?? 'HTTP/1.1',
           'headers': e.requestHeaders.entries
-              .map((h) => <String, Object?>{
-                    'name': h.key,
-                    'value': h.value,
-                  })
+              .map((h) => <String, Object?>{'name': h.key, 'value': h.value})
               .toList(),
           'queryString': (uri?.queryParameters ?? const <String, String>{})
               .entries
-              .map((q) => <String, Object?>{
-                    'name': q.key,
-                    'value': q.value,
-                  })
+              .map((q) => <String, Object?>{'name': q.key, 'value': q.value})
               .toList(),
           if (e.requestPostData != null)
             'postData': <String, Object?>{
@@ -265,10 +251,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           'statusText': e.statusText ?? '',
           'httpVersion': e.protocol ?? 'HTTP/1.1',
           'headers': e.responseHeaders.entries
-              .map((h) => <String, Object?>{
-                    'name': h.key,
-                    'value': h.value,
-                  })
+              .map((h) => <String, Object?>{'name': h.key, 'value': h.value})
               .toList(),
           'content': <String, Object?>{
             'size': e.decodedBodyLength ?? 0,
@@ -297,8 +280,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
     });
   }
 
-  String _pretty(Object? v) =>
-      const JsonEncoder.withIndent('  ').convert(v);
+  String _pretty(Object? v) => const JsonEncoder.withIndent('  ').convert(v);
 
   String _escSingle(String s) => s.replaceAll("'", r"'\''");
 
@@ -317,16 +299,26 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
       return;
     }
     try {
-      final out = _buildOutput(entries);
+      final exportEntries = entries
+          .take(_kCollectionExportMaxEntries)
+          .toList(growable: false);
+      final out = _buildOutput(exportEntries);
       await Clipboard.setData(ClipboardData(text: out));
       if (!mounted) return;
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
+        final capped = entries.length > exportEntries.length;
+        final copied =
+            loc?.webReverseCollectionExportCopied(exportEntries.length) ??
+            'Copied ${exportEntries.length} requests to clipboard';
+        final cappedSuffix =
+            Localizations.localeOf(context).languageCode.startsWith('zh')
+            ? ' · 已按上限裁剪'
+            : ' · capped';
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          loc?.webReverseCollectionExportCopied(entries.length) ??
-              'Copied ${entries.length} requests to clipboard',
+          capped ? '$copied$cappedSuffix' : copied,
         );
       }
     } catch (e, st) {
@@ -339,10 +331,11 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final entries = _selected();
     final preview = entries.isEmpty
         ? (loc?.webReverseCollectionExportNoMatch ??
-            '// No matching requests.\n// Adjust the filter or turn off "XHR/Fetch only".')
+              '// No matching requests.\n// Adjust the filter or turn off "XHR/Fetch only".')
         : _buildOutput(entries.take(2).toList());
 
     return Dialog(
@@ -366,14 +359,16 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                         Text(
                           loc?.webReverseCollectionExportTitle ??
                               'Export Collection',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseCollectionExportSubtitle ??
                               'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -410,7 +405,8 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                     child: TextField(
                       controller: _nameCtrl,
                       decoration: InputDecoration(
-                        labelText: loc?.webReverseCollectionExportName ??
+                        labelText:
+                            loc?.webReverseCollectionExportName ??
                             'Collection name',
                         border: const OutlineInputBorder(),
                         isDense: true,
@@ -423,10 +419,13 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                       controller: _filterCtrl,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        labelText: loc?.webReverseCollectionExportUrlFilter ??
+                        labelText:
+                            loc?.webReverseCollectionExportUrlFilter ??
                             'URL filter',
-                        prefixIcon:
-                            const Icon(Icons.filter_alt_rounded, size: 18),
+                        prefixIcon: const Icon(
+                          Icons.filter_alt_rounded,
+                          size: 18,
+                        ),
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -434,8 +433,10 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
-                    label: Text(loc?.webReverseCollectionExportXhrOnly ??
-                        'XHR/Fetch only'),
+                    label: Text(
+                      loc?.webReverseCollectionExportXhrOnly ??
+                          'XHR/Fetch only',
+                    ),
                     selected: _xhrOnly,
                     onSelected: (v) => setState(() => _xhrOnly = v),
                   ),
@@ -446,21 +447,32 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Text(
-                    loc?.webReverseCollectionExportMatchCount(
-                          entries.length,
-                          widget.controller.networkRequests.length,
-                        ) ??
-                        '${entries.length} match · ${widget.controller.networkRequests.length} total',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      loc?.webReverseCollectionExportMatchCount(
+                            entries.length,
+                            widget.controller.networkRequests.length,
+                          ) ??
+                          '${entries.length} match · ${widget.controller.networkRequests.length} total',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ),
-                  const Spacer(),
-                  Text(
-                    loc?.webReverseCollectionExportPreview2 ??
-                        'Preview: first 2 entries',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '${loc?.webReverseCollectionExportPreview2 ?? 'Preview: first 2 entries'} · ${isZh ? '导出上限' : 'export cap'} $_kCollectionExportMaxEntries',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -495,7 +507,8 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseCollectionExportCopyAction ??
+                  label:
+                      loc?.webReverseCollectionExportCopyAction ??
                       'Copy collection',
                   onPressed: entries.isEmpty ? null : _copy,
                 ),
