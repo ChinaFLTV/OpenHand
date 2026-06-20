@@ -2263,7 +2263,7 @@ class AiPromptBuilder {
     if (value is! Map || !webReverseRuntimeBoolTrue(value['browser_alive'])) {
       return false;
     }
-    return webReverseCdpRuntimeHasLocator(value);
+    return webReverseCdpRuntimeHasLiveLocator(value);
   }
 
   void _disambiguateWebReverseConfigPort(
@@ -2271,7 +2271,7 @@ class AiPromptBuilder {
     Object? cdpRuntime,
   ) {
     if (!config.containsKey('cdp_port')) return;
-    if (cdpRuntime is! Map || !webReverseCdpRuntimeHasLocator(cdpRuntime)) {
+    if (cdpRuntime is! Map || !webReverseCdpRuntimeHasLiveLocator(cdpRuntime)) {
       return;
     }
     config['desired_cdp_port'] = config.remove('cdp_port');

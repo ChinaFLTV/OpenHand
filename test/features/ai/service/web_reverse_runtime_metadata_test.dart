@@ -27,20 +27,24 @@ void main() {
       expect(webReverseRuntimeBoolFalse(null), isFalse);
     });
 
-    test('detects usable CDP locators', () {
-      expect(webReverseCdpRuntimeHasLocator(<Object?, Object?>{}), isFalse);
+    test('detects live CDP locators', () {
+      expect(webReverseCdpRuntimeHasLiveLocator(<Object?, Object?>{}), isFalse);
       expect(
-        webReverseCdpRuntimeHasLocator(<Object?, Object?>{'cdp_port': 9223}),
+        webReverseCdpRuntimeHasLiveLocator(<Object?, Object?>{
+          'cdp_port': 9223,
+        }),
         isTrue,
       );
       expect(
-        webReverseCdpRuntimeHasLocator(<Object?, Object?>{
+        webReverseCdpRuntimeHasLiveLocator(<Object?, Object?>{
           'json_list_url': 'http://127.0.0.1:9223/json/list',
         }),
         isTrue,
       );
       expect(
-        webReverseCdpRuntimeHasLocator(<Object?, Object?>{'last_cdp_port': 0}),
+        webReverseCdpRuntimeHasLiveLocator(<Object?, Object?>{
+          'last_cdp_port': 9223,
+        }),
         isFalse,
       );
     });

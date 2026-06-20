@@ -247,7 +247,7 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
   final cdpRuntime = _stringObjectMap(metadata['web_reverse_cdp_runtime']);
   if (config == null || cdpRuntime == null) return null;
   if (!webReverseRuntimeBoolTrue(cdpRuntime['browser_alive']) ||
-      !webReverseCdpRuntimeHasLocator(cdpRuntime)) {
+      !webReverseCdpRuntimeHasLiveLocator(cdpRuntime)) {
     return null;
   }
 
