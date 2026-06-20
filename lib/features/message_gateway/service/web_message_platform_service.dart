@@ -231,11 +231,11 @@ class WebMessagePlatformService {
   static const int _maxMessageWindowLimit = 200;
   static const int _sseMessageWindowSize = 20;
   static const int _sessionSummaryMessageWindowSize = 6;
-  static const int _storedMessageWindowScanMultiplier = 2;
-  static const int _storedMessageWindowScanContext = 12;
-  static const int _storedMessageWindowExpandedScanMultiplier = 3;
-  static const int _storedMessageWindowExpandedScanContext = 24;
-  static const int _storedMessageWindowExpandedScanLimit = 128;
+  static const int _storedMessageWindowScanMultiplier = 1;
+  static const int _storedMessageWindowScanContext = 8;
+  static const int _storedMessageWindowExpandedScanMultiplier = 2;
+  static const int _storedMessageWindowExpandedScanContext = 16;
+  static const int _storedMessageWindowExpandedScanLimit = 96;
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -2281,7 +2281,7 @@ class WebMessagePlatformService {
       });
     }
     return _json(HttpStatus.ok, <String, Object?>{
-      'session': await _sessionSummaryWithStoredMessages(
+      'session': await _sessionSummaryWithStoredMessageCount(
         session,
         includeDetails: true,
       ),
@@ -4669,6 +4669,32 @@ class WebMessagePlatformService {
     );
   }
 
+  Future<Map<String, Object?>> _sessionSummaryWithStoredMessageCount(
+    AiSession session, {
+    bool includeDetails = false,
+  }) async {
+    var total = session.statistics.totalMessageCount;
+    try {
+      total = math.max(
+        total,
+        await _sessionController.store.countMessages(session.id),
+      );
+    } catch (error, stack) {
+      silentLog('WebGateway', 'count stored messages', error, stack);
+    }
+    final liveDisplayMessages = session.messages.isEmpty
+        ? const <AiSessionMessage>[]
+        : session.displayMessages;
+    return _sessionSummary(
+      session,
+      includeDetails: includeDetails,
+      messageCountOverride: math.max(total, liveDisplayMessages.length),
+      lastMessageOverride: liveDisplayMessages.isEmpty
+          ? null
+          : liveDisplayMessages.last,
+    );
+  }
+
   Map<String, Object?> _sessionSummary(
     AiSession session, {
     bool includeDetails = false,
@@ -4676,7 +4702,11 @@ class WebMessagePlatformService {
     AiSessionMessage? lastMessageOverride,
   }) {
     final context = _webContext(session.metadata);
-    final displayMessages = session.displayMessages;
+    final needsDisplayMessages =
+        messageCountOverride == null || lastMessageOverride == null;
+    final displayMessages = needsDisplayMessages
+        ? session.displayMessages
+        : const <AiSessionMessage>[];
     final last =
         lastMessageOverride ??
         (displayMessages.isEmpty ? null : displayMessages.last);

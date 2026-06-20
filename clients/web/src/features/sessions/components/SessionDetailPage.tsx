@@ -83,10 +83,10 @@ import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '
 const PAGE_SIZE = 32;
 // 首屏只取最近少量消息；历史按 PAGE_SIZE 增量补齐，避免打开存量会话时
 // 浏览器一次挂载几十张复杂消息卡。
-const INITIAL_PAGE_SIZE = 16;
-const INITIAL_RENDERED_MESSAGE_COUNT = 6;
-const MESSAGE_RENDER_BATCH_SIZE = 4;
-const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 120;
+const INITIAL_PAGE_SIZE = 12;
+const INITIAL_RENDERED_MESSAGE_COUNT = 4;
+const MESSAGE_RENDER_BATCH_SIZE = 2;
+const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 180;
 
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;

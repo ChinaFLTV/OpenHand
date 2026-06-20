@@ -724,11 +724,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     final session = widget.session;
-    final staged =
-        _initialMaterializationPending &&
-            visibleMessages.length <= _transcriptFirstFrameWindowSize
-        ? _visibleMessagesForWindow()
-        : visibleMessages;
+    final staged = visibleMessages;
     final warmCount = math.min(
       staged.length,
       math.max(_transcriptInitialWindowSize, _transcriptWindowIncrement),
