@@ -2054,7 +2054,7 @@ class AiPromptBuilder {
     Object? meta(String key) =>
         _boundedWebReverseMetadataValue(session.metadata[key]);
     final cdpRuntime = _sanitizeWebReverseCdpRuntime(
-      meta('web_reverse_cdp_runtime'),
+      _webReverseCdpRuntimeMetadata(session),
     );
     final dashboardCurrentTarget = meta('web_reverse_browser_current_target');
     final cdpRuntimeDead = _isWebReverseCdpRuntimeDead(cdpRuntime);
@@ -2233,6 +2233,19 @@ class AiPromptBuilder {
       runtime['last_current_target'] = lastTarget;
     }
     return runtime;
+  }
+
+  Object? _webReverseCdpRuntimeMetadata(AiSession session) {
+    final runtime = session.metadata['web_reverse_runtime'];
+    if (runtime is Map) {
+      final cdpRuntime = runtime['cdp_runtime'];
+      if (cdpRuntime != null) {
+        return _boundedWebReverseMetadataValue(cdpRuntime);
+      }
+    }
+    return _boundedWebReverseMetadataValue(
+      session.metadata['web_reverse_cdp_runtime'],
+    );
   }
 
   bool _isWebReverseCdpRuntimeDead(Object? value) {
