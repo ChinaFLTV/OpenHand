@@ -4,6 +4,7 @@ import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+import '../web_reverse_cdp_first_guard.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
 class AiBashTool extends AiTool {
@@ -37,6 +38,9 @@ class AiBashTool extends AiTool {
     final args = context.decodedArguments;
     final cancelSignal = context.cancelSignal;
     final onBashUpdate = context.onBashUpdate;
+    final command = '${args['cmd'] ?? args['command'] ?? ''}'.trim();
+    final workingDirectory = '${args['working_directory'] ?? args['cwd'] ?? ''}'
+        .trim();
 
     final confirmationGate = AiBashWriteConfirmationGate(
       hookService: _hookService,
@@ -54,11 +58,21 @@ class AiBashTool extends AiTool {
         'Bash timeout must be between 1 and 600000 milliseconds.',
       );
     }
+    final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateCommand(
+      command: command,
+      metadata: context.metadata,
+    );
+    if (cdpFirstDecision != null) {
+      return _webReverseBashCdpFirstBlock(
+        decision: cdpFirstDecision,
+        command: command,
+        workingDirectory: workingDirectory,
+      );
+    }
     final bashResult = await _bashToolService.execute(
-      command: '${args['cmd'] ?? args['command'] ?? ''}'.trim(),
+      command: command,
       sessionId: context.sessionId,
-      workingDirectory: '${args['working_directory'] ?? args['cwd'] ?? ''}'
-          .trim(),
+      workingDirectory: workingDirectory,
       denyRules: context.denyCommandRules,
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: confirmationGate.callback,
@@ -86,4 +100,35 @@ class AiBashTool extends AiTool {
       },
     );
   }
+}
+
+AiToolExecutionResult _webReverseBashCdpFirstBlock({
+  required WebReverseCdpFirstDecision decision,
+  required String command,
+  required String workingDirectory,
+}) {
+  final message = decision.blockedMessage('Bash');
+  return AiToolExecutionResult(
+    status: BashToolExecutionStatus.denied,
+    command: command.isEmpty ? 'Bash' : command,
+    workingDirectory: workingDirectory.isEmpty
+        ? AiToolUtils.defaultWorkingDirectory()
+        : AiToolUtils.resolvePath(workingDirectory),
+    stdout:
+        'cdp_first_required: true\n'
+        'target_origin: ${decision.targetOrigin}\n'
+        'requested_origin: ${decision.requestedOrigin}\n'
+        'cdp_route: ${decision.routeKind}\n'
+        'cdp_tools: ${decision.toolText}',
+    stderr: message,
+    durationMs: 0,
+    resultText: 'status: denied\nerror: $message',
+    metadata: <String, Object?>{
+      'web_reverse_bash_blocked_command_char_count': command.length,
+      ...decision.metadata(
+        requestedUrl: decision.requestedUri.toString(),
+        blockedFlag: 'web_reverse_bash_blocked_for_cdp_first',
+      ),
+    },
+  );
 }
