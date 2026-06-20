@@ -1433,7 +1433,7 @@ class AiPromptBuilder {
           'When `web_reverse_runtime.cdp_runtime.browser_alive` is true, the browser is already an OpenHand-managed external Chrome session; do not launch a new browser or attach via Bash. '
           'When `browser_alive` is false, live CDP MCP actions are unavailable: use local jsonl/HAR artifacts and ask the user to restart the browser before live browser operations. '
           'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
-          'When a live CDP route is available, Bash/WebFetch target-origin HTTP(S) access is blocked; use CDP MCP tools or ToolSearch first. '
+          'When the live CDP runtime is available, Bash/WebFetch target-origin HTTP(S) access is blocked; use CDP MCP tools, ToolSearch, or local jsonl/HAR first. '
           'skill__* tools are auxiliary knowledge only. Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation is fallback-only after CDP cannot expose the needed state or fails repeatedly, and you must explain the fallback reason. '
           'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
         );
@@ -2089,7 +2089,7 @@ class AiPromptBuilder {
           ? 'Live CDP MCP actions require cdp_runtime.browser_alive=true plus a current CDP endpoint/port. Without confirmed live CDP runtime, use local jsonl/HAR artifacts, or ask the user to restart/restore the Web Reverse browser before live browser operations.'
           : 'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
       'target_origin_fetch_guard': cdpRuntimeLive
-          ? 'When a live CDP route is available, WebFetch and explicit Bash HTTP(S) requests to the target origin are blocked. External docs/static references remain allowed.'
+          ? 'When the live CDP runtime is available, WebFetch and explicit Bash HTTP(S) requests to the target origin are blocked. External docs/static references remain allowed.'
           : 'Inactive until cdp_runtime.browser_alive=true; prefer local jsonl/HAR artifacts while live CDP is unavailable.',
       'cdp_mcp_tool_availability': <String, Object?>{
         'browser_runtime_live': cdpRuntimeLive,

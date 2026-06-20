@@ -8,6 +8,7 @@ class WebReverseCdpFirstDecision {
     required this.toolNames,
     required this.requiresToolSearch,
     required this.fallbackToolLabel,
+    this.nextActionOverride,
   });
 
   final Uri requestedUri;
@@ -16,6 +17,7 @@ class WebReverseCdpFirstDecision {
   final List<String> toolNames;
   final bool requiresToolSearch;
   final String fallbackToolLabel;
+  final String? nextActionOverride;
 
   List<String> get toolPreview => toolNames.take(8).toList(growable: false);
 
@@ -29,6 +31,8 @@ class WebReverseCdpFirstDecision {
   String get requestedOrigin => _httpOriginLabel(requestedUri);
 
   String get nextAction {
+    final override = nextActionOverride?.trim();
+    if (override != null && override.isNotEmpty) return override;
     if (requiresToolSearch) {
       return 'Call ToolSearch first to load the CDP MCP tools, then inspect the live browser with those exact tool names.';
     }
@@ -86,6 +90,7 @@ class WebReverseCdpFirstGuard {
           toolNames: route.toolNames,
           requiresToolSearch: route.requiresToolSearch,
           fallbackToolLabel: route.fallbackToolLabel,
+          nextActionOverride: route.nextActionOverride,
         );
       }
     }
@@ -181,7 +186,12 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
     );
   }
 
-  return null;
+  final toolSearchAvailable = _boolValue(
+    availability?['tool_search_available'],
+  );
+  return _WebReverseCdpRoute.runtimeLiveWithoutTools(
+    toolSearchAvailable: toolSearchAvailable,
+  );
 }
 
 List<Uri> _webReverseTargetUris(Map<String, Object?> runtime) {
@@ -285,6 +295,7 @@ class _WebReverseCdpRoute {
     required this.toolNames,
     required this.requiresToolSearch,
     required this.fallbackToolLabel,
+    this.nextActionOverride,
   });
 
   factory _WebReverseCdpRoute.current(
@@ -311,8 +322,23 @@ class _WebReverseCdpRoute {
     );
   }
 
+  factory _WebReverseCdpRoute.runtimeLiveWithoutTools({
+    required bool toolSearchAvailable,
+  }) {
+    return _WebReverseCdpRoute._(
+      kind: 'runtime_live_without_callable_cdp_tools',
+      toolNames: const <String>[],
+      requiresToolSearch: false,
+      fallbackToolLabel: 'live OpenHand CDP runtime',
+      nextActionOverride: toolSearchAvailable
+          ? 'Call ToolSearch for CDP / Chrome DevTools MCP tools if available; otherwise wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts. Do not use target-origin WebFetch/Bash while browser_alive=true.'
+          : 'Wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts; ask the user to restart or refresh CDP MCP if tools remain unavailable. Do not use target-origin WebFetch/Bash while browser_alive=true.',
+    );
+  }
+
   final String kind;
   final List<String> toolNames;
   final bool requiresToolSearch;
   final String fallbackToolLabel;
+  final String? nextActionOverride;
 }
