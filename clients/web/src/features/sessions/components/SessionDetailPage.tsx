@@ -80,13 +80,14 @@ import { CreationOptionsDialog, type CreationOptions } from '../../../components
 import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '../../../components/MediaGeneratingPlaceholder';
 
-const PAGE_SIZE = 32;
+const PAGE_SIZE = 24;
 // 首屏只取最近少量消息；历史按 PAGE_SIZE 增量补齐，避免打开存量会话时
 // 浏览器一次挂载几十张复杂消息卡。
 const INITIAL_PAGE_SIZE = 12;
 const INITIAL_RENDERED_MESSAGE_COUNT = 4;
 const MESSAGE_RENDER_BATCH_SIZE = 2;
 const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 180;
+const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -1258,6 +1259,7 @@ export function SessionDetailPage() {
   const [totalKnown, setTotalKnown] = useState(0);
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderRenderSettling, setOlderRenderSettling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sendPhase, setSendPhase] = useState<string>('idle');
@@ -1388,6 +1390,7 @@ export function SessionDetailPage() {
   const renderedMessageCountRef = useRef(0);
   const messageRenderGenerationRef = useRef(0);
   const messageRenderSessionRef = useRef('');
+  const olderRenderSettlingRef = useRef(false);
   const lastLocalSendAtRef = useRef<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
@@ -1574,6 +1577,11 @@ export function SessionDetailPage() {
   const setAutoFollowPausedValue = (value: boolean) => {
     autoFollowPausedRef.current = value;
     setAutoFollowPaused((current) => (current === value ? current : value));
+  };
+
+  const setOlderRenderSettlingValue = (value: boolean) => {
+    olderRenderSettlingRef.current = value;
+    setOlderRenderSettling((current) => (current === value ? current : value));
   };
 
   const clearUnreadCount = () => {
@@ -1937,6 +1945,16 @@ export function SessionDetailPage() {
   }, [renderedMessageCount]);
 
   useEffect(() => {
+    if (!olderRenderSettling) return;
+    if (renderedMessageCount < routeMessages.length) return;
+    const handle = window.setTimeout(() => {
+      if (renderedMessageCountRef.current < messagesRef.current.length) return;
+      setOlderRenderSettlingValue(false);
+    }, LOAD_OLDER_RENDER_SETTLE_MS);
+    return () => window.clearTimeout(handle);
+  }, [olderRenderSettling, renderedMessageCount, routeMessages.length]);
+
+  useEffect(() => {
     windowOffsetRef.current = windowOffset;
   }, [windowOffset]);
 
@@ -2257,6 +2275,7 @@ export function SessionDetailPage() {
     setLoadingDetail(true);
     setRefreshing(false);
     setLoadingOlder(false);
+    setOlderRenderSettlingValue(false);
     setError(null);
     replaceMessageWindow([], 0);
     renderedMessageCountRef.current = 0;
@@ -2337,7 +2356,17 @@ export function SessionDetailPage() {
   }
 
   async function loadOlder(): Promise<void> {
-    if (loadingOlder || olderMessagesAbortRef.current) return;
+    if (
+      loadingOlder ||
+      olderRenderSettlingRef.current ||
+      olderMessagesAbortRef.current
+    ) {
+      return;
+    }
+    if (renderedMessageCountRef.current < messagesRef.current.length) {
+      setOlderRenderSettlingValue(true);
+      return;
+    }
     if (windowOffset <= 0) return;
     const requestSessionId = sessionId;
     const ctrl = new AbortController();
@@ -2357,6 +2386,7 @@ export function SessionDetailPage() {
       const currentMessages = messagesRef.current;
       const existing = new Set(currentMessages.map((item) => item.id));
       const incoming = m.items.filter((item) => !existing.has(item.id));
+      setOlderRenderSettlingValue(incoming.length > 0);
       replaceMessageWindow([...incoming, ...currentMessages], m.offset);
       updateTotalKnown(m.total);
       updateSendPhaseValue(m.send_phase);
@@ -3563,6 +3593,7 @@ export function SessionDetailPage() {
     enabled:
       !effectiveLoadingDetail &&
       !loadingOlder &&
+      !olderRenderSettling &&
       renderedMessageCount >= routeMessages.length,
     onRefresh: async () => {
       if (remainingOlder > 0) {
@@ -3800,11 +3831,11 @@ export function SessionDetailPage() {
                 {/* 加载更早 */}
                 {deferredLocalMessageCount > 0 || remainingOlder > 0 ? (
                   <div class="text-center mb-3">
-                    <button type="button" onClick={loadOlder} disabled={loadingOlder || deferredLocalMessageCount > 0} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
-                      <span class={loadingOlder || deferredLocalMessageCount > 0 ? 'oh-spin' : undefined} aria-hidden>
+                    <button type="button" onClick={loadOlder} disabled={loadingOlder || olderRenderSettling || deferredLocalMessageCount > 0} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
+                      <span class={loadingOlder || olderRenderSettling || deferredLocalMessageCount > 0 ? 'oh-spin' : undefined} aria-hidden>
                         <ComposerIcon name="refresh" size={13} />
                       </span>
-                      {deferredLocalMessageCount > 0
+                      {deferredLocalMessageCount > 0 || olderRenderSettling
                         ? t('detail.preparingEarlier', '正在准备更早消息…')
                         : loadingOlder
                         ? t('detail.loadingOlder', '加载中…')

@@ -317,7 +317,7 @@ class AiSessionController extends ChangeNotifier {
   static const int _manualCompactionRefusePercentLeftAbove = 85;
   static const int _initialMessageHydrationWindowSize = 12;
   static const int _initialMessageHydrationCharacterBudget = 24000;
-  static const int _olderMessageHydrationBatchSize = 32;
+  static const int _olderMessageHydrationBatchSize = 24;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {

@@ -1644,91 +1644,108 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         : 0.0;
     final anchor = _capturePrependAnchor();
     final preserveTriggerOffset = hiddenBefore > 0;
+    var revealStarted = false;
     setState(() {
       _loadingOlderMessages = true;
       _historyRevealCacheBoost = true;
     });
+    revealStarted = true;
 
-    await Future<void>.delayed(const Duration(milliseconds: 16));
-    if (!mounted) {
-      return;
-    }
-
-    if (_windowStartIndex > 0) {
-      setState(() {
-        _windowStartIndex = math.max(
-          0,
-          _windowStartIndex - _transcriptWindowIncrement,
-        );
-        _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
-        _loadingOlderMessages = false;
-      });
-    } else {
-      await context.read<AiSessionController>().loadOlderSessionMessages(
-        widget.session.id,
-      );
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
       if (!mounted) {
         return;
       }
-      setState(() {
-        _loadingOlderMessages = false;
-      });
-    }
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) {
-      return;
-    }
 
-    if (preserveTriggerOffset && hadClients) {
-      final position = scrollController.positions.isNotEmpty
-          ? scrollController.positions.last
-          : null;
-      final scrollActive = context.read<TranscriptScrollActivity>().value;
-      if (position != null &&
-          !scrollActive &&
-          !position.isScrollingNotifier.value) {
-        final target = previousPixels.clamp(
-          position.minScrollExtent,
-          position.maxScrollExtent,
-        );
-        if ((target - position.pixels).abs() >=
-            _transcriptPrependAnchorMinCorrection) {
-          widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
-        }
+      if (_windowStartIndex > 0) {
+        setState(() {
+          _windowStartIndex = math.max(
+            0,
+            _windowStartIndex - _transcriptWindowIncrement,
+          );
+          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+        });
       } else {
-        _pendingRevealRestore = position == null
-            ? null
-            : _PendingRevealRestore(targetPixels: previousPixels);
-        if (_pendingRevealRestore != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _handleRevealScrollActivityChanged();
-            }
-          });
+        await context.read<AiSessionController>().loadOlderSessionMessages(
+          widget.session.id,
+        );
+        if (!mounted) {
+          return;
         }
       }
-      return;
-    }
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) {
+        return;
+      }
 
-    final restoredByAnchor = anchor != null && _restorePrependAnchor(anchor);
-    if (anchor != null) {
-      _startPrependAnchorStabilization(anchor);
-    }
-
-    // 锚点不可用时，用 maxScrollExtent 差值兜底保持旧视觉位置。
-    if (!restoredByAnchor && hadClients) {
-      final position = scrollController.positions.isNotEmpty
-          ? scrollController.positions.last
-          : null;
-      if (position != null) {
-        final newMaxExtent = position.maxScrollExtent;
-        final delta = newMaxExtent - currentMaxExtent;
-        if (delta > 0) {
-          final target = (position.pixels + delta).clamp(
+      if (preserveTriggerOffset && hadClients) {
+        final position = scrollController.positions.isNotEmpty
+            ? scrollController.positions.last
+            : null;
+        final scrollActive = context.read<TranscriptScrollActivity>().value;
+        if (position != null &&
+            !scrollActive &&
+            !position.isScrollingNotifier.value) {
+          final target = previousPixels.clamp(
             position.minScrollExtent,
-            newMaxExtent,
+            position.maxScrollExtent,
           );
-          widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
+          if ((target - position.pixels).abs() >=
+              _transcriptPrependAnchorMinCorrection) {
+            widget.onProgrammaticScrollCorrection(
+              () => position.jumpTo(target),
+            );
+          }
+        } else {
+          _pendingRevealRestore = position == null
+              ? null
+              : _PendingRevealRestore(targetPixels: previousPixels);
+          if (_pendingRevealRestore != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _handleRevealScrollActivityChanged();
+              }
+            });
+          }
+        }
+        return;
+      }
+
+      final restoredByAnchor = anchor != null && _restorePrependAnchor(anchor);
+      if (anchor != null) {
+        _startPrependAnchorStabilization(anchor);
+      }
+
+      // 锚点不可用时，用 maxScrollExtent 差值兜底保持旧视觉位置。
+      if (!restoredByAnchor && hadClients) {
+        final position = scrollController.positions.isNotEmpty
+            ? scrollController.positions.last
+            : null;
+        if (position != null) {
+          final newMaxExtent = position.maxScrollExtent;
+          final delta = newMaxExtent - currentMaxExtent;
+          if (delta > 0) {
+            final target = (position.pixels + delta).clamp(
+              position.minScrollExtent,
+              newMaxExtent,
+            );
+            widget.onProgrammaticScrollCorrection(
+              () => position.jumpTo(target),
+            );
+          }
+        }
+      }
+    } catch (error, stack) {
+      silentLog('home_transcript', 'reveal older messages', error, stack);
+    } finally {
+      if (revealStarted && mounted) {
+        await WidgetsBinding.instance.endOfFrame;
+        await Future<void>.delayed(_transcriptHistoryRevealCooldown);
+        if (mounted) {
+          setState(() {
+            _loadingOlderMessages = false;
+            _historyRevealCacheBoost = false;
+          });
         }
       }
     }
@@ -2153,7 +2170,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final listCacheExtent = _historyRevealCacheBoost
         ? math.max(
             _transcriptHistoryRevealListCacheExtent,
-            MediaQuery.sizeOf(context).height * 2.4,
+            MediaQuery.sizeOf(context).height * 1.15,
           )
         : _transcriptListCacheExtent;
     final transcriptScrollActive = context
