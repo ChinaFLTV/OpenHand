@@ -4158,7 +4158,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
-      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
+      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，带有超时兜底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
 
   @override
   String get settingsHermesTalker => 'Hermes Talker';
@@ -12041,7 +12041,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
-      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
+      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，带有超时兜底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
 
   @override
   String get settingsHermesTalker => 'Hermes Talker';
@@ -19923,7 +19923,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
-      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
+      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，带有超时兜底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
 
   @override
   String get settingsHermesTalker => 'Hermes Talker';

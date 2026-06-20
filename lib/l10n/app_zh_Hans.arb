@@ -1896,7 +1896,7 @@
   "settingsConfigureKeyCombinationsForCommonActions": "为常用操作配置组合键。当前最多支持同时按下 4 个按键。",
   "settingsBuiltInTools": "内建工具",
   "settingsCrons": "定时任务",
-  "settingsControlsRetentionAndColdStartCleanup": "控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。",
+  "settingsControlsRetentionAndColdStartCleanup": "控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，带有超时兜底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。",
   "settingsHermesTalker": "Hermes Talker",
   "@settingsHermesTalker": {
     "description": "Internal feature brand name: Hermes Talker. Brand-style; transliterate only when natural."

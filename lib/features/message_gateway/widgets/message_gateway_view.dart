@@ -23,6 +23,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -345,7 +346,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     _MetricTile(label: '错误数', value: '${runtime.totalErrors}'),
                     _MetricTile(
                       label: '运行时长',
-                      value: _formatDuration(runtime.uptimeMs),
+                      value: formatCompactDurationMs(runtime.uptimeMs),
                     ),
                   ],
                 );
@@ -1450,7 +1451,7 @@ class _ConnectivityResultView extends StatelessWidget {
                       Text(result.summary, style: theme.textTheme.titleMedium),
                       const SizedBox(height: 4),
                       Text(
-                        '${_formatDateTime(result.startedAt)} · 总耗时 ${result.durationMs}ms',
+                        '${formatYearMonthDayHms(result.startedAt.toLocal())} · 总耗时 ${result.durationMs}ms',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -2378,7 +2379,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             ),
                             _MetricTile(
                               label: '运行时间',
-                              value: _formatDuration(snapshot.uptimeMs),
+                              value: formatCompactDurationMs(snapshot.uptimeMs),
                             ),
                             _MetricTile(
                               label: 'CPU',
@@ -3501,7 +3502,7 @@ class _OpsSummaryCard extends StatelessWidget {
           if (slow != null)
             _OpsKeyValue(
               '近期最慢请求',
-              '${slow.method} ${slow.path} -> ${slow.statusCode} · ${slow.durationMs}ms${slow.at == null ? '' : ' · ${_dateTime(slow.at!)}'}',
+              '${slow.method} ${slow.path} -> ${slow.statusCode} · ${slow.durationMs}ms${slow.at == null ? '' : ' · ${formatYearMonthDayHms(slow.at!.toLocal())}'}',
             ),
         ],
       ),
@@ -5040,7 +5041,7 @@ class _CleanupHistoryLine extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '${_cleanupTargetLabel(entry.target)} · ${entry.expiredOnly ? '保留策略' : '手动清理'} · ${_formatDateTime(entry.timestamp)}',
+              '${_cleanupTargetLabel(entry.target)} · ${entry.expiredOnly ? '保留策略' : '手动清理'} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -5460,23 +5461,6 @@ List<String> _parseExtensions(String raw) {
 int _int(String value, int fallback) {
   return positiveIntFromText(value, fallback: fallback);
 }
-
-String _formatDuration(int ms) {
-  final d = Duration(milliseconds: ms);
-  if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
-  if (d.inMinutes > 0) return '${d.inMinutes}m ${d.inSeconds.remainder(60)}s';
-  return '${d.inSeconds}s';
-}
-
-String _formatDateTime(DateTime value) {
-  return value
-      .toLocal()
-      .toIso8601String()
-      .replaceFirst('T', ' ')
-      .substring(0, 19);
-}
-
-String _dateTime(DateTime value) => _formatDateTime(value);
 
 String _rate(double value) {
   if (value >= 100) return value.toStringAsFixed(0);

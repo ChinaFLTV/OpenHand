@@ -76,3 +76,18 @@ String formatYearMonthDayHm(DateTime value) {
 String formatYearMonthDayHms(DateTime value) {
   return '${formatYearMonthDay(value)} ${formatHourMinuteSecond(value)}';
 }
+
+String formatCompactDuration(Duration value) {
+  final duration = value.isNegative ? Duration.zero : value;
+  if (duration.inHours > 0) {
+    return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
+  }
+  if (duration.inMinutes > 0) {
+    return '${duration.inMinutes}m ${duration.inSeconds.remainder(60)}s';
+  }
+  return '${duration.inSeconds}s';
+}
+
+String formatCompactDurationMs(int milliseconds) {
+  return formatCompactDuration(Duration(milliseconds: milliseconds));
+}
