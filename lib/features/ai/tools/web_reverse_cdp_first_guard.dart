@@ -41,14 +41,18 @@ class WebReverseCdpFirstDecision {
   }
 
   String blockedMessage(String toolName) {
-    final reason = routeKind == _WebReverseCdpRoute.unavailableKind
+    final unavailable = routeKind == _WebReverseCdpRoute.unavailableKind;
+    final reason = unavailable
         ? 'because live CDP is unavailable and this Web Reverse target must use local artifacts or restored CDP.'
         : 'because live CDP is available.';
+    final allowed = unavailable
+        ? 'Use $toolName only for unrelated external docs/static references. For this Web Reverse target, use local artifacts or restored CDP.'
+        : 'Use $toolName only for unrelated external docs/static references, or after CDP-first target handling is no longer required.';
     return '$toolName is blocked for this Web Reverse target $reason\n'
         'target_origin: $targetOrigin\n'
         'requested_origin: $requestedOrigin\n'
         'next_action: $nextAction\n'
-        'allowed: Use $toolName only for unrelated external docs/static references, or after live CDP is unavailable.';
+        'allowed: $allowed';
   }
 
   Map<String, Object?> metadata({
