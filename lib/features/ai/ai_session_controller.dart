@@ -6289,6 +6289,20 @@ class AiSessionController extends ChangeNotifier {
       final sessionMode = currentSession?.mode;
       final planModeActive = sessionMode == AiSessionMode.plan;
       final pendingPlan = currentSession?.pendingPlan?.trim() ?? '';
+      final toolMetadata = _toolExecutionBaseMetadata(currentSession);
+      toolMetadata.addAll(<String, Object?>{
+        if (sessionMode != null) 'session_mode': sessionMode.storageValue,
+        'plan_mode_active': planModeActive,
+        'awaiting_plan_approval': currentSession?.awaitingPlanApproval ?? false,
+        if (pendingPlan.isNotEmpty) 'pending_plan': pendingPlan,
+        if (currentSession?.todoItems.isNotEmpty == true)
+          'current_todos': currentSession!.todoItems
+              .map((item) => item.toJson())
+              .toList(growable: false),
+        'plan_mode_execution_approved_for_send': planModeActive
+            ? planModeExecutionApprovedForSend
+            : true,
+      });
       return await _toolRuntimeService.execute(
         sessionId: executionSessionId ?? sessionId,
         catalog: toolCatalog,
@@ -6302,20 +6316,7 @@ class AiSessionController extends ChangeNotifier {
         confirmWriteCommand: confirmWriteCommand,
         cancelSignal: cancelSignal ?? _stopSignalForSession(sessionId),
         onBashUpdate: onUpdate,
-        metadata: <String, Object?>{
-          if (sessionMode != null) 'session_mode': sessionMode.storageValue,
-          'plan_mode_active': planModeActive,
-          'awaiting_plan_approval':
-              currentSession?.awaitingPlanApproval ?? false,
-          if (pendingPlan.isNotEmpty) 'pending_plan': pendingPlan,
-          if (currentSession?.todoItems.isNotEmpty == true)
-            'current_todos': currentSession!.todoItems
-                .map((item) => item.toJson())
-                .toList(growable: false),
-          'plan_mode_execution_approved_for_send': planModeActive
-              ? planModeExecutionApprovedForSend
-              : true,
-        },
+        metadata: toolMetadata,
       );
     } catch (error) {
       return AiToolExecutionResult(
@@ -6328,6 +6329,20 @@ class AiSessionController extends ChangeNotifier {
         resultText: 'status: failed\nerror: $error',
       );
     }
+  }
+
+  Map<String, Object?> _toolExecutionBaseMetadata(AiSession? session) {
+    if (session == null) {
+      return <String, Object?>{};
+    }
+    final metadata = <String, Object?>{...session.metadata};
+    final webReverseRuntime = _metadataMap(
+      session.lastPromptMetadata['web_reverse_runtime'],
+    );
+    if (webReverseRuntime != null && webReverseRuntime.isNotEmpty) {
+      metadata['web_reverse_runtime'] = webReverseRuntime;
+    }
+    return metadata;
   }
 
   String _toolCallCommand(AiToolCall toolCall) {

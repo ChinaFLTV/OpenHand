@@ -150,6 +150,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
                 radius: 18,
                 onTap: () => showWebReverseResendRequestDialog(
                   context,
+                  controller: widget.controller,
                   entry: widget.entry,
                   isZh: isZh,
                 ),

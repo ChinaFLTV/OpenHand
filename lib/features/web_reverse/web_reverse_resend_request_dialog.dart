@@ -1,8 +1,8 @@
 // 报文重放/改包 (Resend·Edit) Dialog
 //
 // 从 Network 详情面板触发：以一个 [CdpNetworkEntry] 为初始模板，让用户
-// 修改 URL / Method / Headers / Body 后用 Dart [HttpClient] 直接发请求
-// （绕过浏览器，不受 CSP/CORS 影响），结果实时展示状态、响应头、响应体。
+// 修改 URL / Method / Headers / Body 后默认通过 CDP 在页面上下文 fetch，
+// 保留 Dart [HttpClient] 直连模式作为显式备选，结果实时展示状态、响应头、响应体。
 //
 // 顶部右侧 segmented action 可一键导出为 curl / Python requests / fetch
 // 代码并复制到剪贴板，方便贴到外部脚本。
@@ -22,22 +22,33 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseResendRequestDialog(
   BuildContext context, {
+  required WebReverseSessionController controller,
   required CdpNetworkEntry entry,
   required bool isZh,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _ResendRequestDialog(initial: entry, isZh: isZh),
+    builder: (_) => _ResendRequestDialog(
+      controller: controller,
+      initial: entry,
+      isZh: isZh,
+    ),
   );
 }
 
 class _ResendRequestDialog extends StatefulWidget {
-  const _ResendRequestDialog({required this.initial, required this.isZh});
+  const _ResendRequestDialog({
+    required this.controller,
+    required this.initial,
+    required this.isZh,
+  });
+  final WebReverseSessionController controller;
   final CdpNetworkEntry initial;
   final bool isZh;
 
@@ -46,6 +57,9 @@ class _ResendRequestDialog extends StatefulWidget {
 }
 
 class _ResendRequestDialogState extends State<_ResendRequestDialog> {
+  static const int _kMaxResponseBytes = 2 * 1024 * 1024;
+  static const Duration _kRequestTimeout = Duration(seconds: 30);
+
   static const _kMethods = [
     'GET',
     'POST',
@@ -56,13 +70,40 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     'OPTIONS',
   ];
 
+  static const _kBrowserFetchForbiddenHeaders = <String>{
+    'accept-charset',
+    'accept-encoding',
+    'access-control-request-headers',
+    'access-control-request-method',
+    'connection',
+    'content-length',
+    'cookie',
+    'cookie2',
+    'date',
+    'dnt',
+    'expect',
+    'host',
+    'keep-alive',
+    'origin',
+    'referer',
+    'te',
+    'trailer',
+    'transfer-encoding',
+    'upgrade',
+    'user-agent',
+    'via',
+  };
+
   late final TextEditingController _urlCtrl;
   late final TextEditingController _bodyCtrl;
   late String _method;
   final List<_HeaderRow> _headers = <_HeaderRow>[];
 
+  late _ReplayTransport _transport;
   bool _sending = false;
   HttpClient? _activeClient;
+  String? _activeBrowserAbortKey;
+  int _sendGeneration = 0;
   _ResponseSnapshot? _lastResp;
   String? _lastError;
 
@@ -76,6 +117,9 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     _method = _kMethods.contains(widget.initial.method.toUpperCase())
         ? widget.initial.method.toUpperCase()
         : 'GET';
+    _transport = widget.controller.isBrowserAlive
+        ? _ReplayTransport.browser
+        : _ReplayTransport.direct;
     widget.initial.requestHeaders.forEach((k, v) {
       if (k.startsWith(':')) return; // 跳过 HTTP/2 伪头
       _headers.add(
@@ -145,11 +189,108 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       );
       return;
     }
+    final generation = ++_sendGeneration;
     setState(() {
       _sending = true;
       _lastResp = null;
       _lastError = null;
     });
+    if (_transport == _ReplayTransport.browser) {
+      await _sendViaBrowser(uri, generation);
+    } else {
+      await _sendViaHttpClient(uri, generation);
+    }
+  }
+
+  Future<void> _sendViaBrowser(Uri uri, int generation) async {
+    if (!widget.controller.isBrowserAlive) {
+      if (!mounted || generation != _sendGeneration) return;
+      setState(() {
+        _lastError = widget.isZh
+            ? 'CDP 浏览器运行时不可用'
+            : 'CDP browser runtime is unavailable';
+        _sending = false;
+      });
+      return;
+    }
+    final sw = Stopwatch()..start();
+    final abortKey =
+        '__openhandResendAbort_${DateTime.now().microsecondsSinceEpoch}_$generation';
+    _activeBrowserAbortKey = abortKey;
+    try {
+      final headers = _headersMap(forBrowserFetch: true);
+      final body = _requestBodyOrNull();
+      final js = _browserFetchExpression(
+        url: uri.toString(),
+        method: _method,
+        headers: headers,
+        body: body,
+        abortKey: abortKey,
+      );
+      final result = await widget.controller.sendRawCdp(
+        method: 'Runtime.evaluate',
+        paramsJson: jsonEncode(<String, Object?>{
+          'expression': js,
+          'awaitPromise': true,
+          'returnByValue': true,
+          'silent': true,
+        }),
+        timeout: _kRequestTimeout + const Duration(seconds: 2),
+      );
+      final raw = cdpStringResultValue(result);
+      if (raw == null) {
+        throw StateError(
+          '${result?['error'] ?? 'Runtime.evaluate returned no value'}',
+        );
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        throw const FormatException('Invalid browser replay response.');
+      }
+      final map = Map<String, Object?>.from(decoded);
+      if (map['ok'] != true) {
+        final name = '${map['name'] ?? ''}'.trim();
+        final error = '${map['error'] ?? 'Browser fetch failed'}'.trim();
+        throw StateError(name.isEmpty ? error : '$name: $error');
+      }
+      if (!mounted || generation != _sendGeneration) return;
+      setState(() {
+        _lastResp = _ResponseSnapshot(
+          status: (map['status'] as num?)?.toInt() ?? 0,
+          reason: '${map['reason'] ?? ''}',
+          headers: _stringMap(map['headers']),
+          body: '${map['body'] ?? ''}',
+          bodyIsBase64: map['bodyIsBase64'] == true,
+          byteSize: (map['byteSize'] as num?)?.toInt() ?? 0,
+          elapsed: Duration(
+            milliseconds:
+                (map['elapsedMs'] as num?)?.round() ?? sw.elapsedMilliseconds,
+          ),
+          transport: _ReplayTransport.browser,
+          truncated: map['truncated'] == true,
+        );
+        _sending = false;
+      });
+    } catch (e, stack) {
+      silentLog(
+        'web_reverse_resend_request_dialog',
+        '_sendViaBrowser',
+        e,
+        stack,
+      );
+      if (!mounted || generation != _sendGeneration) return;
+      setState(() {
+        _lastError = '$e';
+        _sending = false;
+      });
+    } finally {
+      if (identical(_activeBrowserAbortKey, abortKey)) {
+        _activeBrowserAbortKey = null;
+      }
+    }
+  }
+
+  Future<void> _sendViaHttpClient(Uri uri, int generation) async {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 12)
       ..idleTimeout = const Duration(seconds: 6)
@@ -162,25 +303,27 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       // 显式控制。仅当用户没写 Content-Length 且有 body 时由 HttpClient 自动加。
       req.followRedirects = false;
       req.persistentConnection = false;
-      for (final h in _headers) {
-        if (!h.enabled) continue;
-        final n = h.name.text.trim();
-        if (n.isEmpty) continue;
+      for (final entry in _headersMap().entries) {
         try {
-          req.headers.set(n, h.value.text);
+          req.headers.set(entry.key, entry.value);
         } catch (_) {
           // 某些 header（如 transfer-encoding）HttpClient 不让覆盖，忽略。
         }
       }
-      final body = _bodyCtrl.text;
-      if (body.isNotEmpty && _method != 'GET' && _method != 'HEAD') {
+      final body = _requestBodyOrNull();
+      if (body != null && body.isNotEmpty) {
         req.add(utf8.encode(body));
       }
-      final resp = await req.close().timeout(const Duration(seconds: 30));
+      final resp = await req.close().timeout(_kRequestTimeout);
       final bodyBytes = <int>[];
+      var truncated = false;
       await for (final chunk in resp) {
         bodyBytes.addAll(chunk);
-        if (bodyBytes.length > 2 * 1024 * 1024) break; // 2MB 上限防内存爆
+        if (bodyBytes.length > _kMaxResponseBytes) {
+          bodyBytes.removeRange(_kMaxResponseBytes, bodyBytes.length);
+          truncated = true;
+          break;
+        }
       }
       sw.stop();
       final respHeaders = <String, String>{};
@@ -195,7 +338,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         bodyText = base64Encode(bodyBytes);
         isBase64 = true;
       }
-      if (!mounted) return;
+      if (!mounted || generation != _sendGeneration) return;
       setState(() {
         _lastResp = _ResponseSnapshot(
           status: resp.statusCode,
@@ -205,12 +348,14 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
           bodyIsBase64: isBase64,
           byteSize: bodyBytes.length,
           elapsed: sw.elapsed,
+          transport: _ReplayTransport.direct,
+          truncated: truncated,
         );
         _sending = false;
       });
     } catch (e, stack) {
       silentLog('web_reverse_resend_request_dialog', '_send', e, stack);
-      if (!mounted) return;
+      if (!mounted || generation != _sendGeneration) return;
       setState(() {
         _lastError = '$e';
         _sending = false;
@@ -222,6 +367,23 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   }
 
   void _abort() {
+    _sendGeneration++;
+    final abortKey = _activeBrowserAbortKey;
+    if (abortKey != null && abortKey.isNotEmpty) {
+      unawaited(
+        widget.controller.sendRawCdp(
+          method: 'Runtime.evaluate',
+          paramsJson: jsonEncode(<String, Object?>{
+            'expression':
+                '(() => { const c = window[${jsonEncode(abortKey)}]; '
+                'if (c) c.abort("aborted"); delete window[${jsonEncode(abortKey)}]; })()',
+            'returnByValue': true,
+            'silent': true,
+          }),
+        ),
+      );
+      _activeBrowserAbortKey = null;
+    }
     _activeClient?.close(force: true);
     _activeClient = null;
     if (mounted) {
@@ -231,6 +393,140 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         _lastError = loc?.webReverseResendRequestAborted ?? 'Aborted';
       });
     }
+  }
+
+  Map<String, String> _headersMap({bool forBrowserFetch = false}) {
+    final out = <String, String>{};
+    for (final h in _headers) {
+      if (!h.enabled) continue;
+      final name = h.name.text.trim();
+      if (name.isEmpty) continue;
+      final normalized = name.toLowerCase();
+      if (forBrowserFetch &&
+          (_kBrowserFetchForbiddenHeaders.contains(normalized) ||
+              normalized.startsWith('proxy-') ||
+              normalized.startsWith('sec-'))) {
+        continue;
+      }
+      out[name] = h.value.text;
+    }
+    return out;
+  }
+
+  String? _requestBodyOrNull() {
+    if (_method == 'GET' || _method == 'HEAD') return null;
+    final body = _bodyCtrl.text;
+    return body.isEmpty ? null : body;
+  }
+
+  Map<String, String> _stringMap(Object? raw) {
+    if (raw is! Map) return const <String, String>{};
+    return raw.map((key, value) => MapEntry('$key', '$value'));
+  }
+
+  String _browserFetchExpression({
+    required String url,
+    required String method,
+    required Map<String, String> headers,
+    required String? body,
+    required String abortKey,
+  }) {
+    return '''
+(async () => {
+  const started = performance.now();
+  const maxBytes = $_kMaxResponseBytes;
+  const controller = new AbortController();
+  window[${jsonEncode(abortKey)}] = controller;
+  const timer = setTimeout(() => controller.abort('timeout'), ${_kRequestTimeout.inMilliseconds});
+  const toBase64 = (bytes) => {
+    let binary = '';
+    const step = 0x8000;
+    for (let i = 0; i < bytes.length; i += step) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + step));
+    }
+    return btoa(binary);
+  };
+  try {
+    const init = {
+      method: ${jsonEncode(method)},
+      headers: ${jsonEncode(headers)},
+      credentials: 'include',
+      redirect: 'manual',
+      cache: 'no-store',
+      signal: controller.signal,
+    };
+    const body = ${jsonEncode(body)};
+    if (body !== null && body !== undefined) init.body = body;
+    const response = await fetch(${jsonEncode(url)}, init);
+    const chunks = [];
+    let total = 0;
+    let truncated = false;
+    const reader = response.body && response.body.getReader ? response.body.getReader() : null;
+    if (reader) {
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        const value = part.value || new Uint8Array();
+        const remaining = maxBytes - total;
+        if (value.length > remaining) {
+          chunks.push(value.slice(0, Math.max(remaining, 0)));
+          total += Math.max(remaining, 0);
+          truncated = true;
+          try { await reader.cancel(); } catch (_) {}
+          break;
+        }
+        chunks.push(value);
+        total += value.length;
+        if (total >= maxBytes) {
+          truncated = true;
+          try { await reader.cancel(); } catch (_) {}
+          break;
+        }
+      }
+    } else {
+      const all = new Uint8Array(await response.arrayBuffer());
+      truncated = all.length > maxBytes;
+      chunks.push(truncated ? all.slice(0, maxBytes) : all);
+      total = chunks[0].length;
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    let responseBody = '';
+    let bodyIsBase64 = false;
+    try {
+      responseBody = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (_) {
+      responseBody = toBase64(bytes);
+      bodyIsBase64 = true;
+    }
+    return JSON.stringify({
+      ok: true,
+      status: response.status,
+      reason: response.statusText || '',
+      headers: Object.fromEntries(response.headers.entries()),
+      body: responseBody,
+      bodyIsBase64,
+      byteSize: total,
+      elapsedMs: Math.round(performance.now() - started),
+      truncated,
+    });
+  } catch (error) {
+    return JSON.stringify({
+      ok: false,
+      name: error && error.name ? String(error.name) : '',
+      error: error && error.message ? String(error.message) : String(error),
+      elapsedMs: Math.round(performance.now() - started),
+    });
+  } finally {
+    clearTimeout(timer);
+    delete window[${jsonEncode(abortKey)}];
+  }
+})()
+''';
   }
 
   // ─── 代码导出 ─────────────────────────────────────────────────────────
@@ -333,6 +629,8 @@ print(resp.text[:2000])''';
                   children: [
                     _buildUrlRow(theme, cs, loc),
                     const SizedBox(height: 14),
+                    _buildTransportRow(theme, cs, loc),
+                    const SizedBox(height: 14),
                     _buildHeadersBlock(theme, cs, loc),
                     const SizedBox(height: 14),
                     _buildBodyBlock(theme, cs, loc),
@@ -357,8 +655,12 @@ print(resp.text[:2000])''';
               child: Row(
                 children: [
                   Text(
-                    loc?.webReverseResendRequestFooterNote ??
-                        'This dialog re-issues via Dart HttpClient (bypasses CSP/CORS).',
+                    _transport == _ReplayTransport.browser
+                        ? (widget.isZh
+                              ? '通过 CDP 在页面上下文重放请求'
+                              : 'Replays through CDP in the page context')
+                        : (loc?.webReverseResendRequestFooterNote ??
+                              'Direct mode uses Dart HttpClient and bypasses the browser.'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -386,6 +688,66 @@ print(resp.text[:2000])''';
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTransportRow(
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
+    final browserAlive = widget.controller.isBrowserAlive;
+    return Row(
+      children: [
+        Icon(Icons.route_rounded, size: 16, color: cs.primary),
+        const SizedBox(width: 8),
+        Text(
+          widget.isZh ? '发送方式' : 'Transport',
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 12),
+        SegmentedButton<_ReplayTransport>(
+          selected: <_ReplayTransport>{_transport},
+          showSelectedIcon: false,
+          segments: <ButtonSegment<_ReplayTransport>>[
+            ButtonSegment<_ReplayTransport>(
+              value: _ReplayTransport.browser,
+              enabled: browserAlive,
+              icon: const Icon(Icons.travel_explore_rounded, size: 16),
+              label: const Text('CDP'),
+            ),
+            ButtonSegment<_ReplayTransport>(
+              value: _ReplayTransport.direct,
+              icon: const Icon(Icons.cable_rounded, size: 16),
+              label: Text(widget.isZh ? '直连' : 'Direct'),
+            ),
+          ],
+          onSelectionChanged: (values) {
+            final next = values.firstOrNull;
+            if (next == null) return;
+            setState(() => _transport = next);
+          },
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            _transport == _ReplayTransport.browser
+                ? (widget.isZh
+                      ? '使用页面 Cookie 和浏览器网络栈'
+                      : 'Page cookies and browser network stack')
+                : (widget.isZh
+                      ? '绕过浏览器，适合隔离验证'
+                      : 'Bypasses browser for isolated checks'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -736,7 +1098,7 @@ print(resp.text[:2000])''';
               ),
               const SizedBox(width: 8),
               Text(
-                '${r.byteSize} B · ${r.elapsed.inMilliseconds} ms',
+                '${r.transport.label(widget.isZh)} · ${r.byteSize} B · ${r.elapsed.inMilliseconds} ms',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -801,6 +1163,8 @@ print(resp.text[:2000])''';
             r.bodyIsBase64
                 ? (loc?.webReverseResendRequestBase64Hint ??
                       'Non-UTF8 response (base64 preview):')
+                : r.truncated
+                ? (widget.isZh ? 'Body (已截断):' : 'Body (truncated):')
                 : (loc?.webReverseResendRequestBodyHint ?? 'Body:'),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
@@ -830,6 +1194,18 @@ print(resp.text[:2000])''';
   }
 }
 
+enum _ReplayTransport {
+  browser,
+  direct;
+
+  String label(bool isZh) {
+    return switch (this) {
+      _ReplayTransport.browser => isZh ? 'CDP' : 'CDP',
+      _ReplayTransport.direct => isZh ? '直连' : 'Direct',
+    };
+  }
+}
+
 class _HeaderRow {
   _HeaderRow({required this.name, required this.value, required this.enabled});
   final TextEditingController name;
@@ -846,6 +1222,8 @@ class _ResponseSnapshot {
     required this.bodyIsBase64,
     required this.byteSize,
     required this.elapsed,
+    required this.transport,
+    required this.truncated,
   });
   final int status;
   final String reason;
@@ -854,4 +1232,6 @@ class _ResponseSnapshot {
   final bool bodyIsBase64;
   final int byteSize;
   final Duration elapsed;
+  final _ReplayTransport transport;
+  final bool truncated;
 }

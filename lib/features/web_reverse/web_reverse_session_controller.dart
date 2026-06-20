@@ -3215,6 +3215,7 @@ class WebReverseSessionController extends ChangeNotifier {
     required String method,
     String? paramsJson,
     bool useSession = true,
+    Duration timeout = const Duration(seconds: 30),
   }) async {
     final cdp = _browserCdp;
     if (cdp == null) return null;
@@ -3232,7 +3233,7 @@ class WebReverseSessionController extends ChangeNotifier {
         method,
         params: params,
         sessionId: useSession ? _pageSessionId : null,
-        timeout: const Duration(seconds: 30),
+        timeout: timeout,
       );
     } catch (error) {
       return <String, Object?>{'error': '$error'};
