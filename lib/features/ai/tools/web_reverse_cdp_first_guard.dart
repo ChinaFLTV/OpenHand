@@ -54,7 +54,7 @@ class WebReverseCdpFirstDecision {
     return <String, Object?>{
       blockedFlag: true,
       'web_reverse_cdp_first_block_reason':
-          'same_target_origin_with_live_cdp_route',
+          'same_target_origin_with_live_cdp_runtime',
       'web_reverse_cdp_route': routeKind,
       'web_reverse_cdp_route_requires_tool_search': requiresToolSearch,
       'web_reverse_target_url': targetUri.toString(),

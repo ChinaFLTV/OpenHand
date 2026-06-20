@@ -23,6 +23,8 @@ import '../../../app/support/silent_log.dart';
 /// 当前 LSP 子进程状态。
 enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 
+const int _kMaxLspFrameBytes = 8 * 1024 * 1024;
+
 class WebReverseLspClient {
   WebReverseLspClient({this.command, this.args});
 
@@ -137,6 +139,8 @@ class WebReverseLspClient {
     }
     _proc = null;
     status = WebReverseLspStatus.idle;
+    _buf.clear();
+    _initDone = null;
     _opened.clear();
     for (final c in _pending.values) {
       if (!c.isCompleted) c.complete(<String, Object?>{'error': 'stopped'});
@@ -361,6 +365,19 @@ class WebReverseLspClient {
         return;
       }
       final clen = int.parse(m.group(1)!);
+      if (clen <= 0 || clen > _kMaxLspFrameBytes) {
+        _buf.clear();
+        status = WebReverseLspStatus.failed;
+        final errorMessage = 'invalid Content-Length: $clen';
+        lastError = errorMessage;
+        silentLog(
+          'web_reverse_lsp_client',
+          'invalid content length',
+          errorMessage,
+          StackTrace.current,
+        );
+        return;
+      }
       final bodyStart = end + 4;
       if (all.length < bodyStart + clen) return;
       final body = all.sublist(bodyStart, bodyStart + clen);
