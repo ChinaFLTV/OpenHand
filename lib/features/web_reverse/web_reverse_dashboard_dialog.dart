@@ -276,10 +276,8 @@ class _WebReverseDashboardDialogState
     // 用 enum.name 序列化；解析失败 / 没记录时保持 _Tab.network 默认。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final session = context.read<AiSessionController>().sessions.firstWhere(
-        (s) => s.id == widget.sessionId,
-        orElse: () => context.read<AiSessionController>().sessions.first,
-      );
+      final session = _dashboardSession();
+      if (session == null) return;
       final raw = session.metadata[_kLastTabMetaKey];
       if (raw is String && raw.isNotEmpty) {
         for (final t in _Tab.values) {
@@ -355,6 +353,14 @@ class _WebReverseDashboardDialogState
     widget.controller.sourceJumpRequest.removeListener(_onSourceJumpRequested);
     _filterCtrl.dispose();
     super.dispose();
+  }
+
+  AiSession? _dashboardSession() {
+    final sessions = context.read<AiSessionController>().sessions;
+    for (final session in sessions) {
+      if (session.id == widget.sessionId) return session;
+    }
+    return null;
   }
 
   /// 当 Initiator 区段点击栈帧 / 重定向链时被调用：先把当前 tab 切到
@@ -465,10 +471,8 @@ class _WebReverseDashboardDialogState
   /// 整体不阻塞 UI。
   Future<void> restoreBrowserTabs() async {
     if (!mounted) return;
-    final session = context.read<AiSessionController>().sessions.firstWhere(
-      (s) => s.id == widget.sessionId,
-      orElse: () => context.read<AiSessionController>().sessions.first,
-    );
+    final session = _dashboardSession();
+    if (session == null) return;
     final urlsRaw = session.metadata[_kBrowserTabUrlsMetaKey];
     final orderRaw = session.metadata[_kBrowserTabOrderMetaKey];
     if (urlsRaw is! Map || urlsRaw.isEmpty) return;
@@ -623,10 +627,8 @@ class _WebReverseDashboardDialogState
   /// 读取本会话曾保存过的 LSP 命令配置（命令名 + args 列表）。
   ({String command, List<String> args})? readLspConfig() {
     if (!mounted) return null;
-    final session = context.read<AiSessionController>().sessions.firstWhere(
-      (s) => s.id == widget.sessionId,
-      orElse: () => context.read<AiSessionController>().sessions.first,
-    );
+    final session = _dashboardSession();
+    if (session == null) return null;
     final cmd = session.metadata[_kLspCommandMetaKey];
     final args = session.metadata[_kLspArgsMetaKey];
     if (cmd is! String || cmd.trim().isEmpty) return null;
@@ -681,10 +683,8 @@ class _WebReverseDashboardDialogState
   })?
   readHeapSnapshots() {
     if (!mounted) return null;
-    final session = context.read<AiSessionController>().sessions.firstWhere(
-      (s) => s.id == widget.sessionId,
-      orElse: () => context.read<AiSessionController>().sessions.first,
-    );
+    final session = _dashboardSession();
+    if (session == null) return null;
     ({String json, int bytes, DateTime ts})? parse(Object? raw) {
       if (raw is! Map) return null;
       final json = raw['json'];
@@ -711,10 +711,8 @@ class _WebReverseDashboardDialogState
   /// 过——下次手动添加即可。
   Future<void> restoreBreakpoints() async {
     if (!mounted) return;
-    final session = context.read<AiSessionController>().sessions.firstWhere(
-      (s) => s.id == widget.sessionId,
-      orElse: () => context.read<AiSessionController>().sessions.first,
-    );
+    final session = _dashboardSession();
+    if (session == null) return;
     final meta = session.metadata;
     final rawBps = meta[_kBreakpointsMetaKey];
     final rawXhr = meta[_kXhrBreakpointsMetaKey];
