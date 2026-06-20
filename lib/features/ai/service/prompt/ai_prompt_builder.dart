@@ -1434,8 +1434,8 @@ class AiPromptBuilder {
           'Live CDP requires the injected `cdp_runtime` to report `browser_alive=true` plus a current CDP endpoint/port; while live, do not launch a new browser or attach via Bash. '
           'When `browser_alive` is false or no current endpoint/port exists, live CDP MCP actions are unavailable: use local jsonl/HAR artifacts and ask the user to restart the browser before live browser operations. '
           'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
-          'When the live CDP runtime is available, Bash/WebFetch target-origin HTTP(S) access is blocked; use CDP MCP tools, ToolSearch, or local jsonl/HAR first. '
-          'skill__* tools are auxiliary knowledge only. Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation is fallback-only after CDP cannot expose the needed state or fails repeatedly, and you must explain the fallback reason. '
+          'Bash/WebFetch target-origin HTTP(S) access is blocked; use CDP MCP tools, ToolSearch, or local jsonl/HAR first. '
+          'skill__* tools are auxiliary knowledge only. Do not use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP browser automation for target-origin capture; if CDP cannot expose the needed state, explain the gap and use local artifacts or ask the user to restore CDP. '
           'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
         );
       } else {
@@ -2085,13 +2085,13 @@ class AiPromptBuilder {
           'Dashboard panels and AI-visible state are backed by the same OpenHand-managed Chrome CDP session plus local jsonl/HAR artifacts.',
       'cdp_first_required': true,
       'fallback_policy': cdpRuntimeDead
-          ? 'Live CDP MCP actions require browser_alive=true plus a current CDP endpoint/port. With browser_alive=false, do not treat historical last_* values as live CDP state; use local jsonl/HAR artifacts, or ask the user to restart the browser before live browser operations. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after explaining that live CDP is unavailable.'
+          ? 'Live CDP MCP actions require browser_alive=true plus a current CDP endpoint/port. With browser_alive=false, do not treat historical last_* values as live CDP state; use local jsonl/HAR artifacts, or ask the user to restart/restore CDP before live browser operations. Do not use target-origin WebFetch/Bash or non-CDP browser automation as the offline fallback.'
           : !cdpRuntimeLive
           ? 'Live CDP MCP actions require cdp_runtime.browser_alive=true plus a current CDP endpoint/port. Without confirmed live CDP runtime, use local jsonl/HAR artifacts, or ask the user to restart/restore the Web Reverse browser before live browser operations.'
-          : 'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. Use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP automation only after CDP cannot expose the required state or fails repeatedly, and state the reason.',
+          : 'Use CDP MCP tools plus OpenHand-managed CDP runtime state and local jsonl/HAR artifacts first. If CDP cannot expose the required state or fails repeatedly, state the reason and use local artifacts; ask the user to restart/restore CDP before target-origin live browser operations.',
       'target_origin_fetch_guard': cdpRuntimeLive
           ? 'When the live CDP runtime is available, WebFetch and explicit Bash HTTP(S) requests to the target origin are blocked. External docs/static references remain allowed.'
-          : 'Inactive until cdp_runtime.browser_alive=true plus a current CDP endpoint/port; prefer local jsonl/HAR artifacts while live CDP is unavailable.',
+          : 'Active for the configured target origin even while live CDP is unavailable. Do not use target-origin WebFetch/Bash; use local jsonl/HAR artifacts, or ask the user to restart/restore CDP before live browser operations. External docs/static references remain allowed.',
       'cdp_mcp_tool_availability': <String, Object?>{
         'browser_runtime_live': cdpRuntimeLive,
         'current_turn_callable': cdpMcpToolNames.isNotEmpty,
