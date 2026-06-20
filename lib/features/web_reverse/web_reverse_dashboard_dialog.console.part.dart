@@ -257,6 +257,32 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     }
   }
 
+  ButtonStyle _consoleAutoFollowButtonStyle(ColorScheme cs) {
+    return ButtonStyle(
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return cs.primary;
+        return null;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return cs.onPrimary;
+        return null;
+      }),
+      overlayColor: WidgetStateProperty.resolveWith((states) {
+        if (!states.contains(WidgetState.selected)) return null;
+        if (states.contains(WidgetState.pressed)) {
+          return cs.onPrimary.withValues(alpha: 0.12);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return cs.onPrimary.withValues(alpha: 0.08);
+        }
+        if (states.contains(WidgetState.focused)) {
+          return cs.onPrimary.withValues(alpha: 0.10);
+        }
+        return null;
+      }),
+    );
+  }
+
   Future<void> _showConsoleEntryMenu({
     required CdpConsoleEntry entry,
     required Offset position,
@@ -627,6 +653,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                     onPressed: _toggleConsoleAutoFollow,
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
+                    style: _consoleAutoFollowButtonStyle(cs),
                   ),
                 ),
               ),
