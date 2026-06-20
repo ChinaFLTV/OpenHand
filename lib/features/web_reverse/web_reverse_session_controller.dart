@@ -3346,7 +3346,10 @@ class WebReverseSessionController extends ChangeNotifier {
       }
       try {
         final decoded = jsonDecode(rawParamsJson);
-        if (decoded is Map) params = Map<String, Object?>.from(decoded);
+        if (decoded is! Map) {
+          return <String, Object?>{'error': 'params JSON must be an object'};
+        }
+        params = Map<String, Object?>.from(decoded);
       } catch (e) {
         return <String, Object?>{'error': 'invalid params JSON: $e'};
       }
