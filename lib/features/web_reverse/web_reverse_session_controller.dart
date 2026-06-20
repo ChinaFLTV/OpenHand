@@ -442,6 +442,9 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     // 新 page 上 finder 还没注入；切完 target 第一次 findInPage 会按需注入。
     _finderInstalled = false;
+    _longTaskObserverInstalled = false;
+    _rtcInstalled = false;
+    _zoomScriptId = null;
     // 2026-05-24 — Per-tab buffer：切 tab 前先把当前 target 的 panel 缓冲
     // 快照存到 _targetBuffers，切到目标 tab 后再 restore；新建 / 首次访问
     // 的 target 没有快照就只清空。Sources 端的 _userBreakpoints 仍按
@@ -3659,9 +3662,12 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 安装 Long Task 观测：通过 PerformanceObserver 监听 entryType='longtask'
   /// 的事件并塞进 window.__oh_long_tasks（环形缓冲，上限 200）。
   /// 之后 [readLongTasks] 拉取并清空。
+  bool _longTaskObserverInstalled = false;
+
   Future<void> installLongTaskObserver() async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
+    if (_longTaskObserverInstalled) return;
     const js = r'''
 (() => {
   if (window.__oh_longtask_installed) return;
@@ -3705,6 +3711,7 @@ class WebReverseSessionController extends ChangeNotifier {
         params: const <String, Object?>{'expression': js},
         sessionId: _pageSessionId,
       );
+      _longTaskObserverInstalled = true;
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
