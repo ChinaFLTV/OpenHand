@@ -65,7 +65,7 @@ class WebReverseSessionController extends ChangeNotifier {
   bool _preserveLog = true;
   bool _reattachAfterReconnectInFlight = false;
   bool _reattachAfterReconnectQueued = false;
-  bool _restartBrowserInFlight = false;
+  Future<void>? _restartBrowserTask;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -3516,10 +3516,24 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 把外部浏览器拉起来：要么是用户主动点了「停止调试」想再连一次，
   /// 要么是浏览器异常退出 / CDP 重连耗尽后用户点了「重启浏览器」。
   /// 复用 [start] 的全部启动逻辑，只是重置 stopped 标记。
-  Future<void> restartBrowser() async {
-    if (_disposed) return;
-    if (_restartBrowserInFlight) return;
-    _restartBrowserInFlight = true;
+  Future<void> restartBrowser() {
+    if (_disposed) {
+      return Future<void>.error(
+        StateError('Web reverse session has been disposed'),
+      );
+    }
+    final currentTask = _restartBrowserTask;
+    if (currentTask != null) return currentTask;
+    final task = _restartBrowserInternal();
+    _restartBrowserTask = task;
+    return task.whenComplete(() {
+      if (identical(_restartBrowserTask, task)) {
+        _restartBrowserTask = null;
+      }
+    });
+  }
+
+  Future<void> _restartBrowserInternal() async {
     final restoreScreencastRefCount = _screencastRefCount;
     final restoreScreencastWidth = _screencastWidth;
     final restoreScreencastHeight = _screencastHeight;
@@ -3561,8 +3575,6 @@ class WebReverseSessionController extends ChangeNotifier {
       _errorMessage = '浏览器重启失败：$error';
       _safeNotify();
       rethrow;
-    } finally {
-      _restartBrowserInFlight = false;
     }
   }
 

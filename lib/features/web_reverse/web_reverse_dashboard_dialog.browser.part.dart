@@ -100,6 +100,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 让按钮、placeholder 立刻响应。
   bool _wasAlive = false;
   bool _wasScreencastActive = false;
+  bool _surfaceInputReady = false;
   bool _restartBrowserInFlight = false;
   // 浏览器侧 setPageScaleFactor 的当前值；面板内独立维护，下次切到 dashboard
   // 重新 attach 时不会保留（Chromium 重启即丢）。
@@ -175,6 +176,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         );
     _wasAlive = widget.controller.isBrowserAlive;
     _wasScreencastActive = widget.controller.isScreencastActive;
+    _surfaceInputReady =
+        widget.controller.isBrowserAlive &&
+        widget.controller.latestScreencastFrame != null;
+    widget.controller.screencastFrameNotifier.addListener(
+      _onScreencastFrameStateChanged,
+    );
     _startPlaceholderTicker();
     // 首次进入时同步一次地址栏；CDP 已稳定时立即拉。空 URL 或 about:blank
     // 时让地址栏保持空白让 placeholder 顶上去，避免初次打开就看到一行
@@ -233,6 +240,9 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
+    widget.controller.screencastFrameNotifier.removeListener(
+      _onScreencastFrameStateChanged,
+    );
     _surfaceFocus.removeListener(_onSurfaceFocusChanged);
     _inputRepairParticipantToken?.dispose();
     _inputRepairParticipantToken = null;
@@ -258,6 +268,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final h = widget.controller.screencastHeight;
     final alive = widget.controller.isBrowserAlive;
     final screencastActive = widget.controller.isScreencastActive;
+    final surfaceInputReady =
+        alive && widget.controller.latestScreencastFrame != null;
     final len = widget.controller.pageTargets.length;
     final cur = widget.controller.currentPageTargetId;
     final orderHash = _hashTargetsOrder(widget.controller.pageTargets);
@@ -272,12 +284,14 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         h != _frameH ||
         alive != _wasAlive ||
         screencastActive != _wasScreencastActive ||
+        surfaceInputReady != _surfaceInputReady ||
         targetStateDirty;
     final aliveJustFlipped = alive && !_wasAlive;
     _frameW = w;
     _frameH = h;
     _wasAlive = alive;
     _wasScreencastActive = screencastActive;
+    _surfaceInputReady = surfaceInputReady;
     _lastTargetsLen = len;
     _lastCurrentTargetId = cur;
     _lastTargetsOrderHash = orderHash;
@@ -300,6 +314,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     }
   }
 
+  void _onScreencastFrameStateChanged() {
+    if (!mounted) return;
+    final next =
+        widget.controller.isBrowserAlive &&
+        widget.controller.latestScreencastFrame != null;
+    if (next == _surfaceInputReady) return;
+    setState(() => _surfaceInputReady = next);
+  }
+
   String _restartFailureMessage(Object error) {
     final raw = '$error'.trim();
     final clipped = raw.length > 220 ? '${raw.substring(0, 220)}...' : raw;
@@ -314,6 +337,13 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     setState(() => _restartBrowserInFlight = true);
     try {
       await widget.controller.restartBrowser();
+      if (!widget.controller.isBrowserAlive) {
+        throw StateError(
+          widget.isZh
+              ? '重启完成后 CDP 仍未连接，请检查浏览器是否被系统或安全策略拦截。'
+              : 'CDP is still disconnected after restart. Check whether the browser was blocked by the system or security policy.',
+        );
+      }
       if (!mounted) return;
       _lastConfiguredSize = null;
       OpenHandSnackBar.showSuccessOn(
@@ -1587,35 +1617,36 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                                 _buildPlaceholder(theme, cs, isZh, ctrl),
                           ),
                         ),
-                        Positioned.fill(
-                          child: Focus(
-                            focusNode: _surfaceFocus,
-                            onKeyEvent: _handleKey,
-                            child: Listener(
-                              behavior: HitTestBehavior.opaque,
-                              onPointerDown: (e) =>
-                                  _handlePointerDown(e, renderSize),
-                              onPointerMove: (e) =>
-                                  _handlePointerMove(e, renderSize),
-                              onPointerHover: (e) =>
-                                  _handlePointerHover(e, renderSize),
-                              onPointerUp: (e) =>
-                                  _handlePointerUp(e, renderSize),
-                              onPointerSignal: (e) =>
-                                  _handlePointerSignal(e, renderSize),
-                              onPointerPanZoomStart: (e) =>
-                                  _handlePanZoomStart(e, renderSize),
-                              onPointerPanZoomUpdate: (e) =>
-                                  _handlePanZoomUpdate(e, renderSize),
-                              onPointerPanZoomEnd: (e) =>
-                                  _handlePanZoomEnd(e, renderSize),
-                              child: const MouseRegion(
-                                cursor: SystemMouseCursors.basic,
-                                child: SizedBox.expand(),
+                        if (_surfaceInputReady)
+                          Positioned.fill(
+                            child: Focus(
+                              focusNode: _surfaceFocus,
+                              onKeyEvent: _handleKey,
+                              child: Listener(
+                                behavior: HitTestBehavior.opaque,
+                                onPointerDown: (e) =>
+                                    _handlePointerDown(e, renderSize),
+                                onPointerMove: (e) =>
+                                    _handlePointerMove(e, renderSize),
+                                onPointerHover: (e) =>
+                                    _handlePointerHover(e, renderSize),
+                                onPointerUp: (e) =>
+                                    _handlePointerUp(e, renderSize),
+                                onPointerSignal: (e) =>
+                                    _handlePointerSignal(e, renderSize),
+                                onPointerPanZoomStart: (e) =>
+                                    _handlePanZoomStart(e, renderSize),
+                                onPointerPanZoomUpdate: (e) =>
+                                    _handlePanZoomUpdate(e, renderSize),
+                                onPointerPanZoomEnd: (e) =>
+                                    _handlePanZoomEnd(e, renderSize),
+                                child: const MouseRegion(
+                                  cursor: SystemMouseCursors.basic,
+                                  child: SizedBox.expand(),
+                                ),
                               ),
                             ),
                           ),
-                        ),
                         if (_findBarOpen)
                           Positioned(
                             top: 8,
