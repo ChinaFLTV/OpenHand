@@ -11827,37 +11827,6 @@ double _editorPreviewGutterWidth({
   );
 }
 
-class _EditorScrollBehavior extends MaterialScrollBehavior {
-  const _EditorScrollBehavior();
-
-  @override
-  Widget buildScrollbar(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) {
-    return child;
-  }
-
-  @override
-  Widget buildOverscrollIndicator(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) {
-    return child;
-  }
-
-  // Work around a Flutter framework bug on macOS where trackpad events can
-  // arrive with non‑monotonic timestamps, causing an assertion failure in
-  // IOSScrollViewFlingVelocityTracker.  Using the basic VelocityTracker
-  // avoids that assertion while keeping fling behaviour functional.
-  @override
-  GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {
-    return (PointerEvent event) => VelocityTracker.withKind(event.kind);
-  }
-}
-
 /// Handles Cmd/Ctrl + scroll‑wheel zoom and Cmd/Ctrl + +/-/0 keyboard zoom
 /// for the code editor, similar to IntelliJ IDEA and VS Code.
 class _EditorZoomWrapper extends StatefulWidget {
@@ -13411,7 +13380,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     );
     final editorStyle = _resolvedEditorStyle();
 
-    const noScrollbarBehavior = _EditorScrollBehavior();
+    const noScrollbarBehavior = OpenHandEditorScrollBehavior();
 
     return LayoutBuilder(
       builder: (context, outerConstraints) {
@@ -13865,7 +13834,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
       lineCount: lineCount,
       fontSize: widget.fontSize,
     );
-    const noScrollbarBehavior = _EditorScrollBehavior();
+    const noScrollbarBehavior = OpenHandEditorScrollBehavior();
     final bannerBackground = _darkSurface
         ? colorScheme.surfaceContainerHigh
         : colorScheme.primaryContainer.withValues(alpha: 0.42);

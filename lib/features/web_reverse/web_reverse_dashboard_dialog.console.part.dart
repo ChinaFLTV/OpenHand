@@ -18,6 +18,13 @@ class _ConsoleBody extends StatefulWidget {
 class _ConsoleBodyState extends State<_ConsoleBody> {
   final _replCtrl = TextEditingController();
   final _replFocus = FocusNode();
+  final _replHistoryFocus = FocusNode(skipTraversal: true);
+  final _consoleScroll = ScrollController();
+  final _consoleScrollGuard = AutoFollowScrollGuard();
+  bool _autoFollowConsole = true;
+  bool _consoleFollowScheduled = false;
+  int _lastConsoleFingerprint = 0;
+  Offset? _lastConsoleMenuPosition;
   // history cursor: -1 表示当前没在历史里；0..len-1 指向某条历史。
   int _historyCursor = -1;
 
@@ -30,8 +37,15 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   final Set<CdpConsoleEntry> _expandedConsoleEntries = <CdpConsoleEntry>{};
 
   static const Duration _kConsoleExitDuration = Duration(milliseconds: 240);
+  static const Duration _kConsoleFollowDuration = Duration(milliseconds: 320);
   static const int _kConsoleCollapsedChars = 420;
   static const int _kConsoleCollapsedLines = 4;
+  static const double _kConsoleReplControlHeight = 40;
+  static const double _kConsoleActionIconSize = 18;
+  static const Color _kWarningContainerLight = Color(0xFFFFF1D2);
+  static const Color _kWarningOnContainerLight = Color(0xFF5C3A00);
+  static const Color _kWarningContainerDark = Color(0xFF4A3412);
+  static const Color _kWarningOnContainerDark = Color(0xFFFFD99A);
 
   List<String> get _history => widget.controller.replHistory;
 
@@ -63,6 +77,8 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     }
     _replCtrl.dispose();
     _replFocus.dispose();
+    _replHistoryFocus.dispose();
+    _consoleScroll.dispose();
     super.dispose();
   }
 
@@ -92,7 +108,12 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       }
     }
 
-    // 重建活跃部分顺序与 controller 一致；退场槽位维持原位置。
+    // 重建活跃部分顺序与 controller 一致；退场槽位按旧位置插回，
+    // 避免 cap 截断 / 清空时退场项跳到列表尾部。
+    final previousOrder = List<_ConsoleSlot>.of(_slots);
+    final previousIndex = <_ConsoleSlot, int>{
+      for (var i = 0; i < previousOrder.length; i++) previousOrder[i]: i,
+    };
     final newActiveOrder = <_ConsoleSlot>[];
     for (final e in current) {
       _ConsoleSlot? hit;
@@ -105,12 +126,19 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       hit ??= _ConsoleSlot(e);
       newActiveOrder.add(hit);
     }
-    // 提取仍在退场中的 slot（保持其在原 _slots 的相对位置）。
-    final exitingSlots = _slots.where((s) => s.isExiting).toList();
+    final exitingSlots = _slots.where((s) => s.isExiting).toList()
+      ..sort(
+        (a, b) => (previousIndex[a] ?? 0).compareTo(previousIndex[b] ?? 0),
+      );
     _slots
       ..clear()
-      ..addAll(newActiveOrder)
-      ..addAll(exitingSlots);
+      ..addAll(newActiveOrder);
+    for (final exiting in exitingSlots) {
+      final index = (previousIndex[exiting] ?? _slots.length)
+          .clamp(0, _slots.length)
+          .toInt();
+      _slots.insert(index, exiting);
+    }
   }
 
   CdpConsoleEntry? _findInList(
@@ -129,12 +157,14 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     widget.controller.pushReplHistory(raw);
     _historyCursor = -1;
     _replCtrl.clear();
+    _scheduleConsoleFollow();
     // 通知 dashboard 异步把最新历史持久化到 session metadata。
     final dashState = context
         .findAncestorStateOfType<_WebReverseDashboardDialogState>();
     dashState?.persistConsoleReplHistory();
     final r = await widget.controller.runReplExpression(raw);
     if (!mounted) return;
+    _scheduleConsoleFollow();
     final loc = AppLocalizations.of(context);
     if (r == null) {
       OpenHandSnackBar.showError(
@@ -173,6 +203,123 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
       isZh ? '控制台全文已复制' : 'Console text copied',
       duration: const Duration(seconds: 2),
     );
+  }
+
+  ({Color color, Color onColor}) _consoleEntryColors(
+    ThemeData theme,
+    ColorScheme cs,
+    String level,
+  ) {
+    final warningColor = theme.brightness == Brightness.dark
+        ? _kWarningContainerDark
+        : _kWarningContainerLight;
+    final warningOnColor = theme.brightness == Brightness.dark
+        ? _kWarningOnContainerDark
+        : _kWarningOnContainerLight;
+    return switch (level) {
+      'error' => (color: cs.errorContainer, onColor: cs.onErrorContainer),
+      'warning' || 'warn' => (color: warningColor, onColor: warningOnColor),
+      'repl-input' => (
+        color: cs.primaryContainer,
+        onColor: cs.onPrimaryContainer,
+      ),
+      'repl-result' => (
+        color: cs.secondaryContainer,
+        onColor: cs.onSecondaryContainer,
+      ),
+      _ => (color: cs.surfaceContainerHigh, onColor: cs.onSurface),
+    };
+  }
+
+  int _consoleFingerprint(List<CdpConsoleEntry> entries) {
+    if (entries.isEmpty) return 0;
+    return Object.hash(entries.length, identityHashCode(entries.last));
+  }
+
+  void _scheduleConsoleFollow({bool force = false}) {
+    if ((!_autoFollowConsole && !force) || _consoleFollowScheduled) return;
+    _consoleFollowScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consoleFollowScheduled = false;
+      if (!mounted) return;
+      _consoleScrollGuard.followToBottom(
+        _consoleScroll,
+        animated: !widget.reduceMotion,
+        animationDuration: _kConsoleFollowDuration,
+      );
+    });
+  }
+
+  void _toggleConsoleAutoFollow() {
+    setState(() => _autoFollowConsole = !_autoFollowConsole);
+    if (_autoFollowConsole) {
+      _scheduleConsoleFollow(force: true);
+    }
+  }
+
+  Future<void> _showConsoleEntryMenu({
+    required CdpConsoleEntry entry,
+    required Offset position,
+    required bool longText,
+    required bool expanded,
+  }) async {
+    final overlay = Overlay.of(context).context.findRenderObject();
+    if (overlay is! RenderBox || !overlay.hasSize) return;
+    final isZh = openHandIsChineseLocale(context);
+    final selected = await showAnimatedMenu<_ConsoleEntryAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        if (longText)
+          PopupMenuItem<_ConsoleEntryAction>(
+            value: _ConsoleEntryAction.toggleExpanded,
+            child: Row(
+              children: [
+                Icon(
+                  expanded
+                      ? Icons.unfold_less_rounded
+                      : Icons.unfold_more_rounded,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  expanded
+                      ? (isZh ? '收起' : 'Collapse')
+                      : (isZh ? '展开全文' : 'Expand'),
+                ),
+              ],
+            ),
+          ),
+        PopupMenuItem<_ConsoleEntryAction>(
+          value: _ConsoleEntryAction.copyText,
+          child: Row(
+            children: [
+              const Icon(Icons.copy_rounded, size: 18),
+              const SizedBox(width: 10),
+              Text(isZh ? '复制全文' : 'Copy full'),
+            ],
+          ),
+        ),
+      ],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+    if (!mounted || selected == null) return;
+    switch (selected) {
+      case _ConsoleEntryAction.toggleExpanded:
+        if (!longText) return;
+        setState(() {
+          if (expanded) {
+            _expandedConsoleEntries.remove(entry);
+          } else {
+            _expandedConsoleEntries.add(entry);
+          }
+        });
+      case _ConsoleEntryAction.copyText:
+        await _copyConsoleText(entry.text);
+    }
   }
 
   KeyEventResult _onReplKey(KeyEvent ev) {
@@ -214,11 +361,16 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     _syncSlots();
+    final fingerprint = _consoleFingerprint(widget.controller.consoleMessages);
+    if (fingerprint != _lastConsoleFingerprint) {
+      _lastConsoleFingerprint = fingerprint;
+      _scheduleConsoleFollow();
+    }
     final filter = widget.filter.toLowerCase();
-    // _slots 当前是 controller 顺序（旧 → 新）+ 已退场槽位；UI 想要新在
-    // 上、旧在下，因此 reverse 后再过滤 / 渲染。退场中的槽位无论是否
-    // 命中 filter 都要继续显示，否则它们会瞬间消失，吃掉退场动画。
-    final ordered = _slots.reversed.toList(growable: false);
+    // _slots 当前是 controller 顺序（旧 → 新）+ 按原位置保留的退场槽位；
+    // 控制台按常规时间线从上到下渲染，新消息追加到尾部。
+    // 退场中的槽位无论是否命中 filter 都要继续显示，否则会瞬间消失。
+    final ordered = _slots;
     final visible = filter.isEmpty
         ? ordered
         : ordered
@@ -243,160 +395,135 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                     ),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: visible.length,
-                  itemBuilder: (_, idx) {
-                    final slot = visible[idx];
-                    final e = slot.entry;
-                    final color = switch (e.level) {
-                      'error' => cs.errorContainer,
-                      'warning' => cs.tertiaryContainer,
-                      'repl-input' => cs.primaryContainer,
-                      'repl-result' => cs.secondaryContainer,
-                      _ => cs.surfaceContainerHigh,
-                    };
-                    final onColor = switch (e.level) {
-                      'error' => cs.onErrorContainer,
-                      'warning' => cs.onTertiaryContainer,
-                      'repl-input' => cs.onPrimaryContainer,
-                      'repl-result' => cs.onSecondaryContainer,
-                      _ => cs.onSurface,
-                    };
-                    final longText = _isLongConsoleText(e.text);
-                    final expanded = _expandedConsoleEntries.contains(e);
-                    final displayText = longText && !expanded
-                        ? _previewConsoleText(e.text)
-                        : e.text;
-                    final isZh = openHandIsChineseLocale(context);
-                    final card = Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 84,
-                            child: Text(
-                              e.level.toUpperCase(),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontFamily: 'monospace',
-                                color: onColor.withValues(alpha: 0.75),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+              : NotificationListener<ScrollNotification>(
+                  onNotification: _consoleScrollGuard.handleNotification,
+                  child: OpenHandSafeScrollbar(
+                    controller: _consoleScroll,
+                    thumbVisibility: true,
+                    thickness: 8,
+                    radius: const Radius.circular(999),
+                    child: ListView.builder(
+                      controller: _consoleScroll,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: visible.length,
+                      itemBuilder: (_, idx) {
+                        final slot = visible[idx];
+                        final e = slot.entry;
+                        final palette = _consoleEntryColors(theme, cs, e.level);
+                        final color = palette.color;
+                        final onColor = palette.onColor;
+                        final longText = _isLongConsoleText(e.text);
+                        final expanded = _expandedConsoleEntries.contains(e);
+                        final displayText = longText && !expanded
+                            ? _previewConsoleText(e.text)
+                            : e.text;
+                        final card = Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SelectableText(
-                                  displayText,
-                                  style: theme.textTheme.bodySmall?.copyWith(
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 84,
+                                child: Text(
+                                  e.level.toUpperCase(),
+                                  style: theme.textTheme.labelSmall?.copyWith(
                                     fontFamily: 'monospace',
-                                    color: onColor,
+                                    color: onColor.withValues(alpha: 0.75),
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                if (longText) ...[
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: [
-                                      TextButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            if (expanded) {
-                                              _expandedConsoleEntries.remove(e);
-                                            } else {
-                                              _expandedConsoleEntries.add(e);
-                                            }
-                                          });
-                                        },
-                                        icon: Icon(
-                                          expanded
-                                              ? Icons.unfold_less_rounded
-                                              : Icons.unfold_more_rounded,
-                                          size: 15,
-                                        ),
-                                        label: Text(
-                                          expanded
-                                              ? (isZh ? '收起' : 'Collapse')
-                                              : (isZh ? '展开全文' : 'Expand'),
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: onColor,
-                                          visualDensity: VisualDensity.compact,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                        ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    AnimatedSize(
+                                      duration: widget.reduceMotion
+                                          ? Duration.zero
+                                          : _kConsoleExitDuration,
+                                      curve: Curves.easeOutBack,
+                                      alignment: Alignment.topLeft,
+                                      child: SelectableText(
+                                        displayText,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontFamily: 'monospace',
+                                              color: onColor,
+                                            ),
                                       ),
-                                      TextButton.icon(
-                                        onPressed: () =>
-                                            _copyConsoleText(e.text),
-                                        icon: const Icon(
-                                          Icons.copy_rounded,
-                                          size: 14,
-                                        ),
-                                        label: Text(
-                                          isZh ? '复制全文' : 'Copy full',
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: onColor,
-                                          visualDensity: VisualDensity.compact,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                    final padded = Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: card,
-                    );
-                    // 退场：240ms 内 AnimatedSize 折叠 + AnimatedOpacity
-                    // 淡出 + 轻微缩放，与 _TabStrip 退场风格保持一致。
-                    if (widget.reduceMotion) {
-                      return slot.isExiting ? const SizedBox.shrink() : padded;
-                    }
-                    return AnimatedSize(
-                      key: ValueKey(identityHashCode(slot)),
-                      duration: _kConsoleExitDuration,
-                      curve: Curves.easeInCubic,
-                      alignment: Alignment.topCenter,
-                      child: AnimatedOpacity(
-                        duration: _kConsoleExitDuration,
-                        curve: Curves.easeOut,
-                        opacity: slot.isExiting ? 0.0 : 1.0,
-                        child: AnimatedScale(
+                        );
+                        final padded = Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onDoubleTapDown: (details) {
+                              _lastConsoleMenuPosition = details.globalPosition;
+                            },
+                            onDoubleTap: () {
+                              _showConsoleEntryMenu(
+                                entry: e,
+                                position:
+                                    _lastConsoleMenuPosition ?? Offset.zero,
+                                longText: longText,
+                                expanded: expanded,
+                              );
+                            },
+                            onSecondaryTapDown: (details) {
+                              _showConsoleEntryMenu(
+                                entry: e,
+                                position: details.globalPosition,
+                                longText: longText,
+                                expanded: expanded,
+                              );
+                            },
+                            child: card,
+                          ),
+                        );
+                        // 退场：240ms 内 AnimatedSize 折叠 + AnimatedOpacity
+                        // 淡出 + 轻微缩放，与 _TabStrip 退场风格保持一致。
+                        if (widget.reduceMotion) {
+                          return slot.isExiting
+                              ? const SizedBox.shrink()
+                              : padded;
+                        }
+                        return AnimatedSize(
+                          key: ValueKey(identityHashCode(slot)),
                           duration: _kConsoleExitDuration,
                           curve: Curves.easeInCubic,
-                          scale: slot.isExiting ? 0.92 : 1.0,
-                          child: slot.isExiting
-                              ? padded
-                              : _AnimatedAppearOnce(
-                                  duration: _kSwitchDuration,
-                                  child: padded,
-                                ),
-                        ),
-                      ),
-                    );
-                  },
+                          alignment: Alignment.topCenter,
+                          child: AnimatedOpacity(
+                            duration: _kConsoleExitDuration,
+                            curve: Curves.easeOut,
+                            opacity: slot.isExiting ? 0.0 : 1.0,
+                            child: AnimatedScale(
+                              duration: _kConsoleExitDuration,
+                              curve: Curves.easeInCubic,
+                              scale: slot.isExiting ? 0.92 : 1.0,
+                              child: slot.isExiting
+                                  ? padded
+                                  : _AnimatedAppearOnce(
+                                      duration: _kSwitchDuration,
+                                      child: padded,
+                                    ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
         ),
         Divider(height: 1, color: cs.outlineVariant),
@@ -446,37 +573,78 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
           child: Row(
             children: [
-              Icon(Icons.chevron_right_rounded, size: 18, color: cs.primary),
-              const SizedBox(width: 6),
               Expanded(
-                child: KeyboardListener(
-                  focusNode: FocusNode(skipTraversal: true),
-                  onKeyEvent: _onReplKey,
-                  child: TextField(
-                    controller: _replCtrl,
-                    focusNode: _replFocus,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                      fontSize: 12.5,
+                child: SizedBox(
+                  height: _kConsoleReplControlHeight,
+                  child: KeyboardListener(
+                    focusNode: _replHistoryFocus,
+                    onKeyEvent: _onReplKey,
+                    child: TextField(
+                      controller: _replCtrl,
+                      focusNode: _replFocus,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        fontSize: 12.5,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        hintText:
+                            loc?.webReverseConsoleReplHint ??
+                            'JS expression; ↑↓ history',
+                        border: const OutlineInputBorder(),
+                      ),
+                      onSubmitted: _runExpr,
                     ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText:
-                          loc?.webReverseConsoleReplHint ??
-                          'JS expression; ↑↓ history',
-                      border: const OutlineInputBorder(),
-                    ),
-                    onSubmitted: _runExpr,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: () => _runExpr(_replCtrl.text),
-                icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                label: Text(loc?.webReverseReplRun ?? 'Run'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+              Tooltip(
+                message: _autoFollowConsole
+                    ? (openHandIsChineseLocale(context)
+                          ? '自动跟随已开启'
+                          : 'Auto-follow on')
+                    : (openHandIsChineseLocale(context)
+                          ? '自动跟随已关闭'
+                          : 'Auto-follow off'),
+                child: SizedBox(
+                  width: _kConsoleReplControlHeight,
+                  height: _kConsoleReplControlHeight,
+                  child: IconButton.filledTonal(
+                    isSelected: _autoFollowConsole,
+                    selectedIcon: const Icon(
+                      Icons.vertical_align_bottom_rounded,
+                      size: _kConsoleActionIconSize,
+                    ),
+                    icon: const Icon(
+                      Icons.vertical_align_bottom_outlined,
+                      size: _kConsoleActionIconSize,
+                    ),
+                    onPressed: _toggleConsoleAutoFollow,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: _kConsoleReplControlHeight,
+                child: FilledButton.icon(
+                  onPressed: () => _runExpr(_replCtrl.text),
+                  icon: const Icon(
+                    Icons.play_arrow_rounded,
+                    size: _kConsoleActionIconSize,
+                  ),
+                  label: Text(loc?.webReverseReplRun ?? 'Run'),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, _kConsoleReplControlHeight),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                  ),
                 ),
               ),
             ],
@@ -497,3 +665,5 @@ class _ConsoleSlot {
   bool isExiting = false;
   Timer? exitTimer;
 }
+
+enum _ConsoleEntryAction { toggleExpanded, copyText }

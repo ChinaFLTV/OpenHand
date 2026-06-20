@@ -52,10 +52,17 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   // 手动布局：每行高度由 _kSourceLineHeight 估算，控制 ScrollController
   // 滚到 lineIndex * 行高即可。
   static const double _kSourceLineHeight = 19.5;
+  static const double _kSourceGutterWidth = 58;
+  static const double _kSourceEditorFontSize = 11.5;
+  static const double _kSourceEstimatedCharWidth = 7.1;
+  static const double _kSourceMaxEstimatedContentWidth = 16000;
+  static const double _kSourceStatusBarHeight = 26;
   static const double _kDebuggerSideRailWidth = 300;
   static const double _kDebuggerSideRailStackBreakpoint = 680;
   static const double _kDebuggerSideRailStackHeight = 220;
   final ScrollController _sourceScroll = ScrollController();
+  final ScrollController _sourceLineScroll = ScrollController();
+  final ScrollController _sourceHorizontalScroll = ScrollController();
 
   // ── Slice 3: Source Map ──
   // 当前选中脚本的 source map（懒加载，失败/无 map 时为 null）。
@@ -72,6 +79,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   void initState() {
     super.initState();
     _bootstrap();
+    _sourceScroll.addListener(_syncSourceLineScroll);
     widget.controller.addListener(_onCtrlChanged);
     // 2026-05-19 — Cmd+P / Ctrl+P 全局快速打开脚本/跳行（类 VSCode/Chrome
     // DevTools）。挂在 HardwareKeyboard 上避免 TextField 焦点抢键。
@@ -103,9 +111,30 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     HardwareKeyboard.instance.removeHandler(_handleQuickOpenKey);
     _hoverDebounce?.cancel();
     _highlightTimer?.cancel();
+    _sourceScroll.removeListener(_syncSourceLineScroll);
     _sourceScroll.dispose();
+    _sourceLineScroll.dispose();
+    _sourceHorizontalScroll.dispose();
     _lsp.stop();
     super.dispose();
+  }
+
+  void _syncSourceLineScroll() {
+    if (!_sourceScroll.hasClients || !_sourceLineScroll.hasClients) return;
+    final target = _sourceScroll.offset
+        .clamp(0.0, _sourceLineScroll.position.maxScrollExtent)
+        .toDouble();
+    if ((_sourceLineScroll.offset - target).abs() < 0.5) return;
+    _sourceLineScroll.jumpTo(target);
+  }
+
+  void _resetSourceScrollPositions() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_sourceScroll.hasClients) _sourceScroll.jumpTo(0);
+      if (_sourceLineScroll.hasClients) _sourceLineScroll.jumpTo(0);
+      if (_sourceHorizontalScroll.hasClients) _sourceHorizontalScroll.jumpTo(0);
+    });
   }
 
   /// HW 键回调：Cmd+P (macOS) / Ctrl+P (其他)。Shift/Alt 修饰键按下时
@@ -637,6 +666,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final src = await widget.controller.getScriptSource(id);
     if (!mounted) return;
     setState(() => _source = src);
+    _resetSourceScrollPositions();
     await _pushCurrentToLsp();
     // 抓 sourcemap 不阻塞源码渲染；完成后追加显示「Map(N)」chip。
     final url = widget.controller.parsedScripts[id]?.url ?? '';
@@ -999,6 +1029,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       },
       onSelected: (idx) {
         setState(() => _originalSourceIndex = idx);
+        _resetSourceScrollPositions();
       },
       child: Chip(
         avatar: Icon(Icons.alt_route_rounded, size: 14, color: cs.primary),
@@ -1040,114 +1071,262 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     }
     final lines = source.split('\n');
     Widget buildSourceList() {
+      final longestLine = lines.fold<int>(
+        0,
+        (value, line) => math.max(value, line.length),
+      );
+      final sourceTextStyle = theme.textTheme.bodySmall?.copyWith(
+        fontFamily: 'monospace',
+        fontSize: _kSourceEditorFontSize,
+        height: 1.5,
+        color: cs.onSurface,
+      );
+      final gutterTextStyle = theme.textTheme.labelSmall?.copyWith(
+        fontFamily: 'monospace',
+        color: cs.onSurfaceVariant.withValues(alpha: 0.72),
+      );
+      const sourceScrollBehavior = OpenHandEditorScrollBehavior();
+
       return Container(
         color: cs.surfaceContainerHigh,
-        child: ListView.builder(
-          controller: _sourceScroll,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: lines.length,
-          itemBuilder: (_, idx) {
-            final hasBp = _bpAtLine.containsKey(idx);
-            final isHighlighted = _highlightedLine == idx;
-            final isHovered = _hoverLine == idx && _lspEnabled;
-            return MouseRegion(
-              onHover: _lspEnabled
-                  ? (event) {
-                      // 用 TextPainter 估算列号，传给 LSP hover。
-                      final col = _estimateColumn(
-                        event.localPosition.dx,
-                        lines[idx],
-                      );
-                      _scheduleAutoHover(idx, col, lines[idx]);
-                    }
-                  : null,
-              onExit: _lspEnabled ? (_) => _clearAutoHover() : null,
-              child: InkWell(
-                onTap: () => _toggleBreakpoint(idx),
-                onSecondaryTapDown: _lspEnabled
-                    ? (d) => _onLineSecondaryTap(d, idx, lines[idx])
-                    : null,
-                onLongPress: _lspEnabled
-                    ? () => _onLineLongPress(idx, lines[idx])
-                    : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                  color: isHighlighted
-                      ? cs.tertiaryContainer.withValues(alpha: 0.5)
-                      : Colors.transparent,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 1,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 36,
-                        child: Stack(
-                          alignment: Alignment.centerLeft,
-                          children: [
-                            Text(
-                              '${idx + 1}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontFamily: 'monospace',
-                                color: cs.onSurfaceVariant,
-                              ),
-                              textAlign: TextAlign.right,
+        child: Column(
+          children: [
+            Expanded(
+              child: ClipRect(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final viewportWidth = math.max(
+                      0.0,
+                      constraints.maxWidth - _kSourceGutterWidth,
+                    );
+                    final contentWidth = math.min(
+                      _kSourceMaxEstimatedContentWidth,
+                      math.max(
+                        viewportWidth,
+                        longestLine * _kSourceEstimatedCharWidth + 48,
+                      ),
+                    );
+
+                    Widget buildGutterLine(int idx) {
+                      final hasBp = _bpAtLine.containsKey(idx);
+                      final isHighlighted = _highlightedLine == idx;
+                      return RepaintBoundary(
+                        child: InkWell(
+                          onTap: () => _toggleBreakpoint(idx),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 240),
+                            curve: Curves.easeOutCubic,
+                            color: isHighlighted
+                                ? cs.tertiaryContainer.withValues(alpha: 0.32)
+                                : Colors.transparent,
+                            padding: const EdgeInsets.only(left: 8, right: 8),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 10,
+                                  child: hasBp
+                                      ? Center(
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: cs.error,
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: cs.error.withValues(
+                                                    alpha: 0.24,
+                                                  ),
+                                                  blurRadius: 5,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '${idx + 1}',
+                                    maxLines: 1,
+                                    textAlign: TextAlign.right,
+                                    style: gutterTextStyle,
+                                  ),
+                                ),
+                              ],
                             ),
-                            if (hasBp)
-                              Positioned(
-                                right: 4,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: cs.error,
-                                    shape: BoxShape.circle,
+                          ),
+                        ),
+                      );
+                    }
+
+                    Widget buildCodeLine(int idx) {
+                      final line = lines[idx];
+                      final isHighlighted = _highlightedLine == idx;
+                      final isHovered = _hoverLine == idx && _lspEnabled;
+                      return RepaintBoundary(
+                        child: MouseRegion(
+                          onHover: _lspEnabled
+                              ? (event) {
+                                  final col = _estimateColumn(
+                                    event.localPosition.dx,
+                                    line,
+                                  );
+                                  _scheduleAutoHover(idx, col, line);
+                                }
+                              : null,
+                          onExit: _lspEnabled ? (_) => _clearAutoHover() : null,
+                          child: InkWell(
+                            onTap: () => _toggleBreakpoint(idx),
+                            onSecondaryTapDown: _lspEnabled
+                                ? (d) => _onLineSecondaryTap(d, idx, line)
+                                : null,
+                            onLongPress: _lspEnabled
+                                ? () => _onLineLongPress(idx, line)
+                                : null,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 240),
+                              curve: Curves.easeOutCubic,
+                              color: isHighlighted
+                                  ? cs.tertiaryContainer.withValues(alpha: 0.5)
+                                  : Colors.transparent,
+                              padding: const EdgeInsets.only(
+                                left: 12,
+                                right: 16,
+                              ),
+                              alignment: Alignment.centerLeft,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  SelectableText(
+                                    line.isEmpty ? ' ' : line,
+                                    maxLines: 1,
+                                    style: sourceTextStyle,
+                                  ),
+                                  if (isHovered &&
+                                      (_hoverLoading ||
+                                          (_hoverMarkdown != null &&
+                                              _hoverMarkdown!.isNotEmpty)))
+                                    Positioned(
+                                      left: _estimateLineWidth(line) + 12,
+                                      top: -2,
+                                      child: _SourceHoverBubble(
+                                        markdown: _hoverMarkdown,
+                                        loading: _hoverLoading,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: _kSourceGutterWidth,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(
+                              alpha: 0.62,
+                            ),
+                            border: Border(
+                              right: BorderSide(
+                                color: cs.outlineVariant.withValues(alpha: 0.5),
+                                width: 0.5,
+                              ),
+                            ),
+                          ),
+                          child: ScrollConfiguration(
+                            behavior: sourceScrollBehavior,
+                            child: ListView.builder(
+                              controller: _sourceLineScroll,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              itemCount: lines.length,
+                              itemExtent: _kSourceLineHeight,
+                              itemBuilder: (_, idx) => buildGutterLine(idx),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: PrimaryScrollController.none(
+                            child: OpenHandSafeScrollbar(
+                              controller: _sourceScroll,
+                              thumbVisibility: true,
+                              thickness: 9,
+                              radius: const Radius.circular(999),
+                              notificationPredicate: (notification) =>
+                                  notification.metrics.axis == Axis.vertical,
+                              child: ScrollConfiguration(
+                                behavior: sourceScrollBehavior,
+                                child: SingleChildScrollView(
+                                  controller: _sourceHorizontalScroll,
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const ClampingScrollPhysics(),
+                                  child: SizedBox(
+                                    width: contentWidth,
+                                    child: ListView.builder(
+                                      controller: _sourceScroll,
+                                      physics: const ClampingScrollPhysics(),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      cacheExtent: _kSourceLineHeight * 80,
+                                      itemCount: lines.length,
+                                      itemExtent: _kSourceLineHeight,
+                                      itemBuilder: (_, idx) =>
+                                          buildCodeLine(idx),
+                                    ),
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            SelectableText(
-                              lines[idx].isEmpty ? ' ' : lines[idx],
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                fontSize: 11.5,
-                                height: 1.5,
-                                color: cs.onSurface,
-                              ),
                             ),
-                            // 行尾自动 hover 浮窗：贴在当前行右侧；内容为 LSP
-                            // 返回的 markdown，超过 240 字截断，移走自动消失。
-                            if (isHovered &&
-                                (_hoverLoading ||
-                                    (_hoverMarkdown != null &&
-                                        _hoverMarkdown!.isNotEmpty)))
-                              Positioned(
-                                left: _estimateLineWidth(lines[idx]) + 12,
-                                top: -2,
-                                child: _SourceHoverBubble(
-                                  markdown: _hoverMarkdown,
-                                  loading: _hoverLoading,
-                                ),
-                              ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+            Container(
+              height: _kSourceStatusBarHeight,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+                border: Border(
+                  top: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                    width: 0.5,
                   ),
                 ),
               ),
-            );
-          },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.data_object_rounded,
+                    size: 14,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${lines.length} ${isZh ? '行' : 'lines'} | ${_viewingOriginal ? (isZh ? '原始源' : 'original') : (_prettify ? (isZh ? '已美化' : 'pretty') : (isZh ? '原样' : 'raw'))} | JavaScript',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -1206,6 +1385,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       setState(() => _originalSourceIndex = -1);
+                      _resetSourceScrollPositions();
                     },
                     icon: const Icon(
                       Icons.subdirectory_arrow_left_rounded,
@@ -1240,6 +1420,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       ? null
                       : (v) {
                           setState(() => _prettify = v);
+                          _resetSourceScrollPositions();
                           _pushCurrentToLsp();
                         },
                 ),
