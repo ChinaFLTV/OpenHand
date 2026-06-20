@@ -56,8 +56,9 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
       return;
     }
     setState(() => _bodyLoading = true);
-    final result =
-        await widget.controller.fetchResponseBody(widget.entry.requestId);
+    final result = await widget.controller.fetchResponseBody(
+      widget.entry.requestId,
+    );
     if (!mounted) return;
     setState(() {
       _bodyLoading = false;
@@ -79,14 +80,11 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         Divider(height: 1, color: cs.outlineVariant),
         Expanded(
           child: AnimatedSwitcher(
-            duration:
-                widget.reduceMotion ? Duration.zero : _kSwitchDuration,
+            duration: widget.reduceMotion ? Duration.zero : _kSwitchDuration,
             switchInCurve: _kSwitchInCurve,
             switchOutCurve: _kSwitchOutCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: child,
-            ),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
             child: KeyedSubtree(
               key: ValueKey<_DetailTab>(_tab),
               child: _buildBody(theme, cs, isZh),
@@ -175,13 +173,19 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
                 icon: const Icon(Icons.content_copy_rounded, size: 18),
                 padding: EdgeInsets.zero,
                 splashRadius: 18,
-                onSelected: (kind) => _copyAs(kind, isZh),
+                onSelected: (kind) => unawaited(_copyAs(kind, isZh)),
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'url', child: Text('URL')),
                   PopupMenuItem(value: 'curl', child: Text('cURL (POSIX)')),
-                  PopupMenuItem(value: 'curl-cmd', child: Text('cURL (Windows)')),
+                  PopupMenuItem(
+                    value: 'curl-cmd',
+                    child: Text('cURL (Windows)'),
+                  ),
                   PopupMenuItem(value: 'fetch', child: Text('fetch')),
-                  PopupMenuItem(value: 'fetch-node', child: Text('fetch (Node.js)')),
+                  PopupMenuItem(
+                    value: 'fetch-node',
+                    child: Text('fetch (Node.js)'),
+                  ),
                 ],
               ),
             ),
@@ -191,7 +195,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
     );
   }
 
-  void _copyAs(String kind, bool isZh) {
+  Future<void> _copyAs(String kind, bool isZh) async {
     final text = switch (kind) {
       'url' => widget.entry.url,
       'curl' => _asCurl(widget.entry, windows: false),
@@ -200,10 +204,15 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
       'fetch-node' => _asFetch(widget.entry, node: true),
       _ => widget.entry.url,
     };
-    Clipboard.setData(ClipboardData(text: text));
+    final copied = await setWebReverseClipboardText(text);
+    if (!mounted) return;
     OpenHandSnackBar.showSuccess(
       context,
-      isZh ? '已复制为 $kind' : 'Copied as $kind',
+      webReverseClipboardSnackMessage(
+        isZh: isZh,
+        base: isZh ? '已复制为 $kind' : 'Copied as $kind',
+        result: copied,
+      ),
       duration: const Duration(seconds: 1),
     );
   }
@@ -238,40 +247,40 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
   }
 
   static String _detailTabLabel(_DetailTab t, bool isZh) => switch (t) {
-        _DetailTab.headers => 'Headers',
-        _DetailTab.preview => 'Preview',
-        _DetailTab.response => 'Response',
-        _DetailTab.initiator => 'Initiator',
-        _DetailTab.timing => 'Timing',
-        _DetailTab.messages => 'Messages',
-      };
+    _DetailTab.headers => 'Headers',
+    _DetailTab.preview => 'Preview',
+    _DetailTab.response => 'Response',
+    _DetailTab.initiator => 'Initiator',
+    _DetailTab.timing => 'Timing',
+    _DetailTab.messages => 'Messages',
+  };
 
   Widget _buildBody(ThemeData theme, ColorScheme cs, bool isZh) {
     return switch (_tab) {
       _DetailTab.headers => _HeadersTab(entry: widget.entry, isZh: isZh),
       _DetailTab.preview => _BodyTab(
-          entry: widget.entry,
-          loading: _bodyLoading,
-          text: _bodyText,
-          base64: _bodyBase64,
-          mimeType: widget.entry.mimeType,
-          preview: true,
-          isZh: isZh,
-        ),
+        entry: widget.entry,
+        loading: _bodyLoading,
+        text: _bodyText,
+        base64: _bodyBase64,
+        mimeType: widget.entry.mimeType,
+        preview: true,
+        isZh: isZh,
+      ),
       _DetailTab.response => _BodyTab(
-          entry: widget.entry,
-          loading: _bodyLoading,
-          text: _bodyText,
-          base64: _bodyBase64,
-          mimeType: widget.entry.mimeType,
-          preview: false,
-          isZh: isZh,
-        ),
+        entry: widget.entry,
+        loading: _bodyLoading,
+        text: _bodyText,
+        base64: _bodyBase64,
+        mimeType: widget.entry.mimeType,
+        preview: false,
+        isZh: isZh,
+      ),
       _DetailTab.initiator => _InitiatorTab(
-          controller: widget.controller,
-          entry: widget.entry,
-          isZh: isZh,
-        ),
+        controller: widget.controller,
+        entry: widget.entry,
+        isZh: isZh,
+      ),
       _DetailTab.timing => _TimingTab(entry: widget.entry, isZh: isZh),
       _DetailTab.messages => _MessagesTab(entry: widget.entry, isZh: isZh),
     };
@@ -333,9 +342,7 @@ class _HeadersTab extends StatelessWidget {
       (
         'Status Code',
         entry.statusCode == null
-            ? (entry.failed
-                ? '(${entry.errorText ?? "failed"})'
-                : '(pending)')
+            ? (entry.failed ? '(${entry.errorText ?? "failed"})' : '(pending)')
             : '${entry.statusCode} ${entry.statusText ?? ''}'.trim(),
       ),
       if (entry.remoteAddress != null) ('Remote Address', entry.remoteAddress!),
@@ -361,8 +368,8 @@ class _HeadersTab extends StatelessWidget {
               .map((e) => (e.key, e.value))
               .toList(growable: false),
         ),
-        if (entry.requestPostData != null && entry.requestPostData!.isNotEmpty)
-          ...[
+        if (entry.requestPostData != null &&
+            entry.requestPostData!.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
             isZh ? '请求体' : 'Request Payload',
@@ -394,9 +401,7 @@ class _HeaderSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: cs.outlineVariant),
-            ),
+            border: Border(bottom: BorderSide(color: cs.outlineVariant)),
           ),
           child: Text(
             title,
@@ -615,11 +620,7 @@ class _InitiatorTab extends StatelessWidget {
 
   void _jumpToSource(String url, [int? line, int? col]) {
     if (url.isEmpty) return;
-    controller.requestSourceJump(
-      url: url,
-      line: line ?? 0,
-      col: col ?? 0,
-    );
+    controller.requestSourceJump(url: url, line: line ?? 0, col: col ?? 0);
   }
 
   @override
@@ -666,18 +667,16 @@ class _InitiatorTab extends StatelessWidget {
         const SizedBox(height: 6),
         if (stack.isEmpty)
           Text(
-            isZh ? '(无堆栈，可能由解析器或预加载触发)' : '(no stack — parser/preload-triggered)',
+            isZh
+                ? '(无堆栈，可能由解析器或预加载触发)'
+                : '(no stack — parser/preload-triggered)',
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
           )
         else
           for (final frame in stack)
-            _StackFrame(
-              frame: frame,
-              onJump: _jumpToSource,
-              isZh: isZh,
-            ),
+            _StackFrame(frame: frame, onJump: _jumpToSource, isZh: isZh),
         const SizedBox(height: 16),
         // Request Initiator Chain：重定向链按时间顺序展示，与 Chrome
         // DevTools 同名区段对齐。每一跳显示状态码 + URL + 跳转时间。
@@ -771,8 +770,7 @@ class _RedirectStepRow extends StatelessWidget {
           ),
           Container(
             margin: const EdgeInsets.only(right: 8, top: 1),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(6),
@@ -799,8 +797,7 @@ class _RedirectStepRow extends StatelessWidget {
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
                     color: isFinal ? cs.primary : cs.onSurface,
-                    fontWeight:
-                        isFinal ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: isFinal ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
                 Text(
@@ -865,14 +862,15 @@ class _ClickableSourceRow extends StatelessWidget {
           ),
           Expanded(
             child: Tooltip(
-              message:
-                  isZh ? '在 Sources 中打开' : 'Open in Sources',
+              message: isZh ? '在 Sources 中打开' : 'Open in Sources',
               child: InkWell(
                 onTap: onTap,
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      vertical: 1, horizontal: 2),
+                    vertical: 1,
+                    horizontal: 2,
+                  ),
                   child: Text(
                     '$url$lineText$colText',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -1091,8 +1089,7 @@ class _TimingTab extends StatelessWidget {
   /// Chrome DevTools 的 9 个标准阶段：
   ///   Queueing / Stalled / Proxy / DNS Lookup / Initial Connection /
   ///   SSL / Request Sent / Waiting (TTFB) / Content Download
-  static List<_TimingPhase>? _computePhases(
-      CdpNetworkEntry entry, bool isZh) {
+  static List<_TimingPhase>? _computePhases(CdpNetworkEntry entry, bool isZh) {
     final t = entry.resourceTiming;
     if (t == null || t.isEmpty) return null;
     double? f(String k) {
@@ -1105,18 +1102,25 @@ class _TimingTab extends StatelessWidget {
     }
 
     final phases = <_TimingPhase>[];
-    void add(String name, String nameEn, double? from, double? to,
-        Color Function(ColorScheme cs) color) {
+    void add(
+      String name,
+      String nameEn,
+      double? from,
+      double? to,
+      Color Function(ColorScheme cs) color,
+    ) {
       if (from == null || to == null) return;
       final dur = to - from;
       if (dur < 0) return;
-      phases.add(_TimingPhase(
-        nameZh: name,
-        nameEn: nameEn,
-        startMs: from,
-        endMs: to,
-        color: color,
-      ));
+      phases.add(
+        _TimingPhase(
+          nameZh: name,
+          nameEn: nameEn,
+          startMs: from,
+          endMs: to,
+          color: color,
+        ),
+      );
     }
 
     // requestTime 是单调时钟秒，所有其余字段都相对它（毫秒）。
@@ -1134,15 +1138,35 @@ class _TimingTab extends StatelessWidget {
     final receiveHeadersStart = f('receiveHeadersStart');
     final receiveHeadersEnd = f('receiveHeadersEnd');
 
-    add('代理协商', 'Proxy', proxyStart, proxyEnd,
-        (cs) => cs.tertiary.withValues(alpha: 0.75));
-    add('DNS 解析', 'DNS Lookup', dnsStart, dnsEnd,
-        (cs) => Colors.indigo.shade400);
-    add('初始连接', 'Initial Connection', connectStart, connectEnd,
-        (cs) => Colors.orange.shade400);
+    add(
+      '代理协商',
+      'Proxy',
+      proxyStart,
+      proxyEnd,
+      (cs) => cs.tertiary.withValues(alpha: 0.75),
+    );
+    add(
+      'DNS 解析',
+      'DNS Lookup',
+      dnsStart,
+      dnsEnd,
+      (cs) => Colors.indigo.shade400,
+    );
+    add(
+      '初始连接',
+      'Initial Connection',
+      connectStart,
+      connectEnd,
+      (cs) => Colors.orange.shade400,
+    );
     add('SSL 握手', 'SSL', sslStart, sslEnd, (cs) => Colors.purple.shade400);
-    add('请求发送', 'Request Sent', sendStart, sendEnd,
-        (cs) => Colors.teal.shade400);
+    add(
+      '请求发送',
+      'Request Sent',
+      sendStart,
+      sendEnd,
+      (cs) => Colors.teal.shade400,
+    );
     // Waiting / TTFB：从 sendEnd 到 receiveHeadersEnd（如有 start 用之）。
     add(
       '等待响应 (TTFB)',
@@ -1154,12 +1178,16 @@ class _TimingTab extends StatelessWidget {
     // 内容下载：headersEnd 到 loadingFinished 的相对偏移
     if (receiveHeadersEnd != null && entry.loadingFinishedAt != null) {
       final reqStartMs = entry.timestamp.millisecondsSinceEpoch.toDouble();
-      final endMs =
-          entry.loadingFinishedAt!.millisecondsSinceEpoch.toDouble();
+      final endMs = entry.loadingFinishedAt!.millisecondsSinceEpoch.toDouble();
       final downloadMs = endMs - reqStartMs - 0; // 近似：start = requestWillBeSent
       if (downloadMs > receiveHeadersEnd) {
-        add('内容下载', 'Content Download', receiveHeadersEnd, downloadMs,
-            (cs) => Colors.blue.shade400);
+        add(
+          '内容下载',
+          'Content Download',
+          receiveHeadersEnd,
+          downloadMs,
+          (cs) => Colors.blue.shade400,
+        );
       }
     }
     if (phases.isEmpty) return null;
@@ -1193,11 +1221,10 @@ class _TimingWaterfall extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final total = phases
-        .map((p) => p.endMs)
-        .reduce((a, b) => a > b ? a : b);
-    final firstStart =
-        phases.map((p) => p.startMs).reduce((a, b) => a < b ? a : b);
+    final total = phases.map((p) => p.endMs).reduce((a, b) => a > b ? a : b);
+    final firstStart = phases
+        .map((p) => p.startMs)
+        .reduce((a, b) => a < b ? a : b);
     final span = (total - firstStart).abs();
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -1206,119 +1233,125 @@ class _TimingWaterfall extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: cs.outlineVariant),
       ),
-      child: LayoutBuilder(builder: (context, constraints) {
-        // 左 label 列 130px，右 duration 列 80px，中间瀑布占剩余宽度。
-        const labelW = 130.0;
-        const durW = 80.0;
-        final barTrackW =
-            (constraints.maxWidth - labelW - durW - 16).clamp(40.0, 700.0);
-        Widget row(_TimingPhase p) {
-          final relStart = (p.startMs - firstStart);
-          final ratioStart = span <= 0 ? 0.0 : (relStart / span);
-          final ratioEnd =
-              span <= 0 ? 1.0 : ((p.endMs - firstStart) / span);
-          final left = (ratioStart * barTrackW).clamp(0.0, barTrackW);
-          final width =
-              ((ratioEnd - ratioStart) * barTrackW).clamp(2.0, barTrackW);
-          final color = p.color(cs);
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2.5),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: labelW,
-                  child: Text(
-                    p.nameZh,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.fade,
-                    softWrap: false,
-                  ),
-                ),
-                SizedBox(
-                  width: barTrackW,
-                  height: 12,
-                  child: Stack(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color:
-                              cs.surfaceContainerHigh.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 左 label 列 130px，右 duration 列 80px，中间瀑布占剩余宽度。
+          const labelW = 130.0;
+          const durW = 80.0;
+          final barTrackW = (constraints.maxWidth - labelW - durW - 16).clamp(
+            40.0,
+            700.0,
+          );
+          Widget row(_TimingPhase p) {
+            final relStart = (p.startMs - firstStart);
+            final ratioStart = span <= 0 ? 0.0 : (relStart / span);
+            final ratioEnd = span <= 0 ? 1.0 : ((p.endMs - firstStart) / span);
+            final left = (ratioStart * barTrackW).clamp(0.0, barTrackW);
+            final width = ((ratioEnd - ratioStart) * barTrackW).clamp(
+              2.0,
+              barTrackW,
+            );
+            final color = p.color(cs);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.5),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: labelW,
+                    child: Text(
+                      p.nameZh,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
-                      Positioned(
-                        left: left,
-                        top: 0,
-                        bottom: 0,
-                        width: width,
-                        child: Container(
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                    ),
+                  ),
+                  SizedBox(
+                    width: barTrackW,
+                    height: 12,
+                    child: Stack(
+                      children: [
+                        Container(
                           decoration: BoxDecoration(
-                            color: color,
+                            color: cs.surfaceContainerHigh.withValues(
+                              alpha: 0.45,
+                            ),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
+                        Positioned(
+                          left: left,
+                          top: 0,
+                          bottom: 0,
+                          width: width,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: durW,
+                    child: Text(
+                      '${p.durationMs.toStringAsFixed(1)} ms',
+                      textAlign: TextAlign.right,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: durW,
-                  child: Text(
-                    '${p.durationMs.toStringAsFixed(1)} ms',
-                    textAlign: TextAlign.right,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }
+                ],
+              ),
+            );
+          }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final p in phases) row(p),
-            const SizedBox(height: 6),
-            Divider(height: 1, color: cs.outlineVariant),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const SizedBox(width: 130),
-                SizedBox(
-                  width: barTrackW,
-                  child: Text(
-                    '0 ms',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final p in phases) row(p),
+              const SizedBox(height: 6),
+              Divider(height: 1, color: cs.outlineVariant),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const SizedBox(width: 130),
+                  SizedBox(
+                    width: barTrackW,
+                    child: Text(
+                      '0 ms',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    '${span.toStringAsFixed(1)} ms',
-                    textAlign: TextAlign.right,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      '${span.toStringAsFixed(1)} ms',
+                      textAlign: TextAlign.right,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
-        );
-      }),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -1382,7 +1415,6 @@ class _CodeBlockState extends State<_CodeBlock> {
     );
   }
 }
-
 
 /// 把请求序列化为 cURL 命令字符串。POSIX 模式用单引号 + `\'` 转义；
 /// Windows cmd 用 `^"` 折行，简化处理沿用单行 + 双引号转义。
@@ -1473,8 +1505,12 @@ class _MessagesTab extends StatelessWidget {
         final onColor = isErr
             ? cs.onErrorContainer
             : (isSent ? cs.onTertiaryContainer : cs.onSurface);
-        final ts =
-            f.timestamp.toIso8601String().split('T').last.split('.').first;
+        final ts = f.timestamp
+            .toIso8601String()
+            .split('T')
+            .last
+            .split('.')
+            .first;
         return Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Container(
@@ -1492,8 +1528,8 @@ class _MessagesTab extends StatelessWidget {
                       isErr
                           ? Icons.error_outline_rounded
                           : (isSent
-                              ? Icons.arrow_upward_rounded
-                              : Icons.arrow_downward_rounded),
+                                ? Icons.arrow_upward_rounded
+                                : Icons.arrow_downward_rounded),
                       size: 14,
                       color: onColor,
                     ),
@@ -1542,15 +1578,14 @@ class _MessagesTab extends StatelessWidget {
   }
 
   static String _opcodeLabel(int op) => switch (op) {
-        1 => 'TEXT',
-        2 => 'BIN',
-        8 => 'CLOSE',
-        9 => 'PING',
-        10 => 'PONG',
-        _ => 'OP$op',
-      };
+    1 => 'TEXT',
+    2 => 'BIN',
+    8 => 'CLOSE',
+    9 => 'PING',
+    10 => 'PONG',
+    _ => 'OP$op',
+  };
 }
-
 
 /// Preview tab 内的图片预览：缩略图直接展示在面板中，
 /// 点击弹出 `MediaPreviewDialog.bytes` 大图（与会话气泡里的图片预览复用）。
@@ -1657,12 +1692,11 @@ class _ImageInlinePreview extends StatelessWidget {
   }
 
   Widget _broken(ColorScheme cs) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Icon(Icons.broken_image_outlined,
-              color: cs.error, size: 48),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Icon(Icons.broken_image_outlined, color: cs.error, size: 48),
+    ),
+  );
 }
 
 /// Preview tab 内的音频 / 视频预览：直接复用 MediaPreviewDialog 的内嵌
@@ -1715,8 +1749,7 @@ class _MediaInlinePreview extends StatelessWidget {
                   context: context,
                   builder: (_) => MediaPreviewDialog.network(
                     url: entry.url,
-                    title:
-                        fallbackName.isEmpty ? entry.url : fallbackName,
+                    title: fallbackName.isEmpty ? entry.url : fallbackName,
                     mimeType: entry.mimeType,
                     kind: kind,
                   ),
@@ -1746,7 +1779,7 @@ class _MediaInlinePreview extends StatelessWidget {
                 child: Text(
                   isZh
                       ? '此请求识别为${kind == MediaPreviewKind.audio ? "音频" : "视频"}流，'
-                          '点击右上方「全屏预览」按钮即可在内嵌播放器中播放'
+                            '点击右上方「全屏预览」按钮即可在内嵌播放器中播放'
                       : 'Detected as ${kind == MediaPreviewKind.audio ? "audio" : "video"} stream — tap "Open large" to play in the embedded player.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(

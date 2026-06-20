@@ -39,18 +39,24 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
 
   void _setInput(String s) {
     _input.text = s;
-    _input.selection =
-        TextSelection.collapsed(offset: _input.text.length);
+    _input.selection = TextSelection.collapsed(offset: _input.text.length);
     setState(() {});
   }
 
   Future<void> _copy(String text, String label) async {
-    await Clipboard.setData(ClipboardData(text: text));
+    final copied = await setWebReverseClipboardText(text);
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
+    final isZh =
+        loc?.localeName.startsWith('zh') ??
+        Localizations.localeOf(context).languageCode.startsWith('zh');
     OpenHandSnackBar.showSuccess(
       context,
-      loc?.webReverseCryptoCopied(label) ?? '$label copied',
+      webReverseClipboardSnackMessage(
+        isZh: isZh,
+        base: loc?.webReverseCryptoCopied(label) ?? '$label copied',
+        result: copied,
+      ),
       duration: const Duration(seconds: 1),
     );
   }
@@ -88,9 +94,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
 
   String _hexEncode(String s) {
     final bytes = utf8.encode(s);
-    return bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
   String _hexDecode(String s) {
@@ -128,6 +132,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
         return raw;
       }
     }
+
     return {
       'header': pretty(parts[0]),
       'payload': pretty(parts[1]),
@@ -142,8 +147,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
     if (n == null) return '! not a number';
     final ms = raw.length <= 10 ? n * 1000 : n;
     try {
-      return DateTime.fromMillisecondsSinceEpoch(ms)
-          .toIso8601String();
+      return DateTime.fromMillisecondsSinceEpoch(ms).toIso8601String();
     } catch (e) {
       return '! $e';
     }
@@ -183,13 +187,10 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
           child: Row(
             children: [
-              _sectionBtn(cs, 0,
-                  loc?.webReverseCryptoSecEncode ?? 'Encode'),
-              _sectionBtn(cs, 1,
-                  loc?.webReverseCryptoSecHash ?? 'Hash'),
+              _sectionBtn(cs, 0, loc?.webReverseCryptoSecEncode ?? 'Encode'),
+              _sectionBtn(cs, 1, loc?.webReverseCryptoSecHash ?? 'Hash'),
               _sectionBtn(cs, 2, 'JWT'),
-              _sectionBtn(cs, 3,
-                  loc?.webReverseCryptoSecTime ?? 'Time'),
+              _sectionBtn(cs, 3, loc?.webReverseCryptoSecTime ?? 'Time'),
               _sectionBtn(cs, 4, 'UUID'),
               const Spacer(),
               TextButton.icon(
@@ -254,8 +255,13 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   }
 
   // ─── 结果卡片 ────────────────────────────────────────────────────────
-  Widget _resultCard(ThemeData theme, ColorScheme cs, String label,
-      String value, {AppLocalizations? loc}) {
+  Widget _resultCard(
+    ThemeData theme,
+    ColorScheme cs,
+    String label,
+    String value, {
+    AppLocalizations? loc,
+  }) {
     return Container(
       key: ValueKey('rc-$label'),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -270,9 +276,13 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
         children: [
           Row(
             children: [
-              Text(label,
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(color: cs.primary, fontWeight: FontWeight.w700)),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const Spacer(),
               IconButton(
                 tooltip: loc?.webReverseCryptoCopy ?? 'Copy',
@@ -282,8 +292,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
                     : () => _copy(value, label),
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
-                constraints:
-                    const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
               if (label == 'Output' || label == 'Decoded' || label == 'Encoded')
                 IconButton(
@@ -294,8 +303,10 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
                       : () => _setInput(value),
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
-                  constraints:
-                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
+                  ),
                 ),
             ],
           ),
@@ -314,7 +325,10 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   }
 
   Widget _encodingPanel(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
     final t = _input.text;
     return ListView(
       key: const ValueKey('enc'),
@@ -326,79 +340,76 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
         _resultCard(theme, cs, 'Hex Encode', _hexEncode(t), loc: loc),
         _resultCard(theme, cs, 'Hex Decode', _hexDecode(t), loc: loc),
         _resultCard(
-            theme,
-            cs,
-            loc?.webReverseCryptoLengthLabel ?? 'Length',
-            loc?.webReverseCryptoLengthValue(t.length, utf8.encode(t).length) ??
-                'chars ${t.length} / bytes ${utf8.encode(t).length}',
-            loc: loc),
+          theme,
+          cs,
+          loc?.webReverseCryptoLengthLabel ?? 'Length',
+          loc?.webReverseCryptoLengthValue(t.length, utf8.encode(t).length) ??
+              'chars ${t.length} / bytes ${utf8.encode(t).length}',
+          loc: loc,
+        ),
       ],
     );
   }
 
-  Widget _hashPanel(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _hashPanel(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final t = _input.text;
     return ListView(
       key: const ValueKey('hash'),
       children: [
         _resultCard(theme, cs, 'MD5', _hashStr(crypto.md5, t), loc: loc),
         _resultCard(theme, cs, 'SHA-1', _hashStr(crypto.sha1, t), loc: loc),
-        _resultCard(theme, cs, 'SHA-256', _hashStr(crypto.sha256, t),
-            loc: loc),
-        _resultCard(theme, cs, 'SHA-512', _hashStr(crypto.sha512, t),
-            loc: loc),
+        _resultCard(theme, cs, 'SHA-256', _hashStr(crypto.sha256, t), loc: loc),
+        _resultCard(theme, cs, 'SHA-512', _hashStr(crypto.sha512, t), loc: loc),
       ],
     );
   }
 
-  Widget _jwtPanel(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _jwtPanel(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final parts = _jwtSplit(_input.text);
     return ListView(
       key: const ValueKey('jwt'),
       children: [
         _resultCard(theme, cs, 'Header', parts['header'] ?? '', loc: loc),
         _resultCard(theme, cs, 'Payload', parts['payload'] ?? '', loc: loc),
-        _resultCard(theme, cs, 'Signature', parts['signature'] ?? '',
-            loc: loc),
+        _resultCard(theme, cs, 'Signature', parts['signature'] ?? '', loc: loc),
       ],
     );
   }
 
-  Widget _timePanel(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _timePanel(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final t = _input.text;
     final now = DateTime.now();
     return ListView(
       key: const ValueKey('time'),
       children: [
         _resultCard(
-            theme,
-            cs,
-            loc?.webReverseCryptoTsToIso ?? 'Timestamp → ISO',
-            _tsToIso(t),
-            loc: loc),
+          theme,
+          cs,
+          loc?.webReverseCryptoTsToIso ?? 'Timestamp → ISO',
+          _tsToIso(t),
+          loc: loc,
+        ),
         _resultCard(
-            theme,
-            cs,
-            loc?.webReverseCryptoIsoToTs ?? 'ISO → Timestamp',
-            _isoToTs(t),
-            loc: loc),
+          theme,
+          cs,
+          loc?.webReverseCryptoIsoToTs ?? 'ISO → Timestamp',
+          _isoToTs(t),
+          loc: loc,
+        ),
         _resultCard(
-            theme,
-            cs,
-            loc?.webReverseCryptoNow ?? 'Now',
-            'sec=${(now.millisecondsSinceEpoch / 1000).floor()}\n'
-                'ms=${now.millisecondsSinceEpoch}\n'
-                'iso=${now.toIso8601String()}',
-            loc: loc),
+          theme,
+          cs,
+          loc?.webReverseCryptoNow ?? 'Now',
+          'sec=${(now.millisecondsSinceEpoch / 1000).floor()}\n'
+          'ms=${now.millisecondsSinceEpoch}\n'
+          'iso=${now.toIso8601String()}',
+          loc: loc,
+        ),
       ],
     );
   }
 
-  Widget _uuidPanel(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _uuidPanel(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final samples = List<String>.generate(8, (_) => _genUuidV4());
     return ListView(
       key: const ValueKey('uuid'),
@@ -409,16 +420,16 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
           child: Row(
             children: [
               Text(
-                  loc?.webReverseCryptoUuidHint ??
-                      'Random UUID v4 (tap to copy)',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: cs.onSurfaceVariant)),
+                loc?.webReverseCryptoUuidHint ?? 'Random UUID v4 (tap to copy)',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
               const Spacer(),
               FilledButton.tonalIcon(
                 onPressed: () => setState(() {}),
                 icon: const Icon(Icons.refresh_rounded, size: 14),
-                label: Text(
-                    loc?.webReverseCryptoRegenerate ?? 'Regenerate'),
+                label: Text(loc?.webReverseCryptoRegenerate ?? 'Regenerate'),
               ),
             ],
           ),
@@ -429,16 +440,16 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               margin: const EdgeInsets.only(bottom: 4),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: cs.outlineVariant),
               ),
-              child: Text(s,
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 13)),
+              child: Text(
+                s,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              ),
             ),
           ),
       ],

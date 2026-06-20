@@ -13,9 +13,7 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
 class _RealtimeBody extends StatefulWidget {
-  const _RealtimeBody({
-    required this.controller,
-  });
+  const _RealtimeBody({required this.controller});
   final WebReverseSessionController controller;
 
   @override
@@ -118,12 +116,21 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
     }
   }
 
-  void _copyFrame(CdpWebSocketFrame f) {
-    Clipboard.setData(ClipboardData(text: f.payload));
+  Future<void> _copyFrame(CdpWebSocketFrame f) async {
+    final isZh =
+        AppLocalizations.of(context)?.localeName.startsWith('zh') ??
+        Localizations.localeOf(context).languageCode.startsWith('zh');
+    final copied = await setWebReverseClipboardText(f.payload);
+    if (!mounted) return;
     OpenHandSnackBar.showSuccess(
       context,
-      AppLocalizations.of(context)?.webReverseRealtimePayloadCopied ??
-          'Payload copied',
+      webReverseClipboardSnackMessage(
+        isZh: isZh,
+        base:
+            AppLocalizations.of(context)?.webReverseRealtimePayloadCopied ??
+            'Payload copied',
+        result: copied,
+      ),
     );
   }
 
@@ -160,14 +167,16 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                         Expanded(
                           child: Text(
                             loc?.webReverseRealtimeTitle ?? 'Realtime',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         Text(
                           '${entries.length}',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -184,7 +193,8 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                                     'No WebSocket / EventSource yet.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant),
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           )
@@ -228,8 +238,9 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                       child: Text(
                         loc?.webReverseRealtimePickPrompt ??
                             'Pick a connection to view frames.',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : _buildFrameStream(selected, theme, cs, loc),
@@ -241,7 +252,11 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
   }
 
   Widget _buildFrameStream(
-      CdpNetworkEntry entry, ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+    CdpNetworkEntry entry,
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
     final frames = entry.wsFrames.where((f) {
       if (!_dirFilter.contains(f.direction)) return false;
       if (_filter.isEmpty) return true;
@@ -275,7 +290,8 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   isDense: true,
                   prefixIcon: const Icon(Icons.search_rounded, size: 16),
                   border: const OutlineInputBorder(),
-                  hintText: loc?.webReverseRealtimeFilterHint ??
+                  hintText:
+                      loc?.webReverseRealtimeFilterHint ??
                       'Filter payload (substring)',
                 ),
                 onChanged: (v) => setState(() => _filter = v.trim()),
@@ -309,15 +325,18 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   entry.url,
                   maxLines: 1,
                   style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
               Text(
                 loc?.webReverseRealtimeFrameCount(entry.wsFrames.length) ??
                     '${entry.wsFrames.length} frames',
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -329,8 +348,9 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
               ? Center(
                   child: Text(
                     loc?.webReverseRealtimeNoMatching ?? 'No matching frames.',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 )
               : ListView.separated(
@@ -383,17 +403,19 @@ class _ConnTile extends StatelessWidget {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: selected
-                  ? cs.primary.withValues(alpha: 0.45)
-                  : Colors.transparent),
+            color: selected
+                ? cs.primary.withValues(alpha: 0.45)
+                : Colors.transparent,
+          ),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: (isSse ? cs.tertiary : cs.primary)
-                    .withValues(alpha: 0.14),
+                color: (isSse ? cs.tertiary : cs.primary).withValues(
+                  alpha: 0.14,
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -414,13 +436,15 @@ class _ConnTile extends StatelessWidget {
                     Uri.tryParse(entry.url)?.path ?? entry.url,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   Text(
                     '${entry.wsFrames.length} frames',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -459,7 +483,9 @@ class _FrameTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final payload = frame.errorMessage ?? frame.payload;
-    final preview = payload.length > 800 ? '${payload.substring(0, 800)}…' : payload;
+    final preview = payload.length > 800
+        ? '${payload.substring(0, 800)}…'
+        : payload;
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
@@ -484,14 +510,16 @@ class _FrameTile extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 _formatTime(frame.timestamp),
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
               const SizedBox(width: 10),
               Text(
                 '${payload.length} B',
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
               const Spacer(),
               IconButton(

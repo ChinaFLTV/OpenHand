@@ -8,13 +8,13 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -240,9 +240,10 @@ class _CorsDialogState extends State<_CorsDialog> {
     final res = _result;
     if (res == null) return;
     final loc = AppLocalizations.of(context);
+    late final WebReverseClipboardCopyResult copied;
     try {
-      await Clipboard.setData(
-        ClipboardData(text: const JsonEncoder.withIndent('  ').convert(res)),
+      copied = await setWebReverseClipboardText(
+        const JsonEncoder.withIndent('  ').convert(res),
       );
     } catch (err, st) {
       silentLog('web-reverse', 'cors.copy', err, st);
@@ -254,7 +255,11 @@ class _CorsDialogState extends State<_CorsDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        loc?.webReverseCorsResultCopied ?? 'Result copied',
+        webReverseClipboardSnackMessage(
+          isZh: widget.isZh,
+          base: loc?.webReverseCorsResultCopied ?? 'Result copied',
+          result: copied,
+        ),
       );
     }
   }

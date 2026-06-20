@@ -15,7 +15,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -295,12 +294,17 @@ print(resp.text[:2000])''';
 });''';
   }
 
-  void _copy(String text, String kind) {
-    Clipboard.setData(ClipboardData(text: text));
+  Future<void> _copy(String text, String kind) async {
+    final copied = await setWebReverseClipboardText(text);
+    if (!mounted) return;
     final loc = AppLocalizations.of(context);
     OpenHandSnackBar.showSuccess(
       context,
-      loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
+      webReverseClipboardSnackMessage(
+        isZh: widget.isZh,
+        base: loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
+        result: copied,
+      ),
       duration: const Duration(seconds: 1),
     );
   }

@@ -823,16 +823,21 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       buf.writeln("'${e.url}'");
                       buf.writeln();
                     }
-                    await Clipboard.setData(
-                      ClipboardData(text: buf.toString()),
+                    final copied = await setWebReverseClipboardText(
+                      buf.toString(),
                     );
                     if (!context.mounted) return;
+                    final base = isZh
+                        ? '已复制 $copyCount 条 curl 到剪贴板${filtered.length > copyCount ? '（已按条目上限裁剪）' : ''}'
+                        : 'Copied $copyCount curl entries${filtered.length > copyCount ? ' (entry capped)' : ''}';
                     OpenHandSnackBar.showSuccessOn(
                       context,
                       messenger,
-                      isZh
-                          ? '已复制 $copyCount 条 curl 到剪贴板${filtered.length > copyCount ? '（已按上限裁剪）' : ''}'
-                          : 'Copied $copyCount curl entries${filtered.length > copyCount ? ' (capped)' : ''}',
+                      webReverseClipboardSnackMessage(
+                        isZh: isZh,
+                        base: base,
+                        result: copied,
+                      ),
                     );
                   },
             icon: Icons.copy_all_rounded,

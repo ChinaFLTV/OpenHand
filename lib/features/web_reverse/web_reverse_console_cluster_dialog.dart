@@ -7,12 +7,12 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -103,11 +103,10 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
           .map((e) => {'ts': e.timestamp.toIso8601String(), 'text': e.text})
           .toList(),
     };
+    late final WebReverseClipboardCopyResult copied;
     try {
-      await Clipboard.setData(
-        ClipboardData(
-          text: const JsonEncoder.withIndent('  ').convert(payload),
-        ),
+      copied = await setWebReverseClipboardText(
+        const JsonEncoder.withIndent('  ').convert(payload),
       );
     } catch (err, st) {
       silentLog('web-reverse', 'console.cluster.copy', err, st);
@@ -115,12 +114,18 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
     }
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
-            'Cluster JSON copied',
+        webReverseClipboardSnackMessage(
+          isZh: isZh,
+          base:
+              AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
+              'Cluster JSON copied',
+          result: copied,
+        ),
       );
     }
   }

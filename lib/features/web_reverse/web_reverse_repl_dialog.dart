@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseReplDialog(
@@ -125,19 +126,25 @@ class _ReplDialogState extends State<_ReplDialog> {
   }
 
   Future<void> _copy(String s) async {
+    late final WebReverseClipboardCopyResult copied;
     try {
-      await Clipboard.setData(ClipboardData(text: s));
+      copied = await setWebReverseClipboardText(s);
     } catch (e, st) {
       silentLog('web-reverse', 'repl.copy', e, st);
       return;
     }
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
+        webReverseClipboardSnackMessage(
+          isZh: isZh,
+          base: AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
+          result: copied,
+        ),
       );
     }
   }

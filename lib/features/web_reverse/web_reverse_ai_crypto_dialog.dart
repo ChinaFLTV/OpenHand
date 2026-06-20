@@ -16,13 +16,13 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 class _EndpointGroup {
@@ -475,15 +475,20 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
 
   Future<void> _copy() async {
     if (_prompt.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: _prompt));
+    final copied = await setWebReverseClipboardText(_prompt);
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final loc = AppLocalizations.of(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
+        webReverseClipboardSnackMessage(
+          isZh: isZh,
+          base: loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
+          result: copied,
+        ),
       );
     }
   }

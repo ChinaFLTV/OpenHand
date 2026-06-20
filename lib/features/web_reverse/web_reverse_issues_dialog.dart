@@ -8,7 +8,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -17,6 +16,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 // 进程级缓冲，跨弹窗保留。每次 controller 切换不清空——刻意保留多会话证据。
@@ -196,8 +196,8 @@ class _IssuesDialogState extends State<_IssuesDialog> {
 
   Future<void> _copyJson(_IssueEntry e) async {
     try {
-      await Clipboard.setData(
-        ClipboardData(text: const JsonEncoder.withIndent('  ').convert(e.raw)),
+      final copied = await setWebReverseClipboardText(
+        const JsonEncoder.withIndent('  ').convert(e.raw),
       );
       if (mounted) {
         final m = ScaffoldMessenger.maybeOf(context);
@@ -205,8 +205,13 @@ class _IssuesDialogState extends State<_IssuesDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             m,
-            AppLocalizations.of(context)?.webReverseIssuesCopied ??
-                'Issue JSON copied',
+            webReverseClipboardSnackMessage(
+              isZh: widget.isZh,
+              base:
+                  AppLocalizations.of(context)?.webReverseIssuesCopied ??
+                  'Issue JSON copied',
+              result: copied,
+            ),
           );
         }
       }

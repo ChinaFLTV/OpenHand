@@ -9,12 +9,12 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -74,21 +74,24 @@ class _WsDialogState extends State<_WsDialog> {
         )
         .toList();
     try {
-      await Clipboard.setData(
-        ClipboardData(text: const JsonEncoder.withIndent('  ').convert(data)),
+      final copied = await setWebReverseClipboardText(
+        const JsonEncoder.withIndent('  ').convert(data),
       );
+      if (!mounted) return;
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          m,
+          webReverseClipboardSnackMessage(
+            isZh: widget.isZh,
+            base: widget.isZh ? '帧 JSON 已复制' : 'Frames JSON copied',
+            result: copied,
+          ),
+        );
+      }
     } catch (err, st) {
       silentLog('web_reverse_websocket_dialog', 'copy', err, st);
-      return;
-    }
-    if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        widget.isZh ? '帧 JSON 已复制' : 'Frames JSON copied',
-      );
     }
   }
 

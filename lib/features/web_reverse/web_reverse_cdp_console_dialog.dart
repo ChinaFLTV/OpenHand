@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 class _CdpHistoryEntry {
@@ -173,19 +174,25 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
   }
 
   Future<void> _copy(String t) async {
+    late final WebReverseClipboardCopyResult copied;
     try {
-      await Clipboard.setData(ClipboardData(text: t));
+      copied = await setWebReverseClipboardText(t);
     } catch (err, st) {
       silentLog('web-reverse', 'cdp-console.copy', err, st);
       return;
     }
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
+        webReverseClipboardSnackMessage(
+          isZh: isZh,
+          base: AppLocalizations.of(context)?.webReverseCdpCopied ?? 'Copied',
+          result: copied,
+        ),
       );
     }
   }

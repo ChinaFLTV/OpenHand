@@ -14,7 +14,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -23,6 +22,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -271,17 +271,22 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
 
   Future<void> _exportJson() async {
     final loc = AppLocalizations.of(context);
-    await Clipboard.setData(
-      ClipboardData(text: const JsonEncoder.withIndent('  ').convert(_records)),
+    final copied = await setWebReverseClipboardText(
+      const JsonEncoder.withIndent('  ').convert(_records),
     );
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReverseDomMutCopiedRecords(_records.length) ??
+    OpenHandSnackBar.showSuccessOn(
+      context,
+      m,
+      webReverseClipboardSnackMessage(
+        isZh: Localizations.localeOf(context).languageCode.startsWith('zh'),
+        base:
+            loc?.webReverseDomMutCopiedRecords(_records.length) ??
             'Copied ${_records.length} records',
+          result: copied,
+        ),
       );
     }
   }

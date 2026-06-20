@@ -16,13 +16,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -222,8 +222,8 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       },
     };
     try {
-      await Clipboard.setData(
-        ClipboardData(text: const JsonEncoder.withIndent('  ').convert(report)),
+      final copied = await setWebReverseClipboardText(
+        const JsonEncoder.withIndent('  ').convert(report),
       );
       if (mounted) {
         final m = ScaffoldMessenger.maybeOf(context);
@@ -231,8 +231,13 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           OpenHandSnackBar.showSuccessOn(
             context,
             m,
-            AppLocalizations.of(context)?.webReverseVitalsReportCopied ??
-                'Report JSON copied',
+            webReverseClipboardSnackMessage(
+              isZh: widget.isZh,
+              base:
+                  AppLocalizations.of(context)?.webReverseVitalsReportCopied ??
+                  'Report JSON copied',
+              result: copied,
+            ),
           );
         }
       }
