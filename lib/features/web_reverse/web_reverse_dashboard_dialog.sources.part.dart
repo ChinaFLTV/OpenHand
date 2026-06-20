@@ -52,6 +52,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   // 手动布局：每行高度由 _kSourceLineHeight 估算，控制 ScrollController
   // 滚到 lineIndex * 行高即可。
   static const double _kSourceLineHeight = 19.5;
+  static const double _kDebuggerSideRailWidth = 300;
+  static const double _kDebuggerSideRailStackBreakpoint = 680;
+  static const double _kDebuggerSideRailStackHeight = 220;
   final ScrollController _sourceScroll = ScrollController();
 
   // ── Slice 3: Source Map ──
@@ -1036,6 +1039,127 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       source = _prettify ? WebReverseSessionController.prettifyJs(raw) : raw;
     }
     final lines = source.split('\n');
+    Widget buildSourceList() {
+      return Container(
+        color: cs.surfaceContainerHigh,
+        child: ListView.builder(
+          controller: _sourceScroll,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: lines.length,
+          itemBuilder: (_, idx) {
+            final hasBp = _bpAtLine.containsKey(idx);
+            final isHighlighted = _highlightedLine == idx;
+            final isHovered = _hoverLine == idx && _lspEnabled;
+            return MouseRegion(
+              onHover: _lspEnabled
+                  ? (event) {
+                      // 用 TextPainter 估算列号，传给 LSP hover。
+                      final col = _estimateColumn(
+                        event.localPosition.dx,
+                        lines[idx],
+                      );
+                      _scheduleAutoHover(idx, col, lines[idx]);
+                    }
+                  : null,
+              onExit: _lspEnabled ? (_) => _clearAutoHover() : null,
+              child: InkWell(
+                onTap: () => _toggleBreakpoint(idx),
+                onSecondaryTapDown: _lspEnabled
+                    ? (d) => _onLineSecondaryTap(d, idx, lines[idx])
+                    : null,
+                onLongPress: _lspEnabled
+                    ? () => _onLineLongPress(idx, lines[idx])
+                    : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  color: isHighlighted
+                      ? cs.tertiaryContainer.withValues(alpha: 0.5)
+                      : Colors.transparent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 1,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 36,
+                        child: Stack(
+                          alignment: Alignment.centerLeft,
+                          children: [
+                            Text(
+                              '${idx + 1}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: cs.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                            if (hasBp)
+                              Positioned(
+                                right: 4,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: cs.error,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            SelectableText(
+                              lines[idx].isEmpty ? ' ' : lines[idx],
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                fontSize: 11.5,
+                                height: 1.5,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            // 行尾自动 hover 浮窗：贴在当前行右侧；内容为 LSP
+                            // 返回的 markdown，超过 240 字截断，移走自动消失。
+                            if (isHovered &&
+                                (_hoverLoading ||
+                                    (_hoverMarkdown != null &&
+                                        _hoverMarkdown!.isNotEmpty)))
+                              Positioned(
+                                left: _estimateLineWidth(lines[idx]) + 12,
+                                top: -2,
+                                child: _SourceHoverBubble(
+                                  markdown: _hoverMarkdown,
+                                  loading: _hoverLoading,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Widget buildDebuggerSideRail({required double width}) {
+      return _DebuggerSideRail(
+        controller: widget.controller,
+        isZh: widget.isZh,
+        width: width,
+      );
+    }
+
     return Column(
       children: [
         Padding(
@@ -1206,122 +1330,33 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         ),
         Divider(height: 1, color: cs.outlineVariant),
         Expanded(
-          child: Container(
-            color: cs.surfaceContainerHigh,
-            child: ListView.builder(
-              controller: _sourceScroll,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: lines.length,
-              itemBuilder: (_, idx) {
-                final hasBp = _bpAtLine.containsKey(idx);
-                final isHighlighted = _highlightedLine == idx;
-                final isHovered = _hoverLine == idx && _lspEnabled;
-                return MouseRegion(
-                  onHover: _lspEnabled
-                      ? (event) {
-                          // 用 TextPainter 估算列号，传给 LSP hover。
-                          final col = _estimateColumn(
-                            event.localPosition.dx,
-                            lines[idx],
-                          );
-                          _scheduleAutoHover(idx, col, lines[idx]);
-                        }
-                      : null,
-                  onExit: _lspEnabled ? (_) => _clearAutoHover() : null,
-                  child: InkWell(
-                    onTap: () => _toggleBreakpoint(idx),
-                    onSecondaryTapDown: _lspEnabled
-                        ? (d) => _onLineSecondaryTap(d, idx, lines[idx])
-                        : null,
-                    onLongPress: _lspEnabled
-                        ? () => _onLineLongPress(idx, lines[idx])
-                        : null,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
-                      color: isHighlighted
-                          ? cs.tertiaryContainer.withValues(alpha: 0.5)
-                          : Colors.transparent,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 1,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 36,
-                            child: Stack(
-                              alignment: Alignment.centerLeft,
-                              children: [
-                                Text(
-                                  '${idx + 1}',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    fontFamily: 'monospace',
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
-                                if (hasBp)
-                                  Positioned(
-                                    right: 4,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: cs.error,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                SelectableText(
-                                  lines[idx].isEmpty ? ' ' : lines[idx],
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11.5,
-                                    height: 1.5,
-                                    color: cs.onSurface,
-                                  ),
-                                ),
-                                // 行尾自动 hover 浮窗：贴在当前行右侧；
-                                // 内容为 LSP 返回的 markdown，超过 240 字
-                                // 截断，点击鼠标移走自动消失。
-                                if (isHovered &&
-                                    (_hoverLoading ||
-                                        (_hoverMarkdown != null &&
-                                            _hoverMarkdown!.isNotEmpty)))
-                                  Positioned(
-                                    left: _estimateLineWidth(lines[idx]) + 12,
-                                    top: -2,
-                                    child: _SourceHoverBubble(
-                                      markdown: _hoverMarkdown,
-                                      loading: _hoverLoading,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth;
+              if (maxWidth.isFinite &&
+                  maxWidth < _kDebuggerSideRailStackBreakpoint) {
+                return Column(
+                  children: [
+                    Expanded(child: buildSourceList()),
+                    SizedBox(
+                      height: _kDebuggerSideRailStackHeight,
+                      child: buildDebuggerSideRail(width: maxWidth),
                     ),
-                  ),
+                  ],
                 );
-              },
-            ),
+              }
+              return Row(
+                children: [
+                  Expanded(child: buildSourceList()),
+                  // 调试器侧栏必须位于 body 的同一条 Row 内。这样它继承
+                  // Expanded body 的有限高度，内部 ListView 不会在 tab 动画
+                  // / SizeTransition 测量阶段拿到无界高度。
+                  buildDebuggerSideRail(width: _kDebuggerSideRailWidth),
+                ],
+              );
+            },
           ),
         ),
-        // 调试器侧栏：Call Stack / Scope / Watch / Breakpoints / EventListener
-        // / DOM / CSP / Global Listeners。pausedState 变化时由 _onCtrlChanged
-        // 触发 setState 刷新。
-        _DebuggerSideRail(controller: widget.controller, isZh: widget.isZh),
       ],
     );
   }
@@ -1518,9 +1553,14 @@ class _SourcesGlobalSearchDialogState
 /// 刷新；evaluateWatch 内部会按 paused 状态自动切换 evaluateOnCallFrame /
 /// Runtime.evaluate。AnimatedSize 控制展开收起。
 class _DebuggerSideRail extends StatefulWidget {
-  const _DebuggerSideRail({required this.controller, required this.isZh});
+  const _DebuggerSideRail({
+    required this.controller,
+    required this.isZh,
+    required this.width,
+  });
   final WebReverseSessionController controller;
   final bool isZh;
+  final double width;
   @override
   State<_DebuggerSideRail> createState() => _DebuggerSideRailState();
 }
@@ -1588,244 +1628,249 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
         : null;
     final scopeChain = (selFrame?['scopeChain'] as List?) ?? const [];
 
-    return Container(
-      width: 300,
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: cs.outlineVariant)),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        children: [
-          if (paused != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: cs.errorContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.pause_circle_filled_rounded,
-                    size: 16,
-                    color: cs.onErrorContainer,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      isZh
-                          ? '已暂停 · ${paused.reason}'
-                          : 'Paused · ${paused.reason}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onErrorContainer,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: isZh ? '继续' : 'Resume',
-                    iconSize: 18,
-                    onPressed: () => widget.controller.resumeDebugger(),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                  ),
-                  IconButton(
-                    tooltip: isZh ? '单步跳过' : 'Step over',
-                    iconSize: 18,
-                    onPressed: () => widget.controller.stepOverDebugger(),
-                    icon: const Icon(Icons.redo_rounded),
-                  ),
-                  IconButton(
-                    tooltip: isZh ? '单步进入' : 'Step into',
-                    iconSize: 18,
-                    onPressed: () => widget.controller.stepIntoDebugger(),
-                    icon: const Icon(Icons.subdirectory_arrow_right_rounded),
-                  ),
-                  IconButton(
-                    tooltip: isZh ? '单步跳出' : 'Step out',
-                    iconSize: 18,
-                    onPressed: () => widget.controller.stepOutDebugger(),
-                    icon: const Icon(Icons.subdirectory_arrow_left_rounded),
-                  ),
-                ],
-              ),
-            ),
-          if (paused != null) ...[
-            const SizedBox(height: 10),
-            _RailCard(
-              title: isZh ? '调用栈' : 'Call Stack',
-              icon: Icons.layers_rounded,
-              child: Column(
-                children: [
-                  for (var i = 0; i < frames.length; i++)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => setState(() => _selectedFrame = i),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: i == _selectedFrame
-                              ? cs.primaryContainer
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              i == 0
-                                  ? Icons.play_arrow_rounded
-                                  : Icons.circle_outlined,
-                              size: 12,
-                              color: cs.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                (frames[i]['functionName']
-                                                ?.toString()
-                                                .isNotEmpty ==
-                                            true
-                                        ? frames[i]['functionName']
-                                        : '<anonymous>')
-                                    .toString(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ),
-                            Text(
-                              ':${(frames[i]['location'] as Map?)?['lineNumber'] ?? '?'}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            _RailCard(
-              title: isZh ? '作用域' : 'Scope',
-              icon: Icons.account_tree_outlined,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final s in scopeChain.whereType<Map>())
-                    _ScopeSection(
-                      controller: widget.controller,
-                      scope: s.cast<String, Object?>(),
-                      isZh: isZh,
-                    ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          _RailCard(
-            title: isZh ? '观察' : 'Watch',
-            icon: Icons.visibility_outlined,
-            trailing: IconButton(
-              tooltip: isZh ? '全部重算' : 'Re-evaluate',
-              iconSize: 16,
-              onPressed: _evaluateAllWatches,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+    return SizedBox(
+      width: widget.width,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: cs.outlineVariant)),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+          children: [
+            if (paused != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _watchCtrl,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                          hintText: isZh ? '表达式（回车添加）' : 'expression (Enter)',
-                        ),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                        onSubmitted: (_) => _addWatch(),
-                      ),
+                    Icon(
+                      Icons.pause_circle_filled_rounded,
+                      size: 16,
+                      color: cs.onErrorContainer,
                     ),
                     const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        isZh
+                            ? '已暂停 · ${paused.reason}'
+                            : 'Paused · ${paused.reason}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onErrorContainer,
+                        ),
+                      ),
+                    ),
                     IconButton(
-                      onPressed: _addWatch,
+                      tooltip: isZh ? '继续' : 'Resume',
                       iconSize: 18,
-                      icon: const Icon(Icons.add_rounded),
+                      onPressed: () => widget.controller.resumeDebugger(),
+                      icon: const Icon(Icons.play_arrow_rounded),
+                    ),
+                    IconButton(
+                      tooltip: isZh ? '单步跳过' : 'Step over',
+                      iconSize: 18,
+                      onPressed: () => widget.controller.stepOverDebugger(),
+                      icon: const Icon(Icons.redo_rounded),
+                    ),
+                    IconButton(
+                      tooltip: isZh ? '单步进入' : 'Step into',
+                      iconSize: 18,
+                      onPressed: () => widget.controller.stepIntoDebugger(),
+                      icon: const Icon(Icons.subdirectory_arrow_right_rounded),
+                    ),
+                    IconButton(
+                      tooltip: isZh ? '单步跳出' : 'Step out',
+                      iconSize: 18,
+                      onPressed: () => widget.controller.stepOutDebugger(),
+                      icon: const Icon(Icons.subdirectory_arrow_left_rounded),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                for (final w in widget.controller.watchExpressions)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 14,
-                          color: cs.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            if (paused != null) ...[
+              const SizedBox(height: 10),
+              _RailCard(
+                title: isZh ? '调用栈' : 'Call Stack',
+                icon: Icons.layers_rounded,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < frames.length; i++)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(() => _selectedFrame = i),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: i == _selectedFrame
+                                ? cs.primaryContainer
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
                             children: [
-                              SelectableText(
-                                w,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11.5,
+                              Icon(
+                                i == 0
+                                    ? Icons.play_arrow_rounded
+                                    : Icons.circle_outlined,
+                                size: 12,
+                                color: cs.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  (frames[i]['functionName']
+                                                  ?.toString()
+                                                  .isNotEmpty ==
+                                              true
+                                          ? frames[i]['functionName']
+                                          : '<anonymous>')
+                                      .toString(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall,
                                 ),
                               ),
-                              SelectableText(
-                                _watchValues[w] ?? '...',
+                              Text(
+                                ':${(frames[i]['location'] as Map?)?['lineNumber'] ?? '?'}',
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  fontFamily: 'monospace',
                                   color: cs.onSurfaceVariant,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        IconButton(
-                          iconSize: 14,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 24,
-                            minHeight: 24,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              _RailCard(
+                title: isZh ? '作用域' : 'Scope',
+                icon: Icons.account_tree_outlined,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final s in scopeChain.whereType<Map>())
+                      _ScopeSection(
+                        controller: widget.controller,
+                        scope: s.cast<String, Object?>(),
+                        isZh: isZh,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            _RailCard(
+              title: isZh ? '观察' : 'Watch',
+              icon: Icons.visibility_outlined,
+              trailing: IconButton(
+                tooltip: isZh ? '全部重算' : 'Re-evaluate',
+                iconSize: 16,
+                onPressed: _evaluateAllWatches,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _watchCtrl,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                            hintText: isZh ? '表达式（回车添加）' : 'expression (Enter)',
                           ),
-                          icon: Icon(Icons.close_rounded, color: cs.error),
-                          onPressed: () {
-                            widget.controller.removeWatchExpression(w);
-                            _watchValues.remove(w);
-                            setState(() {});
-                          },
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                          ),
+                          onSubmitted: (_) => _addWatch(),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        onPressed: _addWatch,
+                        iconSize: 18,
+                        icon: const Icon(Icons.add_rounded),
+                      ),
+                    ],
                   ),
-              ],
+                  const SizedBox(height: 6),
+                  for (final w in widget.controller.watchExpressions)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 14,
+                            color: cs.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SelectableText(
+                                  w,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                                SelectableText(
+                                  _watchValues[w] ?? '...',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            iconSize: 14,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 24,
+                              minHeight: 24,
+                            ),
+                            icon: Icon(Icons.close_rounded, color: cs.error),
+                            onPressed: () {
+                              widget.controller.removeWatchExpression(w);
+                              _watchValues.remove(w);
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            isZh
-                ? '更多断点（XHR / EventListener / DOM / CSP / 全局监听器）请打开「Breakpoints」标签页。'
-                : 'More breakpoint types in the Breakpoints tab.',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: cs.onSurfaceVariant,
+            const SizedBox(height: 10),
+            Text(
+              isZh
+                  ? '更多断点（XHR / EventListener / DOM / CSP / 全局监听器）请打开「Breakpoints」标签页。'
+                  : 'More breakpoint types in the Breakpoints tab.',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
