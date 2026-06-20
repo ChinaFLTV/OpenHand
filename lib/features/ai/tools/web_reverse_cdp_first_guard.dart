@@ -241,7 +241,13 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
   Map<String, Object?> metadata,
 ) {
   final runtime = _stringObjectMap(metadata['web_reverse_runtime']);
-  if (runtime != null) return runtime;
+  if (runtime != null) {
+    final currentCdpRuntime = _stringObjectMap(
+      metadata['web_reverse_cdp_runtime'],
+    );
+    if (currentCdpRuntime == null) return runtime;
+    return _runtimeWithCurrentCdpRuntime(runtime, currentCdpRuntime);
+  }
 
   final config = _stringObjectMap(metadata['web_reverse_config']);
   final cdpRuntime = _stringObjectMap(metadata['web_reverse_cdp_runtime']);
@@ -274,19 +280,34 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
   };
 }
 
+Map<String, Object?> _runtimeWithCurrentCdpRuntime(
+  Map<String, Object?> runtime,
+  Map<String, Object?> currentCdpRuntime,
+) {
+  final next = <String, Object?>{...runtime, 'cdp_runtime': currentCdpRuntime};
+  if (!_cdpRuntimeLive(currentCdpRuntime)) {
+    final availability = _stringObjectMap(runtime['cdp_mcp_tool_availability']);
+    if (availability != null) {
+      next['cdp_mcp_tool_availability'] = <String, Object?>{
+        ...availability,
+        'browser_runtime_live': false,
+        'live_cdp_actions_current_turn_callable': false,
+      };
+    }
+  }
+  return next;
+}
+
 _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
   final availability = _stringObjectMap(runtime['cdp_mcp_tool_availability']);
   final cdpRuntime = _stringObjectMap(runtime['cdp_runtime']);
-  if (cdpRuntime != null &&
-      webReverseRuntimeBoolFalse(cdpRuntime['browser_alive'])) {
+  if (cdpRuntime != null && !_cdpRuntimeLive(cdpRuntime)) {
     return null;
   }
 
   final runtimeLive =
       _boolValue(availability?['browser_runtime_live']) ||
-      (cdpRuntime != null &&
-          webReverseRuntimeBoolTrue(cdpRuntime['browser_alive']) &&
-          webReverseCdpRuntimeHasLiveLocator(cdpRuntime));
+      (cdpRuntime != null && _cdpRuntimeLive(cdpRuntime));
   if (!runtimeLive) return null;
 
   final currentToolNames = _stringList(
@@ -420,6 +441,11 @@ bool _boolValue(Object? raw) {
   if (raw is bool) return raw;
   final normalized = '${raw ?? ''}'.trim().toLowerCase();
   return normalized == 'true' || normalized == '1' || normalized == 'yes';
+}
+
+bool _cdpRuntimeLive(Map<Object?, Object?> value) {
+  return webReverseRuntimeBoolTrue(value['browser_alive']) &&
+      webReverseCdpRuntimeHasLiveLocator(value);
 }
 
 int _intValue(Object? raw) {

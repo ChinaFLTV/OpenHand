@@ -104,6 +104,21 @@ void main() {
       expect(decision, isNull);
     });
 
+    test('uses current session CDP runtime over stale prompt runtime', () {
+      final metadata = _liveRuntimeMetadata();
+      metadata['web_reverse_cdp_runtime'] = <String, Object?>{
+        'browser_alive': false,
+        'last_cdp_port': 9223,
+      };
+
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
+        metadata: metadata,
+      );
+
+      expect(decision, isNull);
+    });
+
     test('allows unrelated external URLs', () {
       final decision = WebReverseCdpFirstGuard.evaluateUrl(
         requestedUri: Uri.parse('https://docs.flutter.dev/'),
