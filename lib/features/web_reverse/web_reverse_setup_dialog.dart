@@ -11,6 +11,7 @@ import 'web_reverse_browser_detector.dart';
 import 'web_reverse_install_guide_dialog.dart';
 import 'web_reverse_profile_actions.dart';
 import 'web_reverse_profile_cleaner.dart';
+import 'web_reverse_select_button.dart';
 import 'web_reverse_session_config.dart';
 
 const int _kWebReverseBrowserDetectionMaxAttempts = 3;
@@ -265,32 +266,26 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     loc?.webReverseSetupBrowser ?? 'Browser (detected)',
                   ),
                   const SizedBox(height: 4),
-                  DropdownButtonFormField<WebReverseBrowserProbeResult>(
+                  WebReverseSelectFormField<WebReverseBrowserProbeResult>(
                     initialValue: _selectedProbe,
-                    isExpanded: true,
                     decoration: const InputDecoration(
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
-                    items: widget.probes
+                    options: widget.probes
                         .map(
-                          (p) => DropdownMenuItem(
+                          (p) => WebReverseSelectOption(
                             value: p,
-                            child: Text(
-                              p.versionLine == null
-                                  ? p.browser!.displayName
-                                  : '${p.browser!.displayName}  ·  ${p.versionLine}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            label: p.versionLine == null
+                                ? p.browser!.displayName
+                                : '${p.browser!.displayName}  ·  ${p.versionLine}',
                           ),
                         )
                         .toList(growable: false),
+                    tooltip: loc?.webReverseSetupBrowser ?? 'Browser',
                     onChanged: widget.probes.length <= 1
                         ? null
-                        : (v) {
-                            if (v == null) return;
-                            setState(() => _selectedProbe = v);
-                          },
+                        : (v) => setState(() => _selectedProbe = v),
                   ),
                   const SizedBox(height: 4),
                   Text(

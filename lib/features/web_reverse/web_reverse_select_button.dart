@@ -19,6 +19,8 @@ class WebReverseSelectButton<T> extends StatelessWidget {
     this.icon = Icons.expand_more_rounded,
     this.dense = false,
     this.minWidth,
+    this.outlined = true,
+    this.fillWidth = false,
   });
 
   final T value;
@@ -28,6 +30,8 @@ class WebReverseSelectButton<T> extends StatelessWidget {
   final IconData icon;
   final bool dense;
   final double? minWidth;
+  final bool outlined;
+  final bool fillWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +41,7 @@ class WebReverseSelectButton<T> extends StatelessWidget {
     final enabled = onChanged != null && options.isNotEmpty;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final height = dense ? 32.0 : 36.0;
-    return AnimatedPopupMenuButton<T>(
+    final button = AnimatedPopupMenuButton<T>(
       enabled: enabled,
       tooltip: tooltip,
       position: PopupMenuPosition.under,
@@ -79,13 +83,17 @@ class WebReverseSelectButton<T> extends StatelessWidget {
         constraints: BoxConstraints(minWidth: minWidth ?? 0),
         padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10),
         decoration: BoxDecoration(
-          color: enabled ? Colors.transparent : cs.surfaceContainerHighest,
+          color: outlined && !enabled
+              ? cs.surfaceContainerHighest
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: enabled
-                ? cs.outlineVariant
-                : cs.outlineVariant.withValues(alpha: 0.5),
-          ),
+          border: outlined
+              ? Border.all(
+                  color: enabled
+                      ? cs.outlineVariant
+                      : cs.outlineVariant.withValues(alpha: 0.5),
+                )
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -111,6 +119,8 @@ class WebReverseSelectButton<T> extends StatelessWidget {
         ),
       ),
     );
+    if (!fillWidth) return button;
+    return SizedBox(width: double.infinity, child: button);
   }
 
   WebReverseSelectOption<T> get _currentOption {
@@ -119,4 +129,45 @@ class WebReverseSelectButton<T> extends StatelessWidget {
     }
     return WebReverseSelectOption<T>(value: value, label: '$value');
   }
+}
+
+class WebReverseSelectFormField<T> extends FormField<T> {
+  WebReverseSelectFormField({
+    super.key,
+    required T initialValue,
+    required List<WebReverseSelectOption<T>> options,
+    ValueChanged<T>? onChanged,
+    InputDecoration decoration = const InputDecoration(),
+    String? tooltip,
+    super.enabled = true,
+    bool dense = true,
+    double? menuMinWidth,
+  }) : super(
+         initialValue: initialValue,
+         builder: (state) {
+           final theme = Theme.of(state.context);
+           final effectiveDecoration = decoration
+               .applyDefaults(theme.inputDecorationTheme)
+               .copyWith(errorText: state.errorText, enabled: enabled);
+           final currentValue = state.value ?? initialValue;
+           return InputDecorator(
+             decoration: effectiveDecoration,
+             child: WebReverseSelectButton<T>(
+               value: currentValue,
+               options: options,
+               dense: dense,
+               minWidth: menuMinWidth,
+               outlined: false,
+               fillWidth: true,
+               tooltip: tooltip,
+               onChanged: enabled
+                   ? (value) {
+                       state.didChange(value);
+                       onChanged?.call(value);
+                     }
+                   : null,
+             ),
+           );
+         },
+       );
 }

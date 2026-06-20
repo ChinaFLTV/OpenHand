@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseResendRequestDialog(
@@ -413,7 +414,7 @@ print(resp.text[:2000])''';
       children: [
         SizedBox(
           width: 120,
-          child: DropdownButtonFormField<String>(
+          child: WebReverseSelectFormField<String>(
             initialValue: _method,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
@@ -422,13 +423,12 @@ print(resp.text[:2000])''';
                 vertical: 12,
               ),
             ),
-            items: [
+            options: [
               for (final m in _kMethods)
-                DropdownMenuItem(value: m, child: Text(m)),
+                WebReverseSelectOption(value: m, label: m),
             ],
-            onChanged: (v) {
-              if (v != null) setState(() => _method = v);
-            },
+            tooltip: 'Method',
+            onChanged: (v) => setState(() => _method = v),
           ),
         ),
         const SizedBox(width: 10),
