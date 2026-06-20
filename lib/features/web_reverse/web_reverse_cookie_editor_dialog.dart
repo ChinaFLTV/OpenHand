@@ -9,12 +9,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseCookieEditorDialog(
@@ -79,23 +79,27 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       if (r == null || r['error'] != null) {
         final err = (r?['error'] ?? 'unknown').toString();
         setState(() {
-          _status = loc1?.webReverseCookieEditorFetchFailed(err)
-              ?? 'Failed: $err';
+          _status =
+              loc1?.webReverseCookieEditorFetchFailed(err) ?? 'Failed: $err';
         });
         return;
       }
       final list = (r['cookies'] as List?) ?? const [];
-      _all = list
-          .whereType<Map>()
-          .map((m) => _CookieRow(Map<String, Object?>.from(m)))
-          .toList()
-        ..sort((a, b) {
-          final d = a.domain.compareTo(b.domain);
-          if (d != 0) return d;
-          return a.name.compareTo(b.name);
-        });
-      setState(() => _status = loc1?.webReverseCookieEditorCookieCount(_all.length)
-          ?? '${_all.length} cookies');
+      _all =
+          list
+              .whereType<Map>()
+              .map((m) => _CookieRow(Map<String, Object?>.from(m)))
+              .toList()
+            ..sort((a, b) {
+              final d = a.domain.compareTo(b.domain);
+              if (d != 0) return d;
+              return a.name.compareTo(b.name);
+            });
+      setState(
+        () => _status =
+            loc1?.webReverseCookieEditorCookieCount(_all.length) ??
+            '${_all.length} cookies',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -105,10 +109,12 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     if (_filter.trim().isEmpty) return _all;
     final f = _filter.toLowerCase();
     return _all
-        .where((c) =>
-            c.name.toLowerCase().contains(f) ||
-            c.domain.toLowerCase().contains(f) ||
-            c.value.toLowerCase().contains(f))
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(f) ||
+              c.domain.toLowerCase().contains(f) ||
+              c.value.toLowerCase().contains(f),
+        )
         .toList();
   }
 
@@ -126,14 +132,20 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     final loc1 = AppLocalizations.of(context);
     if (r == null || r['error'] != null) {
       if (messenger != null) {
-        OpenHandSnackBar.showErrorOn(context, messenger,
-            loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed');
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          loc1?.webReverseCookieEditorDeleteFailed ?? 'Delete failed',
+        );
       }
       return;
     }
     if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(context, messenger,
-          loc1?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}');
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        loc1?.webReverseCookieEditorDeleted(row.name) ?? 'Deleted ${row.name}',
+      );
     }
     await _refresh();
   }
@@ -153,28 +165,42 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     final loc = AppLocalizations.of(context);
     if (r == null || r['error'] != null || r['success'] == false) {
       if (messenger != null) {
-        OpenHandSnackBar.showErrorOn(context, messenger,
-            loc?.webReverseCookieEditorWriteFailed ?? 'Write failed');
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          loc?.webReverseCookieEditorWriteFailed ?? 'Write failed',
+        );
       }
       return;
     }
     if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(context, messenger,
-          loc?.webReverseCookieEditorSaved ?? 'Saved');
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        loc?.webReverseCookieEditorSaved ?? 'Saved',
+      );
     }
     await _refresh();
   }
 
   Future<void> _copyJson() async {
-    final json = const JsonEncoder.withIndent('  ')
-        .convert(_visible.map((c) => c.raw).toList());
-    await Clipboard.setData(ClipboardData(text: json));
+    final json = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_visible.map((c) => c.raw).toList());
+    final copied = await setWebReverseClipboardText(json);
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger != null) {
-      OpenHandSnackBar.showSuccessOn(context, messenger,
-          loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied');
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        webReverseClipboardSnackMessage(
+          isZh: widget.isZh,
+          base: loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied',
+          result: copied,
+        ),
+      );
     }
   }
 
@@ -204,14 +230,16 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                       children: [
                         Text(
                           loc?.webReverseCookieEditorTitle ?? 'Cookie Editor',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseCookieEditorSubtitle ??
                               'Network.getCookies / setCookie / deleteCookies — full CRUD',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -241,8 +269,9 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                   Expanded(
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: loc?.webReverseCookieEditorFilterHint
-                            ?? 'Filter name / domain / value',
+                        hintText:
+                            loc?.webReverseCookieEditorFilterHint ??
+                            'Filter name / domain / value',
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
                         isDense: true,
                         border: const OutlineInputBorder(),
@@ -263,79 +292,89 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
               child: _loading && list.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : list.isEmpty
-                      ? Center(
-                          child: Text(
-                            loc?.webReverseCookieEditorEmptyCookies ?? 'No cookies',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                                color: cs.onSurfaceVariant),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          itemCount: list.length,
-                          separatorBuilder: (_, _) =>
-                              Divider(height: 1, color: cs.outlineVariant),
-                          itemBuilder: (_, i) {
-                            final c = list[i];
-                            return ListTile(
-                              dense: true,
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      c.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontFamily: 'monospace'),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    c.domain,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                        color: cs.onSurfaceVariant),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 2),
+                  ? Center(
+                      child: Text(
+                        loc?.webReverseCookieEditorEmptyCookies ?? 'No cookies',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      itemCount: list.length,
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: cs.outlineVariant),
+                      itemBuilder: (_, i) {
+                        final c = list[i];
+                        return ListTile(
+                          dense: true,
+                          title: Row(
+                            children: [
+                              Expanded(
                                 child: Text(
-                                  c.value,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  c.name,
                                   style: const TextStyle(
-                                      fontFamily: 'monospace', fontSize: 11.5),
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'monospace',
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (c.httpOnly)
-                                    _badge(theme, 'HttpOnly', cs.tertiary),
-                                  if (c.secure)
-                                    _badge(theme, 'Secure', cs.primary),
-                                  if (c.sameSite.isNotEmpty)
-                                    _badge(theme, c.sameSite, cs.secondary),
-                                  IconButton(
-                                    tooltip: loc?.webReverseCookieEditorEdit ?? 'Edit',
-                                    onPressed: () => _edit(c),
-                                    icon: const Icon(Icons.edit_rounded,
-                                        size: 16),
-                                  ),
-                                  IconButton(
-                                    tooltip: loc?.webReverseCookieEditorDelete ?? 'Delete',
-                                    onPressed: () => _delete(c),
-                                    icon: const Icon(Icons.delete_outline_rounded,
-                                        size: 16),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              Text(
+                                c.domain,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
-                              onTap: () => _edit(c),
-                            );
-                          },
-                        ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              c.value,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (c.httpOnly)
+                                _badge(theme, 'HttpOnly', cs.tertiary),
+                              if (c.secure) _badge(theme, 'Secure', cs.primary),
+                              if (c.sameSite.isNotEmpty)
+                                _badge(theme, c.sameSite, cs.secondary),
+                              IconButton(
+                                tooltip:
+                                    loc?.webReverseCookieEditorEdit ?? 'Edit',
+                                onPressed: () => _edit(c),
+                                icon: const Icon(Icons.edit_rounded, size: 16),
+                              ),
+                              IconButton(
+                                tooltip:
+                                    loc?.webReverseCookieEditorDelete ??
+                                    'Delete',
+                                onPressed: () => _delete(c),
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () => _edit(c),
+                        );
+                      },
+                    ),
             ),
             if (_status.isNotEmpty)
               Container(
@@ -344,8 +383,9 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                 color: cs.surfaceContainerHigh,
                 child: Text(
                   _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
           ],
@@ -365,7 +405,10 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       child: Text(
         text,
         style: theme.textTheme.labelSmall?.copyWith(
-            color: color, fontWeight: FontWeight.w700, fontSize: 10),
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 10,
+        ),
       ),
     );
   }
@@ -399,7 +442,8 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
     _path = TextEditingController(text: r?.path ?? '/');
     _url = TextEditingController();
     _expires = TextEditingController(
-        text: r?.expires == null ? '' : r!.expires!.toString());
+      text: r?.expires == null ? '' : r!.expires!.toString(),
+    );
     _httpOnly = r?.httpOnly ?? false;
     _secure = r?.secure ?? false;
     _sameSite = r?.sameSite ?? '';
@@ -423,7 +467,10 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
         OpenHandSnackBar.showErrorOn(
-            context, m, loc?.webReverseCookieEditorNameRequired ?? 'name required');
+          context,
+          m,
+          loc?.webReverseCookieEditorNameRequired ?? 'name required',
+        );
       }
       return;
     }
@@ -461,19 +508,24 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
               child: Row(
                 children: [
                   Icon(
-                      widget.row == null
-                          ? Icons.add_circle_outline_rounded
-                          : Icons.edit_rounded,
-                      color: cs.primary),
+                    widget.row == null
+                        ? Icons.add_circle_outline_rounded
+                        : Icons.edit_rounded,
+                    color: cs.primary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       widget.row == null
-                          ? (loc?.webReverseCookieEditorNewCookie ?? 'New Cookie')
-                          : (loc?.webReverseCookieEditorEditCookie(widget.row!.name)
-                              ?? 'Edit ${widget.row!.name}'),
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                          ? (loc?.webReverseCookieEditorNewCookie ??
+                                'New Cookie')
+                          : (loc?.webReverseCookieEditorEditCookie(
+                                  widget.row!.name,
+                                ) ??
+                                'Edit ${widget.row!.name}'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -490,17 +542,35 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _field(loc?.webReverseCookieEditorFieldName ?? 'name *', _name),
-                    _field(loc?.webReverseCookieEditorFieldValue ?? 'value', _value, maxLines: 4),
-                    _field(loc?.webReverseCookieEditorFieldDomain ?? 'domain', _domain,
-                        hint: '.example.com'),
-                    _field(loc?.webReverseCookieEditorFieldPath ?? 'path', _path),
-                    _field(loc?.webReverseCookieEditorFieldUrl ?? 'URL (optional)',
-                        _url, hint: 'https://...'),
                     _field(
-                        loc?.webReverseCookieEditorFieldExpires ?? 'expires (unix sec)',
-                        _expires,
-                        hint: '1700000000'),
+                      loc?.webReverseCookieEditorFieldName ?? 'name *',
+                      _name,
+                    ),
+                    _field(
+                      loc?.webReverseCookieEditorFieldValue ?? 'value',
+                      _value,
+                      maxLines: 4,
+                    ),
+                    _field(
+                      loc?.webReverseCookieEditorFieldDomain ?? 'domain',
+                      _domain,
+                      hint: '.example.com',
+                    ),
+                    _field(
+                      loc?.webReverseCookieEditorFieldPath ?? 'path',
+                      _path,
+                    ),
+                    _field(
+                      loc?.webReverseCookieEditorFieldUrl ?? 'URL (optional)',
+                      _url,
+                      hint: 'https://...',
+                    ),
+                    _field(
+                      loc?.webReverseCookieEditorFieldExpires ??
+                          'expires (unix sec)',
+                      _expires,
+                      hint: '1700000000',
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -529,19 +599,23 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text('SameSite',
-                        style: theme.textTheme.labelMedium),
+                    Text('SameSite', style: theme.textTheme.labelMedium),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       children: ['', 'Strict', 'Lax', 'None']
-                          .map((s) => ChoiceChip(
-                                label: Text(s.isEmpty
-                                    ? (loc?.webReverseCookieEditorSameSiteUnset ?? 'unset')
-                                    : s),
-                                selected: _sameSite == s,
-                                onSelected: (_) => setState(() => _sameSite = s),
-                              ))
+                          .map(
+                            (s) => ChoiceChip(
+                              label: Text(
+                                s.isEmpty
+                                    ? (loc?.webReverseCookieEditorSameSiteUnset ??
+                                          'unset')
+                                    : s,
+                              ),
+                              selected: _sameSite == s,
+                              onSelected: (_) => setState(() => _sameSite = s),
+                            ),
+                          )
                           .toList(),
                     ),
                   ],
@@ -572,8 +646,12 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
     );
   }
 
-  Widget _field(String label, TextEditingController c,
-      {String? hint, int maxLines = 1}) {
+  Widget _field(
+    String label,
+    TextEditingController c, {
+    String? hint,
+    int maxLines = 1,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(

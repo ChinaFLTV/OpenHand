@@ -7,12 +7,12 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseCssCoverageDialog(
@@ -181,21 +181,22 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           )
           .toList(),
     );
-    try {
-      await Clipboard.setData(ClipboardData(text: json));
-    } catch (e, st) {
-      silentLog('web-reverse', 'css-cov.copy', e, st);
-      return;
-    }
-    if (!mounted) return;
+    final loc = AppLocalizations.of(context);
     final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      final loc = AppLocalizations.of(context);
+    try {
+      final copied = await setWebReverseClipboardText(json);
+      if (!mounted || m == null) return;
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
+        webReverseClipboardSnackMessage(
+          isZh: loc?.localeName.startsWith('zh') ?? false,
+          base: loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
+          result: copied,
+        ),
       );
+    } catch (e, st) {
+      silentLog('web-reverse', 'css-cov.copy', e, st);
     }
   }
 

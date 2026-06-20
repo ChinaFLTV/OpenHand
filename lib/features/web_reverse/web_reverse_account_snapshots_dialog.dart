@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseAccountSnapshotsDialog(
@@ -117,15 +118,20 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         .map((s) => s.toJson())
         .toList(growable: false);
     final json = const JsonEncoder.withIndent('  ').convert(list);
-    await Clipboard.setData(ClipboardData(text: json));
+    final copied = await setWebReverseClipboardText(json);
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        loc?.webReverseAccountSnapCopiedCount(list.length) ??
-            'Copied ${list.length} snapshots JSON to clipboard',
+        webReverseClipboardSnackMessage(
+          isZh: loc?.localeName.startsWith('zh') ?? false,
+          base:
+              loc?.webReverseAccountSnapCopiedCount(list.length) ??
+              'Copied ${list.length} snapshots JSON to clipboard',
+          result: copied,
+        ),
       );
     }
   }

@@ -14,7 +14,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -22,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -275,15 +275,19 @@ class _PmDialogState extends State<_PmDialog> {
       '  ',
     ).convert(filtered.map((r) => r.toJson()).toList());
     final messenger = ScaffoldMessenger.maybeOf(context);
-    await Clipboard.setData(ClipboardData(text: json));
+    final loc = AppLocalizations.of(context);
+    final copied = await setWebReverseClipboardText(json);
     if (messenger != null && mounted) {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        AppLocalizations.of(
-              context,
-            )?.webReversePmCopiedCount(filtered.length) ??
-            'Copied ${filtered.length} records',
+        webReverseClipboardSnackMessage(
+          isZh: loc?.localeName.startsWith('zh') ?? false,
+          base:
+              loc?.webReversePmCopiedCount(filtered.length) ??
+              'Copied ${filtered.length} records',
+          result: copied,
+        ),
       );
     }
   }

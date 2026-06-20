@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseMockRulesDialog(
@@ -24,8 +25,7 @@ Future<void> showWebReverseMockRulesDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) =>
-        _MockRulesDialog(controller: controller, isZh: isZh),
+    builder: (_) => _MockRulesDialog(controller: controller, isZh: isZh),
   );
 }
 
@@ -67,8 +67,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        loc?.webReverseMockRulesSavedCount(_draft.length)
-            ?? 'Saved ${_draft.length} rule(s)',
+        loc?.webReverseMockRulesSavedCount(_draft.length) ??
+            'Saved ${_draft.length} rule(s)',
       );
     }
   }
@@ -76,11 +76,13 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
   void _addRule() {
     final loc = AppLocalizations.of(context);
     setState(() {
-      _draft.add(WebReverseMockRule(
-        id: 'mk_${DateTime.now().microsecondsSinceEpoch}',
-        name: loc?.webReverseMockRulesNewRule ?? 'New rule',
-        urlPattern: 'https://api.example.com/*',
-      ));
+      _draft.add(
+        WebReverseMockRule(
+          id: 'mk_${DateTime.now().microsecondsSinceEpoch}',
+          name: loc?.webReverseMockRulesNewRule ?? 'New rule',
+          urlPattern: 'https://api.example.com/*',
+        ),
+      );
       _selected = _draft.length - 1;
     });
   }
@@ -93,17 +95,22 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
   }
 
   Future<void> _exportJson() async {
-    final out =
-        const JsonEncoder.withIndent('  ').convert(_draft.map((e) => e.toJson()).toList());
+    final out = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_draft.map((e) => e.toJson()).toList());
     final loc = AppLocalizations.of(context);
     final m = ScaffoldMessenger.maybeOf(context);
-    await Clipboard.setData(ClipboardData(text: out));
+    final copied = await setWebReverseClipboardText(out);
     if (!mounted) return;
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
+        webReverseClipboardSnackMessage(
+          isZh: widget.isZh,
+          base: loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
+          result: copied,
+        ),
       );
     }
   }
@@ -120,8 +127,9 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
       setState(() {
         _draft = decoded
             .whereType<Map>()
-            .map((e) => WebReverseMockRule.fromJson(
-                Map<String, Object?>.from(e)))
+            .map(
+              (e) => WebReverseMockRule.fromJson(Map<String, Object?>.from(e)),
+            )
             .toList();
         _selected = _draft.isEmpty ? -1 : 0;
       });
@@ -129,8 +137,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          loc?.webReverseMockRulesImportedCount(_draft.length)
-              ?? 'Imported ${_draft.length}',
+          loc?.webReverseMockRulesImportedCount(_draft.length) ??
+              'Imported ${_draft.length}',
         );
       }
     } catch (e, st) {
@@ -173,25 +181,29 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                       children: [
                         Text(
                           loc?.webReverseMockRulesTitle ?? 'Local Mock',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
-                          loc?.webReverseMockRulesSubtitle
-                              ?? 'URL pattern match → Fetch.fulfillRequest returns a canned response',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          loc?.webReverseMockRulesSubtitle ??
+                              'URL pattern match → Fetch.fulfillRequest returns a canned response',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    tooltip: loc?.webReverseMockRulesExportJson ?? 'Export JSON',
+                    tooltip:
+                        loc?.webReverseMockRulesExportJson ?? 'Export JSON',
                     onPressed: _exportJson,
                     icon: const Icon(Icons.upload_rounded),
                   ),
                   IconButton(
-                    tooltip: loc?.webReverseMockRulesImportJson ?? 'Import JSON',
+                    tooltip:
+                        loc?.webReverseMockRulesImportJson ?? 'Import JSON',
                     onPressed: _importJson,
                     icon: const Icon(Icons.download_rounded),
                   ),
@@ -231,7 +243,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                           child: _draft.isEmpty
                               ? Center(
                                   child: Text(
-                                    loc?.webReverseMockRulesEmptyRules ?? 'No rules',
+                                    loc?.webReverseMockRulesEmptyRules ??
+                                        'No rules',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: cs.onSurfaceVariant,
                                     ),
@@ -239,7 +252,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                 )
                               : ListView.separated(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8),
+                                    horizontal: 8,
+                                  ),
                                   itemCount: _draft.length,
                                   separatorBuilder: (_, _) =>
                                       const SizedBox(height: 4),
@@ -249,7 +263,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                     return Material(
                                       color: sel
                                           ? cs.primaryContainer.withValues(
-                                              alpha: 0.4)
+                                              alpha: 0.4,
+                                            )
                                           : cs.surfaceContainerHigh,
                                       borderRadius: BorderRadius.circular(8),
                                       child: InkWell(
@@ -257,31 +272,34 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                         onTap: () =>
                                             setState(() => _selected = i),
                                         child: Padding(
-                                          padding:
-                                              const EdgeInsets.fromLTRB(
-                                                  8, 6, 4, 6),
+                                          padding: const EdgeInsets.fromLTRB(
+                                            8,
+                                            6,
+                                            4,
+                                            6,
+                                          ),
                                           child: Row(
                                             children: [
                                               Switch(
                                                 value: r.enabled,
-                                                onChanged: (v) =>
-                                                    setState(() {
-                                                  _draft[i] =
-                                                      r.copyWith(enabled: v);
+                                                onChanged: (v) => setState(() {
+                                                  _draft[i] = r.copyWith(
+                                                    enabled: v,
+                                                  );
                                                 }),
                                               ),
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .start,
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
                                                       r.name,
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
-                                                      style: theme.textTheme
+                                                      style: theme
+                                                          .textTheme
                                                           .labelMedium,
                                                     ),
                                                     Text(
@@ -289,24 +307,28 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
-                                                      style: theme.textTheme
+                                                      style: theme
+                                                          .textTheme
                                                           .labelSmall
                                                           ?.copyWith(
-                                                        color: cs
-                                                            .onSurfaceVariant,
-                                                        fontFamily:
-                                                            'monospace',
-                                                      ),
+                                                            color: cs
+                                                                .onSurfaceVariant,
+                                                            fontFamily:
+                                                                'monospace',
+                                                          ),
                                                     ),
                                                   ],
                                                 ),
                                               ),
                                               IconButton(
-                                                tooltip: loc?.webReverseMockRulesDelete ?? 'Delete',
+                                                tooltip:
+                                                    loc?.webReverseMockRulesDelete ??
+                                                    'Delete',
                                                 onPressed: () => _removeAt(i),
                                                 icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    size: 16),
+                                                  Icons.delete_outline,
+                                                  size: 16,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -324,7 +346,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                     child: _selected < 0 || _selected >= _draft.length
                         ? Center(
                             child: Text(
-                              loc?.webReverseMockRulesPickRule ?? 'Pick a rule on the left',
+                              loc?.webReverseMockRulesPickRule ??
+                                  'Pick a rule on the left',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
@@ -356,15 +379,21 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                           style: theme.textTheme.labelMedium,
                         ),
                         const SizedBox(width: 6),
-                        Text('(${hits.length})',
-                            style: theme.textTheme.labelSmall),
+                        Text(
+                          '(${hits.length})',
+                          style: theme.textTheme.labelSmall,
+                        ),
                         const Spacer(),
                         if (hits.isNotEmpty)
                           TextButton.icon(
                             onPressed: widget.controller.clearMockHits,
-                            icon: const Icon(Icons.cleaning_services_rounded,
-                                size: 14),
-                            label: Text(loc?.webReverseMockRulesClear ?? 'Clear'),
+                            icon: const Icon(
+                              Icons.cleaning_services_rounded,
+                              size: 14,
+                            ),
+                            label: Text(
+                              loc?.webReverseMockRulesClear ?? 'Clear',
+                            ),
                           ),
                       ],
                     ),
@@ -374,7 +403,8 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                               child: Text(
                                 loc?.webReverseMockRulesNoHits ?? 'No hits yet',
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                    color: cs.onSurfaceVariant),
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
                             )
                           : ListView.builder(
@@ -386,7 +416,9 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                   '${h.status}  '
                                   '${h.ruleName}',
                                   style: const TextStyle(
-                                      fontFamily: 'monospace', fontSize: 11),
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                  ),
                                 );
                               },
                             ),
@@ -424,11 +456,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
 }
 
 class _RuleEditor extends StatefulWidget {
-  const _RuleEditor({
-    super.key,
-    required this.rule,
-    required this.onChanged,
-  });
+  const _RuleEditor({super.key, required this.rule, required this.onChanged});
   final WebReverseMockRule rule;
   final ValueChanged<WebReverseMockRule> onChanged;
   @override
@@ -481,15 +509,17 @@ class _RuleEditorState extends State<_RuleEditor> {
       if (idx <= 0) continue;
       hdrs[s.substring(0, idx).trim()] = s.substring(idx + 1).trim();
     }
-    widget.onChanged(widget.rule.copyWith(
-      name: _name.text,
-      urlPattern: _pattern.text,
-      methodFilter: _method.text,
-      statusCode: int.tryParse(_status.text) ?? widget.rule.statusCode,
-      contentType: _contentType.text,
-      body: _body.text,
-      extraHeaders: hdrs,
-    ));
+    widget.onChanged(
+      widget.rule.copyWith(
+        name: _name.text,
+        urlPattern: _pattern.text,
+        methodFilter: _method.text,
+        statusCode: int.tryParse(_status.text) ?? widget.rule.statusCode,
+        contentType: _contentType.text,
+        body: _body.text,
+        extraHeaders: hdrs,
+      ),
+    );
   }
 
   @override
@@ -515,7 +545,8 @@ class _RuleEditorState extends State<_RuleEditor> {
             onChanged: (_) => _push(),
             style: const TextStyle(fontFamily: 'monospace'),
             decoration: InputDecoration(
-              labelText: loc?.webReverseMockRulesUrlPattern ?? 'URL pattern (* / ?)',
+              labelText:
+                  loc?.webReverseMockRulesUrlPattern ?? 'URL pattern (* / ?)',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -529,7 +560,9 @@ class _RuleEditorState extends State<_RuleEditor> {
                   controller: _method,
                   onChanged: (_) => _push(),
                   decoration: InputDecoration(
-                    labelText: loc?.webReverseMockRulesMethodLabel ?? 'Method (blank=ALL)',
+                    labelText:
+                        loc?.webReverseMockRulesMethodLabel ??
+                        'Method (blank=ALL)',
                     border: const OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -571,8 +604,9 @@ class _RuleEditorState extends State<_RuleEditor> {
             maxLines: 4,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
-              labelText: loc?.webReverseMockRulesExtraHeaders
-                  ?? 'Extra headers (Key: Value per line)',
+              labelText:
+                  loc?.webReverseMockRulesExtraHeaders ??
+                  'Extra headers (Key: Value per line)',
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -585,7 +619,8 @@ class _RuleEditorState extends State<_RuleEditor> {
             maxLines: 18,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
-              labelText: loc?.webReverseMockRulesResponseBody ?? 'Response body',
+              labelText:
+                  loc?.webReverseMockRulesResponseBody ?? 'Response body',
               border: const OutlineInputBorder(),
               isDense: true,
             ),

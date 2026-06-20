@@ -12,7 +12,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -20,6 +19,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseWatchDialog(
@@ -214,14 +214,18 @@ class _WatchDialogState extends State<_WatchDialog> {
           )
           .toList(),
     );
-    await Clipboard.setData(ClipboardData(text: out));
+    final copied = await setWebReverseClipboardText(out);
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        loc?.webReverseWatchCopiedJson ?? 'JSON copied',
+        webReverseClipboardSnackMessage(
+          isZh: loc?.localeName.startsWith('zh') ?? false,
+          base: loc?.webReverseWatchCopiedJson ?? 'JSON copied',
+          result: copied,
+        ),
       );
     }
   }

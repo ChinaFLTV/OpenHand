@@ -7,13 +7,13 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseReplayDialog(
@@ -144,21 +144,24 @@ class _ReplayDialogState extends State<_ReplayDialog> {
         )
         .toList();
     final json = const JsonEncoder.withIndent('  ').convert(data);
+    final loc = AppLocalizations.of(context);
     try {
-      await Clipboard.setData(ClipboardData(text: json));
+      final copied = await setWebReverseClipboardText(json);
+      if (!mounted) return;
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          m,
+          webReverseClipboardSnackMessage(
+            isZh: loc?.localeName.startsWith('zh') ?? false,
+            base: loc?.webReverseReplayJsonCopied ?? 'JSON copied',
+            result: copied,
+          ),
+        );
+      }
     } catch (e, st) {
       silentLog('web-reverse', 'replay.export', e, st);
-      return;
-    }
-    if (!mounted) return;
-    final loc = AppLocalizations.of(context);
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        m,
-        loc?.webReverseReplayJsonCopied ?? 'JSON copied',
-      );
     }
   }
 
