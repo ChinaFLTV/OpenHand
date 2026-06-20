@@ -63,6 +63,7 @@ import 'web_reverse_replay_dialog.dart';
 import 'web_reverse_request_breakpoints_dialog.dart';
 import 'web_reverse_resend_request_dialog.dart';
 import 'web_reverse_screenshot_markup.dart';
+import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 import 'web_reverse_signature_diff_dialog.dart';
 import 'web_reverse_sourcemap_dialog.dart';

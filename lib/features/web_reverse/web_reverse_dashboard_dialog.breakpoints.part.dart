@@ -652,25 +652,28 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    DropdownButton<String>(
+                    WebReverseSelectButton<String>(
                       value: _domType,
-                      items: const [
-                        DropdownMenuItem(
+                      dense: true,
+                      minWidth: 168,
+                      tooltip: isZh
+                          ? '选择 DOM 断点类型'
+                          : 'Select DOM breakpoint type',
+                      options: const [
+                        WebReverseSelectOption(
                           value: 'subtree-modified',
-                          child: Text('subtree-modified'),
+                          label: 'subtree-modified',
                         ),
-                        DropdownMenuItem(
+                        WebReverseSelectOption(
                           value: 'attribute-modified',
-                          child: Text('attribute-modified'),
+                          label: 'attribute-modified',
                         ),
-                        DropdownMenuItem(
+                        WebReverseSelectOption(
                           value: 'node-removed',
-                          child: Text('node-removed'),
+                          label: 'node-removed',
                         ),
                       ],
-                      onChanged: (v) {
-                        if (v != null) setState(() => _domType = v);
-                      },
+                      onChanged: (v) => setState(() => _domType = v),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.icon(

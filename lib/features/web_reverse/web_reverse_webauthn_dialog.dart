@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
 class _VirtualAuth {
@@ -133,14 +134,16 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
       } else {
         final id = r?['authenticatorId']?.toString() ?? '';
         if (id.isNotEmpty) {
-          _auths.add(_VirtualAuth(
-            id: id,
-            protocol: _newProtocol,
-            transport: _newTransport,
-            hasResidentKey: _newResidentKey,
-            hasUserVerification: _newUserVerification,
-            isUserVerified: _newIsVerified,
-          ));
+          _auths.add(
+            _VirtualAuth(
+              id: id,
+              protocol: _newProtocol,
+              transport: _newTransport,
+              hasResidentKey: _newResidentKey,
+              hasUserVerification: _newUserVerification,
+              isUserVerified: _newIsVerified,
+            ),
+          );
           if (messenger != null && mounted) {
             OpenHandSnackBar.showSuccessOn(
               context,
@@ -162,7 +165,9 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await _cdp('WebAuthn.removeVirtualAuthenticator', {'authenticatorId': a.id});
+      await _cdp('WebAuthn.removeVirtualAuthenticator', {
+        'authenticatorId': a.id,
+      });
       _auths.removeWhere((e) => e.id == a.id);
     } catch (e, st) {
       silentLog('web_reverse_webauthn', 'remove', e, st);
@@ -174,7 +179,9 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final r = await _cdp('WebAuthn.getCredentials', {'authenticatorId': a.id});
+      final r = await _cdp('WebAuthn.getCredentials', {
+        'authenticatorId': a.id,
+      });
       final list = r?['credentials'];
       if (list is List) {
         a.credentials = list
@@ -232,13 +239,15 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                         Text(
                           loc?.webReverseWebauthnTitle ??
                               'WebAuthn Virtual Authenticator',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           'WebAuthn.enable / addVirtualAuthenticator / getCredentials',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -264,8 +273,9 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                           loc?.webReverseWebauthnDisabledBody ??
                               'Toggle WebAuthn on to enable virtual authenticators. navigator.credentials.create/get will succeed without physical hardware.',
                           textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     )
@@ -277,8 +287,9 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                           Text(
                             loc?.webReverseWebauthnAdd ??
                                 'Add Virtual Authenticator',
-                            style: theme.textTheme.labelLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Wrap(
@@ -286,50 +297,78 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                             runSpacing: 8,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              DropdownButton<String>(
+                              WebReverseSelectButton<String>(
                                 value: _newProtocol,
-                                items: const [
-                                  DropdownMenuItem(value: 'ctap2', child: Text('protocol: ctap2')),
-                                  DropdownMenuItem(value: 'u2f', child: Text('protocol: u2f')),
+                                minWidth: 136,
+                                tooltip: 'protocol',
+                                options: const [
+                                  WebReverseSelectOption(
+                                    value: 'ctap2',
+                                    label: 'protocol: ctap2',
+                                  ),
+                                  WebReverseSelectOption(
+                                    value: 'u2f',
+                                    label: 'protocol: u2f',
+                                  ),
                                 ],
                                 onChanged: (v) =>
-                                    setState(() => _newProtocol = v ?? 'ctap2'),
+                                    setState(() => _newProtocol = v),
                               ),
-                              DropdownButton<String>(
+                              WebReverseSelectButton<String>(
                                 value: _newTransport,
-                                items: const [
-                                  DropdownMenuItem(value: 'usb', child: Text('transport: usb')),
-                                  DropdownMenuItem(value: 'nfc', child: Text('transport: nfc')),
-                                  DropdownMenuItem(value: 'ble', child: Text('transport: ble')),
-                                  DropdownMenuItem(value: 'internal', child: Text('transport: internal')),
+                                minWidth: 152,
+                                tooltip: 'transport',
+                                options: const [
+                                  WebReverseSelectOption(
+                                    value: 'usb',
+                                    label: 'transport: usb',
+                                  ),
+                                  WebReverseSelectOption(
+                                    value: 'nfc',
+                                    label: 'transport: nfc',
+                                  ),
+                                  WebReverseSelectOption(
+                                    value: 'ble',
+                                    label: 'transport: ble',
+                                  ),
+                                  WebReverseSelectOption(
+                                    value: 'internal',
+                                    label: 'transport: internal',
+                                  ),
                                 ],
                                 onChanged: (v) =>
-                                    setState(() => _newTransport = v ?? 'usb'),
+                                    setState(() => _newTransport = v),
                               ),
                               _Flag(
                                 label: 'hasResidentKey',
                                 value: _newResidentKey,
-                                onChanged: (v) => setState(() => _newResidentKey = v),
+                                onChanged: (v) =>
+                                    setState(() => _newResidentKey = v),
                               ),
                               _Flag(
                                 label: 'hasUserVerification',
                                 value: _newUserVerification,
-                                onChanged: (v) => setState(() => _newUserVerification = v),
+                                onChanged: (v) =>
+                                    setState(() => _newUserVerification = v),
                               ),
                               _Flag(
                                 label: 'isUserVerified',
                                 value: _newIsVerified,
-                                onChanged: (v) => setState(() => _newIsVerified = v),
+                                onChanged: (v) =>
+                                    setState(() => _newIsVerified = v),
                               ),
                               _Flag(
                                 label: 'autoPresenceSimulation',
                                 value: _newAutoPresence,
-                                onChanged: (v) => setState(() => _newAutoPresence = v),
+                                onChanged: (v) =>
+                                    setState(() => _newAutoPresence = v),
                               ),
                               FilledButton.tonalIcon(
                                 onPressed: _busy ? null : _addAuthenticator,
                                 icon: const Icon(Icons.add_rounded),
-                                label: Text(loc?.webReverseWebauthnAddBtn ?? 'Add'),
+                                label: Text(
+                                  loc?.webReverseWebauthnAddBtn ?? 'Add',
+                                ),
                               ),
                             ],
                           ),
@@ -375,26 +414,32 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                           Divider(color: cs.outlineVariant),
                           const SizedBox(height: 8),
                           Text(
-                            loc?.webReverseWebauthnCreatedCount(_auths.length) ??
+                            loc?.webReverseWebauthnCreatedCount(
+                                  _auths.length,
+                                ) ??
                                 'Authenticators (${_auths.length})',
-                            style: theme.textTheme.labelLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           if (_auths.isEmpty)
                             Text(
                               loc?.webReverseWebauthnNone ??
                                   'No authenticators yet',
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: cs.onSurfaceVariant),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
-                          for (final a in _auths) _AuthCard(
-                            auth: a,
-                            busy: _busy,
-                            onRemove: () => _removeAuthenticator(a),
-                            onRefresh: () => _refreshCredentials(a),
-                            onToggleVerified: (v) => _toggleUserVerified(a, v),
-                          ),
+                          for (final a in _auths)
+                            _AuthCard(
+                              auth: a,
+                              busy: _busy,
+                              onRemove: () => _removeAuthenticator(a),
+                              onRefresh: () => _refreshCredentials(a),
+                              onToggleVerified: (v) =>
+                                  _toggleUserVerified(a, v),
+                            ),
                         ],
                       ),
                     ),
@@ -420,7 +465,11 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
 }
 
 class _Flag extends StatelessWidget {
-  const _Flag({required this.label, required this.value, required this.onChanged});
+  const _Flag({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -430,7 +479,10 @@ class _Flag extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Checkbox(value: value, onChanged: (v) => onChanged(v ?? false)),
-        Text(label, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
       ],
     );
   }
@@ -475,7 +527,8 @@ class _AuthCard extends StatelessWidget {
                   ),
                 ),
                 Tooltip(
-                  message: loc?.webReverseWebauthnRefreshCreds ??
+                  message:
+                      loc?.webReverseWebauthnRefreshCreds ??
                       'Refresh credentials',
                   child: IconButton(
                     onPressed: busy ? null : onRefresh,
@@ -486,8 +539,11 @@ class _AuthCard extends StatelessWidget {
                   message: loc?.webReverseWebauthnRemove ?? 'Remove',
                   child: IconButton(
                     onPressed: busy ? null : onRemove,
-                    icon: Icon(Icons.delete_outline_rounded,
-                        size: 18, color: cs.error),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: cs.error,
+                    ),
                   ),
                 ),
               ],
@@ -519,10 +575,13 @@ class _AuthCard extends StatelessWidget {
             if (auth.credentials.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                loc?.webReverseWebauthnCredentialsCount(auth.credentials.length) ??
+                loc?.webReverseWebauthnCredentialsCount(
+                      auth.credentials.length,
+                    ) ??
                     'Credentials (${auth.credentials.length})',
-                style: theme.textTheme.labelMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 4),
               for (final c in auth.credentials)
@@ -537,7 +596,9 @@ class _AuthCard extends StatelessWidget {
                   child: SelectableText(
                     const JsonEncoder.withIndent('  ').convert(c),
                     style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 11),
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
                   ),
                 ),
             ],
@@ -555,8 +616,10 @@ class _AuthCard extends StatelessWidget {
         color: cs.primaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(text,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+      child: Text(
+        text,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+      ),
     );
   }
 }

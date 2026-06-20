@@ -23,6 +23,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseCallgraphDialog(
@@ -74,7 +75,9 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
         paramsJson: '{}',
       );
       if (tree == null || tree['error'] != null) {
-        setState(() => _status = loc?.webReverseCallgraphFetchFailed ?? 'Fetch failed');
+        setState(
+          () => _status = loc?.webReverseCallgraphFetchFailed ?? 'Fetch failed',
+        );
         return;
       }
       final scripts = <_ScriptResource>[];
@@ -89,7 +92,9 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               if (r is Map &&
                   r['type']?.toString().toLowerCase() == 'script' &&
                   r['url'] is String) {
-                scripts.add(_ScriptResource(frameId: fid, url: r['url'] as String));
+                scripts.add(
+                  _ScriptResource(frameId: fid, url: r['url'] as String),
+                );
               }
             }
           }
@@ -104,7 +109,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
 
       walk(tree['frameTree']);
       if (scripts.isEmpty) {
-        setState(() => _status = loc?.webReverseCallgraphNoScripts ?? 'No JS scripts found');
+        setState(
+          () => _status =
+              loc?.webReverseCallgraphNoScripts ?? 'No JS scripts found',
+        );
         return;
       }
       final pickList = scripts.take(_scriptLimit).toList();
@@ -112,12 +120,15 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
       for (final s in pickList) {
         done++;
         if (mounted) {
-          setState(() => _status = loc?.webReverseCallgraphParsing(
-                done,
-                pickList.length,
-                _shortUrl(s.url),
-              ) ??
-              'Parsing $done/${pickList.length}: ${_shortUrl(s.url)}');
+          setState(
+            () => _status =
+                loc?.webReverseCallgraphParsing(
+                  done,
+                  pickList.length,
+                  _shortUrl(s.url),
+                ) ??
+                'Parsing $done/${pickList.length}: ${_shortUrl(s.url)}',
+          );
         }
         try {
           final r = await widget.controller.sendRawCdp(
@@ -129,7 +140,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
           final base64Encoded = r['base64Encoded'] == true;
           if (base64Encoded) {
             try {
-              content = utf8.decode(base64.decode(content), allowMalformed: true);
+              content = utf8.decode(
+                base64.decode(content),
+                allowMalformed: true,
+              );
             } catch (e, st) {
               silentLog('web_reverse_callgraph', 'b64decode', e, st);
               continue;
@@ -151,7 +165,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
       setState(() {
         final scripts = _graphs.length;
         final fns = _graphs.fold<int>(0, (a, g) => a + g.functions.length);
-        _status = loc?.webReverseCallgraphDone(scripts, fns) ??
+        _status =
+            loc?.webReverseCallgraphDone(scripts, fns) ??
             'Done: $scripts scripts, $fns functions';
         if (_graphs.isNotEmpty) _selectedUrl = _graphs.first.url;
       });
@@ -160,23 +175,63 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
     }
   }
 
-  static final _funcDeclPattern =
-      RegExp(r'function\s+([A-Za-z_$][\w$]*)\s*\(');
+  static final _funcDeclPattern = RegExp(r'function\s+([A-Za-z_$][\w$]*)\s*\(');
   static final _funcExprPattern = RegExp(
-      r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function\b');
+    r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function\b',
+  );
   static final _arrowPattern = RegExp(
-      r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)=]*\)|[A-Za-z_$][\w$]*)\s*=>');
+    r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)=]*\)|[A-Za-z_$][\w$]*)\s*=>',
+  );
   static final _methodPattern = RegExp(
-      r'(?:^|[\s,{;])([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{');
+    r'(?:^|[\s,{;])([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{',
+  );
   static final _callPattern = RegExp(r'([A-Za-z_$][\w$]*)\s*\(');
 
   static const _reserved = <String>{
-    'if', 'for', 'while', 'switch', 'return', 'function', 'typeof', 'new',
-    'catch', 'do', 'else', 'throw', 'await', 'async', 'yield', 'delete',
-    'void', 'in', 'of', 'instanceof', 'true', 'false', 'null', 'undefined',
-    'this', 'super', 'class', 'extends', 'try', 'finally', 'const', 'let',
-    'var', 'import', 'export', 'from', 'default', 'case', 'break', 'continue',
-    'with', 'debugger', 'NaN', 'Infinity',
+    'if',
+    'for',
+    'while',
+    'switch',
+    'return',
+    'function',
+    'typeof',
+    'new',
+    'catch',
+    'do',
+    'else',
+    'throw',
+    'await',
+    'async',
+    'yield',
+    'delete',
+    'void',
+    'in',
+    'of',
+    'instanceof',
+    'true',
+    'false',
+    'null',
+    'undefined',
+    'this',
+    'super',
+    'class',
+    'extends',
+    'try',
+    'finally',
+    'const',
+    'let',
+    'var',
+    'import',
+    'export',
+    'from',
+    'default',
+    'case',
+    'break',
+    'continue',
+    'with',
+    'debugger',
+    'NaN',
+    'Infinity',
   };
 
   _ScriptGraph _parseScript(String url, String src) {
@@ -252,11 +307,9 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
         }
         if (++callCount >= 800) break;
       }
-      functions.add(_FnNode(
-        name: defs[i].name,
-        offset: s,
-        callees: calleeOrdered,
-      ));
+      functions.add(
+        _FnNode(name: defs[i].name, offset: s, callees: calleeOrdered),
+      );
     }
     return _ScriptGraph(url: url, functions: functions);
   }
@@ -319,14 +372,16 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       children: [
                         Text(
                           loc?.webReverseCallgraphTitle ?? 'JS Callgraph',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseCallgraphSubtitle ??
                               'Heuristic regex parsing (noisy for minified bundles)',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -349,50 +404,63 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2))
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Icon(Icons.play_arrow_rounded, size: 18),
                     label: Text(loc?.webReverseCallgraphScanBtn ?? 'Scan'),
                   ),
                   const SizedBox(width: 12),
-                  Text(loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
-                      style: theme.textTheme.labelSmall),
+                  Text(
+                    loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
+                    style: theme.textTheme.labelSmall,
+                  ),
                   const SizedBox(width: 6),
-                  DropdownButton<int>(
+                  WebReverseSelectButton<int>(
                     value: _scriptLimit,
-                    isDense: true,
-                    items: const [10, 20, 30, 50]
-                        .map((v) =>
-                            DropdownMenuItem(value: v, child: Text('$v')))
-                        .toList(),
+                    dense: true,
+                    minWidth: 64,
+                    tooltip:
+                        loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
+                    options: const [
+                      WebReverseSelectOption(value: 10, label: '10'),
+                      WebReverseSelectOption(value: 20, label: '20'),
+                      WebReverseSelectOption(value: 30, label: '30'),
+                      WebReverseSelectOption(value: 50, label: '50'),
+                    ],
                     onChanged: _scanning
                         ? null
-                        : (v) {
-                            if (v != null) setState(() => _scriptLimit = v);
-                          },
+                        : (v) => setState(() => _scriptLimit = v),
                   ),
                   const SizedBox(width: 12),
-                  Text(loc?.webReverseCallgraphPerScriptKb ?? 'Per script (KB)',
-                      style: theme.textTheme.labelSmall),
+                  Text(
+                    loc?.webReverseCallgraphPerScriptKb ?? 'Per script (KB)',
+                    style: theme.textTheme.labelSmall,
+                  ),
                   const SizedBox(width: 6),
-                  DropdownButton<int>(
+                  WebReverseSelectButton<int>(
                     value: _maxScriptKb,
-                    isDense: true,
-                    items: const [100, 200, 400, 800]
-                        .map((v) =>
-                            DropdownMenuItem(value: v, child: Text('$v')))
-                        .toList(),
+                    dense: true,
+                    minWidth: 72,
+                    tooltip:
+                        loc?.webReverseCallgraphPerScriptKb ??
+                        'Per script (KB)',
+                    options: const [
+                      WebReverseSelectOption(value: 100, label: '100'),
+                      WebReverseSelectOption(value: 200, label: '200'),
+                      WebReverseSelectOption(value: 400, label: '400'),
+                      WebReverseSelectOption(value: 800, label: '800'),
+                    ],
                     onChanged: _scanning
                         ? null
-                        : (v) {
-                            if (v != null) setState(() => _maxScriptKb = v);
-                          },
+                        : (v) => setState(() => _maxScriptKb = v),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       _status,
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -407,7 +475,8 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                  hintText: loc?.webReverseCallgraphReverseHint ??
+                  hintText:
+                      loc?.webReverseCallgraphReverseHint ??
                       'Reverse lookup: who calls …',
                   border: const OutlineInputBorder(),
                 ),
@@ -426,8 +495,9 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                         child: Text(
                           loc?.webReverseCallgraphEmptyHint ??
                               'Click Scan to parse current page JS',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : Row(
@@ -438,15 +508,20 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 6),
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
                                   child: Align(
                                     alignment: Alignment.centerLeft,
                                     child: Text(
-                                      loc?.webReverseCallgraphScriptsCount(_graphs.length) ??
+                                      loc?.webReverseCallgraphScriptsCount(
+                                            _graphs.length,
+                                          ) ??
                                           'Scripts (${_graphs.length})',
                                       style: theme.textTheme.labelMedium
                                           ?.copyWith(
-                                              fontWeight: FontWeight.w700),
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
                                   ),
                                 ),
@@ -455,23 +530,27 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                                   child: ListView.separated(
                                     itemCount: _graphs.length,
                                     separatorBuilder: (_, _) => Divider(
-                                        height: 1, color: cs.outlineVariant),
+                                      height: 1,
+                                      color: cs.outlineVariant,
+                                    ),
                                     itemBuilder: (_, i) {
                                       final g = _graphs[i];
                                       final isSel = g.url == _selectedUrl;
                                       return Material(
                                         color: isSel
-                                            ? cs.primaryContainer
-                                                .withValues(alpha: 0.5)
+                                            ? cs.primaryContainer.withValues(
+                                                alpha: 0.5,
+                                              )
                                             : Colors.transparent,
                                         child: InkWell(
                                           onTap: () => setState(
-                                              () => _selectedUrl = g.url),
+                                            () => _selectedUrl = g.url,
+                                          ),
                                           child: Padding(
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 8),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
                                             child: Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
@@ -479,18 +558,20 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                                                 Text(
                                                   _shortUrl(g.url),
                                                   style: const TextStyle(
-                                                      fontFamily: 'monospace',
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w600),
+                                                    fontFamily: 'monospace',
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                                 Text(
                                                   '${g.functions.length} ${loc?.webReverseCallgraphFnsSuffix ?? 'fns'}',
                                                   style: theme
-                                                      .textTheme.labelSmall
+                                                      .textTheme
+                                                      .labelSmall
                                                       ?.copyWith(
-                                                          color:
-                                                              cs.onSurfaceVariant),
+                                                        color:
+                                                            cs.onSurfaceVariant,
+                                                      ),
                                                 ),
                                               ],
                                             ),
@@ -503,23 +584,34 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                               ],
                             ),
                           ),
-                          VerticalDivider(
-                              width: 1, color: cs.outlineVariant),
+                          VerticalDivider(width: 1, color: cs.outlineVariant),
                           Expanded(
                             child: callerHits.isNotEmpty
-                                ? _buildCallerHits(theme, cs, callerHits,
-                                    messenger, loc)
+                                ? _buildCallerHits(
+                                    theme,
+                                    cs,
+                                    callerHits,
+                                    messenger,
+                                    loc,
+                                  )
                                 : selected == null
-                                    ? Center(
-                                        child: Text(
-                                          loc?.webReverseCallgraphPickScript ?? 'Pick a script',
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                  color: cs.onSurfaceVariant),
-                                        ),
-                                      )
-                                    : _buildScriptDetail(
-                                        theme, cs, selected, messenger, loc),
+                                ? Center(
+                                    child: Text(
+                                      loc?.webReverseCallgraphPickScript ??
+                                          'Pick a script',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  )
+                                : _buildScriptDetail(
+                                    theme,
+                                    cs,
+                                    selected,
+                                    messenger,
+                                    loc,
+                                  ),
                           ),
                         ],
                       ),
@@ -544,8 +636,13 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
     );
   }
 
-  Widget _buildScriptDetail(ThemeData theme, ColorScheme cs,
-      _ScriptGraph g, ScaffoldMessengerState? messenger, AppLocalizations? loc) {
+  Widget _buildScriptDetail(
+    ThemeData theme,
+    ColorScheme cs,
+    _ScriptGraph g,
+    ScaffoldMessengerState? messenger,
+    AppLocalizations? loc,
+  ) {
     return Column(
       children: [
         Padding(
@@ -565,7 +662,9 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 onPressed: () async {
                   final buf = StringBuffer()..writeln('# ${g.url}');
                   for (final fn in g.functions) {
-                    buf.writeln('${fn.name} -> ${fn.callees.take(20).join(', ')}');
+                    buf.writeln(
+                      '${fn.name} -> ${fn.callees.take(20).join(', ')}',
+                    );
                   }
                   await Clipboard.setData(ClipboardData(text: buf.toString()));
                   if (messenger != null && mounted) {
@@ -590,25 +689,28 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 title: Text(
                   fn.name,
                   style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700),
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 subtitle: Text(
                   '${fn.callees.length} ${loc?.webReverseCallgraphCalleesSuffix ?? 'callees'} · @${fn.offset}',
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
-                childrenPadding:
-                    const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 children: [
                   if (fn.callees.isEmpty)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        loc?.webReverseCallgraphNoDetectedCalls ?? '(no detected calls)',
-                        style: theme.textTheme.labelSmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                        loc?.webReverseCallgraphNoDetectedCalls ??
+                            '(no detected calls)',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     )
                   else
@@ -620,7 +722,9 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                           label: Text(
                             c,
                             style: const TextStyle(
-                                fontFamily: 'monospace', fontSize: 11),
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                            ),
                           ),
                           onPressed: () => setState(() {
                             _searchCtrl.text = c;
@@ -637,8 +741,13 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
     );
   }
 
-  Widget _buildCallerHits(ThemeData theme, ColorScheme cs,
-      List<_CallerHit> hits, ScaffoldMessengerState? messenger, AppLocalizations? loc) {
+  Widget _buildCallerHits(
+    ThemeData theme,
+    ColorScheme cs,
+    List<_CallerHit> hits,
+    ScaffoldMessengerState? messenger,
+    AppLocalizations? loc,
+  ) {
     return Column(
       children: [
         Padding(
@@ -648,7 +757,10 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               Icon(Icons.travel_explore_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                loc?.webReverseCallgraphHitsHeader(hits.length, _searchCtrl.text) ??
+                loc?.webReverseCallgraphHitsHeader(
+                      hits.length,
+                      _searchCtrl.text,
+                    ) ??
                     '${hits.length} hits calling "${_searchCtrl.text}"',
                 style: theme.textTheme.labelMedium,
               ),
@@ -667,13 +779,13 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                 dense: true,
                 title: Text(
                   '${h.caller} → ${h.callee}',
-                  style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
                 subtitle: Text(
                   _shortUrl(h.url),
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
                 trailing: const Icon(Icons.arrow_forward_rounded, size: 16),
                 onTap: () => setState(() {

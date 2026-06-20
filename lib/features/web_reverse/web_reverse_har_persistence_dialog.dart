@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseHarPersistenceDialog(
@@ -463,31 +464,31 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                       children: [
                         Text(loc?.webReverseHarIntervalLabel ?? 'Interval:'),
                         const SizedBox(width: 8),
-                        DropdownButton<Duration>(
+                        WebReverseSelectButton<Duration>(
                           value: _interval,
+                          dense: true,
+                          minWidth: 96,
+                          tooltip:
+                              loc?.webReverseHarIntervalLabel ?? 'Interval',
                           onChanged: running
                               ? null
-                              : (v) {
-                                  if (v != null) {
-                                    setState(() => _interval = v);
-                                  }
-                                },
-                          items: const [
-                            DropdownMenuItem(
+                              : (v) => setState(() => _interval = v),
+                          options: const [
+                            WebReverseSelectOption(
                               value: Duration(minutes: 5),
-                              child: Text('5 min'),
+                              label: '5 min',
                             ),
-                            DropdownMenuItem(
+                            WebReverseSelectOption(
                               value: Duration(minutes: 15),
-                              child: Text('15 min'),
+                              label: '15 min',
                             ),
-                            DropdownMenuItem(
+                            WebReverseSelectOption(
                               value: Duration(minutes: 30),
-                              child: Text('30 min'),
+                              label: '30 min',
                             ),
-                            DropdownMenuItem(
+                            WebReverseSelectOption(
                               value: Duration(minutes: 60),
-                              child: Text('60 min'),
+                              label: '60 min',
                             ),
                           ],
                         ),

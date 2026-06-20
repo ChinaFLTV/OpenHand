@@ -337,30 +337,30 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 ),
               ),
               const Spacer(),
-              DropdownButton<Duration>(
+              WebReverseSelectButton<Duration>(
                 value: _traceDuration,
+                dense: true,
+                minWidth: 84,
+                tooltip: isZh ? '选择 Trace 时长' : 'Select trace duration',
                 onChanged: _tracing
                     ? null
-                    : (v) {
-                        if (v == null) return;
-                        setState(() => _traceDuration = v);
-                      },
-                items: const [
-                  DropdownMenuItem(
+                    : (v) => setState(() => _traceDuration = v),
+                options: const [
+                  WebReverseSelectOption(
                     value: Duration(seconds: 3),
-                    child: Text('3 s'),
+                    label: '3 s',
                   ),
-                  DropdownMenuItem(
+                  WebReverseSelectOption(
                     value: Duration(seconds: 5),
-                    child: Text('5 s'),
+                    label: '5 s',
                   ),
-                  DropdownMenuItem(
+                  WebReverseSelectOption(
                     value: Duration(seconds: 10),
-                    child: Text('10 s'),
+                    label: '10 s',
                   ),
-                  DropdownMenuItem(
+                  WebReverseSelectOption(
                     value: Duration(seconds: 30),
-                    child: Text('30 s'),
+                    label: '30 s',
                   ),
                 ],
               ),

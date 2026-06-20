@@ -18,6 +18,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseWaterfallDialog(
@@ -191,25 +192,25 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     onSelected: (v) => setState(() => _onlyXhr = v),
                   ),
                   const SizedBox(width: 12),
-                  DropdownButton<_SortMode>(
+                  WebReverseSelectButton<_SortMode>(
                     value: _sort,
-                    onChanged: (v) {
-                      if (v != null) setState(() => _sort = v);
-                    },
-                    items: [
-                      DropdownMenuItem(
+                    dense: true,
+                    minWidth: 112,
+                    tooltip: loc?.webReverseWaterfallSortTime ?? 'Sort',
+                    onChanged: (v) => setState(() => _sort = v),
+                    options: [
+                      WebReverseSelectOption(
                         value: _SortMode.time,
-                        child: Text(loc?.webReverseWaterfallSortTime ?? 'Time'),
+                        label: loc?.webReverseWaterfallSortTime ?? 'Time',
                       ),
-                      DropdownMenuItem(
+                      WebReverseSelectOption(
                         value: _SortMode.duration,
-                        child: Text(
-                          loc?.webReverseWaterfallSortDuration ?? 'Duration',
-                        ),
+                        label:
+                            loc?.webReverseWaterfallSortDuration ?? 'Duration',
                       ),
-                      DropdownMenuItem(
+                      WebReverseSelectOption(
                         value: _SortMode.size,
-                        child: Text(loc?.webReverseWaterfallSortSize ?? 'Size'),
+                        label: loc?.webReverseWaterfallSortSize ?? 'Size',
                       ),
                     ],
                   ),
