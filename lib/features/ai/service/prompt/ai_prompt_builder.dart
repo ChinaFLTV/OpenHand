@@ -63,29 +63,6 @@ class AiPromptBuilder {
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const JsonEncoder _promptJsonEncoder = JsonEncoder.withIndent('  ');
-  static const _nonCompactStaticSessionKeys = <String>{
-    'session_created_at',
-    'session_id',
-    'session_template_id',
-    'session_template_name',
-    'session_template_version',
-    'platform_name',
-    'time_zone_name',
-    'working_directory',
-    'single_round_tool_call_limit',
-    'sequential_tool_round_limit',
-    'write_command_confirmation_enabled',
-    'workspace_instruction_document_count',
-    'workspace_instruction_paths',
-    'allow_command_rule_count',
-    'allow_command_rules',
-    // 2026-05-23 — repository_snapshot 的 git status 在工具修改文件后会变化，
-    // 已迁至 [3d] 动态区。environment 包含可配置项，保留在静态区（会话内不变）。
-    'environment',
-    'tool_catalog_authoritative',
-    'current_file_editing_tool_names',
-    'app_theme',
-  };
   static const int _microCompactKeepRecentToolResults = 5;
   static const int _contextBudgetEstimatedCharsPerToken = 4;
   static const int _contextBudgetSummaryReserveTokens = 20000;
@@ -200,12 +177,7 @@ class AiPromptBuilder {
         .toList(growable: false);
     AiSessionMessage? latestUserMessage;
     final historyMessages = <AiSessionMessage>[];
-    // 2026-05-23 — 记录 latestUserMessage 在可见消息中的位置，作为当前轮次边界。
-    // 边界之前的消息属于历史轮次（可以压缩），边界之后的消息属于当前轮次
-    // （禁止压缩），避免工具结果压缩在同轮连续 API 调用之间改变历史内容、
-    // 破坏前缀缓存。
-    //
-    // 2026-05-23 v2 — 追加：若 latestUser 之后已经有助手 / 工具消息（即
+    // 若 latestUser 之后已经有助手 / 工具消息（即
     // 当前是工具回合后的“续写轮”），则不再把 latestUser 抽出来追加到末尾，
     // 而是把它留在自然位置参与 history。否则同一回合内连续的两次 API 调用
     // 会得到两份截然不同的 messages 序列（前一份把 latestUser 放在工具结果
@@ -217,7 +189,6 @@ class AiPromptBuilder {
     // 到末尾”路径；若身后有内容，则就地留在自然位置，并通过
     // latestUserMessageIdForInlineAttachments 把 isLatestUserMessage 语义
     // （inline 图片 + [Attachment]/id= 块）传递给 _mapHistoryMessages。
-    var preTurnHistoryCount = 0;
     var foundLatestUser = false;
     var latestUserHasSubsequentTurns = false;
     int? latestUserHistoryIndex;
@@ -230,9 +201,7 @@ class AiPromptBuilder {
         historyMessages.add(message);
         continue;
       }
-      if (!foundLatestUser) {
-        preTurnHistoryCount += 1;
-      } else if (message.kind != AiSessionMessageKind.reasoning) {
+      if (foundLatestUser && message.kind != AiSessionMessageKind.reasoning) {
         latestUserHasSubsequentTurns = true;
       }
       historyMessages.add(message);
@@ -249,7 +218,6 @@ class AiPromptBuilder {
         session,
         model,
         _ToolCompressionConfig.forConversationHistory(runtimeContext),
-        preTurnHistoryCount: preTurnHistoryCount,
         latestUserMessageIdForInlineAttachments: latestUserInline
             ? latestUserMessage.id
             : null,
@@ -404,47 +372,21 @@ class AiPromptBuilder {
       metadata['web_reverse_runtime'] = webReverseRuntime;
     }
 
-    final isCompactTemplate = templatePolicy.usesCompactSessionState;
-    final Map<String, Object?> staticSessionState;
-    final Map<String, Object?> dynamicSessionState;
-    if (isCompactTemplate) {
-      staticSessionState = _buildCompactStaticSessionState(
-        session: session,
-        runtimeContext: runtimeContext,
-        repositorySnapshot: repositorySnapshot,
-      );
-      dynamicSessionState = _buildCompactDynamicSessionState(
-        session: session,
-        runtimeContext: runtimeContext,
-        repositorySnapshot: repositorySnapshot,
-        postCompactRehydration: postCompactRehydration,
-        availableToolNames: availableToolNames,
-        planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
-        planModeRecoveryInspectionRequired:
-            effectivePlanModeRecoveryInspectionRequired,
-        todoReminder: todoReminder,
-        planModeReminder: planModeReminder,
-      );
-    } else {
-      staticSessionState = <String, Object?>{};
-      dynamicSessionState = <String, Object?>{};
-      for (final entry in metadata.entries) {
-        if (_nonCompactStaticSessionKeys.contains(entry.key)) {
-          staticSessionState[entry.key] = entry.value;
-        } else {
-          dynamicSessionState[entry.key] = entry.value;
-        }
-      }
-      final promptSessionTitle = _promptSessionTitleForMetadata(session);
-      if (promptSessionTitle != null) {
-        if (runtimeContext.autoTitleFetchMode ==
-            AiAutoTitleFetchMode.synchronous) {
-          staticSessionState['session_title'] = promptSessionTitle;
-        } else {
-          dynamicSessionState['session_title'] = promptSessionTitle;
-        }
-      }
-    }
+    final staticSessionState = _buildCompactStaticSessionState(
+      session: session,
+      runtimeContext: runtimeContext,
+      repositorySnapshot: repositorySnapshot,
+    );
+    final dynamicSessionState = _buildCompactDynamicSessionState(
+      session: session,
+      runtimeContext: runtimeContext,
+      postCompactRehydration: postCompactRehydration,
+      availableToolNames: availableToolNames,
+      webReverseRuntime: webReverseRuntime,
+      planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
+      planModeRecoveryInspectionRequired:
+          effectivePlanModeRecoveryInspectionRequired,
+    );
     final focusContext = latestCompressionPoint == null
         ? ''
         : _renderFocusContext(
@@ -521,7 +463,7 @@ class AiPromptBuilder {
         AiPromptSectionHeaders.toolCatalog,
         _renderRuntimeToolCatalog(
           displayCatalogOverride ?? availableTools,
-          compact: isCompactTemplate,
+          compact: true,
           templatePolicy: templatePolicy,
           awaitingPlanApproval: session.awaitingPlanApproval,
           useDsmlToolCalls: useDsmlToolCalls,
@@ -539,16 +481,10 @@ class AiPromptBuilder {
       // 的前缀扩展性质；真正会变的提醒只污染当前轮尾部。Hook system-reminder
       // （从用户消息中提取、每轮不同）同样保留在 prompt 尾部。
       _systemSectionTurn(
-        isCompactTemplate
-            ? AiPromptSectionHeaders.userMemory
-            : AiPromptSectionHeaders.userMemoryLongTermFacts,
-        isCompactTemplate
-            ? 'Long-term user facts and preferences.\n\n'
-                  '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
-                  '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
-            : 'Long-term user facts and preferences.\n\n'
-                  '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
-                  '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
+        AiPromptSectionHeaders.userMemory,
+        'Long-term user facts and preferences.\n\n'
+        '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
+        '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
       // 2026-04-25 — 【指令】模块注入。
       // 2026-05-23 v6 — 为了不让「本轮临时跳过某条指令」的勾选击穿
@@ -564,9 +500,7 @@ class AiPromptBuilder {
           '$userInstructionsBody',
         ),
       _systemSectionTurn(
-        isCompactTemplate
-            ? AiPromptSectionHeaders.conversationContext
-            : AiPromptSectionHeaders.recentConversationSummary,
+        AiPromptSectionHeaders.conversationContext,
         _renderCompressionSummary(session, latestCompressionPoint),
       ),
       // 2026-05-23 v3 — restored contexts 移至 history 之前：
@@ -654,11 +588,9 @@ class AiPromptBuilder {
       0,
       (sum, item) => sum + item.promptCharacterCount,
     );
+    final stablePrefixTurns = _stablePromptPrefixTurns(messages);
     final stablePrefixHash = _promptFingerprint(
-      messages
-          .takeWhile((item) => item.role == AiChatRole.system)
-          .map((item) => '${item.roleName}\n${item.content}')
-          .join('\n\n'),
+      stablePrefixTurns.map(_fingerprintTurn).join('\n\n'),
     );
     final toolCatalogHash = _promptFingerprint(availableToolNames.join('\n'));
     final inputCachePolicy = AiInputCachePolicy.resolve(
@@ -687,6 +619,13 @@ class AiPromptBuilder {
       ..['current_prompt_character_count'] = promptCharacterCount
       ..['stable_prefix_hash'] = stablePrefixHash
       ..['previous_stable_prefix_hash'] = previousStablePrefixHash
+      ..['stable_prefix_message_count'] = stablePrefixTurns.length
+      ..['stable_prefix_character_count'] = stablePrefixTurns.fold<int>(
+        0,
+        (sum, turn) => sum + turn.promptCharacterCount,
+      )
+      ..['volatile_tail_message_count'] =
+          messages.length - stablePrefixTurns.length
       ..['tool_catalog_hash'] = toolCatalogHash
       ..['previous_tool_catalog_hash'] =
           '${session.lastPromptMetadata['tool_catalog_hash'] ?? ''}'.trim()
@@ -743,6 +682,48 @@ class AiPromptBuilder {
 
   AiChatTurn _jsonSystemSectionTurn(String header, Object? value) {
     return _systemSectionTurn(header, _jsonCodeBlock(value));
+  }
+
+  List<AiChatTurn> _stablePromptPrefixTurns(List<AiChatTurn> messages) {
+    final turns = <AiChatTurn>[];
+    var hasSeenConversationTurn = false;
+    for (final message in messages) {
+      if (message.role == AiChatRole.system && hasSeenConversationTurn) {
+        break;
+      }
+      turns.add(message);
+      if (message.role != AiChatRole.system) {
+        hasSeenConversationTurn = true;
+      }
+    }
+    return turns;
+  }
+
+  String _fingerprintTurn(AiChatTurn turn) {
+    final toolCalls = turn.toolCalls
+        .map(
+          (toolCall) =>
+              '${toolCall.id}\u001f${toolCall.name}\u001f${toolCall.arguments}',
+        )
+        .join('\u001e');
+    final parts = turn.parts
+        .map(
+          (part) => <String>[
+            part.kind.name,
+            part.text ?? '',
+            part.filePath ?? '',
+            part.mimeType ?? '',
+          ].join('\u001f'),
+        )
+        .join('\u001e');
+    return <String>[
+      turn.roleName,
+      turn.toolCallId ?? '',
+      toolCalls,
+      parts,
+      turn.reasoningContent ?? '',
+      turn.content,
+    ].join('\u001d');
   }
 
   String _jsonCodeBlock(Object? value) {
@@ -1267,13 +1248,11 @@ class AiPromptBuilder {
   Map<String, Object?> _buildCompactDynamicSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
-    required AiRepositorySnapshot? repositorySnapshot,
     required Map<String, Object?> postCompactRehydration,
     required List<String> availableToolNames,
+    required Map<String, Object?>? webReverseRuntime,
     required bool planModeExecutionApprovedForSend,
     required bool planModeRecoveryInspectionRequired,
-    String? todoReminder,
-    String? planModeReminder,
   }) {
     final dynamicState = <String, Object?>{};
 
@@ -1309,6 +1288,9 @@ class AiPromptBuilder {
     final rehydrationActive = postCompactRehydration['active'] == true;
     if (rehydrationActive) {
       dynamicState['rehydration'] = postCompactRehydration;
+    }
+    if (webReverseRuntime != null && webReverseRuntime.isNotEmpty) {
+      dynamicState['web_reverse_runtime'] = webReverseRuntime;
     }
 
     if (session.todoItems.isNotEmpty) {
@@ -2324,7 +2306,6 @@ $identity''';
     AiSession session,
     AiModelConfig model,
     _ToolCompressionConfig compressionConfig, {
-    required int preTurnHistoryCount,
     String? latestUserMessageIdForInlineAttachments,
     bool preferInlineSystemReminders = false,
     bool preferInlineSystemArtifacts = false,
@@ -2335,13 +2316,11 @@ $identity''';
     String? roundReasoning;
     var roundReasoningHasAssistantTurn = false;
     var previousMappedUserWasContinuation = false;
-    // 2026-04-27 (修复): 找出"已被模型消费"的边界。任何 assistant /
-    // toolCall 消息都意味着模型已经基于之前的工具结果产出了下一步动作；
-    // 因此 index 大于 `lastConsumerIndex` 的 tool 结果属于尚未被消费的
-    // 最新一轮，需在 prompt 中保留原文，避免被压缩成 head/tail 摘要后
-    // 让模型在"首次看到该结果"时就丢掉关键信息。
-    // 2026-05-23 — 当前轮次边界（preTurnHistoryCount）之内的消息不受压缩，
-    // 确保同轮连续 API 调用之间工具结果内容不变，维持前缀缓存命中。
+    // 找出"已被模型消费"的边界。任何 assistant / toolCall 消息都意味着
+    // 模型已经基于之前的工具结果产出了下一步动作；因此 index 大于
+    // `lastConsumerIndex` 的 tool 结果属于尚未被消费的最新工具输入，必须
+    // 在 prompt 中保留原文。边界之前的旧工具结果可以按统一摘要策略进入
+    // 历史，避免长工具链把大文件读取结果永久留在每次请求里。
     var lastConsumerIndex = -1;
     for (var i = 0; i < messages.length; i++) {
       final kind = messages[i].kind;
@@ -2350,9 +2329,7 @@ $identity''';
         lastConsumerIndex = i;
       }
     }
-    final stableConsumerBoundary = lastConsumerIndex < preTurnHistoryCount
-        ? lastConsumerIndex
-        : preTurnHistoryCount - 1;
+    final stableConsumerBoundary = lastConsumerIndex;
     final microCompactMessageIds = _microCompactToolMessageIds(
       messages,
       stableConsumerBoundary,
@@ -4461,11 +4438,8 @@ $content
       );
     }
     if (!compressionConfig.enabled || !compressionConfig.summarizeResults) {
-      // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
-      // 2026-06-13: 除用户显式开启的旧结果微压缩外，普通对话历史保留
-      // 原文，避免把上一轮已发送的工具结果改写为摘要后改变历史消息字节。
-      // 真正的工具结果摘要只在 compression prompt 中启用，避免上下文
-      // 检查点生成时爆窗。
+      // 总开关关闭时直接返回原始内容，不作压缩。微压缩仍可在更上层通过
+      // isMicroCompactCleared 独立生效。
       return _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,
@@ -5630,7 +5604,7 @@ class _ToolCompressionConfig {
   ) {
     return _ToolCompressionConfig(
       enabled: runtimeContext.toolResultCompressionEnabled,
-      summarizeResults: false,
+      summarizeResults: runtimeContext.toolResultCompressionEnabled,
       thresholdChars: runtimeContext.toolResultCompressionThresholdChars > 0
           ? runtimeContext.toolResultCompressionThresholdChars
           : 1024,

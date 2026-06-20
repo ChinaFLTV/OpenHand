@@ -214,16 +214,16 @@ class AiSessionRuntimeContext {
   final String userMemoryFilePath;
   final int compressionThresholdChars;
 
-  /// 2026-04-27 — 工具调用输出在压缩提示词中的字符上限。
-  /// 普通 conversation history 保留原文以稳定跨轮 prefix-cache；prompt
-  /// builder 只在生成压缩检查点时依该阈值摘要 raw 过长的工具返回。
+  /// 工具调用输出进入 prompt history 时的结构化摘要阈值。尚未被模型消费
+  /// 的最新工具结果保留原文；已消费的旧结果超过阈值后会摘要，避免大文件
+  /// 输出长期占用上下文和缓存预算。
   final int toolResultCompressionThresholdChars;
 
-  /// 2026-04-27 — 工具调用输出压缩总开关。关闭后返回原始内容。
+  /// 工具调用输出压缩总开关。关闭后返回原始内容。
   final bool toolResultCompressionEnabled;
 
-  /// 2026-05-23 — 正常对话中是否启用工具结果微压缩（清除旧工具结果）。
-  /// 关闭后仅在主动/被动压缩时才执行微压缩，可提高跨轮前缀缓存命中率。
+  /// 正常对话中是否启用工具结果微压缩（清除更早的已消费工具结果）。这是
+  /// 比结构化摘要更激进的二级瘦身策略。
   final bool microCompressionEnabled;
 
   /// 2026-05-24 — 助手消息渲染格式（Markdown / 纯文本 / HTML）。
@@ -476,6 +476,7 @@ class AiSessionRuntimeContext {
       'tool_result_compression_threshold_chars':
           toolResultCompressionThresholdChars,
       'tool_result_compression_enabled': toolResultCompressionEnabled,
+      'micro_compression_enabled': microCompressionEnabled,
       'message_content_format': messageContentFormat.storageKey,
       'html_render_fallback': htmlRenderFallback.storageKey,
       'html_content_richness': htmlContentRichness.storageKey,

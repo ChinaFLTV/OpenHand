@@ -7,12 +7,8 @@ class AiPromptSectionHeaders {
   static const String staticSessionState = '# [3s] Static Session State';
   static const String dynamicSessionState = '# [3d] Dynamic Session State';
   static const String userMemory = '# [4] User Memory';
-  static const String userMemoryLongTermFacts =
-      '# [4] User Memory (long-term facts)';
   static const String userInstructions = '# [4.5] User Instructions';
   static const String conversationContext = '# [5] Conversation Context';
-  static const String recentConversationSummary =
-      '# [5] Recent Conversations Summary (past chats, titles + snippets)';
   static const String focusContext = '# [5.5] Focus Context';
   static const String restoredFileContext = '# [5.6] Restored File Context';
   static const String restoredSkillContext = '# [5.7] Restored Skill Context';
@@ -46,10 +42,8 @@ const Set<String> aiInternalPromptLeakHeaders = <String>{
   AiPromptSectionHeaders.staticSessionState,
   AiPromptSectionHeaders.dynamicSessionState,
   AiPromptSectionHeaders.userMemory,
-  AiPromptSectionHeaders.userMemoryLongTermFacts,
   AiPromptSectionHeaders.userInstructions,
   AiPromptSectionHeaders.conversationContext,
-  AiPromptSectionHeaders.recentConversationSummary,
   AiPromptSectionHeaders.focusContext,
   AiPromptSectionHeaders.restoredFileContext,
   AiPromptSectionHeaders.restoredSkillContext,

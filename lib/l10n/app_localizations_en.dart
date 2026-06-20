@@ -1532,7 +1532,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'Threshold used when building compression checkpoints. Normal conversation history keeps raw tool output to preserve cross-turn prompt-cache prefixes; over-threshold results are condensed only inside active/passive compression prompts. Defaults to 1024.';
+      'Threshold used when tool results enter conversation history. The latest unconsumed tool result stays raw; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.';
 
   @override
   String get aiToolResultCompressionThresholdSave => 'Save Threshold';
@@ -1551,14 +1551,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Controls whether tool output is condensed while building compression checkpoints. Normal conversation history still keeps raw output so prompt-cache prefixes stay stable.';
+      'Controls whether long tool output is summarized in conversation history and compression checkpoints. Disabling it keeps raw output and can significantly increase context and cache cost.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      'When enabled, old consumed tool results are cleared during normal conversation to save context. When disabled (recommended), micro-compression only runs before active/passive compression — this improves cross-turn prompt cache hit rates and reduces API cost.';
+      'When enabled, even older consumed tool results are cleared further and only recovery hints remain. When disabled, long old results are still summarized by the threshold above.';
 
   @override
   String get aiMessageContentSectionLabel => 'Message Content';
@@ -4505,7 +4505,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Threshold used when building compression checkpoints. Normal conversation history keeps raw tool output to preserve cross-turn prompt-cache prefixes; over-threshold results are condensed only inside active/passive compression prompts. Defaults to 1024.';
+      'Threshold used when tool results enter conversation history. The latest unconsumed tool result stays raw; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

@@ -1472,7 +1472,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '保存阈值';
@@ -1488,14 +1488,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '控制生成压缩检查点时是否摘要工具输出。正常对话历史仍保留原文，以稳定 Prompt 缓存前缀。';
+      '控制对话历史与压缩检查点中是否摘要过长工具输出。关闭后保留原文，可能显著增加上下文与缓存成本。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微压缩';
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
+      '开启后，会进一步清除更早的已消费工具结果，只保留恢复线索。关闭后仍会按上方阈值对过长旧结果做结构化摘要。';
 
   @override
   String get aiMessageContentSectionLabel => '消息内容';
@@ -4283,7 +4283,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -9355,7 +9355,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '保存阈值';
@@ -9371,14 +9371,14 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '控制生成压缩检查点时是否摘要工具输出。正常对话历史仍保留原文，以稳定 Prompt 缓存前缀。';
+      '控制对话历史与压缩检查点中是否摘要过长工具输出。关闭后保留原文，可能显著增加上下文与缓存成本。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微压缩';
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      '开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。';
+      '开启后，会进一步清除更早的已消费工具结果，只保留恢复线索。关闭后仍会按上方阈值对过长旧结果做结构化摘要。';
 
   @override
   String get aiMessageContentSectionLabel => '消息内容';
@@ -12166,7 +12166,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。';
+      '工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -17237,7 +17237,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      '生成壓縮檢查點時使用的工具結果摘要閾值。正常對話歷史保留原文以穩定跨輪 Prompt 快取前綴；超過閾值的工具結果只會在主動/被動壓縮提示詞中壓成結構化摘要。預設 1024。';
+      '工具結果進入對話歷史時使用的摘要閾值。尚未被模型消費的最新工具結果保留原文；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
 
   @override
   String get aiToolResultCompressionThresholdSave => '儲存閾值';
@@ -17253,14 +17253,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '控制生成壓縮檢查點時是否摘要工具輸出。正常對話歷史仍保留原文，以穩定 Prompt 快取前綴。';
+      '控制對話歷史與壓縮檢查點中是否摘要過長工具輸出。關閉後保留原文，可能顯著增加上下文與快取成本。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微壓縮';
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      '開啟後，正常對話中會清除已被消費的舊工具結果以節省上下文。關閉後（推薦），僅在主動/被動壓縮前執行微壓縮——可提高跨輪提示詞緩存命中率，降低API費用。';
+      '開啟後，會進一步清除更早的已消費工具結果，只保留恢復線索。關閉後仍會按上方閾值對過長舊結果做結構化摘要。';
 
   @override
   String get aiMessageContentSectionLabel => '訊息內容';
@@ -20048,7 +20048,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '生成壓縮檢查點時使用的工具結果摘要閾值。正常對話歷史保留原文以穩定跨輪 Prompt 快取前綴；超過閾值的工具結果只會在主動/被動壓縮提示詞中壓成結構化摘要。預設 1024。';
+      '工具結果進入對話歷史時使用的摘要閾值。尚未被模型消費的最新工具結果保留原文；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

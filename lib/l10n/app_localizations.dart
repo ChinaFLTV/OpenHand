@@ -2879,7 +2879,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiToolResultCompressionThresholdBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。'**
+  /// **'工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。'**
   String get aiToolResultCompressionThresholdBody;
 
   /// No description provided for @aiToolResultCompressionThresholdSave.
@@ -2909,7 +2909,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiToolResultCompressionEnabledBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'控制生成压缩检查点时是否摘要工具输出。正常对话历史仍保留原文，以稳定 Prompt 缓存前缀。'**
+  /// **'控制对话历史与压缩检查点中是否摘要过长工具输出。关闭后保留原文，可能显著增加上下文与缓存成本。'**
   String get aiToolResultCompressionEnabledBody;
 
   /// No description provided for @aiMicroCompressionEnabledLabel.
@@ -2921,7 +2921,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiMicroCompressionEnabledBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'开启后，正常对话中会清除已被消费的旧工具结果以节省上下文。关闭后（推荐），仅在主动/被动压缩前执行微压缩——可提高跨轮提示词缓存命中率，降低API费用。'**
+  /// **'开启后，会进一步清除更早的已消费工具结果，只保留恢复线索。关闭后仍会按上方阈值对过长旧结果做结构化摘要。'**
   String get aiMicroCompressionEnabledBody;
 
   /// No description provided for @aiMessageContentSectionLabel.
@@ -8135,7 +8135,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsWhenAToolCallReturnsMore.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'生成压缩检查点时使用的工具结果摘要阈值。正常对话历史保留原文以稳定跨轮 Prompt 缓存前缀；超过阈值的工具结果仅在主动/被动压缩提示词中被压成结构化摘要。默认 1024。'**
+  /// **'工具结果进入对话历史时使用的摘要阈值。尚未被模型消费的最新工具结果保留原文；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。'**
   String get settingsWhenAToolCallReturnsMore;
 
   /// No description provided for @settingsDefaultsTo40IfOneAssistant.

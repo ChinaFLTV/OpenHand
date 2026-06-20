@@ -12,8 +12,6 @@ class AiPromptLoadedSection {
   final String content;
 }
 
-enum AiPromptSessionStateLayout { compact, partitionedMetadata }
-
 enum AiPromptToolCatalogProfile { generic, machineExpert, webReverse }
 
 enum AiPromptCompressionPayloadStyle { standard, minimal }
@@ -22,7 +20,6 @@ class AiPromptTemplatePolicy {
   const AiPromptTemplatePolicy({
     required this.templateId,
     required this.promptAssetDirectory,
-    required this.sessionStateLayout,
     required this.toolCatalogProfile,
     required this.sharedSections,
     required this.extensionSections,
@@ -33,16 +30,12 @@ class AiPromptTemplatePolicy {
 
   final String templateId;
   final String promptAssetDirectory;
-  final AiPromptSessionStateLayout sessionStateLayout;
   final AiPromptToolCatalogProfile toolCatalogProfile;
   final List<AiPromptSharedSectionSpec> sharedSections;
   final List<AiPromptSharedSectionSpec> extensionSections;
   final String compressionIdentity;
   final AiPromptCompressionPayloadStyle compressionPayloadStyle;
   final bool includesWebReverseRuntime;
-
-  bool get usesCompactSessionState =>
-      sessionStateLayout == AiPromptSessionStateLayout.compact;
 
   bool get usesMinimalCompressionPayload =>
       compressionPayloadStyle == AiPromptCompressionPayloadStyle.minimal;
@@ -84,7 +77,6 @@ class AiPromptTemplatePolicies {
     defaultTemplateId: AiPromptTemplatePolicy(
       templateId: defaultTemplateId,
       promptAssetDirectory: defaultPromptAssetDirectory,
-      sessionStateLayout: AiPromptSessionStateLayout.compact,
       toolCatalogProfile: AiPromptToolCatalogProfile.generic,
       sharedSections: _defaultPromptSharedSections,
       extensionSections: <AiPromptSharedSectionSpec>[],
@@ -94,7 +86,6 @@ class AiPromptTemplatePolicies {
     machineExpertTemplateId: AiPromptTemplatePolicy(
       templateId: machineExpertTemplateId,
       promptAssetDirectory: machineExpertPromptAssetDirectory,
-      sessionStateLayout: AiPromptSessionStateLayout.partitionedMetadata,
       toolCatalogProfile: AiPromptToolCatalogProfile.machineExpert,
       sharedSections: <AiPromptSharedSectionSpec>[],
       extensionSections: <AiPromptSharedSectionSpec>[],
@@ -104,7 +95,6 @@ class AiPromptTemplatePolicies {
     hardnessEngineeringTemplateId: AiPromptTemplatePolicy(
       templateId: hardnessEngineeringTemplateId,
       promptAssetDirectory: hardnessEngineeringPromptAssetDirectory,
-      sessionStateLayout: AiPromptSessionStateLayout.partitionedMetadata,
       toolCatalogProfile: AiPromptToolCatalogProfile.generic,
       sharedSections: _defaultPromptSharedSections,
       extensionSections: <AiPromptSharedSectionSpec>[],
@@ -114,7 +104,6 @@ class AiPromptTemplatePolicies {
     programmingExpertTemplateId: AiPromptTemplatePolicy(
       templateId: programmingExpertTemplateId,
       promptAssetDirectory: programmingExpertPromptAssetDirectory,
-      sessionStateLayout: AiPromptSessionStateLayout.compact,
       toolCatalogProfile: AiPromptToolCatalogProfile.generic,
       sharedSections: _defaultPromptSharedSections,
       extensionSections: _programmingExpertExtensionSections,
@@ -125,7 +114,6 @@ class AiPromptTemplatePolicies {
     hermesTalkerTemplateId: AiPromptTemplatePolicy(
       templateId: hermesTalkerTemplateId,
       promptAssetDirectory: hermesTalkerPromptAssetDirectory,
-      sessionStateLayout: AiPromptSessionStateLayout.compact,
       toolCatalogProfile: AiPromptToolCatalogProfile.generic,
       sharedSections: _hermesTalkerSharedSections,
       extensionSections: <AiPromptSharedSectionSpec>[],
@@ -135,7 +123,6 @@ class AiPromptTemplatePolicies {
     webReverseExpertTemplateId: AiPromptTemplatePolicy(
       templateId: webReverseExpertTemplateId,
       promptAssetDirectory: webReverseExpertPromptAssetDirectory,
-      sessionStateLayout: AiPromptSessionStateLayout.partitionedMetadata,
       toolCatalogProfile: AiPromptToolCatalogProfile.webReverse,
       sharedSections: _defaultPromptSharedSections,
       extensionSections: <AiPromptSharedSectionSpec>[],
@@ -146,7 +133,6 @@ class AiPromptTemplatePolicies {
     siriHelperTemplateId: AiPromptTemplatePolicy(
       templateId: siriHelperTemplateId,
       promptAssetDirectory: siriHelperPromptAssetDirectory,
-      sessionStateLayout: AiPromptSessionStateLayout.compact,
       toolCatalogProfile: AiPromptToolCatalogProfile.generic,
       sharedSections: <AiPromptSharedSectionSpec>[],
       extensionSections: <AiPromptSharedSectionSpec>[],
