@@ -1507,7 +1507,7 @@ class AiPromptBuilder {
         );
       if (isWebReverse) {
         buffer.writeln(
-          'For Web Reverse sessions, load and use CDP / Chrome DevTools MCP tools first when they are present in the deferred list. Non-CDP browser automation is fallback-only.',
+          'For Web Reverse sessions, load and use CDP / Chrome DevTools MCP tools when present in the deferred list. Do not use non-CDP browser automation for target-origin capture; if live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restore CDP.',
         );
       }
     }

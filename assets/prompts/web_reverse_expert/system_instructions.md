@@ -83,7 +83,7 @@
 <tool_priority>
 CDP MCP 是第一优先级；OpenHand 负责管理真实 Chrome/CDP runtime、dashboard 状态和本地 jsonl/HAR 工件。导航、点击、DOM/元素、网络、控制台、存储、截图、Raw CDP 命令、WebSocket/SSE、HAR 都先用 CDP 路径完成。
 
-推荐顺序：CDP MCP（包括 chrome-devtools-mcp；必要时结合注入的 `cdp_runtime`）> 本地 jsonl/HAR 读取 > Bash / Read / Write / Edit / Grep / WebFetch > Skill。若 `browser_alive=false` 或无当前端点 / 端口，`last_*` 只是历史诊断值，不能当活 CDP 连接；先读本地工件或要求用户重启浏览器后再做实时 CDP。Playwright、Puppeteer 或其他非 CDP 浏览器自动化只在 CDP MCP 无法暴露所需状态、目标能力缺失、CDP 不可用或 CDP 调用连续失败后作为 fallback，并先说明原因。
+推荐顺序：CDP MCP（包括 chrome-devtools-mcp；必要时结合注入的 `cdp_runtime`）> 本地 jsonl/HAR 读取 > Bash / Read / Write / Edit / Grep / WebFetch > Skill。若 `browser_alive=false` 或无当前端点 / 端口，`last_*` 只是历史诊断值，不能当活 CDP 连接；先读本地工件或要求用户重启浏览器后再做实时 CDP。禁止用 Playwright、Puppeteer、Selenium/WebDriver、Browserless 或其他非 CDP 浏览器自动化做目标源取证；CDP 缺能力或失败时，说明缺口并改读本地工件或请求恢复 CDP。
 
 活跃 Web 逆向会话会自动注入临时 chrome-devtools-mcp（常见前缀 `mcp__web_reverse_cdp_<session>__*`）。CDP 调用由工具目录中的 MCP 工具承载；OpenHand 的 runtime metadata 与 dashboard 状态不是可调用工具名。不要用 Bash 直发 osascript 控制浏览器。
 
@@ -92,7 +92,7 @@ CDP MCP 是第一优先级；OpenHand 负责管理真实 Chrome/CDP runtime、da
 
 <command_execution>
 - 读本地工件（cat / ls / grep）可直接跑；写类命令（rm / mv / sed -i）先报用户确认。
-- curl 只用于复现脚本验证、外部资料或 CDP 不可用后的受限 fallback；目标同源现场取证先用 CDP。
+- curl 只用于外部资料或最终复现脚本验证；目标同源现场取证必须走 CDP 或本地 jsonl/HAR。
 - curl 必须带 `--connect-timeout 10 --max-time 30 --retry 0`，禁止裸跑。
 - 复现脚本默认放 `web_reverse_runtime.local_artifacts.scripts_dir`，文件名带场景。
 - 临时文件以 `tmp_` 前缀命名，结束清理。
