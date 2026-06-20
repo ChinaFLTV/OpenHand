@@ -1288,39 +1288,30 @@ class _CdpMcpBridgeHeaderStatus {
     required WebReverseSessionController controller,
     required bool isZh,
   }) {
-    final runtimeMap = _asMap(runtime);
-    final bridge = _asMap(runtimeMap?['cdp_mcp_bridge']);
-    final rawStatus = '${bridge?['status'] ?? ''}'.trim();
-    final toolCount = _intValue(bridge?['tool_count']) ?? 0;
-    final liveCallable = webReverseRuntimeBoolTrue(
-      bridge?['live_actions_callable'],
+    final runtimeStatus = WebReverseCdpMcpRuntimeStatus.fromRuntime(
+      runtime,
+      controllerBrowserAlive: controller.isBrowserAlive,
+      controllerPort: controller.cdpPort,
     );
-    final serverName = '${bridge?['server_name'] ?? ''}'.trim();
-    final message = '${bridge?['message'] ?? ''}'.trim();
-    final error = '${bridge?['error_message'] ?? ''}'.trim();
-    final warning = '${bridge?['warning_message'] ?? ''}'.trim();
-    final port = _intValue(bridge?['cdp_port']) ?? controller.cdpPort;
-    final browserAlive =
-        webReverseRuntimeBoolTrue(bridge?['browser_alive']) ||
-        controller.isBrowserAlive;
 
     late final _CdpMcpBridgeHeaderTone tone;
     late final IconData icon;
     late final String label;
-    if (liveCallable ||
-        (rawStatus == 'ready' && browserAlive && toolCount > 0)) {
+    if (runtimeStatus.ready) {
       tone = _CdpMcpBridgeHeaderTone.ready;
       icon = Icons.hub_rounded;
-      label = isZh ? 'AI CDP 就绪 · $toolCount' : 'AI CDP ready · $toolCount';
-    } else if (rawStatus == 'preparing') {
+      label = isZh
+          ? 'AI CDP 就绪 · ${runtimeStatus.toolCount}'
+          : 'AI CDP ready · ${runtimeStatus.toolCount}';
+    } else if (runtimeStatus.rawStatus == 'preparing') {
       tone = _CdpMcpBridgeHeaderTone.preparing;
       icon = Icons.sync_rounded;
       label = isZh ? 'AI CDP 准备中' : 'AI CDP preparing';
-    } else if (rawStatus == 'failed') {
+    } else if (runtimeStatus.rawStatus == 'failed') {
       tone = _CdpMcpBridgeHeaderTone.failed;
       icon = Icons.error_outline_rounded;
       label = isZh ? 'AI CDP 异常' : 'AI CDP failed';
-    } else if (!browserAlive) {
+    } else if (!runtimeStatus.browserAlive) {
       tone = _CdpMcpBridgeHeaderTone.unavailable;
       icon = Icons.power_off_rounded;
       label = isZh ? 'AI CDP 离线' : 'AI CDP offline';
@@ -1332,13 +1323,17 @@ class _CdpMcpBridgeHeaderStatus {
 
     final lines = <String>[
       isZh ? 'AI 侧 CDP MCP 桥接状态' : 'AI-side CDP MCP bridge',
-      '${isZh ? '状态' : 'Status'}: ${rawStatus.isEmpty ? 'unknown' : rawStatus}',
-      '${isZh ? '可调用工具' : 'Callable tools'}: $toolCount',
-      if (port != null) '${isZh ? 'CDP 端口' : 'CDP port'}: $port',
-      if (serverName.isNotEmpty) 'MCP: $serverName',
-      if (message.isNotEmpty) message,
-      if (warning.isNotEmpty) '${isZh ? '提示' : 'Warning'}: $warning',
-      if (error.isNotEmpty) '${isZh ? '错误' : 'Error'}: $error',
+      '${isZh ? '状态' : 'Status'}: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+      '${isZh ? '可调用工具' : 'Callable tools'}: ${runtimeStatus.toolCount}',
+      if (runtimeStatus.port != null)
+        '${isZh ? 'CDP 端口' : 'CDP port'}: ${runtimeStatus.port}',
+      if (runtimeStatus.serverName.isNotEmpty)
+        'MCP: ${runtimeStatus.serverName}',
+      if (runtimeStatus.message.isNotEmpty) runtimeStatus.message,
+      if (runtimeStatus.warningMessage.isNotEmpty)
+        '${isZh ? '提示' : 'Warning'}: ${runtimeStatus.warningMessage}',
+      if (runtimeStatus.errorMessage.isNotEmpty)
+        '${isZh ? '错误' : 'Error'}: ${runtimeStatus.errorMessage}',
     ];
     return _CdpMcpBridgeHeaderStatus(
       tone: tone,
@@ -1346,21 +1341,6 @@ class _CdpMcpBridgeHeaderStatus {
       label: label,
       tooltip: lines.join('\n'),
     );
-  }
-
-  static Map<String, Object?>? _asMap(Object? value) {
-    if (value is Map<String, Object?>) {
-      return value;
-    }
-    if (value is Map) {
-      return Map<String, Object?>.from(value);
-    }
-    return null;
-  }
-
-  static int? _intValue(Object? value) {
-    if (value is num) return value.toInt();
-    return int.tryParse('${value ?? ''}'.trim());
   }
 }
 

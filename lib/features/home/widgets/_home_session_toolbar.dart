@@ -2546,41 +2546,26 @@ class _WebReverseDebugCdpStatus {
     required WebReverseSessionController? controller,
     required bool isZh,
   }) {
-    final runtimeMap = _asMap(runtime);
-    final bridge = _asMap(runtimeMap?['cdp_mcp_bridge']);
-    final rawStatus = '${bridge?['status'] ?? ''}'.trim();
-    final toolCount = _metadataInt(bridge?['tool_count']);
-    final liveCallable = webReverseRuntimeBoolTrue(
-      bridge?['live_actions_callable'],
+    final runtimeStatus = WebReverseCdpMcpRuntimeStatus.fromRuntime(
+      runtime,
+      controllerBrowserAlive: controller?.isBrowserAlive == true,
+      controllerPort: controller?.cdpPort,
     );
-    final message = '${bridge?['message'] ?? ''}'.trim();
-    final error = '${bridge?['error_message'] ?? ''}'.trim();
-    final warning = '${bridge?['warning_message'] ?? ''}'.trim();
-    final bridgePort = _metadataInt(bridge?['cdp_port']);
-    final runtimePort = _metadataInt(runtimeMap?['cdp_port']);
-    final port = bridgePort > 0
-        ? bridgePort
-        : runtimePort > 0
-        ? runtimePort
-        : controller?.cdpPort;
-    final browserAlive =
-        webReverseRuntimeBoolTrue(bridge?['browser_alive']) ||
-        controller?.isBrowserAlive == true ||
-        webReverseRuntimeBoolTrue(runtimeMap?['browser_alive']);
 
     late final _WebReverseDebugCdpTone tone;
     late final String label;
-    if (liveCallable ||
-        (rawStatus == 'ready' && browserAlive && toolCount > 0)) {
+    if (runtimeStatus.ready) {
       tone = _WebReverseDebugCdpTone.ready;
-      label = isZh ? 'CDP $toolCount' : 'CDP $toolCount';
-    } else if (rawStatus == 'preparing') {
+      label = isZh
+          ? 'CDP ${runtimeStatus.toolCount}'
+          : 'CDP ${runtimeStatus.toolCount}';
+    } else if (runtimeStatus.rawStatus == 'preparing') {
       tone = _WebReverseDebugCdpTone.preparing;
       label = isZh ? 'CDP…' : 'CDP…';
-    } else if (rawStatus == 'failed') {
+    } else if (runtimeStatus.rawStatus == 'failed') {
       tone = _WebReverseDebugCdpTone.failed;
       label = isZh ? 'CDP!' : 'CDP!';
-    } else if (!browserAlive) {
+    } else if (!runtimeStatus.browserAlive) {
       tone = _WebReverseDebugCdpTone.unavailable;
       label = isZh ? 'CDP离线' : 'CDP off';
     } else {
@@ -2590,24 +2575,21 @@ class _WebReverseDebugCdpStatus {
 
     final tooltipLines = <String>[
       isZh ? 'AI 侧 CDP MCP' : 'AI-side CDP MCP',
-      '${isZh ? '状态' : 'Status'}: ${rawStatus.isEmpty ? 'unknown' : rawStatus}',
-      '${isZh ? '可调用工具' : 'Callable tools'}: $toolCount',
-      if (port != null && port > 0) '${isZh ? 'CDP 端口' : 'CDP port'}: $port',
-      if (message.isNotEmpty) message,
-      if (warning.isNotEmpty) '${isZh ? '提示' : 'Warning'}: $warning',
-      if (error.isNotEmpty) '${isZh ? '错误' : 'Error'}: $error',
+      '${isZh ? '状态' : 'Status'}: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+      '${isZh ? '可调用工具' : 'Callable tools'}: ${runtimeStatus.toolCount}',
+      if (runtimeStatus.port != null && runtimeStatus.port! > 0)
+        '${isZh ? 'CDP 端口' : 'CDP port'}: ${runtimeStatus.port}',
+      if (runtimeStatus.message.isNotEmpty) runtimeStatus.message,
+      if (runtimeStatus.warningMessage.isNotEmpty)
+        '${isZh ? '提示' : 'Warning'}: ${runtimeStatus.warningMessage}',
+      if (runtimeStatus.errorMessage.isNotEmpty)
+        '${isZh ? '错误' : 'Error'}: ${runtimeStatus.errorMessage}',
     ];
     return _WebReverseDebugCdpStatus(
       tone: tone,
       label: label,
       tooltip: tooltipLines.join('\n'),
     );
-  }
-
-  static Map<String, Object?>? _asMap(Object? value) {
-    if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
-    return null;
   }
 }
 

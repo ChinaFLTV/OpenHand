@@ -39,6 +39,76 @@ bool webReverseCdpRuntimeIsLive(Object? raw) {
       webReverseCdpRuntimeHasLiveLocator(value);
 }
 
+int? webReverseRuntimeInt(Object? raw) {
+  if (raw is num) return raw.toInt();
+  final value = '${raw ?? ''}'.trim();
+  if (value.isEmpty) return null;
+  return int.tryParse(value);
+}
+
+class WebReverseCdpMcpRuntimeStatus {
+  const WebReverseCdpMcpRuntimeStatus({
+    required this.rawStatus,
+    required this.toolCount,
+    required this.liveActionsCallable,
+    required this.browserAlive,
+    this.port,
+    this.serverName = '',
+    this.message = '',
+    this.errorMessage = '',
+    this.warningMessage = '',
+  });
+
+  factory WebReverseCdpMcpRuntimeStatus.fromRuntime(
+    Object? runtime, {
+    bool controllerBrowserAlive = false,
+    int? controllerPort,
+  }) {
+    final runtimeMap = webReverseRuntimeObjectMap(runtime);
+    final bridge = webReverseRuntimeObjectMap(runtimeMap?['cdp_mcp_bridge']);
+    final bridgePort = webReverseRuntimeInt(bridge?['cdp_port']);
+    final runtimePort = webReverseRuntimeInt(runtimeMap?['cdp_port']);
+    final port = bridgePort != null && bridgePort > 0
+        ? bridgePort
+        : runtimePort != null && runtimePort > 0
+        ? runtimePort
+        : controllerPort;
+
+    return WebReverseCdpMcpRuntimeStatus(
+      rawStatus: '${bridge?['status'] ?? ''}'.trim(),
+      toolCount: webReverseRuntimeInt(bridge?['tool_count']) ?? 0,
+      liveActionsCallable: webReverseRuntimeBoolTrue(
+        bridge?['live_actions_callable'],
+      ),
+      browserAlive:
+          webReverseRuntimeBoolTrue(bridge?['browser_alive']) ||
+          controllerBrowserAlive ||
+          webReverseCdpRuntimeIsLive(runtimeMap),
+      port: port,
+      serverName: '${bridge?['server_name'] ?? ''}'.trim(),
+      message: '${bridge?['message'] ?? ''}'.trim(),
+      errorMessage: '${bridge?['error_message'] ?? ''}'.trim(),
+      warningMessage: '${bridge?['warning_message'] ?? ''}'.trim(),
+    );
+  }
+
+  final String rawStatus;
+  final int toolCount;
+  final bool liveActionsCallable;
+  final bool browserAlive;
+  final int? port;
+  final String serverName;
+  final String message;
+  final String errorMessage;
+  final String warningMessage;
+
+  bool get ready {
+    return browserAlive &&
+        toolCount > 0 &&
+        (liveActionsCallable || rawStatus == 'ready');
+  }
+}
+
 Object? webReverseCurrentCdpRuntimeMetadata(Map<Object?, Object?> metadata) {
   final currentRuntime = metadata['web_reverse_cdp_runtime'];
   if (currentRuntime != null) {

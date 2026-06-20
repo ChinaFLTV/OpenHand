@@ -81,6 +81,49 @@ void main() {
       );
     });
 
+    test('summarizes CDP MCP bridge runtime status', () {
+      final status = WebReverseCdpMcpRuntimeStatus.fromRuntime(
+        <String, Object?>{
+          'browser_alive': true,
+          'cdp_port': 9224,
+          'cdp_mcp_bridge': <Object?, Object?>{
+            'status': 'ready',
+            'browser_alive': true,
+            'live_actions_callable': true,
+            'tool_count': '3',
+            'cdp_port': 9223,
+            'server_name': 'web_reverse_cdp_abcd',
+            'message': ' ready ',
+          },
+        },
+      );
+
+      expect(status.ready, isTrue);
+      expect(status.toolCount, 3);
+      expect(status.port, 9223);
+      expect(status.serverName, 'web_reverse_cdp_abcd');
+      expect(status.message, 'ready');
+    });
+
+    test('does not mark stale callable bridge ready when CDP is offline', () {
+      final status = WebReverseCdpMcpRuntimeStatus.fromRuntime(
+        <String, Object?>{
+          'browser_alive': false,
+          'last_cdp_port': 9223,
+          'cdp_mcp_bridge': <String, Object?>{
+            'status': 'ready',
+            'browser_alive': false,
+            'live_actions_callable': true,
+            'tool_count': 2,
+          },
+        },
+      );
+
+      expect(status.browserAlive, isFalse);
+      expect(status.ready, isFalse);
+      expect(status.port, isNull);
+    });
+
     test('prefers current controller CDP runtime over prompt runtime', () {
       final runtime = webReverseCurrentCdpRuntimeMetadata(<Object?, Object?>{
         'web_reverse_runtime': <String, Object?>{
