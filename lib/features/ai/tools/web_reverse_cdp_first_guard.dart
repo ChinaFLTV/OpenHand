@@ -250,6 +250,10 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
 _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
   final availability = _stringObjectMap(runtime['cdp_mcp_tool_availability']);
   final cdpRuntime = _stringObjectMap(runtime['cdp_runtime']);
+  if (cdpRuntime != null && _explicitFalse(cdpRuntime['browser_alive'])) {
+    return null;
+  }
+
   final runtimeLive =
       _boolValue(availability?['browser_runtime_live']) ||
       _boolValue(cdpRuntime?['browser_alive']);
@@ -386,6 +390,12 @@ bool _boolValue(Object? raw) {
   if (raw is bool) return raw;
   final normalized = '${raw ?? ''}'.trim().toLowerCase();
   return normalized == 'true' || normalized == '1' || normalized == 'yes';
+}
+
+bool _explicitFalse(Object? raw) {
+  if (raw is bool) return !raw;
+  final normalized = '${raw ?? ''}'.trim().toLowerCase();
+  return normalized == 'false' || normalized == '0' || normalized == 'no';
 }
 
 int _intValue(Object? raw) {
