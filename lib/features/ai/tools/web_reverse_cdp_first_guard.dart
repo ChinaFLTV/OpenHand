@@ -101,10 +101,38 @@ class WebReverseCdpFirstGuard {
     required String command,
     required Map<String, Object?> metadata,
   }) {
-    if (!_looksLikeExplicitNetworkCommand(command)) return null;
+    if (!_networkCommandPattern.hasMatch(command)) return null;
     for (final uri in _extractHttpUris(command)) {
       final decision = evaluateUrl(requestedUri: uri, metadata: metadata);
       if (decision != null) return decision;
+    }
+    return _evaluateTargetHostReference(command: command, metadata: metadata);
+  }
+
+  static WebReverseCdpFirstDecision? _evaluateTargetHostReference({
+    required String command,
+    required Map<String, Object?> metadata,
+  }) {
+    final runtime = _stringObjectMap(metadata['web_reverse_runtime']);
+    if (runtime == null || !_boolValue(runtime['cdp_first_required'])) {
+      return null;
+    }
+
+    final route = _webReverseCdpRoute(runtime);
+    if (route == null) return null;
+
+    for (final targetUri in _webReverseTargetUris(runtime)) {
+      if (_commandContainsHostToken(command, targetUri.host)) {
+        return WebReverseCdpFirstDecision(
+          requestedUri: targetUri,
+          targetUri: targetUri,
+          routeKind: route.kind,
+          toolNames: route.toolNames,
+          requiresToolSearch: route.requiresToolSearch,
+          fallbackToolLabel: route.fallbackToolLabel,
+          nextActionOverride: route.nextActionOverride,
+        );
+      }
     }
     return null;
   }
@@ -119,11 +147,6 @@ class WebReverseCdpFirstGuard {
     "https?://[^\\s<>\"'\\)\\]}]+",
     caseSensitive: false,
   );
-
-  static bool _looksLikeExplicitNetworkCommand(String command) {
-    return _networkCommandPattern.hasMatch(command) &&
-        _httpUrlPattern.hasMatch(command);
-  }
 
   static List<Uri> _extractHttpUris(String command) {
     final uris = <Uri>[];
@@ -140,6 +163,16 @@ class WebReverseCdpFirstGuard {
 
   static String _trimUrlToken(String value) {
     return value.replaceFirst(RegExp(r'[,.;:]+$'), '');
+  }
+
+  static bool _commandContainsHostToken(String command, String host) {
+    final normalizedHost = host.trim();
+    if (normalizedHost.isEmpty) return false;
+    final pattern = RegExp(
+      '(^|[^A-Za-z0-9.-])${RegExp.escape(normalizedHost)}([^A-Za-z0-9.-]|\$)',
+      caseSensitive: false,
+    );
+    return pattern.hasMatch(command);
   }
 }
 
