@@ -197,6 +197,7 @@ class WebReverseSessionController extends ChangeNotifier {
   int _screencastWidth = _screencastDefaultMaxWidth;
   int _screencastHeight = _screencastDefaultMaxHeight;
   int _screencastQuality = _screencastDefaultQuality;
+  DateTime? _screencastStartedAt;
   DateTime? _lastScreencastFrameAt;
 
   /// 当前最新一帧（JPEG 字节）；切到浏览器 tab 后 widget 用 [Image.memory] 渲染。
@@ -210,6 +211,9 @@ class WebReverseSessionController extends ChangeNotifier {
   int get screencastHeight => _screencastHeight;
 
   bool get isScreencastActive => _screencastActive;
+
+  /// 最近一次成功发送 `Page.startScreencast` 的时间。
+  DateTime? get screencastStartedAt => _screencastStartedAt;
 
   /// 上次帧到达时间，UI 用来判断"是否长时间无帧"以提示用户。
   DateTime? get lastScreencastFrameAt => _lastScreencastFrameAt;
@@ -512,6 +516,8 @@ class WebReverseSessionController extends ChangeNotifier {
         );
       }
       _screencastActive = false;
+      _screencastStartedAt = null;
+      _lastScreencastFrameAt = null;
     }
     try {
       await _attachToTargetInternal(targetId);
@@ -538,6 +544,7 @@ class WebReverseSessionController extends ChangeNotifier {
           sessionId: _pageSessionId,
         );
         _screencastActive = true;
+        _screencastStartedAt = DateTime.now();
       } catch (error, stack) {
         silentLog(
           'web_reverse_session_controller',
@@ -664,6 +671,8 @@ class WebReverseSessionController extends ChangeNotifier {
         _screencastActive = false;
         _latestScreencastFrame = null;
         _screencastFrameSeq = 0;
+        _screencastStartedAt = null;
+        _lastScreencastFrameAt = null;
         if (!_disposed) {
           // 帧序号 +1 而不是赋 0，让 ValueListenableBuilder 一定能 rebuild
           // 拿到 null 帧切换到 placeholder。
@@ -2435,6 +2444,8 @@ class WebReverseSessionController extends ChangeNotifier {
             _screencastActive = false;
             _latestScreencastFrame = null;
             _screencastFrameSeq = 0;
+            _screencastStartedAt = null;
+            _lastScreencastFrameAt = null;
             if (!_disposed) {
               screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
             }
@@ -2482,6 +2493,7 @@ class WebReverseSessionController extends ChangeNotifier {
             sessionId: _pageSessionId,
           );
           _screencastActive = true;
+          _screencastStartedAt = DateTime.now();
         } catch (error, stack) {
           silentLog(
             'web_reverse_session_controller',
@@ -3455,6 +3467,8 @@ class WebReverseSessionController extends ChangeNotifier {
       _screencastRefCount = 0;
       _latestScreencastFrame = null;
       _screencastFrameSeq = 0;
+      _screencastStartedAt = null;
+      _lastScreencastFrameAt = null;
       if (!_disposed) {
         screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
       }
@@ -3559,6 +3573,8 @@ class WebReverseSessionController extends ChangeNotifier {
       _screencastRefCount = 0;
       _latestScreencastFrame = null;
       _screencastFrameSeq = 0;
+      _screencastStartedAt = null;
+      _lastScreencastFrameAt = null;
       if (!_disposed) {
         screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
       }
@@ -4077,6 +4093,7 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
       _screencastActive = true;
+      _screencastStartedAt = DateTime.now();
       _screencastQuality = clampedQuality;
       // 注意：不能最小化外部 Chrome 窗口。Chromium 在窗口最小化 / 完全
       // 不可见时会暂停 compositor，`Page.startScreencast` 不再产生新帧，
@@ -4121,6 +4138,8 @@ class WebReverseSessionController extends ChangeNotifier {
     _screencastActive = false;
     _latestScreencastFrame = null;
     _screencastFrameSeq = 0;
+    _screencastStartedAt = null;
+    _lastScreencastFrameAt = null;
     if (!_disposed) {
       screencastFrameNotifier.value = screencastFrameNotifier.value + 1;
     }

@@ -74,6 +74,9 @@ class _BrowserBody extends StatefulWidget {
 }
 
 class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
+  static const Duration _kPlaceholderRefreshInterval = Duration(seconds: 1);
+  static const Duration _kFirstFrameSlowThreshold = Duration(seconds: 8);
+
   final TextEditingController _addressCtrl = TextEditingController();
   final FocusNode _surfaceFocus = FocusNode(debugLabel: 'browser-surface');
   final FocusNode _addressBarFocus = FocusNode(debugLabel: 'browser-address');
@@ -84,6 +87,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Timer? _findDebouncer;
   Timer? _resizeDebouncer;
   Timer? _urlPoller;
+  Timer? _placeholderTicker;
   bool _addressEditing = false;
   Size? _lastConfiguredSize;
   double _lastDpr = 1;
@@ -95,6 +99,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // 上次记录的 alive 状态：浏览器死亡 / 拉起切换时整体 rebuild 一次，
   // 让按钮、placeholder 立刻响应。
   bool _wasAlive = false;
+  bool _wasScreencastActive = false;
   // 浏览器侧 setPageScaleFactor 的当前值；面板内独立维护，下次切到 dashboard
   // 重新 attach 时不会保留（Chromium 重启即丢）。
   double _zoom = 1;
@@ -168,6 +173,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           },
         );
     _wasAlive = widget.controller.isBrowserAlive;
+    _wasScreencastActive = widget.controller.isScreencastActive;
+    _startPlaceholderTicker();
     // 首次进入时同步一次地址栏；CDP 已稳定时立即拉。空 URL 或 about:blank
     // 时让地址栏保持空白让 placeholder 顶上去，避免初次打开就看到一行
     // about:blank 占位文字。
@@ -230,6 +237,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _inputRepairParticipantToken = null;
     _resizeDebouncer?.cancel();
     _urlPoller?.cancel();
+    _placeholderTicker?.cancel();
     _findDebouncer?.cancel();
     _scrollInertiaTimer?.cancel();
     _metaPersistDebouncer?.cancel();
@@ -248,6 +256,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final w = widget.controller.screencastWidth;
     final h = widget.controller.screencastHeight;
     final alive = widget.controller.isBrowserAlive;
+    final screencastActive = widget.controller.isScreencastActive;
     final len = widget.controller.pageTargets.length;
     final cur = widget.controller.currentPageTargetId;
     final orderHash = _hashTargetsOrder(widget.controller.pageTargets);
@@ -258,11 +267,16 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         orderHash != _lastTargetsOrderHash ||
         titleHash != _lastTargetsTitleHash;
     final dirty =
-        w != _frameW || h != _frameH || alive != _wasAlive || targetStateDirty;
+        w != _frameW ||
+        h != _frameH ||
+        alive != _wasAlive ||
+        screencastActive != _wasScreencastActive ||
+        targetStateDirty;
     final aliveJustFlipped = alive && !_wasAlive;
     _frameW = w;
     _frameH = h;
     _wasAlive = alive;
+    _wasScreencastActive = screencastActive;
     _lastTargetsLen = len;
     _lastCurrentTargetId = cur;
     _lastTargetsOrderHash = orderHash;
@@ -283,6 +297,29 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         state?.restoreBreakpoints();
       });
     }
+  }
+
+  void _startPlaceholderTicker() {
+    _placeholderTicker?.cancel();
+    _placeholderTicker = startNonOverlappingPeriodicTimer(
+      _kPlaceholderRefreshInterval,
+      (_) async {
+        if (!mounted) return;
+        final ctrl = widget.controller;
+        if (!ctrl.isBrowserAlive || ctrl.latestScreencastFrame != null) {
+          return;
+        }
+        if (ctrl.isRunning || ctrl.isScreencastActive) {
+          setState(() {});
+        }
+      },
+      onError: (error, stack) => silentLog(
+        'web_reverse_dashboard',
+        'browser placeholder ticker',
+        error,
+        stack,
+      ),
+    );
   }
 
   // tab id 顺序 / 标题指纹：Object.hashAll 会构造临时 list，这里手拆 31 hash
@@ -1870,30 +1907,133 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         ),
       );
     }
+    final screencastActive = ctrl.isScreencastActive;
+    final startedAt = ctrl.screencastStartedAt;
+    final waiting = startedAt == null
+        ? Duration.zero
+        : DateTime.now().difference(startedAt);
+    final waitingSeconds = waiting.inSeconds.clamp(0, 999);
+    final slow = screencastActive && waiting >= _kFirstFrameSlowThreshold;
+    final target = _currentTargetLabel(ctrl);
+    final title = !running
+        ? (isZh ? '会话尚未运行' : 'Session is not running')
+        : screencastActive
+        ? (isZh ? '等待 CDP 首帧' : 'Waiting for first CDP frame')
+        : (isZh ? '正在启动 CDP screencast' : 'Starting CDP screencast');
+    final detail = !running
+        ? (isZh
+              ? 'CDP 会话未运行，无法启动浏览器画面。'
+              : 'The CDP session is not running, so the browser surface cannot start.')
+        : slow
+        ? (isZh
+              ? 'CDP screencast 已启动 ${waitingSeconds}s，但还没有收到画面帧。Chrome 窗口最小化或 target 切换中都可能暂停首帧。'
+              : 'CDP screencast has been active for ${waitingSeconds}s without a frame. A minimized Chrome window or target switch can delay the first frame.')
+        : screencastActive
+        ? (isZh
+              ? 'CDP screencast 已启动，正在等待浏览器推送画面帧。'
+              : 'CDP screencast is active and waiting for Chrome to push a frame.')
+        : (isZh
+              ? '正在向当前 page target 发送 Page.startScreencast。'
+              : 'Sending Page.startScreencast to the current page target.');
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              valueColor: AlwaysStoppedAnimation(cs.primary),
-            ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation(
+                    slow ? cs.tertiary : cs.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                detail,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              if (target.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  target,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+              if (slow || !running) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (running)
+                      OutlinedButton.icon(
+                        onPressed: () => ctrl.reload(),
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: Text(isZh ? '刷新页面' : 'Reload'),
+                      ),
+                    FilledButton.icon(
+                      onPressed: () async {
+                        try {
+                          await ctrl.restartBrowser();
+                        } catch (error, stack) {
+                          silentLog(
+                            'web_reverse_dashboard_dialog',
+                            'restart browser from frame placeholder',
+                            error,
+                            stack,
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                      label: Text(isZh ? '重启浏览器' : 'Restart'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            running
-                ? (isZh ? '等待浏览器画面…' : 'Waiting for browser frame…')
-                : (isZh ? '会话尚未运行，无法启动 screencast' : 'Session not running'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  String _currentTargetLabel(WebReverseSessionController ctrl) {
+    final currentId = ctrl.currentPageTargetId;
+    if (currentId == null || currentId.isEmpty) return '';
+    for (final target in ctrl.pageTargets) {
+      if (target.id != currentId) continue;
+      final url = target.url.trim();
+      if (url.isNotEmpty && url != 'about:blank') return url;
+      final title = target.title.trim();
+      if (title.isNotEmpty) return title;
+      return currentId;
+    }
+    return currentId;
   }
 }
 
