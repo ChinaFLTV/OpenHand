@@ -69,14 +69,17 @@ Future<void> _bindIssueStream(WebReverseSessionController controller) async {
       silentLog('web_reverse_issues_dialog', 'raw issue stream', error, stack);
       _resetIssueBinding(bindingKey);
     },
+    cancelOnError: true,
   );
 }
 
 void _resetIssueBinding(String bindingKey) {
   if (_issueBindingKey != bindingKey) return;
+  final sub = _issueGlobalSub;
   _issueGlobalSub = null;
   _issueBindingKey = null;
   _issueDomainEnabled = false;
+  unawaited(sub?.cancel());
 }
 
 void _handleIssueEvent(CdpEvent ev) {
