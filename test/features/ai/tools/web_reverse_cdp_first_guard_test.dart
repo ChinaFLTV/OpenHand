@@ -80,6 +80,30 @@ void main() {
       },
     );
 
+    test('allows target-origin URL when runtime lacks live CDP locator', () {
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
+        metadata: <String, Object?>{
+          'web_reverse_runtime': <String, Object?>{
+            'cdp_first_required': true,
+            'config': <String, Object?>{
+              'target_url': 'https://linux.do/t/topic/2401043/5',
+            },
+            'cdp_runtime': <String, Object?>{'browser_alive': true},
+            'cdp_mcp_tool_availability': <String, Object?>{
+              'browser_runtime_live': false,
+              'current_turn_callable': true,
+              'current_turn_callable_names': <String>[
+                'mcp__web_reverse_cdp__evaluate_script',
+              ],
+            },
+          },
+        },
+      );
+
+      expect(decision, isNull);
+    });
+
     test('allows unrelated external URLs', () {
       final decision = WebReverseCdpFirstGuard.evaluateUrl(
         requestedUri: Uri.parse('https://docs.flutter.dev/'),

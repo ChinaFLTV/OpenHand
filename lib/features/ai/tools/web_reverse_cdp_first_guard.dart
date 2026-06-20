@@ -284,7 +284,9 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
 
   final runtimeLive =
       _boolValue(availability?['browser_runtime_live']) ||
-      webReverseRuntimeBoolTrue(cdpRuntime?['browser_alive']);
+      (cdpRuntime != null &&
+          webReverseRuntimeBoolTrue(cdpRuntime['browser_alive']) &&
+          webReverseCdpRuntimeHasLiveLocator(cdpRuntime));
   if (!runtimeLive) return null;
 
   final currentToolNames = _stringList(
