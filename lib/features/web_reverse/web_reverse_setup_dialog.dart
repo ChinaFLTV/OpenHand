@@ -24,6 +24,7 @@ const int _kWebReverseBrowserDetectionMaxAttempts = 3;
 Future<WebReverseSetupResult?> showWebReverseSetupDialog(
   BuildContext context, {
   String? initialTargetUrl,
+  String? initialObjective,
   required String userDataDirRoot,
 }) async {
   final detector = WebReverseBrowserDetector();
@@ -64,6 +65,7 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
     builder: (_) => _WebReverseSetupDialog(
       probes: probes,
       initialTargetUrl: initialTargetUrl,
+      initialObjective: initialObjective,
       userDataDirRoot: userDataDirRoot,
     ),
   );
@@ -83,11 +85,13 @@ class _WebReverseSetupDialog extends StatefulWidget {
   const _WebReverseSetupDialog({
     required this.probes,
     required this.initialTargetUrl,
+    required this.initialObjective,
     required this.userDataDirRoot,
   });
 
   final List<WebReverseBrowserProbeResult> probes;
   final String? initialTargetUrl;
+  final String? initialObjective;
   final String userDataDirRoot;
 
   @override
@@ -107,7 +111,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   void initState() {
     super.initState();
     _urlCtrl = TextEditingController(text: widget.initialTargetUrl ?? '');
-    _objectiveCtrl = TextEditingController();
+    _objectiveCtrl = TextEditingController(text: widget.initialObjective ?? '');
     _triggerCtrl = TextEditingController();
     _proxyCtrl = TextEditingController();
     _keywordsCtrl = TextEditingController();

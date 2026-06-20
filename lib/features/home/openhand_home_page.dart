@@ -2927,17 +2927,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 把 controller 绑到 session.id → 写入会话 metadata → 拼 prompt 发送。
   Future<bool> _showWebReverseSetupAndCreate({
     AiSessionRuntimeContext? runtimeContext,
+    String? initialPrompt,
+    AiSessionMode initialMode = AiSessionMode.chat,
+    bool initialFullAccessPermission = false,
   }) async {
     final userDataDirRoot =
         '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse';
     final setup = await showWebReverseSetupDialog(
       context,
+      initialTargetUrl: _firstHttpUrlFromText(initialPrompt),
+      initialObjective: _webReverseInitialObjectiveFromPrompt(initialPrompt),
       userDataDirRoot: userDataDirRoot,
     );
     if (!mounted || setup == null) return false;
     final created = await _createSession(
       templateId: 'web_reverse_expert',
       runtimeContext: runtimeContext,
+      initialMode: initialMode,
+      initialFullAccessPermission: initialFullAccessPermission,
     );
     if (!created || !mounted) return false;
     final sessionController = context.read<AiSessionController>();
@@ -3026,6 +3033,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _replaceComposerText(requestConfig.toRequestTemplate());
     await _sendMessage();
     return created;
+  }
+
+  String? _firstHttpUrlFromText(String? text) {
+    final raw = text?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    final match = RegExp(
+      r'''https?://[^\s<>"')\]}]+''',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (match == null) return null;
+    return (match.group(0) ?? '').replaceFirst(RegExp(r'[,.;:]+$'), '');
+  }
+
+  String? _webReverseInitialObjectiveFromPrompt(String? prompt) {
+    final value = prompt?.trim();
+    if (value == null || value.isEmpty) return null;
+    const maxChars = 4000;
+    if (value.length <= maxChars) return value;
+    return '${value.substring(0, maxChars)}\n...';
   }
 
   void _onWebReverseControllerChanged() {
@@ -4414,6 +4440,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || templateId == null) {
         return;
       }
+      if (templateId == 'web_reverse_expert') {
+        await _showWebReverseSetupAndCreate(
+          initialPrompt: prompt,
+          initialMode: _detachedComposerMode,
+          initialFullAccessPermission: _detachedFullAccessPermission,
+        );
+        return;
+      }
       if (templateId == 'machine_expert') {
         machineExpertConfig = await _showMachineExpertDialog(
           initialTask: prompt,
@@ -4680,6 +4714,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       initialSession,
     );
     if (selectedModel == null) return;
+    if (initialSession?.templateId == WebReverseCdpMcpBridge.templateId &&
+        _webReverseControllers[targetSessionId] == null) {
+      await restoreWebReverseSession(initialSession!);
+      if (!mounted) return;
+    }
     final initialUserMessageCount = initialSession != null
         ? _visibleUserMessageCount(initialSession)
         : 0;
