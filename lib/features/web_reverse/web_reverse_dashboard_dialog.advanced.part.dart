@@ -1058,12 +1058,16 @@ Future<void> _copyRecentRequestsForAi(
     }
     buf.writeln('---');
   }
-  await Clipboard.setData(ClipboardData(text: buf.toString()));
+  final copied = await setWebReverseClipboardText(buf.toString());
   if (!context.mounted) return;
   OpenHandSnackBar.showSuccessOn(
     context,
     messenger,
-    isZh ? '请求摘要已复制，回到会话粘贴即可让 AI 分析' : 'Summary copied; paste in chat',
+    webReverseClipboardSnackMessage(
+      isZh: isZh,
+      base: isZh ? '请求摘要已复制，回到会话粘贴即可让 AI 分析' : 'Summary copied; paste in chat',
+      result: copied,
+    ),
     duration: const Duration(seconds: 3),
   );
 }
@@ -1729,18 +1733,18 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     OutlinedButton.icon(
                       onPressed: () async {
                         final messenger = ScaffoldMessenger.of(context);
-                        await Clipboard.setData(
-                          ClipboardData(
-                            text: const JsonEncoder.withIndent(
-                              '  ',
-                            ).convert(_events),
-                          ),
+                        final copied = await setWebReverseClipboardText(
+                          const JsonEncoder.withIndent('  ').convert(_events),
                         );
                         if (!context.mounted) return;
                         OpenHandSnackBar.showSuccessOn(
                           context,
                           messenger,
-                          isZh ? '已复制' : 'Copied',
+                          webReverseClipboardSnackMessage(
+                            isZh: isZh,
+                            base: isZh ? '已复制' : 'Copied',
+                            result: copied,
+                          ),
                           duration: const Duration(seconds: 1),
                         );
                       },

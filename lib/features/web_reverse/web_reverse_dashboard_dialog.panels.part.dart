@@ -2158,12 +2158,19 @@ class _SamplingTopList extends StatelessWidget {
           ),
           actions: [
             OpenHandDialogActionButton.secondary(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: row.stack.join('\n')));
+              onPressed: () async {
+                final copied = await setWebReverseClipboardText(
+                  row.stack.join('\n'),
+                );
+                if (!dialogContext.mounted || !context.mounted) return;
                 Navigator.of(dialogContext).pop();
                 OpenHandSnackBar.showSuccess(
                   context,
-                  isZh ? '已复制' : 'Copied',
+                  webReverseClipboardSnackMessage(
+                    isZh: isZh,
+                    base: isZh ? '已复制' : 'Copied',
+                    result: copied,
+                  ),
                   duration: const Duration(seconds: 1),
                 );
               },
@@ -2506,13 +2513,17 @@ class _CookiesTableState extends State<_CookiesTable> {
 
   Future<void> _exportJson() async {
     final encoded = const JsonEncoder.withIndent('  ').convert(widget.cookies);
-    await Clipboard.setData(ClipboardData(text: encoded));
+    final copied = await setWebReverseClipboardText(encoded);
     if (!mounted) return;
     OpenHandSnackBar.showSuccess(
       context,
-      widget.isZh
-          ? '已复制 ${widget.cookies.length} 条 cookie 到剪贴板'
-          : 'Copied ${widget.cookies.length} cookies to clipboard',
+      webReverseClipboardSnackMessage(
+        isZh: widget.isZh,
+        base: widget.isZh
+            ? '已复制 ${widget.cookies.length} 条 cookie 到剪贴板'
+            : 'Copied ${widget.cookies.length} cookies to clipboard',
+        result: copied,
+      ),
     );
   }
 
@@ -2833,13 +2844,17 @@ class _StorageTableState extends State<_StorageTable> {
   Future<void> _exportJson() async {
     final map = <String, String>{for (final r in widget.rows) r.key: r.value};
     final encoded = const JsonEncoder.withIndent('  ').convert(map);
-    await Clipboard.setData(ClipboardData(text: encoded));
+    final copied = await setWebReverseClipboardText(encoded);
     if (!mounted) return;
     OpenHandSnackBar.showSuccess(
       context,
-      widget.isZh
-          ? '已复制 ${widget.rows.length} 条到剪贴板'
-          : 'Copied ${widget.rows.length} entries to clipboard',
+      webReverseClipboardSnackMessage(
+        isZh: widget.isZh,
+        base: widget.isZh
+            ? '已复制 ${widget.rows.length} 条到剪贴板'
+            : 'Copied ${widget.rows.length} entries to clipboard',
+        result: copied,
+      ),
     );
   }
 

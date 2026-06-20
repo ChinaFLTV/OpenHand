@@ -1804,12 +1804,16 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
 
   Future<void> _copyRaw(WebReverseLaunchDiagnosis diagnosis) async {
     final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: diagnosis.fullText));
+    final copied = await setWebReverseClipboardText(diagnosis.fullText);
     if (!mounted) return;
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      widget.isZh ? '已复制原始报错' : 'Raw error copied',
+      webReverseClipboardSnackMessage(
+        isZh: widget.isZh,
+        base: widget.isZh ? '已复制原始报错' : 'Raw error copied',
+        result: copied,
+      ),
       duration: const Duration(seconds: 1),
     );
   }

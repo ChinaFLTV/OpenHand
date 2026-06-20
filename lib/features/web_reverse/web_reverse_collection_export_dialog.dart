@@ -8,13 +8,13 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 enum _CollectionFormat { postman, insomnia, bruno, curl, har }
@@ -303,22 +303,27 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           .take(_kCollectionExportMaxEntries)
           .toList(growable: false);
       final out = _buildOutput(exportEntries);
-      await Clipboard.setData(ClipboardData(text: out));
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
+      final copyResult = await setWebReverseClipboardText(out);
       if (!mounted) return;
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
         final capped = entries.length > exportEntries.length;
-        final copied =
+        final copiedLabel =
             loc?.webReverseCollectionExportCopied(exportEntries.length) ??
             'Copied ${exportEntries.length} requests to clipboard';
-        final cappedSuffix =
-            Localizations.localeOf(context).languageCode.startsWith('zh')
-            ? ' · 已按上限裁剪'
-            : ' · capped';
+        final cappedSuffix = isZh ? ' · 已按条目上限裁剪' : ' · entry capped';
+        final message = capped ? '$copiedLabel$cappedSuffix' : copiedLabel;
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          capped ? '$copied$cappedSuffix' : copied,
+          webReverseClipboardSnackMessage(
+            isZh: isZh,
+            base: message,
+            result: copyResult,
+          ),
         );
       }
     } catch (e, st) {
