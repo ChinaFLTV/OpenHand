@@ -108,6 +108,7 @@ class FileMutationView {
     required this.cascadeUndone,
     required this.canUndo,
     required this.canRedo,
+    required this.lineDelta,
   });
 
   final FileMutationRecord record;
@@ -124,7 +125,41 @@ class FileMutationView {
   /// 当前是否处于可执行"重做"的状态。
   final bool canRedo;
 
+  /// 基于 before/after 快照派生的行级增删统计。快照不可用时为
+  /// [FileMutationLineDelta.unavailable]，UI 不应回退显示字节差。
+  final FileMutationLineDelta lineDelta;
+
   bool get isEffectivelyUndone => directlyUndone || cascadeUndone;
+}
+
+class FileMutationLineDelta {
+  const FileMutationLineDelta({
+    required this.addedLines,
+    required this.removedLines,
+    required this.available,
+  });
+
+  const FileMutationLineDelta.unavailable()
+    : addedLines = 0,
+      removedLines = 0,
+      available = false;
+
+  final int addedLines;
+  final int removedLines;
+  final bool available;
+
+  bool get hasChanges => addedLines > 0 || removedLines > 0;
+
+  FileMutationLineDelta operator +(FileMutationLineDelta other) {
+    if (!available && !other.available) {
+      return const FileMutationLineDelta.unavailable();
+    }
+    return FileMutationLineDelta(
+      addedLines: addedLines + other.addedLines,
+      removedLines: removedLines + other.removedLines,
+      available: available || other.available,
+    );
+  }
 }
 
 class FileMutationOutcome {
@@ -281,15 +316,20 @@ class AiFileMutationLedger {
   final Map<String, List<FileMutationRecord>> _recordsCache =
       <String, List<FileMutationRecord>>{};
   final Map<String, Set<String>> _undoneCache = <String, Set<String>>{};
+  final Map<String, Future<FileMutationLineDelta>> _lineDeltaCache =
+      <String, Future<FileMutationLineDelta>>{};
 
   void _invalidateSessionCache(String sessionId) {
     _recordsCache.remove(sessionId);
     _undoneCache.remove(sessionId);
+    final prefix = '$sessionId::';
+    _lineDeltaCache.removeWhere((key, _) => key.startsWith(prefix));
   }
 
   void _invalidateAllCaches() {
     _recordsCache.clear();
     _undoneCache.clear();
+    _lineDeltaCache.clear();
   }
 
   String get _root =>
@@ -548,12 +588,20 @@ class AiFileMutationLedger {
     if (toolCallId.trim().isEmpty) return const <FileMutationView>[];
     final all = await recordsForSession(sessionId);
     final undone = await _loadUndoneSet(sessionId);
-    final views = <FileMutationView>[];
-    for (final r in all) {
-      if (r.toolCallId != toolCallId) continue;
-      views.add(_buildView(r, all, undone));
-    }
-    return views;
+    final matching = all
+        .where((record) => record.toolCallId == toolCallId)
+        .toList(growable: false);
+    if (matching.isEmpty) return const <FileMutationView>[];
+    return Future.wait(
+      matching.map(
+        (record) async => _buildView(
+          record,
+          all,
+          undone,
+          lineDelta: await _lineDeltaForRecord(record),
+        ),
+      ),
+    );
   }
 
   Future<FileMutationView?> viewForRecord({
@@ -564,7 +612,12 @@ class AiFileMutationLedger {
     final record = all.where((r) => r.recordId == recordId).firstOrNull;
     if (record == null) return null;
     final undone = await _loadUndoneSet(sessionId);
-    return _buildView(record, all, undone);
+    return _buildView(
+      record,
+      all,
+      undone,
+      lineDelta: await _lineDeltaForRecord(record),
+    );
   }
 
   /// 会话级 history inspector 用：一次性返回当前会话所有记录
@@ -573,14 +626,20 @@ class AiFileMutationLedger {
     final all = await recordsForSession(sessionId);
     if (all.isEmpty) return const <FileMutationView>[];
     final undone = await _loadUndoneSet(sessionId);
-    return [for (final r in all) _buildView(r, all, undone)];
+    return Future.wait(
+      all.map(
+        (r) async =>
+            _buildView(r, all, undone, lineDelta: await _lineDeltaForRecord(r)),
+      ),
+    );
   }
 
   FileMutationView _buildView(
     FileMutationRecord record,
     List<FileMutationRecord> all,
-    Set<String> undoneSet,
-  ) {
+    Set<String> undoneSet, {
+    required FileMutationLineDelta lineDelta,
+  }) {
     final directlyUndone = undoneSet.contains(record.recordId);
     var cascadeUndone = false;
     if (!directlyUndone) {
@@ -616,6 +675,43 @@ class AiFileMutationLedger {
       cascadeUndone: cascadeUndone,
       canUndo: canUndo,
       canRedo: canRedo,
+      lineDelta: lineDelta,
+    );
+  }
+
+  Future<FileMutationLineDelta> _lineDeltaForRecord(FileMutationRecord record) {
+    final cacheKey = <String>[
+      record.sessionId,
+      record.recordId,
+      record.beforeSha ?? '',
+      record.afterSha ?? '',
+      '${record.beforeSize}',
+      '${record.afterSize}',
+    ].join('::');
+    return _lineDeltaCache.putIfAbsent(
+      cacheKey,
+      () => _computeLineDeltaForRecord(record),
+    );
+  }
+
+  Future<FileMutationLineDelta> _computeLineDeltaForRecord(
+    FileMutationRecord record,
+  ) async {
+    final snapshots = await readSnapshots(record);
+    final beforeUnavailable =
+        record.beforeSha != null && snapshots.before == null;
+    final afterUnavailable = record.afterSha != null && snapshots.after == null;
+    if (beforeUnavailable || afterUnavailable) {
+      return const FileMutationLineDelta.unavailable();
+    }
+    final stats = unified_diff.unifiedDiffLineStatsFromText(
+      snapshots.before ?? '',
+      snapshots.after ?? '',
+    );
+    return FileMutationLineDelta(
+      addedLines: stats.addedLines,
+      removedLines: stats.removedLines,
+      available: true,
     );
   }
 
@@ -1484,7 +1580,9 @@ class AiFileMutationLedger {
         }
         if (since != null && r.createdAt.isBefore(since)) continue;
         if (until != null && r.createdAt.isAfter(until)) continue;
-        out.add(_buildView(r, all, undone));
+        out.add(
+          _buildView(r, all, undone, lineDelta: await _lineDeltaForRecord(r)),
+        );
       }
     }
     // 最近优先。

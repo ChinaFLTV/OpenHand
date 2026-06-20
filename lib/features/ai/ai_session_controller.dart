@@ -4099,9 +4099,11 @@ class AiSessionController extends ChangeNotifier {
 
     var toolCatalog = applyRuntimeLazyLoadingForCurrentSession();
     var activeLatestUserMessageId = latestUserMessageId;
-    // 2026-05-04 阶段⑰：累积本轮（=单次助手对话直至产出最终自然回复）
-    // 内全部工具调用 id，用于回合结束时统一向 ledger 反查文件变动并
-    // 合成「本轮文件变动汇总」状态卡。保留插入顺序便于呈现执行轨迹。
+    var activeRoundAnchorMessageId = latestUserMessageId;
+    // 2026-05-04 阶段⑰：累积当前轮次（非 AI 侧消息：用户显式消息或
+    // OpenHand 程序侧工具结果/MCP/Skill 结果 + 后续 AI 响应）内全部
+    // 工具调用 id，用于回合结束时统一向 ledger 反查文件变动并合成
+    // 「本轮文件变动汇总」状态卡。保留插入顺序便于呈现执行轨迹。
     final roundToolCallIds = <String>[];
     final roundToolCallSeen = <String>{};
     var planModeRecoveryInspectionRequired =
@@ -5634,7 +5636,7 @@ class AiSessionController extends ChangeNotifier {
           final summarySession = await _maybeEmitRoundFileMutationSummary(
             session: workingSession,
             roundToolCallIds: roundToolCallIds,
-            anchorUserMessageId: latestUserMessageId,
+            anchorMessageId: activeRoundAnchorMessageId,
           );
           if (summarySession != null) {
             workingSession = summarySession;
@@ -5727,6 +5729,7 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
 
+      final beforeToolExecutionMessageCount = workingSession.messages.length;
       final executedSession = await _executeToolCalls(
         session: workingSession,
         model: model,
@@ -5775,6 +5778,12 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       workingSession = executedSession;
+      final nextRoundAnchor = _latestNonAiSideRoundAnchorMessageId(
+        workingSession.messages.skip(beforeToolExecutionMessageCount),
+      );
+      if (nextRoundAnchor != null) {
+        activeRoundAnchorMessageId = nextRoundAnchor;
+      }
       if (planModeRecoveryInspectionRequired &&
           _roundRequestedTodoWrite(result.toolCalls)) {
         planModeRecoveryInspectionRequired =
@@ -7288,14 +7297,46 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
-  /// 阶段⑰：单轮对话完成（assistant 产出最终自然回复）后，回查 ledger
+  String? _latestNonAiSideRoundAnchorMessageId(
+    Iterable<AiSessionMessage> messages,
+  ) {
+    final materialized = messages.toList(growable: false);
+    for (var index = materialized.length - 1; index >= 0; index--) {
+      final message = materialized[index];
+      if (_isNonAiSideRoundAnchorMessage(message)) {
+        return message.id;
+      }
+    }
+    return null;
+  }
+
+  bool _isNonAiSideRoundAnchorMessage(AiSessionMessage message) {
+    switch (message.kind) {
+      case AiSessionMessageKind.user:
+      case AiSessionMessageKind.tool:
+      case AiSessionMessageKind.mcp:
+      case AiSessionMessageKind.skill:
+        return true;
+      case AiSessionMessageKind.assistant:
+      case AiSessionMessageKind.reasoning:
+      case AiSessionMessageKind.toolCall:
+      case AiSessionMessageKind.hook:
+      case AiSessionMessageKind.status:
+      case AiSessionMessageKind.compressionPoint:
+      case AiSessionMessageKind.fileMutationSummary:
+      case AiSessionMessageKind.selfLearning:
+        return false;
+    }
+  }
+
+  /// 阶段⑰：轮次完成（非 AI 侧消息 + AI 最终自然回复）后，回查 ledger
   /// 收集本轮全部工具调用产生的文件变动，去重后合成单张「本轮文件变动
-  /// 汇总」status 卡，元数据携带 tool_call_id 列表与锚定用户消息 id，
+  /// 汇总」status 卡，元数据携带 tool_call_id 列表与轮次锚点消息 id，
   /// 供 UI 反查 ledger 与跳转。无变动则不发卡，避免噪音。
   Future<AiSession?> _maybeEmitRoundFileMutationSummary({
     required AiSession session,
     required List<String> roundToolCallIds,
-    required String? anchorUserMessageId,
+    required String? anchorMessageId,
   }) async {
     if (roundToolCallIds.isEmpty) return null;
     final ledger = _toolRuntimeService.mutationLedger;
@@ -7360,8 +7401,8 @@ class AiSessionController extends ChangeNotifier {
             if (sourceMessageIdsByToolCallId[toolCallId] != null)
               toolCallId: sourceMessageIdsByToolCallId[toolCallId]!,
         },
-        if (anchorUserMessageId != null && anchorUserMessageId.isNotEmpty)
-          'round_summary_anchor_user_id': anchorUserMessageId,
+        if (anchorMessageId != null && anchorMessageId.isNotEmpty)
+          'round_summary_anchor_user_id': anchorMessageId,
         'round_summary_record_count': totalRecords,
       },
     );

@@ -8,6 +8,7 @@ String _fileMutationKind(AiSessionMessage message) =>
     '${message.metadata['file_mutation_kind'] ?? ''}'.trim();
 
 const int _kFileMutationUndoConcurrency = 4;
+const Color _kFileMutationAddedColor = Color(0xFF2E7D32);
 
 /// 聚合「单文件 (`file_mutation_path`)」与「多文件
 /// (`file_mutation_paths`)」两路 metadata，去重后按出现顺序返回。
@@ -29,6 +30,117 @@ List<String> _fileMutationPaths(AiSessionMessage message) {
     }
   }
   return out;
+}
+
+FileMutationLineDelta _sumFileMutationLineDeltas(
+  Iterable<FileMutationView> views,
+) {
+  var added = 0;
+  var removed = 0;
+  var available = false;
+  for (final view in views) {
+    final delta = view.lineDelta;
+    if (!delta.available) continue;
+    available = true;
+    added += delta.addedLines;
+    removed += delta.removedLines;
+  }
+  return available
+      ? FileMutationLineDelta(
+          addedLines: added,
+          removedLines: removed,
+          available: true,
+        )
+      : const FileMutationLineDelta.unavailable();
+}
+
+String _formatFileMutationLineDelta(FileMutationLineDelta delta) {
+  if (!delta.available || !delta.hasChanges) return '';
+  final parts = <String>[
+    if (delta.addedLines > 0) '+${delta.addedLines}',
+    if (delta.removedLines > 0) '-${delta.removedLines}',
+  ];
+  return parts.join(' ');
+}
+
+List<Widget> _buildFileMutationLineDeltaPills(
+  BuildContext context,
+  FileMutationLineDelta delta, {
+  bool trailingGap = false,
+}) {
+  if (!delta.available || !delta.hasChanges) return const <Widget>[];
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
+  Widget pill({
+    required String label,
+    required Color color,
+    required Color background,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  final pieces = <Widget>[];
+  if (delta.addedLines > 0) {
+    pieces.add(
+      pill(
+        label: '+${delta.addedLines}',
+        color: _kFileMutationAddedColor,
+        background: _kFileMutationAddedColor.withValues(alpha: 0.12),
+      ),
+    );
+  }
+  if (delta.removedLines > 0) {
+    if (pieces.isNotEmpty) pieces.add(const SizedBox(width: 4));
+    pieces.add(
+      pill(
+        label: '-${delta.removedLines}',
+        color: cs.error,
+        background: cs.error.withValues(alpha: 0.12),
+      ),
+    );
+  }
+  if (trailingGap && pieces.isNotEmpty) pieces.add(const SizedBox(width: 6));
+  return pieces;
+}
+
+Widget _buildFileMutationLineDeltaText(
+  BuildContext context,
+  FileMutationLineDelta delta,
+) {
+  if (!delta.available || !delta.hasChanges) return const SizedBox.shrink();
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
+  TextStyle? styleFor(Color color) => theme.textTheme.labelSmall?.copyWith(
+    color: color,
+    fontFeatures: const [FontFeature.tabularFigures()],
+    fontWeight: FontWeight.w600,
+  );
+
+  final children = <Widget>[];
+  if (delta.addedLines > 0) {
+    children.add(
+      Text('+${delta.addedLines}', style: styleFor(_kFileMutationAddedColor)),
+    );
+  }
+  if (delta.removedLines > 0) {
+    if (children.isNotEmpty) children.add(const SizedBox(width: 4));
+    children.add(Text('-${delta.removedLines}', style: styleFor(cs.error)));
+  }
+  return Row(mainAxisSize: MainAxisSize.min, children: children);
 }
 
 /// Codex 风「文件变动」卡片：聚合本工具调用产生的全部 ledger 记录，
@@ -517,17 +629,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     ColorScheme cs,
     List<FileMutationView> views,
   ) {
-    int totalAdded = 0;
-    int totalRemoved = 0;
-    for (final v in views) {
-      // approx：用 size 差近似（精确 +/- 行数等展开时算）。
-      final delta = v.record.afterSize - v.record.beforeSize;
-      if (delta > 0) {
-        totalAdded += 1;
-      } else if (delta < 0) {
-        totalRemoved += 1;
-      }
-    }
+    final totalLineDelta = _sumFileMutationLineDeltas(views);
     final anyUndoable = views.any((v) => v.canUndo);
     final anyRedoable = views.any((v) => v.canRedo);
     // 卡内 Cmd/Ctrl+Z 撤销最近一条、Shift+Cmd/Ctrl+Z 重做。
@@ -623,20 +725,20 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                               alpha: 0.65,
                             ),
                           ),
-                          if (totalAdded > 0) ...[
+                          if (totalLineDelta.addedLines > 0) ...[
                             const SizedBox(width: 6),
                             _StatPill(
-                              label: '+$totalAdded',
-                              color: const Color(0xFF2E7D32),
-                              bg: const Color(
-                                0xFF2E7D32,
-                              ).withValues(alpha: 0.12),
+                              label: '+${totalLineDelta.addedLines}',
+                              color: _kFileMutationAddedColor,
+                              bg: _kFileMutationAddedColor.withValues(
+                                alpha: 0.12,
+                              ),
                             ),
                           ],
-                          if (totalRemoved > 0) ...[
+                          if (totalLineDelta.removedLines > 0) ...[
                             const SizedBox(width: 6),
                             _StatPill(
-                              label: '-$totalRemoved',
+                              label: '-${totalLineDelta.removedLines}',
                               color: cs.error,
                               bg: cs.errorContainer.withValues(alpha: 0.55),
                             ),
@@ -2549,71 +2651,17 @@ class _HistoryInspectorGroup extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    // 聚合 +X / -Y 字节增减徽章。
+                    // 聚合 +X / -Y 行级增删徽章。
                     () {
-                      var added = 0;
-                      var removed = 0;
-                      for (final v in entries) {
-                        final d = v.record.afterSize - v.record.beforeSize;
-                        if (d > 0) added += d;
-                        if (d < 0) removed += -d;
-                      }
-                      final pieces = <Widget>[];
-                      if (added > 0) {
-                        pieces.add(
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF2E7D32,
-                              ).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '+${_compactBytes(added)}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: const Color(0xFF2E7D32),
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      if (removed > 0) {
-                        if (pieces.isNotEmpty) {
-                          pieces.add(const SizedBox(width: 4));
-                        }
-                        pieces.add(
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.error.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '-${_compactBytes(removed)}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: cs.error,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }
+                      final pieces = _buildFileMutationLineDeltaPills(
+                        context,
+                        _sumFileMutationLineDeltas(entries),
+                        trailingGap: true,
+                      );
                       if (pieces.isEmpty) return const SizedBox.shrink();
                       return Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [...pieces, const SizedBox(width: 6)],
+                        children: pieces,
                       );
                     }(),
                     Container(
@@ -3007,17 +3055,6 @@ class _BulkUndoOverlay extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 徽章用紧凑字节格式（B / KiB / MiB），保持单字符精度。
-String _compactBytes(int bytes) {
-  if (bytes < 1024) return '${bytes}B';
-  if (bytes < 1024 * 1024) {
-    final kb = bytes / 1024;
-    return kb >= 100 ? '${kb.round()}KiB' : '${kb.toStringAsFixed(1)}KiB';
-  }
-  final mb = bytes / (1024 * 1024);
-  return '${mb.toStringAsFixed(1)}MiB';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3597,7 +3634,6 @@ class _RoundFileMutationSummaryCardState
     List<_RoundSummaryRow> rows,
   ) {
     int created = 0, modified = 0, deleted = 0;
-    int totalAdded = 0, totalRemoved = 0;
     for (final r in rows) {
       switch (r.view.record.kind) {
         case FileMutationKind.create:
@@ -3610,13 +3646,11 @@ class _RoundFileMutationSummaryCardState
           deleted += 1;
           break;
       }
-      final delta = r.view.record.afterSize - r.view.record.beforeSize;
-      if (delta > 0) {
-        totalAdded += delta;
-      } else if (delta < 0) {
-        totalRemoved += -delta;
-      }
     }
+    final totalLineDelta = _sumFileMutationLineDeltas(
+      rows.map((row) => row.view),
+    );
+    final totalLineDeltaText = _formatFileMutationLineDelta(totalLineDelta);
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
       decoration: BoxDecoration(
@@ -3678,19 +3712,17 @@ class _RoundFileMutationSummaryCardState
             ),
           ],
           const Spacer(),
-          if (totalAdded > 0 || totalRemoved > 0)
+          if (totalLineDeltaText.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: Tooltip(
                 message: openHandLocalizedText(
                   context,
-                  zh: '字节增减估算（基于文件大小）',
-                  en: 'Byte delta (file-size estimate)',
+                  zh: '行级增删统计',
+                  en: 'Line additions/deletions',
                 ),
                 child: Text(
-                  '${totalAdded > 0 ? '+${_compactBytes(totalAdded)}' : ''}'
-                  '${totalAdded > 0 && totalRemoved > 0 ? ' ' : ''}'
-                  '${totalRemoved > 0 ? '-${_compactBytes(totalRemoved)}' : ''}',
+                  totalLineDeltaText,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -4080,7 +4112,6 @@ class _RoundSummaryRowTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final greyOut = row.view.isEffectivelyUndone;
-    final delta = row.view.record.afterSize - row.view.record.beforeSize;
     final tile = Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -4116,18 +4147,10 @@ class _RoundSummaryRowTile extends StatelessWidget {
               ),
             ),
           ),
-          if (delta != 0) ...[
+          if (row.view.lineDelta.available &&
+              row.view.lineDelta.hasChanges) ...[
             const SizedBox(width: 8),
-            Text(
-              delta > 0
-                  ? '+${_compactBytes(delta)}'
-                  : '-${_compactBytes(-delta)}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: delta > 0 ? const Color(0xFF2E7D32) : cs.error,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            _buildFileMutationLineDeltaText(context, row.view.lineDelta),
           ],
           const SizedBox(width: 6),
           if (row.sourceMessageId != null)

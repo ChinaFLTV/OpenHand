@@ -19,6 +19,50 @@ List<String> unifiedDiffLinesFromText(
   );
 }
 
+({int addedLines, int removedLines}) unifiedDiffLineStatsFromText(
+  String before,
+  String after, {
+  int maxMyersLineTotal = kUnifiedDiffMaxMyersLineTotal,
+}) {
+  return unifiedDiffLineStats(
+    _splitDiffLines(before),
+    _splitDiffLines(after),
+    maxMyersLineTotal: maxMyersLineTotal,
+  );
+}
+
+({int addedLines, int removedLines}) unifiedDiffLineStats(
+  List<String> before,
+  List<String> after, {
+  int maxMyersLineTotal = kUnifiedDiffMaxMyersLineTotal,
+}) {
+  if (before.isEmpty && after.isEmpty) {
+    return (addedLines: 0, removedLines: 0);
+  }
+  if (before.isEmpty) {
+    return (addedLines: after.length, removedLines: 0);
+  }
+  if (after.isEmpty) {
+    return (addedLines: 0, removedLines: before.length);
+  }
+
+  final safeLineLimit = maxMyersLineTotal < 1 ? 1 : maxMyersLineTotal;
+  if (before.length + after.length > safeLineLimit) {
+    return _fallbackLineStats(before, after);
+  }
+  final edits = _myersDiffEdits(before, after);
+  var added = 0;
+  var removed = 0;
+  for (final edit in edits) {
+    if (edit.type == '+') {
+      added += 1;
+    } else if (edit.type == '-') {
+      removed += 1;
+    }
+  }
+  return (addedLines: added, removedLines: removed);
+}
+
 List<String> unifiedDiffLines(
   List<String> before,
   List<String> after, {
@@ -214,6 +258,28 @@ List<({String type, String text})> _myersDiffEdits(
   }
 
   return editScript.reversed.toList(growable: false);
+}
+
+({int addedLines, int removedLines}) _fallbackLineStats(
+  List<String> before,
+  List<String> after,
+) {
+  var prefix = 0;
+  while (prefix < before.length &&
+      prefix < after.length &&
+      before[prefix] == after[prefix]) {
+    prefix += 1;
+  }
+  var suffix = 0;
+  while (suffix < before.length - prefix &&
+      suffix < after.length - prefix &&
+      before[before.length - 1 - suffix] == after[after.length - 1 - suffix]) {
+    suffix += 1;
+  }
+  return (
+    addedLines: after.length - prefix - suffix,
+    removedLines: before.length - prefix - suffix,
+  );
 }
 
 List<(int, int)> _hunkRanges(
