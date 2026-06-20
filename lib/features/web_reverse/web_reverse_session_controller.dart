@@ -186,6 +186,9 @@ class WebReverseSessionController extends ChangeNotifier {
 
   // ── 生命周期 ─────────────────────────────────────────────────────────
 
+  static const int _kInitialTargetPickAttempts = 16;
+  static const Duration _kInitialTargetPickDelay = Duration(milliseconds: 150);
+
   Future<void> start() async {
     if (_started) return;
     _started = true;
@@ -217,23 +220,33 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> _attachToFirstPage() async {
     final cdp = _browserCdp!;
-    // 列出所有 page target，挑第一个跟 config.targetUrl 同 origin 的。
-    final targets = await cdp.send('Target.getTargets');
-    final infos = (targets['targetInfos'] as List?) ?? const <Object?>[];
+    // 列出所有 page target，优先挑 config.targetUrl 同 origin 的目标页。
+    // Chrome 冷启动时可能先暴露 about:blank / 恢复页；短暂轮询后仍未命中
+    // 再回退到第一个可用 page，避免无限等待。
+    List<Object?> infos = const <Object?>[];
     Map<String, Object?>? chosen;
-    for (final t in infos.whereType<Map>()) {
-      if (t['type'] == 'page') {
-        chosen = Map<String, Object?>.from(t);
+    for (var attempt = 0; attempt < _kInitialTargetPickAttempts; attempt++) {
+      final targets = await cdp.send('Target.getTargets');
+      infos = (targets['targetInfos'] as List?) ?? const <Object?>[];
+      chosen = _chooseInitialPageTarget(
+        infos,
+        allowFallback: attempt == _kInitialTargetPickAttempts - 1,
+      );
+      if (chosen != null) {
         break;
       }
+      await Future<void>.delayed(_kInitialTargetPickDelay);
     }
     if (chosen == null) {
       throw const CdpException(
         code: -1,
-        message: '未发现 page target；浏览器可能没有打开任何标签页',
+        message: '未发现目标 page target；浏览器可能没有打开目标页面',
       );
     }
-    final targetId = chosen['targetId'] as String;
+    final targetId = '${chosen['targetId'] ?? ''}';
+    if (targetId.isEmpty) {
+      throw const CdpException(code: -1, message: '目标 page target 缺少 targetId');
+    }
     // 订阅 page target 的创建 / 销毁 / 信息变化，让 dashboard 实时更新 tab strip。
     await cdp.send(
       'Target.setDiscoverTargets',
@@ -242,6 +255,63 @@ class WebReverseSessionController extends ChangeNotifier {
     await _attachToTargetInternal(targetId);
     // 首次拉满当前所有 page target。
     _refreshTargetsFromInfos(infos);
+  }
+
+  Map<String, Object?>? _chooseInitialPageTarget(
+    List<Object?> infos, {
+    required bool allowFallback,
+  }) {
+    final pages = infos
+        .whereType<Map>()
+        .where((t) => t['type'] == 'page')
+        .map((t) => Map<String, Object?>.from(t))
+        .where((t) => '${t['targetId'] ?? ''}'.isNotEmpty)
+        .toList(growable: false);
+    if (pages.isEmpty) return null;
+
+    final targetUri = _tryHttpUri(config.targetUrl);
+    if (targetUri != null) {
+      for (final page in pages) {
+        final pageUri = _tryHttpUri('${page['url'] ?? ''}');
+        if (pageUri != null && _sameHttpOrigin(pageUri, targetUri)) {
+          return page;
+        }
+      }
+      if (!allowFallback) return null;
+    }
+
+    for (final page in pages) {
+      if (_isUsefulInitialPageUrl('${page['url'] ?? ''}')) {
+        return page;
+      }
+    }
+    return allowFallback || targetUri == null ? pages.first : null;
+  }
+
+  Uri? _tryHttpUri(String raw) {
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null || uri.host.isEmpty) return null;
+    final scheme = uri.scheme.toLowerCase();
+    return scheme == 'http' || scheme == 'https' ? uri : null;
+  }
+
+  bool _sameHttpOrigin(Uri a, Uri b) {
+    return a.scheme.toLowerCase() == b.scheme.toLowerCase() &&
+        a.host.toLowerCase() == b.host.toLowerCase() &&
+        _effectiveHttpPort(a) == _effectiveHttpPort(b);
+  }
+
+  int _effectiveHttpPort(Uri uri) {
+    if (uri.hasPort) return uri.port;
+    return uri.scheme.toLowerCase() == 'https' ? 443 : 80;
+  }
+
+  bool _isUsefulInitialPageUrl(String raw) {
+    final value = raw.trim().toLowerCase();
+    return value.isNotEmpty &&
+        value != 'about:blank' &&
+        value != 'chrome://newtab' &&
+        value != 'chrome://newtab/';
   }
 
   /// 多标签页：dashboard 浏览器面板的 tab strip 数据源。每条 entry 反映一个
