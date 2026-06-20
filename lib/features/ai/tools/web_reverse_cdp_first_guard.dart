@@ -73,7 +73,7 @@ class WebReverseCdpFirstGuard {
     required Uri requestedUri,
     required Map<String, Object?> metadata,
   }) {
-    final runtime = _stringObjectMap(metadata['web_reverse_runtime']);
+    final runtime = _webReverseRuntimeFromMetadata(metadata);
     if (runtime == null || !_boolValue(runtime['cdp_first_required'])) {
       return null;
     }
@@ -113,7 +113,7 @@ class WebReverseCdpFirstGuard {
     required String command,
     required Map<String, Object?> metadata,
   }) {
-    final runtime = _stringObjectMap(metadata['web_reverse_runtime']);
+    final runtime = _webReverseRuntimeFromMetadata(metadata);
     if (runtime == null || !_boolValue(runtime['cdp_first_required'])) {
       return null;
     }
@@ -174,6 +174,43 @@ class WebReverseCdpFirstGuard {
     );
     return pattern.hasMatch(command);
   }
+}
+
+Map<String, Object?>? _webReverseRuntimeFromMetadata(
+  Map<String, Object?> metadata,
+) {
+  final runtime = _stringObjectMap(metadata['web_reverse_runtime']);
+  if (runtime != null) return runtime;
+
+  final config = _stringObjectMap(metadata['web_reverse_config']);
+  final cdpRuntime = _stringObjectMap(metadata['web_reverse_cdp_runtime']);
+  if (config == null || cdpRuntime == null) return null;
+  if (!_boolValue(cdpRuntime['browser_alive']) ||
+      !_hasWebReverseCdpLocator(cdpRuntime)) {
+    return null;
+  }
+
+  final dashboardState = <String, Object?>{};
+  final currentTarget = metadata['web_reverse_browser_current_target'];
+  if (currentTarget != null) {
+    dashboardState['browser_current_target'] = currentTarget;
+  }
+  final tabUrls = metadata['web_reverse_browser_tab_urls'];
+  if (tabUrls != null) {
+    dashboardState['browser_tab_urls'] = tabUrls;
+  }
+
+  return <String, Object?>{
+    'cdp_first_required': true,
+    'config': config,
+    'cdp_runtime': cdpRuntime,
+    if (dashboardState.isNotEmpty) 'dashboard_state': dashboardState,
+    'cdp_mcp_tool_availability': <String, Object?>{
+      'browser_runtime_live': true,
+      'tool_search_available': false,
+      'legacy_metadata_fallback': true,
+    },
+  };
 }
 
 _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
@@ -320,6 +357,21 @@ bool _boolValue(Object? raw) {
 int _intValue(Object? raw) {
   if (raw is num) return raw.toInt();
   return int.tryParse('${raw ?? ''}'.trim()) ?? 0;
+}
+
+bool _hasWebReverseCdpLocator(Map<String, Object?> value) {
+  bool hasText(Object? raw) => raw is String && raw.trim().isNotEmpty;
+  bool hasPort(Object? raw) {
+    if (raw is num) return raw.toInt() > 0;
+    final parsed = int.tryParse('${raw ?? ''}'.trim());
+    return parsed != null && parsed > 0;
+  }
+
+  return hasPort(value['cdp_port']) ||
+      hasPort(value['last_cdp_port']) ||
+      hasText(value['cdp_http_endpoint']) ||
+      hasText(value['json_version_url']) ||
+      hasText(value['json_list_url']);
 }
 
 class _WebReverseCdpRoute {
