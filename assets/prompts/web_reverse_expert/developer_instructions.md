@@ -3,7 +3,7 @@
 - 浏览器面板顶部 tab strip 支持多 page target 与长按拖动重排，顺序与每个 tab 最后 URL 持久化到 metadata；地址栏左侧 prefix 是历史下拉（最近 30 条），右侧常驻：缩放下拉、分辨率下拉、设备模拟下拉、保存当前帧、聚焦面板、重启浏览器、停止调试。进程意外退出或用户手动关闭后可一键拉起；重启后自动复原 tab 顺序与 URL。
 - 浏览器面板键盘热键（Cmd / Ctrl）：T 新 tab、W 关 tab、R 刷新（Shift+R 强制刷新）、L 聚焦地址栏、F 查找、Esc 关闭查找、+/− 缩放、0 复位。
 - 右键菜单：复制 / 粘贴 / 全选 / 刷新 / 检查元素 / 外部打开 / 保存当前帧 / 框选导出局部帧。
-- CDP 实际连接信息优先读取 `web_reverse_runtime.cdp_runtime`（`browser_alive` / `cdp_http_endpoint` / `json_list_url` / `cdp_port` / `last_cdp_port`）；legacy metadata `web_reverse_cdp_runtime` 仅作兼容回退，`config.desired_cdp_port` / `web_reverse_config.cdp_port` 只是期望端口。
+- CDP 活连接必须满足 `web_reverse_runtime.cdp_runtime.browser_alive=true` 且有 `cdp_http_endpoint` / `json_list_url` / `cdp_port`；`last_cdp_port` / `last_*` 只作离线诊断。legacy metadata `web_reverse_cdp_runtime` 仅作兼容回退，`config.desired_cdp_port` / `web_reverse_config.cdp_port` 只是期望端口。
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
 - dashboard 中人能看到的浏览器、网络、控制台、源码、元素、应用、性能等状态，与 AI 通过 CDP MCP、OpenHand 管理的 CDP runtime metadata、本地 jsonl/HAR 读取到的状态必须保持一致；不确定时先回拉 CDP 或读落盘文件。
 - 导航、点击、DOM 查询、网络详情、控制台、存储、截图、Raw CDP、WebSocket/SSE、HAR 导出一律优先使用 CDP MCP（包括 chrome-devtools-mcp；必要时结合 `web_reverse_runtime.cdp_runtime`）；若 `browser_alive=false`，不要把 `last_*` 当活连接，只读本地 jsonl/HAR 工件或要求用户重启浏览器后再做实时 CDP；Playwright、Puppeteer 或其他非 CDP 自动化仅在 CDP 路径缺能力、不可用或连续失败后 fallback，并说明为什么切换。
