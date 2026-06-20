@@ -7,7 +7,6 @@ library;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app/support/silent_log.dart';
@@ -15,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseHeapSnapshotDialog(
@@ -44,8 +44,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     final loc = AppLocalizations.of(context);
     setState(() {
       _busy = true;
-      _status =
-          loc?.webReverseHeapTaking ?? 'Taking heap snapshot...';
+      _status = loc?.webReverseHeapTaking ?? 'Taking heap snapshot...';
     });
     ({String json, int bytes})? r;
     try {
@@ -57,8 +56,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     if (r == null || r.json.isEmpty) {
       setState(() {
         _busy = false;
-        _status =
-            loc?.webReverseHeapFailed ?? 'Snapshot failed or empty';
+        _status = loc?.webReverseHeapFailed ?? 'Snapshot failed or empty';
       });
       return;
     }
@@ -72,7 +70,8 @@ class _HeapDialogState extends State<_HeapDialog> {
       _lastSaved = file.path;
       _lastBytes = r!.bytes;
       final mb = (_lastBytes / 1024 / 1024).toStringAsFixed(2);
-      _status = loc?.webReverseHeapSaved(file.path, mb) ??
+      _status =
+          loc?.webReverseHeapSaved(file.path, mb) ??
           'Saved: ${file.path} ($mb MB)';
     });
     final m = ScaffoldMessenger.maybeOf(context);
@@ -86,19 +85,25 @@ class _HeapDialogState extends State<_HeapDialog> {
   }
 
   Future<void> _copyPath() async {
+    late final WebReverseClipboardCopyResult copied;
     try {
-      await Clipboard.setData(ClipboardData(text: _lastSaved));
+      copied = await setWebReverseClipboardText(_lastSaved);
     } catch (e, s) {
       silentLog('web-reverse', 'heap-snapshot.clipboard', e, s);
       return;
     }
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
+    final loc = AppLocalizations.of(context);
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        AppLocalizations.of(context)?.webReverseHeapPathCopied ?? 'Path copied',
+        webReverseClipboardSnackMessage(
+          isZh: loc?.localeName.startsWith('zh') ?? false,
+          base: loc?.webReverseHeapPathCopied ?? 'Path copied',
+          result: copied,
+        ),
       );
     }
   }
@@ -129,14 +134,16 @@ class _HeapDialogState extends State<_HeapDialog> {
                       children: [
                         Text(
                           'Heap Snapshot',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           loc?.webReverseHeapSubtitle ??
                               'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -166,10 +173,11 @@ class _HeapDialogState extends State<_HeapDialog> {
                     child: Text(
                       _status.isEmpty
                           ? (loc?.webReverseHeapEmptyHint ??
-                              'Click below to capture current page V8 heap snapshot.\nLarge pages may produce 50MB+ files.')
+                                'Click below to capture current page V8 heap snapshot.\nLarge pages may produce 50MB+ files.')
                           : _status,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -193,9 +201,7 @@ class _HeapDialogState extends State<_HeapDialog> {
                 ),
                 OpenHandDialogActionButton.primary(
                   label: loc?.commonClose ?? 'Close',
-                  onPressed: _busy
-                      ? null
-                      : () => Navigator.of(context).pop(),
+                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
                 ),
               ],
             ),

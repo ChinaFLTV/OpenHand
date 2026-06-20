@@ -9,13 +9,13 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -286,8 +286,9 @@ class _SmDialogState extends State<_SmDialog> {
     if (r == null) return;
     final text =
         '${r.source}:${r.line + 1}:${r.column + 1}${r.name != null ? '  (${r.name})' : ''}';
+    late final WebReverseClipboardCopyResult copied;
     try {
-      await Clipboard.setData(ClipboardData(text: text));
+      copied = await setWebReverseClipboardText(text);
     } catch (e, st) {
       silentLog('web-reverse', 'sourcemap.copy', e, st);
       return;
@@ -298,7 +299,11 @@ class _SmDialogState extends State<_SmDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        loc?.webReverseSmCopied ?? 'Copied',
+        webReverseClipboardSnackMessage(
+          isZh: loc?.localeName.startsWith('zh') ?? false,
+          base: loc?.webReverseSmCopied ?? 'Copied',
+          result: copied,
+        ),
       );
     }
   }

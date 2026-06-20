@@ -10,10 +10,7 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
 class _ElementsBody extends StatefulWidget {
-  const _ElementsBody({
-    required this.controller,
-    required this.reduceMotion,
-  });
+  const _ElementsBody({required this.controller, required this.reduceMotion});
   final WebReverseSessionController controller;
   final bool reduceMotion;
 
@@ -30,7 +27,8 @@ class _ElementsBodyState extends State<_ElementsBody> {
   final Map<int, bool> _expanded = <int, bool>{};
 
   /// nodeId -> 节点数据（含 children）。子树懒加载时填充进来。
-  final Map<int, Map<String, dynamic>> _byNodeId = <int, Map<String, dynamic>>{};
+  final Map<int, Map<String, dynamic>> _byNodeId =
+      <int, Map<String, dynamic>>{};
 
   int? _selectedNodeId;
 
@@ -58,7 +56,8 @@ class _ElementsBodyState extends State<_ElementsBody> {
       final loc = AppLocalizations.of(context);
       setState(() {
         _loading = false;
-        _loadError = loc?.webReverseElementsLoadFailed ??
+        _loadError =
+            loc?.webReverseElementsLoadFailed ??
             'Load failed: browser not running or CDP unavailable';
       });
       return;
@@ -141,16 +140,23 @@ class _ElementsBodyState extends State<_ElementsBody> {
     if (!mounted) return;
     if (s == null) {
       final loc = AppLocalizations.of(context);
-      OpenHandSnackBar.showError(context,
-          loc?.webReverseElementsSelectorFailed ?? 'Failed to build selector');
+      OpenHandSnackBar.showError(
+        context,
+        loc?.webReverseElementsSelectorFailed ?? 'Failed to build selector',
+      );
       return;
     }
-    await Clipboard.setData(ClipboardData(text: s));
+    final copied = await setWebReverseClipboardText(s);
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
+    final isZh = loc?.localeName.startsWith('zh') ?? false;
     OpenHandSnackBar.showSuccess(
       context,
-      loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
+      webReverseClipboardSnackMessage(
+        isZh: isZh,
+        base: loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
+        result: copied,
+      ),
       duration: const Duration(seconds: 1),
     );
   }
@@ -162,16 +168,23 @@ class _ElementsBodyState extends State<_ElementsBody> {
     if (!mounted) return;
     if (s == null) {
       final loc = AppLocalizations.of(context);
-      OpenHandSnackBar.showError(context,
-          loc?.webReverseElementsXPathFailed ?? 'Failed to build XPath');
+      OpenHandSnackBar.showError(
+        context,
+        loc?.webReverseElementsXPathFailed ?? 'Failed to build XPath',
+      );
       return;
     }
-    await Clipboard.setData(ClipboardData(text: s));
+    final copied = await setWebReverseClipboardText(s);
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
+    final isZh = loc?.localeName.startsWith('zh') ?? false;
     OpenHandSnackBar.showSuccess(
       context,
-      loc?.webReverseElementsXPathCopied ?? 'XPath copied',
+      webReverseClipboardSnackMessage(
+        isZh: isZh,
+        base: loc?.webReverseElementsXPathCopied ?? 'XPath copied',
+        result: copied,
+      ),
       duration: const Duration(seconds: 1),
     );
   }
@@ -199,36 +212,33 @@ class _ElementsBodyState extends State<_ElementsBody> {
           child: _loading
               ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
               : _loadError != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Text(
-                          _loadError!,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: cs.error),
-                        ),
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      _loadError!,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.error,
                       ),
-                    )
-                  : _root == null
-                      ? const SizedBox()
-                      : Row(
-                          children: [
-                            SizedBox(
-                              width: 380,
-                              child: _buildTree(theme, cs),
-                            ),
-                            const VerticalDivider(width: 1),
-                            Expanded(child: _buildDetails(theme, cs, loc)),
-                          ],
-                        ),
+                    ),
+                  ),
+                )
+              : _root == null
+              ? const SizedBox()
+              : Row(
+                  children: [
+                    SizedBox(width: 380, child: _buildTree(theme, cs)),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: _buildDetails(theme, cs, loc)),
+                  ],
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildToolbar(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildToolbar(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     final hasSel = _selectedNodeId != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
@@ -245,29 +255,30 @@ class _ElementsBodyState extends State<_ElementsBody> {
           OutlinedButton.icon(
             onPressed: hasSel ? _copySelector : null,
             icon: const Icon(Icons.link_rounded, size: 14),
-            label: Text(
-                loc?.webReverseElementsCopySelector ?? 'Copy selector'),
+            label: Text(loc?.webReverseElementsCopySelector ?? 'Copy selector'),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
             onPressed: hasSel ? _copyXPath : null,
             icon: const Icon(Icons.alt_route_rounded, size: 14),
-            label:
-                Text(loc?.webReverseElementsCopyXPath ?? 'Copy XPath'),
+            label: Text(loc?.webReverseElementsCopyXPath ?? 'Copy XPath'),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
             onPressed: hasSel ? _scrollIntoView : null,
             icon: const Icon(Icons.center_focus_strong_rounded, size: 14),
-            label: Text(loc?.webReverseElementsScrollIntoView ??
-                'Scroll into view'),
+            label: Text(
+              loc?.webReverseElementsScrollIntoView ?? 'Scroll into view',
+            ),
           ),
           const Spacer(),
           if (_selectedNodeId != null)
             Text(
               'nodeId=${_selectedNodeId!}',
               style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace', color: cs.onSurfaceVariant),
+                fontFamily: 'monospace',
+                color: cs.onSurfaceVariant,
+              ),
             ),
         ],
       ),
@@ -362,8 +373,9 @@ class _ElementsBodyState extends State<_ElementsBody> {
               child: RichText(
                 overflow: TextOverflow.ellipsis,
                 text: TextSpan(
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(fontFamily: 'monospace'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                  ),
                   children: [
                     TextSpan(
                       text: '<$tag',
@@ -392,8 +404,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
                 padding: const EdgeInsets.only(left: 4),
                 child: Text(
                   '$childCount',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant, fontSize: 10),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
                 ),
               ),
           ],
@@ -403,8 +417,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
   }
 
   // ─── 右：详情 ───────────────────────────────────────────────────────
-  Widget _buildDetails(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _buildDetails(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_selectedNodeId == null) {
       return Center(
         child: Padding(
@@ -412,8 +425,9 @@ class _ElementsBodyState extends State<_ElementsBody> {
           child: Text(
             loc?.webReverseElementsPickElement ??
                 'Pick an element from the tree',
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -426,23 +440,26 @@ class _ElementsBodyState extends State<_ElementsBody> {
             children: [
               const SizedBox(width: 10),
               _subTabBtn(
-                  theme,
-                  cs,
-                  0,
-                  loc?.webReverseElementsAttrsTab(_attrs.length) ??
-                      'Attrs (${_attrs.length})'),
+                theme,
+                cs,
+                0,
+                loc?.webReverseElementsAttrsTab(_attrs.length) ??
+                    'Attrs (${_attrs.length})',
+              ),
               _subTabBtn(
-                  theme,
-                  cs,
-                  1,
-                  loc?.webReverseElementsComputedTab(_computed.length) ??
-                      'Computed (${_computed.length})'),
+                theme,
+                cs,
+                1,
+                loc?.webReverseElementsComputedTab(_computed.length) ??
+                    'Computed (${_computed.length})',
+              ),
               _subTabBtn(
-                  theme,
-                  cs,
-                  2,
-                  loc?.webReverseElementsListenersTab(_listeners.length) ??
-                      'Listeners (${_listeners.length})'),
+                theme,
+                cs,
+                2,
+                loc?.webReverseElementsListenersTab(_listeners.length) ??
+                    'Listeners (${_listeners.length})',
+              ),
               const Spacer(),
               if (_loadingDetails)
                 const Padding(
@@ -489,15 +506,15 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _attrsView(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _attrsView(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_attrs.isEmpty) {
       return Center(
         key: const ValueKey('attrs-empty'),
         child: Text(
           loc?.webReverseElementsNoAttrs ?? 'No attributes',
-          style:
-              theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -514,10 +531,15 @@ class _ElementsBodyState extends State<_ElementsBody> {
             TextSpan(
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               children: [
-                TextSpan(text: e.key, style: TextStyle(color: cs.primary)),
+                TextSpan(
+                  text: e.key,
+                  style: TextStyle(color: cs.primary),
+                ),
                 const TextSpan(text: '="'),
                 TextSpan(
-                    text: e.value, style: TextStyle(color: cs.onSurface)),
+                  text: e.value,
+                  style: TextStyle(color: cs.onSurface),
+                ),
                 const TextSpan(text: '"'),
               ],
             ),
@@ -527,15 +549,15 @@ class _ElementsBodyState extends State<_ElementsBody> {
     );
   }
 
-  Widget _computedView(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+  Widget _computedView(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
     if (_computed.isEmpty) {
       return Center(
         key: const ValueKey('comp-empty'),
         child: Text(
           loc?.webReverseElementsNoComputed ?? 'No computed style',
-          style:
-              theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -552,11 +574,13 @@ class _ElementsBodyState extends State<_ElementsBody> {
               style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
               children: [
                 TextSpan(
-                    text: '${e['name']}: ',
-                    style: TextStyle(color: cs.primary)),
+                  text: '${e['name']}: ',
+                  style: TextStyle(color: cs.primary),
+                ),
                 TextSpan(
-                    text: '${e['value']};',
-                    style: TextStyle(color: cs.onSurface)),
+                  text: '${e['value']};',
+                  style: TextStyle(color: cs.onSurface),
+                ),
               ],
             ),
           ),
@@ -566,14 +590,18 @@ class _ElementsBodyState extends State<_ElementsBody> {
   }
 
   Widget _listenersView(
-      ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
+    ThemeData theme,
+    ColorScheme cs,
+    AppLocalizations? loc,
+  ) {
     if (_listeners.isEmpty) {
       return Center(
         key: const ValueKey('listen-empty'),
         child: Text(
           loc?.webReverseElementsNoListeners ?? 'No event listeners',
-          style:
-              theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -587,7 +615,8 @@ class _ElementsBodyState extends State<_ElementsBody> {
         final useCapture = l['useCapture'] == true;
         final passive = l['passive'] == true;
         final once = l['once'] == true;
-        final src = '${l['scriptId'] ?? ''}:'
+        final src =
+            '${l['scriptId'] ?? ''}:'
             '${l['lineNumber'] ?? 0}:${l['columnNumber'] ?? 0}';
         final handler = l['handler'];
         final desc = handler is Map ? '${handler['description'] ?? ''}' : '';
@@ -606,7 +635,9 @@ class _ElementsBodyState extends State<_ElementsBody> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -614,10 +645,11 @@ class _ElementsBodyState extends State<_ElementsBody> {
                     child: Text(
                       type,
                       style: TextStyle(
-                          color: cs.primary,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'monospace',
-                          fontSize: 12),
+                        color: cs.primary,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -628,9 +660,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
                   SelectableText(
                     src,
                     style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        color: cs.onSurfaceVariant,
-                        fontSize: 10),
+                      fontFamily: 'monospace',
+                      color: cs.onSurfaceVariant,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),
@@ -640,7 +673,9 @@ class _ElementsBodyState extends State<_ElementsBody> {
                   child: SelectableText(
                     desc,
                     style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 11),
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
                   ),
                 ),
             ],
@@ -651,22 +686,23 @@ class _ElementsBodyState extends State<_ElementsBody> {
   }
 
   Widget _flag(String text, ColorScheme cs) => Padding(
-        padding: const EdgeInsets.only(right: 4),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-            color: cs.tertiary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            text,
-            style: TextStyle(
-                color: cs.tertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.w600),
-          ),
+    padding: const EdgeInsets.only(right: 4),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: cs.tertiary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: cs.tertiary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _TreeRow {

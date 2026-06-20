@@ -9,7 +9,6 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
@@ -473,9 +472,16 @@ class _CoverageDialogState extends State<_CoverageDialog> {
           IconButton(
             tooltip: loc?.webReverseCoverageCopyUrl ?? 'Copy URL',
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: row.url));
+              final copied = await setWebReverseClipboardText(row.url);
               if (!mounted) return;
-              _toast(true, loc?.webReverseCoverageCopied ?? 'Copied');
+              _toast(
+                true,
+                webReverseClipboardSnackMessage(
+                  isZh: loc?.localeName.startsWith('zh') ?? false,
+                  base: loc?.webReverseCoverageCopied ?? 'Copied',
+                  result: copied,
+                ),
+              );
             },
             icon: const Icon(Icons.copy_rounded, size: 16),
           ),

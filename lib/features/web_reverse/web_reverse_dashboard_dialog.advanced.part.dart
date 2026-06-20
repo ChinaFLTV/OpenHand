@@ -1379,7 +1379,7 @@ Future<void> _toggleHarReplayServer(
       duration: const Duration(seconds: 6),
       action: SnackBarAction(
         label: isZh ? '复制端口' : 'Copy port',
-        onPressed: () => Clipboard.setData(ClipboardData(text: '${r.port}')),
+        onPressed: () => unawaited(setWebReverseClipboardText('${r.port}')),
       ),
     ),
   );

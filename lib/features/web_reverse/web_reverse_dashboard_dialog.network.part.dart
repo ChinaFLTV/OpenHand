@@ -203,11 +203,20 @@ class _NetworkBody extends StatelessWidget {
     return false;
   }
 
-  void _copyUrl(BuildContext context, CdpNetworkEntry e, bool isZh) {
-    Clipboard.setData(ClipboardData(text: e.url));
+  Future<void> _copyUrl(
+    BuildContext context,
+    CdpNetworkEntry e,
+    bool isZh,
+  ) async {
+    final copied = await setWebReverseClipboardText(e.url);
+    if (!context.mounted) return;
     OpenHandSnackBar.showSuccess(
       context,
-      isZh ? '已复制 URL' : 'URL copied',
+      webReverseClipboardSnackMessage(
+        isZh: isZh,
+        base: isZh ? '已复制 URL' : 'URL copied',
+        result: copied,
+      ),
       duration: const Duration(seconds: 1),
     );
   }
@@ -668,12 +677,16 @@ class _NetworkRow extends StatelessWidget {
     if (selected == null || !context.mounted) return;
     switch (selected) {
       case 'copy_url':
-        await Clipboard.setData(ClipboardData(text: entry.url));
+        final copied = await setWebReverseClipboardText(entry.url);
         if (!context.mounted) return;
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          isZh ? '已复制 URL' : 'URL copied',
+          webReverseClipboardSnackMessage(
+            isZh: isZh,
+            base: isZh ? '已复制 URL' : 'URL copied',
+            result: copied,
+          ),
           duration: const Duration(seconds: 1),
         );
       case 'copy_curl':

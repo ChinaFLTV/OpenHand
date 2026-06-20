@@ -8,7 +8,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app/support/silent_log.dart';
@@ -17,6 +16,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReversePerfTraceDialog(
@@ -160,8 +160,9 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
 
   Future<void> _copyPath() async {
     final loc = AppLocalizations.of(context);
+    late final WebReverseClipboardCopyResult copied;
     try {
-      await Clipboard.setData(ClipboardData(text: _lastSaved));
+      copied = await setWebReverseClipboardText(_lastSaved);
     } catch (e, s) {
       silentLog('web-reverse', 'perf-trace.clipboard', e, s);
       return;
@@ -172,7 +173,11 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
-        loc?.webReversePerfPathCopied ?? 'Path copied',
+        webReverseClipboardSnackMessage(
+          isZh: loc?.localeName.startsWith('zh') ?? false,
+          base: loc?.webReversePerfPathCopied ?? 'Path copied',
+          result: copied,
+        ),
       );
     }
   }

@@ -11,13 +11,13 @@ library;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import 'web_reverse_clipboard.dart';
 import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
@@ -278,18 +278,29 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                       leftWidth: leftWidth,
                                       barWidth: barWidth,
                                       onTap: () async {
-                                        await Clipboard.setData(
-                                          ClipboardData(text: e.url),
-                                        );
+                                        final copied =
+                                            await setWebReverseClipboardText(
+                                              e.url,
+                                            );
                                         if (messenger != null &&
                                             context.mounted) {
+                                          final loc = AppLocalizations.of(
+                                            context,
+                                          );
                                           OpenHandSnackBar.showSuccessOn(
                                             context,
                                             messenger,
-                                            AppLocalizations.of(
-                                                  context,
-                                                )?.webReverseWaterfallUrlCopied ??
-                                                'URL copied',
+                                            webReverseClipboardSnackMessage(
+                                              isZh:
+                                                  loc?.localeName.startsWith(
+                                                    'zh',
+                                                  ) ??
+                                                  false,
+                                              base:
+                                                  loc?.webReverseWaterfallUrlCopied ??
+                                                  'URL copied',
+                                              result: copied,
+                                            ),
                                           );
                                         }
                                       },
