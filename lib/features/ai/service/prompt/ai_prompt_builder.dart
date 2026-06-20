@@ -28,6 +28,7 @@ import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_plan_mode_guidance.dart';
 import '../runtime/ai_plan_mode_tool_gate.dart';
 import '../runtime/ai_tool_runtime_service.dart';
+import '../web_reverse_runtime_metadata.dart';
 import 'ai_output_format_prompts.dart';
 import 'ai_prompt_sections.dart';
 import 'ai_prompt_template_assembly.dart';
@@ -2214,7 +2215,13 @@ class AiPromptBuilder {
   Object? _sanitizeWebReverseCdpRuntime(Object? value) {
     if (value is! Map) return value;
     final runtime = Map<String, Object?>.from(value);
-    if (runtime['browser_alive'] != false) return runtime;
+    final browserAlive = runtime['browser_alive'];
+    if (webReverseRuntimeBoolTrue(browserAlive)) {
+      runtime['browser_alive'] = true;
+      return runtime;
+    }
+    if (!webReverseRuntimeBoolFalse(browserAlive)) return runtime;
+    runtime['browser_alive'] = false;
 
     final lastPort = runtime['last_cdp_port'] ?? runtime['cdp_port'];
     final lastTarget =
@@ -2249,27 +2256,14 @@ class AiPromptBuilder {
   }
 
   bool _isWebReverseCdpRuntimeDead(Object? value) {
-    return value is Map && value['browser_alive'] == false;
+    return value is Map && webReverseRuntimeBoolFalse(value['browser_alive']);
   }
 
   bool _isWebReverseCdpRuntimeLive(Object? value) {
-    if (value is! Map || value['browser_alive'] != true) return false;
-    return _hasWebReverseCdpLocator(value);
-  }
-
-  bool _hasWebReverseCdpLocator(Map value) {
-    bool hasText(Object? raw) => raw is String && raw.trim().isNotEmpty;
-    bool hasPort(Object? raw) {
-      if (raw is num) return raw.toInt() > 0;
-      final parsed = int.tryParse('${raw ?? ''}'.trim());
-      return parsed != null && parsed > 0;
+    if (value is! Map || !webReverseRuntimeBoolTrue(value['browser_alive'])) {
+      return false;
     }
-
-    return hasPort(value['cdp_port']) ||
-        hasPort(value['last_cdp_port']) ||
-        hasText(value['cdp_http_endpoint']) ||
-        hasText(value['json_version_url']) ||
-        hasText(value['json_list_url']);
+    return webReverseCdpRuntimeHasLocator(value);
   }
 
   void _disambiguateWebReverseConfigPort(
@@ -2277,7 +2271,7 @@ class AiPromptBuilder {
     Object? cdpRuntime,
   ) {
     if (!config.containsKey('cdp_port')) return;
-    if (cdpRuntime is! Map || !_hasWebReverseCdpLocator(cdpRuntime)) {
+    if (cdpRuntime is! Map || !webReverseCdpRuntimeHasLocator(cdpRuntime)) {
       return;
     }
     config['desired_cdp_port'] = config.remove('cdp_port');

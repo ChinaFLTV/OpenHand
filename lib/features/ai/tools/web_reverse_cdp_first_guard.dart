@@ -1,4 +1,5 @@
 import '../../../app/support/url_validation.dart';
+import '../service/web_reverse_runtime_metadata.dart';
 
 class WebReverseCdpFirstDecision {
   const WebReverseCdpFirstDecision({
@@ -219,8 +220,8 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
   final config = _stringObjectMap(metadata['web_reverse_config']);
   final cdpRuntime = _stringObjectMap(metadata['web_reverse_cdp_runtime']);
   if (config == null || cdpRuntime == null) return null;
-  if (!_boolValue(cdpRuntime['browser_alive']) ||
-      !_hasWebReverseCdpLocator(cdpRuntime)) {
+  if (!webReverseRuntimeBoolTrue(cdpRuntime['browser_alive']) ||
+      !webReverseCdpRuntimeHasLocator(cdpRuntime)) {
     return null;
   }
 
@@ -250,13 +251,14 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
 _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
   final availability = _stringObjectMap(runtime['cdp_mcp_tool_availability']);
   final cdpRuntime = _stringObjectMap(runtime['cdp_runtime']);
-  if (cdpRuntime != null && _explicitFalse(cdpRuntime['browser_alive'])) {
+  if (cdpRuntime != null &&
+      webReverseRuntimeBoolFalse(cdpRuntime['browser_alive'])) {
     return null;
   }
 
   final runtimeLive =
       _boolValue(availability?['browser_runtime_live']) ||
-      _boolValue(cdpRuntime?['browser_alive']);
+      webReverseRuntimeBoolTrue(cdpRuntime?['browser_alive']);
   if (!runtimeLive) return null;
 
   final currentToolNames = _stringList(
@@ -392,30 +394,9 @@ bool _boolValue(Object? raw) {
   return normalized == 'true' || normalized == '1' || normalized == 'yes';
 }
 
-bool _explicitFalse(Object? raw) {
-  if (raw is bool) return !raw;
-  final normalized = '${raw ?? ''}'.trim().toLowerCase();
-  return normalized == 'false' || normalized == '0' || normalized == 'no';
-}
-
 int _intValue(Object? raw) {
   if (raw is num) return raw.toInt();
   return int.tryParse('${raw ?? ''}'.trim()) ?? 0;
-}
-
-bool _hasWebReverseCdpLocator(Map<String, Object?> value) {
-  bool hasText(Object? raw) => raw is String && raw.trim().isNotEmpty;
-  bool hasPort(Object? raw) {
-    if (raw is num) return raw.toInt() > 0;
-    final parsed = int.tryParse('${raw ?? ''}'.trim());
-    return parsed != null && parsed > 0;
-  }
-
-  return hasPort(value['cdp_port']) ||
-      hasPort(value['last_cdp_port']) ||
-      hasText(value['cdp_http_endpoint']) ||
-      hasText(value['json_version_url']) ||
-      hasText(value['json_list_url']);
 }
 
 class _WebReverseCdpRoute {
