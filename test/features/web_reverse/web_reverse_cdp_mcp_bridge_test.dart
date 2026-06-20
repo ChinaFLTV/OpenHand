@@ -6,7 +6,7 @@ void main() {
   group('WebReverseCdpMcpBridge', () {
     test('cached preparing snapshot is stable before discovery starts', () {
       final bridge = WebReverseCdpMcpBridge(
-        discoveryService: _FakeDiscoveryService(),
+        discoveryService: _FakeDiscoveryService(throwOnDiscover: true),
       );
       final controller = _FakeWebReverseSessionController(
         browserAlive: true,
@@ -38,6 +38,50 @@ void main() {
       bridge.dispose();
       controller.dispose();
     });
+
+    test('drops cached catalog when live controller loses CDP port', () async {
+      final discoveryService = _FakeDiscoveryService();
+      final bridge = WebReverseCdpMcpBridge(discoveryService: discoveryService);
+      final controller = _FakeWebReverseSessionController(
+        browserAlive: true,
+        port: 9223,
+      );
+
+      final first = await bridge.buildSnapshot(
+        sessionId: 'session-1',
+        sessionTemplateId: WebReverseCdpMcpBridge.templateId,
+        controller: controller,
+        existingServers: const <McpServer>[],
+      );
+      expect(first.diagnostic.status, WebReverseCdpMcpBridgeStatus.ready);
+      expect(discoveryService.discoverCount, 1);
+
+      controller.port = null;
+      final unavailable = await bridge.buildSnapshot(
+        sessionId: 'session-1',
+        sessionTemplateId: WebReverseCdpMcpBridge.templateId,
+        controller: controller,
+        existingServers: const <McpServer>[],
+      );
+      expect(unavailable.servers, isEmpty);
+      expect(
+        unavailable.diagnostic.status,
+        WebReverseCdpMcpBridgeStatus.unavailable,
+      );
+
+      controller.port = 9223;
+      final rebuilt = await bridge.buildSnapshot(
+        sessionId: 'session-1',
+        sessionTemplateId: WebReverseCdpMcpBridge.templateId,
+        controller: controller,
+        existingServers: const <McpServer>[],
+      );
+      expect(rebuilt.diagnostic.status, WebReverseCdpMcpBridgeStatus.ready);
+      expect(discoveryService.discoverCount, 2);
+
+      bridge.dispose();
+      controller.dispose();
+    });
   });
 }
 
@@ -58,7 +102,7 @@ class _FakeWebReverseSessionController extends WebReverseSessionController {
        );
 
   final bool browserAlive;
-  final int? port;
+  int? port;
 
   @override
   bool get isBrowserAlive => browserAlive;
@@ -68,9 +112,30 @@ class _FakeWebReverseSessionController extends WebReverseSessionController {
 }
 
 class _FakeDiscoveryService implements McpToolDiscoveryService {
+  _FakeDiscoveryService({this.throwOnDiscover = false});
+
+  static const McpToolCatalog _readyCatalog = McpToolCatalog(
+    status: McpToolCatalogStatus.ready,
+    tools: <McpTool>[
+      McpTool(
+        id: 'navigate_page',
+        name: 'navigate_page',
+        description: 'Navigate the live browser through CDP.',
+        inputSchema: <String, Object?>{},
+      ),
+    ],
+  );
+
+  final bool throwOnDiscover;
+  int discoverCount = 0;
+
   @override
-  Future<McpToolCatalog> discoverTools(McpServer server) {
-    throw StateError('cachedSnapshot must not start discovery');
+  Future<McpToolCatalog> discoverTools(McpServer server) async {
+    discoverCount++;
+    if (throwOnDiscover) {
+      throw StateError('cachedSnapshot must not start discovery');
+    }
+    return _readyCatalog;
   }
 
   @override

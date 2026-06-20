@@ -244,6 +244,9 @@ class WebReverseCdpMcpBridge {
     }
     final port = controller.cdpPort;
     if (port == null || port <= 0) {
+      if (syncLifecycle) {
+        stopSession(sessionId);
+      }
       return null;
     }
     final serverName = _serverName(
