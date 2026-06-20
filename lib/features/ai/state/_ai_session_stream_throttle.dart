@@ -232,9 +232,7 @@ class _StreamCharThrottle {
     if (next == false && !_disposed) {
       try {
         _onTick();
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
     }
   }
 
@@ -342,9 +340,7 @@ class _StreamCharThrottle {
       // 轮显示。
       try {
         _onTick();
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
       if (_emittedGraphemes < _lastKnownTotalGraphemes) {
         _scheduleDrain();
       }
@@ -426,15 +422,11 @@ class _StreamCardThrottle {
       for (final cb in pending) {
         try {
           cb();
-        } catch (_) {
-          // ignore
-        }
+        } catch (_) {}
       }
       try {
         _onCardEmitted();
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
     }
   }
 
@@ -510,9 +502,7 @@ class _StreamCardThrottle {
     if (emitted > 0) {
       try {
         _onCardEmitted();
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
     }
     if (_pending.isNotEmpty) {
       _scheduleDrain();
@@ -533,15 +523,11 @@ class _StreamCardThrottle {
     for (final cb in pending) {
       try {
         cb();
-      } catch (_) {
-        // ignore
-      }
+      } catch (_) {}
     }
     try {
       _onCardEmitted();
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
   }
 
   void cancelPending() {

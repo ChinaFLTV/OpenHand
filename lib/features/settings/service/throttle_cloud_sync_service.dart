@@ -29,11 +29,11 @@ enum ThrottleCloudSyncProvider {
   gistGitHub;
 
   String get storageValue => switch (this) {
-        ThrottleCloudSyncProvider.custom => 'custom',
-        ThrottleCloudSyncProvider.iCloud => 'icloud',
-        ThrottleCloudSyncProvider.oauth => 'oauth',
-        ThrottleCloudSyncProvider.gistGitHub => 'gist_github',
-      };
+    ThrottleCloudSyncProvider.custom => 'custom',
+    ThrottleCloudSyncProvider.iCloud => 'icloud',
+    ThrottleCloudSyncProvider.oauth => 'oauth',
+    ThrottleCloudSyncProvider.gistGitHub => 'gist_github',
+  };
 
   static ThrottleCloudSyncProvider fromStorage(String value) {
     switch (value.trim().toLowerCase()) {
@@ -140,7 +140,9 @@ class ThrottleCloudSyncService {
   }
 
   /// 与 macOS / iOS native 端 CloudSyncBridge 共用的 method channel。
-  static const MethodChannel _icloudChannel = MethodChannel('openhand/cloud_sync');
+  static const MethodChannel _icloudChannel = MethodChannel(
+    'openhand/cloud_sync',
+  );
 
   /// 所有云端 HTTP 请求的统一超时阈值。15s 兼顾跨国 Gist / S3 链路上
   /// 偶发的 TCP RTT 抖动，又能在用户网络明显异常时尽快回到 UI 兜底
@@ -183,9 +185,7 @@ class ThrottleCloudSyncService {
     }
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' && uri.scheme != 'http') {
-      return ThrottleCloudSyncResult.failure(
-        'endpoint must be http(s) URL',
-      );
+      return ThrottleCloudSyncResult.failure('endpoint must be http(s) URL');
     }
     final ownsClient = _client == null;
     final client = _client ?? http.Client();
@@ -252,9 +252,7 @@ class ThrottleCloudSyncService {
     }
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' && uri.scheme != 'http') {
-      return ThrottleCloudSyncResult.failure(
-        'endpoint must be http(s) URL',
-      );
+      return ThrottleCloudSyncResult.failure('endpoint must be http(s) URL');
     }
     final ownsClient = _client == null;
     final client = _client ?? http.Client();
@@ -289,9 +287,7 @@ class ThrottleCloudSyncService {
         updatedAtMs = _readUpdatedAtMs(decoded, cfg);
       }
       if (cfg == null) {
-        return ThrottleCloudSyncResult.failure(
-          'response is not a JSON object',
-        );
+        return ThrottleCloudSyncResult.failure('response is not a JSON object');
       }
       // 跨版本兼容：远端可能仍是 v1 文档（无 duration_seconds），
       // 在这里统一升级到当前 schema 再上抛。
@@ -450,22 +446,19 @@ class ThrottleCloudSyncService {
     final ownsClient = _client == null;
     final client = _client ?? http.Client();
     try {
-      final fileContent = const JsonEncoder.withIndent('  ').convert(
-        <String, Object?>{
-          'kind': 'openhand.throttle_config',
-          'version': aiStreamThrottleConfigSchemaVersion,
-          'config': config,
-          'updated_at_ms': updatedAtMs,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        },
-      );
+      final fileContent = const JsonEncoder.withIndent('  ')
+          .convert(<String, Object?>{
+            'kind': 'openhand.throttle_config',
+            'version': aiStreamThrottleConfigSchemaVersion,
+            'config': config,
+            'updated_at_ms': updatedAtMs,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          });
       final body = jsonEncode(<String, Object?>{
         'description': 'OpenHand throttle config (auto-synced)',
         'public': false,
         'files': <String, Object?>{
-          'openhand_throttle.json': <String, Object?>{
-            'content': fileContent,
-          },
+          'openhand_throttle.json': <String, Object?>{'content': fileContent},
         },
       });
       final headers = <String, String>{
@@ -506,7 +499,7 @@ class ThrottleCloudSyncService {
           if (decoded is Map && decoded['id'] is String) {
             createdId = decoded['id'] as String;
           }
-        } catch (_) {/* ignore */}
+        } catch (_) {}
       }
       return ThrottleCloudSyncResult.success(
         message: id.isEmpty

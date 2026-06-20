@@ -31,10 +31,8 @@ class OpenHandGlobalSnackBarHost extends StatefulWidget {
     state._enqueue(snackBar);
   }
 
-  static void hideCurrent({
-    SnackBarClosedReason reason = SnackBarClosedReason.hide,
-  }) {
-    _state?._dismissCurrent(reason: reason);
+  static void hideCurrent() {
+    _state?._dismissCurrent();
   }
 
   static void _enqueueBounded(Queue<SnackBar> queue, SnackBar snackBar) {
@@ -138,18 +136,13 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     _dismissTimer?.cancel();
     final duration = OpenHandSnackBar._boundedDuration(current.duration);
     if (duration <= Duration.zero) {
-      _dismissCurrent(reason: SnackBarClosedReason.timeout);
+      _dismissCurrent();
       return;
     }
-    _dismissTimer = startSafeTimer(
-      duration,
-      () => _dismissCurrent(reason: SnackBarClosedReason.timeout),
-    );
+    _dismissTimer = startSafeTimer(duration, _dismissCurrent);
   }
 
-  void _dismissCurrent({
-    SnackBarClosedReason reason = SnackBarClosedReason.hide,
-  }) {
+  void _dismissCurrent() {
     final current = _currentSnackBar;
     if (current == null || _isDismissing) return;
     _dismissTimer?.cancel();
@@ -238,7 +231,7 @@ class OpenHandSnackBar {
   static void hideGlobal({
     SnackBarClosedReason reason = SnackBarClosedReason.hide,
   }) {
-    OpenHandGlobalSnackBarHost.hideCurrent(reason: reason);
+    OpenHandGlobalSnackBarHost.hideCurrent();
   }
 
   static void hideCurrentOn(
@@ -246,7 +239,7 @@ class OpenHandSnackBar {
     SnackBarClosedReason reason = SnackBarClosedReason.hide,
   }) {
     if (identical(messenger, rootMessengerKey.currentState)) {
-      OpenHandGlobalSnackBarHost.hideCurrent(reason: reason);
+      OpenHandGlobalSnackBarHost.hideCurrent();
       return;
     }
     messenger.hideCurrentSnackBar(reason: reason);
@@ -587,7 +580,7 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
   final SnackBar snackBar;
   final Animation<double> animation;
   final DialogAnimationSettings settings;
-  final void Function({SnackBarClosedReason reason}) onDismiss;
+  final VoidCallback onDismiss;
   final VoidCallback onRemove;
 
   @override
@@ -606,9 +599,6 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
         snackBar.shape ??
         snackBarTheme.shape ??
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
-    // 2026-06-07 修复：深色主题下 snackbar 背景色与全局主题不一致。
-    // 优先使用 snackBarTheme（已在 openhand_theme.dart 中根据亮/暗主题
-    // 配置了不同的背景色），确保深色主题下呈现深色调而非浅灰色。
     final isDark = theme.brightness == Brightness.dark;
     final backgroundColor =
         snackBar.backgroundColor ??
@@ -640,9 +630,9 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
             ? null
             : () {
                 snackBar.action!.onPressed();
-                onDismiss(reason: SnackBarClosedReason.action);
+                onDismiss();
               },
-        onDismiss: () => onDismiss(reason: SnackBarClosedReason.dismiss),
+        onDismiss: onDismiss,
       ),
     );
 
@@ -662,7 +652,7 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
     child = Semantics(
       container: true,
       liveRegion: true,
-      onDismiss: () => onDismiss(reason: SnackBarClosedReason.dismiss),
+      onDismiss: onDismiss,
       child: Dismissible(
         key: ObjectKey(snackBar),
         direction:

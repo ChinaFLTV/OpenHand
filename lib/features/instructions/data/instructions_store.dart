@@ -130,9 +130,7 @@ class InstructionsStore {
       if (decoded is List) {
         return decoded.map((e) => '$e').toList(growable: false);
       }
-    } catch (_) {
-      // ignore.
-    }
+    } catch (_) {}
     return const <String>[];
   }
 }

@@ -353,9 +353,7 @@ class HooksExecutor {
       } catch (_) {
         try {
           await process.stdin.close();
-        } catch (_) {
-          // ignore
-        }
+        } catch (_) {}
       }
 
       try {
@@ -433,9 +431,7 @@ class HooksExecutor {
           if (await contextFile.exists()) {
             await contextFile.delete();
           }
-        } catch (_) {
-          // ignore
-        }
+        } catch (_) {}
       }
     }
   }

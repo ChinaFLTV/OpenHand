@@ -111,8 +111,6 @@ export function subscribeSessionEvents(
   return () => {
     try {
       es.close();
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 }

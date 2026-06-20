@@ -92,7 +92,7 @@ export async function notifyIfHidden(opts: {
       tag,
     });
     n.onclick = () => {
-      try { window.focus(); } catch { /* noop */ }
+      try { window.focus(); } catch {}
       if (opts.sessionId) {
         location.href = `/threads/${opts.sessionId}`;
       }

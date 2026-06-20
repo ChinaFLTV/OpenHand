@@ -366,11 +366,11 @@ export function openHtmlInNewTab(html: string): void {
     }
     showSnackbar('已在新标签页打开预览', { tone: 'success' });
     setTimeout(() => {
-      try { URL.revokeObjectURL(url); } catch { /* noop */ }
+      try { URL.revokeObjectURL(url); } catch {}
     }, 60_000);
   } catch (_e) {
     if (url) {
-      try { URL.revokeObjectURL(url); } catch { /* noop */ }
+      try { URL.revokeObjectURL(url); } catch {}
     }
     showSnackbar('打开浏览器预览失败', { tone: 'error' });
   }
@@ -430,7 +430,7 @@ function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
     let cancelled = false;
     loadDomPurify().then((p) => {
       if (!cancelled) setPurify(() => p);
-    }).catch(() => {/* 失败时降级为纯文本 */});
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [purify]);
   const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
@@ -903,12 +903,12 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     if (remarkMathPlugin == null) {
       loadRemarkMath().then((plugin) => {
         if (!cancelled) setRemarkMathPlugin(() => plugin);
-      }).catch(() => {/* 失败时保留原文 */});
+      }).catch(() => {});
     }
     if (rehypeKatexPlugin == null) {
       loadRehypeKatex().then((plugin) => {
         if (!cancelled) setRehypeKatexPlugin(() => plugin);
-      }).catch(() => {/* 失败时保留原文 */});
+      }).catch(() => {});
     }
     return () => { cancelled = true; };
   }, [hasMath, remarkMathPlugin, rehypeKatexPlugin]);
