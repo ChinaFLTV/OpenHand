@@ -104,6 +104,8 @@ class WebReverseCdpMcpBridge {
   static const Duration defaultCatalogTimeout = Duration(minutes: 7);
   static const Duration defaultCatalogCacheTtl = Duration(minutes: 5);
   static const Duration defaultFailedCatalogRetryTtl = Duration(seconds: 30);
+  static const String _preparingCatalogWarning =
+      'OpenHand is preparing the transient CDP MCP catalog for this Web Reverse session.';
 
   final McpToolDiscoveryService _discoveryService;
   final Duration catalogTimeout;
@@ -178,11 +180,9 @@ class WebReverseCdpMcpBridge {
     final cacheKey = _catalogCacheKey(sessionId, server);
     final catalog =
         _catalogCache[cacheKey]?.catalog ??
-        McpToolCatalog(
+        const McpToolCatalog(
           status: McpToolCatalogStatus.loading,
-          warningMessage:
-              'OpenHand is preparing the transient CDP MCP catalog for this Web Reverse session.',
-          lastScannedAt: DateTime.now().toUtc(),
+          warningMessage: _preparingCatalogWarning,
         );
     return WebReverseTransientMcpSnapshot(
       servers: <McpServer>[server],
