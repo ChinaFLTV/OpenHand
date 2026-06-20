@@ -344,9 +344,22 @@ const String _siriHelperSystemInstructions = _fallbackNotice;
 const String _siriHelperDeveloperInstructions = _fallbackNotice;
 const String _siriHelperCompressionSummaryInstructions = _fallbackNotice;
 
-const String _webReverseSystemInstructions = _fallbackNotice;
-const String _webReverseDeveloperInstructions = _fallbackNotice;
-const String _webReverseCompressionSummaryInstructions = _fallbackNotice;
+const String _webReverseFallbackNotice =
+    '''
+$_fallbackNotice
+
+# Web Reverse fallback minimum
+
+- Treat CDP as the source of truth for browser state, network, console, DOM, storage, screenshots, WebSocket/SSE, and HAR work.
+- Use exact CDP / Chrome DevTools MCP tool names from the runtime catalog. If absent, ask the user to recover prompt assets or refresh the CDP MCP catalog.
+- When `web_reverse_runtime.cdp_runtime.browser_alive` is true, do not launch another browser and do not use Bash/WebFetch for target-origin HTTP(S) capture.
+- If live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restart the Web Reverse browser.
+''';
+
+const String _webReverseSystemInstructions = _webReverseFallbackNotice;
+const String _webReverseDeveloperInstructions = _webReverseFallbackNotice;
+const String _webReverseCompressionSummaryInstructions =
+    _webReverseFallbackNotice;
 
 class _TemplatePromptFallback {
   const _TemplatePromptFallback({
