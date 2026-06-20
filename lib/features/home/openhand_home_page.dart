@@ -730,9 +730,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
     _webReverseCdpMcpBridge.dispose();
-    for (final ctrl in _webReverseControllers.values) {
-      unawaited(ctrl.stop());
-      ctrl.dispose();
+    for (final entry in _webReverseControllers.entries) {
+      _disposeWebReverseControllerAfterStop(entry.key, entry.value);
     }
     _webReverseControllers.clear();
     _webReverseRuntimeMetadataDebouncer.cancel();
@@ -3053,6 +3052,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     setState(() {});
     _scheduleWebReverseRuntimeMetadataSync();
+  }
+
+  void _disposeWebReverseControllerAfterStop(
+    String sessionId,
+    WebReverseSessionController controller,
+  ) {
+    controller.removeListener(_onWebReverseControllerChanged);
+    unawaited(
+      (() async {
+        try {
+          await controller.stop();
+        } catch (error, stack) {
+          silentLog(
+            'openhand_home_page',
+            'dispose web reverse controller $sessionId',
+            error,
+            stack,
+          );
+        } finally {
+          controller.dispose();
+        }
+      })(),
+    );
   }
 
   void _scheduleWebReverseRuntimeMetadataSync() {
@@ -6149,9 +6171,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _webReverseRuntimeMetadataSignatures.remove(session.id);
         _webReverseCdpMcpBridge.stopSession(session.id);
         if (wr != null) {
-          wr.removeListener(_onWebReverseControllerChanged);
-          unawaited(wr.stop());
-          wr.dispose();
+          _disposeWebReverseControllerAfterStop(session.id, wr);
         }
       }
       return;
