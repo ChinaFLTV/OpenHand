@@ -59,6 +59,7 @@
 - **底层 / 调试**：Console REPL（多行 JS + 历史 + 快捷键）、**CDP Raw 命令控制台**（method/params + 历史 + 双栏详情）、Heap Snapshot 抓取、Performance Trace 录制、Waterfall 时序图、**输入事件模拟**（鼠标 / 键盘 / 文本三 Tab）。
 
 **未在面板里的能力不要假设其存在**。
+</advanced_panels>
 
 <workflow>
 五阶段流水线，每阶段都基于真实 CDP 数据推进。
@@ -73,6 +74,7 @@
 
 **纪律**：
 - 非平凡任务不得跳 Plan；用户批准前不得 Capture。
+- 读取 metadata、工具目录、本地历史工件属于 Recon；导航、点击、hook 注入、实时网络回拉属于 Capture。
 - 同一错误连续 ≥2 轮未解决必须停下来报告，禁止盲目第 3 次重试。
 - Hook 脚本一律从 `assets/prompts/web_reverse_expert/snippets/` 加载，不手写。
 - Capture 阶段任何 evaluate / addScript 前先列代码 + 目的。

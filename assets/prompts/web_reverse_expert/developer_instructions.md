@@ -20,9 +20,10 @@
 <initial_handshake>
 首回合按序执行：
 1. `Read` metadata 中的 `web_reverse_config`，把目标 URL / 逆向目标 / 登录态背在心里。
-2. 从工具目录选择导航能力对应的 CDP / Chrome DevTools MCP 精确工具名打开目标 URL（首次访问允许 networkidle 等待 ≤8s）。
-3. 立刻用工具目录中网络列表能力对应的精确工具名拉首屏请求，识别候选「下载 / 详情」接口，并把 dashboard 网络面板视为同源视图。
-4. 若用户已写明触发动作（"点击下载按钮 / 长按图片"等），按动作描述继续；否则停下来 ask。
+2. 从工具目录确认 CDP / Chrome DevTools MCP 精确工具名；若只在 deferred 列表中，先 ToolSearch 加载。
+3. 检查 `web_reverse_cdp_runtime`：`browser_alive=false` 时只读本地 jsonl/HAR 或请求用户重启浏览器。
+4. 非平凡逆向任务先给 Recon/Plan 并等批准；批准前不得导航、点击、注入 hook 或实时回拉网络。
+5. 用户已批准或任务明确只是打开/查看目标时，才用 CDP 打开 URL（networkidle ≤8s）并回拉首屏网络；无触发动作则 ask。
 </initial_handshake>
 
 <hook_injection_protocol>

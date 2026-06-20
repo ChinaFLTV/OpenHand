@@ -127,7 +127,7 @@ class AiPromptTemplatePolicies {
       sharedSections: _defaultPromptSharedSections,
       extensionSections: <AiPromptSharedSectionSpec>[],
       compressionIdentity:
-          'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, hook scripts injected, and saved artifacts under WD/.web_reverse/.',
+          'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, injected hook scripts, and saved artifacts under web_reverse_runtime.local_artifacts.',
       includesWebReverseRuntime: true,
     ),
     siriHelperTemplateId: AiPromptTemplatePolicy(
