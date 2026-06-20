@@ -140,29 +140,6 @@ class TranscriptScrollActivity extends ValueNotifier<bool> {
   }
 }
 
-class _WebReverseTransientMcpSnapshot {
-  const _WebReverseTransientMcpSnapshot({
-    required this.servers,
-    required this.catalogsByServerName,
-  });
-
-  static const empty = _WebReverseTransientMcpSnapshot(
-    servers: <McpServer>[],
-    catalogsByServerName: <String, McpToolCatalog>{},
-  );
-
-  final List<McpServer> servers;
-  final Map<String, McpToolCatalog> catalogsByServerName;
-}
-
-class _WebReverseCdpMcpCatalogCacheEntry {
-  _WebReverseCdpMcpCatalogCacheEntry({required this.createdAt});
-
-  final DateTime createdAt;
-  late final Future<McpToolCatalog> future;
-  McpToolCatalog? catalog;
-}
-
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
 
@@ -196,8 +173,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final AiTranslationService _translationService = AiTranslationService();
-  final McpToolDiscoveryService _webReverseCdpMcpDiscoveryService =
-      DefaultMcpToolDiscoveryService();
+  final WebReverseCdpMcpBridge _webReverseCdpMcpBridge =
+      WebReverseCdpMcpBridge();
 
   AppSection _selectedSection = AppSection.workspace;
   _CreationMode _creationMode = _CreationMode.none;
@@ -326,13 +303,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       <String, WebReverseSessionController>{};
   final Map<String, String> _webReverseRuntimeMetadataSignatures =
       <String, String>{};
-  final Map<String, String> _webReverseCdpMcpServerNamesBySessionId =
-      <String, String>{};
-  final Map<String, String> _webReverseCdpMcpServerSignaturesBySessionId =
-      <String, String>{};
-  final Map<String, _WebReverseCdpMcpCatalogCacheEntry>
-  _webReverseCdpMcpCatalogCache =
-      <String, _WebReverseCdpMcpCatalogCacheEntry>{};
   late final OpenHandDebouncer _webReverseRuntimeMetadataDebouncer =
       OpenHandDebouncer(delay: _webReverseRuntimeMetadataDebounce);
 
@@ -758,9 +728,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
-    for (final sessionId in _webReverseControllers.keys.toList()) {
-      _stopWebReverseTransientCdpMcp(sessionId);
-    }
+    _webReverseCdpMcpBridge.dispose();
     for (final ctrl in _webReverseControllers.values) {
       unawaited(ctrl.stop());
       ctrl.dispose();
@@ -768,7 +736,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _webReverseControllers.clear();
     _webReverseRuntimeMetadataDebouncer.cancel();
     _webReverseRuntimeMetadataSignatures.clear();
-    _webReverseCdpMcpDiscoveryService.dispose();
     _hardnessSessionSaveDebouncer.cancel();
     _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
@@ -3037,7 +3004,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
       _webReverseRuntimeMetadataSignatures.remove(session.id);
-      _stopWebReverseTransientCdpMcp(session.id);
+      _webReverseCdpMcpBridge.stopSession(session.id);
       // 必须先 await stop() 才能 dispose；旧顺序会触发
       // dispose 后 notifyListeners 断言。
       try {
@@ -3065,7 +3032,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) return;
     for (final entry in _webReverseControllers.entries) {
       if (!entry.value.isBrowserAlive) {
-        _stopWebReverseTransientCdpMcp(entry.key);
+        _webReverseCdpMcpBridge.stopSession(entry.key);
       }
     }
     setState(() {});
@@ -3304,7 +3271,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
       _webReverseRuntimeMetadataSignatures.remove(session.id);
-      _stopWebReverseTransientCdpMcp(session.id);
+      _webReverseCdpMcpBridge.stopSession(session.id);
       // 必须先 await stop()，stop 内部的收尾 I/O 才能在 dispose 之前完成；
       // 旧实现 unawaited(stop) + dispose() 会触发 dispose 后的 notifyListeners。
       try {
@@ -3728,196 +3695,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return MediaQuery.platformBrightnessOf(context);
   }
 
-  static const Duration _webReverseCdpMcpCatalogTimeout = Duration(seconds: 90);
-  static const Duration _webReverseCdpMcpCatalogCacheTtl = Duration(minutes: 5);
-  static const String _webReverseCdpMcpPackage = 'chrome-devtools-mcp@latest';
-
-  Future<_WebReverseTransientMcpSnapshot>
-  _buildWebReverseTransientCdpMcpSnapshot({
-    required AiSession? session,
-    required Iterable<McpServer> existingServers,
-  }) async {
-    final server = _webReverseTransientCdpMcpServerFor(
-      session: session,
-      existingServers: existingServers,
-    );
-    if (server == null || session == null) {
-      return _WebReverseTransientMcpSnapshot.empty;
-    }
-    final cacheKey = _webReverseCdpMcpCatalogCacheKey(session.id, server);
-    final catalog = await _discoverWebReverseCdpMcpCatalog(
-      server: server,
-      cacheKey: cacheKey,
-    );
-    return _WebReverseTransientMcpSnapshot(
-      servers: <McpServer>[server],
-      catalogsByServerName: <String, McpToolCatalog>{server.name: catalog},
-    );
-  }
-
-  _WebReverseTransientMcpSnapshot _cachedWebReverseTransientCdpMcpSnapshot({
-    required AiSession? session,
-    required Iterable<McpServer> existingServers,
-  }) {
-    final server = _webReverseTransientCdpMcpServerFor(
-      session: session,
-      existingServers: existingServers,
-    );
-    if (server == null || session == null) {
-      return _WebReverseTransientMcpSnapshot.empty;
-    }
-    final cacheKey = _webReverseCdpMcpCatalogCacheKey(session.id, server);
-    final catalog =
-        _webReverseCdpMcpCatalogCache[cacheKey]?.catalog ??
-        McpToolCatalog(
-          status: McpToolCatalogStatus.loading,
-          warningMessage:
-              'OpenHand is preparing the transient CDP MCP catalog for this Web Reverse session.',
-          lastScannedAt: DateTime.now().toUtc(),
-        );
-    return _WebReverseTransientMcpSnapshot(
-      servers: <McpServer>[server],
-      catalogsByServerName: <String, McpToolCatalog>{server.name: catalog},
-    );
-  }
-
-  McpServer? _webReverseTransientCdpMcpServerFor({
-    required AiSession? session,
-    required Iterable<McpServer> existingServers,
-  }) {
-    if (session == null || session.templateId != 'web_reverse_expert') {
-      return null;
-    }
-    final controller = _webReverseControllers[session.id];
-    if (controller == null || !controller.isBrowserAlive) {
-      return null;
-    }
-    final port = controller.cdpPort;
-    if (port == null || port <= 0) {
-      return null;
-    }
-    final serverName = _webReverseCdpMcpServerName(session.id, existingServers);
-    final server = McpServer(
-      name: serverName,
-      type: McpServerType.stdio,
-      enabled: true,
-      probeEnabled: false,
-      command: 'npx',
-      args: <String>[
-        '--yes',
-        _webReverseCdpMcpPackage,
-        '--browser-url=http://127.0.0.1:$port',
-      ],
-    );
-    final signature = server.summary;
-    final previousSignature =
-        _webReverseCdpMcpServerSignaturesBySessionId[session.id];
-    if (previousSignature != null && previousSignature != signature) {
-      _webReverseCdpMcpCatalogCache.removeWhere(
-        (key, _) => key.startsWith('${session.id}|'),
-      );
-      unawaited(McpStdioProcessManager.instance.stopServer(serverName));
-    }
-    _webReverseCdpMcpServerSignaturesBySessionId[session.id] = signature;
-    return server;
-  }
-
-  String _webReverseCdpMcpServerName(
-    String sessionId,
-    Iterable<McpServer> existingServers,
-  ) {
-    final existing = _webReverseCdpMcpServerNamesBySessionId[sessionId];
-    if (existing != null && existing.isNotEmpty) {
-      return existing;
-    }
-    final shortId = sessionId.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '');
-    final shortToken = shortId.length <= 8 ? shortId : shortId.substring(0, 8);
-    final base = 'web_reverse_cdp_$shortToken';
-    final existingNames = existingServers.map((server) => server.name).toSet();
-    var candidate = base;
-    var suffix = 2;
-    while (existingNames.contains(candidate)) {
-      candidate = '${base}_$suffix';
-      suffix++;
-    }
-    _webReverseCdpMcpServerNamesBySessionId[sessionId] = candidate;
-    return candidate;
-  }
-
-  String _webReverseCdpMcpCatalogCacheKey(String sessionId, McpServer server) =>
-      '$sessionId|${server.name}|${server.summary}';
-
-  Future<McpToolCatalog> _discoverWebReverseCdpMcpCatalog({
-    required McpServer server,
-    required String cacheKey,
-  }) {
-    final now = DateTime.now().toUtc();
-    _pruneWebReverseCdpMcpCatalogCache(now);
-    final cached = _webReverseCdpMcpCatalogCache[cacheKey];
-    if (cached != null &&
-        now.difference(cached.createdAt) < _webReverseCdpMcpCatalogCacheTtl) {
-      return cached.future;
-    }
-
-    final entry = _WebReverseCdpMcpCatalogCacheEntry(createdAt: now);
-    entry.future = _webReverseCdpMcpDiscoveryService
-        .discoverTools(server)
-        .timeout(
-          _webReverseCdpMcpCatalogTimeout,
-          onTimeout: () => McpToolCatalog(
-            status: McpToolCatalogStatus.failed,
-            errorMessage:
-                'OpenHand auto CDP MCP discovery timed out after '
-                '${_webReverseCdpMcpCatalogTimeout.inSeconds}s. Install or refresh '
-                'chrome-devtools-mcp, then retry the Web Reverse turn.',
-            lastScannedAt: DateTime.now().toUtc(),
-          ),
-        )
-        .then(
-          (catalog) {
-            entry.catalog = catalog;
-            return catalog;
-          },
-          onError: (Object error, StackTrace stack) {
-            silentLog(
-              'openhand_home_page',
-              'discover transient web reverse cdp mcp ${server.name}',
-              error,
-              stack,
-            );
-            final failed = McpToolCatalog(
-              status: McpToolCatalogStatus.failed,
-              errorMessage: 'OpenHand auto CDP MCP discovery failed: $error',
-              lastScannedAt: DateTime.now().toUtc(),
-            );
-            entry.catalog = failed;
-            return failed;
-          },
-        );
-    _webReverseCdpMcpCatalogCache[cacheKey] = entry;
-    return entry.future;
-  }
-
-  void _pruneWebReverseCdpMcpCatalogCache(DateTime now) {
-    _webReverseCdpMcpCatalogCache.removeWhere(
-      (_, entry) =>
-          now.difference(entry.createdAt) >= _webReverseCdpMcpCatalogCacheTtl,
-    );
-  }
-
-  void _stopWebReverseTransientCdpMcp(String sessionId) {
-    final serverName = _webReverseCdpMcpServerNamesBySessionId.remove(
-      sessionId,
-    );
-    _webReverseCdpMcpServerSignaturesBySessionId.remove(sessionId);
-    _webReverseCdpMcpCatalogCache.removeWhere(
-      (key, _) => key.startsWith('$sessionId|'),
-    );
-    if (serverName != null && serverName.isNotEmpty) {
-      unawaited(McpStdioProcessManager.instance.stopServer(serverName));
-    }
-  }
-
   Future<AiSessionRuntimeContext> _buildRuntimeContext({
     String? workingDirectory,
     Set<String> skippedInstructionIds = const <String>{},
@@ -3949,9 +3726,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           homeDirectory: OpenHandPaths.homeDirectoryPath(),
         );
     final baseMcpServers = mcpController.servers;
-    final webReverseCdpMcpSnapshotFuture =
-        _buildWebReverseTransientCdpMcpSnapshot(
-          session: sessionController.currentSession,
+    final currentSession = sessionController.currentSession;
+    final webReverseCdpMcpSnapshotFuture = _webReverseCdpMcpBridge
+        .buildSnapshot(
+          sessionId: currentSession?.id,
+          sessionTemplateId: currentSession?.templateId,
+          controller: currentSession == null
+              ? null
+              : _webReverseControllers[currentSession.id],
           existingServers: baseMcpServers,
         );
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
@@ -4099,8 +3881,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final builtinToolConfigs = settingsController.builtinToolConfigs;
     final availableSkills = skillsController.skills;
     final baseMcpServers = mcpController.servers;
-    final webReverseCdpMcpSnapshot = _cachedWebReverseTransientCdpMcpSnapshot(
-      session: session,
+    final webReverseCdpMcpSnapshot = _webReverseCdpMcpBridge.cachedSnapshot(
+      sessionId: session.id,
+      sessionTemplateId: session.templateId,
+      controller: _webReverseControllers[session.id],
       existingServers: baseMcpServers,
     );
     final availableMcpServers = <McpServer>[
@@ -6304,7 +6088,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         // 释放该会话挂着的 Web 逆向 controller（停 dock / 关 CDP / 关浏览器进程）。
         final wr = _webReverseControllers.remove(session.id);
         _webReverseRuntimeMetadataSignatures.remove(session.id);
-        _stopWebReverseTransientCdpMcp(session.id);
+        _webReverseCdpMcpBridge.stopSession(session.id);
         if (wr != null) {
           wr.removeListener(_onWebReverseControllerChanged);
           unawaited(wr.stop());
