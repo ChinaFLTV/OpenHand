@@ -6,25 +6,7 @@ void main() {
     test('blocks same-origin WebFetch with prompt runtime metadata', () {
       final decision = WebReverseCdpFirstGuard.evaluateUrl(
         requestedUri: Uri.parse('https://linux.do/t/topic/2401043.json'),
-        metadata: <String, Object?>{
-          'web_reverse_runtime': <String, Object?>{
-            'cdp_first_required': true,
-            'config': <String, Object?>{
-              'target_url': 'https://linux.do/t/topic/2401043/5',
-            },
-            'cdp_runtime': <String, Object?>{
-              'browser_alive': true,
-              'cdp_port': 9223,
-            },
-            'cdp_mcp_tool_availability': <String, Object?>{
-              'browser_runtime_live': true,
-              'current_turn_callable': true,
-              'current_turn_callable_names': <String>[
-                'mcp__web_reverse_cdp__evaluate_script',
-              ],
-            },
-          },
-        },
+        metadata: _liveRuntimeMetadata(),
       );
 
       expect(decision, isNotNull);
@@ -54,18 +36,112 @@ void main() {
     test('allows unrelated external URLs', () {
       final decision = WebReverseCdpFirstGuard.evaluateUrl(
         requestedUri: Uri.parse('https://docs.flutter.dev/'),
-        metadata: <String, Object?>{
-          'web_reverse_config': <String, Object?>{
-            'target_url': 'https://linux.do/t/topic/2401043/5',
-          },
-          'web_reverse_cdp_runtime': <String, Object?>{
-            'browser_alive': true,
-            'cdp_port': 9223,
-          },
-        },
+        metadata: _legacyLiveMetadata(),
+      );
+
+      expect(decision, isNull);
+    });
+
+    test('blocks command URL with Chinese punctuation', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command: 'curl https://linux.do/t/topic/2401043.json。',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(
+        decision!.requestedUri.toString(),
+        'https://linux.do/t/topic/2401043.json',
+      );
+    });
+
+    test('blocks quoted curl URL', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command: "curl 'https://linux.do/t/topic/2401043.json'",
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.requestedOrigin, 'https://linux.do');
+    });
+
+    test('blocks script embedded requests call', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command:
+            'python -c "import requests; requests.get('
+            "'https://linux.do/t/topic/2401043.json')"
+            '"',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.requestedOrigin, 'https://linux.do');
+    });
+
+    test('blocks script URL with escaped forward slashes', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command:
+            r'''node -e "fetch('https:\/\/linux.do\/t\/topic\/2401043.json')"''',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(
+        decision!.requestedUri.toString(),
+        'https://linux.do/t/topic/2401043.json',
+      );
+    });
+
+    test('blocks browser automation outside CDP', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command:
+            'osascript -e \'tell application "Google Chrome" to open location '
+            '"https://linux.do/t/topic/2401043/5"\'',
+        metadata: _liveRuntimeMetadata(),
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.requestedOrigin, 'https://linux.do');
+    });
+
+    test('allows command against unrelated external URLs', () {
+      final decision = WebReverseCdpFirstGuard.evaluateCommand(
+        command: 'curl https://docs.flutter.dev/',
+        metadata: _liveRuntimeMetadata(),
       );
 
       expect(decision, isNull);
     });
   });
+}
+
+Map<String, Object?> _liveRuntimeMetadata() {
+  return <String, Object?>{
+    'web_reverse_runtime': <String, Object?>{
+      'cdp_first_required': true,
+      'config': <String, Object?>{
+        'target_url': 'https://linux.do/t/topic/2401043/5',
+      },
+      'cdp_runtime': <String, Object?>{'browser_alive': true, 'cdp_port': 9223},
+      'cdp_mcp_tool_availability': <String, Object?>{
+        'browser_runtime_live': true,
+        'current_turn_callable': true,
+        'current_turn_callable_names': <String>[
+          'mcp__web_reverse_cdp__evaluate_script',
+        ],
+      },
+    },
+  };
+}
+
+Map<String, Object?> _legacyLiveMetadata() {
+  return <String, Object?>{
+    'web_reverse_config': <String, Object?>{
+      'target_url': 'https://linux.do/t/topic/2401043/5',
+    },
+    'web_reverse_cdp_runtime': <String, Object?>{
+      'browser_alive': true,
+      'cdp_port': 9223,
+    },
+  };
 }

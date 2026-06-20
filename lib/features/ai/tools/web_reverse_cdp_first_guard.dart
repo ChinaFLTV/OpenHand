@@ -137,32 +137,139 @@ class WebReverseCdpFirstGuard {
     return null;
   }
 
+  static const List<String> _networkCommandNamePatterns = <String>[
+    'curl',
+    'wget2?',
+    'aria2c',
+    'http',
+    'https',
+    'httpie',
+    'httpx',
+    'xh',
+    'open',
+    'xdg-open',
+    'start',
+    'osascript',
+    'python3?',
+    'node',
+    'deno',
+    'bun',
+    'ruby',
+    'php',
+    'perl',
+    'npx',
+    'playwright',
+    'puppeteer',
+    'google-chrome',
+    'chrome',
+    'chromium(?:-browser)?',
+    'msedge',
+    'microsoft-edge',
+    'brave(?:-browser)?',
+    'lynx',
+    'links',
+    'elinks',
+    'w3m',
+  ];
+
+  static const List<String> _networkApiCallPatterns = <String>[
+    'fetch',
+    'axios',
+    r'requests\.(?:get|post|put|patch|delete|request)',
+    r'httpx\.(?:get|post|put|patch|delete|request)',
+    r'urllib\.request',
+  ];
+
+  static const List<String> _powerShellNetworkCommandPatterns = <String>[
+    'Invoke-WebRequest',
+    'Invoke-RestMethod',
+    'Start-Process',
+    'iwr',
+    'irm',
+  ];
+
   static final RegExp _networkCommandPattern = RegExp(
-    r'(^|[\s;&|()])(?:curl|wget|aria2c|http|https|xh|open|xdg-open|start|python3?|node|deno|bun|ruby|php|perl|npx|playwright|puppeteer)\b|'
-    r'\b(?:fetch|axios|requests\.(?:get|post|put|patch|delete|request)|httpx\.(?:get|post|put|patch|delete|request)|urllib\.request)\s*[\.(]',
+    '(^|[\\s;&|()])(?:${_networkCommandNamePatterns.join('|')})\\b|'
+    '\\b(?:${_networkApiCallPatterns.join('|')})\\s*[\\.(]|'
+    '\\b(?:${_powerShellNetworkCommandPatterns.join('|')})\\b',
     caseSensitive: false,
   );
 
   static final RegExp _httpUrlPattern = RegExp(
-    "https?://[^\\s<>\"'\\)\\]}]+",
+    r'''https?://[^\s<>"'`\)\]\}）】》〉」』]+''',
     caseSensitive: false,
   );
+
+  static const Set<String> _urlTrailingTokenCharacters = <String>{
+    ',',
+    '.',
+    ';',
+    ':',
+    '!',
+    '?',
+    '`',
+    '"',
+    "'",
+    ')',
+    ']',
+    '}',
+    '>',
+    '，',
+    '。',
+    '；',
+    '：',
+    '！',
+    '？',
+    '、',
+    '）',
+    '】',
+    '》',
+    '〉',
+    '」',
+    '』',
+    '”',
+    '’',
+    '＂',
+    '＇',
+  };
 
   static List<Uri> _extractHttpUris(String command) {
     final uris = <Uri>[];
     final seen = <String>{};
-    for (final match in _httpUrlPattern.allMatches(command)) {
-      final raw = _trimUrlToken(match.group(0) ?? '');
-      final uri = tryParseValidHttpUrl(raw);
-      if (uri == null || uri.host.isEmpty) continue;
-      final key = uri.toString();
-      if (seen.add(key)) uris.add(uri);
+    for (final source in _urlScanSources(command)) {
+      for (final match in _httpUrlPattern.allMatches(source)) {
+        final raw = _trimUrlToken(match.group(0) ?? '');
+        final uri = tryParseValidHttpUrl(raw);
+        if (uri == null || uri.host.isEmpty) continue;
+        final key = uri.toString();
+        if (seen.add(key)) uris.add(uri);
+      }
     }
     return uris;
   }
 
   static String _trimUrlToken(String value) {
-    return value.replaceFirst(RegExp(r'[,.;:]+$'), '');
+    var end = value.length;
+    while (end > 0) {
+      final character = value.substring(end - 1, end);
+      if (!_urlTrailingTokenCharacters.contains(character)) break;
+      end -= 1;
+    }
+    return end == value.length ? value : value.substring(0, end);
+  }
+
+  static Iterable<String> _urlScanSources(String command) sync* {
+    yield command;
+    final slashUnescaped = _unescapeForwardSlashes(command);
+    if (slashUnescaped != command) yield slashUnescaped;
+  }
+
+  static String _unescapeForwardSlashes(String value) {
+    var current = value;
+    for (var i = 0; i < 4 && current.contains(r'\/'); i += 1) {
+      current = current.replaceAll(r'\/', '/');
+    }
+    return current;
   }
 
   static bool _commandContainsHostToken(String command, String host) {
