@@ -1947,6 +1947,7 @@ class WebReverseSessionController extends ChangeNotifier {
       while (_networkRequests.length > _maxNetworkEntries) {
         final old = _networkRequests.removeAt(0);
         _networkByRequestId.remove(old.requestId);
+        _artifacts.evictHarDraft(old.requestId);
       }
     }
     _artifacts
@@ -2068,6 +2069,7 @@ class WebReverseSessionController extends ChangeNotifier {
     while (_networkRequests.length > _maxNetworkEntries) {
       final old = _networkRequests.removeAt(0);
       _networkByRequestId.remove(old.requestId);
+      _artifacts.evictHarDraft(old.requestId);
     }
     _safeNotify();
   }
@@ -6455,6 +6457,7 @@ class WebReverseSessionController extends ChangeNotifier {
         while (_networkRequests.length > _maxNetworkEntries) {
           final removed = _networkRequests.removeAt(0);
           _networkByRequestId.remove(removed.requestId);
+          _artifacts.evictHarDraft(removed.requestId);
         }
       } else if (kind == 'response') {
         // 找最近一条同 url 的 mitm 请求并补响应。

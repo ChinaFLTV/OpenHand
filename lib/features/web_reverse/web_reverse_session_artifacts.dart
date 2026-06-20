@@ -36,6 +36,11 @@ class WebReverseSessionArtifacts {
   // HAR 草稿：每条 request/response 元数据按 requestId 累积，stop 时聚合。
   final Map<String, _HarEntryDraft> _harDrafts = <String, _HarEntryDraft>{};
 
+  static const int _maxHarDrafts = 2000;
+  static const int _maxHarHeaders = 128;
+  static const int _maxHarHeaderValueChars = 8192;
+  static const int _maxHarPostDataChars = 256 * 1024;
+
   Future<void> init() async {
     if (_ready) return;
     try {
@@ -84,10 +89,11 @@ class WebReverseSessionArtifacts {
       requestId,
       () => _HarEntryDraft(requestId: requestId),
     );
+    _pruneHarDrafts();
     draft.url = url;
     draft.method = method;
-    draft.requestHeaders = headers;
-    draft.postData = postData;
+    draft.requestHeaders = _clipHeaders(headers);
+    draft.postData = _clipText(postData, _maxHarPostDataChars);
     draft.startedAt = startedAt;
   }
 
@@ -104,7 +110,7 @@ class WebReverseSessionArtifacts {
     draft.status = status;
     draft.statusText = statusText;
     draft.mimeType = mimeType;
-    draft.responseHeaders = headers;
+    draft.responseHeaders = _clipHeaders(headers);
     draft.bodySize = bodySize ?? -1;
   }
 
@@ -119,6 +125,10 @@ class WebReverseSessionArtifacts {
     if (draft == null) return;
     draft.errorText = errorText;
     draft.finishedAt = failedAt;
+  }
+
+  void evictHarDraft(String requestId) {
+    _harDrafts.remove(requestId);
   }
 
   void _flush() {
@@ -240,6 +250,25 @@ class WebReverseSessionArtifacts {
     return headers.entries
         .map((e) => <String, Object?>{'name': e.key, 'value': '${e.value}'})
         .toList(growable: false);
+  }
+
+  void _pruneHarDrafts() {
+    while (_harDrafts.length > _maxHarDrafts) {
+      _harDrafts.remove(_harDrafts.keys.first);
+    }
+  }
+
+  static Map<String, Object?> _clipHeaders(Map<String, Object?> headers) {
+    final out = <String, Object?>{};
+    for (final entry in headers.entries.take(_maxHarHeaders)) {
+      out[entry.key] = _clipText('${entry.value}', _maxHarHeaderValueChars);
+    }
+    return out;
+  }
+
+  static String? _clipText(String? value, int maxChars) {
+    if (value == null || value.length <= maxChars) return value;
+    return '${value.substring(0, maxChars)}...';
   }
 }
 
