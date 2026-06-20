@@ -1,6 +1,43 @@
 import 'dart:io';
 
 final RegExp _httpUrlWhitespacePattern = RegExp(r'\s');
+final RegExp _httpUrlTokenPattern = RegExp(
+  r'''https?://[^\s<>"'`\)\]\}）】》〉」』]+''',
+  caseSensitive: false,
+);
+
+const Set<String> _httpUrlTrailingTokenCharacters = <String>{
+  ',',
+  '.',
+  ';',
+  ':',
+  '!',
+  '?',
+  '`',
+  '"',
+  "'",
+  ')',
+  ']',
+  '}',
+  '>',
+  '，',
+  '。',
+  '；',
+  '：',
+  '！',
+  '？',
+  '、',
+  '）',
+  '】',
+  '》',
+  '〉',
+  '」',
+  '』',
+  '”',
+  '’',
+  '＂',
+  '＇',
+};
 
 Uri? tryParseValidHttpUrl(String rawValue, {bool allowUserInfo = false}) {
   final trimmed = rawValue.trim();
@@ -33,6 +70,52 @@ Uri? normalizeValidHttpUri(Uri? uri, {bool allowUserInfo = false}) {
 
 bool isValidHttpUrl(String rawValue, {bool allowUserInfo = false}) {
   return tryParseValidHttpUrl(rawValue, allowUserInfo: allowUserInfo) != null;
+}
+
+String? firstHttpUrlFromText(String? rawText, {bool allowUserInfo = false}) {
+  final text = rawText?.trim();
+  if (text == null || text.isEmpty) return null;
+  final uris = extractHttpUrisFromText(text, allowUserInfo: allowUserInfo);
+  return uris.isEmpty ? null : uris.first.toString();
+}
+
+List<Uri> extractHttpUrisFromText(String text, {bool allowUserInfo = false}) {
+  final uris = <Uri>[];
+  final seen = <String>{};
+  for (final source in _httpUrlScanSources(text)) {
+    for (final match in _httpUrlTokenPattern.allMatches(source)) {
+      final raw = _trimHttpUrlToken(match.group(0) ?? '');
+      final uri = tryParseValidHttpUrl(raw, allowUserInfo: allowUserInfo);
+      if (uri == null || uri.host.isEmpty) continue;
+      final key = uri.toString();
+      if (seen.add(key)) uris.add(uri);
+    }
+  }
+  return uris;
+}
+
+String _trimHttpUrlToken(String value) {
+  var end = value.length;
+  while (end > 0) {
+    final character = value.substring(end - 1, end);
+    if (!_httpUrlTrailingTokenCharacters.contains(character)) break;
+    end -= 1;
+  }
+  return end == value.length ? value : value.substring(0, end);
+}
+
+Iterable<String> _httpUrlScanSources(String text) sync* {
+  yield text;
+  final slashUnescaped = _unescapeForwardSlashes(text);
+  if (slashUnescaped != text) yield slashUnescaped;
+}
+
+String _unescapeForwardSlashes(String value) {
+  var current = value;
+  for (var i = 0; i < 4 && current.contains(r'\/'); i += 1) {
+    current = current.replaceAll(r'\/', '/');
+  }
+  return current;
 }
 
 String? agentFetchBlockReasonForUri(Uri uri) {

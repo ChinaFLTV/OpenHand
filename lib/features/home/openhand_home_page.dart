@@ -41,6 +41,7 @@ import '../../app/support/openhand_scroll_physics.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
+import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_palette.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
@@ -2935,7 +2936,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse';
     final setup = await showWebReverseSetupDialog(
       context,
-      initialTargetUrl: _firstHttpUrlFromText(initialPrompt),
+      initialTargetUrl: firstHttpUrlFromText(initialPrompt),
       initialObjective: _webReverseInitialObjectiveFromPrompt(initialPrompt),
       userDataDirRoot: userDataDirRoot,
     );
@@ -3033,17 +3034,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _replaceComposerText(requestConfig.toRequestTemplate());
     await _sendMessage();
     return created;
-  }
-
-  String? _firstHttpUrlFromText(String? text) {
-    final raw = text?.trim();
-    if (raw == null || raw.isEmpty) return null;
-    final match = RegExp(
-      r'''https?://[^\s<>"')\]}]+''',
-      caseSensitive: false,
-    ).firstMatch(raw);
-    if (match == null) return null;
-    return (match.group(0) ?? '').replaceFirst(RegExp(r'[,.;:]+$'), '');
   }
 
   String? _webReverseInitialObjectiveFromPrompt(String? prompt) {

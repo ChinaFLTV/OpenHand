@@ -195,81 +195,8 @@ class WebReverseCdpFirstGuard {
     caseSensitive: false,
   );
 
-  static final RegExp _httpUrlPattern = RegExp(
-    r'''https?://[^\s<>"'`\)\]\}）】》〉」』]+''',
-    caseSensitive: false,
-  );
-
-  static const Set<String> _urlTrailingTokenCharacters = <String>{
-    ',',
-    '.',
-    ';',
-    ':',
-    '!',
-    '?',
-    '`',
-    '"',
-    "'",
-    ')',
-    ']',
-    '}',
-    '>',
-    '，',
-    '。',
-    '；',
-    '：',
-    '！',
-    '？',
-    '、',
-    '）',
-    '】',
-    '》',
-    '〉',
-    '」',
-    '』',
-    '”',
-    '’',
-    '＂',
-    '＇',
-  };
-
   static List<Uri> _extractHttpUris(String command) {
-    final uris = <Uri>[];
-    final seen = <String>{};
-    for (final source in _urlScanSources(command)) {
-      for (final match in _httpUrlPattern.allMatches(source)) {
-        final raw = _trimUrlToken(match.group(0) ?? '');
-        final uri = tryParseValidHttpUrl(raw);
-        if (uri == null || uri.host.isEmpty) continue;
-        final key = uri.toString();
-        if (seen.add(key)) uris.add(uri);
-      }
-    }
-    return uris;
-  }
-
-  static String _trimUrlToken(String value) {
-    var end = value.length;
-    while (end > 0) {
-      final character = value.substring(end - 1, end);
-      if (!_urlTrailingTokenCharacters.contains(character)) break;
-      end -= 1;
-    }
-    return end == value.length ? value : value.substring(0, end);
-  }
-
-  static Iterable<String> _urlScanSources(String command) sync* {
-    yield command;
-    final slashUnescaped = _unescapeForwardSlashes(command);
-    if (slashUnescaped != command) yield slashUnescaped;
-  }
-
-  static String _unescapeForwardSlashes(String value) {
-    var current = value;
-    for (var i = 0; i < 4 && current.contains(r'\/'); i += 1) {
-      current = current.replaceAll(r'\/', '/');
-    }
-    return current;
+    return extractHttpUrisFromText(command);
   }
 
   static bool _commandContainsHostToken(String command, String host) {
