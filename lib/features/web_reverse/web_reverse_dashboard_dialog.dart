@@ -1006,6 +1006,21 @@ class _WebReverseDashboardDialogState
     final ctrl = widget.controller;
     final port = ctrl.cdpPort;
     final version = ctrl.browserVersion ?? '-';
+    final cdpRuntimeMeta = context.select<AiSessionController, Object?>((
+      controller,
+    ) {
+      for (final session in controller.sessions) {
+        if (session.id == widget.sessionId) {
+          return session.metadata['web_reverse_cdp_runtime'];
+        }
+      }
+      return null;
+    });
+    final bridgeStatus = _CdpMcpBridgeHeaderStatus.fromRuntime(
+      cdpRuntimeMeta,
+      controller: ctrl,
+      isZh: isZh,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
       child: Row(
@@ -1045,6 +1060,12 @@ class _WebReverseDashboardDialogState
               ],
             ),
           ),
+          const SizedBox(width: 10),
+          _CdpMcpBridgeStatusPill(
+            status: bridgeStatus,
+            reduceMotion: MediaQuery.disableAnimationsOf(context),
+          ),
+          const SizedBox(width: 6),
           IconButton(
             tooltip: isZh ? '关闭' : 'Close',
             onPressed: () => Navigator.of(context).pop(),
@@ -1233,6 +1254,150 @@ Future<void> _openOfficialDevToolsForController(
       isZh
           ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
           : 'No DevTools frontend found; opened /json/list fallback',
+    );
+  }
+}
+
+enum _CdpMcpBridgeHeaderTone { ready, preparing, failed, unavailable }
+
+class _CdpMcpBridgeHeaderStatus {
+  const _CdpMcpBridgeHeaderStatus({
+    required this.tone,
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+  });
+
+  final _CdpMcpBridgeHeaderTone tone;
+  final IconData icon;
+  final String label;
+  final String tooltip;
+
+  static _CdpMcpBridgeHeaderStatus fromRuntime(
+    Object? runtime, {
+    required WebReverseSessionController controller,
+    required bool isZh,
+  }) {
+    final runtimeMap = _asMap(runtime);
+    final bridge = _asMap(runtimeMap?['cdp_mcp_bridge']);
+    final rawStatus = '${bridge?['status'] ?? ''}'.trim();
+    final toolCount = (bridge?['tool_count'] as num?)?.toInt() ?? 0;
+    final liveCallable = bridge?['live_actions_callable'] == true;
+    final serverName = '${bridge?['server_name'] ?? ''}'.trim();
+    final message = '${bridge?['message'] ?? ''}'.trim();
+    final error = '${bridge?['error_message'] ?? ''}'.trim();
+    final warning = '${bridge?['warning_message'] ?? ''}'.trim();
+    final port = (bridge?['cdp_port'] as num?)?.toInt() ?? controller.cdpPort;
+    final browserAlive =
+        bridge?['browser_alive'] == true || controller.isBrowserAlive;
+
+    late final _CdpMcpBridgeHeaderTone tone;
+    late final IconData icon;
+    late final String label;
+    if (liveCallable ||
+        (rawStatus == 'ready' && browserAlive && toolCount > 0)) {
+      tone = _CdpMcpBridgeHeaderTone.ready;
+      icon = Icons.hub_rounded;
+      label = isZh ? 'AI CDP 就绪 · $toolCount' : 'AI CDP ready · $toolCount';
+    } else if (rawStatus == 'preparing') {
+      tone = _CdpMcpBridgeHeaderTone.preparing;
+      icon = Icons.sync_rounded;
+      label = isZh ? 'AI CDP 准备中' : 'AI CDP preparing';
+    } else if (rawStatus == 'failed') {
+      tone = _CdpMcpBridgeHeaderTone.failed;
+      icon = Icons.error_outline_rounded;
+      label = isZh ? 'AI CDP 异常' : 'AI CDP failed';
+    } else if (!browserAlive) {
+      tone = _CdpMcpBridgeHeaderTone.unavailable;
+      icon = Icons.power_off_rounded;
+      label = isZh ? 'AI CDP 离线' : 'AI CDP offline';
+    } else {
+      tone = _CdpMcpBridgeHeaderTone.unavailable;
+      icon = Icons.link_off_rounded;
+      label = isZh ? 'AI CDP 待同步' : 'AI CDP pending';
+    }
+
+    final lines = <String>[
+      isZh ? 'AI 侧 CDP MCP 桥接状态' : 'AI-side CDP MCP bridge',
+      '${isZh ? '状态' : 'Status'}: ${rawStatus.isEmpty ? 'unknown' : rawStatus}',
+      '${isZh ? '可调用工具' : 'Callable tools'}: $toolCount',
+      if (port != null) '${isZh ? 'CDP 端口' : 'CDP port'}: $port',
+      if (serverName.isNotEmpty) 'MCP: $serverName',
+      if (message.isNotEmpty) message,
+      if (warning.isNotEmpty) '${isZh ? '提示' : 'Warning'}: $warning',
+      if (error.isNotEmpty) '${isZh ? '错误' : 'Error'}: $error',
+    ];
+    return _CdpMcpBridgeHeaderStatus(
+      tone: tone,
+      icon: icon,
+      label: label,
+      tooltip: lines.join('\n'),
+    );
+  }
+
+  static Map<String, Object?>? _asMap(Object? value) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    return null;
+  }
+}
+
+class _CdpMcpBridgeStatusPill extends StatelessWidget {
+  const _CdpMcpBridgeStatusPill({
+    required this.status,
+    required this.reduceMotion,
+  });
+
+  final _CdpMcpBridgeHeaderStatus status;
+  final bool reduceMotion;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final color = switch (status.tone) {
+      _CdpMcpBridgeHeaderTone.ready => cs.tertiary,
+      _CdpMcpBridgeHeaderTone.preparing => cs.primary,
+      _CdpMcpBridgeHeaderTone.failed => cs.error,
+      _CdpMcpBridgeHeaderTone.unavailable => cs.onSurfaceVariant,
+    };
+    return Tooltip(
+      message: status.tooltip,
+      waitDuration: const Duration(milliseconds: 350),
+      child: AnimatedContainer(
+        duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+        curve: _kSwitchInCurve,
+        height: 32,
+        constraints: const BoxConstraints(maxWidth: 210),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.34)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(status.icon, size: 15, color: color),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                status.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

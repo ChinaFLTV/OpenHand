@@ -8,15 +8,84 @@ class WebReverseTransientMcpSnapshot {
   const WebReverseTransientMcpSnapshot({
     required this.servers,
     required this.catalogsByServerName,
+    required this.diagnostic,
   });
 
   static const empty = WebReverseTransientMcpSnapshot(
     servers: <McpServer>[],
     catalogsByServerName: <String, McpToolCatalog>{},
+    diagnostic: WebReverseCdpMcpBridgeDiagnostic.unavailable(),
   );
 
   final List<McpServer> servers;
   final Map<String, McpToolCatalog> catalogsByServerName;
+  final WebReverseCdpMcpBridgeDiagnostic diagnostic;
+}
+
+enum WebReverseCdpMcpBridgeStatus { unavailable, preparing, ready, failed }
+
+class WebReverseCdpMcpBridgeDiagnostic {
+  const WebReverseCdpMcpBridgeDiagnostic({
+    required this.status,
+    required this.browserAlive,
+    required this.toolCount,
+    required this.message,
+    this.serverName,
+    this.cdpPort,
+    this.browserUrl,
+    this.errorMessage,
+    this.warningMessage,
+    this.lastScannedAt,
+  });
+
+  const WebReverseCdpMcpBridgeDiagnostic.unavailable()
+    : status = WebReverseCdpMcpBridgeStatus.unavailable,
+      browserAlive = false,
+      toolCount = 0,
+      message = 'Transient CDP MCP is unavailable for this session.',
+      serverName = null,
+      cdpPort = null,
+      browserUrl = null,
+      errorMessage = null,
+      warningMessage = null,
+      lastScannedAt = null;
+
+  final WebReverseCdpMcpBridgeStatus status;
+  final bool browserAlive;
+  final int toolCount;
+  final String message;
+  final String? serverName;
+  final int? cdpPort;
+  final String? browserUrl;
+  final String? errorMessage;
+  final String? warningMessage;
+  final DateTime? lastScannedAt;
+
+  bool get liveActionsCallable =>
+      status == WebReverseCdpMcpBridgeStatus.ready &&
+      browserAlive &&
+      toolCount > 0;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'status': status.name,
+      'browser_alive': browserAlive,
+      'live_actions_callable': liveActionsCallable,
+      'tool_count': toolCount,
+      'message': message,
+      if (serverName != null && serverName!.isNotEmpty)
+        'server_name': serverName,
+      if (cdpPort != null) 'cdp_port': cdpPort,
+      if (browserUrl != null && browserUrl!.isNotEmpty)
+        'browser_url': browserUrl,
+      if (errorMessage != null && errorMessage!.isNotEmpty)
+        'error_message': errorMessage,
+      if (warningMessage != null && warningMessage!.isNotEmpty)
+        'warning_message': warningMessage,
+      if (lastScannedAt != null)
+        'last_scanned_at': lastScannedAt!.toUtc().toIso8601String(),
+    };
+  }
 }
 
 class WebReverseCdpMcpBridge {
@@ -24,16 +93,21 @@ class WebReverseCdpMcpBridge {
     McpToolDiscoveryService? discoveryService,
     this.catalogTimeout = defaultCatalogTimeout,
     this.catalogCacheTtl = defaultCatalogCacheTtl,
+    this.failedCatalogRetryTtl = defaultFailedCatalogRetryTtl,
   }) : _discoveryService = discoveryService ?? DefaultMcpToolDiscoveryService();
 
   static const String templateId = 'web_reverse_expert';
   static const String cdpMcpPackage = 'chrome-devtools-mcp@latest';
-  static const Duration defaultCatalogTimeout = Duration(seconds: 90);
+  // 底层 stdio MCP discovery 已给 npx 首次冷启动 6 分钟预算；外层略大，
+  // 避免提前把 chrome-devtools-mcp 首次安装误判成失败。
+  static const Duration defaultCatalogTimeout = Duration(minutes: 7);
   static const Duration defaultCatalogCacheTtl = Duration(minutes: 5);
+  static const Duration defaultFailedCatalogRetryTtl = Duration(seconds: 30);
 
   final McpToolDiscoveryService _discoveryService;
   final Duration catalogTimeout;
   final Duration catalogCacheTtl;
+  final Duration failedCatalogRetryTtl;
   final Map<String, String> _serverNamesBySessionId = <String, String>{};
   final Map<String, String> _serverSignaturesBySessionId = <String, String>{};
   final Map<String, _WebReverseCdpMcpCatalogCacheEntry> _catalogCache =
@@ -53,13 +127,26 @@ class WebReverseCdpMcpBridge {
       syncLifecycle: true,
     );
     if (server == null || sessionId == null) {
-      return WebReverseTransientMcpSnapshot.empty;
+      return WebReverseTransientMcpSnapshot(
+        servers: const <McpServer>[],
+        catalogsByServerName: const <String, McpToolCatalog>{},
+        diagnostic: _diagnosticForUnavailable(
+          sessionId: sessionId,
+          sessionTemplateId: sessionTemplateId,
+          controller: controller,
+        ),
+      );
     }
     final cacheKey = _catalogCacheKey(sessionId, server);
     final catalog = await _discoverCatalog(server: server, cacheKey: cacheKey);
     return WebReverseTransientMcpSnapshot(
       servers: <McpServer>[server],
       catalogsByServerName: <String, McpToolCatalog>{server.name: catalog},
+      diagnostic: _diagnosticFromCatalog(
+        server: server,
+        controller: controller!,
+        catalog: catalog,
+      ),
     );
   }
 
@@ -77,7 +164,15 @@ class WebReverseCdpMcpBridge {
       syncLifecycle: false,
     );
     if (server == null || sessionId == null) {
-      return WebReverseTransientMcpSnapshot.empty;
+      return WebReverseTransientMcpSnapshot(
+        servers: const <McpServer>[],
+        catalogsByServerName: const <String, McpToolCatalog>{},
+        diagnostic: _diagnosticForUnavailable(
+          sessionId: sessionId,
+          sessionTemplateId: sessionTemplateId,
+          controller: controller,
+        ),
+      );
     }
     final cacheKey = _catalogCacheKey(sessionId, server);
     final catalog =
@@ -91,7 +186,26 @@ class WebReverseCdpMcpBridge {
     return WebReverseTransientMcpSnapshot(
       servers: <McpServer>[server],
       catalogsByServerName: <String, McpToolCatalog>{server.name: catalog},
+      diagnostic: _diagnosticFromCatalog(
+        server: server,
+        controller: controller!,
+        catalog: catalog,
+      ),
     );
+  }
+
+  WebReverseCdpMcpBridgeDiagnostic cachedDiagnostic({
+    required String? sessionId,
+    required String? sessionTemplateId,
+    required WebReverseSessionController? controller,
+    required Iterable<McpServer> existingServers,
+  }) {
+    return cachedSnapshot(
+      sessionId: sessionId,
+      sessionTemplateId: sessionTemplateId,
+      controller: controller,
+      existingServers: existingServers,
+    ).diagnostic;
   }
 
   void stopSession(String sessionId) {
@@ -199,8 +313,19 @@ class WebReverseCdpMcpBridge {
     final now = DateTime.now().toUtc();
     _pruneCatalogCache(now);
     final cached = _catalogCache[cacheKey];
-    if (cached != null && now.difference(cached.createdAt) < catalogCacheTtl) {
-      return cached.future;
+    if (cached != null) {
+      final age = now.difference(cached.createdAt);
+      if (age >= catalogCacheTtl) {
+        _catalogCache.remove(cacheKey);
+      } else {
+        final cachedCatalog = cached.catalog;
+        if (cachedCatalog?.status == McpToolCatalogStatus.failed &&
+            age >= failedCatalogRetryTtl) {
+          _catalogCache.remove(cacheKey);
+        } else {
+          return cached.future;
+        }
+      }
     }
 
     final entry = _WebReverseCdpMcpCatalogCacheEntry(createdAt: now);
@@ -245,6 +370,99 @@ class WebReverseCdpMcpBridge {
   void _pruneCatalogCache(DateTime now) {
     _catalogCache.removeWhere(
       (_, entry) => now.difference(entry.createdAt) >= catalogCacheTtl,
+    );
+  }
+
+  WebReverseCdpMcpBridgeDiagnostic _diagnosticForUnavailable({
+    required String? sessionId,
+    required String? sessionTemplateId,
+    required WebReverseSessionController? controller,
+  }) {
+    if (sessionId == null || sessionId.isEmpty) {
+      return const WebReverseCdpMcpBridgeDiagnostic(
+        status: WebReverseCdpMcpBridgeStatus.unavailable,
+        browserAlive: false,
+        toolCount: 0,
+        message: 'No active session is available for transient CDP MCP.',
+      );
+    }
+    if (sessionTemplateId != templateId) {
+      return const WebReverseCdpMcpBridgeDiagnostic(
+        status: WebReverseCdpMcpBridgeStatus.unavailable,
+        browserAlive: false,
+        toolCount: 0,
+        message: 'Current session is not a Web Reverse Expert session.',
+      );
+    }
+    if (controller == null) {
+      return const WebReverseCdpMcpBridgeDiagnostic(
+        status: WebReverseCdpMcpBridgeStatus.unavailable,
+        browserAlive: false,
+        toolCount: 0,
+        message: 'No Web Reverse CDP controller is attached.',
+      );
+    }
+    final port = controller.cdpPort;
+    if (!controller.isBrowserAlive) {
+      return WebReverseCdpMcpBridgeDiagnostic(
+        status: WebReverseCdpMcpBridgeStatus.unavailable,
+        browserAlive: false,
+        toolCount: 0,
+        cdpPort: port,
+        browserUrl: port == null ? null : 'http://127.0.0.1:$port',
+        message:
+            'The Web Reverse browser is not alive; live CDP MCP actions are unavailable.',
+      );
+    }
+    return WebReverseCdpMcpBridgeDiagnostic(
+      status: WebReverseCdpMcpBridgeStatus.unavailable,
+      browserAlive: true,
+      toolCount: 0,
+      cdpPort: port,
+      browserUrl: port == null ? null : 'http://127.0.0.1:$port',
+      message: 'The live Web Reverse CDP port is not available yet.',
+    );
+  }
+
+  WebReverseCdpMcpBridgeDiagnostic _diagnosticFromCatalog({
+    required McpServer server,
+    required WebReverseSessionController controller,
+    required McpToolCatalog catalog,
+  }) {
+    final port = controller.cdpPort;
+    final browserUrl = port == null ? null : 'http://127.0.0.1:$port';
+    final status = switch (catalog.status) {
+      McpToolCatalogStatus.ready =>
+        catalog.tools.isEmpty
+            ? WebReverseCdpMcpBridgeStatus.failed
+            : WebReverseCdpMcpBridgeStatus.ready,
+      McpToolCatalogStatus.failed => WebReverseCdpMcpBridgeStatus.failed,
+      McpToolCatalogStatus.loading ||
+      McpToolCatalogStatus.idle => WebReverseCdpMcpBridgeStatus.preparing,
+    };
+    final message = switch (status) {
+      WebReverseCdpMcpBridgeStatus.ready =>
+        'Transient chrome-devtools-mcp is ready for live CDP actions.',
+      WebReverseCdpMcpBridgeStatus.failed =>
+        catalog.tools.isEmpty && catalog.status == McpToolCatalogStatus.ready
+            ? 'Transient chrome-devtools-mcp returned no tools.'
+            : 'Transient chrome-devtools-mcp discovery failed.',
+      WebReverseCdpMcpBridgeStatus.preparing =>
+        'Transient chrome-devtools-mcp catalog is being prepared.',
+      WebReverseCdpMcpBridgeStatus.unavailable =>
+        'Transient chrome-devtools-mcp is unavailable.',
+    };
+    return WebReverseCdpMcpBridgeDiagnostic(
+      status: status,
+      browserAlive: controller.isBrowserAlive,
+      toolCount: catalog.tools.length,
+      serverName: server.name,
+      cdpPort: port,
+      browserUrl: browserUrl,
+      message: message,
+      errorMessage: catalog.errorMessage?.trim(),
+      warningMessage: catalog.warningMessage?.trim(),
+      lastScannedAt: catalog.lastScannedAt,
     );
   }
 }

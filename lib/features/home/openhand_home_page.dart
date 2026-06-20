@@ -3057,20 +3057,34 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<bool> _persistWebReverseRuntimeMetadata(
     String sessionId,
-    WebReverseSessionController controller,
-  ) async {
+    WebReverseSessionController controller, {
+    WebReverseCdpMcpBridgeDiagnostic? cdpMcpBridgeDiagnostic,
+  }) async {
     if (!mounted) return false;
-    final metadata = _webReverseRuntimeMetadata(controller);
+    final sessionController = context.read<AiSessionController>();
+    final session = sessionController.sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    final metadata = _webReverseRuntimeMetadata(
+      controller,
+      cdpMcpBridgeDiagnostic:
+          cdpMcpBridgeDiagnostic ??
+          _webReverseCdpMcpBridge.cachedDiagnostic(
+            sessionId: sessionId,
+            sessionTemplateId: session?.templateId,
+            controller: controller,
+            existingServers: context.read<McpController>().servers,
+          ),
+    );
     final signature = jsonEncode(metadata);
     if (_webReverseRuntimeMetadataSignatures[sessionId] == signature) {
       return true;
     }
     try {
-      final updated = await context
-          .read<AiSessionController>()
-          .updateSessionMetadata(sessionId, <String, Object?>{
-            'web_reverse_cdp_runtime': metadata,
-          });
+      final updated = await sessionController.updateSessionMetadata(
+        sessionId,
+        <String, Object?>{'web_reverse_cdp_runtime': metadata},
+      );
       if (!updated) return false;
       _webReverseRuntimeMetadataSignatures[sessionId] = signature;
       return true;
@@ -3086,8 +3100,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Map<String, Object?> _webReverseRuntimeMetadata(
-    WebReverseSessionController controller,
-  ) {
+    WebReverseSessionController controller, {
+    WebReverseCdpMcpBridgeDiagnostic? cdpMcpBridgeDiagnostic,
+  }) {
     final browserAlive = controller.isBrowserAlive;
     final port = controller.cdpPort;
     final browserVersion = controller.browserVersion?.trim();
@@ -3128,6 +3143,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           'url': currentTarget.url,
           'title': currentTarget.title,
         },
+      if (cdpMcpBridgeDiagnostic != null)
+        'cdp_mcp_bridge': cdpMcpBridgeDiagnostic.toJson(),
     };
   }
 
@@ -3727,13 +3744,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
     final baseMcpServers = mcpController.servers;
     final currentSession = sessionController.currentSession;
+    final currentWebReverseController = currentSession == null
+        ? null
+        : _webReverseControllers[currentSession.id];
     final webReverseCdpMcpSnapshotFuture = _webReverseCdpMcpBridge
         .buildSnapshot(
           sessionId: currentSession?.id,
           sessionTemplateId: currentSession?.templateId,
-          controller: currentSession == null
-              ? null
-              : _webReverseControllers[currentSession.id],
+          controller: currentWebReverseController,
           existingServers: baseMcpServers,
         );
     final mcpToolCatalogsByServerName = <String, McpToolCatalog>{
@@ -3751,6 +3769,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     mcpToolCatalogsByServerName.addAll(
       webReverseCdpMcpSnapshot.catalogsByServerName,
     );
+    if (currentSession != null &&
+        currentWebReverseController != null &&
+        currentSession.templateId == WebReverseCdpMcpBridge.templateId) {
+      await _persistWebReverseRuntimeMetadata(
+        currentSession.id,
+        currentWebReverseController,
+        cdpMcpBridgeDiagnostic: webReverseCdpMcpSnapshot.diagnostic,
+      );
+    }
     final now = DateTime.now().toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
