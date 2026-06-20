@@ -2,9 +2,9 @@ part of 'web_reverse_dashboard_dialog.dart';
 
 const double _kReplayResultDialogWidth = 640;
 const double _kReplayResultDialogHeight = 360;
-const double _kNetworkMethodColumnWidth = 64;
-const double _kNetworkStatusColumnWidth = 42;
-const double _kNetworkTypeColumnWidth = 72;
+const double _kNetworkMethodColumnWidth = 78;
+const double _kNetworkStatusColumnWidth = 48;
+const double _kNetworkTypeColumnWidth = 88;
 const Duration _kReplaySnackBarDuration = Duration(seconds: 2);
 const Duration _kReplayCopySnackBarDuration = Duration(seconds: 1);
 
