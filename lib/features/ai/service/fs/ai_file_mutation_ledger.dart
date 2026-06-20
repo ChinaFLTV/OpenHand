@@ -261,10 +261,14 @@ class AiFileMutationLedger {
 
   static final RegExp _sha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
   static const Duration _staleAtomicArtifactAge = Duration(days: 1);
+  static const int _legacyBlobRecoveryMaxFiles = 2000;
+  static const int _blobRecoveryMaxBytes = 16 * 1024 * 1024;
 
   final String? _rootOverride;
   final Random _rand = Random.secure();
   bool _migratedLegacy = false;
+  Map<String, String>? _legacyBlobPathIndex;
+  final Set<String> _legacyBlobRecoveryMisses = <String>{};
 
   // Per-session in-memory caches for records and undone set. The session
   // ledger / state files are mutated only through this class, so we can
@@ -734,6 +738,42 @@ class AiFileMutationLedger {
 
   Future<String?> readBlob(String sha) => _readBlob(sha);
 
+  /// Reads both ledger snapshots with conservative recovery:
+  ///
+  /// - primary source: content-addressed blobs;
+  /// - missing blob fallback: legacy pre-edit history snapshots by sha;
+  /// - final fallback: current disk file only when its sha matches the ledger.
+  ///
+  /// The current-file check is intentionally hash-gated. Rendering a stale
+  /// current file as the historical after/before side is worse than showing an
+  /// unavailable snapshot because it creates a plausible but false diff.
+  Future<({String? before, String? after})> readSnapshots(
+    FileMutationRecord record,
+  ) async {
+    var before = record.beforeSha == null
+        ? null
+        : await _readBlob(record.beforeSha!);
+    var after = record.afterSha == null
+        ? null
+        : await _readBlob(record.afterSha!);
+
+    if (before == null && record.beforeSha != null) {
+      before = await _readCurrentFileIfShaMatches(
+        filePath: record.filePath,
+        expectedSha: record.beforeSha!,
+        expectedSize: record.beforeSize,
+      );
+    }
+    if (after == null && record.afterSha != null) {
+      after = await _readCurrentFileIfShaMatches(
+        filePath: record.filePath,
+        expectedSha: record.afterSha!,
+        expectedSize: record.afterSize,
+      );
+    }
+    return (before: before, after: after);
+  }
+
   // ─────────────────────── 维护 / 数据清理 ───────────────────────
 
   /// 数据清理卡片用的轻量统计快照。统计 sessions / 记录条数 /
@@ -1202,10 +1242,13 @@ class AiFileMutationLedger {
   }
 
   Future<String?> _readBlob(String sha) async {
+    if (!_sha256HexPattern.hasMatch(sha)) return null;
     try {
       final shard = sha.substring(0, 2);
       final file = File(p.join(_blobsDir().path, shard, '$sha.txt'));
-      if (!await file.exists()) return null;
+      if (!await file.exists()) {
+        return _recoverBlobFromLegacyVersions(sha);
+      }
       return await file.readAsString();
     } on FileSystemException catch (error, stack) {
       if (!_isMissingFileSystemException(error)) {
@@ -1215,6 +1258,155 @@ class AiFileMutationLedger {
     } catch (error, stack) {
       silentLog('ai_file_mutation_ledger', 'readBlob', error, stack);
       return null;
+    }
+  }
+
+  Future<String?> _readCurrentFileIfShaMatches({
+    required String filePath,
+    required String expectedSha,
+    required int expectedSize,
+  }) async {
+    if (!_sha256HexPattern.hasMatch(expectedSha) || filePath.trim().isEmpty) {
+      return null;
+    }
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return null;
+      final stat = await file.stat();
+      if (stat.type != FileSystemEntityType.file) return null;
+      if (expectedSize > 0 && stat.size != expectedSize) return null;
+      if (stat.size > _blobRecoveryMaxBytes) return null;
+      final content = await file.readAsString();
+      if (_sha256Of(content) != expectedSha) return null;
+      await _cacheRecoveredBlob(expectedSha, content, 'cache current blob');
+      return content;
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog(
+          'ai_file_mutation_ledger',
+          'recover current file blob',
+          error,
+          stack,
+        );
+      }
+      return null;
+    } catch (error, stack) {
+      silentLog(
+        'ai_file_mutation_ledger',
+        'recover current file blob',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
+  Future<String?> _recoverBlobFromLegacyVersions(String sha) async {
+    if (!_sha256HexPattern.hasMatch(sha)) return null;
+    if (_legacyBlobRecoveryMisses.contains(sha)) return null;
+    try {
+      final index = await _legacyBlobIndex();
+      final path = index[sha];
+      if (path == null || path.isEmpty) {
+        _legacyBlobRecoveryMisses.add(sha);
+        return null;
+      }
+      final file = File(path);
+      if (!await file.exists()) {
+        _legacyBlobRecoveryMisses.add(sha);
+        return null;
+      }
+      final stat = await file.stat();
+      if (stat.type != FileSystemEntityType.file ||
+          stat.size > _blobRecoveryMaxBytes) {
+        _legacyBlobRecoveryMisses.add(sha);
+        return null;
+      }
+      final content = await file.readAsString();
+      if (_sha256Of(content) != sha) {
+        _legacyBlobRecoveryMisses.add(sha);
+        return null;
+      }
+      await _cacheRecoveredBlob(sha, content, 'cache legacy blob');
+      return content;
+    } on FileSystemException catch (error, stack) {
+      if (!_isMissingFileSystemException(error)) {
+        silentLog(
+          'ai_file_mutation_ledger',
+          'recover legacy blob',
+          error,
+          stack,
+        );
+      }
+      _legacyBlobRecoveryMisses.add(sha);
+      return null;
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'recover legacy blob', error, stack);
+      _legacyBlobRecoveryMisses.add(sha);
+      return null;
+    }
+  }
+
+  Future<Map<String, String>> _legacyBlobIndex() async {
+    final cached = _legacyBlobPathIndex;
+    if (cached != null) return cached;
+    final index = <String, String>{};
+    final legacyRoot = Directory(p.join(_root, 'legacy_versions'));
+    try {
+      if (!await legacyRoot.exists()) {
+        _legacyBlobPathIndex = const <String, String>{};
+        return _legacyBlobPathIndex!;
+      }
+      var scanned = 0;
+      await for (final entity in legacyRoot.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (scanned >= _legacyBlobRecoveryMaxFiles) break;
+        if (entity is! File || !entity.path.endsWith('.content')) continue;
+        scanned += 1;
+        try {
+          final stat = await entity.stat();
+          if (stat.type != FileSystemEntityType.file ||
+              stat.size > _blobRecoveryMaxBytes) {
+            continue;
+          }
+          final content = await entity.readAsString();
+          index.putIfAbsent(_sha256Of(content), () => entity.path);
+        } on FileSystemException catch (error, stack) {
+          if (!_isMissingFileSystemException(error)) {
+            silentLog(
+              'ai_file_mutation_ledger',
+              'index legacy blob',
+              error,
+              stack,
+            );
+          }
+        } catch (error, stack) {
+          silentLog(
+            'ai_file_mutation_ledger',
+            'index legacy blob',
+            error,
+            stack,
+          );
+        }
+      }
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', 'index legacy blobs', error, stack);
+    }
+    _legacyBlobPathIndex = Map<String, String>.unmodifiable(index);
+    return _legacyBlobPathIndex!;
+  }
+
+  Future<void> _cacheRecoveredBlob(
+    String sha,
+    String content,
+    String where,
+  ) async {
+    try {
+      await _writeBlobIfMissing(sha, content);
+    } catch (error, stack) {
+      silentLog('ai_file_mutation_ledger', where, error, stack);
     }
   }
 

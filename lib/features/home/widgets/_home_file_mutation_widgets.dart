@@ -333,22 +333,21 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     for (final v in views) {
       final r = v.record;
       buf.writeln('# ${r.filePath}');
-      final before = r.beforeSha == null
-          ? ''
-          : (await ledger.readBlob(r.beforeSha!) ?? '<missing>');
-      final after = r.afterSha == null
-          ? ''
-          : (await ledger.readBlob(r.afterSha!) ?? '<missing>');
       buf.writeln('```diff');
-      buf.writeln(
-        unifiedDiffLineSummary(
-          before,
-          after,
-          beforeSha: r.beforeSha,
-          afterSha: r.afterSha,
-          miniDiffMaxBytes: config.miniDiffMaxBytes,
-        ),
-      );
+      final snapshots = await ledger.readSnapshots(r);
+      if (_mutationSnapshotsIncomplete(r, snapshots)) {
+        buf.writeln('<snapshot unavailable>');
+      } else {
+        buf.writeln(
+          unifiedDiffLineSummary(
+            snapshots.before ?? '',
+            snapshots.after ?? '',
+            beforeSha: r.beforeSha,
+            afterSha: r.afterSha,
+            miniDiffMaxBytes: config.miniDiffMaxBytes,
+          ),
+        );
+      }
       buf.writeln('```');
       buf.writeln();
     }
@@ -1240,7 +1239,7 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
       child: FutureBuilder<({String? before, String? after})>(
         future: _future,
         builder: (ctx, snap) {
-          if (!snap.hasData) {
+          if (snap.connectionState != ConnectionState.done) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 10),
               child: SizedBox(
@@ -1250,8 +1249,18 @@ class _InlineDiffPanelState extends State<_InlineDiffPanel> {
               ),
             );
           }
-          final before = snap.data!.before ?? '';
-          final after = snap.data!.after ?? '';
+          final snapshots = snap.data;
+          if (snapshots == null ||
+              _mutationSnapshotsIncomplete(widget.view.record, snapshots)) {
+            return Text(
+              AppLocalizations.of(context)!.fileMutationSnapshotUnavailable,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            );
+          }
+          final before = snapshots.before ?? '';
+          final after = snapshots.after ?? '';
           if (before.isEmpty && after.isEmpty) {
             return Text(
               AppLocalizations.of(context)!.fileMutationSnapshotUnavailable,
@@ -1284,30 +1293,15 @@ Future<({String? before, String? after})> _loadMutationDiffSnapshots(
       .read<AiSessionController>()
       .toolRuntimeService
       .mutationLedger;
-  final before = record.beforeSha == null
-      ? null
-      : await ledger.readBlob(record.beforeSha!);
-  var after = record.afterSha == null
-      ? null
-      : await ledger.readBlob(record.afterSha!);
+  return ledger.readSnapshots(record);
+}
 
-  // 当 blob 丢失但文件仍存在于磁盘时，尝试读取当前磁盘内容作为回退。
-  if (after == null && record.afterSha != null && record.filePath.isNotEmpty) {
-    try {
-      final file = File(record.filePath);
-      if (await file.exists()) {
-        after = await file.readAsString();
-      }
-    } catch (error, stack) {
-      silentLog(
-        'home_file_mutation_widgets',
-        'read fallback ${record.filePath}',
-        error,
-        stack,
-      );
-    }
-  }
-  return (before: before, after: after);
+bool _mutationSnapshotsIncomplete(
+  FileMutationRecord record,
+  ({String? before, String? after}) snapshots,
+) {
+  return (record.beforeSha != null && snapshots.before == null) ||
+      (record.afterSha != null && snapshots.after == null);
 }
 
 enum _CodexDiffLineKind { context, addition, deletion, folded }
@@ -4484,8 +4478,19 @@ class _DiffPreviewBoxState extends State<_DiffPreviewBox> {
           if (snap.connectionState != ConnectionState.done) {
             return _DiffLoadingPlaceholder(theme: theme, colorScheme: cs);
           }
-          final before = snap.data?.before ?? '';
-          final after = snap.data?.after ?? '';
+          final snapshots = snap.data;
+          if (snapshots == null ||
+              _mutationSnapshotsIncomplete(widget.record, snapshots)) {
+            return _DiffEmptyPlaceholder(
+              theme: theme,
+              colorScheme: cs,
+              message: AppLocalizations.of(
+                context,
+              )!.fileMutationSnapshotUnavailable,
+            );
+          }
+          final before = snapshots.before ?? '';
+          final after = snapshots.after ?? '';
           if (before.isEmpty && after.isEmpty) {
             return _DiffEmptyPlaceholder(theme: theme, colorScheme: cs);
           }
@@ -4552,10 +4557,15 @@ class _DiffLoadingPlaceholder extends StatelessWidget {
 }
 
 class _DiffEmptyPlaceholder extends StatelessWidget {
-  const _DiffEmptyPlaceholder({required this.theme, required this.colorScheme});
+  const _DiffEmptyPlaceholder({
+    required this.theme,
+    required this.colorScheme,
+    this.message,
+  });
 
   final ThemeData theme;
   final ColorScheme colorScheme;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -4571,11 +4581,12 @@ class _DiffEmptyPlaceholder extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Text(
-          openHandLocalizedText(
-            context,
-            zh: '内容相同或不可对比。',
-            en: 'No textual diff available.',
-          ),
+          message ??
+              openHandLocalizedText(
+                context,
+                zh: '内容相同或不可对比。',
+                en: 'No textual diff available.',
+              ),
           style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
