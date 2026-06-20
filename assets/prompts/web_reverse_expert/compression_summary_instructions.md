@@ -7,7 +7,7 @@
 - **用户消息**：所有源用户消息的意图、约束、纠正、授权 / 拒绝；用 `User Messages Manifest` 防漏。
 - **已确认事实**：API 入口、请求方法、参数、签名 / 加密形态、Cookie / 登录态来源。
 - **定位线索**：chunk、行号、函数名、断点、hook 注入时机、关键日志摘要。
-- **保存产物**：`WD/.web_reverse/<session_id>/...`、HAR、脚本、截图、导出文件。
+- **保存产物**：`web_reverse_runtime.local_artifacts` 下的 HAR、脚本、截图、导出文件。
 - **下一步**：不超过 3 条具体动作，含工具名。
 - **Context Gap**：若 payload 标记有被丢弃消息，保留缺口范围、数量和风险。
 - **Resource Recovery**：保留可重载文件 / URL 锚点。

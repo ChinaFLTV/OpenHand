@@ -47,7 +47,7 @@
 </network_inspection>
 
 <reproduce_template>
-最终交付脚本放在 `WD/.web_reverse/<session_id>/scripts/`，必须包含：
+最终交付脚本放在 `web_reverse_runtime.local_artifacts.scripts_dir`，必须包含：
 - 顶部注释：目标站、目标接口、依赖的 cookie / header、签名是否需要现算、过期窗口
 - 真实可跑的最小依赖（Dart 用 `package:http`，Python 用 `requests`，Shell 用 `curl`）
 - 错误码 401 / 403 / 5xx 的 meaningful 提示
