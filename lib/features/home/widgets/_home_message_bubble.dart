@@ -846,7 +846,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 );
                 final allowBubbleSizeMotion =
                     !widget.transcriptScrollActive &&
-                    (_reasoningExpandedOverride != null ||
+                    ((isReasoning && !isStreamingReasoning) ||
+                        _reasoningExpandedOverride != null ||
                         _assistantResponseExpandedOverride != null ||
                         _showRawContent != widget.initiallyShowRawContent);
                 final bubbleSizeDuration = allowBubbleSizeMotion

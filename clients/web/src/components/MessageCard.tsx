@@ -1067,7 +1067,11 @@ function MessageCardImpl({
     12000,
   );
   const activelyStreaming = streaming || booleanFromUnknown(metadata['streaming']);
-  const streamingContent = activelyStreaming || recentlyUpdatedContent;
+  const isReasoningMessage = message.kind === 'reasoning';
+  const isActivelyStreamingReasoning = isReasoningMessage && activelyStreaming;
+  const streamingContent = isReasoningMessage
+    ? activelyStreaming
+    : activelyStreaming || recentlyUpdatedContent;
   const inlineCreationMode =
     !isUserBubble && activelyStreaming && content.trim().length < 10
       ? mediaGenerationModeFromMetadata(metadata)
@@ -1092,7 +1096,8 @@ function MessageCardImpl({
     const handle = window.setTimeout(() => setStableTurnActive(false), 12000);
     return () => window.clearTimeout(handle);
   }, [turnActive]);
-  const keepExpandedDuringTurn = stableTurnActive && message.role === 'assistant';
+  const keepExpandedDuringTurn =
+    stableTurnActive && message.role === 'assistant' && !isReasoningMessage;
   const canCollapse =
     !useToolBody &&
     !forceExpanded &&
@@ -1133,14 +1138,13 @@ function MessageCardImpl({
   const responseBadgeCanToggle =
     canCollapse && isAssistantResponseBadgeMessage && !activelyStreaming;
   const shouldRenderResponseBadge = responseBadgeStreaming || responseBadgeCanToggle;
-  const reasoningBadgeSweeping = message.kind === 'reasoning' && activelyStreaming;
+  const reasoningBadgeSweeping = isActivelyStreamingReasoning;
   const badgeToggleClass =
     'oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
   const staticSweepingBadgeClass =
     'oh-message-badge-toggle is-static is-sweeping inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
-  const isLongReasoning =
-    message.kind === 'reasoning' && isReasoningLong(content);
-  const defaultBadgeCollapsed = !streamingContent && !keepExpandedDuringTurn && isLongReasoning;
+  const isLongReasoning = isReasoningMessage && isReasoningLong(content);
+  const defaultBadgeCollapsed = isLongReasoning;
   const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(() => (
     badgeCollapsedOverridesByMessageId.has(message.id)
       ? badgeCollapsedOverridesByMessageId.get(message.id)!
@@ -1511,16 +1515,11 @@ function MessageCardImpl({
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent || stableTurnActive} /> : null
         ) : (
-          // 关键：流式期间也必须尊重用户全局设置的内容格式。
-          // 旧逻辑 `usePlainTextStreamingReveal` 在 activelyStreaming 期间
-          // 强制走纯文本，导致用户设置 markdown 时也看到裸源码（mermaid
-          // 代码块、markdown 标题、列表全部显示为字符）。改为：仅当用户
-          // 显式选了 plain_text 才走打字机型纯文本流；其余一律按 format
-          // 走 markdown / html 渲染，markdown 组件内部的 deferred parse
-          // + 帧节流已经能扛住 SSE 80ms 一 tick 的解析开销。
-          activelyStreaming &&
-          effectiveFormat === 'plain_text' &&
-          message.kind !== 'reasoning' ? (
+          // 思考卡在流式阶段强制使用纯文本，避免 Markdown/代码块逐 token
+          // 成型时反复重排，把下方 pending tool-call 卡片顶上顶下。流式结束
+          // 后再切回 Markdown 渲染；若内容超出 5-6 行，外层保持 142px 预览态。
+          isActivelyStreamingReasoning ||
+          (activelyStreaming && effectiveFormat === 'plain_text') ? (
             <StreamingPlainTextReveal
               content={visibleContent}
               streaming

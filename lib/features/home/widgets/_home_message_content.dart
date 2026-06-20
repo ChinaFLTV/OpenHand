@@ -161,12 +161,8 @@ class _ReasoningBody extends StatelessWidget {
         content: content,
         expanded: expanded,
         fadeColor: fadeColor,
-        selectable: selectable,
+        textColor: textColor,
         styleSheet: styleSheet,
-        builders: builders,
-        inlineSyntaxes: inlineSyntaxes,
-        pathRoots: pathRoots,
-        parseKey: parseKey,
       );
     }
     // 折叠态：展示前 5-6 行预览（maxHeight ≈ 142）并在底部叠渐隐遮罩，
@@ -208,64 +204,46 @@ class _StreamingReasoningBody extends StatelessWidget {
   const _StreamingReasoningBody({
     required this.content,
     required this.expanded,
-    required this.selectable,
     required this.fadeColor,
+    required this.textColor,
     required this.styleSheet,
-    required this.builders,
-    required this.inlineSyntaxes,
-    required this.pathRoots,
-    required this.parseKey,
   });
 
   final String content;
   final bool expanded;
-  final bool selectable;
   final Color fadeColor;
+  final Color textColor;
   final MarkdownStyleSheet styleSheet;
-  final Map<String, MarkdownElementBuilder> builders;
-  final List<md.InlineSyntax> inlineSyntaxes;
-  final List<String> pathRoots;
-  final String parseKey;
 
   @override
   Widget build(BuildContext context) {
     final effectiveContent = content.isEmpty ? ' ' : content;
-    // 流式期间若用户主动折叠（expanded=false），也展示前 5-6 行预览。
-    // 这里继续不嵌内部 AnimatedSize：外层 bubble 已统一承接语义边界上的
-    // 高度变化，内部只保留内容切换，避免双动画抖动。
-    // `_SafeMarkdownBody(streaming: true)` 会保留上一帧富文本树并节流解析，
-    // 不再回退到纯文本占位，因此思考卡片流式阶段也能渲染公式和表格。
+    final textStyle = styleSheet.p?.copyWith(color: textColor);
+    // 流式思考阶段保持纯文本：Markdown/代码块在逐 token 成型时会不断改变
+    // 布局高度，容易把下方 tool-call pending 卡片顶上顶下。待流式结束后，
+    // _ReasoningBody 会切回 _SafeMarkdownBody 做完整富文本渲染。
     return expanded
         ? KeyedSubtree(
-            key: const ValueKey<String>(
-              'streaming-reasoning-markdown-expanded',
-            ),
+            key: const ValueKey<String>('streaming-reasoning-plain-expanded'),
             child: StreamingTextRevealText(
               text: effectiveContent,
               streaming: true,
               animateSize: false,
-              builder: (context, visibleContent) => _SafeMarkdownBody(
+              builder: (context, visibleContent) => _StreamingAssistantTextBody(
                 data: visibleContent.isEmpty ? ' ' : visibleContent,
-                streaming: true,
-                selectable: selectable,
-                builders: builders,
-                styleSheet: styleSheet,
-                inlineSyntaxes: inlineSyntaxes,
-                pathRoots: pathRoots,
-                parseKey: parseKey,
+                textColor: textColor,
+                backgroundColor: fadeColor,
+                style: textStyle,
               ),
             ),
           )
         : KeyedSubtree(
-            key: const ValueKey<String>('streaming-reasoning-markdown-preview'),
-            child: _MarkdownPreviewBody(
+            key: const ValueKey<String>('streaming-reasoning-plain-preview'),
+            child: _PlainTextPreviewBody(
               data: effectiveContent,
               maxHeight: _reasoningPreviewMaxHeight,
-              styleSheet: styleSheet,
-              builders: builders,
-              inlineSyntaxes: inlineSyntaxes,
-              pathRoots: pathRoots,
-              parseKey: '$parseKey|streaming-markdown-preview',
+              style: textStyle,
+              textColor: textColor,
               fadeColor: fadeColor,
             ),
           );
@@ -275,6 +253,155 @@ class _StreamingReasoningBody extends StatelessWidget {
 /// 思考卡片的折叠预览高度。≈ 6 行 × 22px line-height + 小呼吸，
 /// 和 WEB 端 REASONING_PREVIEW_MAX_HEIGHT_PX 对齐。
 const double _reasoningPreviewMaxHeight = 142;
+
+class _PlainTextPreviewBody extends StatefulWidget {
+  const _PlainTextPreviewBody({
+    required this.data,
+    required this.maxHeight,
+    required this.textColor,
+    required this.fadeColor,
+    this.style,
+  });
+
+  final String data;
+  final double maxHeight;
+  final Color textColor;
+  final Color fadeColor;
+  final TextStyle? style;
+
+  @override
+  State<_PlainTextPreviewBody> createState() => _PlainTextPreviewBodyState();
+}
+
+class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
+  static const int _previewCharCap = 1600;
+
+  final ScrollController _scrollController = ScrollController();
+  double? _contentHeight;
+  bool _atBottom = false;
+
+  String get _effectiveData {
+    final data = widget.data.isEmpty ? ' ' : widget.data;
+    if (data.length <= _previewCharCap) return data;
+    return data.substring(0, _previewCharCap);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlainTextPreviewBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _contentHeight = null;
+      _atBottom = false;
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) {
+      setState(() => _atBottom = atBottom);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style =
+        widget.style?.copyWith(color: widget.textColor) ??
+        TextStyle(color: widget.textColor, height: 1.55);
+    final measuredHeight = _contentHeight;
+    final hasOverflow =
+        measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
+    final effectiveHeight = measuredHeight == null
+        ? widget.maxHeight
+        : math.min(measuredHeight, widget.maxHeight);
+    final showFade = hasOverflow && !_atBottom;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final constrainedWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        return SizedBox(
+          height: effectiveHeight,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRect(
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      physics: hasOverflow
+                          ? const BouncingScrollPhysics()
+                          : const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        width: constrainedWidth,
+                        child: _MeasureSize(
+                          onChange: (size) {
+                            if (!mounted) return;
+                            final nextHeight = size.height;
+                            final currentHeight = _contentHeight;
+                            if (currentHeight != null &&
+                                (currentHeight - nextHeight).abs() < 0.5) {
+                              return;
+                            }
+                            setState(() => _contentHeight = nextHeight);
+                          },
+                          child: SelectableText(_effectiveData, style: style),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: showFade ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            widget.fadeColor.withValues(alpha: 0),
+                            widget.fadeColor.withValues(alpha: 1),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
 class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   const _CollapsibleMessageMarkdownBody({

@@ -2068,10 +2068,8 @@ bool _shouldTrackMessageLayout({
 }
 
 bool _shouldDefaultExpandReasoning(AiSessionMessage message) {
-  // 流式期间保持展开，便于实时观察。
-  if (_isStreamingReasoningMessage(message)) return true;
-  // 流式结束后：超过 5-6 行的思考内容默认折叠（对齐 WEB 端
-  // ReasoningCollapsibleBody 默认行为）；较短内容继续展开，省一次点击。
+  // 超过 5-6 行的思考内容默认折叠，包括流式阶段。这样 pending tool-call
+  // 卡片插入时不会被长思考逐 token 增长反复顶动；较短内容继续展开，省一次点击。
   return !_isReasoningContentLong(message.content);
 }
 
