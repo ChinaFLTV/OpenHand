@@ -15,6 +15,7 @@ import '../../service/sandbox/ai_sandbox_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+import '../web_reverse_cdp_first_guard.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
 const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
@@ -97,7 +98,7 @@ class AiBashBackgroundTool extends AiTool {
       case 'start':
         return _start(context, args);
       case 'write':
-        return _write(args);
+        return _write(context, args);
       case 'read':
         return _read(context, args, toolName: _taskAliasToolName(context));
       case 'stop':
@@ -166,6 +167,21 @@ class AiBashBackgroundTool extends AiTool {
         'start requires non-empty cmd.',
       );
     }
+    final cwd = AiToolUtils.resolvePath(
+      '${args['working_directory'] ?? args['cwd'] ?? ''}',
+    );
+    final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateCommand(
+      command: cmd,
+      metadata: context.metadata,
+    );
+    if (cdpFirstDecision != null) {
+      return _webReverseBashBackgroundCdpFirstBlock(
+        decision: cdpFirstDecision,
+        command: cmd,
+        workingDirectory: cwd,
+        action: 'start',
+      );
+    }
     final writeAnalysis = _bashToolService.analyzeWriteCommand(cmd);
     _pruneExitedSessions();
     if (_activeSessionCount >= _maxConcurrentSessions) {
@@ -191,9 +207,6 @@ class AiBashBackgroundTool extends AiTool {
             'status: denied\nrule: ${denyRule.pattern}\nreason: matched deny rule',
       );
     }
-    final cwd = AiToolUtils.resolvePath(
-      '${args['working_directory'] ?? args['cwd'] ?? ''}',
-    );
     final launchSpec = await _prepareLaunchSpec(
       cmd: cmd,
       cwd: cwd,
@@ -385,7 +398,10 @@ class AiBashBackgroundTool extends AiTool {
     );
   }
 
-  Future<AiToolExecutionResult> _write(Map<String, Object?> args) async {
+  Future<AiToolExecutionResult> _write(
+    AiToolExecutionContext context,
+    Map<String, Object?> args,
+  ) async {
     final handle = '${args['handle'] ?? ''}'.trim();
     final input = '${args['input'] ?? ''}';
     final session = _sessions[handle];
@@ -399,6 +415,19 @@ class AiBashBackgroundTool extends AiTool {
       return AiToolUtils.invalidResult(
         'BashBackground',
         'Handle "$handle" already exited (code ${session.exitCode}).',
+      );
+    }
+    final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateCommand(
+      command: input,
+      metadata: context.metadata,
+    );
+    if (cdpFirstDecision != null) {
+      return _webReverseBashBackgroundCdpFirstBlock(
+        decision: cdpFirstDecision,
+        command: input,
+        workingDirectory: session.workingDirectory,
+        action: 'write',
+        handle: handle,
       );
     }
     try {
@@ -672,6 +701,59 @@ class AiBashBackgroundTool extends AiTool {
       }
     }
   }
+}
+
+AiToolExecutionResult _webReverseBashBackgroundCdpFirstBlock({
+  required WebReverseCdpFirstDecision decision,
+  required String command,
+  required String workingDirectory,
+  required String action,
+  String? handle,
+}) {
+  final message = decision.blockedMessage('BashBackground');
+  return AiToolExecutionResult(
+    status: BashToolExecutionStatus.denied,
+    command: command.isEmpty ? 'BashBackground $action' : command,
+    workingDirectory: workingDirectory.isEmpty
+        ? AiToolUtils.defaultWorkingDirectory()
+        : AiToolUtils.resolvePath(workingDirectory),
+    stdout: _webReverseBashBackgroundCdpFirstStdout(
+      decision: decision,
+      action: action,
+      handle: handle,
+    ),
+    stderr: message,
+    durationMs: 0,
+    resultText: 'status: denied\nerror: $message',
+    metadata: <String, Object?>{
+      'web_reverse_bash_background_blocked_action': action,
+      'web_reverse_bash_background_blocked_command_char_count': command.length,
+      if (handle != null && handle.isNotEmpty) 'bg_handle': handle,
+      ...decision.metadata(
+        requestedUrl: decision.requestedUri.toString(),
+        blockedFlag: 'web_reverse_bash_background_blocked_for_cdp_first',
+      ),
+    },
+  );
+}
+
+String _webReverseBashBackgroundCdpFirstStdout({
+  required WebReverseCdpFirstDecision decision,
+  required String action,
+  String? handle,
+}) {
+  final out = StringBuffer()
+    ..writeln('cdp_first_required: true')
+    ..writeln('action: $action');
+  if (handle != null && handle.isNotEmpty) {
+    out.writeln('handle: $handle');
+  }
+  out
+    ..writeln('target_origin: ${decision.targetOrigin}')
+    ..writeln('requested_origin: ${decision.requestedOrigin}')
+    ..writeln('cdp_route: ${decision.routeKind}')
+    ..write('cdp_tools: ${decision.toolText}');
+  return out.toString();
 }
 
 class _BgSession {
