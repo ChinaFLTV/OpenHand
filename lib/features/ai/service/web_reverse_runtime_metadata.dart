@@ -23,3 +23,16 @@ bool webReverseCdpRuntimeHasLiveLocator(Map<Object?, Object?> value) {
       hasText(value['json_version_url']) ||
       hasText(value['json_list_url']);
 }
+
+Object? webReverseCurrentCdpRuntimeMetadata(Map<Object?, Object?> metadata) {
+  final currentRuntime = metadata['web_reverse_cdp_runtime'];
+  if (currentRuntime != null) {
+    return currentRuntime;
+  }
+
+  final runtime = metadata['web_reverse_runtime'];
+  if (runtime is Map) {
+    return runtime['cdp_runtime'];
+  }
+  return null;
+}

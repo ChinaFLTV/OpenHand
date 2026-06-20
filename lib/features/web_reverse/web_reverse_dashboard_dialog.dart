@@ -1019,12 +1019,7 @@ class _WebReverseDashboardDialogState
     ) {
       for (final session in controller.sessions) {
         if (session.id == widget.sessionId) {
-          final runtime = session.metadata['web_reverse_runtime'];
-          if (runtime is Map) {
-            final cdpRuntime = runtime['cdp_runtime'];
-            if (cdpRuntime != null) return cdpRuntime;
-          }
-          return session.metadata['web_reverse_cdp_runtime'];
+          return webReverseCurrentCdpRuntimeMetadata(session.metadata);
         }
       }
       return null;

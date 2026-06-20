@@ -48,5 +48,42 @@ void main() {
         isFalse,
       );
     });
+
+    test('prefers current controller CDP runtime over prompt runtime', () {
+      final runtime = webReverseCurrentCdpRuntimeMetadata(<Object?, Object?>{
+        'web_reverse_runtime': <String, Object?>{
+          'cdp_runtime': <String, Object?>{
+            'browser_alive': true,
+            'cdp_port': 9223,
+          },
+        },
+        'web_reverse_cdp_runtime': <String, Object?>{
+          'browser_alive': false,
+          'last_cdp_port': 9223,
+        },
+      });
+
+      expect(runtime, isA<Map>());
+      expect((runtime as Map)['browser_alive'], isFalse);
+      expect(runtime['last_cdp_port'], 9223);
+    });
+
+    test(
+      'falls back to prompt CDP runtime when controller runtime is absent',
+      () {
+        final runtime = webReverseCurrentCdpRuntimeMetadata(<Object?, Object?>{
+          'web_reverse_runtime': <String, Object?>{
+            'cdp_runtime': <String, Object?>{
+              'browser_alive': true,
+              'cdp_port': 9223,
+            },
+          },
+        });
+
+        expect(runtime, isA<Map>());
+        expect((runtime as Map)['browser_alive'], isTrue);
+        expect(runtime['cdp_port'], 9223);
+      },
+    );
   });
 }

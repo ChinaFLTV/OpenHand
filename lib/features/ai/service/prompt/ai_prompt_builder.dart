@@ -2243,15 +2243,8 @@ class AiPromptBuilder {
   }
 
   Object? _webReverseCdpRuntimeMetadata(AiSession session) {
-    final runtime = session.metadata['web_reverse_runtime'];
-    if (runtime is Map) {
-      final cdpRuntime = runtime['cdp_runtime'];
-      if (cdpRuntime != null) {
-        return _boundedWebReverseMetadataValue(cdpRuntime);
-      }
-    }
     return _boundedWebReverseMetadataValue(
-      session.metadata['web_reverse_cdp_runtime'],
+      webReverseCurrentCdpRuntimeMetadata(session.metadata),
     );
   }
 
