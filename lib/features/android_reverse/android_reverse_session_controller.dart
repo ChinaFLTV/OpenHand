@@ -1774,7 +1774,23 @@ run_with_timeout() {
   elif command -v timeout >/dev/null 2>&1; then
     timeout "$TIMEOUT_SECONDS" "$@"
   else
-    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+    perl -e '
+my $timeout = shift @ARGV;
+my $pid = fork();
+die "fork failed\n" unless defined $pid;
+if ($pid == 0) { exec @ARGV or exit 127; }
+$SIG{ALRM} = sub {
+  kill "TERM", $pid;
+  select undef, undef, undef, 0.2;
+  kill "KILL", $pid;
+  exit 124;
+};
+alarm $timeout;
+waitpid($pid, 0);
+my $status = $?;
+alarm 0;
+exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
+' "$TIMEOUT_SECONDS" "$@"
   fi
 }
 
@@ -2081,7 +2097,23 @@ run_with_timeout() {
   elif command -v timeout >/dev/null 2>&1; then
     timeout "$TIMEOUT_SECONDS" "$@"
   else
-    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+    perl -e '
+my $timeout = shift @ARGV;
+my $pid = fork();
+die "fork failed\n" unless defined $pid;
+if ($pid == 0) { exec @ARGV or exit 127; }
+$SIG{ALRM} = sub {
+  kill "TERM", $pid;
+  select undef, undef, undef, 0.2;
+  kill "KILL", $pid;
+  exit 124;
+};
+alarm $timeout;
+waitpid($pid, 0);
+my $status = $?;
+alarm 0;
+exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
+' "$TIMEOUT_SECONDS" "$@"
   fi
 }
 
@@ -2175,7 +2207,23 @@ run_with_timeout() {
   elif command -v timeout >/dev/null 2>&1; then
     timeout "$TIMEOUT_SECONDS" "$@"
   else
-    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+    perl -e '
+my $timeout = shift @ARGV;
+my $pid = fork();
+die "fork failed\n" unless defined $pid;
+if ($pid == 0) { exec @ARGV or exit 127; }
+$SIG{ALRM} = sub {
+  kill "TERM", $pid;
+  select undef, undef, undef, 0.2;
+  kill "KILL", $pid;
+  exit 124;
+};
+alarm $timeout;
+waitpid($pid, 0);
+my $status = $?;
+alarm 0;
+exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
+' "$TIMEOUT_SECONDS" "$@"
   fi
 }
 
@@ -2630,7 +2678,23 @@ run_with_timeout() {
   elif command -v timeout >/dev/null 2>&1; then
     timeout "$TIMEOUT_SECONDS" "$@"
   else
-    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+    perl -e '
+my $timeout = shift @ARGV;
+my $pid = fork();
+die "fork failed\n" unless defined $pid;
+if ($pid == 0) { exec @ARGV or exit 127; }
+$SIG{ALRM} = sub {
+  kill "TERM", $pid;
+  select undef, undef, undef, 0.2;
+  kill "KILL", $pid;
+  exit 124;
+};
+alarm $timeout;
+waitpid($pid, 0);
+my $status = $?;
+alarm 0;
+exit($status & 127 ? 128 + ($status & 127) : (($status >> 8) & 255));
+' "$TIMEOUT_SECONDS" "$@"
   fi
 }
 
