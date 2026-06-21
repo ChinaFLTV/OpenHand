@@ -1,5 +1,11 @@
 part of '../openhand_home_page.dart';
 
+const double _kSessionToolbarPillHeight = 32;
+const double _kSessionToolbarPillHorizontalPadding = 10;
+const double _kSessionToolbarPillIconSize = 14;
+const double _kSessionToolbarStatusDotSize = 8;
+const Duration _kSessionToolbarPillTransition = Duration(milliseconds: 220);
+
 class _SessionToolbar extends StatelessWidget {
   const _SessionToolbar({
     required this.session,
@@ -294,8 +300,10 @@ class _ToolbarPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final child = Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: _kSessionToolbarPillHeight,
+      padding: const EdgeInsets.symmetric(
+        horizontal: _kSessionToolbarPillHorizontalPadding,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: _borderRadius999,
@@ -303,7 +311,11 @@ class _ToolbarPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: theme.colorScheme.primary),
+          Icon(
+            icon,
+            size: _kSessionToolbarPillIconSize,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(width: 6),
           Text(
             label,
@@ -331,6 +343,134 @@ class _ToolbarPill extends StatelessWidget {
             theme.colorScheme.primary.withValues(alpha: 0.08),
           ),
           child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionToolbarStatusPill extends StatelessWidget {
+  const _SessionToolbarStatusPill({
+    required this.tooltip,
+    required this.icon,
+    required this.label,
+    required this.dotColor,
+    required this.onTap,
+    this.reduceMotion = false,
+    this.glowingDot = false,
+    this.maxLabelWidth,
+    this.tabularLabel = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final String label;
+  final Color dotColor;
+  final VoidCallback? onTap;
+  final bool reduceMotion;
+  final bool glowingDot;
+  final double? maxLabelWidth;
+  final bool tabularLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final duration = reduceMotion
+        ? Duration.zero
+        : _kSessionToolbarPillTransition;
+    final labelText = AnimatedSwitcher(
+      duration: duration,
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: Text(
+        label,
+        key: ValueKey<String>(label),
+        maxLines: 1,
+        overflow: maxLabelWidth == null
+            ? TextOverflow.fade
+            : TextOverflow.ellipsis,
+        softWrap: false,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontFeatures: tabularLabel
+              ? const <FontFeature>[FontFeature.tabularFigures()]
+              : null,
+          color: cs.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+    final pill = AnimatedContainer(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      height: _kSessionToolbarPillHeight,
+      padding: const EdgeInsets.symmetric(
+        horizontal: _kSessionToolbarPillHorizontalPadding,
+      ),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: _borderRadius999,
+        border: Border.all(color: dotColor.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            width: _kSessionToolbarStatusDotSize,
+            height: _kSessionToolbarStatusDotSize,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+              boxShadow: glowingDot
+                  ? [
+                      BoxShadow(
+                        color: dotColor.withValues(alpha: 0.55),
+                        blurRadius: 6,
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(
+            icon,
+            size: _kSessionToolbarPillIconSize,
+            color: cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          if (maxLabelWidth == null)
+            labelText
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxLabelWidth!),
+              child: labelText,
+            ),
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 350),
+        child: MicroPressFeedback(
+          enabled: onTap != null,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: _borderRadius999,
+            child: InkWell(
+              borderRadius: _borderRadius999,
+              onTap: onTap,
+              overlayColor: WidgetStatePropertyAll<Color>(
+                cs.primary.withValues(alpha: 0.08),
+              ),
+              child: pill,
+            ),
+          ),
         ),
       ),
     );
@@ -2454,88 +2594,16 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
       cdpStatus.tooltip,
     ].join('\n');
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 8),
-      child: Tooltip(
-        message: tooltip,
-        waitDuration: const Duration(milliseconds: 350),
-        child: AnimatedContainer(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: dotColor.withValues(alpha: 0.4)),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: _restoring ? null : _onPillTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 220),
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                        boxShadow: running && errs == 0
-                            ? [
-                                BoxShadow(
-                                  color: dotColor.withValues(alpha: 0.55),
-                                  blurRadius: 6,
-                                ),
-                              ]
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.bug_report_rounded,
-                      size: 13,
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 136),
-                      child: AnimatedSwitcher(
-                        duration: reduceMotion
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
-                        transitionBuilder: (c, a) =>
-                            FadeTransition(opacity: a, child: c),
-                        child: Text(
-                          label,
-                          key: ValueKey<String>(label),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                            fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return _SessionToolbarStatusPill(
+      tooltip: tooltip,
+      icon: Icons.bug_report_rounded,
+      label: label,
+      dotColor: dotColor,
+      onTap: _restoring ? null : _onPillTap,
+      reduceMotion: reduceMotion,
+      glowingDot: running && errs == 0,
+      maxLabelWidth: 136,
+      tabularLabel: true,
     );
   }
 }
@@ -2684,8 +2752,10 @@ class _StreamThrottlePill extends StatelessWidget {
               onTap: () =>
                   _showStreamThrottleDialog(context, sessionId: sessionId),
               child: Container(
-                height: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                height: _kSessionToolbarPillHeight,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _kSessionToolbarPillHorizontalPadding,
+                ),
                 decoration: BoxDecoration(
                   color: pillColor,
                   borderRadius: _borderRadius999,
@@ -2700,7 +2770,7 @@ class _StreamThrottlePill extends StatelessWidget {
                   children: [
                     Icon(
                       showAsGray ? Icons.flash_off_rounded : Icons.bolt_rounded,
-                      size: 14,
+                      size: _kSessionToolbarPillIconSize,
                       color: iconColor,
                     ),
                     const SizedBox(width: 6),
@@ -4146,7 +4216,8 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
         : !deviceOnline
         ? cs.error
         : cs.primary;
-    final deviceLabel = ctrl?.connectedDevice?.model ??
+    final deviceLabel =
+        ctrl?.connectedDevice?.model ??
         ctrl?.connectedDevice?.serial ??
         (running ? (isZh ? '无设备' : 'no device') : (isZh ? '点击连接' : 'click'));
     final label = running
@@ -4159,66 +4230,14 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
       '${isZh ? "设备" : "Device"}: ${running ? (deviceOnline ? deviceLabel : (isZh ? "无设备" : "no device")) : (isZh ? "未运行" : "stopped")}',
     ].join('\n');
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 8),
-      child: Tooltip(
-        message: tooltip,
-        waitDuration: const Duration(milliseconds: 350),
-        child: AnimatedContainer(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: dotColor.withValues(alpha: 0.4)),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: _onPillTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 220),
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.android_rounded,
-                      size: 12,
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      label,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return _SessionToolbarStatusPill(
+      tooltip: tooltip,
+      icon: Icons.android_rounded,
+      label: label,
+      dotColor: dotColor,
+      onTap: _onPillTap,
+      reduceMotion: reduceMotion,
+      maxLabelWidth: 136,
     );
   }
 }
