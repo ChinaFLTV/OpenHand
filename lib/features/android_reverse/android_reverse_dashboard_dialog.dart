@@ -3735,6 +3735,27 @@ class _AndroidReverseDashboardDialogState
                   cs,
                   theme,
                   isZh,
+                  title: isZh ? '设备端 Frida 准备' : 'Prepare device Frida',
+                  command:
+                      'frida --version\n'
+                      '${_adbCommandPrefix()} shell getprop ro.product.cpu.abi\n'
+                      '${_adbCommandPrefix()} shell pidof frida-server || true\n'
+                      '${_adbCommandPrefix()} shell ls -l /data/local/tmp/frida-server\n'
+                      '# ${isZh ? "按 ABI 下载匹配版本后再推送；执行前需用户确认" : "Download the matching server for the ABI before pushing; ask for approval before running"}\n'
+                      '# arm64-v8a=android-arm64, armeabi-v7a=android-arm, x86_64=android-x86_64\n'
+                      'FRIDA_VERSION="\$(frida --version)"\n'
+                      'curl -L -o /tmp/frida-server.xz "https://github.com/frida/frida/releases/download/\$FRIDA_VERSION/frida-server-\$FRIDA_VERSION-android-arm64.xz"\n'
+                      'xz -dkf /tmp/frida-server.xz\n'
+                      '${_adbCommandPrefix()} push /tmp/frida-server /data/local/tmp/frida-server\n'
+                      '${_adbCommandPrefix()} shell "chmod 755 /data/local/tmp/frida-server; /data/local/tmp/frida-server >/dev/null 2>&1 &"\n'
+                      '${_adbCommandPrefix()} forward tcp:27042 tcp:27042\n'
+                      'frida-ps -U',
+                ),
+                const SizedBox(height: 8),
+                _commandCard(
+                  cs,
+                  theme,
+                  isZh,
                   title: isZh ? 'Spawn 注入' : 'Spawn inject',
                   command:
                       'frida -U -f $pkg -l $scriptArg --no-pause\n'
