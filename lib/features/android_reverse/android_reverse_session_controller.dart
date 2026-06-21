@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -8,6 +9,13 @@ import 'android_reverse_session_config.dart';
 
 const String _kTag = 'android_reverse_session_controller';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
+const List<String> _kAndroidReverseArtifactSubdirs = <String>[
+  'frida',
+  'decompiled',
+  'network',
+  'scripts',
+  'logs',
+];
 
 /// Android 逆向会话状态。
 enum AndroidReverseSessionState { idle, running, deviceLost, stopped }
@@ -31,6 +39,14 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   final AndroidReverseSessionConfig config;
   final String artifactsRootDir;
+
+  String get logcatJsonlPath => '$artifactsRootDir/logcat.jsonl';
+  String get networkJsonlPath => '$artifactsRootDir/network.jsonl';
+  String get fridaDir => '$artifactsRootDir/frida';
+  String get decompiledDir => '$artifactsRootDir/decompiled';
+  String get networkDir => '$artifactsRootDir/network';
+  String get scriptsDir => '$artifactsRootDir/scripts';
+  String get logsDir => '$artifactsRootDir/logs';
 
   final AndroidReverseAdbClient _adbClient;
   AndroidReverseAdbClient get adbClient => _adbClient;
@@ -63,6 +79,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<void> start() async {
     if (_state != AndroidReverseSessionState.idle) return;
+    await _ensureArtifactDirectories();
     await _refreshDevices();
     _state = AndroidReverseSessionState.running;
     _watchdogTimer = Timer.periodic(_kDeviceWatchdogInterval, (_) {
@@ -213,6 +230,25 @@ class AndroidReverseSessionController extends ChangeNotifier {
       _clientForSerial(serial).remount();
 
   // ── 内部 ───────────────────────────────────────────────────────────────
+
+  Future<void> _ensureArtifactDirectories() async {
+    try {
+      await Directory(artifactsRootDir).create(recursive: true);
+      await Future.wait(
+        _kAndroidReverseArtifactSubdirs.map(
+          (name) =>
+              Directory('$artifactsRootDir/$name').create(recursive: true),
+        ),
+      );
+      await Future.wait(<Future<File>>[
+        File(logcatJsonlPath).create(recursive: true),
+        File(networkJsonlPath).create(recursive: true),
+      ]);
+    } catch (e, st) {
+      silentLog(_kTag, 'ensure artifact directories', e, st);
+      _errorMessage = '$e';
+    }
+  }
 
   void _scheduleRefresh() {
     unawaited(

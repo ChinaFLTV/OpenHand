@@ -374,6 +374,15 @@ class AiPromptBuilder {
     if (webReverseRuntime != null) {
       metadata['web_reverse_runtime'] = webReverseRuntime;
     }
+    final androidReverseRuntime = _buildAndroidReverseRuntimeSnapshot(
+      session,
+      templatePolicy: templatePolicy,
+      availableToolNames: availableToolNames,
+      resolvedToolsByName: resolvedToolsByName,
+    );
+    if (androidReverseRuntime != null) {
+      metadata['android_reverse_runtime'] = androidReverseRuntime;
+    }
 
     final staticSessionState = _buildCompactStaticSessionState(
       session: session,
@@ -386,6 +395,7 @@ class AiPromptBuilder {
       postCompactRehydration: postCompactRehydration,
       availableToolNames: availableToolNames,
       webReverseRuntime: webReverseRuntime,
+      androidReverseRuntime: androidReverseRuntime,
       planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
       planModeRecoveryInspectionRequired:
           effectivePlanModeRecoveryInspectionRequired,
@@ -1271,6 +1281,7 @@ class AiPromptBuilder {
     required Map<String, Object?> postCompactRehydration,
     required List<String> availableToolNames,
     required Map<String, Object?>? webReverseRuntime,
+    required Map<String, Object?>? androidReverseRuntime,
     required bool planModeExecutionApprovedForSend,
     required bool planModeRecoveryInspectionRequired,
   }) {
@@ -1311,6 +1322,9 @@ class AiPromptBuilder {
     }
     if (webReverseRuntime != null && webReverseRuntime.isNotEmpty) {
       dynamicState['web_reverse_runtime'] = webReverseRuntime;
+    }
+    if (androidReverseRuntime != null && androidReverseRuntime.isNotEmpty) {
+      dynamicState['android_reverse_runtime'] = androidReverseRuntime;
     }
 
     if (session.todoItems.isNotEmpty) {
@@ -2207,6 +2221,94 @@ class AiPromptBuilder {
     };
   }
 
+  Map<String, Object?>? _buildAndroidReverseRuntimeSnapshot(
+    AiSession session, {
+    required AiPromptTemplatePolicy templatePolicy,
+    required List<String> availableToolNames,
+    required Map<String, AiResolvedTool> resolvedToolsByName,
+  }) {
+    if (!templatePolicy.usesAndroidReverseToolCatalog) return null;
+    final rawConfig = session.metadata['android_reverse_config'];
+    final config = <String, Object?>{};
+    if (rawConfig is Map) {
+      for (final entry in rawConfig.entries) {
+        final key = '${entry.key}'.trim();
+        if (key.isEmpty) continue;
+        config[key] = _boundedAndroidReverseMetadataValue(entry.value);
+      }
+    }
+    final rawRuntime = _boundedAndroidReverseMetadataValue(
+      session.metadata['android_reverse_runtime'],
+    );
+    final runtime = rawRuntime is Map<String, Object?> ? rawRuntime : null;
+    final rootDir =
+        '${runtime?['artifacts_root_dir'] ?? p.join(OpenHandPaths.defaultRootDirectoryPath(), 'android_reverse', 'sessions', session.id)}';
+    final callableMcpToolNames = _androidReverseMcpToolNames(
+      resolvedToolsByName,
+    );
+    final deferredMcpToolNames = _androidReverseDeferredMcpToolNames(
+      resolvedToolsByName,
+    );
+    final hasToolSearch = availableToolNames.any(
+      (name) => name.trim().toLowerCase() == 'toolsearch',
+    );
+    final presentKeys =
+        session.metadata.keys
+            .where((key) => key.startsWith('android_reverse_'))
+            .toList(growable: false)
+          ..sort();
+    return <String, Object?>{
+      'source_of_truth':
+          'Dashboard panels and AI-visible state are backed by the OpenHand-managed ADB session plus local reverse artifacts.',
+      if (config.isNotEmpty) 'config': config,
+      if (runtime != null) 'runtime': runtime,
+      'mcp_tool_availability': <String, Object?>{
+        'current_turn_callable': callableMcpToolNames.isNotEmpty,
+        'current_turn_callable_count': callableMcpToolNames.length,
+        'current_turn_callable_names': callableMcpToolNames,
+        'tool_search_available': hasToolSearch,
+        'tool_search_deferred_count': deferredMcpToolNames.length,
+        'tool_search_deferred_names': deferredMcpToolNames,
+        if (callableMcpToolNames.isEmpty && deferredMcpToolNames.isNotEmpty)
+          'tool_search_recommended_query':
+              'select:${deferredMcpToolNames.take(8).join(',')}'
+        else if (callableMcpToolNames.isEmpty)
+          'warning':
+              'No ADB / Frida / IDA Pro MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent adb_* or frida_* names; use adb/frida Bash only after confirming device/tool availability.',
+      },
+      'dashboard_tabs': const <String>[
+        'devices',
+        'overview',
+        'toolchain',
+        'packages',
+        'processes',
+        'logcat',
+        'frida',
+        'network',
+        'static_analysis',
+        'certs',
+        'crypto',
+      ],
+      'local_artifacts': <String, Object?>{
+        'root_dir': rootDir,
+        'logcat_jsonl': p.join(rootDir, 'logcat.jsonl'),
+        'network_jsonl': p.join(rootDir, 'network.jsonl'),
+        'network_dir': p.join(rootDir, 'network'),
+        'frida_dir': p.join(rootDir, 'frida'),
+        'decompiled_dir': p.join(rootDir, 'decompiled'),
+        'scripts_dir': p.join(rootDir, 'scripts'),
+        'logs_dir': p.join(rootDir, 'logs'),
+      },
+      'local_read_hints': <String>[
+        'tail -200 ${p.join(rootDir, 'logcat.jsonl')}',
+        'tail -200 ${p.join(rootDir, 'network.jsonl')}',
+        'find ${p.join(rootDir, 'frida')} -maxdepth 2 -type f',
+        'find ${p.join(rootDir, 'decompiled')} -maxdepth 3 -type f | head -200',
+      ],
+      'dashboard_visible_metadata_keys': presentKeys,
+    };
+  }
+
   Object? _boundedWebReverseMetadataValue(Object? value, {int depth = 0}) {
     if (value == null || value is num || value is bool) {
       return value;
@@ -2243,6 +2345,10 @@ class AiPromptBuilder {
       return result;
     }
     return '$value';
+  }
+
+  Object? _boundedAndroidReverseMetadataValue(Object? value, {int depth = 0}) {
+    return _boundedWebReverseMetadataValue(value, depth: depth);
   }
 
   Object? _sanitizeWebReverseCdpRuntime(Object? value) {
@@ -2335,6 +2441,51 @@ class AiPromptBuilder {
     }
     if (deferredToolsByName.isEmpty) return const <String>[];
     return _webReverseCdpMcpToolNames(deferredToolsByName);
+  }
+
+  List<String> _androidReverseMcpToolNames(
+    Map<String, AiResolvedTool> resolvedToolsByName,
+  ) {
+    final names = <String>[];
+    for (final entry in resolvedToolsByName.entries) {
+      final tool = entry.value;
+      if (tool.source != AiRuntimeToolSource.mcp) continue;
+      final name = entry.key.trim();
+      final lower = name.toLowerCase();
+      if (lower.contains('adb') ||
+          lower.contains('android') ||
+          lower.contains('frida') ||
+          lower.contains('ida')) {
+        names.add(name);
+      }
+    }
+    names.sort();
+    return names;
+  }
+
+  List<String> _androidReverseDeferredMcpToolNames(
+    Map<String, AiResolvedTool> resolvedToolsByName,
+  ) {
+    final toolSearch = resolvedToolsByName.values.where(
+      (tool) => tool.builtinKind == AiBuiltinToolKind.toolSearch,
+    );
+    final deferredToolsByName = <String, AiResolvedTool>{};
+    for (final tool in toolSearch) {
+      deferredToolsByName.addAll(tool.toolSearchDeferredTools);
+    }
+    if (deferredToolsByName.isEmpty) {
+      for (final tool in toolSearch) {
+        for (final entry in tool.toolSearchDeferredToolDefinitions.entries) {
+          deferredToolsByName[entry.key] = AiResolvedTool(
+            name: entry.key,
+            definition: entry.value,
+            source: AiRuntimeToolSource.mcp,
+          );
+        }
+      }
+    }
+    if (deferredToolsByName.isEmpty) return const <String>[];
+    return _androidReverseMcpToolNames(deferredToolsByName);
   }
 
   String _compressionSystemInstructionsForPolicy(

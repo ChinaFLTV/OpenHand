@@ -2333,9 +2333,7 @@ class _AndroidReverseDashboardDialogState
         ? '<script.js>'
         : _commandToken(scriptAsset);
     final pkg = _commandToken(_packageCommandTarget());
-    final scriptOutputPath = _shellQuote(
-      '${_ctrl.artifactsRootDir}/frida/script.js',
-    );
+    final scriptOutputPath = _shellQuote('${_ctrl.fridaDir}/script.js');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2395,7 +2393,7 @@ class _AndroidReverseDashboardDialogState
                   isZh,
                   title: isZh ? '保存当前脚本' : 'Save current script',
                   command:
-                      'mkdir -p ${_shellQuote('${_ctrl.artifactsRootDir}/frida')}\n'
+                      'mkdir -p ${_shellQuote(_ctrl.fridaDir)}\n'
                       '# ${isZh ? "将脚本框内容保存为" : "Save editor content as"} $scriptOutputPath',
                 ),
                 const SizedBox(height: 8),
@@ -2430,7 +2428,7 @@ class _AndroidReverseDashboardDialogState
   // ── Network tab ─────────────────────────────────────────────────────────
 
   Widget _buildNetworkTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    final networkDir = '${_ctrl.artifactsRootDir}/network';
+    final networkDir = _ctrl.networkDir;
     final adb = _adbCommandPrefix();
     return OpenHandSafeScrollbar(
       child: ListView(
@@ -2502,7 +2500,7 @@ class _AndroidReverseDashboardDialogState
   Widget _buildStaticTab(ColorScheme cs, ThemeData theme, bool isZh) {
     final apk = _apkCommandTarget();
     final packageSlug = _safeArtifactName(_packageCommandTarget());
-    final decompiledDir = '${_ctrl.artifactsRootDir}/decompiled/$packageSlug';
+    final decompiledDir = '${_ctrl.decompiledDir}/$packageSlug';
     return OpenHandSafeScrollbar(
       child: ListView(
         padding: const EdgeInsets.all(16),

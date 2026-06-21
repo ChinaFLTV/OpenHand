@@ -316,6 +316,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // Active Android Reverse Expert sessions, keyed by session id.
   final Map<String, AndroidReverseSessionController>
   _androidReverseControllers = <String, AndroidReverseSessionController>{};
+  final Map<String, String> _androidReverseRuntimeMetadataSignatures =
+      <String, String>{};
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
@@ -761,6 +763,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _disposeAndroidReverseController(entry.key, entry.value);
     }
     _androidReverseControllers.clear();
+    _androidReverseRuntimeMetadataSignatures.clear();
     _hardnessSessionSaveDebouncer.cancel();
     _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
@@ -3211,13 +3214,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
       }
     }
-    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
-      'android_reverse_runtime': <String, Object?>{
-        'is_running': controller.isRunning,
-        'artifacts_root_dir': controller.artifactsRootDir,
-        if (config.deviceSerial != null) 'device_serial': config.deviceSerial,
-      },
-    });
+    await _persistAndroidReverseRuntimeMetadata(session.id, controller);
     if (!mounted) return created;
     _replaceComposerText(config.toRequestTemplate());
     await _sendMessage();
@@ -3227,6 +3224,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _onAndroidReverseControllerChanged() {
     if (!mounted) return;
     setState(() {});
+    for (final entry in _androidReverseControllers.entries) {
+      unawaited(_persistAndroidReverseRuntimeMetadata(entry.key, entry.value));
+    }
   }
 
   void _disposeAndroidReverseController(
@@ -3246,10 +3246,107 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             stack,
           );
         } finally {
+          _androidReverseRuntimeMetadataSignatures.remove(sessionId);
           controller.dispose();
         }
       })(),
     );
+  }
+
+  Future<bool> _persistAndroidReverseRuntimeMetadata(
+    String sessionId,
+    AndroidReverseSessionController controller,
+  ) async {
+    if (!mounted) return false;
+    final metadata = _androidReverseRuntimeMetadata(controller);
+    final signature = jsonEncode(metadata);
+    if (_androidReverseRuntimeMetadataSignatures[sessionId] == signature) {
+      return true;
+    }
+    try {
+      final updated = await context
+          .read<AiSessionController>()
+          .updateSessionMetadata(sessionId, <String, Object?>{
+            'android_reverse_runtime': metadata,
+          });
+      if (!updated) return false;
+      _androidReverseRuntimeMetadataSignatures[sessionId] = signature;
+      return true;
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'persist android reverse runtime metadata $sessionId',
+        error,
+        stack,
+      );
+      return false;
+    }
+  }
+
+  Map<String, Object?> _androidReverseRuntimeMetadata(
+    AndroidReverseSessionController controller,
+  ) {
+    final connected = controller.connectedDevice;
+    return <String, Object?>{
+      'source': 'OpenHand AndroidReverseSessionController',
+      'is_running': controller.isRunning,
+      'state': controller.state.name,
+      'artifacts_root_dir': controller.artifactsRootDir,
+      'local_artifacts': <String, Object?>{
+        'root_dir': controller.artifactsRootDir,
+        'logcat_jsonl': controller.logcatJsonlPath,
+        'network_jsonl': controller.networkJsonlPath,
+        'network_dir': controller.networkDir,
+        'frida_dir': controller.fridaDir,
+        'decompiled_dir': controller.decompiledDir,
+        'scripts_dir': controller.scriptsDir,
+        'logs_dir': controller.logsDir,
+      },
+      'local_read_hints': <String>[
+        'tail -200 ${controller.logcatJsonlPath}',
+        'tail -200 ${controller.networkJsonlPath}',
+        'find ${controller.fridaDir} -maxdepth 2 -type f',
+        'find ${controller.decompiledDir} -maxdepth 3 -type f | head -200',
+      ],
+      'dashboard_tabs': const <String>[
+        'devices',
+        'overview',
+        'toolchain',
+        'packages',
+        'processes',
+        'logcat',
+        'frida',
+        'network',
+        'static_analysis',
+        'certs',
+        'crypto',
+      ],
+      if (controller.config.deviceSerial != null)
+        'configured_device_serial': controller.config.deviceSerial,
+      if (connected != null)
+        'connected_device': <String, Object?>{
+          'serial': connected.serial,
+          'state': connected.state,
+          if (connected.model != null) 'model': connected.model,
+          if (connected.product != null) 'product': connected.product,
+          if (connected.transportId != null)
+            'transport_id': connected.transportId,
+        },
+      'visible_devices': controller.allDevices
+          .map(
+            (device) => <String, Object?>{
+              'serial': device.serial,
+              'state': device.state,
+              if (device.model != null) 'model': device.model,
+            },
+          )
+          .toList(growable: false),
+      if (controller.processes.isNotEmpty)
+        'process_count': controller.processes.length,
+      if (controller.errorMessage != null &&
+          controller.errorMessage!.trim().isNotEmpty)
+        'last_error': controller.errorMessage!.trim(),
+    };
   }
 
   void _scheduleWebReverseRuntimeMetadataSync() {
