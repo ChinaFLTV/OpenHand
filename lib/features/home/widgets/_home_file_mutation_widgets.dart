@@ -729,7 +729,6 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                           views[i].record.filePath,
                           _fileMutationKind(widget.message),
                         ),
-                        onRevealLedger: _revealLedgerFile,
                         onCopyDiff: () => _copyAllDiff([views[i]]),
                         onOpenInspector: _openHistoryInspector,
                       );
@@ -918,6 +917,40 @@ class _IconActionButton extends StatelessWidget {
   }
 }
 
+class _FileMutationRevealPathButton extends StatelessWidget {
+  const _FileMutationRevealPathButton({required this.filePath});
+
+  final String filePath;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: _fileMutationRevealPathLabel(context),
+      waitDuration: const Duration(milliseconds: 500),
+      child: MicroPressFeedback(
+        child: InkResponse(
+          onTap: () {
+            _markToolCardInteractiveTap(context);
+            unawaited(_revealFileMutationPath(context, filePath));
+          },
+          radius: 18,
+          containedInkWell: true,
+          borderRadius: _borderRadius999,
+          child: SizedBox.square(
+            dimension: 28,
+            child: Icon(
+              Icons.folder_open_outlined,
+              size: 15,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FileMutationCardRow extends StatelessWidget {
   const _FileMutationCardRow({
     required this.view,
@@ -927,7 +960,6 @@ class _FileMutationCardRow extends StatelessWidget {
     required this.onUndo,
     required this.onRedo,
     required this.onOpenLegacyDialog,
-    required this.onRevealLedger,
     required this.onCopyDiff,
     required this.onOpenInspector,
   });
@@ -939,7 +971,6 @@ class _FileMutationCardRow extends StatelessWidget {
   final VoidCallback onUndo;
   final VoidCallback onRedo;
   final VoidCallback onOpenLegacyDialog;
-  final VoidCallback onRevealLedger;
   final VoidCallback onCopyDiff;
   final VoidCallback onOpenInspector;
 
@@ -990,7 +1021,7 @@ class _FileMutationCardRow extends StatelessWidget {
             children: [
               const Icon(Icons.folder_open_outlined, size: 16),
               const SizedBox(width: 8),
-              Text(l10n.fileMutationRevealLedger),
+              Text(_fileMutationRevealPathLabel(context)),
             ],
           ),
         ),
@@ -1045,7 +1076,9 @@ class _FileMutationCardRow extends StatelessWidget {
     if (selected == null) return;
     switch (selected) {
       case 'reveal':
-        onRevealLedger();
+        if (context.mounted) {
+          unawaited(_revealFileMutationPath(context, view.record.filePath));
+        }
         break;
       case 'copyPath':
         if (context.mounted) {
@@ -1252,6 +1285,10 @@ class _FileMutationCardRow extends StatelessWidget {
                             )!.fileMutationRedo,
                             onTap: onRedo,
                           ),
+                        const SizedBox(width: 4),
+                        _FileMutationRevealPathButton(
+                          filePath: view.record.filePath,
+                        ),
                       ],
                     ),
                   ),
@@ -2177,6 +2214,77 @@ Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
       duration: const Duration(seconds: 2),
     ),
   );
+}
+
+String _fileMutationRevealPathLabel(BuildContext context) =>
+    openHandLocalizedText(
+      context,
+      zh: '在系统文件浏览器中打开',
+      en: 'Reveal file in file manager',
+    );
+
+String _fileMutationRevealPathFailedLabel(BuildContext context) =>
+    openHandLocalizedText(
+      context,
+      zh: '无法在系统文件浏览器中打开该路径',
+      en: 'Could not reveal this path in the file manager.',
+    );
+
+Future<void> _revealFileMutationPath(
+  BuildContext context,
+  String filePath,
+) async {
+  final rawPath = filePath.trim();
+  if (rawPath.isEmpty) {
+    _showHomeSnackBar(
+      context,
+      SnackBar(
+        content: Text(_fileMutationRevealPathFailedLabel(context)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    return;
+  }
+
+  var target = rawPath;
+  try {
+    final type = FileSystemEntity.typeSync(target, followLinks: false);
+    if (type == FileSystemEntityType.notFound) {
+      final parent = File(target).parent.path.trim();
+      if (parent.isNotEmpty && parent != '.') {
+        target = parent;
+      }
+    }
+  } catch (error, stack) {
+    silentLog('file_mutation_entry', 'resolve reveal target', error, stack);
+  }
+
+  try {
+    final ok = await revealLocalPathInSystemFileManager(
+      target,
+      tag: 'file_mutation_entry.reveal',
+    );
+    if (!context.mounted) return;
+    if (!ok) {
+      _showHomeSnackBar(
+        context,
+        SnackBar(
+          content: Text(_fileMutationRevealPathFailedLabel(context)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  } catch (error, stack) {
+    silentLog('file_mutation_entry', 'reveal path', error, stack);
+    if (!context.mounted) return;
+    _showHomeSnackBar(
+      context,
+      SnackBar(
+        content: Text(_fileMutationRevealPathFailedLabel(context)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4248,6 +4356,8 @@ class _RoundSummaryRowTile extends StatelessWidget {
           const SizedBox(width: 6),
           if (row.sourceMessageId != null)
             _RoundSummarySourceJumpButton(onTap: onJump),
+          const SizedBox(width: 4),
+          _FileMutationRevealPathButton(filePath: row.view.record.filePath),
           // 任意有快照的记录都支持 inline Diff 预览；create/delete
           // 分别以空 before/after 参与 diff，与单个工具调用卡片保持一致。
           if (row.view.record.beforeSha != null ||
