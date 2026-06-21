@@ -35,9 +35,9 @@ class WebReverseCdpFirstDecision {
     final override = nextActionOverride?.trim();
     if (override != null && override.isNotEmpty) return override;
     if (requiresToolSearch) {
-      return 'Call ToolSearch first to load the CDP MCP tools, then inspect the live browser with those exact tool names.';
+      return 'Call ToolSearch first to load the CDP / Chrome DevTools / js-reverse MCP tools, then inspect the live browser with those exact tool names.';
     }
-    return 'Use the exact callable CDP MCP tools first: $toolText.';
+    return 'Use the exact callable CDP / Chrome DevTools / js-reverse MCP tools first: $toolText.';
   }
 
   String blockedMessage(String toolName) {
@@ -553,7 +553,7 @@ class _WebReverseCdpRoute {
       requiresToolSearch: false,
       fallbackToolLabel: 'live OpenHand CDP runtime',
       nextActionOverride: toolSearchAvailable
-          ? 'Call ToolSearch for CDP / Chrome DevTools MCP tools if available; otherwise wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts. Do not use target-origin WebFetch/Bash/WebSearch while a live CDP endpoint is available.'
+          ? 'Call ToolSearch for CDP / Chrome DevTools / js-reverse MCP tools if available; otherwise wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts. Do not use target-origin WebFetch/Bash/WebSearch while a live CDP endpoint is available.'
           : 'Wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts; ask the user to restart or refresh CDP MCP if tools remain unavailable. Do not use target-origin WebFetch/Bash/WebSearch while a live CDP endpoint is available.',
     );
   }

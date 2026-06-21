@@ -120,7 +120,10 @@ class WebReverseSessionConfig {
       buf.writeln('- 关键字：【${keywords.join(', ')}】');
     }
     buf.writeln(
-      '- 取证纪律：【先用 CDP MCP / 本地 jsonl/HAR；禁止 WebFetch/WebSearch/Bash/curl 直接抓目标源】',
+      '- 取证纪律：【先确认 CDP / chrome-devtools / js-reverse MCP 工具名；先 Observe 请求、initiator、脚本；禁止 WebFetch/WebSearch/Bash/curl 直接抓目标源】',
+    );
+    buf.writeln(
+      '- 任务产物：【目标请求、initiator、可疑脚本、关键 hook/断点、入参返回、first divergence、本地复现脚本】',
     );
     buf.write('- 验收标准：【可在 curl / Dart / Python 中独立复现，无需浏览器】');
     return buf.toString();

@@ -66,6 +66,10 @@ class AiBuiltinToolLazyLoadingApplier {
       ...toolSearchEntry.value.toolSearchDeferredToolDefinitions,
       for (final entry in deferredEntries) entry.key: entry.value.definition,
     };
+    final deferredTools = <String, AiResolvedTool>{
+      ...toolSearchEntry.value.toolSearchDeferredTools,
+      for (final entry in deferredEntries) entry.key: entry.value,
+    };
     final toolSearchTool = toolRuntimeService?.toolRegistry.getTool(
       AiBuiltinToolKind.toolSearch,
     );
@@ -85,6 +89,7 @@ class AiBuiltinToolLazyLoadingApplier {
               entry.value,
               deferredEntries: deferredEntries,
               deferredDefinitions: deferredDefinitions,
+              deferredTools: deferredTools,
             ),
           ),
         );
@@ -101,6 +106,7 @@ class AiBuiltinToolLazyLoadingApplier {
             toolSearchEntry.value,
             deferredEntries: deferredEntries,
             deferredDefinitions: deferredDefinitions,
+            deferredTools: deferredTools,
           ),
         ),
       );
@@ -239,6 +245,7 @@ class AiBuiltinToolLazyLoadingApplier {
     AiResolvedTool original, {
     required List<MapEntry<String, AiResolvedTool>> deferredEntries,
     required Map<String, AiToolDefinition> deferredDefinitions,
+    required Map<String, AiResolvedTool> deferredTools,
   }) {
     final lines = <String>[
       '',
@@ -274,6 +281,9 @@ class AiBuiltinToolLazyLoadingApplier {
       builtinConfig: original.builtinConfig,
       toolSearchDeferredToolDefinitions:
           Map<String, AiToolDefinition>.unmodifiable(deferredDefinitions),
+      toolSearchDeferredTools: Map<String, AiResolvedTool>.unmodifiable(
+        deferredTools,
+      ),
     );
   }
 }

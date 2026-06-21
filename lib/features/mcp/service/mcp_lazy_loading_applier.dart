@@ -78,6 +78,9 @@ class McpLazyLoadingApplier {
     final deferredDefinitions = <String, AiToolDefinition>{
       for (final entry in deferredEntries) entry.key: entry.value.definition,
     };
+    final deferredTools = <String, AiResolvedTool>{
+      for (final entry in deferredEntries) entry.key: entry.value,
+    };
     if (toolSearchTool is AiToolSearchTool) {
       toolSearchTool.setDeferredToolSnapshot(deferredDefinitions);
     }
@@ -109,6 +112,7 @@ class McpLazyLoadingApplier {
               entry.value,
               deferredEntries: deferredEntries,
               deferredDefinitions: deferredDefinitions,
+              deferredTools: deferredTools,
             ),
           ),
         );
@@ -138,6 +142,7 @@ class McpLazyLoadingApplier {
     AiResolvedTool original, {
     required List<MapEntry<String, AiResolvedTool>> deferredEntries,
     required Map<String, AiToolDefinition> deferredDefinitions,
+    required Map<String, AiResolvedTool> deferredTools,
   }) {
     final lines = <String>[
       '',
@@ -172,6 +177,9 @@ class McpLazyLoadingApplier {
       builtinConfig: original.builtinConfig,
       toolSearchDeferredToolDefinitions:
           Map<String, AiToolDefinition>.unmodifiable(deferredDefinitions),
+      toolSearchDeferredTools: Map<String, AiResolvedTool>.unmodifiable(
+        deferredTools,
+      ),
     );
   }
 

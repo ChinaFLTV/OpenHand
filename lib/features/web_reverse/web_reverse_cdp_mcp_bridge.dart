@@ -344,8 +344,9 @@ class WebReverseCdpMcpBridge {
             status: McpToolCatalogStatus.failed,
             errorMessage:
                 'OpenHand auto CDP MCP discovery timed out after '
-                '${catalogTimeout.inSeconds}s. Install or refresh '
-                'chrome-devtools-mcp, then retry the Web Reverse turn.',
+                '${catalogTimeout.inSeconds}s. OpenHand launches it with '
+                '`npx --yes $cdpMcpPackage --browser-url=<cdp>`. Refresh '
+                'MCP stdio cache or network/npm access, then retry the Web Reverse turn.',
             lastScannedAt: DateTime.now().toUtc(),
           ),
         )
@@ -457,7 +458,7 @@ class WebReverseCdpMcpBridge {
             ? 'Transient chrome-devtools-mcp returned no tools.'
             : 'Transient chrome-devtools-mcp discovery failed.',
       WebReverseCdpMcpBridgeStatus.preparing =>
-        'Transient chrome-devtools-mcp catalog is being prepared.',
+        'Transient chrome-devtools-mcp catalog is being prepared via npx.',
       WebReverseCdpMcpBridgeStatus.unavailable =>
         'Transient chrome-devtools-mcp is unavailable.',
     };

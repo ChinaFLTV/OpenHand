@@ -1437,7 +1437,7 @@ class AiPromptBuilder {
       } else if (isWebReverse) {
         buffer.writeln(
           'Capability invocation priority for the Web Reverse Expert template: '
-          'CDP MCP tools backed by the OpenHand-managed Chrome CDP runtime and local jsonl/HAR artifacts are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. '
+          'CDP MCP tools backed by the OpenHand-managed Chrome CDP runtime and local jsonl/HAR artifacts are the first-line path for navigation, DOM, Network, Console, Storage, screenshots, Raw CDP, WebSocket/SSE, and HAR work. Treat chrome-devtools-mcp and current-page `js-reverse_*` wrappers as CDP MCP routes. '
           'Live CDP requires the injected `cdp_runtime` to report `browser_alive=true` plus a current CDP endpoint/port; while live, do not launch a new browser or attach via Bash. '
           'When `browser_alive` is false or no current endpoint/port exists, live CDP MCP actions are unavailable: use local jsonl/HAR artifacts and ask the user to restart the browser before live browser operations. '
           'Bash / Read / Write / Edit / Grep / Glob / WebFetch support local artifacts, static code search, and reproduce scripts. '
@@ -1514,7 +1514,7 @@ class AiPromptBuilder {
         );
       if (isWebReverse) {
         buffer.writeln(
-          'For Web Reverse sessions, load and use CDP / Chrome DevTools MCP tools when present in the deferred list. Do not use non-CDP browser automation for target-origin capture; if live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restore CDP.',
+          'For Web Reverse sessions, load and use CDP / Chrome DevTools / js-reverse MCP tools when present in the deferred list. Do not use non-CDP browser automation for target-origin capture; if live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restore CDP.',
         );
       }
     }
@@ -2116,14 +2116,14 @@ class AiPromptBuilder {
           'tool_search_recommended_query':
               'select:${deferredCdpMcpToolNames.take(8).join(',')}',
           'guidance': cdpRuntimeLive
-              ? 'CDP / Chrome DevTools MCP tools are present only as deferred ToolSearch entries. Before any live CDP action, call ToolSearch with tool_search_recommended_query, then use the exact loaded MCP names from the next model request onward.'
-              : 'CDP / Chrome DevTools MCP tools are present only as deferred ToolSearch entries, but live CDP actions are still blocked until cdp_runtime.browser_alive=true plus a current CDP endpoint/port. Use ToolSearch only to load schemas, and ask the user to restart/restore the Web Reverse browser before live CDP actions.',
+              ? 'CDP / Chrome DevTools / js-reverse MCP tools are present only as deferred ToolSearch entries. Before any live CDP action, call ToolSearch with tool_search_recommended_query, then use the exact loaded MCP names from the next model request onward.'
+              : 'CDP / Chrome DevTools / js-reverse MCP tools are present only as deferred ToolSearch entries, but live CDP actions are still blocked until cdp_runtime.browser_alive=true plus a current CDP endpoint/port. Use ToolSearch only to load schemas, and ask the user to restart/restore the Web Reverse browser before live CDP actions.',
         } else if (cdpMcpToolNames.isEmpty)
           'warning':
-              'No CDP / Chrome DevTools MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. OpenHand normally auto-injects a transient chrome-devtools-mcp for live Web Reverse sessions; if it is absent, use local jsonl/HAR artifacts, or ask the user to install/refresh chrome-devtools-mcp before live CDP actions.'
+              'No CDP / Chrome DevTools / js-reverse MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. OpenHand normally auto-injects a transient chrome-devtools-mcp for live Web Reverse sessions; if it is absent, use local jsonl/HAR artifacts, or ask the user to install/refresh chrome-devtools-mcp before live CDP actions.'
         else if (!cdpRuntimeLive)
           'guidance':
-              'Exact CDP / Chrome DevTools MCP tool names are visible, but do not use them for live browser actions until cdp_runtime.browser_alive=true plus a current CDP endpoint/port.'
+              'Exact CDP / Chrome DevTools / js-reverse MCP tool names are visible, but do not use them for live browser actions until cdp_runtime.browser_alive=true plus a current CDP endpoint/port.'
         else
           'guidance':
               'Use only exact current_turn_callable_names from # [2] Tool Catalog for live CDP actions.',
@@ -2292,18 +2292,22 @@ class AiPromptBuilder {
     final toolSearch = resolvedToolsByName.values.where(
       (tool) => tool.builtinKind == AiBuiltinToolKind.toolSearch,
     );
-    final deferredDefinitions = toolSearch
-        .expand((tool) => tool.toolSearchDeferredToolDefinitions.entries)
-        .toList(growable: false);
-    if (deferredDefinitions.isEmpty) return const <String>[];
-    final deferredToolsByName = <String, AiResolvedTool>{
-      for (final entry in deferredDefinitions)
-        entry.key: AiResolvedTool(
-          name: entry.key,
-          definition: entry.value,
-          source: AiRuntimeToolSource.mcp,
-        ),
-    };
+    final deferredToolsByName = <String, AiResolvedTool>{};
+    for (final tool in toolSearch) {
+      deferredToolsByName.addAll(tool.toolSearchDeferredTools);
+    }
+    if (deferredToolsByName.isEmpty) {
+      for (final tool in toolSearch) {
+        for (final entry in tool.toolSearchDeferredToolDefinitions.entries) {
+          deferredToolsByName[entry.key] = AiResolvedTool(
+            name: entry.key,
+            definition: entry.value,
+            source: AiRuntimeToolSource.mcp,
+          );
+        }
+      }
+    }
+    if (deferredToolsByName.isEmpty) return const <String>[];
     return _webReverseCdpMcpToolNames(deferredToolsByName);
   }
 

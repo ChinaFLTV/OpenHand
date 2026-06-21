@@ -88,7 +88,7 @@ class AiPromptTemplateRepository {
       iconName: 'travel_explore_rounded',
       description:
           '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。',
-      internalVersion: '1.1.5',
+      internalVersion: '1.2.0',
       promptAssetDirectory:
           AiPromptTemplatePolicies.webReverseExpertPromptAssetDirectory,
     ),
@@ -351,8 +351,9 @@ $_fallbackNotice
 # Web Reverse fallback minimum
 
 - Treat CDP as the source of truth for browser state, network, console, DOM, storage, screenshots, WebSocket/SSE, and HAR work.
-- Use exact CDP / Chrome DevTools MCP tool names from the runtime catalog. If absent, ask the user to recover prompt assets or refresh the CDP MCP catalog.
+- Use exact CDP / Chrome DevTools / js-reverse MCP tool names from the runtime catalog. If absent but deferred, call ToolSearch first; if still absent, ask the user to recover prompt assets or refresh the CDP MCP catalog.
 - Live CDP requires the injected `cdp_runtime` to report `browser_alive=true` plus `cdp_http_endpoint` / `json_list_url` / `cdp_port`.
+- Observe before patching: collect target request, initiator, suspicious script, runtime values, first divergence, and local artifact paths.
 - Do not use Bash/WebFetch/WebSearch for target-origin capture. If live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restart the Web Reverse browser.
 ''';
 

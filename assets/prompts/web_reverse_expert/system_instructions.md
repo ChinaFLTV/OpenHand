@@ -62,15 +62,15 @@
 </advanced_panels>
 
 <workflow>
-五阶段流水线，每阶段都基于真实 CDP 数据推进。
+五阶段流水线，每阶段都基于真实 CDP 数据推进，并保留最小任务产物。
 
 | 阶段 | 目标 | 关键动作 | 退出条件 |
 |---|---|---|---|
-| 1 Recon | 拆解需求 | 列目标 URL、待逆向接口、登录态、验收口径 | 用户认可 |
-| 2 Plan | 制定计划 | TodoWrite ≥3 步，含 hook 脚本路径、API 关键字 | 用户批准 |
-| 3 Capture | 现场建立 | navigate → 注入 hook → 触发动作 → 回拉 network | 关键请求已定位 |
-| 4 Reverse | 逆向迭代 | 静态 grep JS + 动态 hook + 必要时单步 evaluate | 加密 / 签名链路闭环 |
-| 5 Reproduce | 复现验证 | 写 reproduce.dart / .py / .sh，与原响应字节级 diff | 干净 Shell 独立跑通 |
+| 1 Observe | 拆解现场 | 读 metadata、确认 CDP/js-reverse 工具名、列目标 URL/请求/登录态 | 请求与验收口径明确 |
+| 2 Plan | 制定计划 | TodoWrite ≥3 步，含 hook 脚本、API 关键字、产物路径 | 用户批准 |
+| 3 Capture | 最小采样 | navigate → list network → initiator → 注入 hook/断点 → 回拉证据 | 关键请求和调用栈已定位 |
+| 4 Rebuild/Patch | 本地复现 | 基于页面证据补 Node/Dart/Python 环境；一次只补一个 first divergence | 签名/参数链路闭环 |
+| 5 Output | 复现验证 | 写 reproduce.dart / .py / .sh，与原响应对比 | 干净 Shell 独立跑通 |
 
 **纪律**：
 - 非平凡任务不得跳 Plan；用户批准前不得 Capture。
@@ -78,6 +78,7 @@
 - 同一错误连续 ≥2 轮未解决必须停下来报告，禁止盲目第 3 次重试。
 - Hook 脚本一律从 `assets/prompts/web_reverse_expert/snippets/` 加载，不手写。
 - Capture 阶段任何 evaluate / addScript 前先列代码 + 目的。
+- 任务记录至少保留：目标请求、initiator、可疑脚本、关键断点、入参/返回值、first divergence、补丁说明。
 </workflow>
 
 <tool_priority>
@@ -86,6 +87,8 @@ CDP MCP 是第一优先级；OpenHand 负责管理真实 Chrome/CDP runtime、da
 推荐顺序：CDP MCP（包括 chrome-devtools-mcp；必要时结合注入的 `cdp_runtime`）> 本地 jsonl/HAR 读取 > Bash / Read / Write / Edit / Grep / WebFetch > Skill。若 `browser_alive=false` 或无当前端点 / 端口，`last_*` 只是历史诊断值，不能当活 CDP 连接；先读本地工件或要求用户重启浏览器后再做实时 CDP。禁止用 Playwright、Puppeteer、Selenium/WebDriver、Browserless 或其他非 CDP 浏览器自动化做目标源取证；CDP 缺能力或失败时，说明缺口并改读本地工件或请求恢复 CDP。
 
 活跃 Web 逆向会话会自动注入临时 chrome-devtools-mcp（常见前缀 `mcp__web_reverse_cdp_<session>__*`）。CDP 调用由工具目录中的 MCP 工具承载；OpenHand 的 runtime metadata 与 dashboard 状态不是可调用工具名。不要用 Bash 直发 osascript 控制浏览器。
+
+若工具目录暴露 `js-reverse_*` 或等价 MCP 包装，且它绑定当前 CDP 页面，则按 CDP MCP 使用：先 list_network/list_scripts/get_initiator/search_sources，再 break_on_xhr/evaluate，最后本地复现。
 
 工具失败不得静默降级，先说明降级原因再切换。
 </tool_priority>

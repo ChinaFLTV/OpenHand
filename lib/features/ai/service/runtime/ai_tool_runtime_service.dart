@@ -121,6 +121,7 @@ class AiResolvedTool {
     this.skill,
     this.builtinConfig,
     this.toolSearchDeferredToolDefinitions = const <String, AiToolDefinition>{},
+    this.toolSearchDeferredTools = const <String, AiResolvedTool>{},
   });
 
   final String name;
@@ -142,6 +143,14 @@ class AiResolvedTool {
   /// here lets ToolSearch execute against the same catalog the model saw, even
   /// if another session refreshes its own catalog before this tool call runs.
   final Map<String, AiToolDefinition> toolSearchDeferredToolDefinitions;
+
+  /// Resolved metadata for deferred tools keyed by callable name.
+  ///
+  /// Prompt/runtime policies sometimes need source/server metadata without
+  /// expanding the full schema into the visible catalog. This sidecar keeps
+  /// that information available while ToolSearch still receives only compact
+  /// schema definitions in the prompt.
+  final Map<String, AiResolvedTool> toolSearchDeferredTools;
 }
 
 enum AiBuiltinToolKind {
@@ -454,6 +463,9 @@ class AiToolRuntimeService {
             mcpTool: baseTool.mcpTool,
             skill: baseTool.skill,
             builtinConfig: cfg,
+            toolSearchDeferredToolDefinitions:
+                baseTool.toolSearchDeferredToolDefinitions,
+            toolSearchDeferredTools: baseTool.toolSearchDeferredTools,
           ),
         );
         continue;
@@ -1647,6 +1659,10 @@ class AiToolRuntimeService {
           'chrome-devtools',
           'chrome_devtools',
           'devtools protocol',
+          'js-reverse',
+          'js_reverse',
+          'javascript reverse',
+          'web reverse',
         ]) ||
         RegExp(r'(^|[^a-z0-9])cdp([^a-z0-9]|$)').hasMatch(identity);
   }

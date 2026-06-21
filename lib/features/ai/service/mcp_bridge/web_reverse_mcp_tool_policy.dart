@@ -56,6 +56,7 @@ class WebReverseMcpToolPolicy {
     ]);
 
     final chromeDevtoolsByIdentity = _hasChromeDevtoolsSignal(identity);
+    final jsReverseByIdentity = _hasJsReverseSignal(identity);
     final chromeDevtoolsMcpLaunch = launchIdentity.contains(
       'chrome-devtools-mcp',
     );
@@ -76,6 +77,7 @@ class WebReverseMcpToolPolicy {
 
     return chromeDevtoolsMcpLaunch ||
         (chromeDevtoolsByIdentity && browserControlIdentity) ||
+        (jsReverseByIdentity && browserControlIdentity) ||
         cdpByIdentity ||
         cdpByDescription;
   }
@@ -93,10 +95,20 @@ class WebReverseMcpToolPolicy {
   static bool _hasCdpSignal(String value) {
     return _cdpTokenPattern.hasMatch(value) ||
         _hasChromeDevtoolsSignal(value) ||
+        _hasJsReverseSignal(value) ||
         _containsAny(value, const <String>[
           'devtools protocol',
           'remote debugging protocol',
         ]);
+  }
+
+  static bool _hasJsReverseSignal(String value) {
+    return _containsAny(value, const <String>[
+      'js-reverse',
+      'js_reverse',
+      'javascript reverse',
+      'web reverse',
+    ]);
   }
 
   static bool _hasBrowserControlIdentity(String value) {

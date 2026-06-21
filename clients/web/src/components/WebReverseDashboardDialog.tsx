@@ -40,6 +40,13 @@ interface WebReverseRuntimeSummary {
   port: string;
   toolCount: string;
   route: string;
+  nextAction: string;
+  artifactRoot: string;
+  networkJsonl: string;
+  consoleJsonl: string;
+  currentToolNames: string[];
+  deferredToolNames: string[];
+  warning: string;
   tone: RuntimeTone;
 }
 
@@ -76,6 +83,13 @@ function booleanFromUnknown(raw: unknown): boolean | null {
   return null;
 }
 
+function stringListFromUnknown(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => String(item ?? '').trim())
+    .filter((item) => item.length > 0);
+}
+
 function runtimeSummaryFromMetadata(
   metadata: Record<string, unknown>,
 ): WebReverseRuntimeSummary {
@@ -85,10 +99,17 @@ function runtimeSummaryFromMetadata(
     asRecord(runtime?.['cdp_runtime']);
   const bridge = asRecord(currentCdpRuntime?.['cdp_mcp_bridge']);
   const availability = asRecord(runtime?.['cdp_mcp_tool_availability']);
+  const localArtifacts = asRecord(runtime?.['local_artifacts']);
   const browserAlive =
     booleanFromUnknown(currentCdpRuntime?.['browser_alive']) ??
     booleanFromUnknown(bridge?.['browser_alive']) ??
     booleanFromUnknown(availability?.['browser_runtime_live']);
+  const currentToolNames = stringListFromUnknown(
+    availability?.['current_turn_callable_names'],
+  );
+  const deferredToolNames = stringListFromUnknown(
+    availability?.['tool_search_deferred_cdp_mcp_names'],
+  );
   const toolCount =
     numberFromUnknown(bridge?.['tool_count']) ??
     numberFromUnknown(availability?.['current_turn_callable_count']) ??
@@ -98,12 +119,18 @@ function runtimeSummaryFromMetadata(
       availability?.['live_cdp_actions_current_turn_callable'],
     ) === true ||
     booleanFromUnknown(availability?.['current_turn_callable']) === true;
+  const hasDeferredCdpTools =
+    deferredToolNames.length > 0 ||
+    (numberFromUnknown(availability?.['tool_search_deferred_cdp_mcp_count']) ??
+      0) > 0;
   const route =
     currentCallable
-      ? '当前轮可调用'
-      : booleanFromUnknown(availability?.['tool_search_available']) === true
-        ? 'ToolSearch 延迟加载'
-        : '只读摘要';
+      ? 'CDP 工具可直接调用'
+      : hasDeferredCdpTools
+        ? 'ToolSearch 待加载'
+        : browserAlive === true
+          ? '等待 CDP MCP'
+          : '离线工件模式';
   const rawBridgeStatus = stringFromUnknown(bridge?.['status']);
   const port =
     numberFromUnknown(currentCdpRuntime?.['cdp_port']) ??
@@ -111,6 +138,15 @@ function runtimeSummaryFromMetadata(
   const bridgeReady =
     booleanFromUnknown(bridge?.['live_actions_callable']) === true ||
     rawBridgeStatus === 'ready';
+  const nextAction =
+    stringFromUnknown(availability?.['tool_search_recommended_query']) ||
+    (currentCallable
+      ? '使用当前工具目录中的 CDP / js-reverse MCP 工具做 Observe。'
+      : hasDeferredCdpTools
+        ? '先调用 ToolSearch 加载 deferred CDP / js-reverse MCP 工具。'
+        : browserAlive === true
+          ? '等待桌面端完成 transient chrome-devtools-mcp 准备，或读取本地 jsonl/HAR。'
+          : '读取本地 jsonl/HAR，或在桌面端重启 Web 逆向浏览器。');
 
   return {
     browserState:
@@ -125,6 +161,15 @@ function runtimeSummaryFromMetadata(
     port: port != null && port > 0 ? String(port) : '-',
     toolCount: toolCount != null && toolCount > 0 ? String(toolCount) : '-',
     route,
+    nextAction,
+    artifactRoot: stringFromUnknown(localArtifacts?.['root_dir']) || '-',
+    networkJsonl: stringFromUnknown(localArtifacts?.['network_jsonl']) || '-',
+    consoleJsonl: stringFromUnknown(localArtifacts?.['console_jsonl']) || '-',
+    currentToolNames,
+    deferredToolNames,
+    warning:
+      stringFromUnknown(availability?.['warning']) ||
+      stringFromUnknown(runtime?.['cdp_runtime_warning']),
     tone: browserAlive === true
       ? 'ok'
       : browserAlive === false
@@ -196,12 +241,12 @@ export function WebReverseDashboardDialog({
           style={{ borderColor: 'var(--m3-outline-variant)' }}
         >
           <TabPill
-            label={t('webReverse.tab.browser', '浏览器')}
+            label={t('webReverse.tab.browser', 'CDP 状态')}
             active={tab === 'browser'}
             onClick={() => setTab('browser')}
           />
           <TabPill
-            label={t('webReverse.tab.overview', '概览')}
+            label={t('webReverse.tab.overview', '任务配置')}
             active={tab === 'overview'}
             onClick={() => setTab('overview')}
           />
@@ -260,6 +305,8 @@ function BrowserTab({ metadata }: { metadata: Record<string, unknown> }) {
         <RuntimeMetric label={t('webReverse.runtime.tools', 'CDP 工具')} value={summary.toolCount} />
         <RuntimeMetric label={t('webReverse.runtime.route', '调用路径')} value={summary.route} />
       </div>
+      <NextActionPanel summary={summary} />
+      <ArtifactPanel summary={summary} />
       <div
         class="rounded-m3-sm border px-4 py-3 text-sm leading-relaxed"
         style={{
@@ -318,6 +365,74 @@ function StatusPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
         >
           {summary.bridgeState}
         </span>
+      </div>
+      {summary.warning ? (
+        <div
+          class="mt-3 text-xs leading-relaxed"
+          style={{ color: 'var(--m3-error)' }}
+        >
+          {summary.warning}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function NextActionPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
+  const visibleTools =
+    summary.currentToolNames.length > 0
+      ? summary.currentToolNames
+      : summary.deferredToolNames;
+  return (
+    <section
+      class="rounded-m3-sm border px-4 py-3"
+      style={{
+        borderColor: 'var(--m3-outline-variant)',
+        background: 'var(--m3-surface-container-low)',
+      }}
+    >
+      <div class="text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {t('webReverse.runtime.nextAction', '下一步')}
+      </div>
+      <div class="mt-1 text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+        {summary.nextAction}
+      </div>
+      {visibleTools.length > 0 ? (
+        <div class="mt-3 flex flex-wrap gap-1.5">
+          {visibleTools.slice(0, 8).map((name) => (
+            <span
+              key={name}
+              class="rounded-full px-2 py-1 text-[11px] font-mono"
+              style={{
+                background: 'var(--m3-surface-container-high)',
+                color: 'var(--m3-on-surface-variant)',
+              }}
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ArtifactPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
+  return (
+    <section
+      class="rounded-m3-sm border px-4 py-3 text-sm"
+      style={{
+        borderColor: 'var(--m3-outline-variant)',
+        background: 'var(--m3-surface-container-high)',
+      }}
+    >
+      <div class="text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {t('webReverse.runtime.artifacts', '本地工件')}
+      </div>
+      <div class="mt-2 space-y-1.5">
+        <Row label={t('webReverse.runtime.artifactRoot', '目录')} value={summary.artifactRoot} mono />
+        <Row label="network.jsonl" value={summary.networkJsonl} mono />
+        <Row label="console.jsonl" value={summary.consoleJsonl} mono />
       </div>
     </section>
   );
