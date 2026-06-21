@@ -79,8 +79,7 @@ class AndroidReverseSessionConfig {
       deviceSerial: map['device_serial'] as String?,
       adbMcpEnabled: _boolFromJson(map['adb_mcp_enabled']),
       fridaMcpEnabled: _boolFromJson(map['frida_mcp_enabled']),
-      keywords:
-          (map['keywords'] as List?)?.cast<String>() ?? const <String>[],
+      keywords: (map['keywords'] as List?)?.cast<String>() ?? const <String>[],
       notes: map['notes'] as String?,
     );
   }
@@ -116,9 +115,9 @@ class AndroidReverseSessionConfig {
     }
     buf
       ..writeln(
-        '- 取证纪律：【先 adb devices 确认设备，再静态分析 + Frida hook；禁止直接网络爬取目标源；同一错误连续 ≥2 轮停下报告】',
+        '- 取证纪律：【先 adb devices 确认设备；域名/URL定位优先静态扫描APK；静态不足或需运行时参数时再Frida/抓包；同一错误连续≥2轮停下报告】',
       )
-      ..write('- 验收标准：【Frida 脚本 / curl / Python 可在无 IDE 环境下独立跑通】');
+      ..write('- 验收标准：【给出可复核证据；若生成脚本/命令，需可在无 IDE 环境下独立运行】');
     return buf.toString();
   }
 

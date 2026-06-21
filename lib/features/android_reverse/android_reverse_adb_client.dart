@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
@@ -23,6 +24,10 @@ class AdbCommandResult {
   final bool timedOut;
 
   bool get ok => exitCode == 0 && !timedOut;
+
+  bool get hasOutput => stdout.trim().isNotEmpty || stderr.trim().isNotEmpty;
+
+  bool get hasUsableStdout => stdout.trim().isNotEmpty;
 
   String get commandLine => 'adb ${args.join(' ')}';
 
@@ -191,6 +196,21 @@ class AndroidReverseAdbClient {
     return null;
   }
 
+  Future<String?> resolveLauncherActivity(String packageName) async {
+    if (!_looksLikePackageName(packageName)) return null;
+    final raw = await shell(
+      'cmd package resolve-activity --brief $packageName',
+    );
+    if (raw == null || raw.trim().isEmpty) return null;
+    for (final line
+        in raw.split('\n').map((line) => line.trim()).toList().reversed) {
+      if (line.isEmpty || !line.contains('/')) continue;
+      if (line.toLowerCase().contains('no activity')) continue;
+      return line;
+    }
+    return null;
+  }
+
   Future<Map<String, String>> getProperties() async {
     final raw = await shell('getprop');
     if (raw == null || raw.trim().isEmpty) return const <String, String>{};
@@ -218,6 +238,20 @@ class AndroidReverseAdbClient {
     return result != null;
   }
 
+  Future<AdbCommandResult> forceStopAppDetailed(String packageName) {
+    if (!_looksLikePackageName(packageName)) {
+      return Future<AdbCommandResult>.value(
+        AdbCommandResult(
+          args: const <String>['shell', 'am force-stop <invalid-package>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Invalid Android package name: $packageName',
+        ),
+      );
+    }
+    return shellDetailed('am force-stop $packageName');
+  }
+
   Future<bool> startActivity(String packageName, {String? activity}) async {
     final String cmd;
     if (activity != null) {
@@ -227,6 +261,33 @@ class AndroidReverseAdbClient {
     }
     final result = await shell(cmd);
     return result != null;
+  }
+
+  Future<AdbCommandResult> startPackageDetailed(String packageName) async {
+    if (!_looksLikePackageName(packageName)) {
+      return AdbCommandResult(
+        args: const <String>['shell', 'monkey -p <invalid-package>'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Invalid Android package name: $packageName',
+      );
+    }
+    final launcher = await resolveLauncherActivity(packageName);
+    if (launcher != null && launcher.isNotEmpty) {
+      final result = await shellDetailed(
+        'am start -W -n $launcher',
+        timeout: const Duration(seconds: 12),
+      );
+      final output = result.combinedOutput.toLowerCase();
+      if (!output.contains('error type 3') &&
+          !output.contains('does not exist')) {
+        return result;
+      }
+    }
+    return shellDetailed(
+      'monkey -p $packageName -c android.intent.category.LAUNCHER 1',
+      timeout: const Duration(seconds: 12),
+    );
   }
 
   // ── 进程管理 ──────────────────────────────────────────────────────────
@@ -373,8 +434,8 @@ class AndroidReverseAdbClient {
 
   Future<String?> _run(List<String> args, {Duration? timeout}) async {
     final result = await _runDetailed(args, timeout: timeout);
-    if (result.timedOut) return null;
-    if (!result.ok && result.stdout.trim().isEmpty) {
+    if (result.timedOut && !result.hasUsableStdout) return null;
+    if (!result.ok && !result.hasUsableStdout) {
       final stderr = result.stderr.trim();
       silentLog(
         _kTag,
@@ -389,29 +450,43 @@ class AndroidReverseAdbClient {
     List<String> args, {
     Duration? timeout,
   }) async {
+    final effectiveTimeout = timeout ?? _kAdbCommandTimeout;
+    Process? process;
     try {
-      final result = await runProcessWithTimeout(
-        adbPath,
-        args,
-        timeout: timeout ?? _kAdbCommandTimeout,
-        tag: _kTag,
+      process = await startTrackedProcess(adbPath, args);
+      final stdoutFuture = process.stdout.transform(utf8.decoder).join();
+      final stderrFuture = process.stderr.transform(utf8.decoder).join();
+      var timedOut = false;
+      late int exitCode;
+      try {
+        exitCode = await process.exitCode.timeout(effectiveTimeout);
+      } on TimeoutException {
+        timedOut = true;
+        exitCode = -1;
+        process.kill();
+        await Future<void>.delayed(const Duration(milliseconds: 180));
+        process.kill(ProcessSignal.sigkill);
+      }
+      final stdout = await stdoutFuture.timeout(
+        const Duration(milliseconds: 350),
+        onTimeout: () => '',
       );
-      if (result == null) {
-        return AdbCommandResult(
-          args: List<String>.unmodifiable(args),
-          exitCode: -1,
-          stdout: '',
-          stderr: 'ADB command timed out or failed to start.',
-          timedOut: true,
-        );
+      var stderr = await stderrFuture.timeout(
+        const Duration(milliseconds: 350),
+        onTimeout: () => '',
+      );
+      if (timedOut && stderr.trim().isEmpty) {
+        stderr = 'ADB command timed out before completion.';
       }
       return AdbCommandResult(
         args: List<String>.unmodifiable(args),
-        exitCode: result.exitCode,
-        stdout: result.stdout.toString(),
-        stderr: result.stderr.toString(),
+        exitCode: exitCode,
+        stdout: stdout,
+        stderr: stderr,
+        timedOut: timedOut,
       );
     } catch (e, st) {
+      process?.kill(ProcessSignal.sigkill);
       silentLog(_kTag, 'adb ${args.join(' ')} failed', e, st);
       return AdbCommandResult(
         args: List<String>.unmodifiable(args),
@@ -431,5 +506,13 @@ class AndroidReverseAdbClient {
     Duration? timeout,
   }) {
     return _runDetailed(<String>[..._deviceArgs(), ...args], timeout: timeout);
+  }
+
+  bool _looksLikePackageName(String value) {
+    final packageName = value.trim();
+    if (packageName.length > 220) return false;
+    return RegExp(
+      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
+    ).hasMatch(packageName);
   }
 }

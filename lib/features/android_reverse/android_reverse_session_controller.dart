@@ -130,6 +130,11 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<String?> getPackagePath(String packageName) =>
       _adbClient.getPackagePath(packageName);
 
+  Future<String?> resolveLauncherActivity(
+    String packageName, {
+    String? serial,
+  }) => _clientForSerial(serial).resolveLauncherActivity(packageName);
+
   Future<String?> logcat({
     String? tag,
     String? level,
@@ -142,6 +147,16 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<AdbCommandResult> shellDetailed(String command, {String? serial}) =>
       _clientForSerial(serial).shellDetailed(command);
+
+  Future<AdbCommandResult> forceStopAppDetailed(
+    String packageName, {
+    String? serial,
+  }) => _clientForSerial(serial).forceStopAppDetailed(packageName);
+
+  Future<AdbCommandResult> startPackageDetailed(
+    String packageName, {
+    String? serial,
+  }) => _clientForSerial(serial).startPackageDetailed(packageName);
 
   Future<Map<String, String>> getProperties({String? serial}) =>
       _clientForSerial(serial).getProperties();

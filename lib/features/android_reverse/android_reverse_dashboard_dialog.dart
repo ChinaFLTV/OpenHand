@@ -1405,36 +1405,51 @@ class _AndroidReverseDashboardDialogState
                             const SizedBox(width: _kIconButtonGap),
                             IconButton(
                               icon: const Icon(
+                                Icons.play_arrow_rounded,
+                                size: 15,
+                              ),
+                              tooltip: isZh ? '启动 APP' : 'Launch app',
+                              onPressed: _runningDeviceAction
+                                  ? null
+                                  : () => _runDeviceAction(
+                                      () => _ctrl.startPackageDetailed(
+                                        pkg,
+                                        serial: _targetSerial,
+                                      ),
+                                    ),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            const SizedBox(width: _kIconButtonGap),
+                            IconButton(
+                              icon: const Icon(
                                 Icons.stop_rounded,
                                 size: 14,
                                 color: Colors.redAccent,
                               ),
                               tooltip: isZh ? '强制停止' : 'Force stop',
-                              onPressed: () async {
-                                final result = await _ctrl.shellDetailed(
-                                  'am force-stop $pkg',
-                                  serial: _targetSerial,
-                                );
-                                if (mounted) {
-                                  setState(() {
-                                    _lastDeviceActionOutput = _formatAdbResult(
-                                      result,
-                                    );
-                                  });
-                                }
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isZh
-                                            ? '已发送强制停止：$pkg'
-                                            : 'Force-stop sent: $pkg',
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              },
+                              onPressed: _runningDeviceAction
+                                  ? null
+                                  : () async {
+                                      await _runDeviceAction(
+                                        () => _ctrl.forceStopAppDetailed(
+                                          pkg,
+                                          serial: _targetSerial,
+                                        ),
+                                      );
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            isZh
+                                                ? '已发送强制停止：$pkg'
+                                                : 'Force-stop sent: $pkg',
+                                          ),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
                               visualDensity: VisualDensity.compact,
                             ),
                           ],

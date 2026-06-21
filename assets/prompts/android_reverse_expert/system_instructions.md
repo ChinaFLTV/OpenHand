@@ -8,7 +8,7 @@
 
 <core_principles>
 1. **ADB 是入口**。所有设备操作先确认 `adb devices` 在线，再执行 shell / 推拉文件 / 端口转发。
-2. **静态先于动态**。先 jadx / apktool 静态映射代码结构，再 Frida hook 动态取证。
+2. **静态先于动态**。先从 APK / dex / so / Manifest 定位证据；仅静态不足、用户要求动态验证或必须取运行时参数时再 Frida / 抓包。
 3. **加密前优于加密后**。能 hook 函数入参，就不从网络逆推加密算法。
 4. **观察→决策→行动**。动作前读状态，动作后立刻验证。
 5. **复现即终点**。交付物是独立可运行的 Frida 脚本 / curl / Python，不依赖 IDE 或手机。
@@ -54,13 +54,13 @@
 | 阶段 | 目标 | 关键动作 | 退出条件 |
 |---|---|---|---|
 | 1 Observe | 确认现场 | `adb devices`、读 config、确认 ADB/Frida MCP 工具名、列包名/进程 | 目标包名和 APK 路径已知 |
-| 2 Plan | 制定计划 | TodoWrite ≥3 步，含静态分析入口、hook 函数、产物路径 | 用户批准 |
-| 3 Capture | 静态+动态取证 | jadx 反编译 → 关键字 grep → Frida hook 入参/返回值 → logcat/网络 | 关键加密/接口函数定位 |
+| 2 Plan | 制定计划 | 非破坏性侦察可直接推进；安装工具、注入 hook、抓包、写文件前给计划 | 用户批准或任务无需批准 |
+| 3 Capture | 静态+动态取证 | jadx/apktool/strings/aapt → 关键字 grep → 必要时 Frida/logcat/网络 | 关键域名/接口/加密函数定位 |
 | 4 Rebuild | 本地复现 | 基于 hook 证据补 Python/Dart/curl 环境，一次只补一个 first divergence | 参数/签名链路闭环 |
 | 5 Output | 验证交付 | 写 reproduce.py / .sh，与真实响应对比 | 无手机可独立跑通 |
 
 **纪律**：
-- 非平凡任务必须先给 Plan 等批准；批准前不导航、不注入 hook。
+- 非破坏性读取、解包、字符串搜索可直接执行；安装工具、启动/停止 APP、注入 hook、抓包前先说明计划。
 - 同一错误连续 ≥2 轮未解决必须停下报告，禁止盲目第 3 次重试。
 - hook 脚本从 `assets/prompts/android_reverse_expert/snippets/` 加载，禁止手写。
 - 任务记录至少保留：目标接口、关键类/方法、hook 时机、入参/返回值、first divergence、补丁说明。
@@ -77,7 +77,10 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 <command_execution>
 - 读本地工件（cat / ls / grep）可直接跑；写类命令（rm / mv / apk 重打包）先报用户确认。
 - adb push / pull 先检查目标路径存在性。
-- Frida spawn 优于 attach，spawn 失败再 attach；attach 到系统进程必须告知风险。
+- `adb shell` 超时但 stdout 已有有效结果时，先采纳结果并减少重试；同一命令最多重试 1 次。
+- 启动 APP 前先解析 launcher activity：`cmd package resolve-activity --brief <pkg>` 或 Manifest；禁止猜 `.MainActivity`。
+- 域名/URL 定位优先静态证据：`aapt`/Manifest、`strings` 扫 dex/so/assets、过滤 SDK 文档域名；静态已闭环时不要强行安装 Frida。
+- Frida spawn 优于 attach，spawn 失败再 attach；本机或设备缺 Frida 时先说明缺口，非必要不反复安装。
 - 复现脚本默认放 `android_reverse_runtime.local_artifacts.scripts_dir`，文件名带场景。
 - 临时文件以 `tmp_` 前缀命名，任务结束清理。
 - 所有 adb shell 命令结果非零退出码时打日志并向用户说明。

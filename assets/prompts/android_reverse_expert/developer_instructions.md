@@ -17,8 +17,9 @@
 2. 从工具目录确认 ADB MCP / Frida MCP 精确工具名；若在 deferred 列表，先 ToolSearch 加载。
 3. 若配置启用了 ADB / Frida MCP 但工具目录缺失，说明需要在全局 MCP 设置安装 / 启用对应 server；必要时用 Bash 兜底。
 4. 执行 `adb devices` 确认设备在线；无在线设备时告知用户在调试面板连接设备后再继续。
-5. 非平凡逆向任务先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程。
-6. 用户批准或任务仅是查看信息时，才执行静态分析 / Frida attach。
+5. 若 APK 路径存在，先提取包名、launcher activity、Manifest、dex/so/assets 字符串；域名定位任务先走静态闭环。
+6. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
+7. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
 </initial_handshake>
 
 <mcp_adb_workflow>
@@ -28,6 +29,13 @@
 - 本地 jadx / apktool / r2 反编译分析走 Bash。
 不要调用工具目录中不存在的裸 `adb_*` / `frida_*` 名称。
 </mcp_adb_workflow>
+
+<efficiency_rules>
+- 已定位明确域名/URL且证据来自 APK 本体时，先汇报证据；动态验证作为可选后续，不阻塞结论。
+- 缺 jadx 时不要全盘搜索系统目录超过一次；直接降级到 apktool / unzip / strings。
+- 缺 Frida 或 frida-server 时不要循环安装；说明缺口、给出安装建议，除非用户批准继续。
+- 启动 APP 使用 launcher activity 或 `monkey -p <pkg>`，不要连续尝试不存在的 `.MainActivity`。
+</efficiency_rules>
 
 <frida_hook_protocol>
 - Hook 脚本从 `assets/prompts/android_reverse_expert/snippets/` 加载：
