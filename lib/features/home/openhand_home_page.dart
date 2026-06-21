@@ -3143,6 +3143,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return created;
     }
     if (_autoStartSubmissionWasStopped(session.id)) {
+      _webReverseControllers.remove(session.id);
+      _webReverseRuntimeMetadataSignatures.remove(session.id);
+      _webReverseCdpMcpBridge.stopSession(session.id);
+      _disposeWebReverseControllerAfterStop(session.id, controller);
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
@@ -3288,6 +3292,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return created;
     }
     if (_autoStartSubmissionWasStopped(session.id)) {
+      _androidReverseControllers.remove(session.id);
+      _androidReverseRuntimeMetadataSignatures.remove(session.id);
+      _disposeAndroidReverseController(session.id, controller);
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
@@ -7123,6 +7130,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _webReverseCdpMcpBridge.stopSession(session.id);
         if (wr != null) {
           _disposeWebReverseControllerAfterStop(session.id, wr);
+        }
+        final ar = _androidReverseControllers.remove(session.id);
+        _androidReverseRuntimeMetadataSignatures.remove(session.id);
+        if (ar != null) {
+          _disposeAndroidReverseController(session.id, ar);
         }
       }
       return;
