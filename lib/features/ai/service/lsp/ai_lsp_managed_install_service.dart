@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
-import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
@@ -1104,30 +1103,29 @@ abstract final class AiLspManagedInstallService {
   }
 
   static String _detectArchitecture() {
-    if (Platform.isWindows) {
-      final arch =
-          Platform.environment['PROCESSOR_ARCHITECTURE'] ??
-          Platform.environment['PROCESSOR_ARCHITEW6432'] ??
-          '';
-      if (arch.isNotEmpty) {
-        return arch.toLowerCase();
+    final candidates = <String>[
+      Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '',
+      Platform.environment['PROCESSOR_ARCHITEW6432'] ?? '',
+      Platform.environment['HOSTTYPE'] ?? '',
+      Platform.environment['MACHTYPE'] ?? '',
+      Platform.environment['HOST'] ?? '',
+      Platform.version,
+      Platform.resolvedExecutable,
+    ];
+    for (final raw in candidates) {
+      final value = raw.trim().toLowerCase();
+      if (value.isEmpty) continue;
+      if (value.contains('arm64') || value.contains('aarch64')) {
+        return 'arm64';
+      }
+      if (value.contains('x86_64') ||
+          value.contains('amd64') ||
+          value.contains('x64')) {
+        return 'x64';
       }
     }
-    try {
-      final result = Process.runSync('uname', const <String>['-m']);
-      if (result.exitCode == 0) {
-        final stdout = '${result.stdout}'.trim().toLowerCase();
-        if (stdout.isNotEmpty) {
-          return stdout;
-        }
-      }
-    } catch (error, stack) {
-      silentLog(
-        'ai_lsp_managed_install_service',
-        'detect arch via uname',
-        error,
-        stack,
-      );
+    if (Platform.isMacOS && Directory('/opt/homebrew/bin').existsSync()) {
+      return 'arm64';
     }
     return '';
   }
