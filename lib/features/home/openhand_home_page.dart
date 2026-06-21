@@ -3450,6 +3450,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'android_dynamic_probe_adb_launcher_frida_preflight_artifact',
         'toolchain_install_update_uninstall_copy_commands',
         'static_quick_scan_apk_nested_flutter_native_suspicious_network_artifacts',
+        'static_quick_scan_business_network_candidates',
         'frida_script_save_metadata_artifacts',
         'frida_output_runbook_artifacts',
         'frida_server_abi_push_start_forward_copy_commands',

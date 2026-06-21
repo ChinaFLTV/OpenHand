@@ -4430,8 +4430,8 @@ class _AndroidReverseDashboardDialogState
             theme: theme,
             icon: Icons.folder_rounded,
             text: isZh
-                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、嵌套 APK、Flutter/native/可疑文件、URL/域名/IP、网络字符串来源到 $decompiledDir/quick_scan。'
-                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, nested APKs, Flutter/native/suspicious files, URL/domain/IP, and network string sources to $decompiledDir/quick_scan.',
+                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、嵌套 APK、Flutter/native/可疑文件、业务网络候选、URL/域名/IP、网络字符串来源到 $decompiledDir/quick_scan。'
+                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, nested APKs, Flutter/native/suspicious files, business network candidates, URL/domain/IP, and network string sources to $decompiledDir/quick_scan.',
           ),
           if (scanOutput != null && scanOutput.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -4445,6 +4445,7 @@ class _AndroidReverseDashboardDialogState
             title: isZh ? '读取快速扫描产物' : 'Read quick scan artifacts',
             command:
                 'cd ${_shellQuote('$decompiledDir/quick_scan')}\n'
+                'cat network_candidates.txt business_urls.txt business_domains.txt business_network_sources.txt\n'
                 'cat network_sources.txt urls.txt domains.txt ips.txt\n'
                 'cat flutter.txt native_libs.txt suspicious_files.txt nested_apks.txt',
           ),

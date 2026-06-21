@@ -1136,6 +1136,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
       'flutter.txt',
       'native_libs.txt',
       'suspicious_files.txt',
+      'network_candidates.txt',
+      'business_urls.txt',
+      'business_domains.txt',
+      'business_network_sources.txt',
       'urls.txt',
       'domains.txt',
       'ips.txt',
@@ -1714,6 +1718,10 @@ cd "$OUT_DIR" || exit 2
 : > flutter.txt
 : > native_libs.txt
 : > suspicious_files.txt
+: > network_candidates.txt
+: > business_urls.txt
+: > business_domains.txt
+: > business_network_sources.txt
 : > urls.txt
 : > domains.txt
 : > ips.txt
@@ -1797,11 +1805,14 @@ if [ -n "$STRINGS" ] && [ -x "$STRINGS" ]; then
       run_strings "$APK_PATH"
     fi
   } | LC_ALL=C awk 'length($0) <= 4096' | head -60000 > all_strings.txt
+  NOISE_DOMAIN_PATTERN='android\.com|android\.googlesource\.com|w3\.org|google\.com|g\.co|gstatic\.com|googleapis\.com|firebaseio\.com|firebase\.google\.com|github\.com|githubusercontent\.com|schema\.org|apache\.org|mozilla\.org|gradle\.org|dashif\.org|adobe\.com|ns\.adobe\.com|ietf\.org|iana\.org|unicode\.org|kotlinlang\.org|jetbrains\.com|dart\.dev|api\.flutter\.dev|flutter\.dev|flutter\.io|plugins\.flutter\.io|flutter\.baseflow\.com|pub\.dev|ibm\.com|www\.ibm\.com|vnd\.|cloudflare\.com|cloudfront\.net|facebook\.com|fbcdn\.net|appsflyer\.com|adjust\.com|umeng\.com|bugly\.qq\.com|qq\.com|tencent\.com|baidu\.com|aliyun\.com|huawei\.com|xiaomi\.com'
   LC_ALL=C awk '{ line=$0; while (match(line, /https?:\/\/[^[:space:]]+/)) { print substr(line, RSTART, RLENGTH); line=substr(line, RSTART+RLENGTH) } }' all_strings.txt | LC_ALL=C sed "s/[),;\"'<>}]*$//" | LC_ALL=C sort -u | head -500 > urls.txt
   {
     LC_ALL=C grep -aEio "\b$HOST_PATTERN\b" all_strings.txt
     LC_ALL=C sed -n 's#^[A-Za-z][A-Za-z0-9+.-]*://\([^/:?#]*\).*#\1#p' urls.txt
-  } | tr '[:upper:]' '[:lower:]' | LC_ALL=C grep -aviE 'android\.com|w3\.org|google\.com|github\.com|schema\.org|apache\.org|mozilla\.org|gradle\.org|\.(png|jpg|jpeg|webp|gif|svg|ttf|otf|xml|json|html|js|css|so|dex|apk|zip)$' | LC_ALL=C sort -u | head -500 > domains.txt
+  } | tr '[:upper:]' '[:lower:]' | LC_ALL=C grep -aviE "$NOISE_DOMAIN_PATTERN|\.(png|jpg|jpeg|webp|gif|svg|ttf|otf|xml|json|html|js|css|so|dex|apk|zip)$" | LC_ALL=C sort -u | head -500 > domains.txt
+  LC_ALL=C grep -aviE "$NOISE_DOMAIN_PATTERN|/schemas?/|/guidelines?/|/licenses?/|\.xsd($|[?#])|\.dtd($|[?#])|\.css($|[?#])|\.js($|[?#])|\.png($|[?#])|\.jpg($|[?#])|\.jpeg($|[?#])|\.webp($|[?#])|\.gif($|[?#])|\.svg($|[?#])|\.ttf($|[?#])|\.otf($|[?#])" urls.txt | head -200 > business_urls.txt
+  LC_ALL=C grep -aviE "$NOISE_DOMAIN_PATTERN" domains.txt | head -200 > business_domains.txt
   LC_ALL=C grep -aEio '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' all_strings.txt | LC_ALL=C sort -u | head -200 > ips.txt
   LC_ALL=C grep -aEi 'https?://|sign|encrypt|token|secret|okhttp|retrofit|webview|ssl|certificate|api|host|domain' all_strings.txt | LC_ALL=C sort -u | head -500 > interesting_strings.txt
   if [ -n "$UNZIP" ] && [ -x "$UNZIP" ] && [ -s _apk_entries.txt ]; then
@@ -1820,8 +1831,25 @@ if [ -n "$STRINGS" ] && [ -x "$STRINGS" ]; then
         LC_ALL=C grep -aEi "$HOST_PATTERN|okhttp|retrofit|host|domain|api|graphql|socket|websocket|mqtt|sign|token|encrypt" "$entry_strings" | LC_ALL=C grep -aviE '\.(png|jpg|jpeg|webp|gif|svg|ttf|otf)$'
       } | LC_ALL=C awk '!seen[$0]++' | head -120 | awk -v entry="$entry" '{print entry ":" $0}'
     done | LC_ALL=C awk 'length($0) <= 4096' | head -1500 > network_sources.txt
+    if [ -s business_domains.txt ]; then
+      while IFS= read -r business_domain; do
+        LC_ALL=C grep -aFi "$business_domain" network_sources.txt
+      done < business_domains.txt | LC_ALL=C sort -u > business_network_sources.txt
+    fi
+    {
+      LC_ALL=C grep -aEi '(^|[[:space:]:])/(api|activity|domain|front|login|member|sign|token|user)[A-Za-z0-9_./?=&-]*' network_sources.txt
+      LC_ALL=C grep -aEi 'CDNHOST|domain_file_cdn' network_sources.txt
+    } | LC_ALL=C grep -aviE "$NOISE_DOMAIN_PATTERN|dev\.flutter|dart\.|pigeon|PlatformConfiguration|Canvas::|Socket|application/|text/|vnd\.|Select|Seleccion|tapiwch|caratteri|headline|ChangeNotifier|Float64|NoSuchMethod|databaseFactory" >> business_network_sources.txt
+    LC_ALL=C sort -u business_network_sources.txt | head -400 > _business_network_sources.tmp
+    mv _business_network_sources.tmp business_network_sources.txt
     rm -rf _network_sources_tmp
   fi
+  {
+    if [ -s business_urls.txt ]; then sed 's/^/url: /' business_urls.txt; fi
+    if [ -s business_domains.txt ]; then sed 's/^/domain: /' business_domains.txt; fi
+    if [ -s business_network_sources.txt ]; then sed 's/^/source: /' business_network_sources.txt; fi
+    if [ -s ips.txt ]; then sed 's/^/ip: /' ips.txt; fi
+  } | LC_ALL=C awk '!seen[$0]++' | head -500 > network_candidates.txt
 else
   echo "strings not found" > interesting_strings.txt
   echo "strings not found" > network_sources.txt
