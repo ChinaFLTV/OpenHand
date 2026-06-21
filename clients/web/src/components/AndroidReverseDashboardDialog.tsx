@@ -63,6 +63,8 @@ const artifactRows = [
   ['certs_readme', '证书说明'],
   ['verify_apk_signature_script', 'APK 验签'],
   ['scripts_dir', '复现脚本'],
+  ['evidence_bundle_script', '证据包脚本'],
+  ['evidence_bundle_glob', '证据包'],
 ] as const;
 
 function runtimeSummaryFromMetadata(metadata: Record<string, unknown>): AndroidReverseSummary {

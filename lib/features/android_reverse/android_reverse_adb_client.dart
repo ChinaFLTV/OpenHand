@@ -24,6 +24,7 @@ class AdbCommandResult {
     required this.stdout,
     required this.stderr,
     this.timedOut = false,
+    this.displayCommand,
   });
 
   final List<String> args;
@@ -31,6 +32,7 @@ class AdbCommandResult {
   final String stdout;
   final String stderr;
   final bool timedOut;
+  final String? displayCommand;
 
   bool get ok => exitCode == 0 && !timedOut;
 
@@ -40,7 +42,7 @@ class AdbCommandResult {
 
   bool get partialOk => timedOut && hasUsableStdout;
 
-  String get commandLine => 'adb ${args.join(' ')}';
+  String get commandLine => displayCommand ?? 'adb ${args.join(' ')}';
 
   String get combinedOutput {
     final out = stdout.trim();
@@ -56,6 +58,7 @@ class AdbCommandResult {
     String? stdout,
     String? stderr,
     bool? timedOut,
+    String? displayCommand,
   }) {
     return AdbCommandResult(
       args: args,
@@ -63,6 +66,7 @@ class AdbCommandResult {
       stdout: stdout ?? this.stdout,
       stderr: stderr ?? this.stderr,
       timedOut: timedOut ?? this.timedOut,
+      displayCommand: displayCommand ?? this.displayCommand,
     );
   }
 }

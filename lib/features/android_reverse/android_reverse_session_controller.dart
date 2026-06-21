@@ -18,6 +18,7 @@ const Duration _kStaticQuickScanTimeout = Duration(seconds: 35);
 const Duration _kStaticQuickScanWarmTimeout = Duration(seconds: 18);
 const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
 const Duration _kArtifactChmodTimeout = Duration(seconds: 2);
+const Duration _kEvidenceBundleTimeout = Duration(seconds: 20);
 const int _kPackageReportSummaryMaxLines = 220;
 const int _kStaticQuickScanPreviewLines = 80;
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
@@ -985,6 +986,55 @@ class AndroidReverseSessionController extends ChangeNotifier {
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
+    }
+  }
+
+  Future<AdbCommandResult> makeEvidenceBundleToArtifacts() async {
+    if (Platform.isWindows) {
+      return const AdbCommandResult(
+        args: <String>['evidence-bundle'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Evidence bundle generation requires bash.',
+        displayCommand: 'make evidence bundle',
+      );
+    }
+    try {
+      if (!await File(evidenceBundleScriptPath).exists()) {
+        await _writeMcpLinkageArtifacts(updateError: true);
+      }
+      final bash = File('/bin/bash').existsSync() ? '/bin/bash' : 'bash';
+      final result = await runTrackedProcessOrFailed(
+        bash,
+        <String>[evidenceBundleScriptPath],
+        timeout: _kEvidenceBundleTimeout,
+        tag: 'android_reverse.evidence_bundle',
+      );
+      final stdoutText = result.stdout.toString();
+      final stderrText = result.stderr.toString();
+      final failedWithoutOutput =
+          result.exitCode == -1 &&
+          stdoutText.trim().isEmpty &&
+          stderrText.trim().isEmpty;
+      return AdbCommandResult(
+        args: const <String>['evidence-bundle'],
+        exitCode: result.exitCode,
+        stdout: stdoutText,
+        stderr: failedWithoutOutput
+            ? 'Evidence bundle command timed out or failed to start within ${_kEvidenceBundleTimeout.inSeconds} seconds.'
+            : stderrText,
+        timedOut: failedWithoutOutput,
+        displayCommand: '$bash $evidenceBundleScriptPath',
+      );
+    } catch (e, st) {
+      silentLog(_kTag, 'makeEvidenceBundleToArtifacts failed', e, st);
+      return AdbCommandResult(
+        args: const <String>['evidence-bundle'],
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+        displayCommand: 'make evidence bundle',
+      );
     }
   }
 

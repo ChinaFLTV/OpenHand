@@ -346,6 +346,7 @@ class _AndroidReverseDashboardDialogState
   bool _writingNetworkAddon = false;
   bool _writingCertificateArtifacts = false;
   bool _writingMcpArtifacts = false;
+  bool _makingEvidenceBundle = false;
   bool _capturingLogcatSnapshot = false;
   bool _loadingDeviceDetails = false;
   bool _savingFridaScript = false;
@@ -371,6 +372,7 @@ class _AndroidReverseDashboardDialogState
   String? _networkAddonOutput;
   String? _certificateArtifactOutput;
   String? _mcpArtifactOutput;
+  String? _evidenceBundleOutput;
   final _processFilter = TextEditingController();
 
   @override
@@ -1093,6 +1095,28 @@ class _AndroidReverseDashboardDialogState
       );
     } finally {
       if (mounted) setState(() => _writingMcpArtifacts = false);
+    }
+  }
+
+  Future<void> _makeEvidenceBundle() async {
+    if (_makingEvidenceBundle) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _makingEvidenceBundle = true;
+      _evidenceBundleOutput = isZh ? '生成中...' : 'Generating...';
+    });
+    try {
+      final result = await _ctrl.makeEvidenceBundleToArtifacts();
+      if (!mounted) return;
+      setState(() => _evidenceBundleOutput = _formatAdbResult(result));
+      OpenHandSnackBar.showInfo(
+        context,
+        result.ok
+            ? (isZh ? '证据包已生成。' : 'Evidence bundle generated.')
+            : (isZh ? '证据包生成失败。' : 'Evidence bundle generation failed.'),
+      );
+    } finally {
+      if (mounted) setState(() => _makingEvidenceBundle = false);
     }
   }
 
@@ -2912,42 +2936,94 @@ class _AndroidReverseDashboardDialogState
         (isZh ? '备注' : 'Notes', config.notes!),
     ];
     return OpenHandSafeScrollbar(
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount: items.length,
-        itemBuilder: (_, i) {
-          final (label, value) = items[i];
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 120,
-                  child: Text(
-                    label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 220),
+                child: Text(
+                  isZh ? '会话概览与交付' : 'Session overview & delivery',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _copyText(value),
+              ),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: _makingEvidenceBundle ? null : _makeEvidenceBundle,
+                  icon: _makingEvidenceBundle
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.8),
+                        )
+                      : const Icon(Icons.inventory_2_rounded, size: 15),
+                  label: Text(isZh ? '生成证据包' : 'Make evidence bundle'),
+                ),
+              ),
+              if (_evidenceBundleOutput?.trim().isNotEmpty ?? false)
+                SizedBox(
+                  height: _kAdbInlineControlHeight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _copyText(_evidenceBundleOutput!.trim()),
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: Text(isZh ? '复制结果' : 'Copy result'),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.inventory_2_rounded,
+            text: isZh
+                ? '证据包会汇总 quick_scan、network.jsonl、Frida 输出、Logcat、APP 报告和复现脚本索引，生成到 scripts/evidence_bundle_<time>.md。'
+                : 'Evidence bundle summarizes quick_scan, network.jsonl, Frida output, Logcat, APP reports, and reproduction scripts into scripts/evidence_bundle_<time>.md.',
+          ),
+          if (_evidenceBundleOutput?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 10),
+            _monospaceCard(cs, _evidenceBundleOutput!.trim()),
+          ],
+          const SizedBox(height: 12),
+          for (final (label, value) in items)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 120,
                     child: Text(
-                      value,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: value.contains('/') ? 'monospace' : null,
+                      label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _copyText(value),
+                      child: Text(
+                        value,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontFamily: value.contains('/') ? 'monospace' : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        },
+        ],
       ),
     );
   }
