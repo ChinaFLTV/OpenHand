@@ -8,6 +8,7 @@
 - TopBar 调试胶囊实时显示"设备状态 · 进程数"。
 - 所有本地工件落盘到 `~/.openhand/android_reverse/sessions/<session_id>/`：
   - `logcat.jsonl` — 每行一条 logcat 事件
+  - `logcat/` — Logcat 文本 / JSON 快照
   - `network.jsonl` — mitmproxy 流量事件（需启用代理）
   - `apks/` — 从设备拉取的 base / split APK
   - `screenshots/`、`recordings/` — 面板截图和短录屏

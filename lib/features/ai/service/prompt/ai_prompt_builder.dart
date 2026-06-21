@@ -2293,6 +2293,7 @@ class AiPromptBuilder {
       'local_artifacts': <String, Object?>{
         'root_dir': rootDir,
         'logcat_jsonl': p.join(rootDir, 'logcat.jsonl'),
+        'logcat_dir': p.join(rootDir, 'logcat'),
         'network_jsonl': p.join(rootDir, 'network.jsonl'),
         'devices_dir': p.join(rootDir, 'devices'),
         'apks_dir': p.join(rootDir, 'apks'),
@@ -2315,6 +2316,7 @@ class AiPromptBuilder {
       },
       'local_read_hints': <String>[
         'tail -200 ${p.join(rootDir, 'logcat.jsonl')}',
+        'find ${p.join(rootDir, 'logcat')} -maxdepth 2 -type f | head -200',
         'tail -200 ${p.join(rootDir, 'network.jsonl')}',
         'find ${p.join(rootDir, 'devices')} -maxdepth 3 -type f | head -200',
         'find ${p.join(rootDir, 'network')} -maxdepth 2 -type f | head -200',
@@ -2338,7 +2340,7 @@ class AiPromptBuilder {
         'static_analysis: quick APK scan writes badging/Manifest/components/certs/nested APKs/Flutter/native/suspicious files/network sources/URL/domain/IP summaries to decompiled/<target>/quick_scan',
         'packages: analyze launcher/activity, launch without guessing MainActivity, force-stop, clear data, uninstall, pull APKs to artifacts, filter logcat by package',
         'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
-        'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl',
+        'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl, capture txt/json snapshots under logcat/',
         'network: generate mitmproxy JSONL addon, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
         'certs: generate Network Security Config, manifest snippet, root CA install script, APK resigning scripts, APK signing check, SSL pinning hook command',
         'frida: built-in hook snippets plus device frida-server status, ABI, push/start, forward, spawn/attach copy commands',

@@ -3381,6 +3381,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'local_artifacts': <String, Object?>{
         'root_dir': controller.artifactsRootDir,
         'logcat_jsonl': controller.logcatJsonlPath,
+        'logcat_dir': controller.logcatDir,
         'network_jsonl': controller.networkJsonlPath,
         'devices_dir': controller.devicesDir,
         'apks_dir': controller.apksDir,
@@ -3399,6 +3400,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       },
       'local_read_hints': <String>[
         'tail -200 ${controller.logcatJsonlPath}',
+        'find ${controller.logcatDir} -maxdepth 2 -type f | head -200',
         'tail -200 ${controller.networkJsonlPath}',
         'find ${controller.devicesDir} -maxdepth 3 -type f | head -200',
         'find ${controller.networkDir} -maxdepth 2 -type f | head -200',
@@ -3432,6 +3434,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'process_kill_force_stop',
         'logcat_level_tag_pid_package_filter',
         'logcat_clear_save_jsonl',
+        'logcat_snapshot_txt_json_artifacts',
         'mcp_plugin_linkage_status',
         'mcp_linkage_templates_readme_adb_one_shot_artifacts',
         'toolchain_install_update_uninstall_copy_commands',

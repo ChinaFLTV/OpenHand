@@ -42,7 +42,7 @@
 - **MCP/插件**：Android 相关 MCP server 健康状态、工具目录、ToolSearch 查询建议、Node / Python / pip / Playwright 前置运行时状态，并生成 `mcp/` 模板与 `scripts/adb_one_shot.sh`。
 - **APP 信息**：第三方包列表、复制包名、启动、强制停止、清数据、卸载、拉取 APK、安装路径、版本、launcher activity、权限 / 签名摘要。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID / 进程名、kill、按 PID 过滤 Logcat。
-- **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、复制、stderr / 超时 / 空状态反馈。
+- **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、捕获 `logcat/` 文本 / JSON 快照、复制、stderr / 超时 / 空状态反馈。
 - **Frida**：加载内置 hook snippet、暂存脚本、复制脚本，生成设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；实际安装和注入需确认后由 MCP 或 Bash 完成。
 - **网络**：生成 mitmproxy JSONL addon、设备代理、抓包启动和流量读取命令，结构化 HTTP 记录写入 `network.jsonl`。
 - **静态分析**：快速扫描 APK 生成 badging、Manifest / 组件、证书、嵌套 APK、Flutter / native / 可疑文件、URL / 域名 / IP、网络字符串来源到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。

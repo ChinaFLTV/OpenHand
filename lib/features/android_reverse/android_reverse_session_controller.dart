@@ -24,6 +24,7 @@ const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'frida',
   'decompiled',
   'mcp',
+  'logcat',
   'network',
   'certs',
   'scripts',
@@ -65,6 +66,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get mcpTemplatesPath =>
       '$mcpDir/openhand_android_reverse_mcp_templates.json';
   String get mcpReadmePath => '$mcpDir/README.md';
+  String get logcatDir => '$artifactsRootDir/logcat';
   String get networkDir => '$artifactsRootDir/network';
   String get mitmproxyAddonPath => '$networkDir/openhand_mitm_jsonl.py';
   String get certsDir => '$artifactsRootDir/certs';
@@ -204,6 +206,72 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<AdbCommandResult> clearLogcatDetailed({String? serial}) =>
       _clientForSerial(serial).clearLogcatDetailed();
+
+  Future<AdbCommandResult> captureLogcatSnapshotToArtifacts({
+    String? tag,
+    String? level,
+    String? pid,
+    String? packageName,
+    String? serial,
+    int lines = 500,
+  }) async {
+    final stamp = _artifactTimestamp();
+    final txtPath = '$logcatDir/logcat_snapshot_$stamp.txt';
+    final jsonPath = '$logcatDir/logcat_snapshot_$stamp.json';
+    try {
+      await Directory(logcatDir).create(recursive: true);
+      final result = await logcatDetailed(
+        tag: tag,
+        level: level,
+        lines: lines,
+        pid: pid,
+        serial: serial,
+      );
+      final capturedAt = DateTime.now().toUtc().toIso8601String();
+      final text = result.stdout.trimRight();
+      final json = <String, Object?>{
+        'captured_at': capturedAt,
+        if (serial?.trim().isNotEmpty ?? false) 'device_serial': serial!.trim(),
+        if (tag?.trim().isNotEmpty ?? false) 'tag': tag!.trim(),
+        if (level?.trim().isNotEmpty ?? false)
+          'level_filter': level!.trim().toUpperCase(),
+        if (pid?.trim().isNotEmpty ?? false) 'pid': pid!.trim(),
+        if (packageName?.trim().isNotEmpty ?? false)
+          'package_name': packageName!.trim(),
+        'lines_requested': lines,
+        'stdout_line_count': text.isEmpty ? 0 : text.split('\n').length,
+        'exit_code': result.exitCode,
+        'timed_out': result.timedOut,
+        'stderr': result.stderr,
+        'text_path': txtPath,
+      };
+      await Future.wait(<Future<void>>[
+        File(txtPath).writeAsString(text.isEmpty ? '(empty)\n' : '$text\n'),
+        File(
+          jsonPath,
+        ).writeAsString(const JsonEncoder.withIndent('  ').convert(json)),
+      ]);
+      return AdbCommandResult(
+        args: <String>['logcat-snapshot'],
+        exitCode: result.exitCode,
+        stdout: <String>[
+          'Logcat snapshot: $txtPath',
+          'Logcat snapshot JSON: $jsonPath',
+          if (text.isNotEmpty) 'Captured lines: ${text.split('\n').length}',
+        ].join('\n'),
+        stderr: result.stderr,
+        timedOut: result.timedOut,
+      );
+    } catch (e, st) {
+      silentLog(_kTag, 'captureLogcatSnapshotToArtifacts failed', e, st);
+      return AdbCommandResult(
+        args: const <String>['logcat-snapshot'],
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+      );
+    }
+  }
 
   Future<String?> shell(String command, {String? serial}) =>
       _clientForSerial(serial).shell(command);

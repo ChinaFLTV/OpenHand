@@ -327,6 +327,7 @@ class _AndroidReverseDashboardDialogState
   bool _writingNetworkAddon = false;
   bool _writingCertificateArtifacts = false;
   bool _writingMcpArtifacts = false;
+  bool _capturingLogcatSnapshot = false;
   bool _loadingDeviceDetails = false;
   bool _logcatPackageFilterEnabled = false;
   String? _selectedDeviceSerial;
@@ -344,6 +345,7 @@ class _AndroidReverseDashboardDialogState
   String? _packageAnalysisOutput;
   String? _selectedFridaSnippetAsset;
   String? _staticQuickScanOutput;
+  String? _logcatArtifactOutput;
   String? _networkAddonOutput;
   String? _certificateArtifactOutput;
   String? _mcpArtifactOutput;
@@ -777,6 +779,60 @@ class _AndroidReverseDashboardDialogState
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  Future<void> _captureLogcatArtifactSnapshot() async {
+    if (_capturingLogcatSnapshot) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _capturingLogcatSnapshot = true;
+      _logcatArtifactOutput = null;
+    });
+    try {
+      final tag = _logcatFilterCtrl.text.trim();
+      final explicitPid = _logcatPidCtrl.text.trim();
+      final packageName = _logcatPackageFilterEnabled
+          ? _logcatPackageTarget()
+          : null;
+      var pid = RegExp(r'^\d+$').hasMatch(explicitPid) ? explicitPid : null;
+      if (pid == null && packageName != null) {
+        pid = await _ctrl.pidOfPackage(packageName, serial: _targetSerial);
+      }
+      final result = await _ctrl.captureLogcatSnapshotToArtifacts(
+        tag: tag.isEmpty ? null : tag,
+        level: _logcatLevel,
+        pid: pid,
+        packageName: packageName,
+        serial: _targetSerial,
+        lines: _kDefaultLogcatLines,
+      );
+      if (!mounted) return;
+      setState(() {
+        _logcatArtifactOutput = _formatAdbResult(result);
+        if (!result.ok && !result.partialOk) {
+          _logcatError = _logcatArtifactOutput;
+        }
+      });
+      if (result.ok || result.partialOk) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isZh ? '已生成 Logcat 快照工件。' : 'Logcat snapshot artifacts saved.',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _logcatArtifactOutput =
+            '${isZh ? "生成 Logcat 快照失败" : "Failed to capture Logcat snapshot"}: $error';
+        _logcatError = _logcatArtifactOutput;
+      });
+    } finally {
+      if (mounted) setState(() => _capturingLogcatSnapshot = false);
+    }
   }
 
   Future<void> _runStaticQuickScan() async {
@@ -3586,6 +3642,30 @@ class _AndroidReverseDashboardDialogState
                           SizedBox(
                             height: _kAdbInlineControlHeight,
                             child: FilledButton.tonalIcon(
+                              onPressed: _capturingLogcatSnapshot
+                                  ? null
+                                  : _captureLogcatArtifactSnapshot,
+                              icon: _capturingLogcatSnapshot
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.6,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.snippet_folder_rounded,
+                                      size: 14,
+                                    ),
+                              label: Text(isZh ? '快照' : 'Snapshot'),
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: _kAdbInlineControlHeight,
+                            child: FilledButton.tonalIcon(
                               onPressed: _logcatLines.isEmpty
                                   ? null
                                   : _saveLogcatSnapshot,
@@ -3758,6 +3838,10 @@ class _AndroidReverseDashboardDialogState
                   icon: Icons.info_outline_rounded,
                   text: _logcatError!,
                 ),
+              ],
+              if (_logcatArtifactOutput?.trim().isNotEmpty ?? false) ...[
+                const SizedBox(height: 8),
+                _monospaceCard(cs, _logcatArtifactOutput!.trim()),
               ],
             ],
           ),
