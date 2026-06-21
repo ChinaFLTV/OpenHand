@@ -61,6 +61,91 @@ enum _DeviceMenuAction {
   disconnect,
 }
 
+class _FridaSnippetPreset {
+  const _FridaSnippetPreset({
+    required this.id,
+    required this.assetPath,
+    required this.labelZh,
+    required this.labelEn,
+    required this.descZh,
+    required this.descEn,
+  });
+
+  final String id;
+  final String assetPath;
+  final String labelZh;
+  final String labelEn;
+  final String descZh;
+  final String descEn;
+
+  String label(bool isZh) => isZh ? labelZh : labelEn;
+
+  String desc(bool isZh) => isZh ? descZh : descEn;
+}
+
+const List<_FridaSnippetPreset> _kFridaSnippetPresets = <_FridaSnippetPreset>[
+  _FridaSnippetPreset(
+    id: 'java_method',
+    assetPath:
+        'assets/prompts/android_reverse_expert/snippets/hook_java_method.js',
+    labelZh: 'Java 方法',
+    labelEn: 'Java method',
+    descZh: '入参、返回值、调用栈',
+    descEn: 'Args, return value, stack',
+  ),
+  _FridaSnippetPreset(
+    id: 'okhttp',
+    assetPath: 'assets/prompts/android_reverse_expert/snippets/hook_okhttp.js',
+    labelZh: 'OkHttp',
+    labelEn: 'OkHttp',
+    descZh: '请求/响应 URL、Header、Body',
+    descEn: 'Request/response URL, headers, body',
+  ),
+  _FridaSnippetPreset(
+    id: 'ssl_pinning',
+    assetPath:
+        'assets/prompts/android_reverse_expert/snippets/hook_ssl_pinning.js',
+    labelZh: 'SSL Pinning',
+    labelEn: 'SSL Pinning',
+    descZh: '常见证书锁定绕过',
+    descEn: 'Common pinning bypass',
+  ),
+  _FridaSnippetPreset(
+    id: 'aes_cbc',
+    assetPath: 'assets/prompts/android_reverse_expert/snippets/hook_aes_cbc.js',
+    labelZh: 'AES/CBC',
+    labelEn: 'AES/CBC',
+    descZh: 'Cipher doFinal 明文/密文',
+    descEn: 'Cipher doFinal plaintext/ciphertext',
+  ),
+  _FridaSnippetPreset(
+    id: 'native_func',
+    assetPath:
+        'assets/prompts/android_reverse_expert/snippets/hook_native_func.js',
+    labelZh: 'Native 函数',
+    labelEn: 'Native function',
+    descZh: 'JNI/so 入参 hexdump',
+    descEn: 'JNI/so args and hexdump',
+  ),
+  _FridaSnippetPreset(
+    id: 'webview',
+    assetPath: 'assets/prompts/android_reverse_expert/snippets/hook_webview.js',
+    labelZh: 'WebView',
+    labelEn: 'WebView',
+    descZh: 'loadUrl / evaluateJavascript',
+    descEn: 'loadUrl / evaluateJavascript',
+  ),
+  _FridaSnippetPreset(
+    id: 'flutter_dart',
+    assetPath:
+        'assets/prompts/android_reverse_expert/snippets/hook_flutter_dart.js',
+    labelZh: 'Flutter/Dart',
+    labelEn: 'Flutter/Dart',
+    descZh: '配合 blutter/Doldrums',
+    descEn: 'Use with blutter/Doldrums',
+  ),
+];
+
 extension _TabLabel on _Tab {
   String label(bool isZh) {
     return switch (this) {
@@ -141,6 +226,7 @@ class _AndroidReverseDashboardDialogState
   List<AndroidProcess> _processes = const <AndroidProcess>[];
   String? _selectedPackageName;
   String? _packageAnalysisOutput;
+  String? _selectedFridaSnippetAsset;
   final _processFilter = TextEditingController();
 
   @override
@@ -148,6 +234,7 @@ class _AndroidReverseDashboardDialogState
     super.initState();
     _ctrl = widget.controller;
     _ctrl.addListener(_onControllerChanged);
+    _fridaScriptCtrl.addListener(_onFridaScriptChanged);
     _refreshAll();
     unawaited(_refreshToolchain());
   }
@@ -155,6 +242,7 @@ class _AndroidReverseDashboardDialogState
   @override
   void dispose() {
     _ctrl.removeListener(_onControllerChanged);
+    _fridaScriptCtrl.removeListener(_onFridaScriptChanged);
     _logcatTimer?.cancel();
     _shellCtrl.dispose();
     _shellOutputCtrl.dispose();
@@ -170,6 +258,10 @@ class _AndroidReverseDashboardDialogState
   }
 
   void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onFridaScriptChanged() {
     if (mounted) setState(() {});
   }
 
@@ -427,6 +519,29 @@ class _AndroidReverseDashboardDialogState
       });
     } finally {
       if (mounted) setState(() => _loadingLogcat = false);
+    }
+  }
+
+  Future<void> _loadFridaSnippet(_FridaSnippetPreset preset) async {
+    try {
+      final script = await rootBundle.loadString(preset.assetPath);
+      if (!mounted) return;
+      _selectedFridaSnippetAsset = preset.assetPath;
+      _fridaScriptCtrl.text = script.trimRight();
+      setState(() {});
+    } catch (error) {
+      if (!mounted) return;
+      final isZh = openHandIsChineseLocale(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isZh
+                ? '加载 Frida snippet 失败：$error'
+                : 'Failed to load Frida snippet: $error',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -2108,97 +2223,207 @@ class _AndroidReverseDashboardDialogState
   Widget _buildFridaTab(ColorScheme cs, ThemeData theme, bool isZh) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            isZh ? 'Frida 脚本快速注入' : 'Frida script quick inject',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            isZh
-                ? '在此处粘贴 Frida JS 脚本，通过 AI 代理注入（实际注入由 AI 调用 Frida MCP 或 Bash 完成）。'
-                : 'Paste a Frida JS script here. Injection is handled by the AI agent via Frida MCP or Bash.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: TextField(
-              controller: _fridaScriptCtrl,
-              maxLines: null,
-              expands: true,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: isZh
-                    ? '// 粘贴 Frida 脚本...'
-                    : '// Paste Frida script...',
-                border: const OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final snippets = _buildFridaSnippetPane(cs, theme, isZh);
+          final editor = _buildFridaEditorPane(cs, theme, isZh);
+          if (constraints.maxWidth < 760) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildFridaHeader(cs, theme, isZh),
+                const SizedBox(height: 10),
+                SizedBox(height: 150, child: snippets),
+                const SizedBox(height: 10),
+                Expanded(child: editor),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FilledButton.tonalIcon(
-                onPressed: _fridaScriptCtrl.text.isEmpty
-                    ? null
-                    : () => _copyText(_fridaScriptCtrl.text),
-                icon: const Icon(Icons.copy_rounded, size: 14),
-                label: Text(isZh ? '复制脚本' : 'Copy script'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isZh
-                            ? '请告知 AI 执行注入：在对话框输入"注入 Frida 脚本"'
-                            : 'Tell the AI to inject: type "inject Frida script" in the chat',
-                      ),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.info_outline_rounded, size: 14),
-                label: Text(isZh ? '如何注入' : 'How to inject'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+              _buildFridaHeader(cs, theme, isZh),
+              const SizedBox(height: 10),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: 286, child: snippets),
+                    const SizedBox(width: 12),
+                    Expanded(child: editor),
+                  ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Divider(color: cs.outlineVariant),
-          const SizedBox(height: 8),
-          Text(
-            isZh ? 'Frida 常用命令参考' : 'Frida CLI reference',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFridaHeader(ColorScheme cs, ThemeData theme, bool isZh) {
+    return _InfoCard(
+      cs: cs,
+      theme: theme,
+      icon: Icons.bug_report_rounded,
+      text: isZh
+          ? '先从内置 snippet 加载脚本，再按当前包名生成 spawn / attach 命令。实际注入仍由 AI 代理通过 Frida MCP 或 Bash 执行。'
+          : 'Load a built-in snippet first, then use generated spawn/attach commands for the current package. Injection is still executed by the AI agent via Frida MCP or Bash.',
+    );
+  }
+
+  Widget _buildFridaSnippetPane(ColorScheme cs, ThemeData theme, bool isZh) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: OpenHandSafeScrollbar(
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          itemCount: _kFridaSnippetPresets.length,
+          separatorBuilder: (_, _) =>
+              Divider(height: 1, color: cs.outlineVariant),
+          itemBuilder: (context, index) {
+            final preset = _kFridaSnippetPresets[index];
+            final selected = _selectedFridaSnippetAsset == preset.assetPath;
+            return ListTile(
+              selected: selected,
+              selectedTileColor: cs.primaryContainer.withValues(alpha: 0.28),
+              leading: Icon(
+                selected ? Icons.check_circle_rounded : Icons.code_rounded,
+                size: 17,
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+              ),
+              title: Text(
+                preset.label(isZh),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              subtitle: Text(
+                preset.desc(isZh),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.download_rounded, size: 15),
+                tooltip: isZh ? '加载' : 'Load',
+                onPressed: () => _loadFridaSnippet(preset),
+                visualDensity: VisualDensity.compact,
+              ),
+              dense: true,
+              onTap: () => _loadFridaSnippet(preset),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFridaEditorPane(ColorScheme cs, ThemeData theme, bool isZh) {
+    final scriptAsset = _selectedFridaSnippetAsset;
+    final scriptArg = scriptAsset == null
+        ? '<script.js>'
+        : _commandToken(scriptAsset);
+    final pkg = _commandToken(_packageCommandTarget());
+    final scriptOutputPath = _shellQuote(
+      '${_ctrl.artifactsRootDir}/frida/script.js',
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _fridaScriptCtrl,
+            maxLines: null,
+            expands: true,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: isZh
+                  ? '// 选择 snippet 或粘贴脚本...'
+                  : '// Load a snippet or paste script...',
+              border: const OutlineInputBorder(),
+              alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 6),
-          _monospaceCard(
-            cs,
-            'frida-ps -U\n'
-            'frida -U -f <pkg> -l script.js\n'
-            'frida -U -p <pid> -l script.js\n'
-            'frida-trace -U -i "open" <pkg>',
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                scriptAsset ??
+                    (isZh ? '未选择内置 snippet' : 'No built-in snippet selected'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontFamily: scriptAsset == null ? null : 'monospace',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonalIcon(
+              onPressed: _fridaScriptCtrl.text.trim().isEmpty
+                  ? null
+                  : () => _copyText(_fridaScriptCtrl.text),
+              icon: const Icon(Icons.copy_rounded, size: 14),
+              label: Text(isZh ? '复制脚本' : 'Copy script'),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 160,
+          child: OpenHandSafeScrollbar(
+            child: ListView(
+              children: [
+                _commandCard(
+                  cs,
+                  theme,
+                  isZh,
+                  title: isZh ? '保存当前脚本' : 'Save current script',
+                  command:
+                      'mkdir -p ${_shellQuote('${_ctrl.artifactsRootDir}/frida')}\n'
+                      '# ${isZh ? "将脚本框内容保存为" : "Save editor content as"} $scriptOutputPath',
+                ),
+                const SizedBox(height: 8),
+                _commandCard(
+                  cs,
+                  theme,
+                  isZh,
+                  title: isZh ? 'Spawn 注入' : 'Spawn inject',
+                  command:
+                      'frida -U -f $pkg -l $scriptArg --no-pause\n'
+                      'frida -U -f $pkg -l $scriptOutputPath --no-pause',
+                ),
+                const SizedBox(height: 8),
+                _commandCard(
+                  cs,
+                  theme,
+                  isZh,
+                  title: isZh ? 'Attach / 诊断' : 'Attach / diagnose',
+                  command:
+                      'frida-ps -Uai | grep $pkg\n'
+                      'frida -U -n $pkg -l $scriptArg\n'
+                      '${_adbCommandPrefix()} forward tcp:27042 tcp:27042',
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -2628,6 +2853,12 @@ class _AndroidReverseDashboardDialogState
       return value;
     }
     return "'${value.replaceAll("'", "'\"'\"'")}'";
+  }
+
+  String _commandToken(String value) {
+    final trimmed = value.trim();
+    if (trimmed.startsWith('<') && trimmed.endsWith('>')) return trimmed;
+    return _shellQuote(trimmed);
   }
 }
 

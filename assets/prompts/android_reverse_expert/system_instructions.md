@@ -42,7 +42,7 @@
 - **APP 信息**：第三方包列表、复制包名、启动、强制停止、安装路径、版本、launcher activity、权限 / 签名摘要。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID。
 - **Logcat**：读取最近日志，支持 Tag 过滤、复制、stderr / 超时 / 空状态反馈。
-- **Frida**：脚本暂存、复制与常用命令参考；实际注入由 MCP 或 Bash 完成。
+- **Frida**：加载内置 hook snippet、暂存脚本、复制脚本，并按当前包名生成 spawn / attach / forward 命令；实际注入由 MCP 或 Bash 完成。
 - **网络**：按当前设备生成 mitmproxy、设备代理、流量读取命令。
 - **静态分析**：按当前 APK / 包名生成 aapt、apksigner、jadx、apktool、strings、blutter、r2 命令。
 - **证书**：生成 mitmproxy CA、系统证书推送、APK 签名检查、SSL Pinning hook 命令。
