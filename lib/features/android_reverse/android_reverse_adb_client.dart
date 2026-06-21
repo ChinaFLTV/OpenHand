@@ -165,16 +165,19 @@ class AndroidReverseAdbClient {
     final flag = thirdParty ? '-3' : '';
     final raw = await shell('pm list packages $flag'.trim());
     if (raw == null) return const <String>[];
-    return raw
+    final packages = raw
         .split('\n')
         .map((l) => l.trim())
         .where((l) => l.startsWith('package:'))
         .map((l) => l.substring(8))
         .where((l) => l.isNotEmpty)
-        .toList(growable: false);
+        .toList();
+    packages.sort();
+    return List<String>.unmodifiable(packages);
   }
 
   Future<String?> getPackagePath(String packageName) async {
+    if (!_looksLikePackageName(packageName)) return null;
     final raw = await shell('pm path $packageName');
     if (raw == null) return null;
     for (final line in raw.split('\n')) {
@@ -185,15 +188,26 @@ class AndroidReverseAdbClient {
   }
 
   Future<String?> getPackageVersion(String packageName) async {
-    final raw = await shell('dumpsys package $packageName | grep versionName');
+    if (!_looksLikePackageName(packageName)) return null;
+    final raw = await shell('dumpsys package $packageName');
     if (raw == null) return null;
+    String? versionName;
+    String? versionCode;
     for (final line in raw.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.startsWith('versionName=')) {
-        return trimmed.substring(12).trim();
+        versionName = trimmed.substring(12).trim();
+      } else if (trimmed.startsWith('versionCode=')) {
+        versionCode = trimmed.substring(12).split(RegExp(r'\s+')).first.trim();
       }
     }
-    return null;
+    if (versionName != null && versionName.isNotEmpty) {
+      if (versionCode != null && versionCode.isNotEmpty) {
+        return '$versionName ($versionCode)';
+      }
+      return versionName;
+    }
+    return versionCode;
   }
 
   Future<String?> resolveLauncherActivity(String packageName) async {

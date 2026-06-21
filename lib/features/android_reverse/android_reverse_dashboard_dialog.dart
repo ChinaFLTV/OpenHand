@@ -12,12 +12,15 @@ import '../ai/index.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
 import 'android_reverse_session_controller.dart';
+import 'android_reverse_toolchain_diagnostics.dart';
 
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const double _kAdbInlineControlHeight = 44;
 const double _kIconButtonGap = 8;
 const int _kDefaultLogcatLines = 300;
+const int _kPackageDumpsysSummaryMaxLines = 160;
+const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 
 Future<void> showAndroidReverseDashboardDialog(
   BuildContext context, {
@@ -36,6 +39,7 @@ Future<void> showAndroidReverseDashboardDialog(
 enum _Tab {
   devices,
   overview,
+  toolchain,
   packages,
   processes,
   logcat,
@@ -62,6 +66,7 @@ extension _TabLabel on _Tab {
     return switch (this) {
       _Tab.devices => isZh ? '设备管理' : 'Devices',
       _Tab.overview => isZh ? '概览' : 'Overview',
+      _Tab.toolchain => isZh ? '工具链' : 'Toolchain',
       _Tab.packages => isZh ? 'APP 信息' : 'APP Info',
       _Tab.processes => isZh ? '进程' : 'Processes',
       _Tab.logcat => 'Logcat',
@@ -76,6 +81,7 @@ extension _TabLabel on _Tab {
   IconData get icon => switch (this) {
     _Tab.devices => Icons.phone_android_rounded,
     _Tab.overview => Icons.dashboard_rounded,
+    _Tab.toolchain => Icons.construction_rounded,
     _Tab.packages => Icons.apps_rounded,
     _Tab.processes => Icons.memory_rounded,
     _Tab.logcat => Icons.receipt_long_rounded,
@@ -119,6 +125,8 @@ class _AndroidReverseDashboardDialogState
   bool _loadingLogcat = false;
   bool _loadingPackages = false;
   bool _loadingProcesses = false;
+  bool _loadingToolchain = false;
+  bool _loadingPackageAnalysis = false;
   bool _runningShell = false;
   bool _runningDeviceAction = false;
   bool _loadingDeviceDetails = false;
@@ -128,7 +136,11 @@ class _AndroidReverseDashboardDialogState
   Map<String, String> _deviceProps = const <String, String>{};
   List<String> _forwardRows = const <String>[];
   List<String> _packages = const <String>[];
+  List<AndroidReverseToolchainProbeResult> _toolchainRows =
+      const <AndroidReverseToolchainProbeResult>[];
   List<AndroidProcess> _processes = const <AndroidProcess>[];
+  String? _selectedPackageName;
+  String? _packageAnalysisOutput;
   final _processFilter = TextEditingController();
 
   @override
@@ -137,6 +149,7 @@ class _AndroidReverseDashboardDialogState
     _ctrl = widget.controller;
     _ctrl.addListener(_onControllerChanged);
     _refreshAll();
+    unawaited(_refreshToolchain());
   }
 
   @override
@@ -175,6 +188,18 @@ class _AndroidReverseDashboardDialogState
     unawaited(_refreshDeviceDetails());
   }
 
+  Future<void> _refreshToolchain() async {
+    if (_loadingToolchain) return;
+    setState(() => _loadingToolchain = true);
+    try {
+      final rows = await probeAndroidReverseToolchain();
+      if (!mounted) return;
+      setState(() => _toolchainRows = rows);
+    } finally {
+      if (mounted) setState(() => _loadingToolchain = false);
+    }
+  }
+
   Future<void> _doRefreshDevices() async {
     await _ctrl.refreshDevices();
     if (!mounted) return;
@@ -190,10 +215,119 @@ class _AndroidReverseDashboardDialogState
     setState(() => _loadingPackages = true);
     try {
       final pkgs = await _ctrl.listPackages(serial: _targetSerial);
-      if (mounted) setState(() => _packages = pkgs);
+      if (mounted) {
+        setState(() {
+          _packages = pkgs;
+          if (_selectedPackageName != null &&
+              !pkgs.contains(_selectedPackageName)) {
+            _selectedPackageName = null;
+            _packageAnalysisOutput = null;
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _loadingPackages = false);
     }
+  }
+
+  Future<void> _analyzePackage(String packageName) async {
+    if (_loadingPackageAnalysis) return;
+    setState(() {
+      _selectedPackageName = packageName;
+      _loadingPackageAnalysis = true;
+    });
+    try {
+      final pathFuture = _ctrl.getPackagePath(
+        packageName,
+        serial: _targetSerial,
+      );
+      final versionFuture = _ctrl.getPackageVersion(
+        packageName,
+        serial: _targetSerial,
+      );
+      final launcherFuture = _ctrl.resolveLauncherActivity(
+        packageName,
+        serial: _targetSerial,
+      );
+      final dumpsysFuture = _ctrl.shellDetailed(
+        'dumpsys package $packageName',
+        serial: _targetSerial,
+        timeout: _kPackageDumpsysTimeout,
+      );
+      final path = await pathFuture;
+      final version = await versionFuture;
+      final launcher = await launcherFuture;
+      final dumpsys = await dumpsysFuture;
+      if (!mounted) return;
+      final isZh = openHandIsChineseLocale(context);
+      final summary = _summarizePackageDumpsys(dumpsys.stdout);
+      final buf = StringBuffer()
+        ..writeln('${isZh ? "包名" : "Package"}: $packageName')
+        ..writeln('${isZh ? "安装路径" : "APK path"}: ${path ?? "-"}')
+        ..writeln('${isZh ? "版本" : "Version"}: ${version ?? "-"}')
+        ..writeln('${isZh ? "启动入口" : "Launcher"}: ${launcher ?? "-"}')
+        ..writeln()
+        ..writeln(isZh ? 'dumpsys 摘要:' : 'dumpsys summary:')
+        ..write(summary.isEmpty ? (isZh ? '(无输出)' : '(no output)') : summary);
+      if (dumpsys.timedOut) {
+        buf
+          ..writeln()
+          ..writeln(
+            isZh
+                ? '(dumpsys 已超时，已展示可用输出)'
+                : '(dumpsys timed out; usable output shown)',
+          );
+      }
+      final err = dumpsys.stderr.trim();
+      if (!dumpsys.ok && err.isNotEmpty) {
+        buf
+          ..writeln()
+          ..writeln('${isZh ? "错误" : "Error"}: $err');
+      }
+      setState(() => _packageAnalysisOutput = buf.toString());
+    } finally {
+      if (mounted) setState(() => _loadingPackageAnalysis = false);
+    }
+  }
+
+  String _summarizePackageDumpsys(String raw) {
+    final summary = <String>[];
+    for (final line in raw.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) {
+        continue;
+      }
+      final isSectionHeader =
+          trimmed == 'requested permissions:' ||
+          trimmed == 'install permissions:' ||
+          trimmed == 'runtime permissions:' ||
+          trimmed == 'PackageSignatures{' ||
+          trimmed.startsWith('SigningDetails');
+      final isKeyLine =
+          trimmed.startsWith('versionCode=') ||
+          trimmed.startsWith('versionName=') ||
+          trimmed.startsWith('targetSdk=') ||
+          trimmed.startsWith('firstInstallTime=') ||
+          trimmed.startsWith('lastUpdateTime=') ||
+          trimmed.startsWith('signatures=') ||
+          trimmed.startsWith('pkgFlags=') ||
+          trimmed.startsWith('privateFlags=') ||
+          trimmed.startsWith('User 0:');
+      final isPermissionLine = trimmed.startsWith('android.permission.');
+      if (isSectionHeader || isKeyLine || isPermissionLine) {
+        summary.add(trimmed);
+      }
+      if (summary.length >= _kPackageDumpsysSummaryMaxLines) break;
+    }
+    if (summary.isEmpty && raw.trim().isNotEmpty) {
+      return raw
+          .split('\n')
+          .map((line) => line.trimRight())
+          .where((line) => line.trim().isNotEmpty)
+          .take(_kPackageDumpsysSummaryMaxLines)
+          .join('\n');
+    }
+    return summary.join('\n');
   }
 
   Future<void> _doRefreshProcesses() async {
@@ -535,6 +669,9 @@ class _AndroidReverseDashboardDialogState
                       if (tab == _Tab.logcat) _fetchLogcat();
                       if (tab == _Tab.processes) _doRefreshProcesses();
                       if (tab == _Tab.packages) _doRefreshPackages();
+                      if (tab == _Tab.toolchain && _toolchainRows.isEmpty) {
+                        _refreshToolchain();
+                      }
                     },
                     icon: Icon(tab.icon, size: 14),
                     label: Text(
@@ -586,6 +723,7 @@ class _AndroidReverseDashboardDialogState
     return switch (_currentTab) {
       _Tab.devices => _buildDevicesTab(cs, theme, isZh),
       _Tab.overview => _buildOverviewTab(cs, theme, isZh),
+      _Tab.toolchain => _buildToolchainTab(cs, theme, isZh),
       _Tab.packages => _buildPackagesTab(cs, theme, isZh),
       _Tab.processes => _buildProcessesTab(cs, theme, isZh),
       _Tab.logcat => _buildLogcatTab(cs, theme, isZh),
@@ -1338,6 +1476,148 @@ class _AndroidReverseDashboardDialogState
     );
   }
 
+  // ── Toolchain tab ───────────────────────────────────────────────────────
+
+  Widget _buildToolchainTab(ColorScheme cs, ThemeData theme, bool isZh) {
+    final requiredMissing = _toolchainRows
+        .where((row) => row.probe.required && !row.ok)
+        .length;
+    final optionalMissing = _toolchainRows
+        .where((row) => !row.probe.required && !row.ok)
+        .length;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isZh ? 'Android 逆向工具链' : 'Android reverse toolchain',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (_toolchainRows.isNotEmpty)
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      isZh
+                          ? '必需缺失 $requiredMissing · 可选缺失 $optionalMissing'
+                          : 'Required missing $requiredMissing · optional missing $optionalMissing',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: requiredMissing == 0
+                            ? cs.onSurfaceVariant
+                            : cs.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: _loadingToolchain ? null : _refreshToolchain,
+                  icon: _loadingToolchain
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 14),
+                  label: Text(isZh ? '刷新' : 'Refresh'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _loadingToolchain && _toolchainRows.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : OpenHandSafeScrollbar(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                    itemCount: _toolchainRows.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: cs.outlineVariant),
+                    itemBuilder: (_, i) {
+                      final row = _toolchainRows[i];
+                      final ok = row.ok;
+                      final statusColor = ok
+                          ? cs.primary
+                          : row.probe.required
+                          ? cs.error
+                          : cs.tertiary;
+                      return ListTile(
+                        leading: Icon(
+                          ok
+                              ? Icons.check_circle_rounded
+                              : Icons.error_outline_rounded,
+                          color: statusColor,
+                        ),
+                        title: Row(
+                          children: [
+                            Text(
+                              row.probe.label,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (row.probe.required) ...[
+                              const SizedBox(width: 8),
+                              Chip(
+                                label: Text(isZh ? '必需' : 'required'),
+                                visualDensity: VisualDensity.compact,
+                                side: BorderSide.none,
+                              ),
+                            ],
+                          ],
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SelectableText(
+                                ok ? row.displayValue : row.installHint(isZh),
+                                style: TextStyle(
+                                  fontFamily: ok ? 'monospace' : null,
+                                  fontSize: 12,
+                                  color: ok ? cs.onSurface : statusColor,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${isZh ? "耗时" : "Duration"}: ${row.durationMs}ms',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          tooltip: isZh ? '复制诊断' : 'Copy diagnostic',
+                          onPressed: () => _copyText(
+                            '${row.probe.label}\n${row.displayValue}\n${row.installHint(isZh)}',
+                          ),
+                        ),
+                        dense: true,
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
   // ── Packages tab ─────────────────────────────────────────────────────────
 
   Widget _buildPackagesTab(ColorScheme cs, ThemeData theme, bool isZh) {
@@ -1380,11 +1660,16 @@ class _AndroidReverseDashboardDialogState
                     itemCount: _packages.length,
                     itemBuilder: (_, i) {
                       final pkg = _packages[i];
+                      final selected = _selectedPackageName == pkg;
                       return ListTile(
+                        selected: selected,
+                        selectedTileColor: cs.primaryContainer.withValues(
+                          alpha: 0.22,
+                        ),
                         leading: Icon(
                           Icons.apps_rounded,
                           size: 18,
-                          color: cs.onSurfaceVariant,
+                          color: selected ? cs.primary : cs.onSurfaceVariant,
                         ),
                         title: Text(
                           pkg,
@@ -1454,12 +1739,88 @@ class _AndroidReverseDashboardDialogState
                             ),
                           ],
                         ),
+                        onTap: () => _analyzePackage(pkg),
                         dense: true,
                       );
                     },
                   ),
                 ),
         ),
+        if (_selectedPackageName != null) ...[
+          Divider(height: 1, color: cs.outlineVariant),
+          SizedBox(
+            height: 190,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${isZh ? "APP 分析" : "APP analysis"}: $_selectedPackageName',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      if (_loadingPackageAnalysis)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        tooltip: isZh ? '重新分析' : 'Analyze again',
+                        onPressed: _loadingPackageAnalysis
+                            ? null
+                            : () => _analyzePackage(_selectedPackageName!),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy_rounded, size: 16),
+                        tooltip: isZh ? '复制分析结果' : 'Copy analysis',
+                        onPressed: (_packageAnalysisOutput ?? '').trim().isEmpty
+                            ? null
+                            : () => _copyText(_packageAnalysisOutput!),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: OpenHandSafeScrollbar(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(8),
+                          child: SelectableText(
+                            _packageAnalysisOutput ??
+                                (isZh
+                                    ? '正在读取 APP 信息...'
+                                    : 'Reading app info...'),
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                              height: 1.45,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -34,11 +34,12 @@
 </environment>
 
 <dashboard_tabs>
-设备管理 · 概览 · APP 信息 · 进程 · Logcat · Frida · 网络 · 静态分析 · 证书 · 加密。
+设备管理 · 概览 · 工具链 · APP 信息 · 进程 · Logcat · Frida · 网络 · 静态分析 · 证书 · 加密。
 
 - **设备管理**：列设备、切目标、无线连接 / 断开、root / remount / reboot、端口转发、常用 shell 预设、命令输出。
 - **概览**：会话目标、包名、APK 路径、MCP 开关、设备摘要、关键字。
-- **APP 信息**：第三方包列表、复制包名、强制停止。
+- **工具链**：本机 ADB / aapt / apksigner / keytool / strings / readelf / apktool / jadx / Frida / mitmproxy / radare2 / Flutter 逆向工具可用性诊断与安装提示。
+- **APP 信息**：第三方包列表、复制包名、启动、强制停止、安装路径、版本、launcher activity、权限 / 签名摘要。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID。
 - **Logcat**：读取最近日志，支持 Tag 过滤、复制、错误 / 空状态反馈。
 - **Frida**：脚本暂存、复制与常用命令参考；实际注入由 MCP 或 Bash 完成。
@@ -80,6 +81,7 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 - `adb shell` 超时但 stdout 已有有效结果时，先采纳结果并减少重试；同一命令最多重试 1 次。
 - 启动 APP 前先解析 launcher activity：`cmd package resolve-activity --brief <pkg>` 或 Manifest；禁止猜 `.MainActivity`。
 - 域名/URL 定位优先静态证据：`aapt`/Manifest、`strings` 扫 dex/so/assets、过滤 SDK 文档域名；静态已闭环时不要强行安装 Frida。
+- 缺工具时先参考 dashboard "工具链" 面板或全局 MCP 设置；不要在同一轮反复安装同一依赖。
 - Frida spawn 优于 attach，spawn 失败再 attach；本机或设备缺 Frida 时先说明缺口，非必要不反复安装。
 - 复现脚本默认放 `android_reverse_runtime.local_artifacts.scripts_dir`，文件名带场景。
 - 临时文件以 `tmp_` 前缀命名，任务结束清理。
