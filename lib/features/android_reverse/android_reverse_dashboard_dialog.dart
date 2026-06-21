@@ -306,6 +306,7 @@ class _AndroidReverseDashboardDialogState
   bool _loadingPackageAnalysis = false;
   bool _runningShell = false;
   bool _runningDeviceAction = false;
+  bool _runningStaticQuickScan = false;
   bool _loadingDeviceDetails = false;
   bool _logcatPackageFilterEnabled = false;
   String? _selectedDeviceSerial;
@@ -321,6 +322,7 @@ class _AndroidReverseDashboardDialogState
   String? _selectedPackageName;
   String? _packageAnalysisOutput;
   String? _selectedFridaSnippetAsset;
+  String? _staticQuickScanOutput;
   final _processFilter = TextEditingController();
 
   @override
@@ -701,6 +703,43 @@ class _AndroidReverseDashboardDialogState
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  Future<void> _runStaticQuickScan() async {
+    if (_runningStaticQuickScan) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningStaticQuickScan = true;
+      _staticQuickScanOutput = null;
+    });
+    try {
+      final result = await _ctrl.runStaticQuickScan(
+        apkPath: _ctrl.config.apkPath,
+        packageName: _logcatPackageTarget(),
+      );
+      if (!mounted) return;
+      setState(() => _staticQuickScanOutput = _formatAdbResult(result));
+      if (!result.ok && !result.hasUsableStdout) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isZh
+                  ? '静态扫描失败，已展示错误输出。'
+                  : 'Static scan failed. Error output is shown.',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _staticQuickScanOutput =
+            '${isZh ? "静态扫描失败" : "Static scan failed"}: $error';
+      });
+    } finally {
+      if (mounted) setState(() => _runningStaticQuickScan = false);
+    }
   }
 
   Future<void> _loadFridaSnippet(_FridaSnippetPreset preset) async {
@@ -3794,19 +3833,69 @@ class _AndroidReverseDashboardDialogState
 
   Widget _buildStaticTab(ColorScheme cs, ThemeData theme, bool isZh) {
     final apk = _apkCommandTarget();
-    final packageSlug = _safeArtifactName(_packageCommandTarget());
+    final packageSlug = _staticArtifactSlug();
     final decompiledDir = '${_ctrl.decompiledDir}/$packageSlug';
+    final scanOutput = _staticQuickScanOutput?.trim();
     return OpenHandSafeScrollbar(
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            isZh ? '静态分析工具参考' : 'Static analysis reference',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 220),
+                child: Text(
+                  isZh ? '静态分析工作台' : 'Static analysis workbench',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: _runningStaticQuickScan
+                      ? null
+                      : _runStaticQuickScan,
+                  icon: _runningStaticQuickScan
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.8),
+                        )
+                      : const Icon(Icons.manage_search_rounded, size: 15),
+                  label: Text(isZh ? '快速扫描 APK' : 'Quick scan APK'),
+                ),
+              ),
+              if (scanOutput != null && scanOutput.isNotEmpty) ...[
+                SizedBox(
+                  height: _kAdbInlineControlHeight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _copyText(scanOutput),
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: Text(isZh ? '复制结果' : 'Copy result'),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 8),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.folder_rounded,
+            text: isZh
+                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、URL/域名/IP、dex/so/assets 字符串摘要到 $decompiledDir/quick_scan。'
+                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, URL/domain/IP, and dex/so/assets string summaries to $decompiledDir/quick_scan.',
+          ),
+          if (scanOutput != null && scanOutput.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _monospaceCard(cs, scanOutput),
+          ],
+          const SizedBox(height: 12),
           _commandCard(
             cs,
             theme,
@@ -4427,6 +4516,20 @@ class _AndroidReverseDashboardDialogState
     final apkPath = _ctrl.config.apkPath?.trim();
     if (apkPath == null || apkPath.isEmpty) return '<app.apk>';
     return _shellQuote(apkPath);
+  }
+
+  String _staticArtifactSlug() {
+    final pkg = _logcatPackageTarget();
+    if (pkg != null && pkg.isNotEmpty) return _safeArtifactName(pkg);
+    final apkPath = _ctrl.config.apkPath?.trim();
+    if (apkPath != null && apkPath.isNotEmpty) {
+      final name = apkPath.split('/').last.trim();
+      final base = name.toLowerCase().endsWith('.apk')
+          ? name.substring(0, name.length - 4)
+          : name;
+      return _safeArtifactName(base);
+    }
+    return 'app';
   }
 
   String _safeArtifactName(String value) {

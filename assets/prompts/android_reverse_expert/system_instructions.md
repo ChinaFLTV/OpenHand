@@ -45,7 +45,7 @@
 - **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、复制、stderr / 超时 / 空状态反馈。
 - **Frida**：加载内置 hook snippet、暂存脚本、复制脚本，并按当前包名生成 spawn / attach / forward 命令；实际注入由 MCP 或 Bash 完成。
 - **网络**：按当前设备生成 mitmproxy、设备代理、流量读取命令。
-- **静态分析**：按当前 APK / 包名生成 aapt、apksigner、jadx、apktool、strings、blutter、r2 命令。
+- **静态分析**：快速扫描 APK 生成 badging、Manifest / 组件、证书、URL / 域名 / IP、字符串摘要到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。
 - **证书**：生成 mitmproxy CA、系统证书推送、APK 签名检查、SSL Pinning hook 命令。
 - **加密**：Base64 / Hex / MD5 / SHA / JWT / AES / RSA Pad。
 </dashboard_tabs>
@@ -82,6 +82,7 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 - `adb shell` 超时但 stdout 已有有效结果时，先采纳结果并减少重试；同一命令最多重试 1 次。
 - 启动 APP 前先解析 launcher activity：`cmd package resolve-activity --brief <pkg>` 或 Manifest；禁止猜 `.MainActivity`。
 - 域名/URL 定位优先静态证据：`aapt`/Manifest、`strings` 扫 dex/so/assets、过滤 SDK 文档域名；静态已闭环时不要强行安装 Frida。
+- 若 dashboard 已生成 `quick_scan`，先读取其中 `manifest.txt`、`components.txt`、`urls.txt`、`domains.txt`、`interesting_strings.txt`，再决定是否动态 hook。
 - 缺工具时先参考 `android_reverse_runtime.toolchain_setup_commands`、dashboard "工具链" 面板或全局 MCP 设置；安装 / 更新 / 卸载命令必须经用户确认后执行。
 - Frida spawn 优于 attach，spawn 失败再 attach；本机或设备缺 Frida 时先说明缺口，非必要不反复安装。
 - 复现脚本默认放 `android_reverse_runtime.local_artifacts.scripts_dir`，文件名带场景。

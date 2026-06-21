@@ -4,12 +4,16 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
 
 const String _kTag = 'android_reverse_session_controller';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
+const Duration _kStaticQuickScanTimeout = Duration(seconds: 35);
+const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
+const int _kStaticQuickScanPreviewLines = 80;
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'apks',
   'screenshots',
@@ -345,6 +349,74 @@ class AndroidReverseSessionController extends ChangeNotifier {
     return _combineAdbResults(results);
   }
 
+  Future<AdbCommandResult> runStaticQuickScan({
+    String? apkPath,
+    String? packageName,
+  }) async {
+    if (Platform.isWindows || !File('/bin/sh').existsSync()) {
+      return const AdbCommandResult(
+        args: <String>['static-quick-scan'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Static quick scan requires /bin/sh.',
+      );
+    }
+    final rawApkPath = (apkPath ?? config.apkPath ?? '').trim();
+    if (rawApkPath.isEmpty) {
+      return const AdbCommandResult(
+        args: <String>['static-quick-scan', '<missing-apk>'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'APK path is required for static quick scan.',
+      );
+    }
+    final apkFile = File(rawApkPath);
+    if (!await apkFile.exists()) {
+      return AdbCommandResult(
+        args: <String>['static-quick-scan', rawApkPath],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'APK file does not exist: $rawApkPath',
+      );
+    }
+    final slug = _safeArtifactName(
+      _firstNonEmpty(<String?>[
+        packageName,
+        config.packageName,
+        _basenameWithoutExtension(rawApkPath),
+      ]),
+    );
+    final outputDir = Directory('$decompiledDir/$slug/quick_scan');
+    await outputDir.create(recursive: true);
+    final sw = Stopwatch()..start();
+    final result = await runTrackedProcessOrFailed(
+      '/bin/sh',
+      <String>['-lc', _staticQuickScanScript],
+      timeout: _kStaticQuickScanTimeout,
+      tag: 'android_reverse.static_quick_scan',
+      environment: <String, String>{
+        'APK_PATH': rawApkPath,
+        'OUT_DIR': outputDir.path,
+      },
+    );
+    sw.stop();
+    final timedOut =
+        result.exitCode == -1 &&
+        sw.elapsed + _kStaticQuickScanTimeoutSkew >= _kStaticQuickScanTimeout;
+    final summary = await _staticQuickScanSummary(
+      outputDir,
+      result,
+      timedOut: timedOut,
+    );
+    return AdbCommandResult(
+      args: <String>['static-quick-scan', rawApkPath],
+      exitCode: result.exitCode,
+      stdout: summary,
+      stderr: result.stderr.toString(),
+      timedOut: timedOut,
+    );
+  }
+
   Future<int> appendLogcatLines(
     Iterable<String> lines, {
     String? tag,
@@ -493,4 +565,141 @@ class AndroidReverseSessionController extends ChangeNotifier {
         .replaceAll(RegExp(r'^_+|_+$'), '');
     return cleaned.isEmpty ? 'artifact' : cleaned;
   }
+
+  String _basenameWithoutExtension(String path) {
+    final name = path.split('/').last.trim();
+    if (name.toLowerCase().endsWith('.apk')) {
+      return name.substring(0, name.length - 4);
+    }
+    return name.isEmpty ? 'apk' : name;
+  }
+
+  String _firstNonEmpty(Iterable<String?> values) {
+    for (final value in values) {
+      final trimmed = value?.trim();
+      if (trimmed != null && trimmed.isNotEmpty && trimmed != '<pkg>') {
+        return trimmed;
+      }
+    }
+    return 'artifact';
+  }
+
+  Future<String> _staticQuickScanSummary(
+    Directory outputDir,
+    ProcessResult result, {
+    required bool timedOut,
+  }) async {
+    final buffer = StringBuffer()
+      ..writeln('Static quick scan output: ${outputDir.path}')
+      ..writeln('exit: ${result.exitCode}');
+    if (timedOut) {
+      buffer.writeln(
+        'status: timed out; partial artifacts may still be useful',
+      );
+    }
+    final files = <String>[
+      'badging.txt',
+      'manifest.txt',
+      'components.txt',
+      'certs.txt',
+      'zip_listing.txt',
+      'urls.txt',
+      'domains.txt',
+      'ips.txt',
+      'interesting_strings.txt',
+    ];
+    for (final name in files) {
+      final file = File('${outputDir.path}/$name');
+      if (!await file.exists()) continue;
+      final lines = await file
+          .openRead()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .take(_kStaticQuickScanPreviewLines)
+          .toList();
+      buffer
+        ..writeln()
+        ..writeln('## $name');
+      if (lines.isEmpty) {
+        buffer.writeln('(empty)');
+      } else {
+        buffer.write(lines.join('\n'));
+        buffer.writeln();
+      }
+    }
+    final stderr = result.stderr.toString().trim();
+    if (stderr.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## stderr')
+        ..writeln(stderr);
+    }
+    return buffer.toString().trimRight();
+  }
 }
+
+const String _staticQuickScanScript = r'''
+set +e
+mkdir -p "$OUT_DIR"
+cd "$OUT_DIR" || exit 2
+: > badging.txt
+: > manifest.txt
+: > components.txt
+: > certs.txt
+: > zip_listing.txt
+: > urls.txt
+: > domains.txt
+: > ips.txt
+: > interesting_strings.txt
+
+AAPT="$(command -v aapt || true)"
+if [ -z "$AAPT" ] && [ -d "$HOME/Library/Android/sdk/build-tools" ]; then
+  AAPT="$(find "$HOME/Library/Android/sdk/build-tools" -name aapt -type f 2>/dev/null | sort -r | head -1)"
+fi
+if [ -n "$AAPT" ] && [ -x "$AAPT" ]; then
+  "$AAPT" dump badging "$APK_PATH" > badging.txt 2>&1
+  "$AAPT" dump xmltree "$APK_PATH" AndroidManifest.xml > manifest.txt 2>&1
+  grep -aEi 'uses-permission|activity|service|receiver|provider|intent-filter|action|category|data' manifest.txt | head -500 > components.txt
+else
+  echo "aapt not found" > badging.txt
+  echo "aapt not found" > manifest.txt
+  echo "aapt not found" > components.txt
+fi
+
+APKSIGNER="$(command -v apksigner || true)"
+if [ -z "$APKSIGNER" ] && [ -d "$HOME/Library/Android/sdk/build-tools" ]; then
+  APKSIGNER="$(find "$HOME/Library/Android/sdk/build-tools" -name apksigner -type f 2>/dev/null | sort -r | head -1)"
+fi
+if [ -n "$APKSIGNER" ] && [ -x "$APKSIGNER" ]; then
+  "$APKSIGNER" verify --print-certs "$APK_PATH" > certs.txt 2>&1
+else
+  echo "apksigner not found" > certs.txt
+fi
+
+UNZIP="$(command -v unzip || true)"
+if [ -n "$UNZIP" ] && [ -x "$UNZIP" ]; then
+  "$UNZIP" -l "$APK_PATH" > zip_listing.txt 2>&1
+else
+  echo "unzip not found" > zip_listing.txt
+fi
+
+STRINGS="$(command -v strings || xcrun -find strings 2>/dev/null || true)"
+if [ -n "$STRINGS" ] && [ -x "$STRINGS" ]; then
+  {
+    "$STRINGS" "$APK_PATH" 2>/dev/null
+    if [ -n "$UNZIP" ] && [ -x "$UNZIP" ]; then
+      "$UNZIP" -p "$APK_PATH" "classes*.dex" 2>/dev/null | "$STRINGS" 2>/dev/null
+      "$UNZIP" -p "$APK_PATH" "lib/*/*.so" 2>/dev/null | "$STRINGS" 2>/dev/null
+      "$UNZIP" -p "$APK_PATH" "assets/*" 2>/dev/null | "$STRINGS" 2>/dev/null
+    fi
+  } | awk 'length($0) <= 4096' | head -20000 > all_strings.txt
+  grep -aEio 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+' all_strings.txt | sed 's/[),;"]*$//' | sort -u | head -500 > urls.txt
+  grep -aEio '\b([A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b' all_strings.txt | grep -aviE 'android\.com|w3\.org|google\.com|github\.com|schema\.org|apache\.org|mozilla\.org|gradle\.org' | sort -u | head -500 > domains.txt
+  grep -aEio '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' all_strings.txt | sort -u | head -200 > ips.txt
+  grep -aEi 'https?://|sign|encrypt|token|secret|okhttp|retrofit|webview|ssl|certificate|api|host|domain' all_strings.txt | sort -u | head -500 > interesting_strings.txt
+else
+  echo "strings not found" > interesting_strings.txt
+fi
+
+printf 'quick scan completed\n'
+''';

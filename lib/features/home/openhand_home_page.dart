@@ -3384,6 +3384,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'find ${controller.recordingsDir} -maxdepth 2 -type f',
         'find ${controller.fridaDir} -maxdepth 2 -type f',
         'find ${controller.decompiledDir} -maxdepth 3 -type f | head -200',
+        'find ${controller.decompiledDir} -path "*/quick_scan/*" -type f | head -200',
       ],
       'dashboard_actions': const <String>[
         'adb_devices_refresh',
@@ -3403,6 +3404,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'logcat_clear_save_jsonl',
         'mcp_plugin_linkage_status',
         'toolchain_install_update_uninstall_copy_commands',
+        'static_quick_scan_apk_to_manifest_components_network_artifacts',
       ],
       'dashboard_tabs': const <String>[
         'devices',
