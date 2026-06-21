@@ -497,11 +497,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _materializationGeneration += 1;
       _warmupGeneration += 1;
       _warmupScheduler.clear();
-      _selectedMessageId = null;
+      _resetSessionScopedState();
       _historyRevealCacheBoost = false;
-      _translationCacheByMessageId.clear();
-      _translationVisibleMessageIds.clear();
-      _translationLoadingMessageIds.clear();
       _messageActionPanelMotionKey += 1;
       _consumedMessageActionPanelMotionKey = _messageActionPanelMotionKey;
       _TranscriptScrollDispatcher.instance.unregister(
@@ -521,10 +518,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialMaterializationPending = false;
       _materializationTaskQueued = false;
-      _lastActiveCreationPlaceholder = null;
-      _retiringCreationPlaceholder = null;
-      _retiringCreationPlaceholderTimer?.cancel();
-      _retiringCreationPlaceholderTimer = null;
       // 双兜底物化：在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -587,6 +580,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         oldWidget.session.recentErrors != widget.session.recentErrors) {
       _syncVisibleError();
     }
+  }
+
+  void _resetSessionScopedState() {
+    _selectedMessageId = null;
+    _highlightedMessageId = null;
+    _visibleErrorId = null;
+    _pendingPresentedErrorId = null;
+    _dismissedErrorIds.clear();
+    _cachedIndexMapSource = null;
+    _cachedIndexMapWindowStart = -1;
+    _cachedVisibleIndexMap = null;
+    _cachedCreationRequestDisplaySource = null;
+    _cachedCreationRequestWindowStart = null;
+    _cachedCreationRequestSendPhase = null;
+    _cachedCreationRequestAllowWhenIdle = null;
+    _cachedCreationRequest = null;
+    _cachedCreationRequestComputed = false;
+    _cachedUserVisibleErrorSource = null;
+    _cachedUserVisibleErrorDismissedLength = null;
+    _cachedUserVisibleErrorVisibleId = null;
+    _cachedUserVisibleError = null;
+    _lastActiveCreationPlaceholder = null;
+    _retiringCreationPlaceholder = null;
+    _retiringCreationPlaceholderTimer?.cancel();
+    _retiringCreationPlaceholderTimer = null;
+    _bubbleRegistry.clear();
+    _animatedMessageIds.clear();
+    _rawContentVisibleByMessageId.clear();
+    _translationCacheByMessageId.clear();
+    _translationVisibleMessageIds.clear();
+    _translationLoadingMessageIds.clear();
+    _pendingPrependAnchor = null;
+    _pendingPrependAnchorFrames = 0;
+    _prependAnchorCorrectionQueued = false;
+    _pendingRevealRestore = null;
+    _activeRevealOlderFuture = null;
+    _activeScrollFuture = null;
+    _activeScrollTargetId = null;
   }
 
   void _syncWindowStartIndex({bool forceReset = false}) {

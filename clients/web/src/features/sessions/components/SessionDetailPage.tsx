@@ -135,7 +135,6 @@ interface SlashTriggerInfo {
 
 interface SessionMessageWindowView {
   ordered: SessionMessage[];
-  idSet: Set<string>;
   tail: SessionMessage | null;
   tailSignature: string;
   followSignature: string;
@@ -487,19 +486,6 @@ function isActiveFollowMessage(message: SessionMessage): boolean {
   }
   const status = metadataString(metadata?.['tool_execution_status'] ?? metadata?.['tool_status'] ?? metadata?.['status']);
   return status.length === 0 && !toolMessageHasOutput(metadata);
-}
-
-function messagesFollowSignature(ordered: SessionMessage[]): string {
-  if (ordered.length === 0) return '';
-  const parts = [`tail:${messageFollowSignature(ordered[ordered.length - 1]!)}`];
-  let activeCount = 0;
-  for (let index = ordered.length - 1; index >= 0 && activeCount < 4; index -= 1) {
-    const message = ordered[index]!;
-    if (!isActiveFollowMessage(message)) continue;
-    parts.push(`active:${index}:${messageFollowSignature(message)}`);
-    activeCount += 1;
-  }
-  return parts.join('||');
 }
 
 function shouldKeepLongerStreamingMessage(existing: SessionMessage | undefined, incoming: SessionMessage, options: MergeServerWindowOptions): boolean {
@@ -1016,45 +1002,74 @@ function creationModeFromMessage(message: SessionMessage): string {
 
 function deriveMessageWindowView(items: SessionMessage[]): SessionMessageWindowView {
   const ordered = messagesInDisplayOrder(items);
-  const idSet = new Set<string>();
   let lastCreationModeAwaitingAssistant: AwaitingCreationMode | null = null;
-  let waitingCreationMode: AwaitingCreationMode | null = null;
   let hasUserMessage = false;
   let latestAssistantMessage: SessionMessage | null = null;
+  let latestStreamingTextMessageId: string | null = null;
+  const tail = ordered.length > 0 ? ordered[ordered.length - 1]! : null;
+  const followParts = tail ? [`tail:${messageFollowSignature(tail)}`] : [];
+  let activeFollowCount = 0;
+  let creationRequestResolved = false;
+  let latestTextLikeAssistantResolved = false;
 
-  for (const message of ordered) {
-    idSet.add(message.id);
-    if (message.role === 'assistant') latestAssistantMessage = message;
-    if (message.role === 'user') {
-      if ((message.content ?? '').trim().length > 0) hasUserMessage = true;
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    const message = ordered[index];
+    if (!message) continue;
+
+    if (activeFollowCount < 4 && isActiveFollowMessage(message)) {
+      followParts.push(`active:${index}:${messageFollowSignature(message)}`);
+      activeFollowCount += 1;
+    }
+
+    if (message.role === 'assistant') {
+      latestAssistantMessage ??= message;
+      if (!latestTextLikeAssistantResolved && isAssistantTextLikeMessage(message)) {
+        if (messageMetadataStreaming(message)) {
+          latestStreamingTextMessageId = message.id;
+        }
+        latestTextLikeAssistantResolved = true;
+      }
+      if (!creationRequestResolved && message.content.trim().length > 10) {
+        creationRequestResolved = true;
+      }
+      continue;
+    }
+
+    if (message.role !== 'user') continue;
+    if (!hasUserMessage && (message.content ?? '').trim().length > 0) {
+      hasUserMessage = true;
+    }
+    if (!creationRequestResolved) {
       const mode = creationModeFromMessage(message);
-      waitingCreationMode = mode === 'image' || mode === 'video' || mode === 'audio' ? mode : null;
-    } else if (waitingCreationMode && message.role === 'assistant' && message.content.trim().length > 10) {
-      waitingCreationMode = null;
+      if (mode === 'image' || mode === 'video' || mode === 'audio') {
+        lastCreationModeAwaitingAssistant = mode;
+      }
+      creationRequestResolved = true;
     }
   }
 
-  let latestStreamingTextMessageId: string | null = null;
-  for (let index = ordered.length - 1; index >= 0; index -= 1) {
-    const message = ordered[index];
-    if (!message || !isAssistantTextLikeMessage(message)) continue;
-    if (messageMetadataStreaming(message)) latestStreamingTextMessageId = message.id;
-    break;
-  }
-
-  const tail = ordered.length > 0 ? ordered[ordered.length - 1]! : null;
-  lastCreationModeAwaitingAssistant = waitingCreationMode;
   return {
     ordered,
-    idSet,
     tail,
     tailSignature: tail ? messageFollowSignature(tail) : '',
-    followSignature: messagesFollowSignature(ordered),
+    followSignature: followParts.join('||'),
     latestAssistantMessage,
     latestStreamingTextMessageId,
     lastCreationModeAwaitingAssistant,
     hasUserMessage,
   };
+}
+
+function messageWindowShapeKey(sessionId: string, windowOffset: number, ordered: SessionMessage[]): string {
+  const count = ordered.length;
+  if (count === 0) return `${sessionId}|${windowOffset}|0`;
+  return [
+    sessionId,
+    windowOffset,
+    count,
+    ordered[0]!.id,
+    ordered[count - 1]!.id,
+  ].join('|');
 }
 
 function messagesWindowLooksIdentical(prev: SessionMessage[], next: SessionMessage[], prevOffset: number, nextOffset: number): boolean {
@@ -1993,6 +2008,12 @@ export function SessionDetailPage() {
   const detailBelongsToRoute = detail?.session.id === sessionId;
   const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
   const messageWindowView = useMemo(() => deriveMessageWindowView(routeMessages), [routeMessages]);
+  const messageMembershipKey = useMemo(() => {
+    return messageWindowShapeKey(sessionId, windowOffset, messageWindowView.ordered);
+  }, [messageWindowView.ordered, sessionId, windowOffset]);
+  const visibleMessageIdSet = useMemo(() => {
+    return new Set(messageWindowView.ordered.map((message) => message.id));
+  }, [messageMembershipKey]);
 
   useEffect(() => {
     renderedMessageCountRef.current = renderedMessageCount;
@@ -2072,19 +2093,19 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     if (activeMessageId == null) return;
-    if (messageWindowView.idSet.has(activeMessageId)) return;
+    if (visibleMessageIdSet.has(activeMessageId)) return;
     setActiveMessageId(null);
-  }, [messageWindowView, activeMessageId]);
+  }, [visibleMessageIdSet, activeMessageId]);
 
   useEffect(() => {
     if (!editingDraftMessage || composerSending) return;
-    if (messageWindowView.idSet.has(editingDraftMessage.id)) return;
+    if (visibleMessageIdSet.has(editingDraftMessage.id)) return;
     editingDraftMessageRef.current = null;
     setEditingDraftMessage(null);
     showSnackbar(t('composer.edit.targetGone', '原消息已在其他客户端被更新'), {
       tone: 'error',
     });
-  }, [messageWindowView, editingDraftMessage, composerSending]);
+  }, [visibleMessageIdSet, editingDraftMessage, composerSending]);
 
   // messages 变化 → 自动跟随 / 累计未读
   // 用 useLayoutEffect 在浏览器 paint 前同步钉到底部，避免插入新内容后浏览器 scroll-anchor
@@ -2122,7 +2143,14 @@ export function SessionDetailPage() {
       if (autoFollow) setAutoFollowPausedValue(true);
       setUnreadCount((n) => (tailChanged ? n + 1 : Math.max(1, n)));
     }
-  }, [messageWindowView, autoFollow, autoFollowPaused, reduceMotion]);
+  }, [
+    messageWindowView.tail?.id,
+    messageWindowView.tailSignature,
+    messageWindowView.followSignature,
+    autoFollow,
+    autoFollowPaused,
+    reduceMotion,
+  ]);
 
   useEffect(() => {
     if (!pendingWriteApproval || !shouldFollowPinnedMessages()) return;
@@ -2860,7 +2888,7 @@ export function SessionDetailPage() {
       body: preview,
       sessionId,
     }).catch(() => undefined);
-  }, [messageWindowView, sessionId, detail?.session.title]);
+  }, [messageWindowView.latestAssistantMessage?.id, sessionId, detail?.session.title]);
 
   const skillPickerResults = useMemo(() => {
     const query = skillPickerQuery.trim().toLowerCase();
@@ -3686,15 +3714,7 @@ export function SessionDetailPage() {
   // 直接渲染即是「上旧下新」。如果出现倒序问题，派生视图会做一次排序兜底。
   const sortedMessages = messageWindowView.ordered;
   const messageRenderWindowKey = useMemo(() => {
-    const count = sortedMessages.length;
-    if (count === 0) return `${sessionId}|${windowOffset}|0`;
-    return [
-      sessionId,
-      windowOffset,
-      count,
-      sortedMessages[0]!.id,
-      sortedMessages[count - 1]!.id,
-    ].join('|');
+    return messageWindowShapeKey(sessionId, windowOffset, sortedMessages);
   }, [sessionId, windowOffset, sortedMessages]);
 
   useEffect(() => {
