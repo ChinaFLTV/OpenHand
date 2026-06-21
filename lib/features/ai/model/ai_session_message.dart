@@ -60,6 +60,30 @@ const String aiSessionMessageSenderOriginJsonKey = 'sender_origin';
 const String aiSessionMessageConversationSideJsonKey = 'conversation_side';
 const String aiSessionMessageStartsConversationRoundJsonKey =
     'starts_conversation_round';
+const String aiSessionMessageFeedbackMetadataKey = 'message_feedback';
+const String aiSessionMessageResponseVariantsMetadataKey = 'response_variants';
+const String aiSessionMessageResponseVariantIndexMetadataKey =
+    'response_variant_index';
+
+enum AiSessionMessageFeedback {
+  liked('liked'),
+  needsImprovement('needs_improvement');
+
+  const AiSessionMessageFeedback(this.storageValue);
+
+  final String storageValue;
+
+  static AiSessionMessageFeedback? fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    if (normalized.isEmpty) return null;
+    for (final feedback in AiSessionMessageFeedback.values) {
+      if (feedback.storageValue == normalized) {
+        return feedback;
+      }
+    }
+    return null;
+  }
+}
 
 class AiSessionMessage {
   factory AiSessionMessage.fromJson(Map<String, Object?> json) {
@@ -458,6 +482,19 @@ class AiSessionMessage {
     );
   }
 
+  AiSessionMessageFeedback? get feedback =>
+      AiSessionMessageFeedback.fromStorage(
+        metadata[aiSessionMessageFeedbackMetadataKey],
+      );
+
+  List<AiSessionMessageResponseVariant> get responseVariants =>
+      AiSessionMessageResponseVariant.listFromMessage(this);
+
+  int get responseVariantIndex => AiSessionMessageResponseVariant.clampIndex(
+    metadata[aiSessionMessageResponseVariantIndexMetadataKey],
+    responseVariants.length,
+  );
+
   Map<String, Object?> toJson({bool includeDerivedFields = false}) {
     final payload = <String, Object?>{
       'id': id,
@@ -488,5 +525,110 @@ class AiSessionMessage {
       return null;
     }
     return text;
+  }
+}
+
+class AiSessionMessageResponseVariant {
+  const AiSessionMessageResponseVariant({
+    required this.content,
+    required this.createdAt,
+    this.id,
+    this.modelId,
+    this.modelLabel,
+    this.usage,
+  });
+
+  factory AiSessionMessageResponseVariant.fromMessage(
+    AiSessionMessage message, {
+    String? id,
+    DateTime? createdAt,
+  }) {
+    return AiSessionMessageResponseVariant(
+      id: id ?? message.id,
+      content: message.content,
+      createdAt: (createdAt ?? message.createdAt).toUtc(),
+      modelId: message.modelId,
+      modelLabel: message.modelLabel,
+      usage: message.usage,
+    );
+  }
+
+  factory AiSessionMessageResponseVariant.fromJson(Map<String, Object?> json) {
+    final usageJson = json['usage'];
+    return AiSessionMessageResponseVariant(
+      id: AiSessionMessage._readNullableString(json['id']),
+      content: '${json['content'] ?? ''}',
+      createdAt:
+          DateTime.tryParse('${json['created_at'] ?? ''}')?.toUtc() ??
+          DateTime.now().toUtc(),
+      modelId: AiSessionMessage._readNullableString(json['model_id']),
+      modelLabel: AiSessionMessage._readNullableString(json['model_label']),
+      usage: usageJson is Map<String, Object?>
+          ? AiTokenUsage.fromJson(usageJson)
+          : usageJson is Map
+          ? AiTokenUsage.fromJson(Map<String, Object?>.from(usageJson))
+          : null,
+    );
+  }
+
+  final String? id;
+  final String content;
+  final DateTime createdAt;
+  final String? modelId;
+  final String? modelLabel;
+  final AiTokenUsage? usage;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (id != null && id!.trim().isNotEmpty) 'id': id,
+      'content': content,
+      'created_at': createdAt.toUtc().toIso8601String(),
+      if (modelId != null && modelId!.trim().isNotEmpty) 'model_id': modelId,
+      if (modelLabel != null && modelLabel!.trim().isNotEmpty)
+        'model_label': modelLabel,
+      if (usage != null && !usage!.isEmpty) 'usage': usage!.toJson(),
+    };
+  }
+
+  static List<AiSessionMessageResponseVariant> listFromMessage(
+    AiSessionMessage message,
+  ) {
+    final parsed = listFromMetadata(
+      message.metadata[aiSessionMessageResponseVariantsMetadataKey],
+    );
+    if (parsed.isNotEmpty) {
+      return parsed;
+    }
+    return <AiSessionMessageResponseVariant>[
+      AiSessionMessageResponseVariant.fromMessage(message),
+    ];
+  }
+
+  static List<AiSessionMessageResponseVariant> listFromMetadata(Object? raw) {
+    if (raw is! List) {
+      return const <AiSessionMessageResponseVariant>[];
+    }
+    final variants = <AiSessionMessageResponseVariant>[];
+    for (final item in raw) {
+      final map = item is Map<String, Object?>
+          ? item
+          : item is Map
+          ? Map<String, Object?>.from(item)
+          : null;
+      if (map == null) {
+        continue;
+      }
+      final variant = AiSessionMessageResponseVariant.fromJson(map);
+      if (variant.content.trim().isNotEmpty) {
+        variants.add(variant);
+      }
+    }
+    return List<AiSessionMessageResponseVariant>.unmodifiable(variants);
+  }
+
+  static int clampIndex(Object? raw, int length) {
+    if (length <= 0) return 0;
+    final parsed = raw is int ? raw : int.tryParse('${raw ?? ''}'.trim()) ?? 0;
+    return parsed.clamp(0, length - 1).toInt();
   }
 }

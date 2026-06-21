@@ -259,6 +259,9 @@ class _SessionTranscript extends StatefulWidget {
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
     required this.onForkMessage,
+    required this.onSetMessageFeedback,
+    required this.onRegenerateMessage,
+    required this.onSelectMessageResponseVariant,
     required this.ttsPlaybackService,
     required this.translationService,
     required this.onDismissError,
@@ -284,6 +287,14 @@ class _SessionTranscript extends StatefulWidget {
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
   final Future<void> Function(AiSessionMessage message) onForkMessage;
+  final Future<void> Function(
+    AiSessionMessage message,
+    AiSessionMessageFeedback? feedback,
+  )
+  onSetMessageFeedback;
+  final Future<void> Function(AiSessionMessage message) onRegenerateMessage;
+  final Future<void> Function(AiSessionMessage message, int index)
+  onSelectMessageResponseVariant;
   final AiTtsPlaybackService ttsPlaybackService;
   final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
@@ -2515,6 +2526,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             : null,
                         onCopy: () => widget.onCopyMessage(message),
                         onFork: () => widget.onForkMessage(message),
+                        onSetFeedback: (feedback) =>
+                            widget.onSetMessageFeedback(message, feedback),
+                        onRegenerateResponse: () =>
+                            widget.onRegenerateMessage(message),
+                        onSelectResponseVariant: (index) => widget
+                            .onSelectMessageResponseVariant(message, index),
                         speechEnabled: speechEnabled,
                         speechPlaying: speechPlaying,
                         onToggleSpeech: speechEnabled

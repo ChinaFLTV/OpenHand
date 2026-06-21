@@ -2182,6 +2182,400 @@ class AiSessionController extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> updateMessageFeedback({
+    required String sessionId,
+    required String messageId,
+    AiSessionMessageFeedback? feedback,
+  }) {
+    return _updateMessageById(
+      sessionId: sessionId,
+      messageId: messageId,
+      operationName: 'persist message feedback',
+      update: (message) {
+        final metadata = Map<String, Object?>.from(message.metadata);
+        if (feedback == null) {
+          metadata.remove(aiSessionMessageFeedbackMetadataKey);
+        } else {
+          metadata[aiSessionMessageFeedbackMetadataKey] = feedback.storageValue;
+        }
+        return message.copyWith(metadata: metadata);
+      },
+    );
+  }
+
+  Future<bool> selectMessageResponseVariant({
+    required String sessionId,
+    required String messageId,
+    required int index,
+  }) {
+    return _updateMessageById(
+      sessionId: sessionId,
+      messageId: messageId,
+      operationName: 'select message response variant',
+      update: (message) {
+        final variants = message.responseVariants;
+        if (variants.length <= 1) {
+          return message;
+        }
+        final nextIndex = AiSessionMessageResponseVariant.clampIndex(
+          index,
+          variants.length,
+        );
+        final selected = variants[nextIndex];
+        final metadata = Map<String, Object?>.from(message.metadata)
+          ..[aiSessionMessageResponseVariantsMetadataKey] = variants
+              .map((variant) => variant.toJson())
+              .toList(growable: false)
+          ..[aiSessionMessageResponseVariantIndexMetadataKey] = nextIndex;
+        return message.copyWith(
+          content: selected.content,
+          modelId: selected.modelId ?? message.modelId,
+          modelLabel: selected.modelLabel ?? message.modelLabel,
+          usage: selected.usage ?? message.usage,
+          metadata: metadata,
+        );
+      },
+    );
+  }
+
+  Future<bool> regenerateAssistantMessageVariant({
+    required String sessionId,
+    required String messageId,
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+  }) async {
+    _captureLatestRuntimeContext(runtimeContext);
+    _sessionPendingSendOperationIds.add(sessionId);
+    notifyListeners();
+    return _enqueueSessionOperation(sessionId, () async {
+      final hydratedSession =
+          await ensureSessionMessagesHydrated(sessionId) ??
+          _sessionById(sessionId);
+      if (hydratedSession == null ||
+          _sessionNeedsMessageHydration(hydratedSession)) {
+        _clearSessionExecutionState(sessionId);
+        _setLastSendErrorMessage(
+          sessionId,
+          'Session messages are still loading.',
+        );
+        notifyListeners();
+        return false;
+      }
+      var session = hydratedSession;
+      final targetIndex = session.messages.indexWhere(
+        (message) => message.id == messageId,
+      );
+      if (targetIndex <= 0) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(session.id, 'Message cannot be regenerated.');
+        notifyListeners();
+        return false;
+      }
+      final targetMessage = session.messages[targetIndex];
+      if (targetMessage.kind != AiSessionMessageKind.assistant ||
+          targetMessage.metadata[aiSessionMessageMetadataStreamingKey] ==
+              true) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(session.id, 'Message cannot be regenerated.');
+        notifyListeners();
+        return false;
+      }
+      final historyMessages = session.messages
+          .take(targetIndex)
+          .toList(growable: false);
+      AiSessionMessage? latestUserMessage;
+      for (var i = historyMessages.length - 1; i >= 0; i--) {
+        final candidate = historyMessages[i];
+        if (!candidate.isDeleted &&
+            candidate.kind == AiSessionMessageKind.user) {
+          latestUserMessage = candidate;
+          break;
+        }
+      }
+      if (latestUserMessage == null) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(session.id, 'No user message found to retry.');
+        notifyListeners();
+        return false;
+      }
+
+      final baseVariants = targetMessage.responseVariants;
+      final baseVariantIndex = targetMessage.responseVariantIndex;
+      final restoreVariant = baseVariants[baseVariantIndex];
+      final existingStopSignal = _sessionStopSignals[session.id];
+      if (existingStopSignal != null && existingStopSignal.isCompleted) {
+        _clearSessionExecutionState(session.id);
+        notifyListeners();
+        return true;
+      }
+      _sessionStopSignals[session.id] = existingStopSignal ?? Completer<void>();
+      _resetLastSendOutcome(session.id);
+      _lastErrorMessage = null;
+      _setSessionSendPhase(session.id, AiSendPhase.responding);
+      notifyListeners();
+
+      final previewStopwatch = Stopwatch()..start();
+      var lastPreviewMs = -_streamPreviewThrottle.inMilliseconds;
+
+      AiSession updateTargetMessage(
+        AiSession sourceSession,
+        AiSessionMessage Function(AiSessionMessage current) update,
+      ) {
+        final index = sourceSession.messages.indexWhere(
+          (message) => message.id == messageId,
+        );
+        if (index == -1) {
+          return sourceSession;
+        }
+        final messages = List<AiSessionMessage>.from(sourceSession.messages);
+        messages[index] = update(messages[index]);
+        return sourceSession.copyWith(
+          messages: messages,
+          updatedAt: _clock().toUtc(),
+        );
+      }
+
+      void previewRegeneratedContent(
+        String content, {
+        required bool streaming,
+        bool force = false,
+      }) {
+        final nowMs = previewStopwatch.elapsedMilliseconds;
+        if (!force &&
+            nowMs - lastPreviewMs < _streamPreviewThrottle.inMilliseconds) {
+          return;
+        }
+        lastPreviewMs = nowMs;
+        final liveSession = _sessionById(session.id) ?? session;
+        final previewSession = updateTargetMessage(liveSession, (message) {
+          return message.copyWith(
+            content: content.isEmpty ? message.content : content,
+            modelId: model.id,
+            modelLabel: model.displayName,
+            metadata: <String, Object?>{
+              ...message.metadata,
+              aiSessionMessageMetadataStreamingKey: streaming,
+            },
+          );
+        });
+        session = previewSession;
+        _previewSession(previewSession);
+      }
+
+      AiSession restoreTargetMessage(AiSession sourceSession) {
+        return updateTargetMessage(sourceSession, (message) {
+          final metadata = Map<String, Object?>.from(message.metadata)
+            ..[aiSessionMessageResponseVariantsMetadataKey] = baseVariants
+                .map((variant) => variant.toJson())
+                .toList(growable: false)
+            ..[aiSessionMessageResponseVariantIndexMetadataKey] =
+                baseVariantIndex
+            ..[aiSessionMessageMetadataStreamingKey] = false;
+          return message.copyWith(
+            content: restoreVariant.content,
+            modelId: restoreVariant.modelId ?? message.modelId,
+            modelLabel: restoreVariant.modelLabel ?? message.modelLabel,
+            usage: restoreVariant.usage ?? message.usage,
+            metadata: metadata,
+          );
+        });
+      }
+
+      try {
+        if (_isStopRequestedForSession(session.id)) {
+          final restored = restoreTargetMessage(
+            _sessionById(session.id) ?? session,
+          );
+          await _commitSessionLocked(restored);
+          return true;
+        }
+        final templateBundle = await _templateRepository.loadBundle(
+          session.templateId,
+        );
+        if (_isStopRequestedForSession(session.id)) {
+          final restored = restoreTargetMessage(
+            _sessionById(session.id) ?? session,
+          );
+          await _commitSessionLocked(restored);
+          return true;
+        }
+        final promptSession = session.copyWith(messages: historyMessages);
+        final promptResult = _promptBuilder.buildSessionPrompt(
+          templateBundle: templateBundle,
+          session: promptSession,
+          model: model,
+          runtimeContext: runtimeContext,
+          memoryEntries: runtimeContext.memoryEntries,
+          sessionMessages: promptSession.activeConversationMessagesForPrompt,
+          latestUserMessageId: latestUserMessage.id,
+          resolvedToolsByName: _emptyToolCatalog.toolsByName,
+          mcpServerInstructionsByName:
+              _emptyToolCatalog.mcpServerInstructionsByName,
+          planModeRecoveryInspectionRequired: false,
+          displayCatalogOverride: const <AiToolDefinition>[],
+        );
+        final streamOpenTimeoutSeconds = math.max(
+          runtimeContext.connectTimeoutSeconds,
+          runtimeContext.responseTimeoutSeconds,
+        );
+        final streamResponse = await _chatClient.sendMessageStream(
+          model: model,
+          messages: promptResult.messages,
+          tools: const <AiToolDefinition>[],
+          responseModalities: const <String>[],
+          creationRequest: AiCreationRequest.none,
+          timeout: Duration(seconds: streamOpenTimeoutSeconds),
+          streamIdleTimeout: Duration(
+            seconds: runtimeContext.streamIdleTimeoutSeconds,
+          ),
+          cancelSignal: _stopSignalForSession(session.id),
+        );
+        _setSessionCancelHandler(session.id, streamResponse.cancel);
+        if (_isStopRequestedForSession(session.id) &&
+            streamResponse.cancel != null) {
+          await streamResponse.cancel!().catchError(
+            (Object _, StackTrace stackTrace) {},
+          );
+        }
+
+        final buffer = StringBuffer();
+        AiTokenUsage? streamedUsage;
+        await streamResponse.events.listen((event) {
+          switch (event.type) {
+            case AiChatStreamEventType.textDelta:
+              final delta = event.textDelta ?? '';
+              if (delta.isEmpty) return;
+              buffer.write(delta);
+              previewRegeneratedContent(
+                _sanitizeVisibleModelContent(buffer.toString()),
+                streaming: true,
+              );
+              break;
+            case AiChatStreamEventType.usage:
+              streamedUsage = event.usage;
+              break;
+            case AiChatStreamEventType.reasoningDelta:
+            case AiChatStreamEventType.toolCallDelta:
+              break;
+          }
+        }).asFuture<void>();
+        final result = await streamResponse.result;
+        _setSessionCancelHandler(session.id, null);
+        final wasStopped =
+            result.wasCancelled || _isStopRequestedForSession(session.id);
+        if (wasStopped) {
+          final restored = restoreTargetMessage(
+            _sessionById(session.id) ?? session,
+          );
+          await _commitSessionLocked(restored);
+          return true;
+        }
+        final finalContent = _sanitizeVisibleModelContent(
+          result.reply.trim().isNotEmpty ? result.reply : buffer.toString(),
+        );
+        if (finalContent.trim().isEmpty) {
+          final restored = restoreTargetMessage(
+            _sessionById(session.id) ?? session,
+          );
+          await _commitSessionLocked(restored);
+          _setLastSendErrorMessage(
+            session.id,
+            'Regenerated response is empty.',
+          );
+          notifyListeners();
+          return false;
+        }
+        final nextVariants = <AiSessionMessageResponseVariant>[
+          ...baseVariants,
+          AiSessionMessageResponseVariant(
+            id: _idGenerator(),
+            content: finalContent,
+            createdAt: _clock().toUtc(),
+            modelId: model.id,
+            modelLabel: model.displayName,
+            usage: result.usage ?? streamedUsage,
+          ),
+        ];
+        final nextIndex = nextVariants.length - 1;
+        final finalSession = updateTargetMessage(
+          _sessionById(session.id) ?? session,
+          (message) {
+            final metadata = Map<String, Object?>.from(message.metadata)
+              ..[aiSessionMessageResponseVariantsMetadataKey] = nextVariants
+                  .map((variant) => variant.toJson())
+                  .toList(growable: false)
+              ..[aiSessionMessageResponseVariantIndexMetadataKey] = nextIndex
+              ..[aiSessionMessageMetadataStreamingKey] = false;
+            return message.copyWith(
+              content: finalContent,
+              modelId: model.id,
+              modelLabel: model.displayName,
+              usage: result.usage ?? streamedUsage ?? message.usage,
+              metadata: metadata,
+            );
+          },
+        );
+        previewRegeneratedContent(finalContent, streaming: false, force: true);
+        return _commitSessionLocked(finalSession);
+      } catch (error, stackTrace) {
+        silentLog(
+          'ai_session_controller',
+          'regenerate assistant message variant',
+          error,
+          stackTrace,
+        );
+        final restored = restoreTargetMessage(
+          _sessionById(session.id) ?? session,
+        );
+        await _commitSessionLocked(restored);
+        _setLastSendErrorMessage(session.id, '$error');
+        notifyListeners();
+        return false;
+      } finally {
+        previewStopwatch.stop();
+        _setSessionCancelHandler(session.id, null);
+        _clearSessionExecutionState(session.id);
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<bool> _updateMessageById({
+    required String sessionId,
+    required String messageId,
+    required String operationName,
+    required AiSessionMessage Function(AiSessionMessage message) update,
+  }) {
+    return _enqueueSessionOperation(sessionId, () async {
+      final session =
+          await ensureSessionMessagesHydrated(sessionId) ??
+          _sessionById(sessionId);
+      if (session == null || _sessionNeedsMessageHydration(session)) {
+        return false;
+      }
+      final index = session.messages.indexWhere(
+        (message) => message.id == messageId,
+      );
+      if (index == -1) {
+        return false;
+      }
+      final updatedMessage = update(session.messages[index]);
+      if (identical(updatedMessage, session.messages[index])) {
+        return true;
+      }
+      final updatedMessages = List<AiSessionMessage>.from(session.messages);
+      updatedMessages[index] = updatedMessage;
+      final updatedSession = _rebuildSession(
+        session.copyWith(
+          messages: updatedMessages,
+          updatedAt: _clock().toUtc(),
+        ),
+      );
+      _debugSessionLog(sessionId, operationName);
+      return _commitSessionLocked(updatedSession);
+    });
+  }
+
   /// Public read-only accessor so the self-learning runner can fetch a
   /// session snapshot without reaching into private state.
   AiSession? sessionById(String sessionId) => _sessionById(sessionId);
@@ -6443,7 +6837,10 @@ class AiSessionController extends ChangeNotifier {
     if (session == null) {
       return <String, Object?>{};
     }
-    final metadata = <String, Object?>{...session.metadata};
+    final metadata = <String, Object?>{
+      ...session.metadata,
+      'template_id': session.templateId,
+    };
     final webReverseRuntime =
         _metadataMap(promptMetadata['web_reverse_runtime']) ??
         _metadataMap(session.lastPromptMetadata['web_reverse_runtime']);

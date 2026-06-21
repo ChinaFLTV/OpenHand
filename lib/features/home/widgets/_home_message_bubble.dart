@@ -23,6 +23,9 @@ class _MessageBubble extends StatefulWidget {
     this.onDeleteFromHere,
     this.onEdit,
     this.onAudit,
+    this.onSetFeedback,
+    this.onRegenerateResponse,
+    this.onSelectResponseVariant,
     this.onToggleSpeech,
     this.onToggleTranslation,
     this.speechPlaying = false,
@@ -55,6 +58,10 @@ class _MessageBubble extends StatefulWidget {
   final Future<void> Function()? onDeleteFromHere;
   final Future<void> Function()? onEdit;
   final VoidCallback? onAudit;
+  final Future<void> Function(AiSessionMessageFeedback? feedback)?
+  onSetFeedback;
+  final Future<void> Function()? onRegenerateResponse;
+  final Future<void> Function(int index)? onSelectResponseVariant;
   final Future<void> Function()? onToggleSpeech;
   final Future<void> Function()? onToggleTranslation;
   final bool speechPlaying;
@@ -495,6 +502,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         !isToolResult &&
         !isStatus &&
         !isSelfLearning;
+    final isAiSideMessage = message.isAiSideConversationMessage;
+    final selectedFeedback = message.feedback;
     final canCollapseAssistantResponse =
         isAssistantResponse &&
         !isStreamingAssistant &&
@@ -886,6 +895,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           hardnessAnnotation: heAnnotation,
           textColor: textColor,
           showModelLabel: !isUser,
+          onSelectResponseVariant: widget.onSelectResponseVariant,
           actions: [
             _MessageActionSpec(
               id: 'copy',
@@ -920,6 +930,47 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     : widget.translationVisible
                     ? _localizedText(context, zh: '查看原始', en: 'Original')
                     : _localizedText(context, zh: '翻译', en: 'Translate'),
+              ),
+            if (isAiSideMessage && widget.onSetFeedback != null)
+              _MessageActionSpec(
+                id: 'feedback-like',
+                onPressed: () => widget.onSetFeedback!(
+                  selectedFeedback == AiSessionMessageFeedback.liked
+                      ? null
+                      : AiSessionMessageFeedback.liked,
+                ),
+                icon: selectedFeedback == AiSessionMessageFeedback.liked
+                    ? Icons.thumb_up_alt_rounded
+                    : Icons.thumb_up_alt_outlined,
+                label: _localizedText(context, zh: '点赞', en: 'Like'),
+                selected: selectedFeedback == AiSessionMessageFeedback.liked,
+              ),
+            if (isAiSideMessage && widget.onSetFeedback != null)
+              _MessageActionSpec(
+                id: 'feedback-improve',
+                onPressed: () => widget.onSetFeedback!(
+                  selectedFeedback == AiSessionMessageFeedback.needsImprovement
+                      ? null
+                      : AiSessionMessageFeedback.needsImprovement,
+                ),
+                icon:
+                    selectedFeedback ==
+                        AiSessionMessageFeedback.needsImprovement
+                    ? Icons.thumb_down_alt_rounded
+                    : Icons.thumb_down_alt_outlined,
+                label: _localizedText(context, zh: '需要改进', en: 'Improve'),
+                selected:
+                    selectedFeedback ==
+                    AiSessionMessageFeedback.needsImprovement,
+              ),
+            if (isAssistantResponse &&
+                !isStreamingAssistant &&
+                widget.onRegenerateResponse != null)
+              _MessageActionSpec(
+                id: 'regenerate',
+                onPressed: widget.onRegenerateResponse,
+                icon: Icons.refresh_rounded,
+                label: _localizedText(context, zh: '重新生成', en: 'Regenerate'),
               ),
             if (widget.onEdit != null)
               _MessageActionSpec(
@@ -1163,12 +1214,14 @@ class _MessageActionSpec {
     required this.onPressed,
     required this.icon,
     required this.label,
+    this.selected = false,
   });
 
   final String id;
   final Future<void> Function()? onPressed;
   final IconData icon;
   final String label;
+  final bool selected;
 }
 
 class _SelectedMessageActionPanelSlot extends StatelessWidget {
@@ -1185,6 +1238,7 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
     required this.hardnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
+    this.onSelectResponseVariant,
   });
 
   final bool visible;
@@ -1198,6 +1252,7 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
   final _HeAnnotation? hardnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
+  final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
   Widget build(BuildContext context) {
@@ -1235,6 +1290,7 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
                   hardnessAnnotation: hardnessAnnotation,
                   textColor: textColor,
                   showModelLabel: showModelLabel,
+                  onSelectResponseVariant: onSelectResponseVariant,
                 ),
               )
             : const SizedBox.shrink(
@@ -1309,6 +1365,7 @@ class _SelectedMessageActionPanel extends StatefulWidget {
     required this.hardnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
+    this.onSelectResponseVariant,
   });
 
   final bool alignEnd;
@@ -1321,6 +1378,7 @@ class _SelectedMessageActionPanel extends StatefulWidget {
   final _HeAnnotation? hardnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
+  final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
   State<_SelectedMessageActionPanel> createState() =>
@@ -1405,6 +1463,7 @@ class _SelectedMessageActionPanelState
                   onPressed: action.onPressed,
                   icon: action.icon,
                   label: action.label,
+                  selected: action.selected,
                 ),
             ],
           ),
@@ -1416,6 +1475,7 @@ class _SelectedMessageActionPanelState
             textColor: widget.textColor,
             alignEnd: widget.alignEnd,
             showModelLabel: widget.showModelLabel,
+            onSelectResponseVariant: widget.onSelectResponseVariant,
           ),
         ],
       ),
@@ -1443,14 +1503,32 @@ class _MessageActionButton extends StatelessWidget {
     required this.onPressed,
     required this.icon,
     required this.label,
+    this.selected = false,
   });
 
   final Future<void> Function()? onPressed;
   final IconData icon;
   final String label;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final baseStyle = _messageActionChipStyle(context);
+    final effectiveStyle = selected
+        ? baseStyle.copyWith(
+            backgroundColor: WidgetStatePropertyAll(
+              colorScheme.primaryContainer.withValues(alpha: 0.72),
+            ),
+            foregroundColor: WidgetStatePropertyAll(
+              colorScheme.onPrimaryContainer,
+            ),
+            iconColor: WidgetStatePropertyAll(colorScheme.onPrimaryContainer),
+            side: WidgetStatePropertyAll(
+              BorderSide(color: colorScheme.primary.withValues(alpha: 0.62)),
+            ),
+          )
+        : baseStyle;
     return OutlinedButton.icon(
       onPressed: onPressed == null
           ? null
@@ -1460,7 +1538,7 @@ class _MessageActionButton extends StatelessWidget {
               )?.markInteractiveTap();
               unawaited(onPressed!());
             },
-      style: _messageActionChipStyle(context),
+      style: effectiveStyle,
       icon: Icon(icon, size: 16),
       label: Text(
         label,
@@ -4994,6 +5072,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
     required this.textColor,
     required this.alignEnd,
     required this.showModelLabel,
+    this.onSelectResponseVariant,
   });
 
   final AiSessionMessage message;
@@ -5002,6 +5081,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
   final Color textColor;
   final bool alignEnd;
   final bool showModelLabel;
+  final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
   Widget build(BuildContext context) {
@@ -5009,7 +5089,16 @@ class _SelectedMessageContextRow extends StatelessWidget {
       message.metadata[AiCreationRequest.metadataKey],
     );
     final skillMetadata = message.metadata[aiUserSkillSelectionMetadataKey];
+    final responseVariants = message.responseVariants;
+    final responseVariantIndex = message.responseVariantIndex;
     final capsules = <Widget>[
+      if (responseVariants.length > 1)
+        _ResponseVariantSwitcher(
+          currentIndex: responseVariantIndex,
+          count: responseVariants.length,
+          textColor: textColor,
+          onSelect: onSelectResponseVariant,
+        ),
       if (creationRequest.isActive)
         _CreationModeChip(request: creationRequest, textColor: textColor),
       if (_UserSkillSelectionChip.nameFromMetadata(skillMetadata).isNotEmpty)
@@ -5101,6 +5190,101 @@ class _HardnessAnnotationContextCapsules {
     final agentId = annotation.agentId;
     if (agentId == null || agentId.trim().isEmpty) return '';
     return ' · ${agentId.trim()}';
+  }
+}
+
+class _ResponseVariantSwitcher extends StatelessWidget {
+  const _ResponseVariantSwitcher({
+    required this.currentIndex,
+    required this.count,
+    required this.textColor,
+    required this.onSelect,
+  });
+
+  final int currentIndex;
+  final int count;
+  final Color textColor;
+  final Future<void> Function(int index)? onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _messageActionChipStyle(context);
+    const states = <WidgetState>{};
+    final side = style.side?.resolve(states);
+    final foreground =
+        style.foregroundColor?.resolve(states) ??
+        Theme.of(context).colorScheme.onSurface;
+    final previousEnabled = onSelect != null && currentIndex > 0;
+    final nextEnabled = onSelect != null && currentIndex < count - 1;
+    return Material(
+      color: Colors.transparent,
+      shape: StadiumBorder(side: side ?? BorderSide(color: foreground)),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 34,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ResponseVariantArrowButton(
+              icon: Icons.chevron_left_rounded,
+              enabled: previousEnabled,
+              color: foreground,
+              onTap: () => onSelect?.call(currentIndex - 1),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                '${currentIndex + 1} / $count',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            _ResponseVariantArrowButton(
+              icon: Icons.chevron_right_rounded,
+              enabled: nextEnabled,
+              color: foreground,
+              onTap: () => onSelect?.call(currentIndex + 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResponseVariantArrowButton extends StatelessWidget {
+  const _ResponseVariantArrowButton({
+    required this.icon,
+    required this.enabled,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color.withValues(alpha: enabled ? 0.92 : 0.28);
+    return InkWell(
+      onTap: enabled
+          ? () {
+              _BubbleHtmlInteractiveScope.maybeOf(
+                context,
+              )?.markInteractiveTap();
+              onTap();
+            }
+          : null,
+      child: SizedBox(
+        width: 32,
+        height: 34,
+        child: Icon(icon, size: 18, color: effectiveColor),
+      ),
+    );
   }
 }
 

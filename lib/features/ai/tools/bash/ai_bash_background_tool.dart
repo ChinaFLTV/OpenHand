@@ -15,6 +15,7 @@ import '../../service/sandbox/ai_sandbox_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+import '../android_reverse_adb_command_guard.dart';
 import '../web_reverse_cdp_first_guard.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
@@ -183,6 +184,11 @@ class AiBashBackgroundTool extends AiTool {
       );
     }
     final writeAnalysis = _bashToolService.analyzeWriteCommand(cmd);
+    final forceWriteConfirmation =
+        AndroidReverseAdbCommandGuard.requiresExplicitApproval(
+          command: cmd,
+          metadata: context.metadata,
+        );
     _pruneExitedSessions();
     if (_activeSessionCount >= _maxConcurrentSessions) {
       return AiToolUtils.invalidResult(
@@ -228,7 +234,7 @@ class AiBashBackgroundTool extends AiTool {
       );
     }
     var writeConfirmationMetadata = const <String, Object?>{};
-    if (writeAnalysis.isWrite) {
+    if (writeAnalysis.isWrite || forceWriteConfirmation) {
       final confirmationGate = AiBashWriteConfirmationGate(
         hookService: _hookService,
         sessionId: context.sessionId,
@@ -242,7 +248,8 @@ class AiBashBackgroundTool extends AiTool {
             'reason: ${writeAnalysis.reason}\n'
             'cmd: $cmd',
         targetPath: _directoryConfirmationTarget(cwd),
-        requireWriteConfirmation: context.requireWriteCommandConfirmation,
+        requireWriteConfirmation:
+            context.requireWriteCommandConfirmation || forceWriteConfirmation,
         confirmWriteCommand: confirmationGate.callback,
         cancelSignal: context.cancelSignal,
         timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
@@ -253,12 +260,18 @@ class AiBashBackgroundTool extends AiTool {
       );
       if (confirmationResult != null) {
         await launchSpec.proxyLease?.close();
-        return AiToolUtils.withMergedMetadata(
-          confirmationResult,
-          confirmationGate.metadata,
-        );
+        return AiToolUtils.withMergedMetadata(confirmationResult, <
+          String,
+          Object?
+        >{
+          ...confirmationGate.metadata,
+          if (forceWriteConfirmation) ...AndroidReverseAdbCommandGuard.metadata,
+        });
       }
-      writeConfirmationMetadata = confirmationGate.metadata;
+      writeConfirmationMetadata = <String, Object?>{
+        ...confirmationGate.metadata,
+        if (forceWriteConfirmation) ...AndroidReverseAdbCommandGuard.metadata,
+      };
     }
     final startedAt = Stopwatch()..start();
     final Process process;
@@ -347,7 +360,7 @@ class AiBashBackgroundTool extends AiTool {
       output: output.toString().trimRight(),
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: launchSpec.workingDirectory,
-      isWriteCommand: writeAnalysis.isWrite,
+      isWriteCommand: writeAnalysis.isWrite || forceWriteConfirmation,
       writeAnalysisReason: writeAnalysis.reason,
       metadata: <String, Object?>{
         ...launchSpec.metadata,
@@ -355,13 +368,13 @@ class AiBashBackgroundTool extends AiTool {
         'bg_handle': handle,
         'bg_pid': process.pid,
         'bg_cmd': cmd,
-        if (writeAnalysis.isWrite)
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
           'file_mutation_kind': 'bash_background_write',
-        if (writeAnalysis.isWrite)
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
           'file_mutation_working_directory': launchSpec.workingDirectory,
-        if (writeAnalysis.isWrite)
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
           'file_mutation_command_char_count': cmd.length,
-        if (writeAnalysis.isWrite)
+        if (writeAnalysis.isWrite || forceWriteConfirmation)
           'file_mutation_write_reason': writeAnalysis.reason,
       },
     );

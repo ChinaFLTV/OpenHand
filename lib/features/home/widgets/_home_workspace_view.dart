@@ -52,6 +52,9 @@ class _WorkspaceView extends StatelessWidget {
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
     required this.onForkMessage,
+    required this.onSetMessageFeedback,
+    required this.onRegenerateMessage,
+    required this.onSelectMessageResponseVariant,
     required this.ttsPlaybackService,
     required this.translationService,
     required this.onDismissError,
@@ -122,6 +125,14 @@ class _WorkspaceView extends StatelessWidget {
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
   final Future<void> Function(AiSessionMessage message) onForkMessage;
+  final Future<void> Function(
+    AiSessionMessage message,
+    AiSessionMessageFeedback? feedback,
+  )
+  onSetMessageFeedback;
+  final Future<void> Function(AiSessionMessage message) onRegenerateMessage;
+  final Future<void> Function(AiSessionMessage message, int index)
+  onSelectMessageResponseVariant;
   final AiTtsPlaybackService ttsPlaybackService;
   final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
@@ -252,6 +263,12 @@ class _WorkspaceView extends StatelessWidget {
                                           onDeleteMessageFromHere:
                                               onDeleteMessageFromHere,
                                           onForkMessage: onForkMessage,
+                                          onSetMessageFeedback:
+                                              onSetMessageFeedback,
+                                          onRegenerateMessage:
+                                              onRegenerateMessage,
+                                          onSelectMessageResponseVariant:
+                                              onSelectMessageResponseVariant,
                                           ttsPlaybackService:
                                               ttsPlaybackService,
                                           translationService:

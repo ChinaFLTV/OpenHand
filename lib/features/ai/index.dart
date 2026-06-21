@@ -120,6 +120,7 @@ export 'tools/ai_tool.dart';
 export 'tools/ai_tool_execution_context.dart';
 export 'tools/ai_tool_registry.dart';
 export 'tools/ai_tool_utils.dart';
+export 'tools/android_reverse_adb_command_guard.dart';
 export 'tools/bash/ai_bash_background_tool.dart';
 export 'tools/bash/ai_bash_tool.dart';
 export 'tools/fs/ai_apply_file_diffs_tool.dart';

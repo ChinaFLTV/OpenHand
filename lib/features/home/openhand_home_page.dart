@@ -6608,13 +6608,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     String? sessionId,
     bool trackSessionBadge = true,
   }) async {
+    final sessionController = context.read<AiSessionController>();
+    final forceAndroidReverseApproval =
+        _androidReverseCommandRequiresExplicitApproval(
+          sessionController: sessionController,
+          sessionId: sessionId,
+          command: request.command,
+        );
     final settingsController = context.read<SettingsController>();
-    for (final rule in settingsController.aiAllowCommandRules) {
-      if (rule.matches(request.command)) {
-        return BashCommandApprovalDecision.approved;
+    if (!forceAndroidReverseApproval) {
+      for (final rule in settingsController.aiAllowCommandRules) {
+        if (rule.matches(request.command)) {
+          return BashCommandApprovalDecision.approved;
+        }
       }
     }
-    final sessionController = context.read<AiSessionController>();
     // Use the explicitly provided sessionId so the correct session badge
     // is updated even when the user has navigated to a different session.
     final effectiveSessionId = trackSessionBadge
@@ -6644,6 +6652,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionController.clearSessionAwaitingApproval(effectiveSessionId);
       }
     }
+  }
+
+  bool _androidReverseCommandRequiresExplicitApproval({
+    required AiSessionController sessionController,
+    required String? sessionId,
+    required String command,
+  }) {
+    final effectiveSessionId = (sessionId ?? sessionController.currentSessionId)
+        ?.trim();
+    if (effectiveSessionId == null || effectiveSessionId.isEmpty) {
+      return false;
+    }
+    final session = sessionController.sessions.cast<AiSession?>().firstWhere(
+      (item) => item?.id == effectiveSessionId,
+      orElse: () => null,
+    );
+    if (session?.templateId != AndroidReverseAdbCommandGuard.templateId) {
+      return false;
+    }
+    return AndroidReverseAdbCommandGuard.isGlobalAdbRecoveryCommand(command);
   }
 
   Future<BashCommandApprovalDecision> _confirmHardnessApiWriteCommand(
@@ -7659,6 +7687,128 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  Future<void> _setMessageFeedback(
+    AiSessionMessage message,
+    AiSessionMessageFeedback? feedback,
+  ) async {
+    final controller = context.read<AiSessionController>();
+    final sessionId = controller.currentSessionId;
+    if (sessionId == null || sessionId.trim().isEmpty) {
+      return;
+    }
+    final saved = await controller.updateMessageFeedback(
+      sessionId: sessionId,
+      messageId: message.id,
+      feedback: feedback,
+    );
+    if (!mounted || saved) {
+      return;
+    }
+    _showHomeSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          _localizedText(
+            context,
+            zh: '反馈保存失败。',
+            en: 'Failed to save feedback.',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectMessageResponseVariant(
+    AiSessionMessage message,
+    int index,
+  ) async {
+    final controller = context.read<AiSessionController>();
+    final sessionId = controller.currentSessionId;
+    if (sessionId == null || sessionId.trim().isEmpty) {
+      return;
+    }
+    final selected = await controller.selectMessageResponseVariant(
+      sessionId: sessionId,
+      messageId: message.id,
+      index: index,
+    );
+    if (!mounted || selected) {
+      return;
+    }
+    _showHomeSnackBar(
+      context,
+      SnackBar(
+        content: Text(
+          _localizedText(
+            context,
+            zh: '响应候选切换失败。',
+            en: 'Failed to switch response variant.',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _regenerateMessage(AiSessionMessage message) async {
+    final controller = context.read<AiSessionController>();
+    final settingsController = context.read<SettingsController>();
+    final session = controller.currentSession;
+    if (session == null || controller.currentSessionId == null) {
+      return;
+    }
+    if (_displaySendPhaseForSession(controller, session.id) !=
+        AiSendPhase.idle) {
+      OpenHandSnackBar.showInfo(
+        context,
+        _localizedText(
+          context,
+          zh: '当前会话正在响应，请先停止或等待完成。',
+          en: 'This session is still responding. Stop it or wait for it to finish.',
+        ),
+      );
+      return;
+    }
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      session,
+    );
+    if (selectedModel == null) {
+      OpenHandSnackBar.showError(
+        context,
+        AppLocalizations.of(context)!.aiModelSelectionRequired,
+      );
+      return;
+    }
+    final runtimeContext = await _buildRuntimeContext(
+      workingDirectory: _programmingExpertProjectRoot(session),
+      skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _armAutoFollowToBottom(notifyPausedState: false);
+    });
+    final regenerated = await controller.regenerateAssistantMessageVariant(
+      sessionId: session.id,
+      messageId: message.id,
+      model: selectedModel,
+      runtimeContext: runtimeContext,
+    );
+    if (!mounted || regenerated) {
+      return;
+    }
+    showFriendlyErrorSnackBar(
+      context,
+      message: controller.lastErrorMessageForSession(session.id),
+      fallback: _localizedText(
+        context,
+        zh: '重新生成失败。',
+        en: 'Failed to regenerate response.',
+      ),
+    );
+  }
+
   Future<void> _cancelEditingMessage() async {
     final controller = context.read<AiSessionController>();
     final cancelled = await controller.cancelEditingMessage();
@@ -8197,6 +8347,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onDeleteMessage: _deleteMessage,
         onDeleteMessageFromHere: _deleteMessageFromHere,
         onForkMessage: _forkMessage,
+        onSetMessageFeedback: _setMessageFeedback,
+        onRegenerateMessage: _regenerateMessage,
+        onSelectMessageResponseVariant: _selectMessageResponseVariant,
         ttsPlaybackService: _ttsPlaybackService,
         translationService: _translationService,
         onDismissError: _dismissSessionError,

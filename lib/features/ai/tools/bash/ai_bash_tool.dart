@@ -4,6 +4,7 @@ import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
+import '../android_reverse_adb_command_guard.dart';
 import '../web_reverse_cdp_first_guard.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
@@ -69,6 +70,11 @@ class AiBashTool extends AiTool {
         workingDirectory: workingDirectory,
       );
     }
+    final forceWriteConfirmation =
+        AndroidReverseAdbCommandGuard.requiresExplicitApproval(
+          command: command,
+          metadata: context.metadata,
+        );
     final bashResult = await _bashToolService.execute(
       command: command,
       sessionId: context.sessionId,
@@ -80,6 +86,7 @@ class AiBashTool extends AiTool {
       onUpdate: onBashUpdate,
       timeoutMs: timeoutMs,
       toolCallId: context.toolCall.id,
+      forceWriteConfirmation: forceWriteConfirmation,
       dangerouslyDisableSandbox:
           AiToolUtils.readBool(args['dangerouslyDisableSandbox']) == true,
     );
@@ -91,6 +98,7 @@ class AiBashTool extends AiTool {
         'file_mutation_command_char_count': bashResult.command.length,
       if (bashResult.isWriteCommand)
         'file_mutation_write_reason': bashResult.writeAnalysisReason,
+      if (forceWriteConfirmation) ...AndroidReverseAdbCommandGuard.metadata,
     };
     return AiToolExecutionResult.fromBash(
       bashResult,

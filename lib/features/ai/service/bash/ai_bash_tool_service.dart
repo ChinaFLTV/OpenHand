@@ -538,6 +538,7 @@ class AiBashToolService {
     int timeoutMs = defaultTimeoutMs,
     String? toolCallId,
     bool dangerouslyDisableSandbox = false,
+    bool forceWriteConfirmation = false,
   }) async {
     _ensureProxyListenerAttached();
     final normalizedCommand = command.trim();
@@ -587,7 +588,7 @@ class AiBashToolService {
         );
       }
     }
-    final isWriteCommand = writeAnalysis.isWrite;
+    final isWriteCommand = writeAnalysis.isWrite || forceWriteConfirmation;
     final launchSpec = await _prepareLaunchSpec(
       command: normalizedCommand,
       workingDirectory: displayedWorkingDirectory,
@@ -614,9 +615,11 @@ class AiBashToolService {
     if (launchSpec.applied) {
       shouldUsePersistentSession = false;
     }
-    if (requireWriteConfirmation && isWriteCommand) {
+    if ((requireWriteConfirmation || forceWriteConfirmation) &&
+        isWriteCommand) {
       if (launchSpec.applied &&
-          sandboxService.settings.autoAllowBashIfSandboxed) {
+          sandboxService.settings.autoAllowBashIfSandboxed &&
+          !forceWriteConfirmation) {
         // The OS sandbox is active and the user explicitly allowed sandboxed
         // Bash to bypass the write-confirmation prompt.
       } else {
