@@ -2629,6 +2629,18 @@ class _AndroidReverseDashboardDialogState
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '工具链设置工件' : 'Toolchain setup artifacts',
+            command:
+                'cat ${_shellQuote(_ctrl.toolchainReadmePath)}\n'
+                'cat ${_shellQuote(_ctrl.toolchainSetupCommandsPath)}',
+          ),
+        ),
         Expanded(
           child: _loadingToolchain && _toolchainRows.isEmpty
               ? const Center(child: CircularProgressIndicator())

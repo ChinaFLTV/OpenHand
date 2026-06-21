@@ -8,6 +8,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
+import 'android_reverse_toolchain_diagnostics.dart';
 
 const String _kTag = 'android_reverse_session_controller';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
@@ -31,6 +32,7 @@ const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'network',
   'certs',
   'scripts',
+  'toolchain',
   'logs',
 ];
 
@@ -89,6 +91,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get reproducePythonPath => '$scriptsDir/reproduce_http.py';
   String get reproduceCurlPath => '$scriptsDir/reproduce_curl.sh';
   String get evidenceBundleScriptPath => '$scriptsDir/make_evidence_bundle.sh';
+  String get toolchainDir => '$artifactsRootDir/toolchain';
+  String get toolchainReadmePath => '$toolchainDir/README.md';
+  String get toolchainSetupCommandsPath => '$toolchainDir/setup_commands.json';
   String get logsDir => '$artifactsRootDir/logs';
 
   final AndroidReverseAdbClient _adbClient;
@@ -917,6 +922,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         Directory(fridaOutputDir).create(recursive: true),
         Directory(networkDir).create(recursive: true),
         Directory(scriptsDir).create(recursive: true),
+        Directory(toolchainDir).create(recursive: true),
       ]);
       final generatedAt = DateTime.now().toUtc().toIso8601String();
       await Future.wait(<Future<File>>[
@@ -937,6 +943,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
         File(reproducePythonPath).writeAsString(_reproduceHttpPythonScript),
         File(reproduceCurlPath).writeAsString(_reproduceCurlScript),
         File(evidenceBundleScriptPath).writeAsString(_evidenceBundleScript),
+        File(toolchainReadmePath).writeAsString(_toolchainSetupReadme),
+        File(
+          toolchainSetupCommandsPath,
+        ).writeAsString(_toolchainSetupCommandsJson()),
         File(adbOneShotScriptPath).writeAsString(_adbOneShotScript),
         File(dynamicProbeScriptPath).writeAsString(_androidDynamicProbeScript),
       ]);
@@ -975,6 +985,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'reproduce_python: $reproducePythonPath',
         'reproduce_curl: $reproduceCurlPath',
         'evidence_bundle: $evidenceBundleScriptPath',
+        'toolchain_readme: $toolchainReadmePath',
+        'toolchain_setup_commands: $toolchainSetupCommandsPath',
       ].join('\n');
     } catch (e, st) {
       silentLog(_kTag, 'write MCP linkage artifacts failed', e, st);
@@ -1363,6 +1375,38 @@ class AndroidReverseSessionController extends ChangeNotifier {
     return '```text\n$text\n```';
   }
 
+  String _toolchainSetupCommandsJson() {
+    final payload = <String, Object?>{
+      'source': 'OpenHand Android Reverse dashboard',
+      'purpose': 'copy-only setup commands for Android reverse tooling',
+      'rules': const <String>[
+        'Do not execute install, update, or uninstall commands without user approval.',
+        'Prefer reading current toolchain diagnostics before changing tools.',
+        'Use Frida doctor before installing, pushing, or starting frida-server.',
+      ],
+      'tools': androidReverseToolchainProbes
+          .map(
+            (probe) => <String, Object?>{
+              'id': probe.id,
+              'label': probe.label,
+              'required': probe.required,
+              'install_hint_zh': probe.installHintZh,
+              'install_hint_en': probe.installHintEn,
+              if (probe.installCommand?.trim().isNotEmpty ?? false)
+                'install_command': probe.installCommand!.trim(),
+              if (probe.updateCommand?.trim().isNotEmpty ?? false)
+                'update_command': probe.updateCommand!.trim(),
+              if (probe.uninstallCommand?.trim().isNotEmpty ?? false)
+                'uninstall_command': probe.uninstallCommand!.trim(),
+              if (probe.referenceUrl?.trim().isNotEmpty ?? false)
+                'reference_url': probe.referenceUrl!.trim(),
+            },
+          )
+          .toList(growable: false),
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
   String _mcpLinkageTemplatesJson(String generatedAt) {
     final serial = config.deviceSerial?.trim();
     final packageName = config.packageName?.trim();
@@ -1392,6 +1436,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'reproduce_python': reproducePythonPath,
         'reproduce_curl': reproduceCurlPath,
         'evidence_bundle_script': evidenceBundleScriptPath,
+        'toolchain_readme': toolchainReadmePath,
+        'toolchain_setup_commands': toolchainSetupCommandsPath,
       },
       'tool_search_queries': const <String>[
         'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter',
@@ -1513,6 +1559,7 @@ Files:
 - ../network/README.md and ../network/proxy_probe.sh: mitmproxy and proxy diagnostics.
 - ../frida/README.md, frida_doctor.sh, run_frida_capture.sh: Frida diagnostics and output capture runbook.
 - ../scripts/README.md, reproduce_http.py, reproduce_curl.sh, make_evidence_bundle.sh: final delivery templates.
+- ../toolchain/README.md and setup_commands.json: copy-only toolchain setup commands.
 
 Rules:
 1. Use only real mcp__* tool names from the Tool Catalog or ToolSearch result.
@@ -1559,6 +1606,21 @@ Use this checklist before relying on Android reverse MCP tools.
 - Do not invent MCP tool names.
 - Do not repeat the same install, attach, launch, or shell command more than twice.
 - Do not run `adb kill-server`, `adb start-server`, or `pkill adb` without user approval.
+''';
+
+const String _toolchainSetupReadme = r'''# Android reverse toolchain setup
+
+This directory stores copy-only setup commands for Android reverse tooling.
+
+Files:
+- setup_commands.json: install, update, uninstall, hint, and reference metadata.
+
+Rules:
+1. Read current dashboard diagnostics before changing tools.
+2. Ask the user before executing install, update, or uninstall commands.
+3. Do not repeat the same install command after two failures.
+4. For Frida, run `../frida/frida_doctor.sh` before installing, pushing, or starting frida-server.
+5. Prefer generated quick_scan evidence before installing optional dynamic tools.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook

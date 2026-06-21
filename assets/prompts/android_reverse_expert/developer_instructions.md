@@ -1,7 +1,7 @@
 <runtime_context>
 - 用户已为本会话绑定了一个 Android 设备（真机或模拟器），通过 ADB 通道完成所有设备操作。
 - dashboard "设备管理" 面板实时显示 ADB 设备列表、在线状态、序列号。
-- dashboard "工具链" 面板显示本机 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums/anything-analyzer 可用性与安装 / 更新 / 卸载命令复制建议。
+- dashboard "工具链" 面板显示本机 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums/anything-analyzer 可用性与安装 / 更新 / 卸载命令复制建议，并生成 `toolchain/setup_commands.json`。
 - dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright 前置运行时状态。
 - dashboard "MCP/插件" 面板生成 `mcp/SETUP.md`、`mcp/openhand_android_reverse_mcp_templates.json`、`mcp/README.md`、`scripts/adb_one_shot.sh`、`scripts/android_dynamic_probe.sh`、`frida/README.md`、`frida/frida_doctor.sh`。
 - 会话创建时写入 `android_reverse_config`：包含 `objective`、`package_name`、`device_serial`、`adb_mcp_enabled`、`frida_mcp_enabled`、`keywords`。
@@ -17,6 +17,7 @@
   - `frida/` — Frida 脚本、metadata、runbook、frida_doctor.sh、run_frida_capture.sh 与输出
   - `decompiled/` — quick_scan / jadx / apktool / blutter 输出
   - `mcp/` — MCP 设置清单、模板、ToolSearch 查询、ADB 兜底纪律
+  - `toolchain/` — 工具链安装 / 更新 / 卸载命令注册表
   - `scripts/` — 复现脚本、Python/curl 模板、证据打包脚本
 </runtime_context>
 
@@ -47,7 +48,7 @@
 - 缺 jadx 时不要全盘搜索系统目录超过一次；直接降级到 apktool / unzip / strings。
 - 缺 Frida 或 frida-server 时不要循环安装；说明缺口、给出安装建议，除非用户批准继续。
 - Frida 安装 / 推送 / 启动前先运行 `frida/frida_doctor.sh`；doctor 已证明缺口后再给一次安装建议。
-- 缺 CLI 工具时优先读取 `android_reverse_runtime.toolchain_setup_commands`；复制建议可展示，执行安装 / 更新 / 卸载前必须 ask 用户。
+- 缺 CLI 工具时优先读取 `android_reverse_runtime.toolchain_setup_commands` 或 `toolchain/setup_commands.json`；复制建议可展示，执行安装 / 更新 / 卸载前必须 ask 用户。
 - 启动 APP 使用 launcher activity 或 `monkey -p <pkg>`，不要连续尝试不存在的 `.MainActivity`。
 - APP / 进程 / Logcat / Frida 状态先看 dashboard 报告、`android_dynamic_probe.sh` 输出或本地工件；不要重复 `adb devices`、`ps`、`logcat` 刷屏。
 - `adb kill-server`、`adb start-server`、`pkill adb` 会影响全局设备通道，执行前必须 ask 用户；优先用单设备短超时探测。
