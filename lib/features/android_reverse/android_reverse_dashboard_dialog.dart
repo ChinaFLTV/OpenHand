@@ -143,6 +143,8 @@ enum _PackageMenuAction {
 
 enum _ProcessMenuAction { copyPid, copyName, kill, forceStopPackage, logcatPid }
 
+enum _ToolchainCommandAction { install, update, uninstall, reference }
+
 class _FridaSnippetPreset {
   const _FridaSnippetPreset({
     required this.id,
@@ -2280,12 +2282,34 @@ class _AndroidReverseDashboardDialogState
                             ],
                           ),
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16),
-                          tooltip: isZh ? '复制诊断' : 'Copy diagnostic',
-                          onPressed: () => _copyText(
-                            '${row.probe.label}\n${row.displayValue}\n${row.installHint(isZh)}',
-                          ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 16),
+                              tooltip: isZh ? '复制诊断' : 'Copy diagnostic',
+                              onPressed: () => _copyText(
+                                '${row.probe.label}\n${row.displayValue}\n${row.installHint(isZh)}',
+                              ),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            PopupMenuButton<_ToolchainCommandAction>(
+                              tooltip: isZh
+                                  ? '复制安装/维护命令'
+                                  : 'Copy setup commands',
+                              icon: const Icon(
+                                Icons.terminal_rounded,
+                                size: 16,
+                              ),
+                              itemBuilder: (context) =>
+                                  _toolchainCommandMenuItems(row.probe, isZh),
+                              onSelected: (action) => _copyToolchainCommand(
+                                row.probe,
+                                action,
+                                isZh,
+                              ),
+                            ),
+                          ],
                         ),
                         dense: true,
                       );
@@ -2469,6 +2493,29 @@ class _AndroidReverseDashboardDialogState
           else
             for (final plugin in runtimePlugins) ...[
               _buildRuntimePluginTile(plugin, cs, theme, isZh),
+              const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 14),
+          _sectionTitle(
+            theme,
+            cs,
+            isZh ? 'CLI 工具操作建议' : 'CLI tool setup actions',
+          ),
+          const SizedBox(height: 8),
+          if (_loadingToolchain && _toolchainRows.isEmpty)
+            const Center(child: CircularProgressIndicator())
+          else if (_toolchainRows.isEmpty)
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.construction_rounded,
+              text: isZh
+                  ? '尚未扫描 Android 逆向工具链。点击上方刷新 MCP 或进入工具链面板刷新。'
+                  : 'Android reverse toolchain has not been scanned yet. Refresh above or open the Toolchain tab.',
+            )
+          else
+            for (final row in _toolchainRows) ...[
+              _buildToolchainCommandTile(row, cs, theme, isZh),
               const SizedBox(height: 8),
             ],
           const SizedBox(height: 14),
@@ -2749,6 +2796,86 @@ class _AndroidReverseDashboardDialogState
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolchainCommandTile(
+    AndroidReverseToolchainProbeResult row,
+    ColorScheme cs,
+    ThemeData theme,
+    bool isZh,
+  ) {
+    final ok = row.ok;
+    final color = ok
+        ? cs.primary
+        : row.probe.required
+        ? cs.error
+        : cs.tertiary;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.58)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ok ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                size: 17,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  row.probe.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _StatusPill(
+                label: ok
+                    ? (isZh ? '已安装' : 'installed')
+                    : row.probe.required
+                    ? (isZh ? '必需缺失' : 'required missing')
+                    : (isZh ? '可选缺失' : 'optional missing'),
+                color: color,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SelectableText(
+            ok ? row.displayValue : row.installHint(isZh),
+            maxLines: 2,
+            style: TextStyle(
+              fontFamily: ok ? 'monospace' : null,
+              fontSize: 12,
+              color: ok ? cs.onSurface : color,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final action in _toolchainVisibleActions(row.probe))
+                _SmallActionButton(
+                  icon: _toolchainCommandIcon(action),
+                  label: _toolchainCommandLabel(action, isZh),
+                  onPressed: () =>
+                      _copyToolchainCommand(row.probe, action, isZh),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -3964,6 +4091,93 @@ class _AndroidReverseDashboardDialogState
   bool _containsAndroidMcpKeyword(String raw) {
     final text = raw.toLowerCase();
     return _kAndroidMcpKeywords.any(text.contains);
+  }
+
+  List<PopupMenuEntry<_ToolchainCommandAction>> _toolchainCommandMenuItems(
+    AndroidReverseToolchainProbe probe,
+    bool isZh,
+  ) {
+    return _toolchainVisibleActions(probe)
+        .map(
+          (action) => PopupMenuItem<_ToolchainCommandAction>(
+            value: action,
+            child: Row(
+              children: [
+                Icon(_toolchainCommandIcon(action), size: 16),
+                const SizedBox(width: 8),
+                Text(_toolchainCommandLabel(action, isZh)),
+              ],
+            ),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<_ToolchainCommandAction> _toolchainVisibleActions(
+    AndroidReverseToolchainProbe probe,
+  ) {
+    return <_ToolchainCommandAction>[
+      _ToolchainCommandAction.install,
+      if (probe.updateCommand?.trim().isNotEmpty ?? false)
+        _ToolchainCommandAction.update,
+      if (probe.uninstallCommand?.trim().isNotEmpty ?? false)
+        _ToolchainCommandAction.uninstall,
+      if (probe.referenceUrl?.trim().isNotEmpty ?? false)
+        _ToolchainCommandAction.reference,
+    ];
+  }
+
+  Future<void> _copyToolchainCommand(
+    AndroidReverseToolchainProbe probe,
+    _ToolchainCommandAction action,
+    bool isZh,
+  ) async {
+    final text = _toolchainCommandText(probe, action, isZh);
+    if (text.trim().isEmpty) return;
+    await _copyText(text);
+  }
+
+  String _toolchainCommandText(
+    AndroidReverseToolchainProbe probe,
+    _ToolchainCommandAction action,
+    bool isZh,
+  ) {
+    return switch (action) {
+      _ToolchainCommandAction.install =>
+        probe.installCommand?.trim().isNotEmpty == true
+            ? probe.installCommand!.trim()
+            : (isZh ? probe.installHintZh : probe.installHintEn).trim(),
+      _ToolchainCommandAction.update =>
+        probe.updateCommand?.trim().isNotEmpty == true
+            ? probe.updateCommand!.trim()
+            : '',
+      _ToolchainCommandAction.uninstall =>
+        probe.uninstallCommand?.trim().isNotEmpty == true
+            ? probe.uninstallCommand!.trim()
+            : '',
+      _ToolchainCommandAction.reference =>
+        probe.referenceUrl?.trim().isNotEmpty == true
+            ? probe.referenceUrl!.trim()
+            : (isZh ? probe.installHintZh : probe.installHintEn),
+    };
+  }
+
+  IconData _toolchainCommandIcon(_ToolchainCommandAction action) {
+    return switch (action) {
+      _ToolchainCommandAction.install => Icons.download_rounded,
+      _ToolchainCommandAction.update => Icons.upgrade_rounded,
+      _ToolchainCommandAction.uninstall => Icons.delete_outline_rounded,
+      _ToolchainCommandAction.reference => Icons.open_in_new_rounded,
+    };
+  }
+
+  String _toolchainCommandLabel(_ToolchainCommandAction action, bool isZh) {
+    return switch (action) {
+      _ToolchainCommandAction.install => isZh ? '复制安装' : 'Copy install',
+      _ToolchainCommandAction.update => isZh ? '复制更新' : 'Copy update',
+      _ToolchainCommandAction.uninstall => isZh ? '复制卸载' : 'Copy uninstall',
+      _ToolchainCommandAction.reference => isZh ? '复制文档' : 'Copy docs',
+    };
   }
 
   String _mcpResolvedToolName(McpServer server, McpTool tool) {

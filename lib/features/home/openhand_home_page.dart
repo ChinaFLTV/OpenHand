@@ -3402,6 +3402,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'logcat_level_tag_pid_package_filter',
         'logcat_clear_save_jsonl',
         'mcp_plugin_linkage_status',
+        'toolchain_install_update_uninstall_copy_commands',
       ],
       'dashboard_tabs': const <String>[
         'devices',
@@ -3429,6 +3430,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             'transport_id': connected.transportId,
         },
       'mcp_plugin_linkage': _androidReverseMcpPluginLinkageMetadata(),
+      'toolchain_setup_commands':
+          _androidReverseToolchainSetupCommandsMetadata(),
       'visible_devices': controller.allDevices
           .map(
             (device) => <String, Object?>{
@@ -3452,6 +3455,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'plugin_runtime_prerequisites':
           _androidReversePluginRuntimePrerequisitesMetadata(),
     };
+  }
+
+  List<Map<String, Object?>> _androidReverseToolchainSetupCommandsMetadata() {
+    return androidReverseToolchainProbes
+        .map(
+          (probe) => <String, Object?>{
+            'id': probe.id,
+            'label': probe.label,
+            'required': probe.required,
+            'install_hint': probe.installHintZh,
+            if (probe.installCommand?.trim().isNotEmpty ?? false)
+              'install_command': probe.installCommand!.trim(),
+            if (probe.updateCommand?.trim().isNotEmpty ?? false)
+              'update_command': probe.updateCommand!.trim(),
+            if (probe.uninstallCommand?.trim().isNotEmpty ?? false)
+              'uninstall_command': probe.uninstallCommand!.trim(),
+            if (probe.referenceUrl?.trim().isNotEmpty ?? false)
+              'reference_url': probe.referenceUrl!.trim(),
+          },
+        )
+        .toList(growable: false);
   }
 
   Map<String, Object?> _androidReverseMcpLinkageMetadata() {

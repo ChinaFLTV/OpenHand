@@ -12,6 +12,10 @@ class AndroidReverseToolchainProbe {
     required this.installHintZh,
     required this.installHintEn,
     this.required = false,
+    this.installCommand,
+    this.updateCommand,
+    this.uninstallCommand,
+    this.referenceUrl,
   });
 
   final String id;
@@ -20,6 +24,10 @@ class AndroidReverseToolchainProbe {
   final String installHintZh;
   final String installHintEn;
   final bool required;
+  final String? installCommand;
+  final String? updateCommand;
+  final String? uninstallCommand;
+  final String? referenceUrl;
 }
 
 class AndroidReverseToolchainProbeResult {
@@ -63,6 +71,9 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
         r'[ -x "$p" ] && { echo "$p"; adb version | head -1; }',
     installHintZh: '安装 Android SDK Platform Tools，并把 adb 加入 PATH。',
     installHintEn: 'Install Android SDK Platform Tools and add adb to PATH.',
+    installCommand: 'sdkmanager "platform-tools"',
+    updateCommand: 'sdkmanager --update',
+    referenceUrl: 'https://developer.android.com/tools/sdkmanager',
   ),
   AndroidReverseToolchainProbe(
     id: 'aapt',
@@ -74,6 +85,9 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
         r'[ -x "$p" ] && echo "$p"',
     installHintZh: '在 Android SDK Manager 安装 Build Tools。',
     installHintEn: 'Install Android SDK Build Tools.',
+    installCommand: 'sdkmanager "build-tools;36.0.0"',
+    updateCommand: 'sdkmanager --update',
+    referenceUrl: 'https://developer.android.com/tools/sdkmanager',
   ),
   AndroidReverseToolchainProbe(
     id: 'apksigner',
@@ -85,6 +99,9 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
     installHintZh: '在 Android SDK Manager 安装 Build Tools，用于 APK 签名证书检查。',
     installHintEn:
         'Install Android SDK Build Tools for APK signing certificate checks.',
+    installCommand: 'sdkmanager "build-tools;36.0.0"',
+    updateCommand: 'sdkmanager --update',
+    referenceUrl: 'https://developer.android.com/tools/sdkmanager',
   ),
   AndroidReverseToolchainProbe(
     id: 'keytool',
@@ -95,6 +112,10 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
     installHintZh: '安装 JDK，并把 keytool 加入 PATH，用于证书查看。',
     installHintEn:
         'Install a JDK and add keytool to PATH for certificate checks.',
+    installCommand: 'brew install openjdk',
+    updateCommand: 'brew upgrade openjdk',
+    uninstallCommand: 'brew uninstall openjdk',
+    referenceUrl: 'https://openjdk.org/',
   ),
   AndroidReverseToolchainProbe(
     id: 'strings',
@@ -105,6 +126,8 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
     installHintZh: '安装系统开发者工具或 binutils，用于 dex/so/assets 字符串扫描。',
     installHintEn:
         'Install system developer tools or binutils for dex/so/assets string scans.',
+    installCommand: 'xcode-select --install',
+    referenceUrl: 'https://developer.apple.com/xcode/resources/',
   ),
   AndroidReverseToolchainProbe(
     id: 'readelf',
@@ -115,6 +138,9 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
     installHintZh: '安装 binutils / LLVM / Android NDK，用于 so 符号与段信息分析。',
     installHintEn:
         'Install binutils, LLVM, or Android NDK for native symbol analysis.',
+    installCommand: 'brew install binutils llvm',
+    updateCommand: 'brew upgrade binutils llvm',
+    uninstallCommand: 'brew uninstall binutils llvm',
   ),
   AndroidReverseToolchainProbe(
     id: 'apktool',
@@ -124,6 +150,10 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
         r'[ -x "$p" ] && { echo "$p"; apktool --version 2>/dev/null | head -1; }',
     installHintZh: '可通过 Homebrew 安装：brew install apktool。',
     installHintEn: 'Install with Homebrew: brew install apktool.',
+    installCommand: 'brew install apktool',
+    updateCommand: 'brew upgrade apktool',
+    uninstallCommand: 'brew uninstall apktool',
+    referenceUrl: 'https://apktool.org/',
   ),
   AndroidReverseToolchainProbe(
     id: 'jadx',
@@ -133,6 +163,10 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
         r'[ -x "$p" ] && { echo "$p"; jadx --version 2>/dev/null | head -1; }',
     installHintZh: '可通过 Homebrew 安装：brew install jadx。',
     installHintEn: 'Install with Homebrew: brew install jadx.',
+    installCommand: 'brew install jadx',
+    updateCommand: 'brew upgrade jadx',
+    uninstallCommand: 'brew uninstall jadx',
+    referenceUrl: 'https://github.com/skylot/jadx',
   ),
   AndroidReverseToolchainProbe(
     id: 'frida',
@@ -143,6 +177,10 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
     installHintZh: '安装 frida-tools，并按设备架构准备 frida-server。',
     installHintEn:
         'Install frida-tools and prepare frida-server for the device ABI.',
+    installCommand: 'python3 -m pip install -U frida-tools',
+    updateCommand: 'python3 -m pip install -U frida-tools',
+    uninstallCommand: 'python3 -m pip uninstall frida-tools',
+    referenceUrl: 'https://frida.re/docs/installation/',
   ),
   AndroidReverseToolchainProbe(
     id: 'mitmproxy',
@@ -152,6 +190,10 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
         r'[ -x "$p" ] && { echo "$p"; "$p" --version 2>/dev/null | head -1; }',
     installHintZh: '可通过 Homebrew 安装：brew install mitmproxy。',
     installHintEn: 'Install with Homebrew: brew install mitmproxy.',
+    installCommand: 'brew install mitmproxy',
+    updateCommand: 'brew upgrade mitmproxy',
+    uninstallCommand: 'brew uninstall mitmproxy',
+    referenceUrl: 'https://docs.mitmproxy.org/',
   ),
   AndroidReverseToolchainProbe(
     id: 'radare2',
@@ -161,6 +203,10 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
         r'[ -x "$p" ] && { echo "$p"; "$p" -v 2>/dev/null | head -1; }',
     installHintZh: '可通过 Homebrew 安装：brew install radare2。',
     installHintEn: 'Install with Homebrew: brew install radare2.',
+    installCommand: 'brew install radare2',
+    updateCommand: 'brew upgrade radare2',
+    uninstallCommand: 'brew uninstall radare2',
+    referenceUrl: 'https://rada.re/n/',
   ),
   AndroidReverseToolchainProbe(
     id: 'blutter',
@@ -169,6 +215,7 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
     installHintZh: '按 blutter 项目说明安装，并把可执行文件加入 PATH。',
     installHintEn:
         'Install blutter from its project instructions and add it to PATH.',
+    referenceUrl: 'https://github.com/worawit/blutter',
   ),
   AndroidReverseToolchainProbe(
     id: 'doldrums',
@@ -178,6 +225,16 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
     installHintZh: '按 Doldrums 项目说明安装，并把可执行文件加入 PATH。',
     installHintEn:
         'Install Doldrums from its project instructions and add it to PATH.',
+    referenceUrl: 'https://github.com/rscloura/Doldrums',
+  ),
+  AndroidReverseToolchainProbe(
+    id: 'anything_analyzer',
+    label: 'anything-analyzer',
+    script:
+        r'p="$(command -v anything-analyzer || true)"; [ -x "$p" ] && { echo "$p"; "$p" --version 2>/dev/null | head -1 || true; }',
+    installHintZh: '按 anything-analyzer MCP / CLI 说明安装，并在 MCP 面板启用对应 server。',
+    installHintEn:
+        'Install from the anything-analyzer MCP / CLI instructions and enable the server in the MCP panel.',
   ),
 ];
 

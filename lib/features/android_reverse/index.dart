@@ -4,3 +4,5 @@ export 'android_reverse_dashboard_dialog.dart';
 export 'android_reverse_session_config.dart';
 export 'android_reverse_session_controller.dart';
 export 'android_reverse_setup_dialog.dart';
+export 'android_reverse_toolchain_diagnostics.dart'
+    show androidReverseToolchainProbes;
