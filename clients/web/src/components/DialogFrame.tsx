@@ -144,6 +144,131 @@ export function dialogClassNames(...values: Array<string | undefined | false>): 
     .join(' ');
 }
 
+export function DialogCloseIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+export interface DialogCloseButtonProps {
+  onClick: () => void;
+  label?: string;
+  disabled?: boolean;
+  className?: string;
+  style?: JSX.CSSProperties;
+  iconSize?: number;
+}
+
+export function DialogCloseButton({
+  onClick,
+  label = 'close',
+  disabled = false,
+  className,
+  style,
+  iconSize = 16,
+}: DialogCloseButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      class={dialogClassNames(
+        className ??
+          'oh-tap-press inline-flex h-8 w-8 items-center justify-center rounded-m3-sm',
+        disabled && 'opacity-60',
+      )}
+      style={style ?? { color: 'var(--m3-on-surface-variant)' }}
+      aria-label={label}
+    >
+      <DialogCloseIcon size={iconSize} />
+    </button>
+  );
+}
+
+export interface DialogHeaderProps {
+  title: ComponentChildren;
+  subtitle?: ComponentChildren;
+  icon?: ComponentChildren;
+  actions?: ComponentChildren;
+  onClose?: () => void;
+  closeLabel?: string;
+  closeDisabled?: boolean;
+  className?: string;
+  titleClassName?: string;
+  subtitleClassName?: string;
+  closeClassName?: string;
+  closeStyle?: JSX.CSSProperties;
+  closeIconSize?: number;
+  borderColor?: string;
+}
+
+export function DialogHeader({
+  title,
+  subtitle,
+  icon,
+  actions,
+  onClose,
+  closeLabel,
+  closeDisabled = false,
+  className = 'px-6 py-4 flex items-center justify-between gap-4',
+  titleClassName = 'text-base font-semibold',
+  subtitleClassName = 'text-xs mt-1 truncate',
+  closeClassName,
+  closeStyle,
+  closeIconSize,
+  borderColor = 'var(--m3-outline-variant)',
+}: DialogHeaderProps) {
+  return (
+    <header class={className} style={{ borderBottom: `1px solid ${borderColor}` }}>
+      <div class="flex items-center gap-3 min-w-0">
+        {icon ? <div class="shrink-0">{icon}</div> : null}
+        <div class="min-w-0">
+          <h2
+            class={titleClassName}
+            style={{ color: 'var(--m3-on-surface)' }}
+          >
+            {title}
+          </h2>
+          {subtitle ? (
+            <p
+              class={subtitleClassName}
+              style={{ color: 'var(--m3-on-surface-variant)' }}
+            >
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        {actions}
+        {onClose ? (
+          <DialogCloseButton
+            onClick={onClose}
+            label={closeLabel}
+            disabled={closeDisabled}
+            className={closeClassName}
+            style={closeStyle}
+            iconSize={closeIconSize}
+          />
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
 function dialogPanelStyle(
   style: JSX.CSSProperties | undefined,
   closing: boolean,

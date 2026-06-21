@@ -1,12 +1,19 @@
-/** @jsxImportSource preact */
-// Web 端 Web 逆向调试面板（只读摘要版）。
-
 import { useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import type { DashboardTone } from './ReverseDashboardPrimitives';
+import {
+  DashboardHeaderIcon,
+  DashboardInfoRow,
+  DashboardMetric,
+  DashboardReadonlyHint,
+  DashboardStatusPanel,
+  DashboardTabPill,
+} from './ReverseDashboardPrimitives';
 import {
   DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
+  DialogHeader,
   createDialogOverlayStyle,
   createDialogPanelSurfaceStyle,
 } from './DialogFrame';
@@ -32,7 +39,6 @@ interface WebReverseConfig {
 }
 
 type WebReverseTab = 'browser' | 'overview';
-type RuntimeTone = 'ok' | 'warn' | 'muted';
 
 interface WebReverseRuntimeSummary {
   browserState: string;
@@ -47,7 +53,7 @@ interface WebReverseRuntimeSummary {
   currentToolNames: string[];
   deferredToolNames: string[];
   warning: string;
-  tone: RuntimeTone;
+  tone: DashboardTone;
 }
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
@@ -203,49 +209,33 @@ export function WebReverseDashboardDialog({
       })}
       ariaLabel={t('webReverse.dashboard.title', 'Web 逆向调试面板')}
     >
-      <header
-          class="px-6 py-4 flex items-center justify-between border-b"
-          style={{ borderColor: 'var(--m3-outline-variant)' }}
-        >
-          <div class="flex items-center gap-3">
-            <div
-              class="w-10 h-10 rounded-m3-sm flex items-center justify-center"
-              style={{
-                background: 'var(--m3-primary-container)',
-                color: 'var(--m3-on-primary-container)',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="6" y="9" width="12" height="10" rx="3" />
-                <path d="M9 9V7a3 3 0 0 1 6 0v2" />
-              </svg>
-            </div>
-            <h2 class="text-base font-bold" style={{ color: 'var(--m3-on-surface)' }}>
-              {t('webReverse.dashboard.title', 'Web 逆向调试面板')}
-            </h2>
-          </div>
-          <button
-            type="button"
-            class="oh-pill-button"
-            onClick={requestClose}
-            aria-label={t('common.close', '关闭')}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M18 6 6 18M6 6l12 12" />
+      <DialogHeader
+        title={t('webReverse.dashboard.title', 'Web 逆向调试面板')}
+        titleClassName="text-base font-bold"
+        onClose={requestClose}
+        closeLabel={t('common.close', '关闭')}
+        closeClassName="oh-pill-button"
+        closeIconSize={14}
+        icon={
+          <DashboardHeaderIcon>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="6" y="9" width="12" height="10" rx="3" />
+              <path d="M9 9V7a3 3 0 0 1 6 0v2" />
             </svg>
-          </button>
-        </header>
+          </DashboardHeaderIcon>
+        }
+      />
 
         <div
           class="px-6 pt-4 flex gap-2 border-b"
           style={{ borderColor: 'var(--m3-outline-variant)' }}
         >
-          <TabPill
+          <DashboardTabPill
             label={t('webReverse.tab.browser', 'CDP 状态')}
             active={tab === 'browser'}
             onClick={() => setTab('browser')}
           />
-          <TabPill
+          <DashboardTabPill
             label={t('webReverse.tab.overview', '任务配置')}
             active={tab === 'overview'}
             onClick={() => setTab('overview')}
@@ -263,118 +253,31 @@ export function WebReverseDashboardDialog({
   );
 }
 
-function TabPill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      class="px-3 py-1.5 rounded-full text-sm font-semibold transition-colors"
-      onClick={onClick}
-      style={{
-        background: active
-          ? 'var(--m3-primary-container)'
-          : 'transparent',
-        color: active
-          ? 'var(--m3-on-primary-container)'
-          : 'var(--m3-on-surface-variant)',
-        border: active
-          ? '1px solid var(--m3-primary)'
-          : '1px solid var(--m3-outline-variant)',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
 function BrowserTab({ metadata }: { metadata: Record<string, unknown> }) {
   const summary = runtimeSummaryFromMetadata(metadata);
 
   return (
     <div class="space-y-4">
-      <StatusPanel summary={summary} />
+      <DashboardStatusPanel
+        tone={summary.tone}
+        label={summary.browserState}
+        detail={summary.bridgeState}
+        warning={summary.warning}
+      />
       <div class="grid gap-3 sm:grid-cols-3">
-        <RuntimeMetric label={t('webReverse.runtime.port', 'CDP 端口')} value={summary.port} />
-        <RuntimeMetric label={t('webReverse.runtime.tools', 'CDP 工具')} value={summary.toolCount} />
-        <RuntimeMetric label={t('webReverse.runtime.route', '调用路径')} value={summary.route} />
+        <DashboardMetric label={t('webReverse.runtime.port', 'CDP 端口')} value={summary.port} />
+        <DashboardMetric label={t('webReverse.runtime.tools', 'CDP 工具')} value={summary.toolCount} />
+        <DashboardMetric label={t('webReverse.runtime.route', '调用路径')} value={summary.route} />
       </div>
       <NextActionPanel summary={summary} />
       <ArtifactPanel summary={summary} />
-      <div
-        class="rounded-m3-sm border px-4 py-3 text-sm leading-relaxed"
-        style={{
-          borderColor: 'var(--m3-outline-variant)',
-          background: 'var(--m3-surface-container-high)',
-          color: 'var(--m3-on-surface-variant)',
-        }}
-      >
+      <DashboardReadonlyHint>
         {t(
           'webReverse.browser.webReadonly',
           'Web 端仅展示只读摘要。目标源取证必须走桌面端 CDP 面板、CDP MCP、本地 jsonl 或 HAR，不使用 WebFetch/WebSearch/Bash/curl 直接抓目标源。',
         )}
-      </div>
+      </DashboardReadonlyHint>
     </div>
-  );
-}
-
-function StatusPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
-  const toneStyle =
-    summary.tone === 'ok'
-      ? {
-          background: 'color-mix(in srgb, var(--m3-primary) 12%, transparent)',
-          color: 'var(--m3-primary)',
-          borderColor: 'color-mix(in srgb, var(--m3-primary) 34%, transparent)',
-        }
-      : summary.tone === 'warn'
-        ? {
-            background: 'color-mix(in srgb, var(--m3-error) 12%, transparent)',
-            color: 'var(--m3-error)',
-            borderColor: 'color-mix(in srgb, var(--m3-error) 34%, transparent)',
-          }
-        : {
-            background: 'var(--m3-surface-container-high)',
-            color: 'var(--m3-on-surface-variant)',
-            borderColor: 'var(--m3-outline-variant)',
-          };
-
-  return (
-    <section
-      class="rounded-m3-sm border px-4 py-4"
-      style={{
-        background: 'var(--m3-surface-container-low)',
-        borderColor: 'var(--m3-outline-variant)',
-      }}
-    >
-      <div class="flex flex-wrap items-center gap-2">
-        <span
-          class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold"
-          style={toneStyle}
-        >
-          {summary.browserState}
-        </span>
-        <span
-          class="text-sm"
-          style={{ color: 'var(--m3-on-surface-variant)' }}
-        >
-          {summary.bridgeState}
-        </span>
-      </div>
-      {summary.warning ? (
-        <div
-          class="mt-3 text-xs leading-relaxed"
-          style={{ color: 'var(--m3-error)' }}
-        >
-          {summary.warning}
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -430,30 +333,11 @@ function ArtifactPanel({ summary }: { summary: WebReverseRuntimeSummary }) {
         {t('webReverse.runtime.artifacts', '本地工件')}
       </div>
       <div class="mt-2 space-y-1.5">
-        <Row label={t('webReverse.runtime.artifactRoot', '目录')} value={summary.artifactRoot} mono />
-        <Row label="network.jsonl" value={summary.networkJsonl} mono />
-        <Row label="console.jsonl" value={summary.consoleJsonl} mono />
+        <DashboardInfoRow label={t('webReverse.runtime.artifactRoot', '目录')} value={summary.artifactRoot} mono />
+        <DashboardInfoRow label="network.jsonl" value={summary.networkJsonl} mono />
+        <DashboardInfoRow label="console.jsonl" value={summary.consoleJsonl} mono />
       </div>
     </section>
-  );
-}
-
-function RuntimeMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      class="rounded-m3-sm border px-3 py-3"
-      style={{
-        borderColor: 'var(--m3-outline-variant)',
-        background: 'var(--m3-surface-container-high)',
-      }}
-    >
-      <div class="text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
-        {label}
-      </div>
-      <div class="mt-1 text-sm font-bold break-all" style={{ color: 'var(--m3-on-surface)' }}>
-        {value}
-      </div>
-    </div>
   );
 }
 
@@ -468,20 +352,20 @@ function OverviewTab({ config }: { config: WebReverseConfig | null }) {
       </p>
       {config ? (
         <div class="space-y-2 text-sm" style={{ color: 'var(--m3-on-surface)' }}>
-          <Row label={t('webReverse.config.targetUrl', '目标 URL')} value={config.target_url ?? '-'} mono />
-          <Row label={t('webReverse.config.objective', '逆向目标')} value={config.objective ?? '-'} />
-          <Row label={t('webReverse.config.browser', '浏览器')} value={config.browser_kind ?? '-'} />
-          <Row label={t('webReverse.config.cdpPort', 'CDP 端口')} value={String(config.cdp_port ?? '-')} mono />
-          <Row label={t('webReverse.config.loginMode', '登录态')} value={config.login_mode ?? '-'} />
-          {config.proxy ? <Row label={t('webReverse.config.proxy', '代理')} value={config.proxy} mono /> : null}
+          <DashboardInfoRow label={t('webReverse.config.targetUrl', '目标 URL')} value={config.target_url ?? '-'} mono />
+          <DashboardInfoRow label={t('webReverse.config.objective', '逆向目标')} value={config.objective ?? '-'} />
+          <DashboardInfoRow label={t('webReverse.config.browser', '浏览器')} value={config.browser_kind ?? '-'} />
+          <DashboardInfoRow label={t('webReverse.config.cdpPort', 'CDP 端口')} value={String(config.cdp_port ?? '-')} mono />
+          <DashboardInfoRow label={t('webReverse.config.loginMode', '登录态')} value={config.login_mode ?? '-'} />
+          {config.proxy ? <DashboardInfoRow label={t('webReverse.config.proxy', '代理')} value={config.proxy} mono /> : null}
           {config.keywords && config.keywords.length > 0
-            ? <Row label={t('webReverse.config.keywords', '关键字')} value={config.keywords.join(', ')} />
+            ? <DashboardInfoRow label={t('webReverse.config.keywords', '关键字')} value={config.keywords.join(', ')} />
             : null}
           {config.trigger_actions
-            ? <Row label={t('webReverse.config.triggerActions', '触发动作')} value={config.trigger_actions} />
+            ? <DashboardInfoRow label={t('webReverse.config.triggerActions', '触发动作')} value={config.trigger_actions} />
             : null}
-          {config.har_path ? <Row label="HAR" value={config.har_path} mono /> : null}
-          {config.user_data_dir ? <Row label={t('webReverse.config.profile', 'Profile 目录')} value={config.user_data_dir} mono /> : null}
+          {config.har_path ? <DashboardInfoRow label="HAR" value={config.har_path} mono /> : null}
+          {config.user_data_dir ? <DashboardInfoRow label={t('webReverse.config.profile', 'Profile 目录')} value={config.user_data_dir} mono /> : null}
         </div>
       ) : (
         <div
@@ -496,24 +380,5 @@ function OverviewTab({ config }: { config: WebReverseConfig | null }) {
         </div>
       )}
     </>
-  );
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div class="flex items-start gap-3">
-      <div
-        class="text-xs uppercase tracking-wide pt-0.5 shrink-0 w-24"
-        style={{ color: 'var(--m3-on-surface-variant)' }}
-      >
-        {label}
-      </div>
-      <div
-        class={`text-sm break-all ${mono ? 'font-mono' : ''}`}
-        style={{ color: 'var(--m3-on-surface)' }}
-      >
-        {value}
-      </div>
-    </div>
   );
 }

@@ -1,8 +1,4 @@
-/** @jsxImportSource preact */
-// Web 端 Android 逆向调试面板（只读摘要版）。
-
 import { useMemo, useState } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
@@ -18,9 +14,21 @@ import {
   DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
+  DialogHeader,
   createDialogOverlayStyle,
   createDialogPanelSurfaceStyle,
 } from './DialogFrame';
+import type { DashboardTone } from './ReverseDashboardPrimitives';
+import {
+  DashboardChipList,
+  DashboardHeaderIcon,
+  DashboardInfoRow,
+  DashboardMetric,
+  DashboardReadonlyHint,
+  DashboardSection,
+  DashboardStatusPanel,
+  DashboardTabPill,
+} from './ReverseDashboardPrimitives';
 
 export interface AndroidReverseDashboardDialogProps {
   session: SessionSummary;
@@ -28,11 +36,10 @@ export interface AndroidReverseDashboardDialogProps {
 }
 
 type AndroidReverseTab = 'status' | 'artifacts' | 'mcp' | 'config';
-type RuntimeTone = 'ok' | 'warn' | 'muted';
 
 interface AndroidReverseSummary {
   stateLabel: string;
-  tone: RuntimeTone;
+  tone: DashboardTone;
   deviceLabel: string;
   visibleDeviceCount: number;
   processCount: number;
@@ -137,44 +144,29 @@ export function AndroidReverseDashboardDialog({
       panelStyle={createDialogPanelSurfaceStyle({ border: 'none' })}
       ariaLabel={t('androidReverse.dashboard.title', 'Android 逆向调试面板')}
     >
-      <header
-        class="px-6 py-4 flex items-center justify-between border-b"
-        style={{ borderColor: 'var(--m3-outline-variant)' }}
-      >
-        <div class="flex items-center gap-3 min-w-0">
-          <div
-            class="w-10 h-10 rounded-m3-sm flex items-center justify-center shrink-0"
-            style={{
-              background: 'var(--m3-primary-container)',
-              color: 'var(--m3-on-primary-container)',
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <DialogHeader
+        title={t('androidReverse.dashboard.title', 'Android 逆向调试面板')}
+        subtitle={summary.deviceLabel}
+        titleClassName="text-base font-bold truncate"
+        onClose={requestClose}
+        closeLabel={t('common.close', '关闭')}
+        closeClassName="oh-pill-button"
+        closeIconSize={14}
+        icon={
+          <DashboardHeaderIcon>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M7 8h10v8a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3z" />
               <path d="M9 8 7.5 5.5M15 8l1.5-2.5M8 12h.01M16 12h.01" />
             </svg>
-          </div>
-          <div class="min-w-0">
-            <h2 class="text-base font-bold truncate" style={{ color: 'var(--m3-on-surface)' }}>
-              {t('androidReverse.dashboard.title', 'Android 逆向调试面板')}
-            </h2>
-            <p class="text-xs mt-1 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
-              {summary.deviceLabel}
-            </p>
-          </div>
-        </div>
-        <button type="button" class="oh-pill-button" onClick={requestClose} aria-label={t('common.close', '关闭')}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
-      </header>
+          </DashboardHeaderIcon>
+        }
+      />
 
       <div class="px-6 pt-4 flex flex-wrap gap-2 border-b" style={{ borderColor: 'var(--m3-outline-variant)' }}>
-        <TabPill label="运行态" active={tab === 'status'} onClick={() => setTab('status')} />
-        <TabPill label="本地工件" active={tab === 'artifacts'} onClick={() => setTab('artifacts')} />
-        <TabPill label="MCP/插件" active={tab === 'mcp'} onClick={() => setTab('mcp')} />
-        <TabPill label="任务配置" active={tab === 'config'} onClick={() => setTab('config')} />
+        <DashboardTabPill label="运行态" active={tab === 'status'} onClick={() => setTab('status')} />
+        <DashboardTabPill label="本地工件" active={tab === 'artifacts'} onClick={() => setTab('artifacts')} />
+        <DashboardTabPill label="MCP/插件" active={tab === 'mcp'} onClick={() => setTab('mcp')} />
+        <DashboardTabPill label="任务配置" active={tab === 'config'} onClick={() => setTab('config')} />
       </div>
 
       <div class="px-6 py-5 space-y-4 max-h-[70vh] overflow-auto">
@@ -192,27 +184,34 @@ function StatusTab({ summary, metadata }: { summary: AndroidReverseSummary; meta
   const devices = arrayFromUnknown(runtime['visible_devices']);
   return (
     <div class="space-y-4">
-      <StatusPanel summary={summary} />
+      <DashboardStatusPanel
+        tone={summary.tone}
+        label={summary.stateLabel}
+        detail={summary.deviceLabel}
+        warning={summary.warning}
+      />
       <div class="grid gap-3 sm:grid-cols-4">
-        <RuntimeMetric label="设备" value={String(summary.visibleDeviceCount)} />
-        <RuntimeMetric label="进程" value={summary.processCount > 0 ? String(summary.processCount) : '-'} />
-        <RuntimeMetric label="面板" value={summary.tabCount > 0 ? String(summary.tabCount) : '-'} />
-        <RuntimeMetric label="动作" value={summary.actionCount > 0 ? String(summary.actionCount) : '-'} />
+        <DashboardMetric label="设备" value={String(summary.visibleDeviceCount)} />
+        <DashboardMetric label="进程" value={summary.processCount > 0 ? String(summary.processCount) : '-'} />
+        <DashboardMetric label="面板" value={summary.tabCount > 0 ? String(summary.tabCount) : '-'} />
+        <DashboardMetric label="动作" value={summary.actionCount > 0 ? String(summary.actionCount) : '-'} />
       </div>
       {devices.length > 0 ? (
-        <Section title="可见设备">
+        <DashboardSection title="可见设备">
           <div class="space-y-2">
             {devices.slice(0, 8).map((item, index) => {
               const device = recordFromUnknown(item);
               const serial = stringFromUnknown(device['serial']) || `device-${index + 1}`;
               const state = stringFromUnknown(device['state']) || '-';
               const model = stringFromUnknown(device['model']);
-              return <Row key={`${serial}-${index}`} label={serial} value={[state, model].filter(Boolean).join(' · ')} mono />;
+              return <DashboardInfoRow key={`${serial}-${index}`} label={serial} value={[state, model].filter(Boolean).join(' · ')} mono />;
             })}
           </div>
-        </Section>
+        </DashboardSection>
       ) : null}
-      <ReadonlyHint />
+      <DashboardReadonlyHint>
+        Web 端仅展示只读摘要。设备管理、ADB Shell、Frida 注入、抓包、证书安装和 APK 签名操作请在桌面端 Android 逆向调试面板执行。
+      </DashboardReadonlyHint>
     </div>
   );
 }
@@ -222,17 +221,17 @@ function ArtifactsTab({ metadata, summary }: { metadata: Record<string, unknown>
   const localArtifacts = recordFromUnknown(runtime['local_artifacts']);
   return (
     <div class="space-y-4">
-      <Section title="工件索引">
+      <DashboardSection title="工件索引">
         <div class="space-y-2">
           {artifactRows.map(([key, label]) => (
-            <Row key={key} label={label} value={stringFromUnknown(localArtifacts[key]) || '-'} mono />
+            <DashboardInfoRow key={key} label={label} value={stringFromUnknown(localArtifacts[key]) || '-'} mono />
           ))}
-          <Row label="quick_scan" value={summary.quickScanDir} mono />
+          <DashboardInfoRow label="quick_scan" value={summary.quickScanDir} mono />
         </div>
-      </Section>
-      <Section title="建议读取">
-        <ChipList values={stringListFromUnknown(runtime['local_read_hints']).slice(0, 12)} mono />
-      </Section>
+      </DashboardSection>
+      <DashboardSection title="建议读取">
+        <DashboardChipList values={stringListFromUnknown(runtime['local_read_hints']).slice(0, 12)} mono />
+      </DashboardSection>
     </div>
   );
 }
@@ -247,15 +246,15 @@ function McpTab({ metadata, summary }: { metadata: Record<string, unknown>; summ
   return (
     <div class="space-y-4">
       <div class="grid gap-3 sm:grid-cols-3">
-        <RuntimeMetric label="相关 MCP" value={String(summary.relatedServerCount)} />
-        <RuntimeMetric label="相关工具" value={String(summary.relatedToolCount)} />
-        <RuntimeMetric label="运行时插件" value={`${summary.pluginInstalledCount}/${summary.pluginTotalCount || '-'}`} />
+        <DashboardMetric label="相关 MCP" value={String(summary.relatedServerCount)} />
+        <DashboardMetric label="相关工具" value={String(summary.relatedToolCount)} />
+        <DashboardMetric label="运行时插件" value={`${summary.pluginInstalledCount}/${summary.pluginTotalCount || '-'}`} />
       </div>
-      <Section title="ToolSearch 建议">
-        <Row label="query" value={summary.toolSearchQuery} mono />
-      </Section>
+      <DashboardSection title="ToolSearch 建议">
+        <DashboardInfoRow label="query" value={summary.toolSearchQuery} mono />
+      </DashboardSection>
       {relatedServers.length > 0 ? (
-        <Section title="相关 Server">
+        <DashboardSection title="相关 Server">
           <div class="space-y-2">
             {relatedServers.slice(0, 8).map((item, index) => {
               const server = recordFromUnknown(item);
@@ -263,14 +262,14 @@ function McpTab({ metadata, summary }: { metadata: Record<string, unknown>; summ
               const health = stringFromUnknown(server['health_status']);
               const catalog = stringFromUnknown(server['tool_catalog_status']);
               const tools = integerFromUnknown(server['android_related_tool_count']);
-              return <Row key={`${name}-${index}`} label={name} value={`${health || '-'} · ${catalog || '-'} · Android tools ${tools}`} />;
+              return <DashboardInfoRow key={`${name}-${index}`} label={name} value={`${health || '-'} · ${catalog || '-'} · Android tools ${tools}`} />;
             })}
           </div>
-        </Section>
+        </DashboardSection>
       ) : null}
       {pluginRows.length > 0 ? (
-        <Section title="插件前置条件">
-          <ChipList
+        <DashboardSection title="插件前置条件">
+          <DashboardChipList
             values={pluginRows.map((item) => {
               const plugin = recordFromUnknown(item);
               const id = stringFromUnknown(plugin['id']) || 'plugin';
@@ -279,7 +278,7 @@ function McpTab({ metadata, summary }: { metadata: Record<string, unknown>; summ
               return `${id}: ${status}${actions.length > 0 ? ` · ${actions.join('/')}` : ''}`;
             })}
           />
-        </Section>
+        </DashboardSection>
       ) : null}
     </div>
   );
@@ -291,26 +290,28 @@ function ConfigTab({ metadata }: { metadata: Record<string, unknown> }) {
   return (
     <div class="space-y-4">
       {Object.keys(config).length === 0 ? (
-        <Section title="任务配置">
+        <DashboardSection title="任务配置">
           <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>该会话尚未写入 android_reverse_config。</p>
-        </Section>
+        </DashboardSection>
       ) : (
-        <Section title="任务配置">
+        <DashboardSection title="任务配置">
           <div class="space-y-2">
-            <Row label="目标" value={stringFromUnknown(config['objective']) || '-'} />
-            <Row label="包名" value={stringFromUnknown(config['package_name']) || '-'} mono />
-            <Row label="APK" value={stringFromUnknown(config['apk_path']) || '-'} mono />
-            <Row label="设备" value={stringFromUnknown(config['device_serial']) || '自动选择'} mono />
-            <Row label="分析模式" value={analysisModeLabel(stringFromUnknown(config['analysis_mode']))} />
-            <Row label="授权范围" value={stringFromUnknown(config['authorization_scope']) || '-'} />
-            <Row label="ADB MCP" value={booleanFromUnknown(config['adb_mcp_enabled']) ? '启用' : '关闭'} />
-            <Row label="Frida MCP" value={booleanFromUnknown(config['frida_mcp_enabled']) ? '启用' : '关闭'} />
-            {keywords.length > 0 ? <Row label="关键字" value={keywords.join(', ')} /> : null}
-            {stringFromUnknown(config['notes']) ? <Row label="备注" value={stringFromUnknown(config['notes'])} /> : null}
+            <DashboardInfoRow label="目标" value={stringFromUnknown(config['objective']) || '-'} />
+            <DashboardInfoRow label="包名" value={stringFromUnknown(config['package_name']) || '-'} mono />
+            <DashboardInfoRow label="APK" value={stringFromUnknown(config['apk_path']) || '-'} mono />
+            <DashboardInfoRow label="设备" value={stringFromUnknown(config['device_serial']) || '自动选择'} mono />
+            <DashboardInfoRow label="分析模式" value={analysisModeLabel(stringFromUnknown(config['analysis_mode']))} />
+            <DashboardInfoRow label="授权范围" value={stringFromUnknown(config['authorization_scope']) || '-'} />
+            <DashboardInfoRow label="ADB MCP" value={booleanFromUnknown(config['adb_mcp_enabled']) ? '启用' : '关闭'} />
+            <DashboardInfoRow label="Frida MCP" value={booleanFromUnknown(config['frida_mcp_enabled']) ? '启用' : '关闭'} />
+            {keywords.length > 0 ? <DashboardInfoRow label="关键字" value={keywords.join(', ')} /> : null}
+            {stringFromUnknown(config['notes']) ? <DashboardInfoRow label="备注" value={stringFromUnknown(config['notes'])} /> : null}
           </div>
-        </Section>
+        </DashboardSection>
       )}
-      <ReadonlyHint />
+      <DashboardReadonlyHint>
+        Web 端仅展示只读摘要。设备管理、ADB Shell、Frida 注入、抓包、证书安装和 APK 签名操作请在桌面端 Android 逆向调试面板执行。
+      </DashboardReadonlyHint>
     </div>
   );
 }
@@ -326,114 +327,4 @@ function analysisModeLabel(value: string): string {
     default:
       return value || '-';
   }
-}
-
-function StatusPanel({ summary }: { summary: AndroidReverseSummary }) {
-  const toneStyle =
-    summary.tone === 'ok'
-      ? {
-          background: 'color-mix(in srgb, var(--m3-primary) 12%, transparent)',
-          color: 'var(--m3-primary)',
-          borderColor: 'color-mix(in srgb, var(--m3-primary) 34%, transparent)',
-        }
-      : summary.tone === 'warn'
-        ? {
-            background: 'color-mix(in srgb, var(--m3-error) 12%, transparent)',
-            color: 'var(--m3-error)',
-            borderColor: 'color-mix(in srgb, var(--m3-error) 34%, transparent)',
-          }
-        : {
-            background: 'var(--m3-surface-container-high)',
-            color: 'var(--m3-on-surface-variant)',
-            borderColor: 'var(--m3-outline-variant)',
-          };
-
-  return (
-    <section class="rounded-m3-sm border px-4 py-4" style={{ background: 'var(--m3-surface-container-low)', borderColor: 'var(--m3-outline-variant)' }}>
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold" style={toneStyle}>
-          {summary.stateLabel}
-        </span>
-        <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
-          {summary.deviceLabel}
-        </span>
-      </div>
-      {summary.warning ? <div class="mt-3 text-xs leading-relaxed" style={{ color: 'var(--m3-error)' }}>{summary.warning}</div> : null}
-    </section>
-  );
-}
-
-function RuntimeMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div class="rounded-m3-sm border px-3 py-3" style={{ borderColor: 'var(--m3-outline-variant)', background: 'var(--m3-surface-container-high)' }}>
-      <div class="text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>{label}</div>
-      <div class="mt-1 text-sm font-bold break-all" style={{ color: 'var(--m3-on-surface)' }}>{value}</div>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: ComponentChildren }) {
-  return (
-    <section class="rounded-m3-sm border px-4 py-3" style={{ borderColor: 'var(--m3-outline-variant)', background: 'var(--m3-surface-container-low)' }}>
-      <div class="text-xs font-semibold mb-2.5" style={{ color: 'var(--m3-on-surface-variant)' }}>{title}</div>
-      {children}
-    </section>
-  );
-}
-
-function ChipList({ values, mono }: { values: string[]; mono?: boolean }) {
-  if (values.length === 0) {
-    return <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>暂无数据。</p>;
-  }
-  return (
-    <div class="flex flex-wrap gap-1.5">
-      {values.map((value, index) => (
-        <span
-          key={`${value}-${index}`}
-          class={`rounded-full px-2 py-1 text-[11px] ${mono ? 'font-mono' : 'font-semibold'}`}
-          style={{ background: 'var(--m3-surface-container-high)', color: 'var(--m3-on-surface-variant)' }}
-        >
-          {value}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function ReadonlyHint() {
-  return (
-    <div class="rounded-m3-sm border px-4 py-3 text-sm leading-relaxed" style={{ borderColor: 'var(--m3-outline-variant)', background: 'var(--m3-surface-container-high)', color: 'var(--m3-on-surface-variant)' }}>
-      Web 端仅展示只读摘要。设备管理、ADB Shell、Frida 注入、抓包、证书安装和 APK 签名操作请在桌面端 Android 逆向调试面板执行。
-    </div>
-  );
-}
-
-function TabPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      class="px-3 py-1.5 rounded-full text-sm font-semibold transition-colors"
-      onClick={onClick}
-      style={{
-        background: active ? 'var(--m3-primary-container)' : 'transparent',
-        color: active ? 'var(--m3-on-primary-container)' : 'var(--m3-on-surface-variant)',
-        border: active ? '1px solid var(--m3-primary)' : '1px solid var(--m3-outline-variant)',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div class="flex items-start gap-3">
-      <div class="text-xs uppercase tracking-wide pt-0.5 shrink-0 w-24" style={{ color: 'var(--m3-on-surface-variant)' }}>
-        {label}
-      </div>
-      <div class={`text-sm break-all ${mono ? 'font-mono' : ''}`} style={{ color: 'var(--m3-on-surface)' }}>
-        {value}
-      </div>
-    </div>
-  );
 }

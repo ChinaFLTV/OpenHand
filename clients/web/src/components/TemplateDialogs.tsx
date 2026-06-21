@@ -1,14 +1,3 @@
-// 会话模板选择 / 配置弹窗组合，对齐 OpenHand APP 端"先选模板 → 再填参数 → 创建"流程。
-//
-// 设计要点：
-// - TemplatePickerDialog：grid 渲染所有 meta.templates；点击某项后回调 `onPick(template)`，
-//   不内嵌后续 step，便于上层根据 template.id 决定走 ConfigDialog 还是直接创建。
-// - TemplateConfigDialog：通用表单（标题 + mode + 模型）。机器专家/编程专家/Hardness 等
-//   带额外参数的模板，受限于服务端契约只接受 {template_id, mode, title?}，先走"通用表单"
-//   保持与服务端契约一致；后续服务端开放 extra_params 时再分模板渲染专属表单。
-//
-// 两个弹窗都使用 portal 全屏遮罩 + 中央卡片 + ESC 关闭 + 点击遮罩关闭。
-
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel, ApiMetaTemplate } from '../api/meta';
@@ -22,6 +11,7 @@ import {
   DIALOG_OVERLAY_LOW_Z_INDEX,
   DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
+  DialogHeader,
   createDialogOverlayStyle,
   createDialogPanelSurfaceStyle,
 } from './DialogFrame';
@@ -31,25 +21,6 @@ interface DialogShellProps {
   onClose: () => void;
   children: ComponentChildren;
   maxWidth?: number;
-}
-
-function DialogCloseIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M7 7l10 10M17 7 7 17" />
-    </svg>
-  );
 }
 
 function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellProps) {
@@ -72,23 +43,13 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
         maxHeight: '88vh',
       })}
     >
-      <header
-          class="px-6 py-4 flex items-center justify-between gap-4"
-          style={{ borderBottom: '1px solid var(--m3-outline)' }}
-        >
-          <h2 class="text-lg font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={requestClose}
-            class="oh-tap-press inline-flex h-8 w-8 items-center justify-center rounded-m3-sm"
-            style={{ color: 'var(--m3-on-surface-variant)' }}
-            aria-label="close"
-          >
-            <DialogCloseIcon />
-          </button>
-        </header>
+      <DialogHeader
+        title={title}
+        onClose={requestClose}
+        closeLabel={t('common.close', '关闭')}
+        titleClassName="text-lg font-semibold"
+        borderColor="var(--m3-outline)"
+      />
       <div class="px-6 py-5 overflow-auto" style={{ flex: 1 }}>
         {children}
       </div>
@@ -205,7 +166,6 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
   const titleRef = useRef<HTMLInputElement | null>(null);
   const selectedModel = models.find((model) => model.key === modelKey);
 
-  // 自动 focus 到标题输入框，键盘流畅创建。
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
