@@ -1151,7 +1151,11 @@ run_adb() {
 }
 
 case "$1" in
-  devices|connect|disconnect|forward|install|uninstall|push|pull|logcat)
+  devices|connect|disconnect)
+    run_with_timeout "$ADB_BIN" "$@"
+    status=$?
+    ;;
+  forward|install|uninstall|push|pull|logcat)
     run_adb "$@"
     status=$?
     ;;
