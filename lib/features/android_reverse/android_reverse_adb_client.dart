@@ -386,14 +386,23 @@ class AndroidReverseAdbClient {
   }
 
   Future<bool> startActivity(String packageName, {String? activity}) async {
-    final String cmd;
-    if (activity != null) {
-      cmd = 'am start -n $packageName/$activity';
-    } else {
-      cmd = 'monkey -p $packageName -c android.intent.category.LAUNCHER 1';
+    if (!_looksLikePackageName(packageName)) return false;
+    final activityValue = activity?.trim();
+    if (activityValue == null || activityValue.isEmpty) {
+      final result = await startPackageDetailed(packageName);
+      return result.ok || result.partialOk;
     }
-    final result = await shell(cmd);
-    return result != null;
+    final component = activityValue.contains('/')
+        ? activityValue
+        : '$packageName/$activityValue';
+    if (!_looksLikeActivityComponent(component)) return false;
+    final result = _normalizeLaunchResult(
+      await shellDetailed(
+        'am start -W -n $component',
+        timeout: const Duration(seconds: 12),
+      ),
+    );
+    return result.ok || result.partialOk;
   }
 
   Future<AdbCommandResult> startPackageDetailed(String packageName) async {
@@ -840,6 +849,14 @@ class AndroidReverseAdbClient {
     return RegExp(
       r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
     ).hasMatch(packageName);
+  }
+
+  bool _looksLikeActivityComponent(String value) {
+    final component = value.trim();
+    if (component.length > 320) return false;
+    return RegExp(
+      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+/(\.[A-Za-z0-9_.$]+|[A-Za-z][A-Za-z0-9_.$]*)$',
+    ).hasMatch(component);
   }
 
   String? _launcherActivityFromResolveOutput(String raw, String packageName) {
