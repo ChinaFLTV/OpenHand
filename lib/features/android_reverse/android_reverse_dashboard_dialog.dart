@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
 import '../ai/index.dart';
 import '../mcp/index.dart';
@@ -19,8 +20,10 @@ import 'android_reverse_toolchain_diagnostics.dart';
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const double _kAdbInlineControlHeight = 44;
+const double _kShellOutputMaxHeight = 220;
 const double _kIconButtonGap = 8;
 const int _kDefaultLogcatLines = 300;
+const int _kShellHistoryLimit = 6;
 const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
 const int _kMcpRuntimeToolNameLimit = 64;
@@ -303,6 +306,7 @@ class _AndroidReverseDashboardDialogState
   _Tab _currentTab = _Tab.devices;
   late final AndroidReverseSessionController _ctrl;
   final _logcatLines = <String>[];
+  final _shellHistory = <String>[];
   Timer? _logcatTimer;
   final TextEditingController _shellCtrl = TextEditingController();
   final TextEditingController _shellOutputCtrl = TextEditingController();
@@ -663,6 +667,14 @@ class _AndroidReverseDashboardDialogState
             .where((line) => line.isNotEmpty)
             .toList(growable: false);
         _deviceSnapshotOutput = _formatDeviceSnapshot(snapshot, isZh);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final isZh = openHandIsChineseLocale(context);
+      setState(() {
+        _deviceSnapshotOutput = isZh
+            ? '刷新设备详情失败：$error'
+            : 'Failed to refresh device details: $error';
       });
     } finally {
       if (mounted) setState(() => _loadingDeviceDetails = false);
@@ -1090,16 +1102,29 @@ class _AndroidReverseDashboardDialogState
   Future<void> _runShell() async {
     final rawCmd = _shellCtrl.text.trim();
     final cmd = _normalizeAdbShellInput(rawCmd);
-    if (cmd.isEmpty || _runningShell) return;
+    if (_runningShell) return;
     final isZh = openHandIsChineseLocale(context);
+    if (cmd.isEmpty) {
+      final message = isZh
+          ? '请输入要执行的 adb shell 命令。'
+          : 'Enter an adb shell command to run.';
+      setState(() => _shellOutputCtrl.text = message);
+      OpenHandSnackBar.showInfo(context, message);
+      return;
+    }
+    final serial = _targetSerial;
     setState(() {
       _runningShell = true;
-      _shellOutputCtrl.text = isZh ? '执行中：$cmd' : 'Running: $cmd';
+      _rememberShellCommand(cmd);
+      _shellOutputCtrl.text =
+          '${isZh ? "执行中" : "Running"}: $cmd\n'
+          '${isZh ? "目标设备" : "Target"}: ${_shellTargetLabel(serial, isZh)}\n'
+          '${isZh ? "超时" : "Timeout"}: ${_kInteractiveShellTimeout.inSeconds}s';
     });
     try {
       final result = await _ctrl.shellDetailed(
         cmd,
-        serial: _targetSerial,
+        serial: serial,
         timeout: _kInteractiveShellTimeout,
       );
       if (!mounted) return;
@@ -1116,6 +1141,24 @@ class _AndroidReverseDashboardDialogState
     } finally {
       if (mounted) setState(() => _runningShell = false);
     }
+  }
+
+  void _rememberShellCommand(String command) {
+    final normalized = command.trim();
+    if (normalized.isEmpty) return;
+    _shellHistory.removeWhere((entry) => entry == normalized);
+    _shellHistory.insert(0, normalized);
+    if (_shellHistory.length > _kShellHistoryLimit) {
+      _shellHistory.removeRange(_kShellHistoryLimit, _shellHistory.length);
+    }
+  }
+
+  String _shellTargetLabel(String? serial, bool isZh) {
+    final value = serial?.trim();
+    if (value == null || value.isEmpty) {
+      return isZh ? '默认设备' : 'default device';
+    }
+    return value;
   }
 
   String _formatAdbResult(AdbCommandResult result) {
@@ -1155,32 +1198,41 @@ class _AndroidReverseDashboardDialogState
     Future<AdbCommandResult> Function() action,
   ) async {
     if (_runningDeviceAction) return;
-    setState(() => _runningDeviceAction = true);
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningDeviceAction = true;
+      _lastDeviceActionOutput = isZh ? '执行中...' : 'Running...';
+    });
     try {
       final result = await action();
       if (!mounted) return;
-      setState(() => _lastDeviceActionOutput = _formatAdbResult(result));
-      await _doRefreshDevices();
-      await _refreshDeviceDetails();
+      setState(() {
+        _lastDeviceActionOutput = _formatAdbResult(result);
+        _runningDeviceAction = false;
+      });
+      unawaited(_refreshDeviceStateAfterAction());
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _lastDeviceActionOutput =
             '${openHandIsChineseLocale(context) ? "执行失败" : "Run failed"}: $error';
+        _runningDeviceAction = false;
       });
-    } finally {
-      if (mounted) setState(() => _runningDeviceAction = false);
     }
+  }
+
+  Future<void> _refreshDeviceStateAfterAction() async {
+    await _doRefreshDevices();
+    if (!mounted) return;
+    await _refreshDeviceDetails();
   }
 
   Future<void> _copyText(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(openHandIsChineseLocale(context) ? '已复制' : 'Copied'),
-          duration: const Duration(seconds: 2),
-        ),
+      OpenHandSnackBar.showSuccess(
+        context,
+        openHandIsChineseLocale(context) ? '已复制' : 'Copied',
       );
     }
   }
@@ -1542,31 +1594,128 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ],
               ),
+              if (_shellHistory.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildShellHistoryChips(cs, theme, isZh),
+              ],
               if (_shellOutputCtrl.text.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 100),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      _shellOutputCtrl.text,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
+                _buildShellOutputPanel(cs, theme, isZh),
               ],
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildShellHistoryChips(ColorScheme cs, ThemeData theme, bool isZh) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          isZh ? '最近' : 'Recent',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        for (final command in _shellHistory)
+          ActionChip(
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            label: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 220),
+              child: Text(
+                command,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              ),
+            ),
+            tooltip: command,
+            onPressed: () {
+              setState(() {
+                _shellCtrl.text = command;
+                _shellCtrl.selection = TextSelection.collapsed(
+                  offset: _shellCtrl.text.length,
+                );
+              });
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildShellOutputPanel(ColorScheme cs, ThemeData theme, bool isZh) {
+    final output = _shellOutputCtrl.text;
+    return Container(
+      constraints: const BoxConstraints(maxHeight: _kShellOutputMaxHeight),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          SizedBox(
+            height: 34,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 10, right: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      isZh ? 'ADB Shell 输出' : 'ADB Shell output',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '复制输出' : 'Copy output',
+                    icon: const Icon(Icons.copy_rounded, size: 15),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: output.trim().isEmpty
+                        ? null
+                        : () => _copyText(output),
+                  ),
+                  IconButton(
+                    tooltip: isZh ? '清空输出' : 'Clear output',
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _shellOutputCtrl.clear()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.7)),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(10),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SelectableText(
+                  output,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: cs.onSurface,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -5353,7 +5502,7 @@ class _AndroidReverseDashboardDialogState
     final value = raw.trim();
     if (value.isEmpty) return value;
     final adbShellPrefix = RegExp(
-      r"""^adb(?:\s+-s\s+(?:"[^"]+"|'[^']+'|\S+))?\s+shell\s+""",
+      r"""^adb(?:\s+(?:-s\s+(?:"[^"]+"|'[^']+'|\S+)|-d|-e|-a|-t\s+\S+|-H\s+\S+|-P\s+\S+))*\s+shell(?:\s+(?:-T|-t|-tt|-x|-n|--))*\s*""",
       caseSensitive: false,
     );
     final match = adbShellPrefix.firstMatch(value);
