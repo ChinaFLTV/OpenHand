@@ -45,6 +45,7 @@ class AiThreadTemplate {
       'code_rounded' => Icons.code_rounded,
       'travel_explore_rounded' => Icons.travel_explore_rounded,
       'assistant_rounded' => Icons.assistant_rounded,
+      'android_rounded' => Icons.android_rounded,
       _ => Icons.auto_awesome_rounded,
     };
   }

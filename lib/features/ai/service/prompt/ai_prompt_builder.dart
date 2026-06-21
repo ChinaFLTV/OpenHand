@@ -1412,6 +1412,7 @@ class AiPromptBuilder {
     }
     final isMachineExpert = templatePolicy.usesMachineToolCatalog;
     final isWebReverse = templatePolicy.usesWebReverseToolCatalog;
+    final isAndroidReverse = templatePolicy.usesAndroidReverseToolCatalog;
     final buffer = StringBuffer();
     if (compact) {
       buffer.writeln(
@@ -1445,6 +1446,16 @@ class AiPromptBuilder {
           'skill__* tools are auxiliary knowledge only. Do not use Playwright, Puppeteer, Selenium/WebDriver, Browserless, or other non-CDP browser automation for target-origin capture; if CDP cannot expose the needed state, explain the gap and use local artifacts or ask the user to restore CDP. '
           'Hook scripts MUST be loaded from `assets/prompts/web_reverse_expert/snippets/`; never hand-craft hook code.',
         );
+      } else if (isAndroidReverse) {
+        buffer.writeln(
+          'Capability invocation priority for the Android Reverse Expert template: '
+          'ADB MCP (or adb Bash) is the first-line device channel for shell, file transfer, logcat, and port forwarding. '
+          'Frida MCP (or frida CLI Bash) is the first-line dynamic instrumentation channel; spawn before attach where possible. '
+          'Static analysis (jadx / apktool / radare2 / IDA Pro MCP) precedes dynamic hooking — decompile before hooking unknown code. '
+          'Hook scripts MUST be loaded from `assets/prompts/android_reverse_expert/snippets/`; never hand-craft hook code. '
+          'Bash/Read/Write/Edit/Grep support local artifacts and reproduce scripts. '
+          'Stop and report after 2 consecutive Frida/ADB failures on the same target; never silently downgrade.',
+        );
       } else {
         buffer.writeln(
           'Choose tools by task fit, not by trial order. '
@@ -1464,6 +1475,8 @@ class AiPromptBuilder {
                     ? '## Skill Tools (auxiliary knowledge only — do NOT replace built-in terminal workflow)'
                     : isWebReverse
                     ? '## Skill Tools (auxiliary knowledge only — CDP remains source of truth)'
+                    : isAndroidReverse
+                    ? '## Skill Tools (auxiliary knowledge only — ADB/Frida remain source of truth)'
                     : '## Skill Tools (load only on clear match)'),
         );
       for (final tool in skillTools) {
@@ -1516,6 +1529,10 @@ class AiPromptBuilder {
         buffer.writeln(
           'For Web Reverse sessions, load and use CDP / Chrome DevTools / js-reverse MCP tools when present in the deferred list. Do not use non-CDP browser automation for target-origin capture; if live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restore CDP.',
         );
+      } else if (isAndroidReverse) {
+        buffer.writeln(
+          'For Android Reverse sessions, load and use ADB / Frida / IDA Pro MCP tools when present in the deferred list. Do not fabricate tool names or skip ADB device confirmation.',
+        );
       }
     }
     if (mcpTools.isNotEmpty) {
@@ -1526,6 +1543,8 @@ class AiPromptBuilder {
               ? '## MCP'
               : isWebReverse
               ? '## MCP Tools (CDP-first for Web Reverse)'
+              : isAndroidReverse
+              ? '## MCP Tools (ADB/Frida-first for Android Reverse)'
               : '## MCP Tools (medium priority)',
         );
       for (final tool in mcpTools) {
@@ -1539,6 +1558,8 @@ class AiPromptBuilder {
           compact
               ? '## Builtin'
               : isWebReverse
+              ? '## Builtin Tools (artifact/search/reproduce support)'
+              : isAndroidReverse
               ? '## Builtin Tools (artifact/search/reproduce support)'
               : '## Builtin Tools (baseline)',
         );

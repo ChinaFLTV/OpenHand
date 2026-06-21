@@ -98,6 +98,8 @@ class _SessionToolbar extends StatelessWidget {
                               const _HermesSelfLearningWarningPill(),
                             if (session.templateId == 'web_reverse_expert')
                               _WebReverseDebugPill(sessionId: session.id),
+                            if (session.templateId == 'android_reverse_expert')
+                              _AndroidReverseDebugPill(sessionId: session.id),
                             const SizedBox(width: 8),
                             _ToolbarPill(
                               icon: Icons.data_object_rounded,
@@ -4076,6 +4078,145 @@ class _ThroughputTooltip extends StatelessWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+// ── Android Reverse Debug Pill ────────────────────────────────────────────────
+
+class _AndroidReverseDebugPill extends StatefulWidget {
+  const _AndroidReverseDebugPill({required this.sessionId});
+  final String sessionId;
+
+  @override
+  State<_AndroidReverseDebugPill> createState() =>
+      _AndroidReverseDebugPillState();
+}
+
+class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
+  AndroidReverseSessionController? _controller;
+
+  void _attachIfNeeded() {
+    final state = context.findAncestorStateOfType<_OpenHandHomePageState>();
+    final ctrl = state?.androidReverseControllerFor(widget.sessionId);
+    if (identical(ctrl, _controller)) return;
+    _controller?.removeListener(_onChanged);
+    _controller = ctrl;
+    _controller?.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _onPillTap() async {
+    final state = context.findAncestorStateOfType<_OpenHandHomePageState>();
+    if (state == null) return;
+    final ctrl = state.androidReverseControllerFor(widget.sessionId);
+    if (ctrl != null) {
+      await showAndroidReverseDashboardDialog(
+        context,
+        controller: ctrl,
+        sessionId: widget.sessionId,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _attachIfNeeded();
+    final ctrl = _controller;
+    final isZh = openHandIsChineseLocale(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    final running = ctrl?.isRunning ?? false;
+    final deviceOnline = ctrl?.connectedDevice != null;
+    final dotColor = !running
+        ? cs.outline
+        : !deviceOnline
+        ? cs.error
+        : cs.primary;
+    final deviceLabel = ctrl?.connectedDevice?.model ??
+        ctrl?.connectedDevice?.serial ??
+        (running ? (isZh ? '无设备' : 'no device') : (isZh ? '点击连接' : 'click'));
+    final label = running
+        ? (isZh
+              ? (deviceOnline ? deviceLabel : '无设备')
+              : (deviceOnline ? deviceLabel : 'no device'))
+        : (isZh ? '点击打开' : 'open');
+    final tooltip = <String>[
+      isZh ? 'Android 逆向调试面板' : 'Android Reverse Debugger',
+      '${isZh ? "设备" : "Device"}: ${running ? (deviceOnline ? deviceLabel : (isZh ? "无设备" : "no device")) : (isZh ? "未运行" : "stopped")}',
+    ].join('\n');
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 350),
+        child: AnimatedContainer(
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: dotColor.withValues(alpha: 0.4)),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: _onPillTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 220),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.android_rounded,
+                      size: 12,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

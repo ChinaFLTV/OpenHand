@@ -93,6 +93,16 @@ class AiPromptTemplateRepository {
           AiPromptTemplatePolicies.webReverseExpertPromptAssetDirectory,
     ),
     AiThreadTemplate(
+      id: AiPromptTemplatePolicies.androidReverseExpertTemplateId,
+      name: 'Android 逆向专家',
+      iconName: 'android_rounded',
+      description:
+          '通过 ADB + Frida + jadx / apktool + mitmproxy 完成 Android APP 接口逆向、加密破解、Hook 脚本产出。Dashboard 提供设备管理、Logcat、网络抓包、证书注入等面板。仅用于授权安全研究与学习。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.androidReverseExpertPromptAssetDirectory,
+    ),
+    AiThreadTemplate(
       id: AiPromptTemplatePolicies.siriHelperTemplateId,
       name: 'Siri 助手',
       iconName: 'assistant_rounded',
@@ -357,10 +367,29 @@ $_fallbackNotice
 - Do not use Bash/WebFetch/WebSearch for target-origin capture. If live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restart the Web Reverse browser.
 ''';
 
+const String _androidReverseFallbackNotice =
+    '''
+$_fallbackNotice
+
+# Android Reverse fallback minimum
+
+- Run `adb devices` first to confirm a device is online before any shell / file / Frida operation.
+- Use exact ADB MCP / Frida MCP tool names from the runtime catalog. If absent but deferred, call ToolSearch first.
+- Static analysis (jadx / apktool / radare2) before dynamic hooking; hook scripts MUST be loaded from `assets/prompts/android_reverse_expert/snippets/`.
+- Do not fabricate class names, method signatures, or API paths. If the APK has not been decompiled, decompile it first.
+- Stop and report after 2 consecutive Frida / ADB failures on the same target.
+''';
+
 const String _webReverseSystemInstructions = _webReverseFallbackNotice;
 const String _webReverseDeveloperInstructions = _webReverseFallbackNotice;
 const String _webReverseCompressionSummaryInstructions =
     _webReverseFallbackNotice;
+
+const String _androidReverseSystemInstructions = _androidReverseFallbackNotice;
+const String _androidReverseDeveloperInstructions =
+    _androidReverseFallbackNotice;
+const String _androidReverseCompressionSummaryInstructions =
+    _androidReverseFallbackNotice;
 
 class _TemplatePromptFallback {
   const _TemplatePromptFallback({
@@ -415,6 +444,13 @@ class _TemplatePromptFallbacks {
       systemInstructions: _webReverseSystemInstructions,
       developerInstructions: _webReverseDeveloperInstructions,
       compressionSummaryInstructions: _webReverseCompressionSummaryInstructions,
+    ),
+    AiPromptTemplatePolicies
+        .androidReverseExpertTemplateId: _TemplatePromptFallback(
+      systemInstructions: _androidReverseSystemInstructions,
+      developerInstructions: _androidReverseDeveloperInstructions,
+      compressionSummaryInstructions:
+          _androidReverseCompressionSummaryInstructions,
     ),
     AiPromptTemplatePolicies.siriHelperTemplateId: _TemplatePromptFallback(
       systemInstructions: _siriHelperSystemInstructions,

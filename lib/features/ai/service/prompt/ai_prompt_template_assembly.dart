@@ -12,7 +12,7 @@ class AiPromptLoadedSection {
   final String content;
 }
 
-enum AiPromptToolCatalogProfile { generic, machineExpert, webReverse }
+enum AiPromptToolCatalogProfile { generic, machineExpert, webReverse, androidReverse }
 
 enum AiPromptCompressionPayloadStyle { standard, minimal }
 
@@ -45,6 +45,9 @@ class AiPromptTemplatePolicy {
 
   bool get usesWebReverseToolCatalog =>
       toolCatalogProfile == AiPromptToolCatalogProfile.webReverse;
+
+  bool get usesAndroidReverseToolCatalog =>
+      toolCatalogProfile == AiPromptToolCatalogProfile.androidReverse;
 }
 
 class AiPromptTemplatePolicies {
@@ -56,6 +59,7 @@ class AiPromptTemplatePolicies {
   static const String programmingExpertTemplateId = 'programming_expert';
   static const String hermesTalkerTemplateId = 'hermes_talker';
   static const String webReverseExpertTemplateId = 'web_reverse_expert';
+  static const String androidReverseExpertTemplateId = 'android_reverse_expert';
   static const String siriHelperTemplateId = 'siri_helper';
 
   static const String defaultPromptAssetDirectory = 'assets/prompts/default';
@@ -69,6 +73,8 @@ class AiPromptTemplatePolicies {
       'assets/prompts/hermes_talker';
   static const String webReverseExpertPromptAssetDirectory =
       'assets/prompts/web_reverse_expert';
+  static const String androidReverseExpertPromptAssetDirectory =
+      'assets/prompts/android_reverse_expert';
   static const String siriHelperPromptAssetDirectory =
       'assets/prompts/siri_helper';
 
@@ -129,6 +135,15 @@ class AiPromptTemplatePolicies {
       compressionIdentity:
           'You are OpenHand Web Reverse Expert. Produce a relay-safe browser-reverse checkpoint with target URL, identified API entry, injected hook scripts, and saved artifacts under web_reverse_runtime.local_artifacts.',
       includesWebReverseRuntime: true,
+    ),
+    androidReverseExpertTemplateId: AiPromptTemplatePolicy(
+      templateId: androidReverseExpertTemplateId,
+      promptAssetDirectory: androidReverseExpertPromptAssetDirectory,
+      toolCatalogProfile: AiPromptToolCatalogProfile.androidReverse,
+      sharedSections: _defaultPromptSharedSections,
+      extensionSections: <AiPromptSharedSectionSpec>[],
+      compressionIdentity:
+          'You are OpenHand Android Reverse Expert. Produce a relay-safe Android-reverse checkpoint with target package, identified API/method, Frida hook scripts, and saved artifacts under android_reverse_runtime.local_artifacts.',
     ),
     siriHelperTemplateId: AiPromptTemplatePolicy(
       templateId: siriHelperTemplateId,

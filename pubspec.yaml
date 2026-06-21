@@ -61,6 +61,8 @@ flutter:
     - assets/prompts/siri_helper/
     - assets/prompts/web_reverse_expert/
     - assets/prompts/web_reverse_expert/snippets/
+    - assets/prompts/android_reverse_expert/
+    - assets/prompts/android_reverse_expert/snippets/
     - assets/branding/
     - assets/web/
     - assets/web/chunks/

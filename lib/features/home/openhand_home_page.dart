@@ -80,6 +80,7 @@ import '../../shared/util/timer_safety.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
 import '../ai/index.dart';
+import '../android_reverse/index.dart';
 import '../crons/index.dart';
 import '../hardness/index.dart';
 import '../hooks/index.dart';
@@ -311,6 +312,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       <String, String>{};
   late final OpenHandDebouncer _webReverseRuntimeMetadataDebouncer =
       OpenHandDebouncer(delay: _webReverseRuntimeMetadataDebounce);
+
+  // Active Android Reverse Expert sessions, keyed by session id.
+  final Map<String, AndroidReverseSessionController>
+  _androidReverseControllers =
+      <String, AndroidReverseSessionController>{};
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
@@ -752,6 +758,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _webReverseControllers.clear();
     _webReverseRuntimeMetadataDebouncer.cancel();
     _webReverseRuntimeMetadataSignatures.clear();
+    for (final entry in _androidReverseControllers.entries) {
+      _disposeAndroidReverseController(entry.key, entry.value);
+    }
+    _androidReverseControllers.clear();
     _hardnessSessionSaveDebouncer.cancel();
     _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
@@ -2927,6 +2937,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return result;
     }
+    if (templateId == 'android_reverse_expert') {
+      final result = await _showAndroidReverseSetupAndCreate(
+        runtimeContext: runtimeContext,
+      );
+      return result;
+    }
     return _createSession(
       templateId: templateId,
       runtimeContext: runtimeContext,
@@ -3083,6 +3099,106 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           silentLog(
             'openhand_home_page',
             'dispose web reverse controller $sessionId',
+            error,
+            stack,
+          );
+        } finally {
+          controller.dispose();
+        }
+      })(),
+    );
+  }
+
+  // ── Android Reverse ─────────────────────────────────────────────────────
+
+  AndroidReverseSessionController? androidReverseControllerFor(
+    String sessionId,
+  ) => _androidReverseControllers[sessionId];
+
+  Future<bool> _showAndroidReverseSetupAndCreate({
+    AiSessionRuntimeContext? runtimeContext,
+    String? initialPrompt,
+  }) async {
+    final setup = await showAndroidReverseSetupDialog(
+      context,
+      initialObjective: _webReverseInitialObjectiveFromPrompt(initialPrompt),
+    );
+    if (!mounted || setup == null) return false;
+    final created = await _createSession(
+      templateId: 'android_reverse_expert',
+      runtimeContext: runtimeContext,
+      initialMode: AiSessionMode.fromStorage(
+        context.read<SettingsController>().aiDefaultSessionMode,
+      ),
+      initialFullAccessPermission: context
+          .read<SettingsController>()
+          .aiDefaultFullAccessPermission,
+    );
+    if (!created || !mounted) return false;
+    final sessionController = context.read<AiSessionController>();
+    final session = sessionController.currentSession;
+    if (session == null) return created;
+    final config = setup.config;
+    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
+      'android_reverse_config': config.toJson(),
+    });
+    if (!mounted) return created;
+    final controller = AndroidReverseSessionController(
+      config: config,
+      artifactsRootDir:
+          '${OpenHandPaths.defaultRootDirectoryPath()}/android_reverse/sessions/${session.id}',
+    );
+    _androidReverseControllers[session.id] = controller;
+    controller.addListener(_onAndroidReverseControllerChanged);
+    try {
+      await controller.start();
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'android reverse start',
+        error,
+        stack,
+      );
+      if (mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: '$error',
+          fallback: 'Android 逆向会话启动失败',
+        );
+      }
+    }
+    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
+      'android_reverse_runtime': <String, Object?>{
+        'is_running': controller.isRunning,
+        'artifacts_root_dir': controller.artifactsRootDir,
+        if (config.deviceSerial != null)
+          'device_serial': config.deviceSerial,
+      },
+    });
+    if (!mounted) return created;
+    _replaceComposerText(config.toRequestTemplate());
+    await _sendMessage();
+    return created;
+  }
+
+  void _onAndroidReverseControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _disposeAndroidReverseController(
+    String sessionId,
+    AndroidReverseSessionController controller,
+  ) {
+    controller.removeListener(_onAndroidReverseControllerChanged);
+    unawaited(
+      (() async {
+        try {
+          await controller.stop();
+        } catch (error, stack) {
+          silentLog(
+            'openhand_home_page',
+            'dispose android reverse controller $sessionId',
             error,
             stack,
           );
