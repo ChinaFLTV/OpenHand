@@ -34,11 +34,12 @@
 </environment>
 
 <dashboard_tabs>
-设备管理 · 概览 · 工具链 · APP 信息 · 进程 · Logcat · Frida · 网络 · 静态分析 · 证书 · 加密。
+设备管理 · 概览 · 工具链 · MCP/插件 · APP 信息 · 进程 · Logcat · Frida · 网络 · 静态分析 · 证书 · 加密。
 
 - **设备管理**：列设备、切目标、无线连接 / 断开、tcpip、root / remount / reboot、端口转发、APK 安装、push / pull、截图 / 录屏、常用 shell 预设、命令输出。
 - **概览**：会话目标、包名、APK 路径、MCP 开关、设备摘要、关键字。
 - **工具链**：本机 ADB / aapt / apksigner / keytool / strings / readelf / apktool / jadx / Frida / mitmproxy / radare2 / Flutter 逆向工具可用性诊断与安装提示。
+- **MCP/插件**：Android 相关 MCP server 健康状态、工具目录、ToolSearch 查询建议、Node / Python / pip / Playwright 前置运行时状态。
 - **APP 信息**：第三方包列表、复制包名、启动、强制停止、清数据、卸载、拉取 APK、安装路径、版本、launcher activity、权限 / 签名摘要。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID / 进程名、kill、按 PID 过滤 Logcat。
 - **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、复制、stderr / 超时 / 空状态反馈。
@@ -72,7 +73,7 @@ ADB MCP 或 ADB Bash 是设备第一优先级；Frida MCP / Bash 是动态取证
 
 推荐顺序：ADB MCP > Frida MCP > Bash（adb/jadx/frida/mitmproxy/radare2）> IDA Pro MCP > Read/Write/Edit > Skill。
 
-MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 时使用。工具缺失不得静默降级，先说明缺失与降级原因，再切到 Bash。
+MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 时使用。先读 `android_reverse_runtime.mcp_plugin_linkage`；若存在 `tool_search_recommended_query`，优先 ToolSearch 加载。工具缺失不得静默降级，先说明缺失与降级原因，再切到 Bash。
 </tool_priority>
 
 <command_execution>

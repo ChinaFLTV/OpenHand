@@ -157,6 +157,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 通过它取到 [_buildRuntimeContext]、[AiSessionController] 等私有 API。
   /// 同一时刻只会存在一个 OpenHand home page。
   static _OpenHandHomePageState? _activeHomeState;
+  static const int _androidReverseMcpRuntimeToolNameLimit = 64;
+  static const int _androidReverseMcpToolSearchLimit = 8;
+  static const List<String> _androidReverseMcpKeywords = <String>[
+    'adb',
+    'android',
+    'apk',
+    'aapt',
+    'apksigner',
+    'apktool',
+    'jadx',
+    'frida',
+    'objection',
+    'ida',
+    'radare',
+    'r2',
+    'mitm',
+    'proxy',
+    'flutter',
+    'dart',
+    'blutter',
+    'doldrums',
+    'anything',
+    'analyzer',
+    'logcat',
+    'device',
+    'shell',
+  ];
+  static const String _androidReverseMcpFallbackToolSearchQuery =
+      'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter';
 
   final TextEditingController _composerController = SafeTextEditingController();
   // HTML WebView 异步测高协调信号——见 [TranscriptScrollActivity] 注释。
@@ -3372,11 +3401,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'process_kill_force_stop',
         'logcat_level_tag_pid_package_filter',
         'logcat_clear_save_jsonl',
+        'mcp_plugin_linkage_status',
       ],
       'dashboard_tabs': const <String>[
         'devices',
         'overview',
         'toolchain',
+        'mcp_plugins',
         'packages',
         'processes',
         'logcat',
@@ -3397,6 +3428,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           if (connected.transportId != null)
             'transport_id': connected.transportId,
         },
+      'mcp_plugin_linkage': _androidReverseMcpPluginLinkageMetadata(),
       'visible_devices': controller.allDevices
           .map(
             (device) => <String, Object?>{
@@ -3412,6 +3444,202 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           controller.errorMessage!.trim().isNotEmpty)
         'last_error': controller.errorMessage!.trim(),
     };
+  }
+
+  Map<String, Object?> _androidReverseMcpPluginLinkageMetadata() {
+    return <String, Object?>{
+      'mcp': _androidReverseMcpLinkageMetadata(),
+      'plugin_runtime_prerequisites':
+          _androidReversePluginRuntimePrerequisitesMetadata(),
+    };
+  }
+
+  Map<String, Object?> _androidReverseMcpLinkageMetadata() {
+    try {
+      final mcpController = context.read<McpController>();
+      final relatedServers = <Map<String, Object?>>[];
+      final toolSearchNames = <String>{};
+      var relatedToolCount = 0;
+      for (final server in mcpController.servers) {
+        final catalog = mcpController.toolCatalogFor(server.name);
+        final health = mcpController.healthStatusFor(server.name);
+        final matchedTools = catalog.tools
+            .where(
+              (tool) => _androidReverseContainsMcpKeyword(
+                '${tool.id} ${tool.name} ${tool.description}',
+              ),
+            )
+            .toList(growable: false);
+        final serverIsRelevant = _androidReverseContainsMcpKeyword(
+          '${server.name} ${server.summary} ${server.type.transportValue}',
+        );
+        if (!serverIsRelevant && matchedTools.isEmpty) continue;
+        relatedToolCount += matchedTools.length;
+        for (final tool in matchedTools) {
+          if (toolSearchNames.length >= _androidReverseMcpToolSearchLimit) {
+            break;
+          }
+          toolSearchNames.add(_androidReverseResolvedMcpToolName(server, tool));
+        }
+        relatedServers.add(<String, Object?>{
+          'name': server.name,
+          'enabled': server.enabled,
+          'transport': server.type.transportValue,
+          if (server.summary.trim().isNotEmpty) 'summary': server.summary,
+          'health_status': health.status.name,
+          if (health.latencyMs != null) 'health_latency_ms': health.latencyMs,
+          if (health.errorMessage?.trim().isNotEmpty ?? false)
+            'health_error': health.errorMessage!.trim(),
+          'tool_catalog_status': catalog.status.name,
+          'tool_count': catalog.tools.length,
+          'android_related_tool_count': matchedTools.length,
+          if (catalog.errorMessage?.trim().isNotEmpty ?? false)
+            'tool_catalog_error': catalog.errorMessage!.trim(),
+          if (matchedTools.isNotEmpty)
+            'android_related_tool_names': matchedTools
+                .take(8)
+                .map((tool) => _androidReverseResolvedMcpToolName(server, tool))
+                .toList(growable: false),
+        });
+      }
+      relatedServers.sort((a, b) {
+        final aEnabled = a['enabled'] == true ? 1 : 0;
+        final bEnabled = b['enabled'] == true ? 1 : 0;
+        final enabled = bEnabled.compareTo(aEnabled);
+        if (enabled != 0) return enabled;
+        final aTools = a['android_related_tool_count'] is int
+            ? a['android_related_tool_count'] as int
+            : 0;
+        final bTools = b['android_related_tool_count'] is int
+            ? b['android_related_tool_count'] as int
+            : 0;
+        final tools = bTools.compareTo(aTools);
+        if (tools != 0) return tools;
+        return '${a['name']}'.compareTo('${b['name']}');
+      });
+      return <String, Object?>{
+        'servers_file_path': mcpController.serversFilePath,
+        'storage_dir': mcpController.storageDirectoryPath,
+        'server_count': mcpController.servers.length,
+        'related_server_count': relatedServers.length,
+        'related_tool_count': relatedToolCount,
+        'tool_search_recommended_query': toolSearchNames.isEmpty
+            ? _androidReverseMcpFallbackToolSearchQuery
+            : 'select:${toolSearchNames.join(',')}',
+        if (mcpController.errorMessage?.trim().isNotEmpty ?? false)
+          'error': mcpController.errorMessage!.trim(),
+        if (relatedServers.isNotEmpty)
+          'related_servers': relatedServers.take(12).toList(growable: false),
+      };
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'build android reverse mcp linkage metadata',
+        error,
+        stack,
+      );
+      return <String, Object?>{
+        'error': '$error',
+        'tool_search_recommended_query':
+            _androidReverseMcpFallbackToolSearchQuery,
+      };
+    }
+  }
+
+  Map<String, Object?> _androidReversePluginRuntimePrerequisitesMetadata() {
+    try {
+      final pluginController = context.read<PluginServiceController>();
+      const ids = <String>['nodejs', 'python', 'pip', 'playwright'];
+      final plugins = <Map<String, Object?>>[];
+      for (final id in ids) {
+        final plugin = pluginController.pluginById(id);
+        if (plugin == null) {
+          plugins.add(<String, Object?>{'id': id, 'status': 'unknown'});
+          continue;
+        }
+        plugins.add(<String, Object?>{
+          'id': plugin.id,
+          'name': plugin.name,
+          'status': plugin.status.name,
+          'enabled': plugin.enabled,
+          'installed': plugin.isInstalled,
+          if (plugin.installedVersion?.trim().isNotEmpty ?? false)
+            'installed_version': plugin.installedVersion!.trim(),
+          if (plugin.latestVersion?.trim().isNotEmpty ?? false)
+            'latest_version': plugin.latestVersion!.trim(),
+          if (plugin.installPath?.trim().isNotEmpty ?? false)
+            'install_path': plugin.installPath!.trim(),
+          if (plugin.errorMessage?.trim().isNotEmpty ?? false)
+            'error': plugin.errorMessage!.trim(),
+        });
+      }
+      return <String, Object?>{
+        'is_loading': pluginController.isLoading,
+        'is_operating': pluginController.isOperating,
+        'installed_count': plugins
+            .where((plugin) => plugin['installed'] == true)
+            .length,
+        'plugins': plugins,
+        if (pluginController.errorMessage?.trim().isNotEmpty ?? false)
+          'error': pluginController.errorMessage!.trim(),
+      };
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'build android reverse plugin runtime metadata',
+        error,
+        stack,
+      );
+      return <String, Object?>{'error': '$error'};
+    }
+  }
+
+  bool _androidReverseContainsMcpKeyword(String raw) {
+    final text = raw.toLowerCase();
+    return _androidReverseMcpKeywords.any(text.contains);
+  }
+
+  String _androidReverseResolvedMcpToolName(McpServer server, McpTool tool) {
+    final normalizedPrefix = _androidReverseNormalizeMcpToolToken(
+      'mcp__${server.name}',
+    );
+    final normalizedToken = _androidReverseNormalizeMcpToolToken(tool.id);
+    var candidate = '${normalizedPrefix}__$normalizedToken';
+    if (candidate.length <= _androidReverseMcpRuntimeToolNameLimit) {
+      return candidate;
+    }
+    final hash = _androidReverseStableMcpToolNameHash(tool.id);
+    final allowedTokenLength =
+        _androidReverseMcpRuntimeToolNameLimit -
+        normalizedPrefix.length -
+        hash.length -
+        4;
+    final preferredLength =
+        allowedTokenLength > 8 && allowedTokenLength < normalizedToken.length
+        ? allowedTokenLength
+        : (normalizedToken.length < 24 ? normalizedToken.length : 24);
+    final shortenedToken = normalizedToken.substring(0, preferredLength);
+    candidate = '${normalizedPrefix}__${shortenedToken}_$hash';
+    return candidate.length > _androidReverseMcpRuntimeToolNameLimit
+        ? candidate.substring(0, _androidReverseMcpRuntimeToolNameLimit)
+        : candidate;
+  }
+
+  String _androidReverseNormalizeMcpToolToken(String value) {
+    final sanitized = value
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return sanitized.isEmpty ? 'tool' : sanitized;
+  }
+
+  String _androidReverseStableMcpToolNameHash(String value) {
+    var hash = 0x811c9dc5;
+    for (final code in value.codeUnits) {
+      hash ^= code;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   void _scheduleWebReverseRuntimeMetadataSync() {

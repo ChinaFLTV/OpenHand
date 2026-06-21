@@ -9,6 +9,8 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/util/localized_text.dart';
 import '../ai/index.dart';
+import '../mcp/index.dart';
+import '../plugin_service/index.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
 import 'android_reverse_session_controller.dart';
@@ -21,8 +23,69 @@ const double _kIconButtonGap = 8;
 const int _kDefaultLogcatLines = 300;
 const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
+const int _kMcpRuntimeToolNameLimit = 64;
+const int _kMcpToolPreviewLimit = 8;
+const int _kMcpToolSearchLimit = 8;
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const List<String> _kLogcatLevels = <String>['V', 'D', 'I', 'W', 'E', 'F'];
+const List<String> _kAndroidMcpKeywords = <String>[
+  'adb',
+  'android',
+  'apk',
+  'aapt',
+  'apksigner',
+  'apktool',
+  'jadx',
+  'frida',
+  'objection',
+  'ida',
+  'radare',
+  'r2',
+  'mitm',
+  'proxy',
+  'flutter',
+  'dart',
+  'blutter',
+  'doldrums',
+  'anything',
+  'analyzer',
+  'logcat',
+  'device',
+  'shell',
+];
+const List<String> _kAndroidRuntimePluginIds = <String>[
+  'nodejs',
+  'python',
+  'pip',
+  'playwright',
+];
+const String _kAndroidMcpToolSearchFallbackQuery =
+    'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter';
+const String _kAndroidStdioMcpConfigTemplate = '''
+{
+  "mcpServers": {
+    "android-adb": {
+      "enabled": true,
+      "probeEnabled": true,
+      "type": "stdio",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "<adb-mcp-package>"]
+    }
+  }
+}''';
+const String _kAndroidHttpMcpConfigTemplate = '''
+{
+  "mcpServers": {
+    "ida-pro": {
+      "enabled": true,
+      "probeEnabled": true,
+      "type": "sse",
+      "transport": "sse",
+      "url": "http://127.0.0.1:<port>/sse"
+    }
+  }
+}''';
 
 Future<void> showAndroidReverseDashboardDialog(
   BuildContext context, {
@@ -42,6 +105,7 @@ enum _Tab {
   devices,
   overview,
   toolchain,
+  mcpPlugins,
   packages,
   processes,
   logcat,
@@ -170,6 +234,7 @@ extension _TabLabel on _Tab {
       _Tab.devices => isZh ? '设备管理' : 'Devices',
       _Tab.overview => isZh ? '概览' : 'Overview',
       _Tab.toolchain => isZh ? '工具链' : 'Toolchain',
+      _Tab.mcpPlugins => isZh ? 'MCP/插件' : 'MCP',
       _Tab.packages => isZh ? 'APP 信息' : 'APP Info',
       _Tab.processes => isZh ? '进程' : 'Processes',
       _Tab.logcat => 'Logcat',
@@ -185,6 +250,7 @@ extension _TabLabel on _Tab {
     _Tab.devices => Icons.phone_android_rounded,
     _Tab.overview => Icons.dashboard_rounded,
     _Tab.toolchain => Icons.construction_rounded,
+    _Tab.mcpPlugins => Icons.extension_rounded,
     _Tab.packages => Icons.apps_rounded,
     _Tab.processes => Icons.memory_rounded,
     _Tab.logcat => Icons.receipt_long_rounded,
@@ -916,6 +982,9 @@ class _AndroidReverseDashboardDialogState
                       if (tab == _Tab.toolchain && _toolchainRows.isEmpty) {
                         _refreshToolchain();
                       }
+                      if (tab == _Tab.mcpPlugins && _toolchainRows.isEmpty) {
+                        _refreshToolchain();
+                      }
                     },
                     icon: Icon(tab.icon, size: 14),
                     label: Text(
@@ -968,6 +1037,7 @@ class _AndroidReverseDashboardDialogState
       _Tab.devices => _buildDevicesTab(cs, theme, isZh),
       _Tab.overview => _buildOverviewTab(cs, theme, isZh),
       _Tab.toolchain => _buildToolchainTab(cs, theme, isZh),
+      _Tab.mcpPlugins => _buildMcpPluginsTab(cs, theme, isZh),
       _Tab.packages => _buildPackagesTab(cs, theme, isZh),
       _Tab.processes => _buildProcessesTab(cs, theme, isZh),
       _Tab.logcat => _buildLogcatTab(cs, theme, isZh),
@@ -2220,6 +2290,463 @@ class _AndroidReverseDashboardDialogState
     );
   }
 
+  // ── MCP / plugins tab ───────────────────────────────────────────────────
+
+  Widget _buildMcpPluginsTab(ColorScheme cs, ThemeData theme, bool isZh) {
+    final mcpController = context.watch<McpController>();
+    final pluginController = context.watch<PluginServiceController>();
+    final serverRows = _androidMcpServerViews(mcpController);
+    final toolSearchNames = _androidMcpToolSearchNames(serverRows);
+    final toolSearchQuery = toolSearchNames.isEmpty
+        ? _kAndroidMcpToolSearchFallbackQuery
+        : 'select:${toolSearchNames.take(_kMcpToolSearchLimit).join(',')}';
+    final runtimePlugins = _kAndroidRuntimePluginIds
+        .map(pluginController.pluginById)
+        .whereType<PluginInfo>()
+        .toList(growable: false);
+    final installedRuntimeCount = runtimePlugins
+        .where((plugin) => plugin.isInstalled)
+        .length;
+    final totalAndroidTools = serverRows.fold<int>(
+      0,
+      (sum, row) => sum + row.matchedTools.length,
+    );
+
+    return OpenHandSafeScrollbar(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isZh ? 'MCP / 插件联动' : 'MCP / plugin linkage',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                isZh
+                    ? '${serverRows.length} 个相关 MCP · $totalAndroidTools 个相关工具'
+                    : '${serverRows.length} related MCP · $totalAndroidTools related tools',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: mcpController.isLoading
+                      ? null
+                      : () => unawaited(mcpController.refresh()),
+                  icon: mcpController.isLoading
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      : const Icon(Icons.sync_rounded, size: 14),
+                  label: Text(isZh ? '刷新 MCP' : 'Refresh MCP'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed:
+                      pluginController.isLoading || pluginController.isOperating
+                      ? null
+                      : () => unawaited(pluginController.rescan()),
+                  icon: pluginController.isLoading
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 14),
+                  label: Text(isZh ? '扫描插件' : 'Scan plugins'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.info_outline_rounded,
+            text: isZh
+                ? '此页只展示 OpenHand 已配置的 MCP server、工具目录和相邻运行时状态。Android 专用 MCP / Frida / IDA / anything-analyzer 仍需在全局 MCP 面板按服务自身说明安装或启用。'
+                : 'This page shows configured MCP servers, discovered tools, and adjacent runtime prerequisites. Android-specific MCP, Frida, IDA, and anything-analyzer servers still need to be installed or enabled from the global MCP panel.',
+          ),
+          const SizedBox(height: 10),
+          _monospaceCard(
+            cs,
+            [
+              '${isZh ? "MCP 配置" : "MCP config"}: ${mcpController.serversFilePath}',
+              '${isZh ? "MCP 存储" : "MCP storage"}: ${mcpController.storageDirectoryPath}',
+              '${isZh ? "插件运行时" : "Plugin runtimes"}: $installedRuntimeCount/${runtimePlugins.length}',
+            ].join('\n'),
+          ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? 'ToolSearch 建议' : 'ToolSearch suggestion',
+            command: toolSearchQuery,
+          ),
+          const SizedBox(height: 18),
+          _sectionTitle(
+            theme,
+            cs,
+            isZh ? 'Android 相关 MCP' : 'Android-related MCP',
+          ),
+          const SizedBox(height: 8),
+          if (mcpController.errorMessage?.trim().isNotEmpty ?? false) ...[
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.error_outline_rounded,
+              text:
+                  '${isZh ? "MCP 加载异常" : "MCP load error"}: ${mcpController.errorMessage}',
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (serverRows.isEmpty)
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.search_off_rounded,
+              text: isZh
+                  ? '当前未发现名称、命令或工具描述中包含 ADB / Android / Frida / IDA / jadx / apktool / Flutter 逆向关键词的 MCP server。'
+                  : 'No configured MCP server currently matches ADB / Android / Frida / IDA / jadx / apktool / Flutter reverse keywords.',
+            )
+          else
+            for (final row in serverRows) ...[
+              _buildMcpServerCard(row, cs, theme, isZh),
+              const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 14),
+          _sectionTitle(
+            theme,
+            cs,
+            isZh ? '相邻运行时前置条件' : 'Adjacent runtime prerequisites',
+          ),
+          const SizedBox(height: 8),
+          if (pluginController.errorMessage?.trim().isNotEmpty ?? false) ...[
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.error_outline_rounded,
+              text:
+                  '${isZh ? "插件扫描异常" : "Plugin scan error"}: ${pluginController.errorMessage}',
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (runtimePlugins.isEmpty)
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.hourglass_empty_rounded,
+              text: pluginController.isLoading
+                  ? (isZh ? '正在扫描插件运行时...' : 'Scanning plugin runtimes...')
+                  : (isZh
+                        ? '插件服务暂未返回 Node.js / Python / pip / Playwright 状态。'
+                        : 'Plugin service has not reported Node.js / Python / pip / Playwright status.'),
+            )
+          else
+            for (final plugin in runtimePlugins) ...[
+              _buildRuntimePluginTile(plugin, cs, theme, isZh),
+              const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 14),
+          _sectionTitle(theme, cs, isZh ? '配置模板' : 'Config templates'),
+          const SizedBox(height: 8),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? 'stdio MCP 模板（替换包名）' : 'stdio MCP template',
+            command: _kAndroidStdioMcpConfigTemplate,
+          ),
+          const SizedBox(height: 8),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '本地 HTTP/SSE MCP 模板' : 'Local HTTP/SSE MCP template',
+            command: _kAndroidHttpMcpConfigTemplate,
+          ),
+          const SizedBox(height: 14),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.rule_rounded,
+            text: isZh
+                ? '线程内只调用工具目录真实列出的 mcp__* 名称。若这里只能看到模板而没有工具，请先在 MCP 面板补齐 server 并刷新工具目录。'
+                : 'Thread tools must use real mcp__* names from the catalog. If only templates are shown here, add the server in the MCP panel and refresh its tool catalog first.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMcpServerCard(
+    _AndroidMcpServerView row,
+    ColorScheme cs,
+    ThemeData theme,
+    bool isZh,
+  ) {
+    final server = row.server;
+    final catalog = row.catalog;
+    final health = row.health;
+    final healthColor = _mcpHealthColor(health.status, cs);
+    final catalogColor = _mcpCatalogColor(catalog.status, cs);
+    final tools = row.matchedTools.take(_kMcpToolPreviewLimit).toList();
+    final queryNames = tools
+        .map((tool) => _mcpResolvedToolName(server, tool))
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final query = queryNames.isEmpty ? null : 'select:${queryNames.join(',')}';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                server.enabled
+                    ? Icons.extension_rounded
+                    : Icons.extension_off_rounded,
+                size: 18,
+                color: server.enabled ? cs.primary : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(
+                      server.name,
+                      maxLines: 1,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      server.summary.isEmpty
+                          ? server.type.transportValue
+                          : server.summary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: isZh ? '刷新此 MCP 工具目录' : 'Refresh this MCP catalog',
+                icon: catalog.isLoading
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.6),
+                      )
+                    : const Icon(Icons.sync_rounded, size: 16),
+                onPressed: catalog.isLoading
+                    ? null
+                    : () => unawaited(
+                        context.read<McpController>().refreshServerTools(
+                          server.name,
+                        ),
+                      ),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
+              ),
+              if (query != null)
+                IconButton(
+                  tooltip: isZh ? '复制 ToolSearch 查询' : 'Copy ToolSearch query',
+                  icon: const Icon(Icons.manage_search_rounded, size: 16),
+                  onPressed: () => _copyText(query),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 32,
+                    height: 32,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _StatusPill(
+                label: server.enabled
+                    ? (isZh ? '已启用' : 'enabled')
+                    : (isZh ? '未启用' : 'disabled'),
+                color: server.enabled ? cs.primary : cs.outline,
+              ),
+              _StatusPill(
+                label:
+                    '${isZh ? "健康" : "health"}: ${_mcpHealthStatusLabel(health.status, isZh)}',
+                color: healthColor,
+              ),
+              _StatusPill(
+                label:
+                    '${isZh ? "目录" : "catalog"}: ${_mcpCatalogStatusLabel(catalog.status, isZh)}',
+                color: catalogColor,
+              ),
+              _StatusPill(
+                label:
+                    '${isZh ? "相关工具" : "related tools"}: ${row.matchedTools.length}/${catalog.tools.length}',
+                color: row.matchedTools.isEmpty ? cs.outline : cs.primary,
+              ),
+            ],
+          ),
+          if (health.errorMessage?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 8),
+            Text(
+              health.errorMessage!.trim(),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+            ),
+          ],
+          if (catalog.errorMessage?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 8),
+            Text(
+              catalog.errorMessage!.trim(),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
+            ),
+          ],
+          if (tools.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SelectableText(
+              tools
+                  .map((tool) => _mcpResolvedToolName(server, tool))
+                  .join('\n'),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: cs.onSurface,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRuntimePluginTile(
+    PluginInfo plugin,
+    ColorScheme cs,
+    ThemeData theme,
+    bool isZh,
+  ) {
+    final color = plugin.isInstalled
+        ? plugin.enabled
+              ? cs.primary
+              : cs.outline
+        : cs.tertiary;
+    final version = plugin.installedVersion?.trim();
+    final path = plugin.installPath?.trim();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.58)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            plugin.isInstalled
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
+            size: 17,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  plugin.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    plugin.id,
+                    if (version != null && version.isNotEmpty) version,
+                    if (plugin.hasUpdate) isZh ? '有可用更新' : 'update available',
+                    if (path != null && path.isNotEmpty) path,
+                  ].join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontFamily: path == null ? null : 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _StatusPill(
+            label: plugin.isInstalled
+                ? plugin.enabled
+                      ? (isZh ? '可用' : 'ready')
+                      : (isZh ? '已禁用' : 'disabled')
+                : (isZh ? '未安装' : 'missing'),
+            color: color,
+          ),
+          if (path != null && path.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: isZh ? '复制路径' : 'Copy path',
+              icon: const Icon(Icons.copy_rounded, size: 15),
+              onPressed: () => _copyText(path),
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   // ── Packages tab ─────────────────────────────────────────────────────────
 
   Widget _buildPackagesTab(ColorScheme cs, ThemeData theme, bool isZh) {
@@ -3365,6 +3892,145 @@ class _AndroidReverseDashboardDialogState
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
+  Widget _sectionTitle(ThemeData theme, ColorScheme cs, String label) {
+    return Text(
+      label,
+      style: theme.textTheme.labelLarge?.copyWith(
+        color: cs.onSurfaceVariant,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+
+  List<_AndroidMcpServerView> _androidMcpServerViews(McpController controller) {
+    final rows = <_AndroidMcpServerView>[];
+    for (final server in controller.servers) {
+      final catalog = controller.toolCatalogFor(server.name);
+      final health = controller.healthStatusFor(server.name);
+      final matchedTools = catalog.tools
+          .where(_isAndroidRelevantMcpTool)
+          .toList(growable: false);
+      final serverIsRelevant = _containsAndroidMcpKeyword(
+        '${server.name} ${server.summary} ${server.type.transportValue}',
+      );
+      if (!serverIsRelevant && matchedTools.isEmpty) continue;
+      rows.add(
+        _AndroidMcpServerView(
+          server: server,
+          catalog: catalog,
+          health: health,
+          matchedTools: matchedTools,
+        ),
+      );
+    }
+    rows.sort((a, b) {
+      final enabled = (b.server.enabled ? 1 : 0).compareTo(
+        a.server.enabled ? 1 : 0,
+      );
+      if (enabled != 0) return enabled;
+      final tools = b.matchedTools.length.compareTo(a.matchedTools.length);
+      if (tools != 0) return tools;
+      return a.server.name.toLowerCase().compareTo(b.server.name.toLowerCase());
+    });
+    return List<_AndroidMcpServerView>.unmodifiable(rows);
+  }
+
+  List<String> _androidMcpToolSearchNames(List<_AndroidMcpServerView> rows) {
+    final names = <String>{};
+    for (final row in rows) {
+      for (final tool in row.matchedTools) {
+        names.add(_mcpResolvedToolName(row.server, tool));
+        if (names.length >= _kMcpToolSearchLimit) {
+          return List<String>.unmodifiable(names);
+        }
+      }
+    }
+    return List<String>.unmodifiable(names);
+  }
+
+  bool _isAndroidRelevantMcpTool(McpTool tool) {
+    return _containsAndroidMcpKeyword(
+      '${tool.id} ${tool.name} ${tool.description}',
+    );
+  }
+
+  bool _containsAndroidMcpKeyword(String raw) {
+    final text = raw.toLowerCase();
+    return _kAndroidMcpKeywords.any(text.contains);
+  }
+
+  String _mcpResolvedToolName(McpServer server, McpTool tool) {
+    final normalizedPrefix = _normalizeMcpToolToken('mcp__${server.name}');
+    final normalizedToken = _normalizeMcpToolToken(tool.id);
+    var candidate = '${normalizedPrefix}__$normalizedToken';
+    if (candidate.length <= _kMcpRuntimeToolNameLimit) return candidate;
+    final hash = _stableMcpToolNameHash(tool.id);
+    final allowedTokenLength =
+        _kMcpRuntimeToolNameLimit - normalizedPrefix.length - hash.length - 4;
+    final preferredLength =
+        allowedTokenLength > 8 && allowedTokenLength < normalizedToken.length
+        ? allowedTokenLength
+        : (normalizedToken.length < 24 ? normalizedToken.length : 24);
+    final shortenedToken = normalizedToken.substring(0, preferredLength);
+    candidate = '${normalizedPrefix}__${shortenedToken}_$hash';
+    return candidate.length > _kMcpRuntimeToolNameLimit
+        ? candidate.substring(0, _kMcpRuntimeToolNameLimit)
+        : candidate;
+  }
+
+  String _normalizeMcpToolToken(String value) {
+    final sanitized = value
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return sanitized.isEmpty ? 'tool' : sanitized;
+  }
+
+  String _stableMcpToolNameHash(String value) {
+    var hash = 0x811c9dc5;
+    for (final code in value.codeUnits) {
+      hash ^= code;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
+  }
+
+  String _mcpCatalogStatusLabel(McpToolCatalogStatus status, bool isZh) {
+    return switch (status) {
+      McpToolCatalogStatus.idle => isZh ? '未扫描' : 'idle',
+      McpToolCatalogStatus.loading => isZh ? '扫描中' : 'loading',
+      McpToolCatalogStatus.ready => isZh ? '已就绪' : 'ready',
+      McpToolCatalogStatus.failed => isZh ? '失败' : 'failed',
+    };
+  }
+
+  String _mcpHealthStatusLabel(McpServerHealthStatus status, bool isZh) {
+    return switch (status) {
+      McpServerHealthStatus.idle => isZh ? '未探测' : 'idle',
+      McpServerHealthStatus.checking => isZh ? '探测中' : 'checking',
+      McpServerHealthStatus.healthy => isZh ? '正常' : 'healthy',
+      McpServerHealthStatus.unhealthy => isZh ? '异常' : 'unhealthy',
+    };
+  }
+
+  Color _mcpCatalogColor(McpToolCatalogStatus status, ColorScheme cs) {
+    return switch (status) {
+      McpToolCatalogStatus.ready => cs.primary,
+      McpToolCatalogStatus.loading => cs.tertiary,
+      McpToolCatalogStatus.failed => cs.error,
+      McpToolCatalogStatus.idle => cs.outline,
+    };
+  }
+
+  Color _mcpHealthColor(McpServerHealthStatus status, ColorScheme cs) {
+    return switch (status) {
+      McpServerHealthStatus.healthy => cs.primary,
+      McpServerHealthStatus.checking => cs.tertiary,
+      McpServerHealthStatus.unhealthy => cs.error,
+      McpServerHealthStatus.idle => cs.outline,
+    };
+  }
+
   Widget _commandCard(
     ColorScheme cs,
     ThemeData theme,
@@ -3569,6 +4235,49 @@ class _AndroidReverseDashboardDialogState
     return RegExp(
       r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
     ).hasMatch(packageName);
+  }
+}
+
+class _AndroidMcpServerView {
+  const _AndroidMcpServerView({
+    required this.server,
+    required this.catalog,
+    required this.health,
+    required this.matchedTools,
+  });
+
+  final McpServer server;
+  final McpToolCatalog catalog;
+  final McpServerHealth health;
+  final List<McpTool> matchedTools;
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.36)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }
 

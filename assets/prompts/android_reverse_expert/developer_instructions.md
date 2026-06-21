@@ -2,6 +2,7 @@
 - 用户已为本会话绑定了一个 Android 设备（真机或模拟器），通过 ADB 通道完成所有设备操作。
 - dashboard "设备管理" 面板实时显示 ADB 设备列表、在线状态、序列号。
 - dashboard "工具链" 面板显示本机 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums 可用性与安装提示。
+- dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright 前置运行时状态。
 - 会话创建时写入 `android_reverse_config`：包含 `objective`、`package_name`、`device_serial`、`adb_mcp_enabled`、`frida_mcp_enabled`、`keywords`。
 - TopBar 调试胶囊实时显示"设备状态 · 进程数"。
 - 所有本地工件落盘到 `~/.openhand/android_reverse/sessions/<session_id>/`：
@@ -17,7 +18,7 @@
 <initial_handshake>
 首回合按序执行：
 1. `Read` metadata 中的 `android_reverse_config`，把逆向目标 / 包名 / 设备序列号背在心里。
-2. 从工具目录确认 ADB MCP / Frida MCP 精确工具名；若在 deferred 列表，先 ToolSearch 加载。
+2. 读取 `android_reverse_runtime.mcp_plugin_linkage`；从工具目录确认 ADB MCP / Frida MCP 精确工具名；若给出 `tool_search_recommended_query`，先 ToolSearch 加载。
 3. 若配置启用了 ADB / Frida MCP 但工具目录缺失，说明需要在全局 MCP 设置安装 / 启用对应 server；必要时用 Bash 兜底。
 4. 执行 `adb devices` 确认设备在线；无在线设备时告知用户在调试面板连接设备后再继续。
 5. 读取 `android_reverse_runtime.dashboard_actions` 和 `local_artifacts`，优先复用面板已生成的 APK、logcat、截图、录屏产物。
@@ -32,7 +33,7 @@
 - 列设备 / 执行 shell / logcat 用 MCP；
 - Frida 注入 / 脚本运行 / 输出读取用 Frida MCP；
 - 本地 jadx / apktool / r2 反编译分析走 Bash。
-不要调用工具目录中不存在的裸 `adb_*` / `frida_*` 名称。
+不要调用工具目录中不存在的裸 `adb_*` / `frida_*` 名称；只用 Tool Catalog 或 ToolSearch 返回的精确 `mcp__*` 名称。
 </mcp_adb_workflow>
 
 <efficiency_rules>

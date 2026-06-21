@@ -2280,6 +2280,7 @@ class AiPromptBuilder {
         'devices',
         'overview',
         'toolchain',
+        'mcp_plugins',
         'packages',
         'processes',
         'logcat',
@@ -2313,6 +2314,7 @@ class AiPromptBuilder {
       ],
       'dashboard_actions': const <String>[
         'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, shell presets, APK install, file push/pull, screenshot, screenrecord',
+        'mcp_plugins: Android-related MCP health, discovered mcp__* names, ToolSearch query, Node/Python/pip/Playwright runtime prerequisites',
         'packages: analyze, launch, force-stop, clear data, uninstall, pull APKs to artifacts, filter logcat by package',
         'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
         'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl',
