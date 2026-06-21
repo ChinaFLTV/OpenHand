@@ -10,6 +10,7 @@
   - `logcat.jsonl` — 每行一条 logcat 事件
   - `logcat/` — Logcat 文本 / JSON 快照
   - `network.jsonl` — mitmproxy 流量事件（需启用代理）
+  - `packages/` — APP 信息 Markdown / JSON 报告
   - `apks/` — 从设备拉取的 base / split APK
   - `screenshots/`、`recordings/` — 面板截图和短录屏
   - `frida/` — Frida 脚本与输出

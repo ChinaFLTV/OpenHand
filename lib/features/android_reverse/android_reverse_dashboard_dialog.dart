@@ -149,6 +149,7 @@ enum _DeviceMenuAction {
 
 enum _PackageMenuAction {
   analyze,
+  report,
   copyPackage,
   launch,
   forceStop,
@@ -321,6 +322,7 @@ class _AndroidReverseDashboardDialogState
   bool _loadingProcesses = false;
   bool _loadingToolchain = false;
   bool _loadingPackageAnalysis = false;
+  bool _capturingPackageReport = false;
   bool _runningShell = false;
   bool _runningDeviceAction = false;
   bool _runningStaticQuickScan = false;
@@ -514,6 +516,41 @@ class _AndroidReverseDashboardDialogState
       setState(() => _packageAnalysisOutput = buf.toString());
     } finally {
       if (mounted) setState(() => _loadingPackageAnalysis = false);
+    }
+  }
+
+  Future<void> _capturePackageReport(String packageName) async {
+    if (_capturingPackageReport) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _selectedPackageName = packageName;
+      _capturingPackageReport = true;
+    });
+    try {
+      final result = await _ctrl.capturePackageReportToArtifacts(
+        packageName,
+        serial: _targetSerial,
+      );
+      if (!mounted) return;
+      setState(() => _packageAnalysisOutput = _formatAdbResult(result));
+      if (result.ok || result.partialOk) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isZh ? '已生成 APP 信息报告工件。' : 'APP report artifacts saved.',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _packageAnalysisOutput =
+            '${isZh ? "生成 APP 信息报告失败" : "Failed to generate APP report"}: $error';
+      });
+    } finally {
+      if (mounted) setState(() => _capturingPackageReport = false);
     }
   }
 
@@ -2206,6 +2243,10 @@ class _AndroidReverseDashboardDialogState
           child: Text(isZh ? '分析 APP 信息' : 'Analyze app info'),
         ),
         PopupMenuItem(
+          value: _PackageMenuAction.report,
+          child: Text(isZh ? '生成 APP 信息报告' : 'Generate app report'),
+        ),
+        PopupMenuItem(
           value: _PackageMenuAction.copyPackage,
           child: Text(isZh ? '复制包名' : 'Copy package name'),
         ),
@@ -2248,6 +2289,8 @@ class _AndroidReverseDashboardDialogState
     switch (action) {
       case _PackageMenuAction.analyze:
         await _analyzePackage(packageName);
+      case _PackageMenuAction.report:
+        await _capturePackageReport(packageName);
       case _PackageMenuAction.copyPackage:
         await _copyText(packageName);
       case _PackageMenuAction.logcat:
@@ -3421,6 +3464,15 @@ class _AndroidReverseDashboardDialogState
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 1.5),
                         ),
+                      if (_capturingPackageReport)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          ),
+                        ),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded, size: 16),
@@ -3428,6 +3480,17 @@ class _AndroidReverseDashboardDialogState
                         onPressed: _loadingPackageAnalysis
                             ? null
                             : () => _analyzePackage(_selectedPackageName!),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.snippet_folder_rounded,
+                          size: 16,
+                        ),
+                        tooltip: isZh ? '生成 APP 信息报告' : 'Generate app report',
+                        onPressed: _capturingPackageReport
+                            ? null
+                            : () =>
+                                  _capturePackageReport(_selectedPackageName!),
                       ),
                       IconButton(
                         icon: const Icon(Icons.copy_rounded, size: 16),

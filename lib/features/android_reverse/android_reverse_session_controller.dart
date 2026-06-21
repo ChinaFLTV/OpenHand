@@ -12,12 +12,15 @@ import 'android_reverse_session_config.dart';
 const String _kTag = 'android_reverse_session_controller';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
 const Duration _kDeviceReportTimeout = Duration(seconds: 18);
+const Duration _kPackageReportTimeout = Duration(seconds: 12);
 const Duration _kStaticQuickScanTimeout = Duration(seconds: 35);
 const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
 const Duration _kArtifactChmodTimeout = Duration(seconds: 2);
+const int _kPackageReportSummaryMaxLines = 220;
 const int _kStaticQuickScanPreviewLines = 80;
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'devices',
+  'packages',
   'apks',
   'screenshots',
   'recordings',
@@ -57,6 +60,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get logcatJsonlPath => '$artifactsRootDir/logcat.jsonl';
   String get networkJsonlPath => '$artifactsRootDir/network.jsonl';
   String get devicesDir => '$artifactsRootDir/devices';
+  String get packagesDir => '$artifactsRootDir/packages';
   String get apksDir => '$artifactsRootDir/apks';
   String get screenshotsDir => '$artifactsRootDir/screenshots';
   String get recordingsDir => '$artifactsRootDir/recordings';
@@ -181,6 +185,94 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<String?> getPackageVersion(String packageName, {String? serial}) =>
       _clientForSerial(serial).getPackageVersion(packageName);
+
+  Future<AdbCommandResult> capturePackageReportToArtifacts(
+    String packageName, {
+    String? serial,
+  }) async {
+    final normalizedPackage = packageName.trim();
+    if (!_looksLikePackageName(normalizedPackage)) {
+      return AdbCommandResult(
+        args: const <String>['package-report', '<invalid-package>'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Invalid Android package name: $packageName',
+      );
+    }
+    final client = _clientForSerial(serial);
+    final targetDir = Directory(
+      '$packagesDir/${_safeArtifactName(normalizedPackage)}',
+    );
+    final stamp = _artifactTimestamp();
+    final markdownPath = '${targetDir.path}/package_report_$stamp.md';
+    final jsonPath = '${targetDir.path}/package_report_$stamp.json';
+    try {
+      await targetDir.create(recursive: true);
+      final pathsFuture = client.getPackagePaths(normalizedPackage);
+      final versionFuture = client.getPackageVersion(normalizedPackage);
+      final launcherFuture = client.resolveLauncherActivity(normalizedPackage);
+      final dumpsysFuture = client.shellDetailed(
+        'dumpsys package $normalizedPackage',
+        timeout: _kPackageReportTimeout,
+      );
+      final paths = await pathsFuture;
+      final version = await versionFuture;
+      final launcher = await launcherFuture;
+      final dumpsys = await dumpsysFuture;
+      final summary = _packageDumpsysSummary(dumpsys.stdout);
+      final capturedAt = DateTime.now().toUtc().toIso8601String();
+      final json = <String, Object?>{
+        'captured_at': capturedAt,
+        if (serial?.trim().isNotEmpty ?? false) 'device_serial': serial!.trim(),
+        'package_name': normalizedPackage,
+        'apk_paths': paths,
+        'version': version,
+        'launcher_activity': launcher,
+        'dumpsys': <String, Object?>{
+          'summary': summary,
+          'exit_code': dumpsys.exitCode,
+          'timed_out': dumpsys.timedOut,
+          'stderr': dumpsys.stderr,
+        },
+      };
+      final markdown = _packageReportMarkdown(
+        capturedAt: capturedAt,
+        packageName: normalizedPackage,
+        paths: paths,
+        version: version,
+        launcher: launcher,
+        dumpsys: dumpsys,
+        summary: summary,
+        jsonPath: jsonPath,
+      );
+      await Future.wait(<Future<void>>[
+        File(markdownPath).writeAsString(markdown),
+        File(
+          jsonPath,
+        ).writeAsString(const JsonEncoder.withIndent('  ').convert(json)),
+      ]);
+      return AdbCommandResult(
+        args: <String>['package-report', normalizedPackage],
+        exitCode: dumpsys.exitCode,
+        stdout: <String>[
+          'Package report: $markdownPath',
+          'Package report JSON: $jsonPath',
+          if (paths.isNotEmpty) 'APK paths: ${paths.join(', ')}',
+          if (launcher != null && launcher.isNotEmpty) 'Launcher: $launcher',
+        ].join('\n'),
+        stderr: dumpsys.stderr,
+        timedOut: dumpsys.timedOut,
+      );
+    } catch (e, st) {
+      silentLog(_kTag, 'capturePackageReportToArtifacts failed', e, st);
+      return AdbCommandResult(
+        args: <String>['package-report', normalizedPackage],
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+      );
+    }
+  }
 
   Future<String?> resolveLauncherActivity(
     String packageName, {
@@ -886,6 +978,67 @@ class AndroidReverseSessionController extends ChangeNotifier {
     return 'artifact';
   }
 
+  bool _looksLikePackageName(String value) {
+    final packageName = value.trim();
+    if (packageName.length > 220) return false;
+    return RegExp(
+      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
+    ).hasMatch(packageName);
+  }
+
+  String _packageDumpsysSummary(String raw) {
+    final summary = <String>[];
+    for (final line in raw.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      final isSectionHeader =
+          trimmed == 'requested permissions:' ||
+          trimmed == 'install permissions:' ||
+          trimmed == 'runtime permissions:' ||
+          trimmed == 'PackageSignatures{' ||
+          trimmed.startsWith('SigningDetails') ||
+          trimmed.startsWith('Activities:') ||
+          trimmed.startsWith('Services:') ||
+          trimmed.startsWith('Receivers:') ||
+          trimmed.startsWith('Providers:');
+      final isKeyLine =
+          trimmed.startsWith('versionCode=') ||
+          trimmed.startsWith('versionName=') ||
+          trimmed.startsWith('targetSdk=') ||
+          trimmed.startsWith('minSdk=') ||
+          trimmed.startsWith('firstInstallTime=') ||
+          trimmed.startsWith('lastUpdateTime=') ||
+          trimmed.startsWith('installerPackageName=') ||
+          trimmed.startsWith('signatures=') ||
+          trimmed.startsWith('pkgFlags=') ||
+          trimmed.startsWith('privateFlags=') ||
+          trimmed.startsWith('User 0:') ||
+          trimmed.startsWith('enabled=') ||
+          trimmed.startsWith('stopped=') ||
+          trimmed.startsWith('hidden=') ||
+          trimmed.startsWith('suspended=');
+      final isComponentLine =
+          trimmed.contains('Activity') ||
+          trimmed.contains('Service') ||
+          trimmed.contains('Receiver') ||
+          trimmed.contains('Provider');
+      final isPermissionLine = trimmed.startsWith('android.permission.');
+      if (isSectionHeader || isKeyLine || isPermissionLine || isComponentLine) {
+        summary.add(trimmed);
+      }
+      if (summary.length >= _kPackageReportSummaryMaxLines) break;
+    }
+    if (summary.isEmpty && raw.trim().isNotEmpty) {
+      return raw
+          .split('\n')
+          .map((line) => line.trimRight())
+          .where((line) => line.trim().isNotEmpty)
+          .take(_kPackageReportSummaryMaxLines)
+          .join('\n');
+    }
+    return summary.join('\n');
+  }
+
   Future<String> _staticQuickScanSummary(
     Directory outputDir,
     ProcessResult result, {
@@ -1018,6 +1171,53 @@ class AndroidReverseSessionController extends ChangeNotifier {
         ..writeln()
         ..writeln('## Warnings')
         ..writeln(_fenced(stderr.trim()));
+    }
+    return buffer.toString().trimRight();
+  }
+
+  String _packageReportMarkdown({
+    required String capturedAt,
+    required String packageName,
+    required List<String> paths,
+    required String? version,
+    required String? launcher,
+    required AdbCommandResult dumpsys,
+    required String summary,
+    required String jsonPath,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln('# Android package report')
+      ..writeln()
+      ..writeln('- captured_at: $capturedAt')
+      ..writeln('- package: $packageName')
+      ..writeln('- version: ${version?.isEmpty == false ? version : "-"}')
+      ..writeln('- launcher: ${launcher?.isEmpty == false ? launcher : "-"}')
+      ..writeln('- json: $jsonPath')
+      ..writeln()
+      ..writeln('## APK paths');
+    if (paths.isEmpty) {
+      buffer.writeln('(none)');
+    } else {
+      for (final path in paths) {
+        buffer.writeln('- $path');
+      }
+    }
+    buffer
+      ..writeln()
+      ..writeln('## dumpsys summary')
+      ..writeln(_fenced(summary));
+    if (dumpsys.timedOut || dumpsys.stderr.trim().isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Warnings')
+        ..writeln(
+          _fenced(
+            <String>[
+              if (dumpsys.timedOut) 'dumpsys package timed out',
+              if (dumpsys.stderr.trim().isNotEmpty) dumpsys.stderr.trim(),
+            ].join('\n'),
+          ),
+        );
     }
     return buffer.toString().trimRight();
   }
