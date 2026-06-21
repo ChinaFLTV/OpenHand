@@ -36,7 +36,7 @@
 <dashboard_tabs>
 设备管理 · 概览 · 工具链 · MCP/插件 · APP 信息 · 进程 · Logcat · Frida · 网络 · 静态分析 · 证书 · 加密。
 
-- **设备管理**：列设备、切目标、无线连接 / 断开、tcpip、root / remount / reboot、端口转发、设备现场快照、电池 / 屏幕 / 存储 / 前台 Activity / ABI、APK 安装、push / pull、截图 / 录屏、常用 shell 预设、命令输出。
+- **设备管理**：列设备、切目标、无线连接 / 断开、tcpip、root / remount / reboot、端口转发、设备现场快照 / 报告工件、电池 / 屏幕 / 存储 / 前台 Activity / ABI、APK 安装、push / pull、截图 / 录屏、常用 shell 预设、命令输出。
 - **概览**：会话目标、包名、APK 路径、MCP 开关、设备摘要、关键字。
 - **工具链**：本机 ADB / aapt / apksigner / keytool / strings / readelf / apktool / jadx / Frida / mitmproxy / radare2 / Flutter 逆向工具可用性诊断、安装 / 更新 / 卸载命令复制建议。
 - **MCP/插件**：Android 相关 MCP server 健康状态、工具目录、ToolSearch 查询建议、Node / Python / pip / Playwright 前置运行时状态。

@@ -42,7 +42,7 @@
 - 缺 Frida 或 frida-server 时不要循环安装；说明缺口、给出安装建议，除非用户批准继续。
 - 缺 CLI 工具时优先读取 `android_reverse_runtime.toolchain_setup_commands`；复制建议可展示，执行安装 / 更新 / 卸载前必须 ask 用户。
 - 启动 APP 使用 launcher activity 或 `monkey -p <pkg>`，不要连续尝试不存在的 `.MainActivity`。
-- APP / 进程 / Logcat 状态先看 dashboard 产物或运行时快照；不要重复 `adb devices`、`ps`、`logcat` 刷屏。
+- APP / 进程 / Logcat 状态先看 dashboard 设备报告、运行时快照或本地工件；不要重复 `adb devices`、`ps`、`logcat` 刷屏。
 </efficiency_rules>
 
 <frida_hook_protocol>

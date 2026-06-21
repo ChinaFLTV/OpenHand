@@ -138,6 +138,7 @@ enum _DeviceMenuAction {
   refreshProps,
   listForwards,
   tcpip5555,
+  deviceReport,
   screenshot,
   screenRecord,
   root,
@@ -1882,6 +1883,17 @@ class _AndroidReverseDashboardDialogState
                     : () => _runShellPreset('settings list global | head -80'),
               ),
               _SmallActionButton(
+                icon: Icons.fact_check_rounded,
+                label: isZh ? '现场报告' : 'Report',
+                onPressed: serial == null || _runningDeviceAction
+                    ? null
+                    : () => _runDeviceAction(
+                        () => _ctrl.captureDeviceReportToArtifacts(
+                          serial: _targetSerial,
+                        ),
+                      ),
+              ),
+              _SmallActionButton(
                 icon: Icons.hub_rounded,
                 label: isZh ? '网络地址' : 'IP addr',
                 onPressed: serial == null
@@ -2001,6 +2013,14 @@ class _AndroidReverseDashboardDialogState
           child: Text('adb tcpip 5555'),
         ),
         PopupMenuItem(
+          value: _DeviceMenuAction.deviceReport,
+          child: Text(
+            openHandIsChineseLocale(context)
+                ? '生成现场报告'
+                : 'Generate field report',
+          ),
+        ),
+        PopupMenuItem(
           value: _DeviceMenuAction.screenshot,
           child: Text(
             openHandIsChineseLocale(context) ? '截屏到工件目录' : 'Capture screenshot',
@@ -2051,6 +2071,11 @@ class _AndroidReverseDashboardDialogState
       case _DeviceMenuAction.tcpip5555:
         setState(() => _selectedDeviceSerial = device.serial);
         await _runDeviceAction(() => _ctrl.tcpip(5555, serial: device.serial));
+      case _DeviceMenuAction.deviceReport:
+        setState(() => _selectedDeviceSerial = device.serial);
+        await _runDeviceAction(
+          () => _ctrl.captureDeviceReportToArtifacts(serial: device.serial),
+        );
       case _DeviceMenuAction.screenshot:
         setState(() => _selectedDeviceSerial = device.serial);
         await _runDeviceAction(

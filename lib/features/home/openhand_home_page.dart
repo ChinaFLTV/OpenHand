@@ -3382,6 +3382,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'root_dir': controller.artifactsRootDir,
         'logcat_jsonl': controller.logcatJsonlPath,
         'network_jsonl': controller.networkJsonlPath,
+        'devices_dir': controller.devicesDir,
         'apks_dir': controller.apksDir,
         'screenshots_dir': controller.screenshotsDir,
         'recordings_dir': controller.recordingsDir,
@@ -3395,6 +3396,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'local_read_hints': <String>[
         'tail -200 ${controller.logcatJsonlPath}',
         'tail -200 ${controller.networkJsonlPath}',
+        'find ${controller.devicesDir} -maxdepth 3 -type f | head -200',
         'find ${controller.networkDir} -maxdepth 2 -type f | head -200',
         'find ${controller.apksDir} -maxdepth 3 -type f',
         'find ${controller.screenshotsDir} -maxdepth 2 -type f',
@@ -3411,6 +3413,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'adb_root_remount_reboot',
         'adb_forward_add_remove',
         'adb_device_field_snapshot_battery_display_storage_foreground_abi',
+        'adb_device_field_report_markdown_json_artifacts',
         'adb_shell_presets',
         'apk_install',
         'file_push_pull',

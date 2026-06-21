@@ -11,10 +11,12 @@ import 'android_reverse_session_config.dart';
 
 const String _kTag = 'android_reverse_session_controller';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
+const Duration _kDeviceReportTimeout = Duration(seconds: 18);
 const Duration _kStaticQuickScanTimeout = Duration(seconds: 35);
 const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
 const int _kStaticQuickScanPreviewLines = 80;
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
+  'devices',
   'apks',
   'screenshots',
   'recordings',
@@ -51,6 +53,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   String get logcatJsonlPath => '$artifactsRootDir/logcat.jsonl';
   String get networkJsonlPath => '$artifactsRootDir/network.jsonl';
+  String get devicesDir => '$artifactsRootDir/devices';
   String get apksDir => '$artifactsRootDir/apks';
   String get screenshotsDir => '$artifactsRootDir/screenshots';
   String get recordingsDir => '$artifactsRootDir/recordings';
@@ -325,6 +328,118 @@ class AndroidReverseSessionController extends ChangeNotifier {
     if (!record.ok && !record.hasUsableStdout) return record;
     final pull = await client.pullDetailed(remotePath, localPath);
     return _combineAdbResults(<AdbCommandResult>[record, pull]);
+  }
+
+  Future<AdbCommandResult> captureDeviceReportToArtifacts({
+    String? serial,
+  }) async {
+    final normalizedSerial = serial?.trim();
+    final client = _clientForSerial(normalizedSerial);
+    final reportSerial = normalizedSerial == null || normalizedSerial.isEmpty
+        ? 'default'
+        : normalizedSerial;
+    final targetDir = Directory(
+      '$devicesDir/${_safeArtifactName(reportSerial)}',
+    );
+    final stamp = _artifactTimestamp();
+    final markdownPath = '${targetDir.path}/device_report_$stamp.md';
+    final jsonPath = '${targetDir.path}/device_report_$stamp.json';
+    try {
+      await targetDir.create(recursive: true);
+      final devices = await _adbClient.listDevices();
+      final propsFuture = client.getProperties();
+      final forwardsFuture = client.listForwards();
+      final snapshotFuture = client.shellDetailed(
+        _deviceReportSnapshotScript,
+        timeout: _kDeviceReportTimeout,
+      );
+      final logcatFuture = client.logcatDetailed(lines: 80);
+      final packageName = config.packageName?.trim();
+      final launcherFuture = packageName == null || packageName.isEmpty
+          ? Future<String?>.value()
+          : client.resolveLauncherActivity(packageName);
+      final props = await propsFuture;
+      final forwards = await forwardsFuture;
+      final snapshot = await snapshotFuture;
+      final logcat = await logcatFuture;
+      final launcher = await launcherFuture;
+      final capturedAt = DateTime.now().toUtc().toIso8601String();
+      final json = <String, Object?>{
+        'captured_at': capturedAt,
+        'serial': reportSerial,
+        'devices': devices
+            .map(
+              (device) => <String, Object?>{
+                'serial': device.serial,
+                'state': device.state,
+                'model': device.model,
+                'product': device.product,
+                'transport_id': device.transportId,
+              },
+            )
+            .toList(growable: false),
+        'properties': props,
+        'forwards': (forwards ?? '')
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList(growable: false),
+        'target_package': packageName,
+        'launcher_activity': launcher,
+        'snapshot': <String, Object?>{
+          'stdout': snapshot.stdout,
+          'stderr': snapshot.stderr,
+          'exit_code': snapshot.exitCode,
+          'timed_out': snapshot.timedOut,
+        },
+        'logcat_tail': <String, Object?>{
+          'stdout': logcat.stdout,
+          'stderr': logcat.stderr,
+          'exit_code': logcat.exitCode,
+          'timed_out': logcat.timedOut,
+        },
+      };
+      final markdown = _deviceReportMarkdown(
+        capturedAt: capturedAt,
+        serial: reportSerial,
+        devices: devices,
+        props: props,
+        forwards: forwards,
+        packageName: packageName,
+        launcher: launcher,
+        snapshot: snapshot,
+        logcat: logcat,
+        jsonPath: jsonPath,
+      );
+      await Future.wait(<Future<void>>[
+        File(markdownPath).writeAsString(markdown),
+        File(
+          jsonPath,
+        ).writeAsString(const JsonEncoder.withIndent('  ').convert(json)),
+      ]);
+      return AdbCommandResult(
+        args: <String>['device-report', reportSerial],
+        exitCode: 0,
+        stdout: <String>[
+          'Device report: $markdownPath',
+          'Device report JSON: $jsonPath',
+          if (launcher != null && launcher.isNotEmpty) 'Launcher: $launcher',
+        ].join('\n'),
+        stderr: <String>[
+          if (snapshot.stderr.trim().isNotEmpty) snapshot.stderr.trim(),
+          if (logcat.stderr.trim().isNotEmpty) logcat.stderr.trim(),
+        ].join('\n'),
+        timedOut: snapshot.timedOut || logcat.timedOut,
+      );
+    } catch (e, st) {
+      silentLog(_kTag, 'captureDeviceReportToArtifacts failed', e, st);
+      return AdbCommandResult(
+        args: <String>['device-report', reportSerial],
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+      );
+    }
   }
 
   Future<AdbCommandResult> pullPackageApksDetailed(
@@ -692,7 +807,117 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
     return buffer.toString().trimRight();
   }
+
+  String _deviceReportMarkdown({
+    required String capturedAt,
+    required String serial,
+    required List<AdbDevice> devices,
+    required Map<String, String> props,
+    required String? forwards,
+    required String? packageName,
+    required String? launcher,
+    required AdbCommandResult snapshot,
+    required AdbCommandResult logcat,
+    required String jsonPath,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln('# Android device field report')
+      ..writeln()
+      ..writeln('- captured_at: $capturedAt')
+      ..writeln('- serial: $serial')
+      ..writeln('- json: $jsonPath');
+    final keyProps = <String>[
+      'ro.product.manufacturer',
+      'ro.product.brand',
+      'ro.product.model',
+      'ro.product.device',
+      'ro.build.version.release',
+      'ro.build.version.sdk',
+      'ro.product.cpu.abi',
+      'ro.product.cpu.abilist',
+      'ro.build.fingerprint',
+    ];
+    buffer
+      ..writeln()
+      ..writeln('## Devices');
+    if (devices.isEmpty) {
+      buffer.writeln('(none)');
+    } else {
+      for (final device in devices) {
+        buffer.writeln(
+          '- ${device.serial} ${device.state}'
+          '${device.model == null ? "" : " model=${device.model}"}'
+          '${device.product == null ? "" : " product=${device.product}"}',
+        );
+      }
+    }
+    buffer
+      ..writeln()
+      ..writeln('## Key properties');
+    for (final key in keyProps) {
+      buffer.writeln('- $key: ${props[key] ?? "-"}');
+    }
+    buffer
+      ..writeln()
+      ..writeln('## Target package')
+      ..writeln(
+        '- package: ${packageName?.isEmpty == false ? packageName : "-"}',
+      )
+      ..writeln('- launcher: ${launcher?.isEmpty == false ? launcher : "-"}')
+      ..writeln()
+      ..writeln('## Forwards')
+      ..writeln(_fenced(forwards?.trim()))
+      ..writeln()
+      ..writeln('## Snapshot')
+      ..writeln(_fenced(snapshot.stdout.trim()))
+      ..writeln()
+      ..writeln('## Logcat tail')
+      ..writeln(_fenced(logcat.stdout.trim()));
+    final stderr = <String>[
+      if (snapshot.stderr.trim().isNotEmpty) snapshot.stderr.trim(),
+      if (logcat.stderr.trim().isNotEmpty) logcat.stderr.trim(),
+    ].join('\n');
+    if (stderr.trim().isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Warnings')
+        ..writeln(_fenced(stderr.trim()));
+    }
+    return buffer.toString().trimRight();
+  }
+
+  String _fenced(String? value) {
+    final text = value?.trim();
+    if (text == null || text.isEmpty) return '```text\n(empty)\n```';
+    return '```text\n$text\n```';
+  }
 }
+
+const String _deviceReportSnapshotScript = r'''
+printf '[identity]\n'
+getprop ro.serialno
+getprop ro.boot.serialno
+getprop ro.product.manufacturer
+getprop ro.product.model
+getprop ro.build.version.release
+getprop ro.build.version.sdk
+printf '[battery]\n'
+dumpsys battery | grep -E 'level:|status:|temperature:|voltage:|AC powered:|USB powered:|Wireless powered:' || true
+printf '[display]\n'
+wm size
+wm density
+printf '[storage]\n'
+df -h /data /sdcard /system 2>/dev/null || df /data /sdcard /system 2>/dev/null || true
+printf '[network]\n'
+ip -o addr show 2>/dev/null | grep -E 'inet ' || true
+settings get global http_proxy 2>/dev/null || true
+printf '[foreground]\n'
+dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' | head -6 || true
+printf '[process_sample]\n'
+ps -A 2>/dev/null | head -80 || ps 2>/dev/null | head -80 || true
+printf '[disabled_packages]\n'
+pm list packages -d 2>/dev/null | head -80 || true
+''';
 
 const String _staticQuickScanScript = r'''
 set +e

@@ -2294,6 +2294,7 @@ class AiPromptBuilder {
         'root_dir': rootDir,
         'logcat_jsonl': p.join(rootDir, 'logcat.jsonl'),
         'network_jsonl': p.join(rootDir, 'network.jsonl'),
+        'devices_dir': p.join(rootDir, 'devices'),
         'apks_dir': p.join(rootDir, 'apks'),
         'screenshots_dir': p.join(rootDir, 'screenshots'),
         'recordings_dir': p.join(rootDir, 'recordings'),
@@ -2307,6 +2308,7 @@ class AiPromptBuilder {
       'local_read_hints': <String>[
         'tail -200 ${p.join(rootDir, 'logcat.jsonl')}',
         'tail -200 ${p.join(rootDir, 'network.jsonl')}',
+        'find ${p.join(rootDir, 'devices')} -maxdepth 3 -type f | head -200',
         'find ${p.join(rootDir, 'network')} -maxdepth 2 -type f | head -200',
         'find ${p.join(rootDir, 'apks')} -maxdepth 3 -type f',
         'find ${p.join(rootDir, 'screenshots')} -maxdepth 2 -type f',
@@ -2317,7 +2319,7 @@ class AiPromptBuilder {
         'find ${p.join(rootDir, 'certs')} -maxdepth 3 -type f | head -200',
       ],
       'dashboard_actions': const <String>[
-        'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, field snapshot, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
+        'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, field snapshot/report artifacts, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
         'toolchain: diagnostics plus copy-only install/update/uninstall commands for Android reverse CLI tools',
         'mcp_plugins: Android-related MCP health, discovered mcp__* names, ToolSearch query, Node/Python/pip/Playwright runtime prerequisites',
         'static_analysis: quick APK scan writes badging/Manifest/components/certs/nested APKs/Flutter/native/suspicious files/network sources/URL/domain/IP summaries to decompiled/<target>/quick_scan',
