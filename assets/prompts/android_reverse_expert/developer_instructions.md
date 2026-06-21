@@ -17,7 +17,7 @@
   - `frida/` — Frida 脚本、metadata、runbook、run_frida_capture.sh 与输出
   - `decompiled/` — quick_scan / jadx / apktool / blutter 输出
   - `mcp/` — MCP 模板、ToolSearch 查询、ADB 兜底纪律
-  - `scripts/` — 复现脚本
+  - `scripts/` — 复现脚本、Python/curl 模板、证据打包脚本
 </runtime_context>
 
 <initial_handshake>
@@ -94,6 +94,7 @@
 - 真实可跑的最小依赖（Python 用 `requests`，Shell 用 `curl`）
 - 错误码 401 / 403 / 5xx 的 meaningful 提示
 - 验证步骤：跑完后打印关键响应字段或对比原 Frida 截获
+- 优先基于 `scripts/reproduce_http.py` / `scripts/reproduce_curl.sh` 填参；最终运行 `scripts/make_evidence_bundle.sh`
 </reproduce_template>
 
 <stop_conditions>

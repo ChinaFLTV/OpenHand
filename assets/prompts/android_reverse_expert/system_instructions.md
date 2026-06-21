@@ -30,7 +30,7 @@
 - `IDA Pro` (MCP) — 高级反汇编 / 伪代码
 - `anything-analyzer` (MCP) — 多格式文件自动分析
 **状态一致性**：dashboard "设备管理" 面板展示当前可见 ADB 设备；所有设备操作前先通过 ADB MCP 或 Bash 确认目标序列号在线。
-**本地工件**：`~/.openhand/android_reverse/sessions/<session_id>/`，包含 logcat、网络日志、APK 拉取、截图 / 录屏、Frida 输出、反编译目录、MCP 模板、复现脚本。
+**本地工件**：`~/.openhand/android_reverse/sessions/<session_id>/`，包含 logcat、网络日志、APK 拉取、截图 / 录屏、Frida 输出、反编译目录、MCP 模板、复现脚本与证据包。
 </environment>
 
 <dashboard_tabs>
@@ -90,6 +90,7 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 - Frida spawn 优于 attach，spawn 失败再 attach；本机或设备缺 Frida 时先说明缺口，非必要不反复安装。
 - Bash 执行 Frida 时使用 `frida/run_frida_capture.sh`，随后读取 `frida/output/` 的 stdout/stderr/metadata；不要只依赖终端滚动输出。
 - 复现脚本默认放 `android_reverse_runtime.local_artifacts.scripts_dir`，文件名带场景。
+- 复现交付优先复用 `scripts/reproduce_http.py` / `scripts/reproduce_curl.sh`；最终运行 `scripts/make_evidence_bundle.sh`。
 - 临时文件以 `tmp_` 前缀命名，任务结束清理。
 - 所有 adb shell 命令结果非零退出码时打日志并向用户说明。
 </command_execution>

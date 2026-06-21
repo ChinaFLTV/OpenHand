@@ -4370,6 +4370,18 @@ class _AndroidReverseDashboardDialogState
                 'mitmdump -nr ${_shellQuote('$networkDir/flows.mitm')} > ${_shellQuote('$networkDir/flows.txt')}',
           ),
           const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '复现交付模板' : 'Reproduction templates',
+            command:
+                'cat ${_shellQuote(_ctrl.scriptsReadmePath)}\n'
+                'TARGET_URL=<url> HTTP_METHOD=GET ${_shellQuote(_ctrl.reproducePythonPath)}\n'
+                'TARGET_URL=<url> HTTP_METHOD=GET ${_shellQuote(_ctrl.reproduceCurlPath)}\n'
+                '${_shellQuote(_ctrl.evidenceBundleScriptPath)}',
+          ),
+          const SizedBox(height: 10),
           _InfoCard(
             cs: cs,
             theme: theme,

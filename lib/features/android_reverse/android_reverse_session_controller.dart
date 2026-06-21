@@ -81,8 +81,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get networkProxyProbeScriptPath => '$networkDir/proxy_probe.sh';
   String get certsDir => '$artifactsRootDir/certs';
   String get scriptsDir => '$artifactsRootDir/scripts';
+  String get scriptsReadmePath => '$scriptsDir/README.md';
   String get adbOneShotScriptPath => '$scriptsDir/adb_one_shot.sh';
   String get dynamicProbeScriptPath => '$scriptsDir/android_dynamic_probe.sh';
+  String get reproducePythonPath => '$scriptsDir/reproduce_http.py';
+  String get reproduceCurlPath => '$scriptsDir/reproduce_curl.sh';
+  String get evidenceBundleScriptPath => '$scriptsDir/make_evidence_bundle.sh';
   String get logsDir => '$artifactsRootDir/logs';
 
   final AndroidReverseAdbClient _adbClient;
@@ -925,6 +929,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
           networkProxyProbeScriptPath,
         ).writeAsString(_networkProxyProbeScript),
         File(mitmproxyAddonPath).writeAsString(_mitmproxyJsonlAddon),
+        File(scriptsReadmePath).writeAsString(_reproduceScriptsReadme),
+        File(reproducePythonPath).writeAsString(_reproduceHttpPythonScript),
+        File(reproduceCurlPath).writeAsString(_reproduceCurlScript),
+        File(evidenceBundleScriptPath).writeAsString(_evidenceBundleScript),
         File(adbOneShotScriptPath).writeAsString(_adbOneShotScript),
         File(dynamicProbeScriptPath).writeAsString(_androidDynamicProbeScript),
       ]);
@@ -938,6 +946,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
             dynamicProbeScriptPath,
             networkProxyProbeScriptPath,
             fridaCaptureScriptPath,
+            reproducePythonPath,
+            reproduceCurlPath,
+            evidenceBundleScriptPath,
           ],
           timeout: _kArtifactChmodTimeout,
           tag: 'android_reverse.mcp_linkage_chmod',
@@ -953,6 +964,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'frida_capture: $fridaCaptureScriptPath',
         'network_readme: $networkReadmePath',
         'network_proxy_probe: $networkProxyProbeScriptPath',
+        'scripts_readme: $scriptsReadmePath',
+        'reproduce_python: $reproducePythonPath',
+        'reproduce_curl: $reproduceCurlPath',
+        'evidence_bundle: $evidenceBundleScriptPath',
       ].join('\n');
     } catch (e, st) {
       silentLog(_kTag, 'write MCP linkage artifacts failed', e, st);
@@ -1363,6 +1378,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'frida_scripts_dir': fridaScriptsDir,
         'frida_output_dir': fridaOutputDir,
         'frida_capture_script': fridaCaptureScriptPath,
+        'scripts_readme': scriptsReadmePath,
+        'reproduce_python': reproducePythonPath,
+        'reproduce_curl': reproduceCurlPath,
+        'evidence_bundle_script': evidenceBundleScriptPath,
       },
       'tool_search_queries': const <String>[
         'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter',
@@ -1458,6 +1477,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'Read quick_scan artifacts before dynamic work when APK path exists.',
         'Read network/README.md and run network/proxy_probe.sh before mitmproxy capture.',
         'Use frida/run_frida_capture.sh to preserve Frida stdout/stderr under frida/output/.',
+        'Place final curl/Python reproduction in scripts/ and keep scripts/README.md updated.',
         'Use MCP for ADB/Frida only when exact mcp__* tools are visible.',
         'Use dashboard-generated cert/network/frida artifacts instead of rewriting boilerplate.',
       ],
@@ -1479,6 +1499,7 @@ Files:
 - ../scripts/android_dynamic_probe.sh: one-pass ADB / launcher / Frida preflight.
 - ../network/README.md and ../network/proxy_probe.sh: mitmproxy and proxy diagnostics.
 - ../frida/README.md and ../frida/run_frida_capture.sh: Frida script, server, and output capture runbook.
+- ../scripts/README.md, reproduce_http.py, reproduce_curl.sh, make_evidence_bundle.sh: final delivery templates.
 
 Rules:
 1. Use only real mcp__* tool names from the Tool Catalog or ToolSearch result.
@@ -1487,8 +1508,9 @@ Rules:
 4. Do not guess launcher activities. Resolve them with package manager data.
 5. Before mitmproxy capture, read network/README.md and run network/proxy_probe.sh.
 6. Capture Frida output through frida/run_frida_capture.sh so evidence is preserved under frida/output/.
-7. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
-8. Stop after two repeated failures on the same command, hook, install, or launch path.
+7. Put final reproductions under scripts/ and run make_evidence_bundle.sh before final delivery.
+8. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
+9. Stop after two repeated failures on the same command, hook, install, or launch path.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook
@@ -2260,6 +2282,265 @@ fi
 
 section local_capture_files
 ls -lh "$SCRIPT_DIR" "$SESSION_DIR/network.jsonl" 2>/dev/null || true
+''';
+
+const String _reproduceScriptsReadme =
+    r'''# Android reverse reproduction scripts
+
+This directory stores final runnable reproductions and evidence bundles.
+
+Files:
+- reproduce_http.py: Python HTTP replay template. Uses requests when present, with urllib fallback.
+- reproduce_curl.sh: curl replay template using HEADERS_FILE / BODY_FILE.
+- make_evidence_bundle.sh: local artifact summary for final delivery.
+- adb_one_shot.sh: short-timeout ADB helper.
+- android_dynamic_probe.sh: ADB / launcher / Frida preflight.
+
+Workflow:
+1. Fill TARGET_URL, HTTP_METHOD, HEADERS_FILE or HEADERS_JSON, and BODY_FILE from Frida/network evidence.
+2. Run reproduce_http.py and reproduce_curl.sh without an IDE.
+3. Compare key response fields with `network.jsonl` or Frida output.
+4. Run make_evidence_bundle.sh and include the generated Markdown path in the final answer.
+
+Rules:
+- Do not store real long-lived secrets in committed templates.
+- Keep one reproduction per endpoint or scenario.
+- Note token/cookie expiry windows at the top of the final script.
+''';
+
+const String _reproduceHttpPythonScript = r'''#!/usr/bin/env python3
+"""Minimal Android reverse HTTP reproduction template.
+
+Set environment variables before running:
+  TARGET_URL       required, full URL
+  HTTP_METHOD      optional, default GET
+  HEADERS_JSON     optional, JSON object of headers
+  HEADERS_FILE     optional, one `Header: value` line per header
+  BODY             optional, request body text
+  BODY_FILE        optional, request body file path
+  TIMEOUT_SECONDS  optional, default 20
+
+The script uses requests when installed and falls back to urllib.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+
+def _load_headers() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    headers_json = os.environ.get("HEADERS_JSON", "").strip()
+    if headers_json:
+        value = json.loads(headers_json)
+        if not isinstance(value, dict):
+            raise SystemExit("HEADERS_JSON must be a JSON object")
+        headers.update({str(k): str(v) for k, v in value.items()})
+    headers_file = os.environ.get("HEADERS_FILE", "").strip()
+    if headers_file:
+        with open(headers_file, "r", encoding="utf-8") as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if ":" not in line:
+                    raise SystemExit(f"invalid header line: {line}")
+                key, value = line.split(":", 1)
+                headers[key.strip()] = value.strip()
+    return headers
+
+
+def _load_body() -> bytes | None:
+    body_file = os.environ.get("BODY_FILE", "").strip()
+    if body_file:
+        with open(body_file, "rb") as fh:
+            return fh.read()
+    body = os.environ.get("BODY")
+    if body is not None:
+        return body.encode("utf-8")
+    return None
+
+
+def _print_response(status: int, headers: dict[str, str], body: bytes) -> None:
+    print(f"status={status}")
+    print("headers=" + json.dumps(headers, ensure_ascii=False, sort_keys=True))
+    text = body.decode("utf-8", errors="replace")
+    print(text)
+
+
+def _run_with_requests(
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    body: bytes | None,
+    timeout: float,
+) -> bool:
+    try:
+        import requests  # type: ignore
+    except Exception:
+        return False
+    response = requests.request(
+        method,
+        url,
+        headers=headers,
+        data=body,
+        timeout=timeout,
+    )
+    _print_response(response.status_code, dict(response.headers), response.content)
+    return True
+
+
+def _run_with_urllib(
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    body: bytes | None,
+    timeout: float,
+) -> None:
+    request = urllib.request.Request(
+        url,
+        data=body,
+        headers=headers,
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            _print_response(
+                response.status,
+                dict(response.headers.items()),
+                response.read(),
+            )
+    except urllib.error.HTTPError as error:
+        _print_response(error.code, dict(error.headers.items()), error.read())
+        raise SystemExit(1)
+
+
+def main() -> int:
+    url = os.environ.get("TARGET_URL", "").strip()
+    if not url:
+        print("TARGET_URL is required", file=sys.stderr)
+        return 64
+    method = os.environ.get("HTTP_METHOD", "GET").strip().upper() or "GET"
+    timeout = float(os.environ.get("TIMEOUT_SECONDS", "20"))
+    headers = _load_headers()
+    body = _load_body()
+    if _run_with_requests(method, url, headers, body, timeout):
+        return 0
+    _run_with_urllib(method, url, headers, body, timeout)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+''';
+
+const String _reproduceCurlScript = r'''#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET_URL="${TARGET_URL:-}"
+HTTP_METHOD="${HTTP_METHOD:-GET}"
+HEADERS_FILE="${HEADERS_FILE:-}"
+BODY_FILE="${BODY_FILE:-}"
+TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-20}"
+
+if [[ -z "$TARGET_URL" ]]; then
+  echo "TARGET_URL is required" >&2
+  exit 64
+fi
+
+args=(-i -sS --max-time "$TIMEOUT_SECONDS" -X "$HTTP_METHOD")
+
+if [[ -n "$HEADERS_FILE" ]]; then
+  if [[ ! -f "$HEADERS_FILE" ]]; then
+    echo "HEADERS_FILE not found: $HEADERS_FILE" >&2
+    exit 66
+  fi
+  while IFS= read -r header_line || [[ -n "$header_line" ]]; do
+    [[ -z "${header_line// }" || "${header_line:0:1}" == "#" ]] && continue
+    args+=(-H "$header_line")
+  done < "$HEADERS_FILE"
+fi
+
+if [[ -n "$BODY_FILE" ]]; then
+  if [[ ! -f "$BODY_FILE" ]]; then
+    echo "BODY_FILE not found: $BODY_FILE" >&2
+    exit 66
+  fi
+  args+=(--data-binary "@$BODY_FILE")
+fi
+
+curl "${args[@]}" "$TARGET_URL"
+''';
+
+const String _evidenceBundleScript = r'''#!/usr/bin/env bash
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSION_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+OUT="$SCRIPT_DIR/evidence_bundle_$STAMP.md"
+
+section() {
+  printf '\n## %s\n\n' "$1" >> "$OUT"
+}
+
+fence_file() {
+  local path="$1"
+  local lines="${2:-120}"
+  if [[ -f "$path" ]]; then
+    printf '```text\n' >> "$OUT"
+    tail -n "$lines" "$path" >> "$OUT"
+    printf '\n```\n' >> "$OUT"
+  else
+    printf '(missing: %s)\n' "$path" >> "$OUT"
+  fi
+}
+
+{
+  printf '# Android reverse evidence bundle\n\n'
+  printf '%s\n' "- generated_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '%s\n' "- session_dir: $SESSION_DIR"
+} > "$OUT"
+
+section "Quick scan candidates"
+quick_scan_dir="$(find "$SESSION_DIR/decompiled" -path '*/quick_scan' -type d 2>/dev/null | sort | tail -1)"
+if [[ -n "$quick_scan_dir" ]]; then
+  printf '%s\n\n' "- quick_scan_dir: $quick_scan_dir" >> "$OUT"
+  fence_file "$quick_scan_dir/network_candidates.txt" 160
+  fence_file "$quick_scan_dir/business_network_sources.txt" 160
+else
+  printf '(no quick_scan directory found)\n' >> "$OUT"
+fi
+
+section "Network tail"
+fence_file "$SESSION_DIR/network.jsonl" 80
+
+section "Frida output files"
+find "$SESSION_DIR/frida/output" -maxdepth 1 -type f 2>/dev/null | sort | tail -40 >> "$OUT" || true
+
+section "Latest Frida stdout"
+latest_frida_stdout="$(find "$SESSION_DIR/frida/output" -maxdepth 1 -name '*.stdout.log' -type f 2>/dev/null | sort | tail -1)"
+if [[ -n "$latest_frida_stdout" ]]; then
+  fence_file "$latest_frida_stdout" 160
+else
+  printf '(no Frida stdout log found)\n' >> "$OUT"
+fi
+
+section "Logcat artifacts"
+find "$SESSION_DIR/logcat" -maxdepth 2 -type f 2>/dev/null | sort | tail -40 >> "$OUT" || true
+fence_file "$SESSION_DIR/logcat.jsonl" 80
+
+section "Package reports"
+find "$SESSION_DIR/packages" -maxdepth 3 -type f 2>/dev/null | sort | tail -40 >> "$OUT" || true
+
+section "Reproduction scripts"
+find "$SCRIPT_DIR" -maxdepth 1 -type f \( -name 'reproduce_*' -o -name '*.py' -o -name '*.sh' \) | sort >> "$OUT" || true
+
+echo "Evidence bundle: $OUT"
 ''';
 
 const String _networkSecurityConfigXml =
