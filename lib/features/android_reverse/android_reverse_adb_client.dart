@@ -9,6 +9,9 @@ const String _kTag = 'android_reverse_adb_client';
 const Duration _kAdbCommandTimeout = Duration(seconds: 30);
 const Duration _kAdbInstallTimeout = Duration(minutes: 3);
 const Duration _kAdbTransferTimeout = Duration(minutes: 5);
+const Duration _kAdbShellQuickReadTimeout = Duration(seconds: 6);
+const Duration _kAdbShellReadTimeout = Duration(seconds: 8);
+const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
 
 class AdbCommandResult {
   const AdbCommandResult({
@@ -31,6 +34,8 @@ class AdbCommandResult {
 
   bool get hasUsableStdout => stdout.trim().isNotEmpty;
 
+  bool get partialOk => timedOut && hasUsableStdout;
+
   String get commandLine => 'adb ${args.join(' ')}';
 
   String get combinedOutput {
@@ -40,6 +45,21 @@ class AdbCommandResult {
     if (out.isEmpty) return err;
     if (err.isEmpty) return out;
     return '$out\n$err';
+  }
+
+  AdbCommandResult copyWith({
+    int? exitCode,
+    String? stdout,
+    String? stderr,
+    bool? timedOut,
+  }) {
+    return AdbCommandResult(
+      args: args,
+      exitCode: exitCode ?? this.exitCode,
+      stdout: stdout ?? this.stdout,
+      stderr: stderr ?? this.stderr,
+      timedOut: timedOut ?? this.timedOut,
+    );
   }
 }
 
@@ -149,8 +169,8 @@ class AndroidReverseAdbClient {
 
   // ── 基本 Shell 命令 ───────────────────────────────────────────────────
 
-  Future<String?> shell(String command) async {
-    return _runDevice(<String>['shell', command]);
+  Future<String?> shell(String command, {Duration? timeout}) async {
+    return _runDevice(<String>['shell', command], timeout: timeout);
   }
 
   Future<AdbCommandResult> shellDetailed(String command, {Duration? timeout}) {
@@ -165,8 +185,12 @@ class AndroidReverseAdbClient {
 
   Future<List<String>> listPackages({bool thirdParty = true}) async {
     final flag = thirdParty ? '-3' : '';
-    final raw = await shell('pm list packages $flag'.trim());
-    if (raw == null) return const <String>[];
+    final result = await shellDetailed(
+      'pm list packages $flag'.trim(),
+      timeout: _kAdbShellReadTimeout,
+    );
+    if (!result.ok && !result.hasUsableStdout) return const <String>[];
+    final raw = result.stdout;
     final packages = raw
         .split('\n')
         .map((l) => l.trim())
@@ -185,8 +209,12 @@ class AndroidReverseAdbClient {
 
   Future<List<String>> getPackagePaths(String packageName) async {
     if (!_looksLikePackageName(packageName)) return const <String>[];
-    final raw = await shell('pm path $packageName');
-    if (raw == null) return const <String>[];
+    final result = await shellDetailed(
+      'pm path $packageName',
+      timeout: _kAdbShellReadTimeout,
+    );
+    if (!result.ok && !result.hasUsableStdout) return const <String>[];
+    final raw = result.stdout;
     final paths = raw
         .split('\n')
         .map((line) => line.trim())
@@ -199,8 +227,12 @@ class AndroidReverseAdbClient {
 
   Future<String?> getPackageVersion(String packageName) async {
     if (!_looksLikePackageName(packageName)) return null;
-    final raw = await shell('dumpsys package $packageName');
-    if (raw == null) return null;
+    final result = await shellDetailed(
+      'dumpsys package $packageName',
+      timeout: _kAdbShellDumpsysTimeout,
+    );
+    if (!result.ok && !result.hasUsableStdout) return null;
+    final raw = result.stdout;
     String? versionName;
     String? versionCode;
     for (final line in raw.split('\n')) {
@@ -222,10 +254,13 @@ class AndroidReverseAdbClient {
 
   Future<String?> resolveLauncherActivity(String packageName) async {
     if (!_looksLikePackageName(packageName)) return null;
-    final raw = await shell(
+    final result = await shellDetailed(
       'cmd package resolve-activity --brief $packageName',
+      timeout: _kAdbShellReadTimeout,
     );
-    if (raw == null || raw.trim().isEmpty) return null;
+    if (!result.ok && !result.hasUsableStdout) return null;
+    final raw = result.stdout;
+    if (raw.trim().isEmpty) return null;
     for (final line
         in raw.split('\n').map((line) => line.trim()).toList().reversed) {
       if (line.isEmpty || !line.contains('/')) continue;
@@ -236,8 +271,15 @@ class AndroidReverseAdbClient {
   }
 
   Future<Map<String, String>> getProperties() async {
-    final raw = await shell('getprop');
-    if (raw == null || raw.trim().isEmpty) return const <String, String>{};
+    final result = await shellDetailed(
+      'getprop',
+      timeout: _kAdbShellReadTimeout,
+    );
+    if (!result.ok && !result.hasUsableStdout) {
+      return const <String, String>{};
+    }
+    final raw = result.stdout;
+    if (raw.trim().isEmpty) return const <String, String>{};
     final props = <String, String>{};
     final pattern = RegExp(r'^\[([^\]]+)\]: \[(.*)\]$');
     for (final line in raw.split('\n')) {
@@ -281,7 +323,10 @@ class AndroidReverseAdbClient {
   }
 
   Future<bool> forceStopApp(String packageName) async {
-    final result = await shell('am force-stop $packageName');
+    final result = await shell(
+      'am force-stop $packageName',
+      timeout: _kAdbShellQuickReadTimeout,
+    );
     return result != null;
   }
 
@@ -356,9 +401,11 @@ class AndroidReverseAdbClient {
     }
     final launcher = await resolveLauncherActivity(packageName);
     if (launcher != null && launcher.isNotEmpty) {
-      final result = await shellDetailed(
-        'am start -W -n $launcher',
-        timeout: const Duration(seconds: 12),
+      final result = _normalizeLaunchResult(
+        await shellDetailed(
+          'am start -W -n $launcher',
+          timeout: const Duration(seconds: 12),
+        ),
       );
       final output = result.combinedOutput.toLowerCase();
       if (!output.contains('error type 3') &&
@@ -366,17 +413,22 @@ class AndroidReverseAdbClient {
         return result;
       }
     }
-    return shellDetailed(
-      'monkey -p $packageName -c android.intent.category.LAUNCHER 1',
-      timeout: const Duration(seconds: 12),
+    return _normalizeLaunchResult(
+      await shellDetailed(
+        'monkey -p $packageName -c android.intent.category.LAUNCHER 1',
+        timeout: const Duration(seconds: 12),
+      ),
     );
   }
 
   // ── 进程管理 ──────────────────────────────────────────────────────────
 
   Future<List<AndroidProcess>> listProcesses({String? filterName}) async {
-    final raw = await shell('ps -A');
-    if (raw == null) return const <AndroidProcess>[];
+    final result = await shellDetailed('ps -A', timeout: _kAdbShellReadTimeout);
+    if (!result.ok && !result.hasUsableStdout) {
+      return const <AndroidProcess>[];
+    }
+    final raw = result.stdout;
     final processes = <AndroidProcess>[];
     final lines = raw.split('\n');
     for (final line in lines.skip(1)) {
@@ -403,8 +455,11 @@ class AndroidReverseAdbClient {
 
   Future<String?> pidOfPackage(String packageName) async {
     if (!_looksLikePackageName(packageName)) return null;
-    final direct = await shell('pidof $packageName');
-    final directPid = _firstPidFromText(direct);
+    final direct = await shellDetailed(
+      'pidof $packageName',
+      timeout: _kAdbShellQuickReadTimeout,
+    );
+    final directPid = _firstPidFromText(direct.stdout);
     if (directPid != null) return directPid;
     final procs = await listProcesses(filterName: packageName);
     for (final proc in procs) {
@@ -757,6 +812,25 @@ class AndroidReverseAdbClient {
     return const <String>{'V', 'D', 'I', 'W', 'E', 'F'}.contains(value)
         ? value
         : 'V';
+  }
+
+  AdbCommandResult _normalizeLaunchResult(AdbCommandResult result) {
+    if (!result.timedOut || !result.hasUsableStdout) return result;
+    final output = result.stdout.toLowerCase();
+    final launchCompleted =
+        output.contains('events injected: 1') ||
+        output.contains('status: ok') ||
+        output.contains('complete');
+    final launchFailed =
+        output.contains('error type') ||
+        output.contains('does not exist') ||
+        output.contains('exception') ||
+        output.contains('unable to resolve intent');
+    if (!launchCompleted || launchFailed) return result;
+    final warning = result.stderr.trim().isEmpty
+        ? 'ADB shell did not close after launch output; treated as success from stdout.'
+        : '${result.stderr.trim()}\nADB shell did not close after launch output; treated as success from stdout.';
+    return result.copyWith(exitCode: 0, stderr: warning, timedOut: false);
   }
 
   String _remoteParent(String path) {

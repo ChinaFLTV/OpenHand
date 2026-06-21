@@ -751,6 +751,13 @@ class _AndroidReverseDashboardDialogState
     final buffer = StringBuffer()
       ..writeln('\$ ${result.commandLine}')
       ..writeln('${isZh ? "退出码" : "exit"}: ${result.exitCode}');
+    if (result.partialOk) {
+      buffer.writeln(
+        isZh
+            ? '状态: 命令超时，但已保留可用输出；请优先采纳输出并减少重复重试。'
+            : 'status: timed out with usable output; prefer the output and avoid repeating the same command.',
+      );
+    }
     final stdout = result.stdout.trim();
     final stderr = result.stderr.trim();
     if (stdout.isNotEmpty) {
