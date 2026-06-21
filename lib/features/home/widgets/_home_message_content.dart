@@ -357,7 +357,7 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
                     child: SingleChildScrollView(
                       controller: _scrollController,
                       physics: hasOverflow
-                          ? const BouncingScrollPhysics()
+                          ? openHandDialogAwareScrollPhysics(context)
                           : const NeverScrollableScrollPhysics(),
                       child: SizedBox(
                         width: constrainedWidth,
@@ -818,7 +818,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                       controller: _scrollController,
                       // 内容未溢出时禁用滚动，避免与父级 ListView 争抢手势。
                       physics: hasOverflow
-                          ? const BouncingScrollPhysics()
+                          ? openHandDialogAwareScrollPhysics(context)
                           : const NeverScrollableScrollPhysics(),
                       child: SizedBox(
                         width: constrainedWidth,
@@ -2759,7 +2759,9 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                             ).copyWith(scrollbars: false),
                             child: SingleChildScrollView(
                               controller: _scrollController,
-                              physics: const BouncingScrollPhysics(),
+                              physics: openHandDialogAwareScrollPhysics(
+                                context,
+                              ),
                               child: SelectableText(
                                 data,
                                 style: effectiveStyle,

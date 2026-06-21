@@ -201,7 +201,11 @@ export function DialogFrame({
   const overlayMotionClass = closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in';
   const panelClass = panelMotionClass(panelAnimation, closing);
   const overlayClass = dialogClassNames(overlayMotionClass, overlayClassName);
-  const sectionClass = dialogClassNames(panelClass, panelClassName);
+  const sectionClass = dialogClassNames(
+    'oh-dialog-panel',
+    panelClass,
+    panelClassName,
+  );
   const allowBackdropClose = !closing && closeOnBackdrop && onRequestClose != null;
   const handleBackdropClick = (event: JSX.TargetedMouseEvent<HTMLDivElement>) => {
     if (!allowBackdropClose || event.target !== event.currentTarget) {

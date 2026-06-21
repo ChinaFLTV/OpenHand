@@ -324,7 +324,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             const SizedBox(height: 16),
             Flexible(
               child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
+                physics: openHandDialogAwareScrollPhysics(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

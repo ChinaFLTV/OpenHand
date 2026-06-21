@@ -3,6 +3,8 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import 'animated_dialog.dart';
+
 const String openHandMarkdownMathInlineTag = 'openhand-math-inline';
 const String openHandMarkdownMathBlockTag = 'openhand-math-block';
 const int openHandMarkdownMathSyntaxVersion = 1;
@@ -167,7 +169,7 @@ class OpenHandMarkdownMathBuilder extends MarkdownElementBuilder {
               : 0.0;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
+            physics: openHandDialogAwareScrollPhysics(context),
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: minWidth),
               child: Align(child: math),

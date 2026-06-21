@@ -6588,7 +6588,7 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
                       horizontal: 12,
                       vertical: 8,
                     ),
-                    physics: const BouncingScrollPhysics(),
+                    physics: openHandDialogAwareScrollPhysics(context),
                     itemCount: diffs.length,
                     separatorBuilder: (_, _) => Divider(
                       height: 12,

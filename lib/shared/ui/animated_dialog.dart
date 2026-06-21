@@ -81,6 +81,61 @@ double _safeDialogMaxDimension(double? maxValue, double minValue) {
   return validMax < minValue ? minValue : validMax;
 }
 
+const ScrollPhysics kOpenHandDialogScrollPhysics = ClampingScrollPhysics();
+
+class OpenHandDialogScrollBehavior extends MaterialScrollBehavior {
+  const OpenHandDialogScrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return kOpenHandDialogScrollPhysics;
+  }
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+}
+
+class _OpenHandDialogScrollScope extends InheritedWidget {
+  const _OpenHandDialogScrollScope({required super.child});
+
+  static bool isActive(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<_OpenHandDialogScrollScope>() !=
+        null;
+  }
+
+  @override
+  bool updateShouldNotify(_OpenHandDialogScrollScope oldWidget) => false;
+}
+
+bool openHandDialogScrollScopeOf(BuildContext context) {
+  return _OpenHandDialogScrollScope.isActive(context);
+}
+
+ScrollPhysics openHandDialogAwareScrollPhysics(
+  BuildContext context, {
+  ScrollPhysics fallback = const BouncingScrollPhysics(),
+}) {
+  return openHandDialogScrollScopeOf(context)
+      ? kOpenHandDialogScrollPhysics
+      : fallback;
+}
+
+Widget buildOpenHandDialogScrollConfiguration({required Widget child}) {
+  return _OpenHandDialogScrollScope(
+    child: ScrollConfiguration(
+      behavior: const OpenHandDialogScrollBehavior(),
+      child: child,
+    ),
+  );
+}
+
 Widget? buildOpenHandDialogConstrainedContent({
   required Widget? child,
   double? width,
@@ -158,7 +213,9 @@ AlertDialog buildOpenHandAlertDialog({
     contentPadding: contentPadding,
     icon: icon,
     title: title,
-    content: content,
+    content: content == null
+        ? null
+        : buildOpenHandDialogScrollConfiguration(child: content),
     actions: actions,
   );
 }
@@ -186,7 +243,7 @@ Dialog buildOpenHandDialog({
     insetPadding: insetPadding ?? kOpenHandDialogDefaultInsetPadding,
     alignment: alignment,
     child: buildOpenHandDialogConstrainedContent(
-      child: child,
+      child: buildOpenHandDialogScrollConfiguration(child: child),
       width: width,
       height: height,
       minWidth: minWidth,
@@ -920,7 +977,9 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
           ),
         ),
       ),
-      child: builder(dialogContext),
+      child: buildOpenHandDialogScrollConfiguration(
+        child: builder(dialogContext),
+      ),
     );
     // 视口收缩：保证任何子弹窗的最大尺寸不超过当前屏幕的 95%，
     // 在窄屏 / 浮动小窗模式下不会贴边或溢出。

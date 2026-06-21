@@ -4583,6 +4583,21 @@ button.oh-composer-pill:not(:disabled):hover {
   flex: none;
 }
 
+.oh-dialog-panel,
+.oh-dialog-panel * {
+  overscroll-behavior: none;
+}
+
+.oh-dialog-panel
+  :is(
+    .overflow-auto,
+    .overflow-y-auto,
+    .oh-confirm-dialog-body,
+    .oh-image-editor-scroll
+  ) {
+  -webkit-overflow-scrolling: auto;
+}
+
 /* 弹窗入场：遮罩 fade + 卡片动画由 App 端 DialogAnimationSettings 同步控制。 */
 @keyframes oh-dialog-fade-in {
   from { opacity: 0; }

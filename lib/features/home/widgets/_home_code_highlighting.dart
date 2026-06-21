@@ -3278,7 +3278,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
+          physics: openHandDialogAwareScrollPhysics(context),
           child: Row(
             children: [
               _buildToolPill(
