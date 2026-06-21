@@ -2874,6 +2874,10 @@ class _AndroidReverseDashboardDialogState
         (isZh ? '包名' : 'Package', config.packageName!),
       if (config.apkPath != null)
         (isZh ? 'APK 路径' : 'APK path', config.apkPath!),
+      (isZh ? '分析模式' : 'Analysis mode', _analysisModeLabel(config, isZh)),
+      if (config.authorizationScope != null &&
+          config.authorizationScope!.trim().isNotEmpty)
+        (isZh ? '授权范围' : 'Authorization', config.authorizationScope!.trim()),
       (
         isZh ? 'ADB MCP' : 'ADB MCP',
         config.adbMcpEnabled
@@ -2889,6 +2893,9 @@ class _AndroidReverseDashboardDialogState
       if (device != null) ...[
         (isZh ? '设备型号' : 'Device model', device.model ?? device.serial),
         (isZh ? '设备序列号' : 'Device serial', device.serial),
+      ] else if (config.deviceSerial != null &&
+          config.deviceSerial!.trim().isNotEmpty) ...[
+        (isZh ? '配置设备' : 'Configured serial', config.deviceSerial!.trim()),
       ],
       if (config.keywords.isNotEmpty)
         (isZh ? '关键字' : 'Keywords', config.keywords.join(', ')),
@@ -2934,6 +2941,15 @@ class _AndroidReverseDashboardDialogState
         },
       ),
     );
+  }
+
+  String _analysisModeLabel(AndroidReverseSessionConfig config, bool isZh) {
+    if (isZh) return config.analysisMode.labelZh;
+    return switch (config.analysisMode) {
+      AndroidReverseAnalysisMode.staticFirst => 'Static first',
+      AndroidReverseAnalysisMode.balanced => 'Balanced',
+      AndroidReverseAnalysisMode.dynamicFirst => 'Dynamic first',
+    };
   }
 
   // ── Toolchain tab ───────────────────────────────────────────────────────
