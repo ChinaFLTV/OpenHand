@@ -105,7 +105,7 @@ class _SessionToolbar extends StatelessWidget {
                             if (session.templateId == 'web_reverse_expert')
                               _WebReverseDebugPill(sessionId: session.id),
                             if (session.templateId == 'android_reverse_expert')
-                              _AndroidReverseDebugPill(sessionId: session.id),
+                              _AndroidReverseDebugPill(session: session),
                             const SizedBox(width: 8),
                             _ToolbarPill(
                               icon: Icons.data_object_rounded,
@@ -4157,8 +4157,9 @@ class _ThroughputTooltip extends StatelessWidget {
 // ── Android Reverse Debug Pill ────────────────────────────────────────────────
 
 class _AndroidReverseDebugPill extends StatefulWidget {
-  const _AndroidReverseDebugPill({required this.sessionId});
-  final String sessionId;
+  const _AndroidReverseDebugPill({required this.session});
+
+  final AiSession session;
 
   @override
   State<_AndroidReverseDebugPill> createState() =>
@@ -4170,7 +4171,7 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
 
   void _attachIfNeeded() {
     final state = context.findAncestorStateOfType<_OpenHandHomePageState>();
-    final ctrl = state?.androidReverseControllerFor(widget.sessionId);
+    final ctrl = state?.androidReverseControllerFor(widget.session.id);
     if (identical(ctrl, _controller)) return;
     _controller?.removeListener(_onChanged);
     _controller = ctrl;
@@ -4184,14 +4185,9 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
   Future<void> _onPillTap() async {
     final state = context.findAncestorStateOfType<_OpenHandHomePageState>();
     if (state == null) return;
-    final ctrl = state.androidReverseControllerFor(widget.sessionId);
-    if (ctrl != null) {
-      await showAndroidReverseDashboardDialog(
-        context,
-        controller: ctrl,
-        sessionId: widget.sessionId,
-      );
-    }
+    await state.openAndroidReverseDashboardFor(context, widget.session);
+    if (!mounted) return;
+    _attachIfNeeded();
   }
 
   @override

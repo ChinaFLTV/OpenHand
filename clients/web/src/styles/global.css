@@ -669,7 +669,21 @@ html, body, #root {
   align-items: flex-start;
 }
 
-.oh-message-action-row,
+.oh-message-action-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+.oh-message-action-row::-webkit-scrollbar {
+  display: none;
+}
+
 .oh-message-selected-info-row {
   display: flex;
   flex-wrap: wrap;
@@ -691,6 +705,7 @@ html, body, #root {
 }
 
 .oh-message-selected-panel .oh-message-action-button {
+  flex: 0 0 auto;
   min-height: 24px;
   gap: 4px;
   max-width: min(100%, 168px);
@@ -710,6 +725,49 @@ html, body, #root {
   width: 12px;
   height: 12px;
   font-size: 11px;
+}
+
+.oh-template-picker-card {
+  min-height: 176px;
+}
+
+.oh-template-picker-card-description {
+  min-height: 0;
+  max-height: 92px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+
+.oh-template-picker-card:hover .oh-template-picker-card-description,
+.oh-template-picker-card:focus-visible .oh-template-picker-card-description,
+.oh-template-picker-card:focus-within .oh-template-picker-card-description {
+  scrollbar-color: color-mix(in srgb, var(--m3-on-surface-variant) 32%, transparent) transparent;
+}
+
+.oh-template-picker-card-description::-webkit-scrollbar {
+  width: 7px;
+}
+
+.oh-template-picker-card-description::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.oh-template-picker-card-description::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color var(--oh-motion-duration-base) var(--oh-motion-emphasized);
+}
+
+.oh-template-picker-card:hover .oh-template-picker-card-description::-webkit-scrollbar-thumb,
+.oh-template-picker-card:focus-visible .oh-template-picker-card-description::-webkit-scrollbar-thumb,
+.oh-template-picker-card:focus-within .oh-template-picker-card-description::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--m3-on-surface-variant) 34%, transparent);
 }
 
 .oh-user-attachment-list {

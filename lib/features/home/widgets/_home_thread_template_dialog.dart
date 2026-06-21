@@ -152,7 +152,8 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
                 Expanded(
                   child: OpenHandSafeScrollbar(
                     controller: _scrollController,
-                    thumbVisibility: true,
+                    thumbVisibility: false,
+                    trackVisibility: false,
                     child: SingleChildScrollView(
                       controller: _scrollController,
                       child: Text(

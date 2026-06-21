@@ -1198,12 +1198,12 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
 ButtonStyle _messageActionChipStyle(BuildContext context) {
   final theme = Theme.of(context);
   return OutlinedButton.styleFrom(
-    minimumSize: const Size(0, 34),
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    textStyle: theme.textTheme.labelMedium?.copyWith(
+    minimumSize: const Size(0, 30),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    textStyle: theme.textTheme.labelSmall?.copyWith(
       fontWeight: FontWeight.w700,
     ),
-    visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+    visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
   );
 }
@@ -1445,39 +1445,42 @@ class _SelectedMessageActionPanelState
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _motion,
-      child: Column(
-        crossAxisAlignment: widget.alignEnd
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            alignment: widget.alignEnd
-                ? WrapAlignment.end
-                : WrapAlignment.start,
-            children: [
-              for (final action in widget.actions)
-                _MessageActionButton(
-                  key: ValueKey<String>(action.id),
-                  onPressed: action.onPressed,
-                  icon: action.icon,
-                  label: action.label,
-                  selected: action.selected,
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          _SelectedMessageContextRow(
-            message: widget.message,
-            attachments: widget.attachments,
-            hardnessAnnotation: widget.hardnessAnnotation,
-            textColor: widget.textColor,
-            alignEnd: widget.alignEnd,
-            showModelLabel: widget.showModelLabel,
-            onSelectResponseVariant: widget.onSelectResponseVariant,
-          ),
-        ],
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: widget.alignEnd
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: widget.alignEnd
+                  ? WrapAlignment.end
+                  : WrapAlignment.start,
+              children: [
+                for (final action in widget.actions)
+                  _MessageActionButton(
+                    key: ValueKey<String>(action.id),
+                    onPressed: action.onPressed,
+                    icon: action.icon,
+                    label: action.label,
+                    selected: action.selected,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            _SelectedMessageContextRow(
+              message: widget.message,
+              attachments: widget.attachments,
+              hardnessAnnotation: widget.hardnessAnnotation,
+              textColor: widget.textColor,
+              alignEnd: widget.alignEnd,
+              showModelLabel: widget.showModelLabel,
+              onSelectResponseVariant: widget.onSelectResponseVariant,
+            ),
+          ],
+        ),
       ),
       builder: (context, child) {
         final t = _motion.value.clamp(0.0, 1.0);
@@ -1539,7 +1542,7 @@ class _MessageActionButton extends StatelessWidget {
               unawaited(onPressed!());
             },
       style: effectiveStyle,
-      icon: Icon(icon, size: 16),
+      icon: Icon(icon, size: 15),
       label: Text(
         label,
         maxLines: 1,

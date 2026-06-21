@@ -1423,6 +1423,31 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return settings.selectedAiModel;
   }
 
+  Future<void> _setMessageFeedbackAnchored(
+    AiSessionMessage message,
+    AiSessionMessageFeedback? feedback,
+  ) async {
+    final offset = _viewportOffsetForMessage(message.id);
+    final anchor = offset == null
+        ? null
+        : _TranscriptViewportAnchor(
+            messageId: message.id,
+            viewportOffset: offset,
+          );
+    await widget.onSetMessageFeedback(message, feedback);
+    if (!mounted || anchor == null) {
+      return;
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
+    }
+    final restored = _restorePrependAnchor(anchor);
+    if (restored) {
+      _startPrependAnchorStabilization(anchor);
+    }
+  }
+
   bool _messageHasMultimediaContent(AiSessionMessage message) {
     final metadata = message.metadata;
     final attachments = AiMessageAttachment.listFromMetadata(
@@ -2527,7 +2552,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         onCopy: () => widget.onCopyMessage(message),
                         onFork: () => widget.onForkMessage(message),
                         onSetFeedback: (feedback) =>
-                            widget.onSetMessageFeedback(message, feedback),
+                            _setMessageFeedbackAnchored(message, feedback),
                         onRegenerateResponse: () =>
                             widget.onRegenerateMessage(message),
                         onSelectResponseVariant: (index) => widget

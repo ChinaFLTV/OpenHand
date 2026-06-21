@@ -12,6 +12,18 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { RefObject } from 'preact';
 
+const MIN_PULL_DELTA_PX = 12;
+const PULL_TO_REFRESH_INTERACTIVE_SELECTOR = [
+  'button',
+  'a',
+  'input',
+  'textarea',
+  'select',
+  '[role="button"]',
+  '[data-message-action-panel="true"]',
+  '[data-pull-refresh-ignore="true"]',
+].join(',');
+
 export interface PullToRefreshOptions {
   onRefresh: () => Promise<void> | void;
   /// 触发刷新的最小拖拽像素数。默认 80。
@@ -55,6 +67,12 @@ export function usePullToRefresh<E extends HTMLElement>(
       return scroller.scrollTop <= 0;
     };
 
+    const shouldIgnorePullTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false;
+      const ignored = target.closest(PULL_TO_REFRESH_INTERACTIVE_SELECTOR);
+      return ignored != null && el.contains(ignored);
+    };
+
     const updatePulled = (value: number) => {
       pulledRef.current = value;
       setPulled(value);
@@ -73,8 +91,12 @@ export function usePullToRefresh<E extends HTMLElement>(
         tracking.current = false;
         return;
       }
+      if (dy < MIN_PULL_DELTA_PX) {
+        updatePulled(0);
+        return;
+      }
       // 引入阻尼，越拉越慢，最大不过 maxDistance。
-      updatePulled(Math.min(maxDistance, Math.pow(dy, 0.85)));
+      updatePulled(Math.min(maxDistance, Math.pow(dy - MIN_PULL_DELTA_PX, 0.85)));
     };
 
     const finishPull = async () => {
@@ -99,6 +121,7 @@ export function usePullToRefresh<E extends HTMLElement>(
 
     const onTouchStart = (ev: TouchEvent) => {
       if (refreshing) return;
+      if (shouldIgnorePullTarget(ev.target)) return;
       if (!isAtTop()) return;
       if (ev.touches.length !== 1) return;
       beginPull(ev.touches[0].clientY);
@@ -110,6 +133,7 @@ export function usePullToRefresh<E extends HTMLElement>(
 
     const onPointerDown = (ev: PointerEvent) => {
       if (ev.pointerType !== 'pen') return;
+      if (shouldIgnorePullTarget(ev.target)) return;
       if (refreshing || ev.button !== 0 || !isAtTop()) return;
       activePointerId.current = ev.pointerId;
       beginPull(ev.clientY);

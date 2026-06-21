@@ -150,13 +150,13 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
           {t('sessions.templatePicker.empty', '主控制台尚未导出任何模板。')}
         </p>
       ) : (
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="oh-template-picker-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {templates.map((tpl, idx) => (
             <Appear key={tpl.id} variant="up" index={idx + 1}>
               <button
                 type="button"
                 onClick={() => onPick(tpl)}
-                class="oh-tap-press w-full text-left rounded-m3-md p-4 flex flex-col gap-2 h-full transition-all"
+                class="oh-tap-press oh-template-picker-card w-full text-left rounded-m3-md p-4 flex flex-col gap-2 h-full transition-all"
                 style={{
                   background: 'var(--m3-surface)',
                   border: '1px solid var(--m3-outline)',
@@ -169,7 +169,7 @@ export function TemplatePickerDialog({ templates, onPick, onClose }: TemplatePic
                 </h3>
                 {tpl.description ? (
                   <p
-                    class="text-xs leading-snug"
+                    class="oh-template-picker-card-description text-xs leading-snug"
                     style={{ color: 'var(--m3-on-surface-variant)' }}
                   >
                     {tpl.description}

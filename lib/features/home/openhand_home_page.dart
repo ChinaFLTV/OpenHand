@@ -3259,6 +3259,74 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     String sessionId,
   ) => _androidReverseControllers[sessionId];
 
+  String _androidReverseArtifactsRootDir(String sessionId) =>
+      '${OpenHandPaths.defaultRootDirectoryPath()}/android_reverse/sessions/$sessionId';
+
+  AndroidReverseSessionController? ensureAndroidReverseControllerFor(
+    AiSession session,
+  ) {
+    if (session.templateId != 'android_reverse_expert') {
+      return null;
+    }
+    final existing = _androidReverseControllers[session.id];
+    if (existing != null) {
+      return existing;
+    }
+    final AndroidReverseSessionConfig? config;
+    try {
+      config = AndroidReverseSessionConfig.fromJson(
+        session.metadata['android_reverse_config'],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'restore android reverse config',
+        error,
+        stack,
+      );
+      return null;
+    }
+    if (config == null) {
+      return null;
+    }
+    final controller = AndroidReverseSessionController(
+      config: config,
+      artifactsRootDir: _androidReverseArtifactsRootDir(session.id),
+    );
+    _androidReverseControllers[session.id] = controller;
+    controller.addListener(_onAndroidReverseControllerChanged);
+    unawaited(_persistAndroidReverseRuntimeMetadata(session.id, controller));
+    if (mounted) {
+      setState(() {});
+    }
+    return controller;
+  }
+
+  Future<void> openAndroidReverseDashboardFor(
+    BuildContext dialogContext,
+    AiSession session,
+  ) async {
+    final controller = ensureAndroidReverseControllerFor(session);
+    if (controller == null) {
+      if (dialogContext.mounted) {
+        showFriendlyErrorSnackBar(
+          dialogContext,
+          message: openHandIsChineseLocale(dialogContext)
+              ? 'Android 逆向会话缺少运行配置，无法打开调试面板。'
+              : 'Android reverse session config is missing; debugger cannot open.',
+          fallback: 'Android 逆向调试面板打开失败',
+        );
+      }
+      return;
+    }
+    if (!dialogContext.mounted) return;
+    await showAndroidReverseDashboardDialog(
+      dialogContext,
+      controller: controller,
+      sessionId: session.id,
+    );
+  }
+
   Future<bool> _showAndroidReverseSetupAndCreate({
     AiSessionRuntimeContext? runtimeContext,
     String? initialPrompt,
@@ -3314,8 +3382,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final controller = AndroidReverseSessionController(
       config: config,
-      artifactsRootDir:
-          '${OpenHandPaths.defaultRootDirectoryPath()}/android_reverse/sessions/${session.id}',
+      artifactsRootDir: _androidReverseArtifactsRootDir(session.id),
     );
     _androidReverseControllers[session.id] = controller;
     controller.addListener(_onAndroidReverseControllerChanged);
