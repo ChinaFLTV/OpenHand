@@ -108,7 +108,7 @@ class AiPromptTemplateRepository {
       iconName: 'android_rounded',
       description:
           '通过 ADB + Frida + jadx / apktool + mitmproxy 完成 Android APP 接口逆向、加密破解、Hook 脚本产出。Dashboard 提供设备管理、Logcat、网络抓包、证书注入等面板。仅用于授权安全研究与学习。',
-      internalVersion: '1.0.0',
+      internalVersion: '1.1.0',
       promptAssetDirectory:
           AiPromptTemplatePolicies.androidReverseExpertPromptAssetDirectory,
     ),

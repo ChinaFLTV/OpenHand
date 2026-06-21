@@ -4,6 +4,7 @@
 
 <preserve>
 - **目标**：APP、待逆向接口/函数、验收口径。
+- **边界**：`authorization_scope`、`analysis_mode`、已获批准/被拒绝的动态动作。
 - **用户消息**：所有源用户消息的意图、约束、纠正、授权/拒绝；用 `User Messages Manifest` 防漏。
 - **已确认事实**：类名、方法签名、加密算法、接口路径、请求参数、签名 key 来源。
 - **定位线索**：jadx 类路径、smali 偏移、Frida hook 时机、关键 logcat 前缀、hook 输出摘要。

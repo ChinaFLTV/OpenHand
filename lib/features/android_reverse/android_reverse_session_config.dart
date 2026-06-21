@@ -5,6 +5,8 @@ class AndroidReverseSessionConfig {
     this.packageName,
     this.apkPath,
     this.deviceSerial,
+    this.authorizationScope,
+    this.analysisMode = AndroidReverseAnalysisMode.balanced,
     this.adbMcpEnabled = false,
     this.fridaMcpEnabled = false,
     this.keywords = const <String>[],
@@ -21,6 +23,12 @@ class AndroidReverseSessionConfig {
 
   /// ADB 设备序列号，null 表示自动选择唯一在线设备。
   final String? deviceSerial;
+
+  /// 用户确认的授权范围，避免动态动作越过学习/研究/自有应用边界。
+  final String? authorizationScope;
+
+  /// 分析策略：静态优先、均衡、动态验证优先。
+  final AndroidReverseAnalysisMode analysisMode;
 
   /// 是否在会话启动时启用 ADB MCP。
   final bool adbMcpEnabled;
@@ -39,6 +47,8 @@ class AndroidReverseSessionConfig {
     String? packageName,
     String? apkPath,
     String? deviceSerial,
+    String? authorizationScope,
+    AndroidReverseAnalysisMode? analysisMode,
     bool? adbMcpEnabled,
     bool? fridaMcpEnabled,
     List<String>? keywords,
@@ -49,6 +59,8 @@ class AndroidReverseSessionConfig {
       packageName: packageName ?? this.packageName,
       apkPath: apkPath ?? this.apkPath,
       deviceSerial: deviceSerial ?? this.deviceSerial,
+      authorizationScope: authorizationScope ?? this.authorizationScope,
+      analysisMode: analysisMode ?? this.analysisMode,
       adbMcpEnabled: adbMcpEnabled ?? this.adbMcpEnabled,
       fridaMcpEnabled: fridaMcpEnabled ?? this.fridaMcpEnabled,
       keywords: keywords ?? this.keywords,
@@ -61,6 +73,8 @@ class AndroidReverseSessionConfig {
     if (packageName != null) 'package_name': packageName,
     if (apkPath != null) 'apk_path': apkPath,
     if (deviceSerial != null) 'device_serial': deviceSerial,
+    if (authorizationScope != null) 'authorization_scope': authorizationScope,
+    'analysis_mode': analysisMode.storageValue,
     'adb_mcp_enabled': adbMcpEnabled,
     'frida_mcp_enabled': fridaMcpEnabled,
     if (keywords.isNotEmpty) 'keywords': keywords,
@@ -77,9 +91,13 @@ class AndroidReverseSessionConfig {
       packageName: map['package_name'] as String?,
       apkPath: map['apk_path'] as String?,
       deviceSerial: map['device_serial'] as String?,
+      authorizationScope: map['authorization_scope'] as String?,
+      analysisMode: AndroidReverseAnalysisMode.fromStorage(
+        '${map['analysis_mode'] ?? ''}',
+      ),
       adbMcpEnabled: _boolFromJson(map['adb_mcp_enabled']),
       fridaMcpEnabled: _boolFromJson(map['frida_mcp_enabled']),
-      keywords: (map['keywords'] as List?)?.cast<String>() ?? const <String>[],
+      keywords: _stringListFromJson(map['keywords']),
       notes: map['notes'] as String?,
     );
   }
@@ -99,6 +117,10 @@ class AndroidReverseSessionConfig {
       buf.writeln('- 设备序列号：【$deviceSerial】');
     } else {
       buf.writeln('- 设备：【自动选择在线设备】');
+    }
+    buf.writeln('- 分析模式：【${analysisMode.labelZh}】');
+    if (authorizationScope != null && authorizationScope!.isNotEmpty) {
+      buf.writeln('- 授权范围：【${authorizationScope!.trim()}】');
     }
     buf
       ..writeln(
@@ -125,5 +147,34 @@ class AndroidReverseSessionConfig {
     if (raw is bool) return raw;
     final value = '${raw ?? ''}'.trim().toLowerCase();
     return value == 'true' || value == '1' || value == 'yes';
+  }
+
+  static List<String> _stringListFromJson(Object? raw) {
+    if (raw is! List) return const <String>[];
+    return raw
+        .map((item) => '$item'.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+}
+
+enum AndroidReverseAnalysisMode {
+  staticFirst('static_first', '静态优先'),
+  balanced('balanced', '均衡分析'),
+  dynamicFirst('dynamic_first', '动态验证优先');
+
+  const AndroidReverseAnalysisMode(this.storageValue, this.labelZh);
+
+  final String storageValue;
+  final String labelZh;
+
+  static AndroidReverseAnalysisMode fromStorage(String raw) {
+    final normalized = raw.trim().toLowerCase();
+    for (final value in AndroidReverseAnalysisMode.values) {
+      if (value.storageValue == normalized || value.name == normalized) {
+        return value;
+      }
+    }
+    return AndroidReverseAnalysisMode.balanced;
   }
 }

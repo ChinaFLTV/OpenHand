@@ -74,8 +74,11 @@ class _AndroidReverseSetupDialogState
   late final TextEditingController _packageCtrl;
   late final TextEditingController _apkCtrl;
   late final TextEditingController _deviceCtrl;
+  late final TextEditingController _authorizationScopeCtrl;
   late final TextEditingController _keywordsCtrl;
   late final TextEditingController _notesCtrl;
+  AndroidReverseAnalysisMode _analysisMode =
+      AndroidReverseAnalysisMode.balanced;
   bool _adbMcpEnabled = false;
   bool _fridaMcpEnabled = false;
   String? _selectedModelConfigId;
@@ -88,6 +91,7 @@ class _AndroidReverseSetupDialogState
     _packageCtrl = TextEditingController(text: widget.initialPackageName ?? '');
     _apkCtrl = TextEditingController();
     _deviceCtrl = TextEditingController();
+    _authorizationScopeCtrl = TextEditingController();
     _keywordsCtrl = TextEditingController();
     _notesCtrl = TextEditingController();
     _selectedModelConfigId = widget.initialSelectedModelConfigId?.trim();
@@ -104,6 +108,7 @@ class _AndroidReverseSetupDialogState
     _packageCtrl.dispose();
     _apkCtrl.dispose();
     _deviceCtrl.dispose();
+    _authorizationScopeCtrl.dispose();
     _keywordsCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
@@ -141,6 +146,10 @@ class _AndroidReverseSetupDialogState
       deviceSerial: _deviceCtrl.text.trim().isEmpty
           ? null
           : _deviceCtrl.text.trim(),
+      authorizationScope: _authorizationScopeCtrl.text.trim().isEmpty
+          ? null
+          : _authorizationScopeCtrl.text.trim(),
+      analysisMode: _analysisMode,
       adbMcpEnabled: _adbMcpEnabled,
       fridaMcpEnabled: _fridaMcpEnabled,
       keywords: keywords,
@@ -250,6 +259,52 @@ class _AndroidReverseSetupDialogState
                       isDense: true,
                       hintText: 'emulator-5554',
                       border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _LabelText(isZh ? '分析模式' : 'Analysis mode'),
+                  const SizedBox(height: 6),
+                  SegmentedButton<AndroidReverseAnalysisMode>(
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: AndroidReverseAnalysisMode.staticFirst,
+                        icon: const Icon(Icons.manage_search_rounded),
+                        label: Text(isZh ? '静态优先' : 'Static'),
+                      ),
+                      ButtonSegment(
+                        value: AndroidReverseAnalysisMode.balanced,
+                        icon: const Icon(Icons.hub_rounded),
+                        label: Text(isZh ? '均衡' : 'Balanced'),
+                      ),
+                      ButtonSegment(
+                        value: AndroidReverseAnalysisMode.dynamicFirst,
+                        icon: const Icon(Icons.play_circle_rounded),
+                        label: Text(isZh ? '动态验证' : 'Dynamic'),
+                      ),
+                    ],
+                    selected: {_analysisMode},
+                    onSelectionChanged: (values) {
+                      final next = values.firstOrNull;
+                      if (next != null) {
+                        setState(() => _analysisMode = next);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _LabelText(
+                    isZh ? '授权范围（建议填写）' : 'Authorization scope (recommended)',
+                  ),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _authorizationScopeCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: isZh
+                          ? '例：自有测试 APP / CTF / 已获授权的安全研究，不涉及第三方隐私数据'
+                          : 'e.g. owned test app / CTF / authorized research; no third-party private data',
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 14),

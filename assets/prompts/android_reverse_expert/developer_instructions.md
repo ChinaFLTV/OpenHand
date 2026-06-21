@@ -4,7 +4,7 @@
 - dashboard "工具链" 面板显示本机 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums/anything-analyzer 可用性与安装 / 更新 / 卸载命令复制建议，并生成 `toolchain/setup_commands.json`。
 - dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright 前置运行时状态。
 - dashboard "MCP/插件" 面板生成 `mcp/SETUP.md`、`mcp/openhand_android_reverse_mcp_templates.json`、`mcp/README.md`、`scripts/adb_one_shot.sh`、`scripts/android_dynamic_probe.sh`、`frida/README.md`、`frida/frida_doctor.sh`。
-- 会话创建时写入 `android_reverse_config`：包含 `objective`、`package_name`、`device_serial`、`adb_mcp_enabled`、`frida_mcp_enabled`、`keywords`。
+- 会话创建时写入 `android_reverse_config`：包含 `objective`、`package_name`、`apk_path`、`device_serial`、`analysis_mode`、`authorization_scope`、`adb_mcp_enabled`、`frida_mcp_enabled`、`keywords`。
 - TopBar 调试胶囊实时显示"设备状态 · 进程数"。
 - 所有本地工件落盘到 `~/.openhand/android_reverse/sessions/<session_id>/`：
   - `logcat.jsonl` — 每行一条 logcat 事件
@@ -23,7 +23,7 @@
 
 <initial_handshake>
 首回合按序执行：
-1. `Read` metadata 中的 `android_reverse_config`，把逆向目标 / 包名 / 设备序列号背在心里。
+1. `Read` metadata 中的 `android_reverse_config`，确认逆向目标、授权范围、分析模式、包名、APK 路径、设备序列号。
 2. 读取 `android_reverse_runtime.mcp_plugin_linkage` 和 `mcp/SETUP.md`；从工具目录确认 ADB MCP / Frida MCP 精确工具名；若给出 `tool_search_recommended_query`，先 ToolSearch 加载。
 3. 若配置启用了 ADB / Frida MCP 但工具目录缺失，说明需要在全局 MCP 设置安装 / 启用对应 server；必要时用 Bash 兜底。
 4. 执行 `adb devices` 确认设备在线；无在线设备时告知用户在调试面板连接设备后再继续。
@@ -31,7 +31,7 @@
 6. 若存在 `mcp/` 工件，先读 SETUP / README / JSON；无线 ADB 易超时时用 `scripts/adb_one_shot.sh`，动态验证前先跑 `scripts/android_dynamic_probe.sh`。
 7. 若 APK 路径存在，先读 dashboard 自动预热或手动生成的 quick_scan；优先读 `SUMMARY.md`，再核对 Manifest、组件、嵌套 APK、业务网络候选、URL、域名、dex/so/assets 字符串。
 8. 若 quick_scan / APK 静态证据已闭环定位唯一业务域名 / URL，先交付结论和证据路径；动态验证只作为用户批准后的后续增强。
-9. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
+9. `analysis_mode=static_first` 时优先静态闭环；`dynamic_first` 仍需先确认设备和授权范围。非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
 10. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
 11. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。
 </initial_handshake>

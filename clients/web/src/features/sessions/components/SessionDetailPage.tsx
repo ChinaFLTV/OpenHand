@@ -42,6 +42,7 @@ import {
   booleanFromUnknown,
   recordFromUnknown,
   recordOrNullFromUnknown,
+  stringFromUnknown,
   stringListFromUnknown,
 } from '../../../shared/util/value';
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
@@ -70,6 +71,7 @@ import {
   createDialogPanelSurfaceStyle,
 } from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
+import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { createTimedAbortController } from '../../../utils/timed_abort';
@@ -1413,6 +1415,7 @@ export function SessionDetailPage() {
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
   const [contextStatsOpen, setContextStatsOpen] = useState(false);
   const [webReverseDashboardOpen, setWebReverseDashboardOpen] = useState(false);
+  const [androidReverseDashboardOpen, setAndroidReverseDashboardOpen] = useState(false);
   const [imageEditorInput, setImageEditorInput] = useState<ImageEditorInput | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [forkBusy, setForkBusy] = useState(false);
@@ -1467,6 +1470,7 @@ export function SessionDetailPage() {
     setContextStatsOpen(false);
     setThrottleDialogOpen(false);
     setWebReverseDashboardOpen(false);
+    setAndroidReverseDashboardOpen(false);
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
     setImageEditorInput(null);
@@ -3640,6 +3644,20 @@ export function SessionDetailPage() {
         onClick: () => setWebReverseDashboardOpen(true),
       });
     }
+    if (session.template_id === 'android_reverse_expert') {
+      const meta = (session.metadata ?? {}) as Record<string, unknown>;
+      const cfg = recordFromUnknown(meta['android_reverse_config']);
+      const runtime = recordFromUnknown(meta['android_reverse_runtime']);
+      const connected = recordFromUnknown(runtime['connected_device']);
+      const serial = stringFromUnknown(connected['serial']) || stringFromUnknown(cfg['device_serial']);
+      capsules.push({
+        key: 'android-reverse-debug',
+        icon: 'debug',
+        label: serial ? `ADB ${serial}` : t('topbar.androidReverseDebug', 'ADB 调试'),
+        title: t('topbar.androidReverseDebug.title', '查看 Android 逆向调试面板'),
+        onClick: () => setAndroidReverseDashboardOpen(true),
+      });
+    }
     return capsules;
   }, [session, totalKnown, sessionId, streamThrottle]);
   const pull = usePullToRefresh(mainRef, {
@@ -4409,6 +4427,7 @@ export function SessionDetailPage() {
         />
       ) : null}
       {webReverseDashboardOpen && session ? <WebReverseDashboardDialog session={session} onClose={() => setWebReverseDashboardOpen(false)} /> : null}
+      {androidReverseDashboardOpen && session ? <AndroidReverseDashboardDialog session={session} onClose={() => setAndroidReverseDashboardOpen(false)} /> : null}
       {throttleDialogOpen && sessionId ? <SessionThrottleDialog sessionId={sessionId} current={streamThrottle} onClose={() => setThrottleDialogOpen(false)} /> : null}
       {pendingDeleteAction ? (
         <ConfirmDialog
@@ -5555,6 +5574,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     if (session.template_id === 'hardness_engineering' && key === 'hardness_config') return false;
     if (session.template_id === 'programming_expert' && key === 'programming_expert_config') return false;
     if (session.template_id === 'web_reverse_expert' && key === 'web_reverse_config') return false;
+    if (session.template_id === 'android_reverse_expert' && key === 'android_reverse_config') return false;
     return true;
   });
   const planHistory = [...(session.plan_history ?? [])].reverse();
@@ -5694,6 +5714,41 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     );
   };
 
+  const renderAndroidReverseConfig = () => {
+    const config = recordFromUnknown(metadata['android_reverse_config']);
+    const keywords = stringListFromUnknown(config['keywords']);
+    const analysisMode = String(config['analysis_mode'] ?? '').trim();
+    const analysisModeLabel = analysisMode === 'static_first'
+      ? '静态优先'
+      : analysisMode === 'dynamic_first'
+        ? '动态验证优先'
+        : analysisMode === 'balanced'
+          ? '均衡分析'
+          : metadataValue(analysisMode);
+    return (
+      <Section title="Android 逆向配置">
+        {Object.keys(config).length === 0 ? (
+          <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            配置数据尚未写入会话元数据。
+          </p>
+        ) : (
+          <>
+            <EntryRow label="逆向目标" value={metadataValue(config['objective'])} />
+            <EntryRow label="目标包名" value={metadataValue(config['package_name'])} />
+            <EntryRow label="APK 路径" value={metadataValue(config['apk_path'])} />
+            <EntryRow label="设备序列号" value={metadataValue(config['device_serial'] ?? '自动选择唯一在线设备')} />
+            <EntryRow label="分析模式" value={analysisModeLabel} />
+            <EntryRow label="授权范围" value={metadataValue(config['authorization_scope'])} />
+            <EntryRow label="ADB MCP" value={config['adb_mcp_enabled'] === true ? '启用' : '关闭'} />
+            <EntryRow label="Frida MCP" value={config['frida_mcp_enabled'] === true ? '启用' : '关闭'} />
+            {keywords.length > 0 ? <EntryRow label="关键字" value={keywords.join(', ')} /> : null}
+            {String(config['notes'] ?? '').trim() ? <EntryRow label="备注" value={metadataValue(config['notes'])} /> : null}
+          </>
+        )}
+      </Section>
+    );
+  };
+
   const cacheHitPanel = renderCacheHitPanel(promptBudgetTokens > 0);
 
   return (
@@ -5781,6 +5836,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           </Section>
           {session.template_id === 'hardness_engineering' ? renderHardnessConfig() : null}
           {session.template_id === 'programming_expert' ? renderProgrammingConfig() : null}
+          {session.template_id === 'android_reverse_expert' ? renderAndroidReverseConfig() : null}
           {visibleMetadataEntries.length > 0 ? (
             <Section title="扩展元数据">
               {visibleMetadataEntries.map(([key, value]) => (

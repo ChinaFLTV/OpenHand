@@ -186,6 +186,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   ];
   static const String _androidReverseMcpFallbackToolSearchQuery =
       'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter';
+  static const List<String> _androidReverseToolchainRecommendationIds =
+      <String>[
+        'adb',
+        'aapt',
+        'apksigner',
+        'keytool',
+        'apktool',
+        'jadx',
+        'frida',
+        'mitmproxy',
+        'radare2',
+        'blutter',
+        'doldrums',
+        'anything_analyzer',
+      ];
 
   final TextEditingController _composerController = SafeTextEditingController();
   // HTML WebView 异步测高协调信号——见 [TranscriptScrollActivity] 注释。
@@ -3384,6 +3399,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'source': 'OpenHand AndroidReverseSessionController',
       'is_running': controller.isRunning,
       'state': controller.state.name,
+      'analysis_mode': controller.config.analysisMode.storageValue,
+      'authorization_scope_present':
+          controller.config.authorizationScope?.trim().isNotEmpty ?? false,
       'artifacts_root_dir': controller.artifactsRootDir,
       'local_artifacts': <String, Object?>{
         'root_dir': controller.artifactsRootDir,
@@ -3541,6 +3559,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'mcp_plugin_linkage': _androidReverseMcpPluginLinkageMetadata(),
       'toolchain_setup_commands':
           _androidReverseToolchainSetupCommandsMetadata(),
+      'toolchain_recommendation_ids': _androidReverseToolchainRecommendationIds,
       'visible_devices': controller.allDevices
           .map(
             (device) => <String, Object?>{
@@ -3563,6 +3582,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'mcp': _androidReverseMcpLinkageMetadata(),
       'plugin_runtime_prerequisites':
           _androidReversePluginRuntimePrerequisitesMetadata(),
+      'toolchain_recommendations': _androidReverseToolchainRecommendationIds,
     };
   }
 
