@@ -27,6 +27,21 @@ const int _kMcpRuntimeToolNameLimit = 64;
 const int _kMcpToolPreviewLimit = 8;
 const int _kMcpToolSearchLimit = 8;
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
+const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
+const int _kDeviceSnapshotMaxLines = 80;
+const String _kDeviceSnapshotScript = '''
+printf '[battery]\\n'
+dumpsys battery | grep -E 'level:|status:|temperature:|voltage:|AC powered:|USB powered:|Wireless powered:' || true
+printf '[display]\\n'
+wm size; wm density
+printf '[storage]\\n'
+df -h /data /sdcard 2>/dev/null || df /data /sdcard 2>/dev/null || true
+printf '[foreground]\\n'
+dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' | head -4 || true
+printf '[abi]\\n'
+getprop ro.product.cpu.abi
+getprop ro.product.cpu.abilist
+''';
 const List<String> _kLogcatLevels = <String>['V', 'D', 'I', 'W', 'E', 'F'];
 const List<String> _kAndroidMcpKeywords = <String>[
   'adb',
@@ -315,6 +330,7 @@ class _AndroidReverseDashboardDialogState
   String _logcatLevel = 'V';
   Map<String, String> _deviceProps = const <String, String>{};
   List<String> _forwardRows = const <String>[];
+  String? _deviceSnapshotOutput;
   List<String> _packages = const <String>[];
   List<AndroidReverseToolchainProbeResult> _toolchainRows =
       const <AndroidReverseToolchainProbeResult>[];
@@ -556,16 +572,24 @@ class _AndroidReverseDashboardDialogState
         setState(() {
           _deviceProps = const <String, String>{};
           _forwardRows = const <String>[];
+          _deviceSnapshotOutput = null;
         });
       }
       return;
     }
     setState(() => _loadingDeviceDetails = true);
     try {
+      final isZh = openHandIsChineseLocale(context);
       final propsFuture = _ctrl.getProperties(serial: serial);
       final forwardsFuture = _ctrl.listForwards(serial: serial);
+      final snapshotFuture = _ctrl.shellDetailed(
+        _kDeviceSnapshotScript,
+        serial: serial,
+        timeout: _kDeviceSnapshotTimeout,
+      );
       final props = await propsFuture;
       final forwards = await forwardsFuture;
+      final snapshot = await snapshotFuture;
       if (!mounted) return;
       setState(() {
         _deviceProps = props;
@@ -574,10 +598,39 @@ class _AndroidReverseDashboardDialogState
             .map((line) => line.trim())
             .where((line) => line.isNotEmpty)
             .toList(growable: false);
+        _deviceSnapshotOutput = _formatDeviceSnapshot(snapshot, isZh);
       });
     } finally {
       if (mounted) setState(() => _loadingDeviceDetails = false);
     }
+  }
+
+  String? _formatDeviceSnapshot(AdbCommandResult result, bool isZh) {
+    final lines = result.stdout
+        .split('\n')
+        .map((line) => line.trimRight())
+        .where((line) => line.trim().isNotEmpty)
+        .take(_kDeviceSnapshotMaxLines)
+        .toList(growable: false);
+    final stderr = result.stderr.trim();
+    if (lines.isEmpty && stderr.isEmpty) return null;
+    final buffer = StringBuffer();
+    if (lines.isNotEmpty) {
+      buffer.write(lines.join('\n'));
+    }
+    if (result.timedOut) {
+      if (buffer.isNotEmpty) buffer.writeln();
+      buffer.write(
+        isZh
+            ? '(设备现场读取超时，已展示可用输出)'
+            : '(snapshot timed out; usable output shown)',
+      );
+    }
+    if (!result.ok && stderr.isNotEmpty) {
+      if (buffer.isNotEmpty) buffer.writeln();
+      buffer.write('${isZh ? "错误" : "Error"}: $stderr');
+    }
+    return buffer.toString().trimRight();
   }
 
   Future<void> _fetchLogcat() async {
@@ -1338,6 +1391,7 @@ class _AndroidReverseDashboardDialogState
     final device = serial == null
         ? null
         : _ctrl.allDevices.where((item) => item.serial == serial).firstOrNull;
+    final snapshot = _deviceSnapshotOutput?.trim();
     final propItems = <(String, String)>[
       (
         isZh ? '系统版本' : 'Android',
@@ -1395,6 +1449,30 @@ class _AndroidReverseDashboardDialogState
             const SizedBox(height: 10),
             for (final item in propItems)
               _DeviceInfoRow(label: item.$1, value: item.$2, colorScheme: cs),
+            if (snapshot != null && snapshot.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      isZh ? '现场快照' : 'Field snapshot',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    tooltip: isZh ? '复制现场快照' : 'Copy field snapshot',
+                    onPressed: () => _copyText(snapshot),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              _monospaceCard(cs, snapshot),
+            ],
           ],
           const SizedBox(height: 14),
           Text(
@@ -1818,7 +1896,9 @@ class _AndroidReverseDashboardDialogState
         PopupMenuItem(
           value: _DeviceMenuAction.refreshProps,
           child: Text(
-            openHandIsChineseLocale(context) ? '刷新设备属性' : 'Refresh properties',
+            openHandIsChineseLocale(context)
+                ? '刷新属性 / 现场'
+                : 'Refresh properties / snapshot',
           ),
         ),
         PopupMenuItem(

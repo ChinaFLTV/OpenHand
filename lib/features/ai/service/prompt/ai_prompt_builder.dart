@@ -2314,7 +2314,7 @@ class AiPromptBuilder {
         'find ${p.join(rootDir, 'decompiled')} -path "*/quick_scan/*" -type f | head -200',
       ],
       'dashboard_actions': const <String>[
-        'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, shell presets, APK install, file push/pull, screenshot, screenrecord',
+        'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, field snapshot, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
         'toolchain: diagnostics plus copy-only install/update/uninstall commands for Android reverse CLI tools',
         'mcp_plugins: Android-related MCP health, discovered mcp__* names, ToolSearch query, Node/Python/pip/Playwright runtime prerequisites',
         'static_analysis: quick APK scan writes badging/Manifest/components/certs/nested APKs/URL/domain/IP/string summaries to decompiled/<target>/quick_scan',

@@ -3392,6 +3392,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'adb_tcpip_5555',
         'adb_root_remount_reboot',
         'adb_forward_add_remove',
+        'adb_device_field_snapshot_battery_display_storage_foreground_abi',
         'adb_shell_presets',
         'apk_install',
         'file_push_pull',
