@@ -70,6 +70,7 @@ import 'web_reverse_request_breakpoints_dialog.dart';
 import 'web_reverse_resend_request_dialog.dart';
 import 'web_reverse_screenshot_markup.dart';
 import 'web_reverse_select_button.dart';
+import 'web_reverse_session_config.dart';
 import 'web_reverse_session_controller.dart';
 import 'web_reverse_signature_diff_dialog.dart';
 import 'web_reverse_sourcemap_dialog.dart';
@@ -154,12 +155,14 @@ Future<void> showWebReverseDashboardDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
   required String sessionId,
+  Future<bool> Function(bool enabled)? onCdpMcpEnabledChanged,
 }) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) => _WebReverseDashboardDialog(
       controller: controller,
       sessionId: sessionId,
+      onCdpMcpEnabledChanged: onCdpMcpEnabledChanged,
     ),
   );
 }
@@ -168,9 +171,11 @@ class _WebReverseDashboardDialog extends StatefulWidget {
   const _WebReverseDashboardDialog({
     required this.controller,
     required this.sessionId,
+    required this.onCdpMcpEnabledChanged,
   });
   final WebReverseSessionController controller;
   final String sessionId;
+  final Future<bool> Function(bool enabled)? onCdpMcpEnabledChanged;
 
   @override
   State<_WebReverseDashboardDialog> createState() =>
@@ -224,6 +229,7 @@ class _WebReverseDashboardDialogState
   static const _kHooksMetaKey = 'web_reverse_hooks';
   static const _kCronsMetaKey = 'web_reverse_crons';
   _Tab _tab = _Tab.network;
+  bool _cdpMcpToggleBusy = false;
 
   // Network 面板状态
   String _networkFilter = '';
@@ -363,6 +369,67 @@ class _WebReverseDashboardDialogState
       if (session.id == widget.sessionId) return session;
     }
     return null;
+  }
+
+  WebReverseSessionConfig? _dashboardConfig() {
+    final session = _dashboardSession();
+    if (session == null) return null;
+    return WebReverseSessionConfig.fromJson(
+      session.metadata['web_reverse_config'],
+    );
+  }
+
+  bool get _cdpMcpEnabled => _dashboardConfig()?.cdpMcpEnabled == true;
+
+  Future<void> _setCdpMcpEnabled(bool enabled) async {
+    if (_cdpMcpToggleBusy) return;
+    final updater = widget.onCdpMcpEnabledChanged;
+    if (updater == null) {
+      OpenHandSnackBar.showError(
+        context,
+        _isZh() ? '当前窗口无法更新 MCP 设置' : 'This window cannot update MCP settings',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    setState(() => _cdpMcpToggleBusy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final isZh = _isZh();
+    var ok = false;
+    try {
+      ok = await updater(enabled).timeout(const Duration(seconds: 12));
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_dashboard_dialog',
+        'toggle cdp mcp $enabled',
+        error,
+        stack,
+      );
+    } finally {
+      if (mounted) setState(() => _cdpMcpToggleBusy = false);
+    }
+    if (!mounted) return;
+    if (!ok) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        isZh ? 'AI 侧 CDP MCP 设置更新失败' : 'Failed to update AI-side CDP MCP',
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    OpenHandSnackBar.showInfoOn(
+      context,
+      messenger,
+      enabled
+          ? (isZh
+                ? '已启用 AI 侧 CDP MCP，正在后台准备工具目录'
+                : 'AI-side CDP MCP enabled; preparing tools in background')
+          : (isZh
+                ? '已禁用 AI 侧 CDP MCP，并停止本会话临时 MCP'
+                : 'AI-side CDP MCP disabled; transient MCP stopped'),
+      duration: const Duration(seconds: 2),
+    );
   }
 
   /// 当 Initiator 区段点击栈帧 / 重定向链时被调用：先把当前 tab 切到
@@ -1030,6 +1097,7 @@ class _WebReverseDashboardDialogState
       controller: ctrl,
       isZh: isZh,
     );
+    final cdpMcpEnabled = _cdpMcpEnabled;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
       child: Row(
@@ -1070,6 +1138,14 @@ class _WebReverseDashboardDialogState
             ),
           ),
           const SizedBox(width: 10),
+          _CdpMcpBridgeToggle(
+            enabled: cdpMcpEnabled,
+            busy: _cdpMcpToggleBusy,
+            isZh: isZh,
+            reduceMotion: MediaQuery.disableAnimationsOf(context),
+            onChanged: _setCdpMcpEnabled,
+          ),
+          const SizedBox(width: 6),
           _CdpMcpBridgeStatusPill(
             status: bridgeStatus,
             reduceMotion: MediaQuery.disableAnimationsOf(context),
@@ -1286,7 +1362,7 @@ Future<void> _openOfficialDevToolsForController(
   }
 }
 
-enum _CdpMcpBridgeHeaderTone { ready, preparing, failed, unavailable }
+enum _CdpMcpBridgeHeaderTone { disabled, ready, preparing, failed, unavailable }
 
 class _CdpMcpBridgeHeaderStatus {
   const _CdpMcpBridgeHeaderStatus({
@@ -1315,7 +1391,11 @@ class _CdpMcpBridgeHeaderStatus {
     late final _CdpMcpBridgeHeaderTone tone;
     late final IconData icon;
     late final String label;
-    if (runtimeStatus.ready) {
+    if (runtimeStatus.rawStatus == 'disabled') {
+      tone = _CdpMcpBridgeHeaderTone.disabled;
+      icon = Icons.hub_outlined;
+      label = isZh ? 'AI CDP 未启用' : 'AI CDP disabled';
+    } else if (runtimeStatus.ready) {
       tone = _CdpMcpBridgeHeaderTone.ready;
       icon = Icons.hub_rounded;
       label = isZh
@@ -1362,6 +1442,90 @@ class _CdpMcpBridgeHeaderStatus {
   }
 }
 
+class _CdpMcpBridgeToggle extends StatelessWidget {
+  const _CdpMcpBridgeToggle({
+    required this.enabled,
+    required this.busy,
+    required this.isZh,
+    required this.reduceMotion,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final bool busy;
+  final bool isZh;
+  final bool reduceMotion;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final color = enabled ? cs.primary : cs.onSurfaceVariant;
+    return Tooltip(
+      message: isZh
+          ? '手动启用后，本会话才会通过 npx 准备 chrome-devtools-mcp；关闭会停止临时 MCP。'
+          : 'Enable manually to prepare chrome-devtools-mcp through npx for this session; disabling stops the transient MCP.',
+      waitDuration: const Duration(milliseconds: 350),
+      child: AnimatedContainer(
+        duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+        curve: _kSwitchInCurve,
+        height: 32,
+        padding: const EdgeInsets.only(left: 10, right: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: enabled ? 0.12 : 0.08),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.32)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedSwitcher(
+              duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: busy
+                  ? SizedBox(
+                      key: const ValueKey('busy'),
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
+                    )
+                  : Icon(
+                      enabled ? Icons.hub_rounded : Icons.hub_outlined,
+                      key: ValueKey<bool>(enabled),
+                      size: 15,
+                      color: color,
+                    ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              enabled
+                  ? (isZh ? 'MCP 开' : 'MCP on')
+                  : (isZh ? 'MCP 关' : 'MCP off'),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Transform.scale(
+              scale: 0.72,
+              child: Switch.adaptive(
+                value: enabled,
+                onChanged: busy ? null : onChanged,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CdpMcpBridgeStatusPill extends StatelessWidget {
   const _CdpMcpBridgeStatusPill({
     required this.status,
@@ -1377,6 +1541,7 @@ class _CdpMcpBridgeStatusPill extends StatelessWidget {
     final cs = theme.colorScheme;
     final color = switch (status.tone) {
       _CdpMcpBridgeHeaderTone.ready => cs.tertiary,
+      _CdpMcpBridgeHeaderTone.disabled => cs.onSurfaceVariant,
       _CdpMcpBridgeHeaderTone.preparing => cs.primary,
       _CdpMcpBridgeHeaderTone.failed => cs.error,
       _CdpMcpBridgeHeaderTone.unavailable => cs.onSurfaceVariant,

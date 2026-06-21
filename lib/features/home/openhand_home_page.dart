@@ -3124,6 +3124,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       cdpMcpBridgeDiagnostic:
           cdpMcpBridgeDiagnostic ??
           _webReverseCdpMcpBridge.cachedDiagnostic(
+            enabled: _webReverseCdpMcpEnabledForSession(session),
             sessionId: sessionId,
             sessionTemplateId: session?.templateId,
             controller: controller,
@@ -3238,6 +3239,92 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 给定 sessionId 返回当前活跃的 Web 逆向 controller（无则 null）。
   WebReverseSessionController? webReverseControllerFor(String sessionId) {
     return _webReverseControllers[sessionId];
+  }
+
+  bool _webReverseCdpMcpEnabledForSession(AiSession? session) {
+    if (session?.templateId != WebReverseCdpMcpBridge.templateId) return false;
+    final config = WebReverseSessionConfig.fromJson(
+      session!.metadata['web_reverse_config'],
+    );
+    return config?.cdpMcpEnabled == true;
+  }
+
+  Future<bool> setWebReverseCdpMcpEnabled(
+    String sessionId, {
+    required bool enabled,
+  }) async {
+    if (!mounted) return false;
+    final sessionController = context.read<AiSessionController>();
+    final session = sessionController.sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    if (session == null ||
+        session.templateId != WebReverseCdpMcpBridge.templateId) {
+      return false;
+    }
+    final config = WebReverseSessionConfig.fromJson(
+      session.metadata['web_reverse_config'],
+    );
+    if (config == null) return false;
+    if (config.cdpMcpEnabled == enabled) return true;
+    final nextConfig = config.copyWith(cdpMcpEnabled: enabled);
+    final updated = await sessionController.updateSessionMetadata(
+      sessionId,
+      <String, Object?>{'web_reverse_config': nextConfig.toJson()},
+    );
+    if (!updated || !mounted) return false;
+
+    final controller = _webReverseControllers[sessionId];
+    if (controller == null) return true;
+    if (!enabled) {
+      _webReverseCdpMcpBridge.stopSession(sessionId);
+      await _persistWebReverseRuntimeMetadata(
+        sessionId,
+        controller,
+        cdpMcpBridgeDiagnostic:
+            const WebReverseCdpMcpBridgeDiagnostic.disabled(),
+      );
+      return true;
+    }
+
+    await _persistWebReverseRuntimeMetadata(
+      sessionId,
+      controller,
+      cdpMcpBridgeDiagnostic: _webReverseCdpMcpBridge.cachedDiagnostic(
+        enabled: true,
+        sessionId: sessionId,
+        sessionTemplateId: session.templateId,
+        controller: controller,
+        existingServers: context.read<McpController>().servers,
+      ),
+    );
+    unawaited(_prepareEnabledWebReverseCdpMcp(sessionId));
+    return true;
+  }
+
+  Future<void> _prepareEnabledWebReverseCdpMcp(String sessionId) async {
+    if (!mounted) return;
+    final sessionController = context.read<AiSessionController>();
+    final mcpController = context.read<McpController>();
+    final session = sessionController.sessions
+        .where((item) => item.id == sessionId)
+        .firstOrNull;
+    final controller = _webReverseControllers[sessionId];
+    if (session == null || controller == null) return;
+    if (!_webReverseCdpMcpEnabledForSession(session)) return;
+    final snapshot = await _webReverseCdpMcpBridge.buildSnapshot(
+      enabled: true,
+      sessionId: sessionId,
+      sessionTemplateId: session.templateId,
+      controller: controller,
+      existingServers: mcpController.servers,
+    );
+    if (!mounted) return;
+    await _persistWebReverseRuntimeMetadata(
+      sessionId,
+      controller,
+      cdpMcpBridgeDiagnostic: snapshot.diagnostic,
+    );
   }
 
   /// 按已存在的会话 metadata 重启 Web 逆向 controller（应用重启 / 切回旧会话用）。
@@ -3804,8 +3891,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentWebReverseController = currentSession == null
         ? null
         : _webReverseControllers[currentSession.id];
+    final currentWebReverseCdpMcpEnabled = _webReverseCdpMcpEnabledForSession(
+      currentSession,
+    );
     final webReverseCdpMcpSnapshotFuture = _webReverseCdpMcpBridge
         .buildSnapshot(
+          enabled: currentWebReverseCdpMcpEnabled,
           sessionId: currentSession?.id,
           sessionTemplateId: currentSession?.templateId,
           controller: currentWebReverseController,
@@ -3966,6 +4057,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final availableSkills = skillsController.skills;
     final baseMcpServers = mcpController.servers;
     final webReverseCdpMcpSnapshot = _webReverseCdpMcpBridge.cachedSnapshot(
+      enabled: _webReverseCdpMcpEnabledForSession(session),
       sessionId: session.id,
       sessionTemplateId: session.templateId,
       controller: _webReverseControllers[session.id],

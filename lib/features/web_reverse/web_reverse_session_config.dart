@@ -16,6 +16,7 @@ class WebReverseSessionConfig {
     this.proxy,
     this.keywords = const <String>[],
     this.harPath,
+    this.cdpMcpEnabled = false,
   });
 
   final String targetUrl;
@@ -28,6 +29,7 @@ class WebReverseSessionConfig {
   final String? proxy;
   final List<String> keywords;
   final String? harPath;
+  final bool cdpMcpEnabled;
 
   /// 浅拷贝；用于在 session.id 就绪后给 [userDataDir] 拼上 sessionId 后缀，
   /// 从源头规避"同一 user-data-dir 被多个会话复用导致 profile 锁占用"。
@@ -42,6 +44,7 @@ class WebReverseSessionConfig {
     String? proxy,
     List<String>? keywords,
     String? harPath,
+    bool? cdpMcpEnabled,
   }) {
     return WebReverseSessionConfig(
       targetUrl: targetUrl ?? this.targetUrl,
@@ -54,6 +57,7 @@ class WebReverseSessionConfig {
       proxy: proxy ?? this.proxy,
       keywords: keywords ?? this.keywords,
       harPath: harPath ?? this.harPath,
+      cdpMcpEnabled: cdpMcpEnabled ?? this.cdpMcpEnabled,
     );
   }
 
@@ -68,6 +72,7 @@ class WebReverseSessionConfig {
     if (proxy != null) 'proxy': proxy,
     if (keywords.isNotEmpty) 'keywords': keywords,
     if (harPath != null) 'har_path': harPath,
+    'cdp_mcp_enabled': cdpMcpEnabled,
   };
 
   static WebReverseSessionConfig? fromJson(Object? raw) {
@@ -92,6 +97,7 @@ class WebReverseSessionConfig {
       proxy: map['proxy'] as String?,
       keywords: (map['keywords'] as List?)?.cast<String>() ?? const <String>[],
       harPath: map['har_path'] as String?,
+      cdpMcpEnabled: _boolFromJson(map['cdp_mcp_enabled']),
     );
   }
 
@@ -113,6 +119,9 @@ class WebReverseSessionConfig {
     buf.writeln('- 登录态：【${loginMode.label}】');
     buf.writeln('- 浏览器：【${browserKind.displayName}】');
     buf.writeln('- CDP 端口：【$cdpPort】');
+    buf.writeln(
+      '- AI 侧 CDP MCP：【${cdpMcpEnabled ? '已启用，会按工具目录使用 chrome-devtools/js-reverse MCP' : '未启用；如需临时 chrome-devtools-mcp，请先在调试面板手动开启'}】',
+    );
     if (proxy != null && proxy!.trim().isNotEmpty) {
       buf.writeln('- 代理：【${proxy!.trim()}】');
     }
@@ -127,6 +136,12 @@ class WebReverseSessionConfig {
     );
     buf.write('- 验收标准：【可在 curl / Dart / Python 中独立复现，无需浏览器】');
     return buf.toString();
+  }
+
+  static bool _boolFromJson(Object? raw) {
+    if (raw is bool) return raw;
+    final value = '${raw ?? ''}'.trim().toLowerCase();
+    return value == 'true' || value == '1' || value == 'yes';
   }
 }
 

@@ -2367,6 +2367,10 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
         context,
         controller: ctrl,
         sessionId: widget.sessionId,
+        onCdpMcpEnabledChanged: (enabled) => state.setWebReverseCdpMcpEnabled(
+          widget.sessionId,
+          enabled: enabled,
+        ),
       );
       return;
     }
@@ -2383,6 +2387,10 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
           context,
           controller: restored,
           sessionId: widget.sessionId,
+          onCdpMcpEnabledChanged: (enabled) => state.setWebReverseCdpMcpEnabled(
+            widget.sessionId,
+            enabled: enabled,
+          ),
         );
       }
     } finally {
@@ -2426,6 +2434,8 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
         ? cs.outline
         : errs > 0 || cdpStatus.tone == _WebReverseDebugCdpTone.failed
         ? cs.error
+        : cdpStatus.tone == _WebReverseDebugCdpTone.disabled
+        ? cs.onSurfaceVariant
         : cdpStatus.tone == _WebReverseDebugCdpTone.ready
         ? cs.primary
         : cs.tertiary;
@@ -2528,7 +2538,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
   }
 }
 
-enum _WebReverseDebugCdpTone { ready, preparing, failed, unavailable }
+enum _WebReverseDebugCdpTone { disabled, ready, preparing, failed, unavailable }
 
 class _WebReverseDebugCdpStatus {
   const _WebReverseDebugCdpStatus({
@@ -2554,7 +2564,10 @@ class _WebReverseDebugCdpStatus {
 
     late final _WebReverseDebugCdpTone tone;
     late final String label;
-    if (runtimeStatus.ready) {
+    if (runtimeStatus.rawStatus == 'disabled') {
+      tone = _WebReverseDebugCdpTone.disabled;
+      label = isZh ? 'MCP未启用' : 'MCP off';
+    } else if (runtimeStatus.ready) {
       tone = _WebReverseDebugCdpTone.ready;
       label = isZh
           ? 'CDP ${runtimeStatus.toolCount}'

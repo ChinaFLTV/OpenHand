@@ -106,6 +106,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   late final TextEditingController _keywordsCtrl;
   WebReverseLoginMode _loginMode = WebReverseLoginMode.none;
   late WebReverseBrowserProbeResult _selectedProbe;
+  bool _cdpMcpEnabled = false;
 
   @override
   void initState() {
@@ -168,6 +169,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
       loginMode: _loginMode,
       proxy: _proxyCtrl.text.trim().isEmpty ? null : _proxyCtrl.text.trim(),
       keywords: keywords,
+      cdpMcpEnabled: _cdpMcpEnabled,
     );
     Navigator.of(context).pop(
       WebReverseSetupResult(
@@ -300,6 +302,13 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  _CdpMcpOptInTile(
+                    enabled: _cdpMcpEnabled,
+                    isZh: isZh,
+                    onChanged: (value) =>
+                        setState(() => _cdpMcpEnabled = value),
+                  ),
+                  const SizedBox(height: 14),
                   _LabelText(loc?.webReverseSetupProxy ?? 'Proxy (optional)'),
                   const SizedBox(height: 4),
                   TextField(
@@ -358,6 +367,77 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
       };
     }
     return m.label;
+  }
+}
+
+class _CdpMcpOptInTile extends StatelessWidget {
+  const _CdpMcpOptInTile({
+    required this.enabled,
+    required this.isZh,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final bool isZh;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: enabled
+            ? cs.primaryContainer.withValues(alpha: 0.42)
+            : cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: enabled
+              ? cs.primary.withValues(alpha: 0.46)
+              : cs.outlineVariant,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            enabled ? Icons.hub_rounded : Icons.hub_outlined,
+            size: 18,
+            color: enabled ? cs.primary : cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isZh ? 'AI 侧 CDP MCP（可选）' : 'AI-side CDP MCP (optional)',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isZh
+                      ? '默认关闭。开启后仅本会话会通过 npx 准备 chrome-devtools-mcp，用于 AI 直接调用 CDP 工具。'
+                      : 'Off by default. When enabled, only this session prepares chrome-devtools-mcp through npx for AI CDP tools.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(value: enabled, onChanged: onChanged),
+        ],
+      ),
+    );
   }
 }
 

@@ -2061,6 +2061,9 @@ class AiPromptBuilder {
 
     Object? meta(String key) =>
         _boundedWebReverseMetadataValue(session.metadata[key]);
+    final sessionCdpMcpEnabled = webReverseRuntimeBoolTrue(
+      config['cdp_mcp_enabled'],
+    );
     final cdpRuntime = _sanitizeWebReverseCdpRuntime(
       _webReverseCdpRuntimeMetadata(session),
     );
@@ -2100,6 +2103,7 @@ class AiPromptBuilder {
           ? 'When the live CDP runtime is available, WebFetch, WebSearch, and explicit Bash HTTP(S) requests to the target origin are blocked. External docs/static references remain allowed.'
           : 'Active for the configured target origin even while live CDP is unavailable. Do not use target-origin WebFetch/Bash/WebSearch; use local jsonl/HAR artifacts, or ask the user to restart/restore CDP before live browser operations. External docs/static references remain allowed.',
       'cdp_mcp_tool_availability': <String, Object?>{
+        'session_ai_cdp_mcp_enabled': sessionCdpMcpEnabled,
         'browser_runtime_live': cdpRuntimeLive,
         'current_turn_callable': cdpMcpToolNames.isNotEmpty,
         'live_cdp_actions_current_turn_callable':
@@ -2119,8 +2123,9 @@ class AiPromptBuilder {
               ? 'CDP / Chrome DevTools / js-reverse MCP tools are present only as deferred ToolSearch entries. Before any live CDP action, call ToolSearch with tool_search_recommended_query, then use the exact loaded MCP names from the next model request onward.'
               : 'CDP / Chrome DevTools / js-reverse MCP tools are present only as deferred ToolSearch entries, but live CDP actions are still blocked until cdp_runtime.browser_alive=true plus a current CDP endpoint/port. Use ToolSearch only to load schemas, and ask the user to restart/restore the Web Reverse browser before live CDP actions.',
         } else if (cdpMcpToolNames.isEmpty)
-          'warning':
-              'No CDP / Chrome DevTools / js-reverse MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. OpenHand normally auto-injects a transient chrome-devtools-mcp for live Web Reverse sessions; if it is absent, use local jsonl/HAR artifacts, or ask the user to install/refresh chrome-devtools-mcp before live CDP actions.'
+          'warning': sessionCdpMcpEnabled
+              ? 'No CDP / Chrome DevTools / js-reverse MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. The session has AI-side CDP MCP enabled, but the catalog is not ready; use local jsonl/HAR artifacts, or ask the user to refresh/disable-enable the Web Reverse MCP before live CDP actions.'
+              : 'No CDP / Chrome DevTools / js-reverse MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent cdp_* or bare MCP names. This session has AI-side CDP MCP disabled by default; use local jsonl/HAR artifacts or ask the user to enable it in the Web Reverse debugger before live CDP MCP actions.'
         else if (!cdpRuntimeLive)
           'guidance':
               'Exact CDP / Chrome DevTools / js-reverse MCP tool names are visible, but do not use them for live browser actions until cdp_runtime.browser_alive=true plus a current CDP endpoint/port.'

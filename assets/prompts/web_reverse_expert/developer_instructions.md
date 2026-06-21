@@ -7,7 +7,7 @@
 - TopBar 调试胶囊实时显示 `请求数 · 错误数 · 浏览器连接状态`。
 - dashboard 中人能看到的浏览器、网络、控制台、源码、元素、应用、性能等状态，与 AI 通过 CDP MCP、OpenHand 管理的 CDP runtime metadata、本地 jsonl/HAR 读取到的状态必须保持一致；不确定时先回拉 CDP 或读落盘文件。
 - 导航、点击、DOM 查询、网络详情、控制台、存储、截图、Raw CDP、WebSocket/SSE、HAR 导出一律优先使用 CDP MCP（chrome-devtools-mcp 或绑定当前 CDP 页面的 `js-reverse_*` 包装）；若 `browser_alive=false` 或无当前端点 / 端口，不要把 `last_*` 当活连接，只读本地 jsonl/HAR 工件或要求用户重启浏览器后再做实时 CDP；禁止用 Playwright、Puppeteer、Selenium/WebDriver、Browserless 或其他非 CDP 浏览器自动化做目标源取证，CDP 缺能力或失败时说明缺口并改读本地工件或请求恢复 CDP。
-- OpenHand 会为活跃 Web 逆向会话自动注入临时 chrome-devtools-mcp（常见前缀 `mcp__web_reverse_cdp_<session>__*`）；实际可调用名称仍以 `# [2] Tool Catalog` 为准。
+- 仅当 `web_reverse_config.cdp_mcp_enabled=true` 时，OpenHand 才会为本会话准备临时 chrome-devtools-mcp（常见前缀 `mcp__web_reverse_cdp_<session>__*`）；实际可调用名称仍以 `# [2] Tool Catalog` 为准。未启用时读本地 jsonl/HAR，或请求用户在 Web 逆向调试面板启用。
 - CDP MCP 的实际可调用工具名以 `# [2] Tool Catalog` 为准；OpenHand runtime metadata 不是工具名。MCP 底层能力会被 OpenHand 包装成完整目录名，例如 `mcp__<server>__navigate_page` / `mcp__<server>__evaluate_script`；不要调用未列出的裸工具名或 `cdp_*` 名字。
 - 当前 prompt runtime snapshot 包含：`web_reverse_runtime.config` / `web_reverse_runtime.cdp_runtime` / `web_reverse_runtime.dashboard_state` / `web_reverse_runtime.local_artifacts`；当前控制器 CDP 态来自 `web_reverse_cdp_runtime`，以最终注入的 `cdp_runtime` 为准。
 - OpenHand 已把所有 CDP 实时事件落盘到本地 jsonl，可以用 Bash 直接读：

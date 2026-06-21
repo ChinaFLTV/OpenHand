@@ -296,6 +296,7 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
     if (cdpRuntime != null) 'cdp_runtime': cdpRuntime,
     if (dashboardState.isNotEmpty) 'dashboard_state': dashboardState,
     'cdp_mcp_tool_availability': <String, Object?>{
+      'session_ai_cdp_mcp_enabled': _boolValue(config['cdp_mcp_enabled']),
       'browser_runtime_live': webReverseCdpRuntimeIsLive(cdpRuntime),
       'tool_search_available': false,
       'legacy_metadata_fallback': true,
@@ -375,8 +376,12 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
   final toolSearchAvailable = _boolValue(
     availability?['tool_search_available'],
   );
+  final sessionCdpMcpEnabled = _boolValue(
+    availability?['session_ai_cdp_mcp_enabled'],
+  );
   return _WebReverseCdpRoute.runtimeLiveWithoutTools(
     toolSearchAvailable: toolSearchAvailable,
+    sessionCdpMcpEnabled: sessionCdpMcpEnabled,
   );
 }
 
@@ -546,13 +551,16 @@ class _WebReverseCdpRoute {
 
   factory _WebReverseCdpRoute.runtimeLiveWithoutTools({
     required bool toolSearchAvailable,
+    required bool sessionCdpMcpEnabled,
   }) {
     return _WebReverseCdpRoute._(
       kind: 'runtime_live_without_callable_cdp_tools',
       toolNames: const <String>[],
       requiresToolSearch: false,
       fallbackToolLabel: 'live OpenHand CDP runtime',
-      nextActionOverride: toolSearchAvailable
+      nextActionOverride: !sessionCdpMcpEnabled
+          ? 'AI-side CDP MCP is disabled for this Web Reverse session. Use local jsonl/HAR artifacts, or ask the user to enable it in the Web Reverse debugger before live CDP MCP actions. Do not use target-origin WebFetch/Bash/WebSearch while a live CDP endpoint is available.'
+          : toolSearchAvailable
           ? 'Call ToolSearch for CDP / Chrome DevTools / js-reverse MCP tools if available; otherwise wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts. Do not use target-origin WebFetch/Bash/WebSearch while a live CDP endpoint is available.'
           : 'Wait for OpenHand to finish preparing transient CDP MCP or use local jsonl/HAR artifacts; ask the user to restart or refresh CDP MCP if tools remain unavailable. Do not use target-origin WebFetch/Bash/WebSearch while a live CDP endpoint is available.',
     );

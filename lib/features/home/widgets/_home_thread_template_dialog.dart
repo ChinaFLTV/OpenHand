@@ -396,6 +396,12 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       ),
       _MetadataEntryRow(label: 'CDP Port', value: '${config.cdpPort}'),
       _MetadataEntryRow(
+        label: isZh ? 'AI 侧 CDP MCP' : 'AI-side CDP MCP',
+        value: config.cdpMcpEnabled
+            ? (isZh ? '已启用' : 'Enabled')
+            : (isZh ? '未启用' : 'Disabled'),
+      ),
+      _MetadataEntryRow(
         label: isZh ? '登录态' : 'Login Mode',
         value: isZh ? config.loginMode.label : config.loginMode.id,
       ),

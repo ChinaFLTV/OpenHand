@@ -15,7 +15,7 @@ class WebReverseTransientMcpSnapshot {
   static const empty = WebReverseTransientMcpSnapshot(
     servers: <McpServer>[],
     catalogsByServerName: <String, McpToolCatalog>{},
-    diagnostic: WebReverseCdpMcpBridgeDiagnostic.unavailable(),
+    diagnostic: WebReverseCdpMcpBridgeDiagnostic.disabled(),
   );
 
   final List<McpServer> servers;
@@ -23,7 +23,13 @@ class WebReverseTransientMcpSnapshot {
   final WebReverseCdpMcpBridgeDiagnostic diagnostic;
 }
 
-enum WebReverseCdpMcpBridgeStatus { unavailable, preparing, ready, failed }
+enum WebReverseCdpMcpBridgeStatus {
+  disabled,
+  unavailable,
+  preparing,
+  ready,
+  failed,
+}
 
 class WebReverseCdpMcpBridgeDiagnostic {
   const WebReverseCdpMcpBridgeDiagnostic({
@@ -39,11 +45,12 @@ class WebReverseCdpMcpBridgeDiagnostic {
     this.lastScannedAt,
   });
 
-  const WebReverseCdpMcpBridgeDiagnostic.unavailable()
-    : status = WebReverseCdpMcpBridgeStatus.unavailable,
+  const WebReverseCdpMcpBridgeDiagnostic.disabled()
+    : status = WebReverseCdpMcpBridgeStatus.disabled,
       browserAlive = false,
       toolCount = 0,
-      message = 'Transient CDP MCP is unavailable for this session.',
+      message =
+          'AI-side CDP MCP is disabled for this Web Reverse session. Enable it from the setup dialog or debugger before preparing chrome-devtools-mcp.',
       serverName = null,
       cdpPort = null,
       browserUrl = null,
@@ -117,11 +124,22 @@ class WebReverseCdpMcpBridge {
       <String, _WebReverseCdpMcpCatalogCacheEntry>{};
 
   Future<WebReverseTransientMcpSnapshot> buildSnapshot({
+    required bool enabled,
     required String? sessionId,
     required String? sessionTemplateId,
     required WebReverseSessionController? controller,
     required Iterable<McpServer> existingServers,
   }) async {
+    if (!enabled) {
+      if (sessionId != null && sessionId.isNotEmpty) {
+        stopSession(sessionId);
+      }
+      return const WebReverseTransientMcpSnapshot(
+        servers: <McpServer>[],
+        catalogsByServerName: <String, McpToolCatalog>{},
+        diagnostic: WebReverseCdpMcpBridgeDiagnostic.disabled(),
+      );
+    }
     final server = _serverFor(
       sessionId: sessionId,
       sessionTemplateId: sessionTemplateId,
@@ -154,11 +172,19 @@ class WebReverseCdpMcpBridge {
   }
 
   WebReverseTransientMcpSnapshot cachedSnapshot({
+    required bool enabled,
     required String? sessionId,
     required String? sessionTemplateId,
     required WebReverseSessionController? controller,
     required Iterable<McpServer> existingServers,
   }) {
+    if (!enabled) {
+      return const WebReverseTransientMcpSnapshot(
+        servers: <McpServer>[],
+        catalogsByServerName: <String, McpToolCatalog>{},
+        diagnostic: WebReverseCdpMcpBridgeDiagnostic.disabled(),
+      );
+    }
     final server = _serverFor(
       sessionId: sessionId,
       sessionTemplateId: sessionTemplateId,
@@ -196,12 +222,14 @@ class WebReverseCdpMcpBridge {
   }
 
   WebReverseCdpMcpBridgeDiagnostic cachedDiagnostic({
+    required bool enabled,
     required String? sessionId,
     required String? sessionTemplateId,
     required WebReverseSessionController? controller,
     required Iterable<McpServer> existingServers,
   }) {
     return cachedSnapshot(
+      enabled: enabled,
       sessionId: sessionId,
       sessionTemplateId: sessionTemplateId,
       controller: controller,
@@ -343,7 +371,7 @@ class WebReverseCdpMcpBridge {
           onTimeout: () => McpToolCatalog(
             status: McpToolCatalogStatus.failed,
             errorMessage:
-                'OpenHand auto CDP MCP discovery timed out after '
+                'OpenHand CDP MCP discovery timed out after '
                 '${catalogTimeout.inSeconds}s. OpenHand launches it with '
                 '`npx --yes $cdpMcpPackage --browser-url=<cdp>`. Refresh '
                 'MCP stdio cache or network/npm access, then retry the Web Reverse turn.',
@@ -364,7 +392,7 @@ class WebReverseCdpMcpBridge {
             );
             final failed = McpToolCatalog(
               status: McpToolCatalogStatus.failed,
-              errorMessage: 'OpenHand auto CDP MCP discovery failed: $error',
+              errorMessage: 'OpenHand CDP MCP discovery failed: $error',
               lastScannedAt: DateTime.now().toUtc(),
             );
             entry.catalog = failed;
@@ -459,6 +487,8 @@ class WebReverseCdpMcpBridge {
             : 'Transient chrome-devtools-mcp discovery failed.',
       WebReverseCdpMcpBridgeStatus.preparing =>
         'Transient chrome-devtools-mcp catalog is being prepared via npx.',
+      WebReverseCdpMcpBridgeStatus.disabled =>
+        'AI-side CDP MCP is disabled for this Web Reverse session.',
       WebReverseCdpMcpBridgeStatus.unavailable =>
         'Transient chrome-devtools-mcp is unavailable.',
     };
