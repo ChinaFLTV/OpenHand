@@ -75,6 +75,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get mcpTemplatesPath =>
       '$mcpDir/openhand_android_reverse_mcp_templates.json';
   String get mcpReadmePath => '$mcpDir/README.md';
+  String get mcpSetupGuidePath => '$mcpDir/SETUP.md';
   String get logcatDir => '$artifactsRootDir/logcat';
   String get networkDir => '$artifactsRootDir/network';
   String get mitmproxyAddonPath => '$networkDir/openhand_mitm_jsonl.py';
@@ -923,6 +924,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           mcpTemplatesPath,
         ).writeAsString(_mcpLinkageTemplatesJson(generatedAt)),
         File(mcpReadmePath).writeAsString(_mcpLinkageReadme),
+        File(mcpSetupGuidePath).writeAsString(_mcpSetupGuideReadme),
         File(fridaReadmePath).writeAsString(_fridaRunbookReadme),
         File(fridaDoctorScriptPath).writeAsString(_fridaDoctorScript),
         File(fridaCaptureScriptPath).writeAsString(_fridaCaptureScript),
@@ -961,6 +963,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'MCP linkage artifacts: $mcpDir',
         'templates_json: $mcpTemplatesPath',
         'readme: $mcpReadmePath',
+        'setup_guide: $mcpSetupGuidePath',
         'adb_one_shot: $adbOneShotScriptPath',
         'dynamic_probe: $dynamicProbeScriptPath',
         'frida_readme: $fridaReadmePath',
@@ -1371,6 +1374,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'mcp_dir': mcpDir,
         'templates_json': mcpTemplatesPath,
         'readme': mcpReadmePath,
+        'setup_guide': mcpSetupGuidePath,
         'adb_one_shot': adbOneShotScriptPath,
         'dynamic_probe': dynamicProbeScriptPath,
         'frida_readme': fridaReadmePath,
@@ -1479,6 +1483,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       ],
       'workflow_checklist': const <String>[
         'Read android_reverse_config and android_reverse_runtime.',
+        'Read mcp/SETUP.md before relying on MCP tools.',
         'Confirm device with adb devices or ADB MCP.',
         'Run scripts/android_dynamic_probe.sh once before dynamic validation on a flaky device.',
         'Read quick_scan artifacts before dynamic work when APK path exists.',
@@ -1502,6 +1507,7 @@ and Bash fallback discipline.
 
 Files:
 - openhand_android_reverse_mcp_templates.json: MCP templates, checklist, and examples.
+- SETUP.md: global MCP setup checklist and fallback decision tree.
 - ../scripts/adb_one_shot.sh: short-timeout ADB wrapper for flaky wireless devices.
 - ../scripts/android_dynamic_probe.sh: one-pass ADB / launcher / Frida preflight.
 - ../network/README.md and ../network/proxy_probe.sh: mitmproxy and proxy diagnostics.
@@ -1519,6 +1525,40 @@ Rules:
 8. Put final reproductions under scripts/ and run make_evidence_bundle.sh before final delivery.
 9. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
 10. Stop after two repeated failures on the same command, hook, install, or launch path.
+''';
+
+const String _mcpSetupGuideReadme = r'''# Android reverse MCP setup
+
+Use this checklist before relying on Android reverse MCP tools.
+
+## Read first
+
+1. Open `openhand_android_reverse_mcp_templates.json`.
+2. Copy only the server templates you intend to use into the global MCP config.
+3. Replace placeholders such as `<adb-mcp-package>`, `<frida-mcp-package>`, and `<port>`.
+4. Refresh the global MCP panel and confirm each server is enabled and healthy.
+5. Use only exact `mcp__*` tool names shown in the Tool Catalog or ToolSearch result.
+
+## Recommended servers
+
+- ADB: device list, shell, file transfer, package, logcat, port forward.
+- Frida: spawn, attach, load script, read output.
+- IDA Pro: decompiler and database inspection when an IDA bridge is already running.
+- anything-analyzer: archive, APK, dex, ELF, and text triage.
+
+## Fallback
+
+- If a requested MCP is enabled in config but missing from the Tool Catalog, report it first.
+- Use Bash fallback only after confirming `adb devices`, local CLI availability, and the target serial.
+- For flaky wireless ADB, prefer `../scripts/adb_one_shot.sh --timeout 6`.
+- Before Frida install, push, or start, run `../frida/frida_doctor.sh`.
+- Before mitmproxy capture, read `../network/README.md` and run `../network/proxy_probe.sh`.
+
+## Stop rules
+
+- Do not invent MCP tool names.
+- Do not repeat the same install, attach, launch, or shell command more than twice.
+- Do not run `adb kill-server`, `adb start-server`, or `pkill adb` without user approval.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook

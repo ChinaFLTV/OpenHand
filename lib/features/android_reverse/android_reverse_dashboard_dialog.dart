@@ -2840,6 +2840,17 @@ class _AndroidReverseDashboardDialogState
             cs,
             theme,
             isZh,
+            title: isZh ? '会话 MCP 设置清单' : 'Session MCP setup checklist',
+            command:
+                'cat ${_shellQuote(_ctrl.mcpSetupGuidePath)}\n'
+                'cat ${_shellQuote(_ctrl.mcpReadmePath)}\n'
+                'cat ${_shellQuote(_ctrl.mcpTemplatesPath)}',
+          ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
             title: isZh ? 'ToolSearch 建议' : 'ToolSearch suggestion',
             command: toolSearchQuery,
           ),
@@ -2849,8 +2860,8 @@ class _AndroidReverseDashboardDialogState
               Expanded(
                 child: Text(
                   isZh
-                      ? '生成会话级 MCP 模板、ADB 短超时包装器、动态预检脚本和 Frida runbook，供线程直接读取。'
-                      : 'Generate session MCP templates, short-timeout ADB wrapper, dynamic preflight script, and Frida runbook for the thread.',
+                      ? '生成会话级 MCP 设置清单、模板、ADB 短超时包装器、动态预检脚本和 Frida runbook，供线程直接读取。'
+                      : 'Generate session MCP setup checklist, templates, short-timeout ADB wrapper, dynamic preflight script, and Frida runbook for the thread.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
