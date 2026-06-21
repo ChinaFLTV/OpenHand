@@ -2187,20 +2187,109 @@ class AiSessionController extends ChangeNotifier {
     required String messageId,
     AiSessionMessageFeedback? feedback,
   }) {
-    return _updateMessageById(
-      sessionId: sessionId,
-      messageId: messageId,
-      operationName: 'persist message feedback',
-      update: (message) {
-        final metadata = Map<String, Object?>.from(message.metadata);
-        if (feedback == null) {
-          metadata.remove(aiSessionMessageFeedbackMetadataKey);
-        } else {
-          metadata[aiSessionMessageFeedbackMetadataKey] = feedback.storageValue;
+    final normalizedSessionId = sessionId.trim();
+    final normalizedMessageId = messageId.trim();
+    if (normalizedSessionId.isEmpty || normalizedMessageId.isEmpty) {
+      return Future<bool>.value(false);
+    }
+    return _enqueueSessionOperation(normalizedSessionId, () async {
+      final session = _sessionById(normalizedSessionId);
+      if (session == null) {
+        return false;
+      }
+
+      try {
+        final loadedIndex = session.messages.indexWhere(
+          (message) => message.id == normalizedMessageId,
+        );
+        final sourceMessage = loadedIndex == -1
+            ? await _store.loadMessage(normalizedSessionId, normalizedMessageId)
+            : session.messages[loadedIndex];
+        if (sourceMessage == null) {
+          return false;
         }
-        return message.copyWith(metadata: metadata);
-      },
-    );
+
+        final updatedMessage = _messageWithFeedback(sourceMessage, feedback);
+        if (identical(updatedMessage, sourceMessage)) {
+          return true;
+        }
+
+        final persisted = await _store.updateMessageMetadata(
+          sessionId: normalizedSessionId,
+          messageId: normalizedMessageId,
+          metadata: updatedMessage.metadata,
+        );
+        if (!persisted) {
+          _setLastSendErrorMessage(
+            normalizedSessionId,
+            _friendlyAiSessionPersistenceError(
+              'Message not found.',
+              operation: 'save',
+            ),
+          );
+          return false;
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'persist message feedback',
+          error,
+          stack,
+        );
+        _setLastSendErrorMessage(
+          normalizedSessionId,
+          _friendlyAiSessionPersistenceError(error, operation: 'save'),
+        );
+        return false;
+      }
+
+      final liveSession = _sessionById(normalizedSessionId);
+      if (liveSession == null) {
+        return true;
+      }
+      final liveIndex = liveSession.messages.indexWhere(
+        (message) => message.id == normalizedMessageId,
+      );
+      if (liveIndex == -1) {
+        return true;
+      }
+      final liveUpdatedMessage = _messageWithFeedback(
+        liveSession.messages[liveIndex],
+        feedback,
+      );
+      if (identical(liveUpdatedMessage, liveSession.messages[liveIndex])) {
+        return true;
+      }
+
+      final updatedMessages = List<AiSessionMessage>.from(liveSession.messages);
+      updatedMessages[liveIndex] = liveUpdatedMessage;
+      final updatedSession = liveSession.copyWith(
+        messages: List<AiSessionMessage>.unmodifiable(updatedMessages),
+        messageLoadState: liveSession.messageLoadState,
+        messageWindowStartIndex: liveSession.messageWindowStartIndex,
+        messageTotalCount: liveSession.messageTotalCount,
+      );
+      if (_replaceSessionInMemory(updatedSession, sortSessions: false)) {
+        notifyListeners();
+      }
+      return true;
+    });
+  }
+
+  AiSessionMessage _messageWithFeedback(
+    AiSessionMessage message,
+    AiSessionMessageFeedback? feedback,
+  ) {
+    if (message.feedback == feedback) {
+      return message;
+    }
+    final metadata = Map<String, Object?>.from(message.metadata);
+    if (feedback == null) {
+      metadata.remove(aiSessionMessageFeedbackMetadataKey);
+    } else {
+      metadata[aiSessionMessageFeedbackMetadataKey] = feedback.storageValue;
+    }
+    return message.copyWith(metadata: metadata);
   }
 
   Future<bool> selectMessageResponseVariant({

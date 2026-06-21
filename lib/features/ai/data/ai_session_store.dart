@@ -779,6 +779,31 @@ class AiSessionStore {
     );
   }
 
+  /// Loads one message row without hydrating the whole session.
+  Future<AiSessionMessage?> loadMessage(
+    String sessionId,
+    String messageId,
+  ) async {
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      sessionId,
+      label: 'session id',
+    );
+    final normalizedMessageId = _requireSafeStorageIdentifier(
+      messageId,
+      label: 'message id',
+    );
+    final rows = await _db.query(
+      'messages',
+      where: 'id = ? AND session_id = ?',
+      whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return _messageFromRow(rows.first);
+  }
+
   /// Returns the stored message count without decoding any message rows.
   Future<int> countMessages(String sessionId) => _countMessages(sessionId);
 
@@ -839,6 +864,30 @@ class AiSessionStore {
       where: 'id = ?',
       whereArgs: <Object?>[session.id],
     );
+  }
+
+  /// Updates only one message's metadata. This keeps small UI-only changes
+  /// from forcing full transcript hydration or a delete + bulk-insert cycle.
+  Future<bool> updateMessageMetadata({
+    required String sessionId,
+    required String messageId,
+    required Map<String, Object?> metadata,
+  }) async {
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      sessionId,
+      label: 'session id',
+    );
+    final normalizedMessageId = _requireSafeStorageIdentifier(
+      messageId,
+      label: 'message id',
+    );
+    final updated = await _db.update(
+      'messages',
+      <String, Object?>{'metadata_json': jsonEncode(metadata)},
+      where: 'id = ? AND session_id = ?',
+      whereArgs: <Object?>[normalizedMessageId, normalizedSessionId],
+    );
+    return updated > 0;
   }
 
   /// Deletes a session and all its messages from the database, plus
