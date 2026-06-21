@@ -3355,7 +3355,13 @@ class _AndroidReverseDashboardDialogState
             )
           else
             for (final plugin in runtimePlugins) ...[
-              _buildRuntimePluginTile(plugin, cs, theme, isZh),
+              _buildRuntimePluginTile(
+                plugin,
+                pluginController,
+                cs,
+                theme,
+                isZh,
+              ),
               const SizedBox(height: 8),
             ],
           const SizedBox(height: 14),
@@ -3582,11 +3588,11 @@ class _AndroidReverseDashboardDialogState
 
   Widget _buildRuntimePluginTile(
     PluginInfo plugin,
+    PluginServiceController pluginController,
     ColorScheme cs,
     ThemeData theme,
     bool isZh,
   ) {
-    final pluginController = context.watch<PluginServiceController>();
     final color = plugin.isInstalled
         ? plugin.enabled
               ? cs.primary
