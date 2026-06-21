@@ -2329,6 +2329,39 @@ class AiPromptBuilder {
         'mcp_readme': p.join(rootDir, 'mcp', 'README.md'),
         'mcp_setup_guide': p.join(rootDir, 'mcp', 'SETUP.md'),
         'certs_dir': p.join(rootDir, 'certs'),
+        'certs_readme': p.join(rootDir, 'certs', 'README.md'),
+        'network_security_config': p.join(
+          rootDir,
+          'certs',
+          'res',
+          'xml',
+          'network_security_config.xml',
+        ),
+        'manifest_network_config_snippet': p.join(
+          rootDir,
+          'certs',
+          'AndroidManifest.application.xml',
+        ),
+        'root_ca_install_script': p.join(
+          rootDir,
+          'certs',
+          'install_mitm_ca_root.sh',
+        ),
+        'generate_debug_keystore_script': p.join(
+          rootDir,
+          'certs',
+          'generate_debug_keystore.sh',
+        ),
+        'sign_repacked_apk_script': p.join(
+          rootDir,
+          'certs',
+          'sign_repacked_apk.sh',
+        ),
+        'verify_apk_signature_script': p.join(
+          rootDir,
+          'certs',
+          'verify_apk_signature.sh',
+        ),
         'toolchain_dir': p.join(rootDir, 'toolchain'),
         'toolchain_readme': p.join(rootDir, 'toolchain', 'README.md'),
         'toolchain_setup_commands': p.join(
@@ -2344,6 +2377,11 @@ class AiPromptBuilder {
           rootDir,
           'scripts',
           'make_evidence_bundle.sh',
+        ),
+        'evidence_bundle_glob': p.join(
+          rootDir,
+          'scripts',
+          'evidence_bundle_*.md',
         ),
         'adb_one_shot_script': p.join(rootDir, 'scripts', 'adb_one_shot.sh'),
         'dynamic_probe_script': p.join(
@@ -2384,9 +2422,12 @@ class AiPromptBuilder {
         'sed -n "1,220p" ${p.join(rootDir, 'scripts', 'reproduce_http.py')}',
         'sed -n "1,220p" ${p.join(rootDir, 'scripts', 'reproduce_curl.sh')}',
         p.join(rootDir, 'scripts', 'make_evidence_bundle.sh'),
+        'find ${p.join(rootDir, 'scripts')} -maxdepth 1 -name "evidence_bundle_*.md" -type f | sort | tail -5',
         '${p.join(rootDir, 'scripts', 'adb_one_shot.sh')} --timeout 6 devices',
         '${p.join(rootDir, 'scripts', 'android_dynamic_probe.sh')} --timeout 6',
         'find ${p.join(rootDir, 'certs')} -maxdepth 3 -type f | head -200',
+        'cat ${p.join(rootDir, 'certs', 'README.md')}',
+        'bash ${p.join(rootDir, 'certs', 'verify_apk_signature.sh')} <apk>',
       ],
       'dashboard_actions': const <String>[
         'devices: wireless adb, tcpip 5555, root/remount/reboot, forward/reverse mappings, field snapshot/report artifacts, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
