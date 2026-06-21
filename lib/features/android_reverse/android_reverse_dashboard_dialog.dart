@@ -718,29 +718,12 @@ class _AndroidReverseDashboardDialogState
     try {
       final isZh = openHandIsChineseLocale(context);
       final tag = _logcatFilterCtrl.text.trim();
-      final explicitPid = _logcatPidCtrl.text.trim();
-      final packageName = _logcatPackageFilterEnabled
-          ? _logcatPackageTarget()
-          : null;
-      var pid = RegExp(r'^\d+$').hasMatch(explicitPid) ? explicitPid : null;
-      String? filterNotice;
-      if (pid == null && packageName != null) {
-        pid = await _ctrl.pidOfPackage(packageName, serial: _targetSerial);
-        if (pid == null || pid.trim().isEmpty) {
-          filterNotice = isZh
-              ? '目标包未运行或无法解析 PID，已按当前等级读取全局 Logcat。'
-              : 'Target package is not running or PID was unavailable; loaded global logcat with the selected level.';
-        }
-      } else if (explicitPid.isNotEmpty && pid == null) {
-        filterNotice = isZh
-            ? 'PID 只能填写数字，已忽略该 PID 过滤。'
-            : 'PID must be numeric; PID filter was ignored.';
-      }
+      final pidFilter = await _resolveLogcatPidFilter(isZh: isZh);
       final result = await _ctrl.logcatDetailed(
         lines: _kDefaultLogcatLines,
         tag: tag.isEmpty ? null : tag,
         level: _logcatLevel,
-        pid: pid,
+        pid: pidFilter.pid,
         serial: _targetSerial,
       );
       if (mounted) {
@@ -758,8 +741,8 @@ class _AndroidReverseDashboardDialogState
             _logcatError = isZh
                 ? 'Logcat 读取超时，已展示可用输出。'
                 : 'Logcat timed out; usable output is shown.';
-          } else if (lines.isNotEmpty && filterNotice != null) {
-            _logcatError = filterNotice;
+          } else if (lines.isNotEmpty && pidFilter.notice != null) {
+            _logcatError = pidFilter.notice;
           } else if (lines.isNotEmpty) {
             _logcatError = null;
           } else if (err.isNotEmpty) {
@@ -797,6 +780,13 @@ class _AndroidReverseDashboardDialogState
         _logcatError = result.ok
             ? (isZh ? '已清空设备 Logcat。' : 'Device logcat was cleared.')
             : _formatAdbResult(result);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final isZh = openHandIsChineseLocale(context);
+      setState(() {
+        _logcatError =
+            '${isZh ? "清空 Logcat 失败" : "Failed to clear logcat"}: $error';
       });
     } finally {
       if (mounted) setState(() => _loadingLogcat = false);
@@ -856,26 +846,25 @@ class _AndroidReverseDashboardDialogState
     });
     try {
       final tag = _logcatFilterCtrl.text.trim();
-      final explicitPid = _logcatPidCtrl.text.trim();
-      final packageName = _logcatPackageFilterEnabled
-          ? _logcatPackageTarget()
-          : null;
-      var pid = RegExp(r'^\d+$').hasMatch(explicitPid) ? explicitPid : null;
-      if (pid == null && packageName != null) {
-        pid = await _ctrl.pidOfPackage(packageName, serial: _targetSerial);
-      }
+      final pidFilter = await _resolveLogcatPidFilter(isZh: isZh);
       final result = await _ctrl.captureLogcatSnapshotToArtifacts(
         tag: tag.isEmpty ? null : tag,
         level: _logcatLevel,
-        pid: pid,
-        packageName: packageName,
+        pid: pidFilter.pid,
+        packageName: pidFilter.packageName,
         serial: _targetSerial,
         lines: _kDefaultLogcatLines,
       );
       if (!mounted) return;
+      final formattedResult = _formatAdbResult(result);
       setState(() {
-        _logcatArtifactOutput = _formatAdbResult(result);
-        if (!result.ok && !result.partialOk) {
+        _logcatArtifactOutput = <String>[
+          if (pidFilter.notice != null) pidFilter.notice!,
+          if (formattedResult.trim().isNotEmpty) formattedResult,
+        ].join('\n\n');
+        if (pidFilter.notice != null) {
+          _logcatError = pidFilter.notice;
+        } else if (!result.ok && !result.partialOk) {
           _logcatError = _logcatArtifactOutput;
         }
       });
@@ -899,6 +888,63 @@ class _AndroidReverseDashboardDialogState
     } finally {
       if (mounted) setState(() => _capturingLogcatSnapshot = false);
     }
+  }
+
+  Future<({String? pid, String? notice, String? packageName})>
+  _resolveLogcatPidFilter({required bool isZh}) async {
+    final explicitPid = _logcatPidCtrl.text.trim();
+    final packageName = _logcatPackageFilterEnabled
+        ? _logcatPackageTarget()
+        : null;
+    final explicitPidValid = RegExp(r'^\d+$').hasMatch(explicitPid);
+    if (explicitPidValid) {
+      return (pid: explicitPid, notice: null, packageName: packageName);
+    }
+    if (explicitPid.isNotEmpty) {
+      return (
+        pid: null,
+        notice: isZh
+            ? 'PID 只能填写数字，已忽略该 PID 过滤。'
+            : 'PID must be numeric; PID filter was ignored.',
+        packageName: packageName,
+      );
+    }
+    if (packageName == null) {
+      return (pid: null, notice: null, packageName: null);
+    }
+    final lookup = await _ctrl.pidOfPackageDetailed(
+      packageName,
+      serial: _targetSerial,
+    );
+    final pid = lookup.pid?.trim();
+    if (pid != null && pid.isNotEmpty) {
+      return (pid: pid, notice: null, packageName: packageName);
+    }
+    return (
+      pid: null,
+      notice: _logcatPidLookupNotice(lookup, isZh: isZh),
+      packageName: packageName,
+    );
+  }
+
+  String _logcatPidLookupNotice(
+    AndroidPackagePidLookupResult lookup, {
+    required bool isZh,
+  }) {
+    final stderr = lookup.stderr.trim();
+    if (lookup.timedOut) {
+      return isZh
+          ? '解析目标包 PID 超时，已按当前等级读取全局 Logcat。'
+          : 'Resolving the target package PID timed out; loaded global logcat with the selected level.';
+    }
+    if (stderr.isNotEmpty) {
+      return isZh
+          ? '解析目标包 PID 失败：$stderr。已按当前等级读取全局 Logcat。'
+          : 'Failed to resolve the target package PID: $stderr. Loaded global logcat with the selected level.';
+    }
+    return isZh
+        ? '目标包未运行或无法解析 PID，已按当前等级读取全局 Logcat。'
+        : 'Target package is not running or PID was unavailable; loaded global logcat with the selected level.';
   }
 
   Future<void> _runStaticQuickScan() async {

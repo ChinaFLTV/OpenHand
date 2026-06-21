@@ -427,6 +427,11 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<String?> pidOfPackage(String packageName, {String? serial}) =>
       _clientForSerial(serial).pidOfPackage(packageName);
 
+  Future<AndroidPackagePidLookupResult> pidOfPackageDetailed(
+    String packageName, {
+    String? serial,
+  }) => _clientForSerial(serial).pidOfPackageDetailed(packageName);
+
   Future<AdbCommandResult> killProcessDetailed(int pid, {String? serial}) =>
       _clientForSerial(serial).killProcessDetailed(pid);
 

@@ -9,9 +9,11 @@ const String _kTag = 'android_reverse_adb_client';
 const Duration _kAdbCommandTimeout = Duration(seconds: 30);
 const Duration _kAdbInstallTimeout = Duration(minutes: 3);
 const Duration _kAdbTransferTimeout = Duration(minutes: 5);
+const Duration _kAdbPidLookupTimeout = Duration(seconds: 3);
 const Duration _kAdbShellQuickReadTimeout = Duration(seconds: 6);
 const Duration _kAdbShellReadTimeout = Duration(seconds: 8);
 const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
+const int _kMaxLogcatLines = 2000;
 const int _kMinTcpPort = 1;
 const int _kMaxTcpPort = 65535;
 
@@ -105,6 +107,22 @@ class AndroidProcess {
 
   @override
   String toString() => '$name (pid=$pid)';
+}
+
+class AndroidPackagePidLookupResult {
+  const AndroidPackagePidLookupResult({
+    required this.packageName,
+    required this.pid,
+    required this.timedOut,
+    required this.stderr,
+  });
+
+  final String packageName;
+  final String? pid;
+  final bool timedOut;
+  final String stderr;
+
+  bool get found => pid?.trim().isNotEmpty ?? false;
 }
 
 /// 精简 ADB 客户端，封装 `adb` 命令行调用。
@@ -449,7 +467,10 @@ class AndroidReverseAdbClient {
     if (!result.ok && !result.hasUsableStdout) {
       return const <AndroidProcess>[];
     }
-    final raw = result.stdout;
+    return _parseProcessList(result.stdout, filterName: filterName);
+  }
+
+  List<AndroidProcess> _parseProcessList(String raw, {String? filterName}) {
     final processes = <AndroidProcess>[];
     final lines = raw.split('\n');
     for (final line in lines.skip(1)) {
@@ -475,18 +496,59 @@ class AndroidReverseAdbClient {
   }
 
   Future<String?> pidOfPackage(String packageName) async {
-    if (!_looksLikePackageName(packageName)) return null;
-    final direct = await shellDetailed(
-      'pidof $packageName',
-      timeout: _kAdbShellQuickReadTimeout,
-    );
-    final directPid = _firstPidFromText(direct.stdout);
-    if (directPid != null) return directPid;
-    final procs = await listProcesses(filterName: packageName);
-    for (final proc in procs) {
-      if (proc.name == packageName) return '${proc.pid}';
+    final result = await pidOfPackageDetailed(packageName);
+    return result.pid;
+  }
+
+  Future<AndroidPackagePidLookupResult> pidOfPackageDetailed(
+    String packageName,
+  ) async {
+    final normalizedPackageName = packageName.trim();
+    if (!_looksLikePackageName(normalizedPackageName)) {
+      return AndroidPackagePidLookupResult(
+        packageName: normalizedPackageName,
+        pid: null,
+        timedOut: false,
+        stderr: 'Invalid Android package name.',
+      );
     }
-    return procs.isEmpty ? null : '${procs.first.pid}';
+    final direct = await _runDeviceDetailed(<String>[
+      'shell',
+      'pidof',
+      normalizedPackageName,
+    ], timeout: _kAdbPidLookupTimeout);
+    final directPid = _firstPidFromText(direct.stdout);
+    if (directPid != null) {
+      return AndroidPackagePidLookupResult(
+        packageName: normalizedPackageName,
+        pid: directPid,
+        timedOut: direct.timedOut,
+        stderr: direct.stderr.trim(),
+      );
+    }
+    final ps = await _runDeviceDetailed(const <String>[
+      'shell',
+      'ps',
+      '-A',
+    ], timeout: _kAdbPidLookupTimeout);
+    final procs = _parseProcessList(
+      ps.stdout,
+      filterName: normalizedPackageName,
+    );
+    String? pid;
+    for (final proc in procs) {
+      if (proc.name == normalizedPackageName) {
+        pid = '${proc.pid}';
+        break;
+      }
+    }
+    pid ??= procs.isEmpty ? null : '${procs.first.pid}';
+    return AndroidPackagePidLookupResult(
+      packageName: normalizedPackageName,
+      pid: pid,
+      timedOut: direct.timedOut || ps.timedOut,
+      stderr: _combineAdbErrors(<AdbCommandResult>[direct, ps]),
+    );
   }
 
   Future<AdbCommandResult> killProcessDetailed(int pid) {
@@ -580,6 +642,7 @@ class AndroidReverseAdbClient {
     String? pid,
   }) {
     final filter = <String>[];
+    final boundedLines = lines.clamp(1, _kMaxLogcatLines).toInt();
     final normalizedLevel = _normalizeLogcatLevel(level);
     if (tag != null && tag.trim().isNotEmpty) {
       filter
@@ -592,7 +655,7 @@ class AndroidReverseAdbClient {
       'logcat',
       '-d',
       '-t',
-      '$lines',
+      '$boundedLines',
       if (pid != null && RegExp(r'^\d+$').hasMatch(pid.trim())) ...[
         '--pid',
         pid.trim(),
@@ -996,6 +1059,17 @@ class AndroidReverseAdbClient {
     if (raw == null) return null;
     final match = RegExp(r'\b\d+\b').firstMatch(raw);
     return match?.group(0);
+  }
+
+  String _combineAdbErrors(List<AdbCommandResult> results) {
+    final errors = <String>{};
+    for (final result in results) {
+      final stderr = result.stderr.trim();
+      if (stderr.isNotEmpty) {
+        errors.add(stderr);
+      }
+    }
+    return errors.join('\n');
   }
 
   String _normalizeLogcatLevel(String? raw) {
