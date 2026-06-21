@@ -3049,6 +3049,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final session = sessionController.currentSession;
     if (session == null) return created;
     _beginPendingAutoStartSubmission(session.id);
+    _replaceComposerText('');
     await _applyNewSessionModelSelection(
       sessionId: session.id,
       providerConfigId: setup.selectedModelConfigId,
@@ -3148,10 +3149,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final requestConfig = scopedConfig.copyWith(
       cdpPort: controller.cdpPort ?? scopedConfig.cdpPort,
     );
-    // 替换 composer 文本并发送首条 prompt。
-    _replaceComposerText(requestConfig.toRequestTemplate());
+    final requestPrompt = requestConfig.toRequestTemplate();
+    _replaceComposerText('');
     try {
-      await _sendMessage();
+      await _submitTextToSession(
+        session.id,
+        requestPrompt,
+        const <_ComposerAttachmentDraft>[],
+        runtimeContext: runtimeContext,
+        restoreDraftOnLocalStop: false,
+      );
     } finally {
       _clearPendingAutoStartSubmission(session.id);
     }
@@ -3238,6 +3245,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final session = sessionController.currentSession;
     if (session == null) return created;
     _beginPendingAutoStartSubmission(session.id);
+    _replaceComposerText('');
     final config = setup.config;
     await _applyNewSessionModelSelection(
       sessionId: session.id,
@@ -3283,9 +3291,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
-    _replaceComposerText(config.toRequestTemplate());
+    final requestPrompt = config.toRequestTemplate();
+    _replaceComposerText('');
     try {
-      await _sendMessage();
+      await _submitTextToSession(
+        session.id,
+        requestPrompt,
+        const <_ComposerAttachmentDraft>[],
+        runtimeContext: runtimeContext,
+        restoreDraftOnLocalStop: false,
+      );
     } finally {
       _clearPendingAutoStartSubmission(session.id);
     }
@@ -5441,6 +5456,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiCreationRequest creationRequest = AiCreationRequest.none,
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
+    bool restoreDraftOnLocalStop = true,
   }) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
@@ -5493,23 +5509,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool submissionWasStopped() =>
         _locallyStoppedSubmissionSerialsBySessionId[targetSessionId] ==
         submissionSerial;
-    try {
-      if (submissionWasStopped()) {
-        if (_shouldRestoreSubmittedPrompt(
-          sessionController: sessionController,
+    void restoreSubmittedDraftIfNeeded({required bool localStop}) {
+      if (localStop && !restoreDraftOnLocalStop) {
+        _removeComposerDraftForSession(targetSessionId);
+        return;
+      }
+      if (_shouldRestoreSubmittedPrompt(
+        sessionController: sessionController,
+        sessionId: targetSessionId,
+        prompt: prompt,
+        initialUserMessageCount: initialUserMessageCount,
+        editingMessageId: editingMessageIdBeforeSend,
+      )) {
+        _restoreSubmittedDraft(
+          sessionController,
           sessionId: targetSessionId,
           prompt: prompt,
-          initialUserMessageCount: initialUserMessageCount,
-          editingMessageId: editingMessageIdBeforeSend,
-        )) {
-          _restoreSubmittedDraft(
-            sessionController,
-            sessionId: targetSessionId,
-            prompt: prompt,
-            attachments: pendingAttachments,
-            creationRequest: creationRequest,
-          );
-        }
+          attachments: pendingAttachments,
+          creationRequest: creationRequest,
+        );
+      }
+    }
+
+    try {
+      if (submissionWasStopped()) {
+        restoreSubmittedDraftIfNeeded(localStop: true);
         return;
       }
       final submitPreflightTimingsMs = <String, int>{
@@ -5531,21 +5555,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (submissionWasStopped()) {
-        if (_shouldRestoreSubmittedPrompt(
-          sessionController: sessionController,
-          sessionId: targetSessionId,
-          prompt: prompt,
-          initialUserMessageCount: initialUserMessageCount,
-          editingMessageId: editingMessageIdBeforeSend,
-        )) {
-          _restoreSubmittedDraft(
-            sessionController,
-            sessionId: targetSessionId,
-            prompt: prompt,
-            attachments: pendingAttachments,
-            creationRequest: creationRequest,
-          );
-        }
+        restoreSubmittedDraftIfNeeded(localStop: true);
         return;
       }
       final sent = await sessionController.sendMessage(
@@ -5580,57 +5590,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (submissionWasStopped()) {
-        if (_shouldRestoreSubmittedPrompt(
-          sessionController: sessionController,
-          sessionId: targetSessionId,
-          prompt: prompt,
-          initialUserMessageCount: initialUserMessageCount,
-          editingMessageId: editingMessageIdBeforeSend,
-        )) {
-          _restoreSubmittedDraft(
-            sessionController,
-            sessionId: targetSessionId,
-            prompt: prompt,
-            attachments: pendingAttachments,
-            creationRequest: creationRequest,
-          );
-        }
+        restoreSubmittedDraftIfNeeded(localStop: true);
         return;
       }
       if (!sent) {
         if (submissionWasStopped()) {
-          if (_shouldRestoreSubmittedPrompt(
-            sessionController: sessionController,
-            sessionId: targetSessionId,
-            prompt: prompt,
-            initialUserMessageCount: initialUserMessageCount,
-            editingMessageId: editingMessageIdBeforeSend,
-          )) {
-            _restoreSubmittedDraft(
-              sessionController,
-              sessionId: targetSessionId,
-              prompt: prompt,
-              attachments: pendingAttachments,
-              creationRequest: creationRequest,
-            );
-          }
+          restoreSubmittedDraftIfNeeded(localStop: true);
           return;
         }
-        if (_shouldRestoreSubmittedPrompt(
-          sessionController: sessionController,
-          sessionId: targetSessionId,
-          prompt: prompt,
-          initialUserMessageCount: initialUserMessageCount,
-          editingMessageId: editingMessageIdBeforeSend,
-        )) {
-          _restoreSubmittedDraft(
-            sessionController,
-            sessionId: targetSessionId,
-            prompt: prompt,
-            attachments: pendingAttachments,
-            creationRequest: creationRequest,
-          );
-        }
+        restoreSubmittedDraftIfNeeded(localStop: false);
         final errorMessage = sessionController.lastErrorMessageForSession(
           targetSessionId,
         );
@@ -5659,21 +5627,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           context: ErrorDescription('while sending a chat message'),
         ),
       );
-      if (mounted &&
-          _shouldRestoreSubmittedPrompt(
-            sessionController: sessionController,
-            sessionId: targetSessionId,
-            prompt: prompt,
-            initialUserMessageCount: initialUserMessageCount,
-            editingMessageId: editingMessageIdBeforeSend,
-          )) {
-        _restoreSubmittedDraft(
-          sessionController,
-          sessionId: targetSessionId,
-          prompt: prompt,
-          attachments: pendingAttachments,
-          creationRequest: creationRequest,
-        );
+      if (mounted && (!submissionWasStopped() || restoreDraftOnLocalStop)) {
+        restoreSubmittedDraftIfNeeded(localStop: submissionWasStopped());
       }
       if (mounted) {
         final errorMessage = '$error'.trim();
