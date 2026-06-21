@@ -14,6 +14,7 @@ const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
 const Duration _kDeviceReportTimeout = Duration(seconds: 18);
 const Duration _kStaticQuickScanTimeout = Duration(seconds: 35);
 const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
+const Duration _kArtifactChmodTimeout = Duration(seconds: 2);
 const int _kStaticQuickScanPreviewLines = 80;
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'devices',
@@ -22,6 +23,7 @@ const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'recordings',
   'frida',
   'decompiled',
+  'mcp',
   'network',
   'certs',
   'scripts',
@@ -59,10 +61,15 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get recordingsDir => '$artifactsRootDir/recordings';
   String get fridaDir => '$artifactsRootDir/frida';
   String get decompiledDir => '$artifactsRootDir/decompiled';
+  String get mcpDir => '$artifactsRootDir/mcp';
+  String get mcpTemplatesPath =>
+      '$mcpDir/openhand_android_reverse_mcp_templates.json';
+  String get mcpReadmePath => '$mcpDir/README.md';
   String get networkDir => '$artifactsRootDir/network';
   String get mitmproxyAddonPath => '$networkDir/openhand_mitm_jsonl.py';
   String get certsDir => '$artifactsRootDir/certs';
   String get scriptsDir => '$artifactsRootDir/scripts';
+  String get adbOneShotScriptPath => '$scriptsDir/adb_one_shot.sh';
   String get logsDir => '$artifactsRootDir/logs';
 
   final AndroidReverseAdbClient _adbClient;
@@ -97,6 +104,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<void> start() async {
     if (_state != AndroidReverseSessionState.idle) return;
     await _ensureArtifactDirectories();
+    await _writeMcpLinkageArtifacts(updateError: false);
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
     await _refreshDevices();
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
@@ -636,7 +644,58 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
   }
 
+  Future<String> ensureMcpLinkageArtifacts() async {
+    try {
+      return await _writeMcpLinkageArtifacts(updateError: true);
+    } catch (e, st) {
+      silentLog(_kTag, 'ensureMcpLinkageArtifacts failed', e, st);
+      _errorMessage = '$e';
+      _safeNotify();
+      rethrow;
+    }
+  }
+
   // ── 内部 ───────────────────────────────────────────────────────────────
+
+  Future<String> _writeMcpLinkageArtifacts({required bool updateError}) async {
+    try {
+      await Future.wait(<Future<void>>[
+        Directory(mcpDir).create(recursive: true),
+        Directory(scriptsDir).create(recursive: true),
+      ]);
+      final generatedAt = DateTime.now().toUtc().toIso8601String();
+      await Future.wait(<Future<File>>[
+        File(
+          mcpTemplatesPath,
+        ).writeAsString(_mcpLinkageTemplatesJson(generatedAt)),
+        File(mcpReadmePath).writeAsString(_mcpLinkageReadme),
+        File(adbOneShotScriptPath).writeAsString(_adbOneShotScript),
+      ]);
+      if (!Platform.isWindows) {
+        final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
+        await runTrackedProcessOrFailed(
+          chmod,
+          <String>['+x', adbOneShotScriptPath],
+          timeout: _kArtifactChmodTimeout,
+          tag: 'android_reverse.mcp_linkage_chmod',
+        );
+      }
+      return <String>[
+        'MCP linkage artifacts: $mcpDir',
+        'templates_json: $mcpTemplatesPath',
+        'readme: $mcpReadmePath',
+        'adb_one_shot: $adbOneShotScriptPath',
+      ].join('\n');
+    } catch (e, st) {
+      silentLog(_kTag, 'write MCP linkage artifacts failed', e, st);
+      if (updateError) {
+        _errorMessage = '$e';
+        _safeNotify();
+        rethrow;
+      }
+      return 'Failed to write MCP linkage artifacts: $e';
+    }
+  }
 
   Future<void> _ensureArtifactDirectories() async {
     try {
@@ -900,7 +959,222 @@ class AndroidReverseSessionController extends ChangeNotifier {
     if (text == null || text.isEmpty) return '```text\n(empty)\n```';
     return '```text\n$text\n```';
   }
+
+  String _mcpLinkageTemplatesJson(String generatedAt) {
+    final serial = config.deviceSerial?.trim();
+    final packageName = config.packageName?.trim();
+    final payload = <String, Object?>{
+      'generated_at': generatedAt,
+      'source': 'OpenHand Android Reverse dashboard',
+      'config': config.toJson(),
+      'artifact_paths': <String, Object?>{
+        'mcp_dir': mcpDir,
+        'templates_json': mcpTemplatesPath,
+        'readme': mcpReadmePath,
+        'adb_one_shot': adbOneShotScriptPath,
+        'quick_scan_root': decompiledDir,
+        'logcat_jsonl': logcatJsonlPath,
+        'network_jsonl': networkJsonlPath,
+      },
+      'tool_search_queries': const <String>[
+        'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter',
+        'select:logcat,device,shell,package,activity,frida',
+      ],
+      'rules': const <String>[
+        'Use only real mcp__* names from Tool Catalog or ToolSearch results.',
+        'If an enabled ADB/Frida MCP is missing, report the missing server and fall back to Bash only after device/tool confirmation.',
+        'For flaky wireless ADB, use scripts/adb_one_shot.sh with a short timeout and accept usable stdout from timed-out commands.',
+        'Do not guess .MainActivity; resolve launcher activity or use dashboard package launch.',
+        'Stop after two repeated failures of the same command, install step, hook, or launch path.',
+      ],
+      'server_templates': <Map<String, Object?>>[
+        <String, Object?>{
+          'id': 'android-adb-stdio',
+          'purpose': 'ADB shell, package, file transfer, logcat, forward',
+          'config': <String, Object?>{
+            'mcpServers': <String, Object?>{
+              'android-adb': <String, Object?>{
+                'enabled': true,
+                'probeEnabled': true,
+                'type': 'stdio',
+                'transport': 'stdio',
+                'command': 'npx',
+                'args': const <String>['-y', '<adb-mcp-package>'],
+              },
+            },
+          },
+        },
+        <String, Object?>{
+          'id': 'frida-stdio',
+          'purpose': 'Frida spawn, attach, script load, output read',
+          'config': <String, Object?>{
+            'mcpServers': <String, Object?>{
+              'android-frida': <String, Object?>{
+                'enabled': true,
+                'probeEnabled': true,
+                'type': 'stdio',
+                'transport': 'stdio',
+                'command': 'npx',
+                'args': const <String>['-y', '<frida-mcp-package>'],
+              },
+            },
+          },
+        },
+        <String, Object?>{
+          'id': 'ida-pro-sse',
+          'purpose': 'IDA Pro decompiler and database inspection',
+          'config': <String, Object?>{
+            'mcpServers': <String, Object?>{
+              'ida-pro': <String, Object?>{
+                'enabled': true,
+                'probeEnabled': true,
+                'type': 'sse',
+                'transport': 'sse',
+                'url': 'http://127.0.0.1:<port>/sse',
+              },
+            },
+          },
+        },
+        <String, Object?>{
+          'id': 'anything-analyzer-stdio',
+          'purpose': 'APK, ELF, dex, text, archive triage',
+          'config': <String, Object?>{
+            'mcpServers': <String, Object?>{
+              'anything-analyzer': <String, Object?>{
+                'enabled': true,
+                'probeEnabled': true,
+                'type': 'stdio',
+                'transport': 'stdio',
+                'command': 'npx',
+                'args': const <String>['-y', '<anything-analyzer-package>'],
+              },
+            },
+          },
+        },
+      ],
+      'adb_one_shot_examples': <String>[
+        '$adbOneShotScriptPath devices',
+        if (serial != null && serial.isNotEmpty)
+          '$adbOneShotScriptPath -s $serial --timeout 6 getprop ro.product.cpu.abi',
+        if (packageName != null && packageName.isNotEmpty)
+          '$adbOneShotScriptPath${serial != null && serial.isNotEmpty ? " -s $serial" : ""} --timeout 8 cmd package resolve-activity --brief $packageName',
+        if (packageName != null && packageName.isNotEmpty)
+          '$adbOneShotScriptPath${serial != null && serial.isNotEmpty ? " -s $serial" : ""} --timeout 8 pidof $packageName',
+      ],
+      'workflow_checklist': const <String>[
+        'Read android_reverse_config and android_reverse_runtime.',
+        'Confirm device with adb devices or ADB MCP.',
+        'Read quick_scan artifacts before dynamic work when APK path exists.',
+        'Use MCP for ADB/Frida only when exact mcp__* tools are visible.',
+        'Use dashboard-generated cert/network/frida artifacts instead of rewriting boilerplate.',
+      ],
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
 }
+
+const String _mcpLinkageReadme = r'''# Android reverse MCP linkage
+
+This directory is generated by the OpenHand Android Reverse dashboard.
+
+Use it as the thread-local source of truth for MCP setup, ToolSearch queries,
+and Bash fallback discipline.
+
+Files:
+- openhand_android_reverse_mcp_templates.json: MCP templates, checklist, and examples.
+- ../scripts/adb_one_shot.sh: short-timeout ADB wrapper for flaky wireless devices.
+
+Rules:
+1. Use only real mcp__* tool names from the Tool Catalog or ToolSearch result.
+2. If ADB/Frida MCP is enabled but absent, report the missing server before Bash fallback.
+3. Prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
+4. Do not guess launcher activities. Resolve them with package manager data.
+5. Stop after two repeated failures on the same command, hook, install, or launch path.
+''';
+
+const String _adbOneShotScript = r'''#!/usr/bin/env bash
+set -uo pipefail
+
+ADB_BIN="${ADB_BIN:-adb}"
+TIMEOUT_SECONDS="${ADB_TIMEOUT_SECONDS:-8}"
+SERIAL="${ADB_SERIAL:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--serial)
+      if [[ $# -lt 2 ]]; then
+        echo "missing serial value" >&2
+        exit 64
+      fi
+      SERIAL="${2:-}"
+      shift 2
+      ;;
+    --timeout)
+      if [[ $# -lt 2 ]]; then
+        echo "missing timeout value" >&2
+        exit 64
+      fi
+      TIMEOUT_SECONDS="${2:-8}"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ $# -eq 0 ]]; then
+  echo "usage: adb_one_shot.sh [-s SERIAL] [--timeout SECONDS] <adb-subcommand|shell-command>" >&2
+  exit 64
+fi
+
+run_with_timeout() {
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$TIMEOUT_SECONDS" "$@"
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+  fi
+}
+
+run_adb() {
+  if [[ -n "$SERIAL" ]]; then
+    run_with_timeout "$ADB_BIN" -s "$SERIAL" "$@"
+  else
+    run_with_timeout "$ADB_BIN" "$@"
+  fi
+}
+
+case "$1" in
+  devices|connect|disconnect|forward|install|uninstall|push|pull|logcat)
+    run_adb "$@"
+    status=$?
+    ;;
+  shell)
+    shift
+    if [[ $# -eq 0 ]]; then
+      echo "missing shell command" >&2
+      exit 64
+    fi
+    run_adb shell "$*" </dev/null
+    status=$?
+    ;;
+  *)
+    run_adb shell "$*" </dev/null
+    status=$?
+    ;;
+esac
+
+if [[ "$status" -eq 124 ]]; then
+  echo "ADB command timed out after ${TIMEOUT_SECONDS}s" >&2
+fi
+exit "$status"
+''';
 
 const String _deviceReportSnapshotScript = r'''
 printf '[identity]\n'

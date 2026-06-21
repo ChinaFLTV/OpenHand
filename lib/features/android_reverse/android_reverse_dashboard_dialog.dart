@@ -326,6 +326,7 @@ class _AndroidReverseDashboardDialogState
   bool _runningStaticQuickScan = false;
   bool _writingNetworkAddon = false;
   bool _writingCertificateArtifacts = false;
+  bool _writingMcpArtifacts = false;
   bool _loadingDeviceDetails = false;
   bool _logcatPackageFilterEnabled = false;
   String? _selectedDeviceSerial;
@@ -345,6 +346,7 @@ class _AndroidReverseDashboardDialogState
   String? _staticQuickScanOutput;
   String? _networkAddonOutput;
   String? _certificateArtifactOutput;
+  String? _mcpArtifactOutput;
   final _processFilter = TextEditingController();
 
   @override
@@ -885,6 +887,35 @@ class _AndroidReverseDashboardDialogState
       );
     } finally {
       if (mounted) setState(() => _writingCertificateArtifacts = false);
+    }
+  }
+
+  Future<void> _ensureMcpLinkageArtifacts() async {
+    if (_writingMcpArtifacts) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() => _writingMcpArtifacts = true);
+    try {
+      final output = await _ctrl.ensureMcpLinkageArtifacts();
+      if (!mounted) return;
+      setState(() => _mcpArtifactOutput = output);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _mcpArtifactOutput =
+            '${isZh ? "生成 MCP 联动工件失败" : "Failed to generate MCP linkage artifacts"}: $error';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isZh
+                ? '生成 MCP 联动工件失败。'
+                : 'Failed to generate MCP linkage artifacts.',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _writingMcpArtifacts = false);
     }
   }
 
@@ -2676,6 +2707,42 @@ class _AndroidReverseDashboardDialogState
             title: isZh ? 'ToolSearch 建议' : 'ToolSearch suggestion',
             command: toolSearchQuery,
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isZh
+                      ? '生成会话级 MCP 模板、ADB 短超时包装器和使用清单，供线程直接读取。'
+                      : 'Generate session MCP templates, short-timeout ADB wrapper, and checklist for the thread.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: _writingMcpArtifacts
+                      ? null
+                      : _ensureMcpLinkageArtifacts,
+                  icon: _writingMcpArtifacts
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      : const Icon(Icons.article_rounded, size: 14),
+                  label: Text(isZh ? '生成联动工件' : 'Generate artifacts'),
+                ),
+              ),
+            ],
+          ),
+          if (_mcpArtifactOutput?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 8),
+            _monospaceCard(cs, _mcpArtifactOutput!.trim()),
+          ],
           const SizedBox(height: 18),
           _sectionTitle(
             theme,
