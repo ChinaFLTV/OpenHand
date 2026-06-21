@@ -20,6 +20,8 @@ import 'android_reverse_toolchain_diagnostics.dart';
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const double _kAdbInlineControlHeight = 44;
+const double _kDashboardActionButtonHeight = 36;
+const double _kDashboardActionIconSize = 14;
 const double _kShellOutputMaxHeight = 220;
 const double _kIconButtonGap = 8;
 const int _kDefaultLogcatLines = 300;
@@ -35,6 +37,8 @@ const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
 const int _kDeviceSnapshotMaxLines = 80;
 const int _kMinTcpPort = 1;
 const int _kMaxTcpPort = 65535;
+const String _kAdbShellHintZh = '请输入 adb shell 命令';
+const String _kAdbShellHintEn = 'Enter adb shell command';
 const String _kDeviceSnapshotScript = '''
 printf '[battery]\\n'
 dumpsys battery | grep -E 'level:|status:|temperature:|voltage:|AC powered:|USB powered:|Wireless powered:' || true
@@ -1591,15 +1595,12 @@ class _AndroidReverseDashboardDialogState
                 ),
               ],
               const Spacer(),
-              FilledButton.tonalIcon(
+              _DashboardActionButton(
                 onPressed: () {
                   _refreshAll();
                 },
                 icon: const Icon(Icons.refresh_rounded, size: 14),
-                label: Text(isZh ? '刷新' : 'Refresh'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
+                label: isZh ? '刷新' : 'Refresh',
               ),
             ],
           ),
@@ -1644,7 +1645,7 @@ class _AndroidReverseDashboardDialogState
                         controller: _shellCtrl,
                         decoration: InputDecoration(
                           isDense: true,
-                          hintText: isZh ? 'adb shell 命令' : 'adb shell command',
+                          hintText: isZh ? _kAdbShellHintZh : _kAdbShellHintEn,
                           border: const OutlineInputBorder(),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -1657,9 +1658,9 @@ class _AndroidReverseDashboardDialogState
                     ),
                   ),
                   const SizedBox(width: 10),
-                  SizedBox(
-                    height: _kAdbInlineControlHeight,
-                    child: FilledButton.icon(
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: _DashboardActionButton(
                       onPressed: _runningShell ? null : _runShell,
                       icon: _runningShell
                           ? const SizedBox(
@@ -1668,7 +1669,8 @@ class _AndroidReverseDashboardDialogState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.play_arrow_rounded, size: 16),
-                      label: Text(isZh ? '执行' : 'Run'),
+                      label: isZh ? '执行' : 'Run',
+                      filled: true,
                     ),
                   ),
                 ],
@@ -1998,14 +2000,14 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _DashboardActionButton(
                   onPressed: _runningDeviceAction
                       ? null
                       : _connectWirelessDevice,
-                  icon: const Icon(Icons.link_rounded, size: 16),
-                  label: Text(isZh ? '连接' : 'Connect'),
+                  icon: const Icon(Icons.link_rounded),
+                  label: isZh ? '连接' : 'Connect',
                 ),
               ),
             ],
@@ -2098,14 +2100,14 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _DashboardActionButton(
                   onPressed: serial == null || _runningDeviceAction
                       ? null
                       : _addForward,
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: Text(isZh ? '添加' : 'Add'),
+                  icon: const Icon(Icons.add_rounded),
+                  label: isZh ? '添加' : 'Add',
                 ),
               ),
             ],
@@ -2208,14 +2210,14 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _DashboardActionButton(
                   onPressed: serial == null || _runningDeviceAction
                       ? null
                       : _addReverse,
-                  icon: const Icon(Icons.add_link_rounded, size: 16),
-                  label: Text(isZh ? '添加' : 'Add'),
+                  icon: const Icon(Icons.add_link_rounded),
+                  label: isZh ? '添加' : 'Add',
                 ),
               ),
             ],
@@ -2953,28 +2955,22 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ),
               ),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed: _makingEvidenceBundle ? null : _makeEvidenceBundle,
-                  icon: _makingEvidenceBundle
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 1.8),
-                        )
-                      : const Icon(Icons.inventory_2_rounded, size: 15),
-                  label: Text(isZh ? '生成证据包' : 'Make evidence bundle'),
-                ),
+              _DashboardActionButton(
+                onPressed: _makingEvidenceBundle ? null : _makeEvidenceBundle,
+                icon: _makingEvidenceBundle
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.inventory_2_rounded),
+                label: isZh ? '生成证据包' : 'Make evidence bundle',
               ),
               if (_evidenceBundleOutput?.trim().isNotEmpty ?? false)
-                SizedBox(
-                  height: _kAdbInlineControlHeight,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => _copyText(_evidenceBundleOutput!.trim()),
-                    icon: const Icon(Icons.copy_rounded, size: 14),
-                    label: Text(isZh ? '复制结果' : 'Copy result'),
-                  ),
+                _DashboardActionButton(
+                  onPressed: () => _copyText(_evidenceBundleOutput!.trim()),
+                  icon: const Icon(Icons.copy_rounded),
+                  label: isZh ? '复制结果' : 'Copy result',
                 ),
             ],
           ),
@@ -3080,19 +3076,16 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ),
               const SizedBox(width: 10),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed: _loadingToolchain ? null : _refreshToolchain,
-                  icon: _loadingToolchain
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        )
-                      : const Icon(Icons.refresh_rounded, size: 14),
-                  label: Text(isZh ? '刷新' : 'Refresh'),
-                ),
+              _DashboardActionButton(
+                onPressed: _loadingToolchain ? null : _refreshToolchain,
+                icon: _loadingToolchain
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                label: isZh ? '刷新' : 'Refresh',
               ),
             ],
           ),
@@ -3239,9 +3232,13 @@ class _AndroidReverseDashboardDialogState
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 220),
                 child: Text(
                   isZh ? 'MCP / 插件联动' : 'MCP / plugin linkage',
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -3249,51 +3246,46 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ),
               ),
-              Text(
-                isZh
-                    ? '${serverRows.length} 个相关 MCP · $totalAndroidTools 个相关工具'
-                    : '${serverRows.length} related MCP · $totalAndroidTools related tools',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 280),
+                child: Text(
+                  isZh
+                      ? '${serverRows.length} 个相关 MCP · $totalAndroidTools 个相关工具'
+                      : '${serverRows.length} related MCP · $totalAndroidTools related tools',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed: mcpController.isLoading
-                      ? null
-                      : () => unawaited(mcpController.refresh()),
-                  icon: mcpController.isLoading
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        )
-                      : const Icon(Icons.sync_rounded, size: 14),
-                  label: Text(isZh ? '刷新 MCP' : 'Refresh MCP'),
-                ),
+              _DashboardActionButton(
+                onPressed: mcpController.isLoading
+                    ? null
+                    : () => unawaited(mcpController.refresh()),
+                icon: mcpController.isLoading
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const Icon(Icons.sync_rounded),
+                label: isZh ? '刷新 MCP' : 'Refresh MCP',
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed:
-                      pluginController.isLoading || pluginController.isOperating
-                      ? null
-                      : () => unawaited(pluginController.rescan()),
-                  icon: pluginController.isLoading
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        )
-                      : const Icon(Icons.refresh_rounded, size: 14),
-                  label: Text(isZh ? '扫描插件' : 'Scan plugins'),
-                ),
+              _DashboardActionButton(
+                onPressed:
+                    pluginController.isLoading || pluginController.isOperating
+                    ? null
+                    : () => unawaited(pluginController.rescan()),
+                icon: pluginController.isLoading
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                label: isZh ? '扫描插件' : 'Scan plugins',
               ),
             ],
           ),
@@ -3335,9 +3327,13 @@ class _AndroidReverseDashboardDialogState
             command: toolSearchQuery,
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
                 child: Text(
                   isZh
                       ? '生成会话级 MCP 设置清单、模板、ADB 短超时包装器、动态预检脚本和 Frida runbook，供线程直接读取。'
@@ -3347,22 +3343,18 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed: _writingMcpArtifacts
-                      ? null
-                      : _ensureMcpLinkageArtifacts,
-                  icon: _writingMcpArtifacts
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        )
-                      : const Icon(Icons.article_rounded, size: 14),
-                  label: Text(isZh ? '生成联动工件' : 'Generate artifacts'),
-                ),
+              _DashboardActionButton(
+                onPressed: _writingMcpArtifacts
+                    ? null
+                    : _ensureMcpLinkageArtifacts,
+                icon: _writingMcpArtifacts
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const Icon(Icons.article_rounded),
+                label: isZh ? '生成联动工件' : 'Generate artifacts',
               ),
             ],
           ),
@@ -4046,7 +4038,7 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               const Spacer(),
-              FilledButton.tonalIcon(
+              _DashboardActionButton(
                 onPressed: _loadingPackages ? null : _doRefreshPackages,
                 icon: _loadingPackages
                     ? const SizedBox(
@@ -4054,11 +4046,8 @@ class _AndroidReverseDashboardDialogState
                         height: 12,
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
-                    : const Icon(Icons.refresh_rounded, size: 14),
-                label: Text(isZh ? '刷新' : 'Refresh'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
+                    : const Icon(Icons.refresh_rounded),
+                label: isZh ? '刷新' : 'Refresh',
               ),
             ],
           ),
@@ -4303,9 +4292,9 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _DashboardActionButton(
                   onPressed: _loadingProcesses ? null : _doRefreshProcesses,
                   icon: _loadingProcesses
                       ? const SizedBox(
@@ -4313,11 +4302,8 @@ class _AndroidReverseDashboardDialogState
                           height: 12,
                           child: CircularProgressIndicator(strokeWidth: 1.5),
                         )
-                      : const Icon(Icons.refresh_rounded, size: 14),
-                  label: Text(isZh ? '刷新' : 'Refresh'),
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
+                      : const Icon(Icons.refresh_rounded),
+                  label: isZh ? '刷新' : 'Refresh',
                 ),
               ),
             ],
@@ -4402,7 +4388,10 @@ class _AndroidReverseDashboardDialogState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     'Logcat (${_logcatLines.length} lines)',
@@ -4410,106 +4399,48 @@ class _AndroidReverseDashboardDialogState
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 12),
                   if (_loadingLogcat)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      ),
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
                     ),
-                  const Spacer(),
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.end,
-                        children: [
-                          SizedBox(
-                            height: _kAdbInlineControlHeight,
-                            child: FilledButton.tonalIcon(
-                              onPressed: _loadingLogcat ? null : _fetchLogcat,
-                              icon: const Icon(Icons.refresh_rounded, size: 14),
-                              label: Text(isZh ? '刷新' : 'Refresh'),
-                              style: FilledButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            height: _kAdbInlineControlHeight,
-                            child: FilledButton.tonalIcon(
-                              onPressed: _capturingLogcatSnapshot
-                                  ? null
-                                  : _captureLogcatArtifactSnapshot,
-                              icon: _capturingLogcatSnapshot
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.6,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.snippet_folder_rounded,
-                                      size: 14,
-                                    ),
-                              label: Text(isZh ? '快照' : 'Snapshot'),
-                              style: FilledButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            height: _kAdbInlineControlHeight,
-                            child: FilledButton.tonalIcon(
-                              onPressed: _logcatLines.isEmpty
-                                  ? null
-                                  : _saveLogcatSnapshot,
-                              icon: const Icon(
-                                Icons.save_alt_rounded,
-                                size: 14,
-                              ),
-                              label: Text(isZh ? '保存' : 'Save'),
-                              style: FilledButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            height: _kAdbInlineControlHeight,
-                            child: FilledButton.tonalIcon(
-                              onPressed: _logcatLines.isEmpty
-                                  ? null
-                                  : () => _copyText(_logcatLines.join('\n')),
-                              icon: const Icon(Icons.copy_rounded, size: 14),
-                              label: Text(isZh ? '复制' : 'Copy'),
-                              style: FilledButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            height: _kAdbInlineControlHeight,
-                            child: FilledButton.tonalIcon(
-                              onPressed: _loadingLogcat ? null : _clearLogcat,
-                              icon: const Icon(
-                                Icons.delete_sweep_rounded,
-                                size: 14,
-                              ),
-                              label: Text(isZh ? '清空' : 'Clear'),
-                              style: FilledButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  _DashboardActionButton(
+                    onPressed: _loadingLogcat ? null : _fetchLogcat,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: isZh ? '刷新' : 'Refresh',
+                  ),
+                  _DashboardActionButton(
+                    onPressed: _capturingLogcatSnapshot
+                        ? null
+                        : _captureLogcatArtifactSnapshot,
+                    icon: _capturingLogcatSnapshot
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.6),
+                          )
+                        : const Icon(Icons.snippet_folder_rounded),
+                    label: isZh ? '快照' : 'Snapshot',
+                  ),
+                  _DashboardActionButton(
+                    onPressed: _logcatLines.isEmpty
+                        ? null
+                        : _saveLogcatSnapshot,
+                    icon: const Icon(Icons.save_alt_rounded),
+                    label: isZh ? '保存' : 'Save',
+                  ),
+                  _DashboardActionButton(
+                    onPressed: _logcatLines.isEmpty
+                        ? null
+                        : () => _copyText(_logcatLines.join('\n')),
+                    icon: const Icon(Icons.copy_rounded),
+                    label: isZh ? '复制' : 'Copy',
+                  ),
+                  _DashboardActionButton(
+                    onPressed: _loadingLogcat ? null : _clearLogcat,
+                    icon: const Icon(Icons.delete_sweep_rounded),
+                    label: isZh ? '清空' : 'Clear',
                   ),
                 ],
               ),
@@ -4611,23 +4542,33 @@ class _AndroidReverseDashboardDialogState
                       onSubmitted: (_) => _fetchLogcat(),
                     ),
                   ),
-                  FilterChip(
-                    selected: _logcatPackageFilterEnabled,
-                    avatar: const Icon(Icons.apps_rounded, size: 15),
-                    label: Text(
-                      _logcatPackageTarget() ?? (isZh ? '未指定包名' : 'No package'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  SizedBox(
+                    height: _kAdbInlineControlHeight,
+                    child: Align(
+                      child: FilterChip(
+                        selected: _logcatPackageFilterEnabled,
+                        avatar: const Icon(Icons.apps_rounded, size: 15),
+                        label: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 190),
+                          child: Text(
+                            _logcatPackageTarget() ??
+                                (isZh ? '未指定包名' : 'No package'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        onSelected: _logcatPackageTarget() == null
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _logcatPackageFilterEnabled = value;
+                                  if (value) _logcatPidCtrl.clear();
+                                });
+                              },
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                     ),
-                    onSelected: _logcatPackageTarget() == null
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _logcatPackageFilterEnabled = value;
-                              if (value) _logcatPidCtrl.clear();
-                            });
-                          },
-                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
@@ -4670,10 +4611,10 @@ class _AndroidReverseDashboardDialogState
                         ),
                       ),
                       const SizedBox(height: 10),
-                      FilledButton.tonalIcon(
+                      _DashboardActionButton(
                         onPressed: _loadingLogcat ? null : _fetchLogcat,
-                        icon: const Icon(Icons.download_rounded, size: 16),
-                        label: Text(isZh ? '加载 Logcat' : 'Load logcat'),
+                        icon: const Icon(Icons.download_rounded),
+                        label: isZh ? '加载 Logcat' : 'Load logcat',
                       ),
                     ],
                   ),
@@ -4848,9 +4789,13 @@ class _AndroidReverseDashboardDialogState
           ),
         ),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 220, maxWidth: 520),
               child: Text(
                 scriptAsset ??
                     (isZh ? '未选择内置 snippet' : 'No built-in snippet selected'),
@@ -4862,8 +4807,7 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            FilledButton.tonalIcon(
+            _DashboardActionButton(
               onPressed:
                   _fridaScriptCtrl.text.trim().isEmpty || _savingFridaScript
                   ? null
@@ -4874,22 +4818,15 @@ class _AndroidReverseDashboardDialogState
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 1.6),
                     )
-                  : const Icon(Icons.save_alt_rounded, size: 14),
-              label: Text(isZh ? '保存工件' : 'Save artifact'),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-              ),
+                  : const Icon(Icons.save_alt_rounded),
+              label: isZh ? '保存工件' : 'Save artifact',
             ),
-            const SizedBox(width: 8),
-            FilledButton.tonalIcon(
+            _DashboardActionButton(
               onPressed: _fridaScriptCtrl.text.trim().isEmpty
                   ? null
                   : () => _copyText(_fridaScriptCtrl.text),
-              icon: const Icon(Icons.copy_rounded, size: 14),
-              label: Text(isZh ? '复制脚本' : 'Copy script'),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-              ),
+              icon: const Icon(Icons.copy_rounded),
+              label: isZh ? '复制脚本' : 'Copy script',
             ),
           ],
         ),
@@ -4999,30 +4936,22 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ),
               ),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed: _writingNetworkAddon
-                      ? null
-                      : _ensureMitmproxyAddon,
-                  icon: _writingNetworkAddon
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 1.8),
-                        )
-                      : const Icon(Icons.receipt_long_rounded, size: 15),
-                  label: Text(isZh ? '生成 JSONL Addon' : 'Generate JSONL addon'),
-                ),
+              _DashboardActionButton(
+                onPressed: _writingNetworkAddon ? null : _ensureMitmproxyAddon,
+                icon: _writingNetworkAddon
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.receipt_long_rounded),
+                label: isZh ? '生成 JSONL Addon' : 'Generate JSONL addon',
               ),
               if (addonOutput != null && addonOutput.isNotEmpty)
-                SizedBox(
-                  height: _kAdbInlineControlHeight,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => _copyText(addonOutput),
-                    icon: const Icon(Icons.copy_rounded, size: 14),
-                    label: Text(isZh ? '复制结果' : 'Copy result'),
-                  ),
+                _DashboardActionButton(
+                  onPressed: () => _copyText(addonOutput),
+                  icon: const Icon(Icons.copy_rounded),
+                  label: isZh ? '复制结果' : 'Copy result',
                 ),
             ],
           ),
@@ -5134,30 +5063,22 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ),
               ),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed: _runningStaticQuickScan
-                      ? null
-                      : _runStaticQuickScan,
-                  icon: _runningStaticQuickScan
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 1.8),
-                        )
-                      : const Icon(Icons.manage_search_rounded, size: 15),
-                  label: Text(isZh ? '快速扫描 APK' : 'Quick scan APK'),
-                ),
+              _DashboardActionButton(
+                onPressed: _runningStaticQuickScan ? null : _runStaticQuickScan,
+                icon: _runningStaticQuickScan
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.manage_search_rounded),
+                label: isZh ? '快速扫描 APK' : 'Quick scan APK',
               ),
               if (scanOutput != null && scanOutput.isNotEmpty) ...[
-                SizedBox(
-                  height: _kAdbInlineControlHeight,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => _copyText(scanOutput),
-                    icon: const Icon(Icons.copy_rounded, size: 14),
-                    label: Text(isZh ? '复制结果' : 'Copy result'),
-                  ),
+                _DashboardActionButton(
+                  onPressed: () => _copyText(scanOutput),
+                  icon: const Icon(Icons.copy_rounded),
+                  label: isZh ? '复制结果' : 'Copy result',
                 ),
               ],
             ],
@@ -5272,30 +5193,24 @@ class _AndroidReverseDashboardDialogState
                   ),
                 ),
               ),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: FilledButton.tonalIcon(
-                  onPressed: _writingCertificateArtifacts
-                      ? null
-                      : _ensureCertificateArtifacts,
-                  icon: _writingCertificateArtifacts
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 1.8),
-                        )
-                      : const Icon(Icons.description_rounded, size: 15),
-                  label: Text(isZh ? '生成证书工件' : 'Generate cert artifacts'),
-                ),
+              _DashboardActionButton(
+                onPressed: _writingCertificateArtifacts
+                    ? null
+                    : _ensureCertificateArtifacts,
+                icon: _writingCertificateArtifacts
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.description_rounded),
+                label: isZh ? '生成证书工件' : 'Generate cert artifacts',
               ),
               if (artifactOutput != null && artifactOutput.isNotEmpty)
-                SizedBox(
-                  height: _kAdbInlineControlHeight,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => _copyText(artifactOutput),
-                    icon: const Icon(Icons.copy_rounded, size: 14),
-                    label: Text(isZh ? '复制结果' : 'Copy result'),
-                  ),
+                _DashboardActionButton(
+                  onPressed: () => _copyText(artifactOutput),
+                  icon: const Icon(Icons.copy_rounded),
+                  label: isZh ? '复制结果' : 'Copy result',
                 ),
             ],
           ),
@@ -5440,14 +5355,14 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               const SizedBox(width: 8),
-              FilledButton.tonalIcon(
-                onPressed: _base64OutCtrl.text.isEmpty
-                    ? null
-                    : () => _copyText(_base64OutCtrl.text),
-                icon: const Icon(Icons.copy_rounded, size: 14),
-                label: Text(isZh ? '复制' : 'Copy'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _DashboardActionButton(
+                  onPressed: _base64OutCtrl.text.isEmpty
+                      ? null
+                      : () => _copyText(_base64OutCtrl.text),
+                  icon: const Icon(Icons.copy_rounded),
+                  label: isZh ? '复制' : 'Copy',
                 ),
               ),
             ],
@@ -5815,12 +5730,12 @@ class _AndroidReverseDashboardDialogState
           ),
         ],
         const SizedBox(width: 8),
-        SizedBox(
-          height: _kAdbInlineControlHeight,
-          child: FilledButton.tonalIcon(
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: _DashboardActionButton(
             onPressed: onPressed,
-            icon: Icon(icon, size: 16),
-            label: Text(label),
+            icon: Icon(icon),
+            label: label,
           ),
         ),
       ],
@@ -5945,6 +5860,61 @@ class _AndroidMcpServerView {
   final McpToolCatalog catalog;
   final McpServerHealth health;
   final List<McpTool> matchedTools;
+}
+
+class _DashboardActionButton extends StatelessWidget {
+  const _DashboardActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final Widget icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = FilledButton.styleFrom(
+      minimumSize: const Size(0, _kDashboardActionButtonHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+      textStyle: theme.textTheme.labelSmall?.copyWith(
+        fontWeight: FontWeight.w800,
+        height: 1,
+      ),
+    );
+    final effectiveIcon = IconTheme.merge(
+      data: const IconThemeData(size: _kDashboardActionIconSize),
+      child: icon,
+    );
+    final labelWidget = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+    );
+    return SizedBox(
+      height: _kDashboardActionButtonHeight,
+      child: filled
+          ? FilledButton.icon(
+              onPressed: onPressed,
+              icon: effectiveIcon,
+              label: labelWidget,
+              style: style,
+            )
+          : FilledButton.tonalIcon(
+              onPressed: onPressed,
+              icon: effectiveIcon,
+              label: labelWidget,
+              style: style,
+            ),
+    );
+  }
 }
 
 class _StatusPill extends StatelessWidget {
@@ -6087,17 +6057,10 @@ class _SmallActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 34,
-      child: FilledButton.tonalIcon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 15),
-        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          visualDensity: VisualDensity.compact,
-        ),
-      ),
+    return _DashboardActionButton(
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: label,
     );
   }
 }
