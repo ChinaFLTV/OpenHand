@@ -1602,6 +1602,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       'workflow_checklist': const <String>[
         'Read android_reverse_config and android_reverse_runtime.',
         'If latest_static_quick_scan exists, read its SUMMARY.md before new Bash scanning.',
+        'If quick_scan closes on one business URL/domain, deliver the conclusion and evidence paths before dynamic validation.',
         'Read mcp/SETUP.md before relying on MCP tools.',
         'Confirm device with adb devices or ADB MCP.',
         'Run scripts/android_dynamic_probe.sh once before dynamic validation on a flaky device.',
@@ -1637,7 +1638,7 @@ Files:
 Rules:
 1. Use only real mcp__* tool names from the Tool Catalog or ToolSearch result.
 2. If ADB/Frida MCP is enabled but absent, report the missing server before Bash fallback.
-3. Read quick_scan/SUMMARY.md first, then prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
+3. Read quick_scan/SUMMARY.md first. If it closes on one business URL/domain, deliver the static conclusion and evidence paths before Frida or mitmproxy.
 4. Do not guess launcher activities. Resolve them with package manager data.
 5. Before mitmproxy capture, read network/README.md and run network/proxy_probe.sh.
 6. Before any Frida install/push/start action, run frida/frida_doctor.sh once and follow its report.
@@ -1670,6 +1671,7 @@ Use this checklist before relying on Android reverse MCP tools.
 
 - If a requested MCP is enabled in config but missing from the Tool Catalog, report it first.
 - If `latest_static_quick_scan` exists in runtime metadata, read its `SUMMARY.md` before new Bash scanning.
+- If quick_scan already identifies one business URL/domain, deliver the static conclusion first; ask before dynamic validation.
 - Use Bash fallback only after confirming `adb devices`, local CLI availability, and the target serial.
 - For flaky wireless ADB, prefer `../scripts/adb_one_shot.sh --timeout 6`.
 - Before Frida install, push, or start, run `../frida/frida_doctor.sh`.
@@ -1694,7 +1696,7 @@ Rules:
 2. Ask the user before executing install, update, or uninstall commands.
 3. Do not repeat the same install command after two failures.
 4. For Frida, run `../frida/frida_doctor.sh` before installing, pushing, or starting frida-server.
-5. Prefer generated quick_scan evidence before installing optional dynamic tools.
+5. Prefer generated quick_scan evidence before installing optional dynamic tools; ask before dynamic validation when static evidence already closes the target.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook
@@ -1719,7 +1721,7 @@ Preflight:
 Stop rules:
 - Do not repeat the same install, launch, attach, or shell command more than twice.
 - If ADB times out but stdout has the needed value, treat it as partial success.
-- If static quick_scan already proves a domain or URL, Frida is optional validation.
+- If static quick_scan already proves one business domain or URL, deliver the conclusion first; Frida is optional validation.
 ''';
 
 const String _fridaDoctorScript = r'''#!/usr/bin/env bash
@@ -2574,7 +2576,7 @@ Workflow:
 Stop rules:
 - Do not keep toggling proxy settings blindly; capture proxy state before changing it.
 - Clear the global proxy when the capture is finished.
-- If static quick_scan already proves the domain, network capture is optional validation.
+- If static quick_scan already proves one business domain or URL, deliver the conclusion first; network capture is optional validation.
 ''';
 
 const String _networkProxyProbeScript = r'''#!/usr/bin/env bash

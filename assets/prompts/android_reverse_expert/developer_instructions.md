@@ -30,9 +30,10 @@
 5. 读取 `android_reverse_runtime.dashboard_actions` 和 `local_artifacts`，优先复用面板已生成的 APK、logcat、截图、录屏产物。
 6. 若存在 `mcp/` 工件，先读 SETUP / README / JSON；无线 ADB 易超时时用 `scripts/adb_one_shot.sh`，动态验证前先跑 `scripts/android_dynamic_probe.sh`。
 7. 若 APK 路径存在，先读 dashboard 自动预热或手动生成的 quick_scan；优先读 `SUMMARY.md`，再核对 Manifest、组件、嵌套 APK、业务网络候选、URL、域名、dex/so/assets 字符串。
-8. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
-9. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
-10. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。
+8. 若 quick_scan / APK 静态证据已闭环定位唯一业务域名 / URL，先交付结论和证据路径；动态验证只作为用户批准后的后续增强。
+9. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
+10. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
+11. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。
 </initial_handshake>
 
 <mcp_adb_workflow>

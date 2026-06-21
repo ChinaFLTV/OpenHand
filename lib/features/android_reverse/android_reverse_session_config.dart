@@ -115,9 +115,9 @@ class AndroidReverseSessionConfig {
     }
     buf
       ..writeln(
-        '- 取证纪律：【先 adb devices 确认设备；域名/URL定位优先静态扫描APK；静态不足或需运行时参数时再Frida/抓包；同一错误连续≥2轮停下报告】',
+        '- 取证纪律：【先 adb devices 确认设备；域名/URL定位优先静态扫描APK；静态证据已闭环时先交付结论；动态验证需用户批准；同一错误连续≥2轮停下报告】',
       )
-      ..write('- 验收标准：【给出可复核证据；若生成脚本/命令，需可在无 IDE 环境下独立运行】');
+      ..write('- 验收标准：【结论有证据路径；若生成脚本/命令，需可在无 IDE 环境下独立运行】');
     return buf.toString();
   }
 
