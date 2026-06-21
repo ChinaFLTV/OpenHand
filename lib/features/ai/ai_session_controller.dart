@@ -3586,7 +3586,14 @@ class AiSessionController extends ChangeNotifier {
       );
       _sessionPendingSendOperationIds.remove(session.id);
       _sessionCancelHandlers.remove(session.id);
-      _sessionStopSignals[session.id] = Completer<void>();
+      final existingStopSignal = _sessionStopSignals[session.id];
+      if (existingStopSignal != null && existingStopSignal.isCompleted) {
+        _debugSessionLog(session.id, 'send_message_cancelled_before_phase');
+        _clearSessionExecutionState(session.id);
+        notifyListeners();
+        return true;
+      }
+      _sessionStopSignals[session.id] = existingStopSignal ?? Completer<void>();
       _setSessionSendPhase(session.id, AiSendPhase.sendingMessage);
       _resetLastSendOutcome(session.id);
       _lastErrorMessage = null;
@@ -3595,6 +3602,17 @@ class AiSessionController extends ChangeNotifier {
       final sendPreflightTimingsMs = <String, int>{...callerPreflightTimingsMs};
       _PreparedUserTurn? preparedUserTurn;
       var userTurnAlreadyCommitted = false;
+      final preflightSessionId = session.id;
+      bool preflightStopped(String stage) {
+        if (!_isStopRequestedForSession(preflightSessionId)) {
+          return false;
+        }
+        _debugSessionLog(
+          preflightSessionId,
+          'send_message_preflight_stopped stage=$stage',
+        );
+        return true;
+      }
 
       try {
         final previousEnvironment = session.environment;
@@ -3606,6 +3624,9 @@ class AiSessionController extends ChangeNotifier {
           previousEnvironment: previousEnvironment,
           previousPromptMetadata: previousPromptMetadata,
         );
+        if (preflightStopped('runtime_compatibility_hooks')) {
+          return true;
+        }
         sendPreflightTimingsMs['runtime_compatibility_hooks'] =
             compatibilityHooksStopwatch.elapsedMilliseconds;
         session = session.copyWith(
@@ -3628,6 +3649,9 @@ class AiSessionController extends ChangeNotifier {
           sessionId: session.id,
           payload: <String, Object?>{'prompt': normalizedContent},
         );
+        if (preflightStopped('user_prompt_hooks')) {
+          return true;
+        }
         sendPreflightTimingsMs['user_prompt_hooks'] =
             userPromptHooksStopwatch.elapsedMilliseconds;
         // Re-read session since _safeRunUserHook may have committed hook messages.
@@ -3734,6 +3758,9 @@ class AiSessionController extends ChangeNotifier {
             );
             return false;
           }
+          if (preflightStopped('plan_approval')) {
+            return true;
+          }
         }
         final shouldCompress = _shouldCompressSessionHistory(
           session,
@@ -3779,12 +3806,18 @@ class AiSessionController extends ChangeNotifier {
           _setSessionSendPhase(session.id, AiSendPhase.compressing);
           notifyListeners();
         }
+        if (preflightStopped('before_compression')) {
+          return true;
+        }
         final compressionStopwatch = Stopwatch()..start();
         final compressedSession = await _compressIfNeeded(
           session: session,
           model: model,
           runtimeContext: runtimeContext,
         );
+        if (preflightStopped('compression')) {
+          return true;
+        }
         sendPreflightTimingsMs['compression'] =
             compressionStopwatch.elapsedMilliseconds;
         session = compressedSession;
@@ -3795,6 +3828,9 @@ class AiSessionController extends ChangeNotifier {
         }
 
         if (preparedUserTurn == null) {
+          if (preflightStopped('before_prepare_user_turn')) {
+            return true;
+          }
           final prepareUserTurnStopwatch = Stopwatch()..start();
           preparedUserTurn = await _prepareUserTurn(
             session: session,
@@ -3809,6 +3845,16 @@ class AiSessionController extends ChangeNotifier {
           session = preparedUserTurn.session;
         } else {
           session = _sessionById(session.id) ?? session;
+        }
+        if (preflightStopped('prepare_user_turn')) {
+          if (!userTurnAlreadyCommitted &&
+              preparedUserTurn.importedAttachments) {
+            await _attachmentService.deleteMessageAttachments(
+              sessionId: session.id,
+              messageId: preparedUserTurn.userMessage.id,
+            );
+          }
+          return true;
         }
         final preparedUserTurnBeforeMetadata = preparedUserTurn;
         AiSessionMessage? latestUserMessage;
@@ -3845,6 +3891,9 @@ class AiSessionController extends ChangeNotifier {
         preparedUserTurn = preparedUserTurnWithMetadata;
         final persistUserTurnStopwatch = Stopwatch()..start();
         final userCommitted = await _commitSessionLocked(session);
+        if (preflightStopped('persist_user_turn')) {
+          return true;
+        }
         sendPreflightTimingsMs[userTurnAlreadyCommitted
                 ? 'persist_user_turn_metadata'
                 : 'persist_user_turn'] =
@@ -3908,6 +3957,9 @@ class AiSessionController extends ChangeNotifier {
             runtimeContext.autoTitleFetchMode ==
                 AiAutoTitleFetchMode.synchronous;
         if (shouldFetchTitleSynchronously) {
+          if (preflightStopped('before_auto_title_sync')) {
+            return true;
+          }
           final syncTitleStopwatch = Stopwatch()..start();
           await _generateAutoTitle(
             sessionId: session.id,
@@ -3918,6 +3970,9 @@ class AiSessionController extends ChangeNotifier {
           );
           sendPreflightTimingsMs['auto_title_sync'] =
               syncTitleStopwatch.elapsedMilliseconds;
+          if (preflightStopped('auto_title_sync')) {
+            return true;
+          }
           session = _sessionById(session.id) ?? session;
         }
         if (shouldScheduleAutoTitle &&
@@ -4146,6 +4201,13 @@ class AiSessionController extends ChangeNotifier {
       1,
       runtimeContext.sequentialToolRoundLimit,
     );
+    if (_isStopRequestedForSession(workingSession.id)) {
+      _debugSessionLog(
+        workingSession.id,
+        'assistant_conversation_stopped_before_prefetch',
+      );
+      return true;
+    }
     final docsPrefetchStopwatch = Stopwatch()..start();
     final primedSession = await _maybePrefetchClaudeCodeDocs(
       session: workingSession,
@@ -4158,6 +4220,13 @@ class AiSessionController extends ChangeNotifier {
     );
     preRequestTimingsMs['claude_docs_prefetch'] =
         docsPrefetchStopwatch.elapsedMilliseconds;
+    if (_isStopRequestedForSession(workingSession.id)) {
+      _debugSessionLog(
+        workingSession.id,
+        'assistant_conversation_stopped_after_prefetch',
+      );
+      return true;
+    }
     if (primedSession == null) {
       return false;
     }

@@ -19,6 +19,7 @@
 <environment>
 **设备**：通过 ADB 连接的 Android 真机或模拟器。会话创建时由 dashboard "设备管理" 面板确认在线设备与序列号。
 **工具链**：
+- `ADB MCP` / `Frida MCP` — 可选首选通道；仅在会话启用且工具目录真实暴露时使用
 - `adb` — 设备通道、文件传输、shell、logcat、端口转发
 - `jadx` / `jadx-gui` — APK 静态反编译为 Java/Kotlin
 - `apktool` — APK 解包 + smali 重打包
@@ -28,23 +29,22 @@
 - `radare2` / `r2` — 二进制静态分析
 - `IDA Pro` (MCP) — 高级反汇编 / 伪代码
 - `anything-analyzer` (MCP) — 多格式文件自动分析
-**状态一致性**：dashboard "设备管理" 面板与 `android_reverse_config.device_serial` 同步；所有操作前先通过 ADB MCP 或 Bash 确认设备在线。
+**状态一致性**：dashboard "设备管理" 面板展示当前可见 ADB 设备；所有设备操作前先通过 ADB MCP 或 Bash 确认目标序列号在线。
 **本地工件**：`~/.openhand/android_reverse/sessions/<session_id>/`，包含 logcat、网络日志、Frida 输出、反编译目录、复现脚本。
 </environment>
 
 <dashboard_tabs>
-设备管理 · 概览 · APP 信息 · 进程 · Logcat · 网络 · Frida · 静态分析 · 证书 · 定时 · 加密。
+设备管理 · 概览 · APP 信息 · 进程 · Logcat · Frida · 网络 · 静态分析 · 证书 · 加密。
 
-- **设备管理**：列出所有 ADB 设备，一键连接 / 断开，端口转发管理，无线 ADB 配对。
-- **概览**：目标 APP 版本、签名、权限列表、组件（Activity/Service/Receiver/Provider）快照。
-- **APP 信息**：包名、版本、安装路径、so 库列表、Manifest 关键字段、签名证书 SHA。
-- **进程**：`ps -A` 进程树，按包名过滤，一键 force-stop / attach Frida。
-- **Logcat**：实时 logcat 流（tag 过滤 + 关键字高亮 + 自动跟随）。
-- **网络**：mitmproxy 代理流量（需证书信任），请求列表 + 详情 + curl 导出。
-- **Frida**：脚本片段库（hook 函数入参/返回值/调用栈），一键注入、输出实时滚动。
-- **静态分析**：jadx 反编译输出浏览，关键字搜索 + 类/方法定位。
-- **证书**：ADB 推系统 CA / 用户 CA，Magisk 注入 CA 引导，HTTPS 代理一键配置。
-- **定时**：Timer.periodic 循环任务（轮询 logcat / Frida 输出 / 接口重放），跨刷新持久。
+- **设备管理**：列设备、切目标、无线连接 / 断开、root / remount / reboot、端口转发、常用 shell 预设、命令输出。
+- **概览**：会话目标、包名、APK 路径、MCP 开关、设备摘要、关键字。
+- **APP 信息**：第三方包列表、复制包名、强制停止。
+- **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID。
+- **Logcat**：读取最近日志，支持 Tag 过滤、复制、错误 / 空状态反馈。
+- **Frida**：脚本暂存、复制与常用命令参考；实际注入由 MCP 或 Bash 完成。
+- **网络**：mitmproxy 抓包步骤与工件路径参考。
+- **静态分析**：jadx、apktool、blutter、r2 / IDA 命令参考。
+- **证书**：CA 推送、系统证书和 SSL Pinning 绕过参考。
 - **加密**：Base64 / Hex / MD5 / SHA / JWT / AES / RSA Pad。
 </dashboard_tabs>
 
@@ -67,11 +67,11 @@
 </workflow>
 
 <tool_priority>
-ADB MCP 或 ADB Bash 是第一优先级；Frida MCP / Bash 是动态取证优先路径；jadx / apktool Bash 是静态分析路径。
+ADB MCP 或 ADB Bash 是设备第一优先级；Frida MCP / Bash 是动态取证优先路径；jadx / apktool Bash 是静态分析路径。
 
 推荐顺序：ADB MCP > Frida MCP > Bash（adb/jadx/frida/mitmproxy/radare2）> IDA Pro MCP > Read/Write/Edit > Skill。
 
-工具缺失不得静默降级，先说明降级原因再切换。
+MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 时使用。工具缺失不得静默降级，先说明缺失与降级原因，再切到 Bash。
 </tool_priority>
 
 <command_execution>

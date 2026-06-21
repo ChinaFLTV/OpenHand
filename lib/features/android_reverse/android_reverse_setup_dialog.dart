@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../app/model/app_settings_snapshot.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/util/localized_text.dart';
+import '../ai/index.dart';
 import 'android_reverse_session_config.dart';
 
 /// 弹出 Android 逆向会话创建表单。
@@ -11,6 +14,11 @@ Future<AndroidReverseSetupResult?> showAndroidReverseSetupDialog(
   BuildContext context, {
   String? initialPackageName,
   String? initialObjective,
+  List<AiModelConfig> availableModels = const <AiModelConfig>[],
+  List<RecentModelSelection> recentModelSelections =
+      const <RecentModelSelection>[],
+  String? initialSelectedModelConfigId,
+  String? initialSelectedModelId,
 }) {
   return showAnimatedDialog<AndroidReverseSetupResult>(
     context: context,
@@ -18,24 +26,42 @@ Future<AndroidReverseSetupResult?> showAndroidReverseSetupDialog(
     builder: (_) => _AndroidReverseSetupDialog(
       initialPackageName: initialPackageName,
       initialObjective: initialObjective,
+      availableModels: availableModels,
+      recentModelSelections: recentModelSelections,
+      initialSelectedModelConfigId: initialSelectedModelConfigId,
+      initialSelectedModelId: initialSelectedModelId,
     ),
   );
 }
 
 class AndroidReverseSetupResult {
-  const AndroidReverseSetupResult({required this.config});
+  const AndroidReverseSetupResult({
+    required this.config,
+    required this.selectedModelConfigId,
+    required this.selectedModelId,
+  });
 
   final AndroidReverseSessionConfig config;
+  final String? selectedModelConfigId;
+  final String? selectedModelId;
 }
 
 class _AndroidReverseSetupDialog extends StatefulWidget {
   const _AndroidReverseSetupDialog({
     required this.initialPackageName,
     required this.initialObjective,
+    required this.availableModels,
+    required this.recentModelSelections,
+    required this.initialSelectedModelConfigId,
+    required this.initialSelectedModelId,
   });
 
   final String? initialPackageName;
   final String? initialObjective;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+  final String? initialSelectedModelConfigId;
+  final String? initialSelectedModelId;
 
   @override
   State<_AndroidReverseSetupDialog> createState() =>
@@ -52,18 +78,24 @@ class _AndroidReverseSetupDialogState
   late final TextEditingController _notesCtrl;
   bool _adbMcpEnabled = false;
   bool _fridaMcpEnabled = false;
+  String? _selectedModelConfigId;
+  String? _selectedModelId;
 
   @override
   void initState() {
     super.initState();
-    _objectiveCtrl =
-        TextEditingController(text: widget.initialObjective ?? '');
-    _packageCtrl =
-        TextEditingController(text: widget.initialPackageName ?? '');
+    _objectiveCtrl = TextEditingController(text: widget.initialObjective ?? '');
+    _packageCtrl = TextEditingController(text: widget.initialPackageName ?? '');
     _apkCtrl = TextEditingController();
     _deviceCtrl = TextEditingController();
     _keywordsCtrl = TextEditingController();
     _notesCtrl = TextEditingController();
+    _selectedModelConfigId = widget.initialSelectedModelConfigId?.trim();
+    _selectedModelId = widget.initialSelectedModelId?.trim();
+    if (!_hasValidModelSelection) {
+      _selectedModelConfigId = null;
+      _selectedModelId = null;
+    }
   }
 
   @override
@@ -77,7 +109,22 @@ class _AndroidReverseSetupDialogState
     super.dispose();
   }
 
-  bool get _canSubmit => _objectiveCtrl.text.trim().isNotEmpty;
+  bool get _hasValidModelSelection {
+    final configId = _selectedModelConfigId;
+    final modelId = _selectedModelId;
+    if (configId == null ||
+        configId.isEmpty ||
+        modelId == null ||
+        modelId.isEmpty) {
+      return false;
+    }
+    return widget.availableModels.any(
+      (config) => config.id == configId && config.allModelIds.contains(modelId),
+    );
+  }
+
+  bool get _canSubmit =>
+      _objectiveCtrl.text.trim().isNotEmpty && _hasValidModelSelection;
 
   void _submit() {
     final keywords = _keywordsCtrl.text
@@ -99,7 +146,13 @@ class _AndroidReverseSetupDialogState
       keywords: keywords,
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
     );
-    Navigator.of(context).pop(AndroidReverseSetupResult(config: config));
+    Navigator.of(context).pop(
+      AndroidReverseSetupResult(
+        config: config,
+        selectedModelConfigId: _selectedModelConfigId,
+        selectedModelId: _selectedModelId,
+      ),
+    );
   }
 
   bool _isZh() => openHandIsChineseLocale(context);
@@ -147,6 +200,20 @@ class _AndroidReverseSetupDialogState
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 14),
+                  OpenHandModelSelectorField(
+                    models: widget.availableModels,
+                    recentSelections: widget.recentModelSelections,
+                    selectedConfigId: _selectedModelConfigId,
+                    selectedModelId: _selectedModelId,
+                    required: true,
+                    onSelected: (selection) {
+                      setState(() {
+                        _selectedModelConfigId = selection.$1;
+                        _selectedModelId = selection.$2;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 14),
                   _LabelText(isZh ? '目标包名（可选）' : 'Package name (optional)'),
                   const SizedBox(height: 4),
                   TextField(
@@ -190,9 +257,9 @@ class _AndroidReverseSetupDialogState
                     icon: Icons.usb_rounded,
                     titleZh: 'ADB MCP（可选）',
                     titleEn: 'ADB MCP (optional)',
-                    descZh: '默认关闭。开启后会话通过 ADB MCP 服务器直接调用 adb 命令。',
+                    descZh: '默认关闭。需先在全局 MCP 配置安装/启用；开启后优先通过 ADB MCP 调用 adb。',
                     descEn:
-                        'Off by default. When enabled, this session routes adb commands via ADB MCP server.',
+                        'Off by default. Install/enable it in global MCP settings first; then adb uses ADB MCP first.',
                     isZh: isZh,
                     enabled: _adbMcpEnabled,
                     onChanged: (v) => setState(() => _adbMcpEnabled = v),
@@ -202,9 +269,9 @@ class _AndroidReverseSetupDialogState
                     icon: Icons.bug_report_rounded,
                     titleZh: 'Frida MCP（可选）',
                     titleEn: 'Frida MCP (optional)',
-                    descZh: '默认关闭。开启后会话通过 Frida MCP 服务器直接注入、运行脚本。',
+                    descZh: '默认关闭。需先在全局 MCP 配置安装/启用；开启后优先通过 Frida MCP 注入脚本。',
                     descEn:
-                        'Off by default. When enabled, this session routes Frida inject and script runs via Frida MCP server.',
+                        'Off by default. Install/enable it in global MCP settings first; then Frida injection uses Frida MCP first.',
                     isZh: isZh,
                     enabled: _fridaMcpEnabled,
                     onChanged: (v) => setState(() => _fridaMcpEnabled = v),

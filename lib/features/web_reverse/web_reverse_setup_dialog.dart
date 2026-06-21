@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/model/app_settings_snapshot.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
+import '../ai/index.dart';
 import 'web_reverse_browser_detector.dart';
 import 'web_reverse_install_guide_dialog.dart';
 import 'web_reverse_profile_actions.dart';
@@ -26,6 +29,11 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
   String? initialTargetUrl,
   String? initialObjective,
   required String userDataDirRoot,
+  List<AiModelConfig> availableModels = const <AiModelConfig>[],
+  List<RecentModelSelection> recentModelSelections =
+      const <RecentModelSelection>[],
+  String? initialSelectedModelConfigId,
+  String? initialSelectedModelId,
 }) async {
   final detector = WebReverseBrowserDetector();
 
@@ -67,6 +75,10 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
       initialTargetUrl: initialTargetUrl,
       initialObjective: initialObjective,
       userDataDirRoot: userDataDirRoot,
+      availableModels: availableModels,
+      recentModelSelections: recentModelSelections,
+      initialSelectedModelConfigId: initialSelectedModelConfigId,
+      initialSelectedModelId: initialSelectedModelId,
     ),
   );
 }
@@ -75,10 +87,14 @@ class WebReverseSetupResult {
   const WebReverseSetupResult({
     required this.config,
     required this.executablePath,
+    required this.selectedModelConfigId,
+    required this.selectedModelId,
   });
 
   final WebReverseSessionConfig config;
   final String executablePath;
+  final String? selectedModelConfigId;
+  final String? selectedModelId;
 }
 
 class _WebReverseSetupDialog extends StatefulWidget {
@@ -87,12 +103,20 @@ class _WebReverseSetupDialog extends StatefulWidget {
     required this.initialTargetUrl,
     required this.initialObjective,
     required this.userDataDirRoot,
+    required this.availableModels,
+    required this.recentModelSelections,
+    required this.initialSelectedModelConfigId,
+    required this.initialSelectedModelId,
   });
 
   final List<WebReverseBrowserProbeResult> probes;
   final String? initialTargetUrl;
   final String? initialObjective;
   final String userDataDirRoot;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+  final String? initialSelectedModelConfigId;
+  final String? initialSelectedModelId;
 
   @override
   State<_WebReverseSetupDialog> createState() => _WebReverseSetupDialogState();
@@ -107,6 +131,8 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   WebReverseLoginMode _loginMode = WebReverseLoginMode.none;
   late WebReverseBrowserProbeResult _selectedProbe;
   bool _cdpMcpEnabled = false;
+  String? _selectedModelConfigId;
+  String? _selectedModelId;
 
   @override
   void initState() {
@@ -117,6 +143,12 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     _proxyCtrl = TextEditingController();
     _keywordsCtrl = TextEditingController();
     _selectedProbe = widget.probes.first;
+    _selectedModelConfigId = widget.initialSelectedModelConfigId?.trim();
+    _selectedModelId = widget.initialSelectedModelId?.trim();
+    if (!_hasValidModelSelection) {
+      _selectedModelConfigId = null;
+      _selectedModelId = null;
+    }
   }
 
   @override
@@ -147,7 +179,21 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
       return false;
     }
-    return true;
+    return _hasValidModelSelection;
+  }
+
+  bool get _hasValidModelSelection {
+    final configId = _selectedModelConfigId;
+    final modelId = _selectedModelId;
+    if (configId == null ||
+        configId.isEmpty ||
+        modelId == null ||
+        modelId.isEmpty) {
+      return false;
+    }
+    return widget.availableModels.any(
+      (config) => config.id == configId && config.allModelIds.contains(modelId),
+    );
   }
 
   void _submit() {
@@ -175,6 +221,8 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
       WebReverseSetupResult(
         config: config,
         executablePath: _selectedProbe.executablePath!,
+        selectedModelConfigId: _selectedModelConfigId,
+        selectedModelId: _selectedModelId,
       ),
     );
   }
@@ -233,6 +281,20 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                       border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 14),
+                  OpenHandModelSelectorField(
+                    models: widget.availableModels,
+                    recentSelections: widget.recentModelSelections,
+                    selectedConfigId: _selectedModelConfigId,
+                    selectedModelId: _selectedModelId,
+                    required: true,
+                    onSelected: (selection) {
+                      setState(() {
+                        _selectedModelConfigId = selection.$1;
+                        _selectedModelId = selection.$2;
+                      });
+                    },
                   ),
                   const SizedBox(height: 14),
                   _LabelText(

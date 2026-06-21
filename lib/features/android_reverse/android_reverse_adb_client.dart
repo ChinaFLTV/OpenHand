@@ -7,6 +7,35 @@ import '../../app/support/silent_log.dart';
 const String _kTag = 'android_reverse_adb_client';
 const Duration _kAdbCommandTimeout = Duration(seconds: 30);
 
+class AdbCommandResult {
+  const AdbCommandResult({
+    required this.args,
+    required this.exitCode,
+    required this.stdout,
+    required this.stderr,
+    this.timedOut = false,
+  });
+
+  final List<String> args;
+  final int exitCode;
+  final String stdout;
+  final String stderr;
+  final bool timedOut;
+
+  bool get ok => exitCode == 0 && !timedOut;
+
+  String get commandLine => 'adb ${args.join(' ')}';
+
+  String get combinedOutput {
+    final out = stdout.trim();
+    final err = stderr.trim();
+    if (out.isEmpty && err.isEmpty) return '';
+    if (out.isEmpty) return err;
+    if (err.isEmpty) return out;
+    return '$out\n$err';
+  }
+}
+
 /// ADB 设备信息。
 class AdbDevice {
   const AdbDevice({
@@ -54,9 +83,8 @@ class AndroidProcess {
 /// 所有操作均通过 `adb` 可执行文件完成；调用方需确保 adb 已在 PATH 中
 /// 或通过 [adbPath] 显式指定路径。
 class AndroidReverseAdbClient {
-  AndroidReverseAdbClient({String? adbPath, String? deviceSerial})
-    : adbPath = adbPath ?? 'adb',
-      deviceSerial = deviceSerial;
+  AndroidReverseAdbClient({String? adbPath, this.deviceSerial})
+    : adbPath = adbPath ?? 'adb';
 
   final String adbPath;
 
@@ -103,7 +131,9 @@ class AndroidReverseAdbClient {
   Future<AdbDevice?> onlineDevice() async {
     if (deviceSerial != null) {
       final all = await listDevices();
-      return all.where((d) => d.serial == deviceSerial && d.isOnline).firstOrNull;
+      return all
+          .where((d) => d.serial == deviceSerial && d.isOnline)
+          .firstOrNull;
     }
     final all = await listDevices();
     final online = all.where((d) => d.isOnline).toList(growable: false);
@@ -114,6 +144,10 @@ class AndroidReverseAdbClient {
 
   Future<String?> shell(String command) async {
     return _runDevice(<String>['shell', command]);
+  }
+
+  Future<AdbCommandResult> shellDetailed(String command, {Duration? timeout}) {
+    return _runDeviceDetailed(<String>['shell', command], timeout: timeout);
   }
 
   Future<String?> shellLines(List<String> args) async {
@@ -146,9 +180,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<String?> getPackageVersion(String packageName) async {
-    final raw = await shell(
-      'dumpsys package $packageName | grep versionName',
-    );
+    final raw = await shell('dumpsys package $packageName | grep versionName');
     if (raw == null) return null;
     for (final line in raw.split('\n')) {
       final trimmed = line.trim();
@@ -159,11 +191,25 @@ class AndroidReverseAdbClient {
     return null;
   }
 
+  Future<Map<String, String>> getProperties() async {
+    final raw = await shell('getprop');
+    if (raw == null || raw.trim().isEmpty) return const <String, String>{};
+    final props = <String, String>{};
+    final pattern = RegExp(r'^\[([^\]]+)\]: \[(.*)\]$');
+    for (final line in raw.split('\n')) {
+      final match = pattern.firstMatch(line.trim());
+      if (match == null) continue;
+      props[match.group(1)!] = match.group(2) ?? '';
+    }
+    return props;
+  }
+
   Future<bool> installApk(String localApkPath) async {
-    final result = await _runDevice(
-      <String>['install', '-r', localApkPath],
-      timeout: const Duration(minutes: 3),
-    );
+    final result = await _runDevice(<String>[
+      'install',
+      '-r',
+      localApkPath,
+    ], timeout: const Duration(minutes: 3));
     return result != null && result.contains('Success');
   }
 
@@ -215,59 +261,108 @@ class AndroidReverseAdbClient {
   // ── 文件传输 ──────────────────────────────────────────────────────────
 
   Future<bool> push(String localPath, String remotePath) async {
-    final result = await _runDevice(
-      <String>['push', localPath, remotePath],
-      timeout: const Duration(minutes: 5),
-    );
+    final result = await _runDevice(<String>[
+      'push',
+      localPath,
+      remotePath,
+    ], timeout: const Duration(minutes: 5));
     return result != null && !result.toLowerCase().contains('error');
   }
 
   Future<bool> pull(String remotePath, String localPath) async {
-    final result = await _runDevice(
-      <String>['pull', remotePath, localPath],
-      timeout: const Duration(minutes: 5),
-    );
+    final result = await _runDevice(<String>[
+      'pull',
+      remotePath,
+      localPath,
+    ], timeout: const Duration(minutes: 5));
     return result != null && !result.toLowerCase().contains('error');
   }
 
   // ── Logcat ────────────────────────────────────────────────────────────
 
   /// 拉取最近 [lines] 行 logcat（非流式）。
-  Future<String?> logcat({
-    String? tag,
-    String? level,
-    int lines = 200,
-  }) async {
+  Future<String?> logcat({String? tag, String? level, int lines = 200}) async {
     final filter = <String>[];
-    if (tag != null) filter.add('$tag:${level ?? 'V'}');
-    filter.add('*:S');
-    return _runDevice(
-      <String>[
-        'logcat',
-        '-d',
-        '-t',
-        '$lines',
-        if (filter.isNotEmpty) ...filter,
-      ],
-      timeout: const Duration(seconds: 15),
-    );
+    if (tag != null && tag.trim().isNotEmpty) {
+      filter
+        ..add('${tag.trim()}:${level ?? 'V'}')
+        ..add('*:S');
+    }
+    return _runDevice(<String>[
+      'logcat',
+      '-d',
+      '-t',
+      '$lines',
+      if (filter.isNotEmpty) ...filter,
+    ], timeout: const Duration(seconds: 15));
   }
 
   // ── 端口转发 ──────────────────────────────────────────────────────────
 
   Future<bool> forwardPort(int localPort, int remotePort) async {
-    final result = await _runDevice(
-      <String>['forward', 'tcp:$localPort', 'tcp:$remotePort'],
-    );
+    final result = await _runDevice(<String>[
+      'forward',
+      'tcp:$localPort',
+      'tcp:$remotePort',
+    ]);
     return result != null;
   }
 
   Future<bool> removeForward(int localPort) async {
-    final result = await _runDevice(
-      <String>['forward', '--remove', 'tcp:$localPort'],
-    );
+    final result = await _runDevice(<String>[
+      'forward',
+      '--remove',
+      'tcp:$localPort',
+    ]);
     return result != null;
   }
+
+  Future<String?> listForwards() {
+    return _runDevice(<String>['forward', '--list']);
+  }
+
+  Future<bool> removeAllForwards() async {
+    final result = await _runDevice(<String>['forward', '--remove-all']);
+    return result != null;
+  }
+
+  Future<AdbCommandResult> forwardPortDetailed(int localPort, int remotePort) {
+    return _runDeviceDetailed(<String>[
+      'forward',
+      'tcp:$localPort',
+      'tcp:$remotePort',
+    ]);
+  }
+
+  Future<AdbCommandResult> removeForwardDetailed(int localPort) {
+    return _runDeviceDetailed(<String>[
+      'forward',
+      '--remove',
+      'tcp:$localPort',
+    ]);
+  }
+
+  Future<AdbCommandResult> connect(String endpoint) {
+    return _runDetailed(<String>['connect', endpoint]);
+  }
+
+  Future<AdbCommandResult> disconnect([String? endpoint]) {
+    return _runDetailed(<String>[
+      'disconnect',
+      if (endpoint != null && endpoint.trim().isNotEmpty) endpoint.trim(),
+    ]);
+  }
+
+  Future<AdbCommandResult> reboot([String? mode]) {
+    return _runDeviceDetailed(<String>[
+      'reboot',
+      if (mode != null && mode.trim().isNotEmpty) mode.trim(),
+    ]);
+  }
+
+  Future<AdbCommandResult> root() => _runDeviceDetailed(<String>['root']);
+
+  Future<AdbCommandResult> remount() => _runDeviceDetailed(<String>['remount']);
 
   // ── 内部实现 ──────────────────────────────────────────────────────────
 
@@ -276,7 +371,21 @@ class AndroidReverseAdbClient {
     return const <String>[];
   }
 
-  Future<String?> _run(
+  Future<String?> _run(List<String> args, {Duration? timeout}) async {
+    final result = await _runDetailed(args, timeout: timeout);
+    if (result.timedOut) return null;
+    if (!result.ok && result.stdout.trim().isEmpty) {
+      final stderr = result.stderr.trim();
+      silentLog(
+        _kTag,
+        'adb ${args.join(' ')} exited ${result.exitCode}${stderr.isNotEmpty ? ": $stderr" : ""}',
+        'exitCode=${result.exitCode}',
+      );
+    }
+    return result.stdout.trim();
+  }
+
+  Future<AdbCommandResult> _runDetailed(
     List<String> args, {
     Duration? timeout,
   }) async {
@@ -287,27 +396,40 @@ class AndroidReverseAdbClient {
         timeout: timeout ?? _kAdbCommandTimeout,
         tag: _kTag,
       );
-      if (result == null) return null;
-      // Non-zero exit with no stdout → log as warning, still return empty.
-      if (result.exitCode != 0 && result.stdout.toString().trim().isEmpty) {
-        final stderr = '${result.stderr}'.trim();
-        silentLog(
-          _kTag,
-          'adb ${args.join(' ')} exited ${result.exitCode}${stderr.isNotEmpty ? ": $stderr" : ""}',
-          'exitCode=${result.exitCode}',
+      if (result == null) {
+        return AdbCommandResult(
+          args: List<String>.unmodifiable(args),
+          exitCode: -1,
+          stdout: '',
+          stderr: 'ADB command timed out or failed to start.',
+          timedOut: true,
         );
       }
-      return result.stdout.toString().trim();
+      return AdbCommandResult(
+        args: List<String>.unmodifiable(args),
+        exitCode: result.exitCode,
+        stdout: result.stdout.toString(),
+        stderr: result.stderr.toString(),
+      );
     } catch (e, st) {
       silentLog(_kTag, 'adb ${args.join(' ')} failed', e, st);
-      return null;
+      return AdbCommandResult(
+        args: List<String>.unmodifiable(args),
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+      );
     }
   }
 
-  Future<String?> _runDevice(
+  Future<String?> _runDevice(List<String> args, {Duration? timeout}) {
+    return _run(<String>[..._deviceArgs(), ...args], timeout: timeout);
+  }
+
+  Future<AdbCommandResult> _runDeviceDetailed(
     List<String> args, {
     Duration? timeout,
   }) {
-    return _run(<String>[..._deviceArgs(), ...args], timeout: timeout);
+    return _runDetailed(<String>[..._deviceArgs(), ...args], timeout: timeout);
   }
 }

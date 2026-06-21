@@ -315,8 +315,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   // Active Android Reverse Expert sessions, keyed by session id.
   final Map<String, AndroidReverseSessionController>
-  _androidReverseControllers =
-      <String, AndroidReverseSessionController>{};
+  _androidReverseControllers = <String, AndroidReverseSessionController>{};
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
@@ -2714,30 +2713,55 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _applyMachineExpertModelSelection(
     MachineExpertDialogResult result,
   ) async {
-    final providerConfigId = result.selectedModelConfigId?.trim();
-    final modelId = result.selectedModelId?.trim();
-    if (providerConfigId == null ||
-        providerConfigId.isEmpty ||
-        modelId == null ||
-        modelId.isEmpty) {
+    await _applyNewSessionModelSelection(
+      providerConfigId: result.selectedModelConfigId,
+      modelId: result.selectedModelId,
+    );
+  }
+
+  AiModelConfig? _initialModelForAutoStartTemplate() {
+    final settingsController = context.read<SettingsController>();
+    final sessionController = context.read<AiSessionController>();
+    return _effectiveModelForSession(
+          settingsController,
+          sessionController.currentSession,
+        ) ??
+        settingsController.selectedAiModel;
+  }
+
+  Future<void> _applyNewSessionModelSelection({
+    required String? providerConfigId,
+    required String? modelId,
+    String? sessionId,
+  }) async {
+    final normalizedProviderConfigId = providerConfigId?.trim();
+    final normalizedModelId = modelId?.trim();
+    if (normalizedProviderConfigId == null ||
+        normalizedProviderConfigId.isEmpty ||
+        normalizedModelId == null ||
+        normalizedModelId.isEmpty) {
       return;
     }
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
     final providerExists = settingsController.aiModels.any(
       (item) =>
-          item.id == providerConfigId && item.allModelIds.contains(modelId),
+          item.id == normalizedProviderConfigId &&
+          item.allModelIds.contains(normalizedModelId),
     );
     if (!providerExists) {
       return;
     }
-    await settingsController.addRecentModelSelection(providerConfigId, modelId);
-    final currentSessionId = sessionController.currentSessionId;
-    if (currentSessionId != null) {
+    await settingsController.addRecentModelSelection(
+      normalizedProviderConfigId,
+      normalizedModelId,
+    );
+    final currentSessionId = sessionId ?? sessionController.currentSessionId;
+    if (currentSessionId != null && currentSessionId.isNotEmpty) {
       await sessionController.updateSessionLastUsedModel(
         currentSessionId,
-        providerConfigId: providerConfigId,
-        modelId: modelId,
+        providerConfigId: normalizedProviderConfigId,
+        modelId: normalizedModelId,
       );
     }
   }
@@ -2965,11 +2989,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }) async {
     final userDataDirRoot =
         '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse';
+    final settingsController = context.read<SettingsController>();
+    final initialModel = _initialModelForAutoStartTemplate();
     final setup = await showWebReverseSetupDialog(
       context,
       initialTargetUrl: firstHttpUrlFromText(initialPrompt),
       initialObjective: _webReverseInitialObjectiveFromPrompt(initialPrompt),
       userDataDirRoot: userDataDirRoot,
+      availableModels: settingsController.aiModels,
+      recentModelSelections: settingsController.recentModelSelections,
+      initialSelectedModelConfigId: initialModel?.id,
+      initialSelectedModelId: initialModel?.modelId,
     );
     if (!mounted || setup == null) return false;
     final created = await _createSession(
@@ -2982,6 +3012,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final session = sessionController.currentSession;
     if (session == null) return created;
+    await _applyNewSessionModelSelection(
+      sessionId: session.id,
+      providerConfigId: setup.selectedModelConfigId,
+      modelId: setup.selectedModelId,
+    );
     if (!mounted) return created;
     // 把 user-data-dir 在 session.id 就绪后改写为 `<root>/profile_<browser>_<sid>`，
     // 这样每个会话各占一个 profile 目录，从源头规避另一个 Chrome 实例
@@ -3118,27 +3153,41 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<bool> _showAndroidReverseSetupAndCreate({
     AiSessionRuntimeContext? runtimeContext,
     String? initialPrompt,
+    AiSessionMode? initialMode,
+    bool? initialFullAccessPermission,
   }) async {
+    final settingsController = context.read<SettingsController>();
+    final initialModel = _initialModelForAutoStartTemplate();
     final setup = await showAndroidReverseSetupDialog(
       context,
       initialObjective: _webReverseInitialObjectiveFromPrompt(initialPrompt),
+      availableModels: settingsController.aiModels,
+      recentModelSelections: settingsController.recentModelSelections,
+      initialSelectedModelConfigId: initialModel?.id,
+      initialSelectedModelId: initialModel?.modelId,
     );
     if (!mounted || setup == null) return false;
     final created = await _createSession(
       templateId: 'android_reverse_expert',
       runtimeContext: runtimeContext,
-      initialMode: AiSessionMode.fromStorage(
-        context.read<SettingsController>().aiDefaultSessionMode,
-      ),
-      initialFullAccessPermission: context
-          .read<SettingsController>()
-          .aiDefaultFullAccessPermission,
+      initialMode:
+          initialMode ??
+          AiSessionMode.fromStorage(settingsController.aiDefaultSessionMode),
+      initialFullAccessPermission:
+          initialFullAccessPermission ??
+          settingsController.aiDefaultFullAccessPermission,
     );
     if (!created || !mounted) return false;
     final sessionController = context.read<AiSessionController>();
     final session = sessionController.currentSession;
     if (session == null) return created;
     final config = setup.config;
+    await _applyNewSessionModelSelection(
+      sessionId: session.id,
+      providerConfigId: setup.selectedModelConfigId,
+      modelId: setup.selectedModelId,
+    );
+    if (!mounted) return created;
     await sessionController.updateSessionMetadata(session.id, <String, Object?>{
       'android_reverse_config': config.toJson(),
     });
@@ -3153,12 +3202,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       await controller.start();
     } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        'android reverse start',
-        error,
-        stack,
-      );
+      silentLog('openhand_home_page', 'android reverse start', error, stack);
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
@@ -3171,8 +3215,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'android_reverse_runtime': <String, Object?>{
         'is_running': controller.isRunning,
         'artifacts_root_dir': controller.artifactsRootDir,
-        if (config.deviceSerial != null)
-          'device_serial': config.deviceSerial,
+        if (config.deviceSerial != null) 'device_serial': config.deviceSerial,
       },
     });
     if (!mounted) return created;
@@ -4687,6 +4730,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
         return;
       }
+      if (templateId == 'android_reverse_expert') {
+        await _showAndroidReverseSetupAndCreate(
+          initialPrompt: prompt,
+          runtimeContext: runtimeContext,
+          initialMode: _detachedComposerMode,
+          initialFullAccessPermission: _detachedFullAccessPermission,
+        );
+        return;
+      }
       if (templateId == 'machine_expert') {
         machineExpertConfig = await _showMachineExpertDialog(
           initialTask: prompt,
@@ -5048,6 +5100,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         selectedSkillMetadata: selectedSkillMetadata,
       );
       if (!mounted) {
+        return;
+      }
+      if (submissionWasStopped()) {
+        if (_shouldRestoreSubmittedPrompt(
+          sessionController: sessionController,
+          sessionId: targetSessionId,
+          prompt: prompt,
+          initialUserMessageCount: initialUserMessageCount,
+          editingMessageId: editingMessageIdBeforeSend,
+        )) {
+          _restoreSubmittedDraft(
+            sessionController,
+            sessionId: targetSessionId,
+            prompt: prompt,
+            attachments: pendingAttachments,
+            creationRequest: creationRequest,
+          );
+        }
         return;
       }
       if (!sent) {

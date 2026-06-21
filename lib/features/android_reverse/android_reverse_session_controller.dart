@@ -10,12 +10,7 @@ const String _kTag = 'android_reverse_session_controller';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
 
 /// Android 逆向会话状态。
-enum AndroidReverseSessionState {
-  idle,
-  running,
-  deviceLost,
-  stopped,
-}
+enum AndroidReverseSessionState { idle, running, deviceLost, stopped }
 
 /// 单个 Android 逆向会话的运行时编排。
 ///
@@ -99,9 +94,14 @@ class AndroidReverseSessionController extends ChangeNotifier {
     return _allDevices;
   }
 
-  Future<List<AndroidProcess>> refreshProcesses({String? filterName}) async {
+  Future<List<AndroidProcess>> refreshProcesses({
+    String? filterName,
+    String? serial,
+  }) async {
     try {
-      final procs = await _adbClient.listProcesses(filterName: filterName);
+      final procs = await _clientForSerial(
+        serial,
+      ).listProcesses(filterName: filterName);
       _processes = procs;
       _safeNotify();
       return procs;
@@ -111,28 +111,85 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
   }
 
-  Future<List<String>> listPackages({bool thirdParty = true}) =>
-      _adbClient.listPackages(thirdParty: thirdParty);
+  AndroidReverseAdbClient _clientForSerial(String? serial) {
+    final normalizedSerial = serial?.trim();
+    if (normalizedSerial == null ||
+        normalizedSerial.isEmpty ||
+        normalizedSerial == config.deviceSerial) {
+      return _adbClient;
+    }
+    return AndroidReverseAdbClient(
+      adbPath: _adbClient.adbPath,
+      deviceSerial: normalizedSerial,
+    );
+  }
+
+  Future<List<String>> listPackages({bool thirdParty = true, String? serial}) =>
+      _clientForSerial(serial).listPackages(thirdParty: thirdParty);
 
   Future<String?> getPackagePath(String packageName) =>
       _adbClient.getPackagePath(packageName);
 
-  Future<String?> logcat({String? tag, String? level, int lines = 200}) =>
-      _adbClient.logcat(tag: tag, level: level, lines: lines);
+  Future<String?> logcat({
+    String? tag,
+    String? level,
+    int lines = 200,
+    String? serial,
+  }) => _clientForSerial(serial).logcat(tag: tag, level: level, lines: lines);
 
-  Future<String?> shell(String command) => _adbClient.shell(command);
+  Future<String?> shell(String command, {String? serial}) =>
+      _clientForSerial(serial).shell(command);
 
-  Future<bool> forwardPort(int local, int remote) =>
-      _adbClient.forwardPort(local, remote);
+  Future<AdbCommandResult> shellDetailed(String command, {String? serial}) =>
+      _clientForSerial(serial).shellDetailed(command);
 
-  Future<bool> removeForward(int local) => _adbClient.removeForward(local);
+  Future<Map<String, String>> getProperties({String? serial}) =>
+      _clientForSerial(serial).getProperties();
+
+  Future<bool> forwardPort(int local, int remote, {String? serial}) =>
+      _clientForSerial(serial).forwardPort(local, remote);
+
+  Future<bool> removeForward(int local, {String? serial}) =>
+      _clientForSerial(serial).removeForward(local);
+
+  Future<AdbCommandResult> forwardPortDetailed(
+    int local,
+    int remote, {
+    String? serial,
+  }) => _clientForSerial(serial).forwardPortDetailed(local, remote);
+
+  Future<AdbCommandResult> removeForwardDetailed(int local, {String? serial}) =>
+      _clientForSerial(serial).removeForwardDetailed(local);
+
+  Future<String?> listForwards({String? serial}) =>
+      _clientForSerial(serial).listForwards();
+
+  Future<bool> removeAllForwards({String? serial}) =>
+      _clientForSerial(serial).removeAllForwards();
+
+  Future<AdbCommandResult> connect(String endpoint) =>
+      _adbClient.connect(endpoint);
+
+  Future<AdbCommandResult> disconnect([String? endpoint]) =>
+      _adbClient.disconnect(endpoint);
+
+  Future<AdbCommandResult> reboot({String? serial, String? mode}) =>
+      _clientForSerial(serial).reboot(mode);
+
+  Future<AdbCommandResult> root({String? serial}) =>
+      _clientForSerial(serial).root();
+
+  Future<AdbCommandResult> remount({String? serial}) =>
+      _clientForSerial(serial).remount();
 
   // ── 内部 ───────────────────────────────────────────────────────────────
 
   void _scheduleRefresh() {
-    unawaited(_refreshDevices().catchError((Object e, StackTrace st) {
-      silentLog(_kTag, '_scheduleRefresh', e, st);
-    }));
+    unawaited(
+      _refreshDevices().catchError((Object e, StackTrace st) {
+        silentLog(_kTag, '_scheduleRefresh', e, st);
+      }),
+    );
   }
 
   Future<void> _refreshDevices() async {
