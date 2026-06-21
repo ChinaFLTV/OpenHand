@@ -23,6 +23,7 @@ import '../../tools/planning/ai_task_tool.dart';
 import '../bash/ai_bash_tool_service.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../hook/ai_claude_hook_service.dart';
+import '../mcp_bridge/android_reverse_mcp_tool_policy.dart';
 import '../mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_plan_mode_guidance.dart';
@@ -2542,19 +2543,12 @@ class AiPromptBuilder {
   List<String> _androidReverseMcpToolNames(
     Map<String, AiResolvedTool> resolvedToolsByName,
   ) {
-    final names = <String>[];
-    for (final entry in resolvedToolsByName.entries) {
-      final tool = entry.value;
-      if (tool.source != AiRuntimeToolSource.mcp) continue;
-      final name = entry.key.trim();
-      final lower = name.toLowerCase();
-      if (lower.contains('adb') ||
-          lower.contains('android') ||
-          lower.contains('frida') ||
-          lower.contains('ida')) {
-        names.add(name);
-      }
-    }
+    final names = AndroidReverseMcpToolPolicy.forceVisibleToolNames(
+      AiResolvedToolCatalog(
+        definitions: const <AiToolDefinition>[],
+        toolsByName: resolvedToolsByName,
+      ),
+    ).toList();
     names.sort();
     return names;
   }

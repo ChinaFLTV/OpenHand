@@ -47,6 +47,7 @@ import 'service/dsml/ai_dsml_partial_stream_scanner.dart';
 import 'service/dsml/ai_dsml_tool_call_parser.dart';
 import 'service/fs/ai_attachment_service.dart';
 import 'service/hook/ai_claude_hook_service.dart';
+import 'service/mcp_bridge/android_reverse_mcp_tool_policy.dart';
 import 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 import 'service/mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import 'service/media/ai_image_summary_extractor.dart';
@@ -6449,6 +6450,12 @@ class AiSessionController extends ChangeNotifier {
     if (webReverseRuntime != null && webReverseRuntime.isNotEmpty) {
       metadata['web_reverse_runtime'] = webReverseRuntime;
     }
+    final androidReverseRuntime =
+        _metadataMap(promptMetadata['android_reverse_runtime']) ??
+        _metadataMap(session.lastPromptMetadata['android_reverse_runtime']);
+    if (androidReverseRuntime != null && androidReverseRuntime.isNotEmpty) {
+      metadata['android_reverse_runtime'] = androidReverseRuntime;
+    }
     return metadata;
   }
 
@@ -7158,10 +7165,13 @@ class AiSessionController extends ChangeNotifier {
     required AiResolvedToolCatalog catalog,
   }) {
     final templatePolicy = AiPromptTemplatePolicies.resolve(session.templateId);
-    if (!templatePolicy.includesWebReverseRuntime) {
-      return const <String>{};
+    if (templatePolicy.usesWebReverseToolCatalog) {
+      return WebReverseMcpToolPolicy.forceVisibleToolNames(catalog);
     }
-    return WebReverseMcpToolPolicy.forceVisibleToolNames(catalog);
+    if (templatePolicy.usesAndroidReverseToolCatalog) {
+      return AndroidReverseMcpToolPolicy.forceVisibleToolNames(catalog);
+    }
+    return const <String>{};
   }
 
   AiResolvedToolCatalog _toolCatalogForRound({
