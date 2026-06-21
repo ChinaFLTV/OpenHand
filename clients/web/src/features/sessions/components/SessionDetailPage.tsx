@@ -3442,6 +3442,8 @@ export function SessionDetailPage() {
     if (stopping) return;
     setStopping(true);
     const requestSessionId = sessionId;
+    const previousSendPhase = sendPhase;
+    updateSendPhaseValue('idle');
     try {
       const res = await stopMessage(requestSessionId);
       if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -3452,6 +3454,7 @@ export function SessionDetailPage() {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       if (handleAuthError(e)) return;
       if (handleSessionGoneError(e)) return;
+      updateSendPhaseValue(previousSendPhase || 'responding');
       updateLastErrorValue(e instanceof Error ? e.message : String(e));
     } finally {
       if (ownsSessionAsyncResult(requestSessionId)) {

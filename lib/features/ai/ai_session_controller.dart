@@ -702,6 +702,7 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
   final Map<String, Future<void>> _sessionOperationQueues =
       <String, Future<void>>{};
+  final Set<String> _sessionPendingSendOperationIds = <String>{};
   final Map<String, Future<AiSession?>> _sessionMessageHydrationTasks =
       <String, Future<AiSession?>>{};
   final Map<String, Future<AiSession?>> _sessionMessageWindowHydrationTasks =
@@ -1175,6 +1176,9 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     if (sendPhaseForSession(normalizedSessionId) != AiSendPhase.idle) {
+      return true;
+    }
+    if (_sessionPendingSendOperationIds.contains(normalizedSessionId)) {
       return true;
     }
     return stopSignal != null;
@@ -3489,7 +3493,10 @@ class AiSessionController extends ChangeNotifier {
     if (!stopSignal.isCompleted) {
       stopSignal.complete();
     }
+    _clearSessionSendPhase(sessionId);
+    _approvalPreviousPhases.remove(sessionId);
     _previewCancelledPendingToolCalls(sessionId);
+    notifyListeners();
     // 2026-05-09: 同时级联取消该 session 名下注册中心里所有正在执行的工具调用，
     // 让 Bash / 其他派生子进程能即刻收到 SIGTERM（500ms 后 SIGKILL）。
     // 这是会话级 cancel Future 的"硬件级"补充——前者只解开 Dart Future 等待，
@@ -3507,7 +3514,7 @@ class AiSessionController extends ChangeNotifier {
       }
       return;
     }
-    await cancelHandler().catchError((Object _, StackTrace stackTrace) {});
+    unawaited(cancelHandler().catchError((Object _, StackTrace stackTrace) {}));
   }
 
   Future<bool> sendMessage({
@@ -3542,11 +3549,14 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
 
+    _sessionPendingSendOperationIds.add(resolvedSessionId);
+    notifyListeners();
     return _enqueueSessionOperation(resolvedSessionId, () async {
       var session =
           await ensureSessionMessagesHydrated(resolvedSessionId) ??
           _sessionById(resolvedSessionId);
       if (session == null) {
+        _clearSessionExecutionState(resolvedSessionId);
         _setLastSendErrorMessage(
           resolvedSessionId,
           'No active session selected.',
@@ -3555,6 +3565,7 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       if (_sessionNeedsMessageHydration(session)) {
+        _clearSessionExecutionState(resolvedSessionId);
         _setLastSendErrorMessage(
           resolvedSessionId,
           'Session messages are still loading.',
@@ -3562,14 +3573,21 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return false;
       }
+      if (_isStopRequestedForSession(session.id)) {
+        _debugSessionLog(session.id, 'send_message_skipped_after_stop');
+        _clearSessionExecutionState(session.id);
+        notifyListeners();
+        return true;
+      }
 
       _debugSessionLog(
         session.id,
         'send_message_start model=${model.modelId} chars=${normalizedContent.length} attachments=${normalizedAttachmentPaths.length}',
       );
-      _setSessionSendPhase(session.id, AiSendPhase.sendingMessage);
+      _sessionPendingSendOperationIds.remove(session.id);
       _sessionCancelHandlers.remove(session.id);
       _sessionStopSignals[session.id] = Completer<void>();
+      _setSessionSendPhase(session.id, AiSendPhase.sendingMessage);
       _resetLastSendOutcome(session.id);
       _lastErrorMessage = null;
       notifyListeners();
@@ -3949,6 +3967,8 @@ class AiSessionController extends ChangeNotifier {
         _clearSessionExecutionState(resolvedSessionId);
         notifyListeners();
       }
+    }).whenComplete(() {
+      _sessionPendingSendOperationIds.remove(resolvedSessionId);
     });
   }
 
@@ -3998,6 +4018,7 @@ class AiSessionController extends ChangeNotifier {
     _sessionCancelHandlers.clear();
     _sessionStopSignals.clear();
     _sessionSendPhases.clear();
+    _sessionPendingSendOperationIds.clear();
     _approvalPreviousPhases.clear();
     for (final cancelHandler in cancelHandlers) {
       unawaited(
@@ -10242,6 +10263,10 @@ $tail''';
   }
 
   void _setSessionSendPhase(String sessionId, AiSendPhase phase) {
+    if (phase != AiSendPhase.idle && _isStopRequestedForSession(sessionId)) {
+      _debugSessionLog(sessionId, 'phase_ignored_after_stop=$phase');
+      return;
+    }
     _debugSessionLog(sessionId, 'phase=$phase');
     _sessionSendPhases[sessionId] = phase;
   }
@@ -10273,6 +10298,7 @@ $tail''';
   void _clearSessionExecutionState(String sessionId) {
     _debugSessionLog(sessionId, 'execution_state_cleared');
     _clearSessionSendPhase(sessionId);
+    _sessionPendingSendOperationIds.remove(sessionId);
     _approvalPreviousPhases.remove(sessionId);
     _sessionCancelHandlers.remove(sessionId);
     _sessionStopSignals.remove(sessionId);

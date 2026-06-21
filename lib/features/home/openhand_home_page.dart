@@ -203,6 +203,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // tap action instead of toggling the mode off.
   bool _autoFollowPaused = false;
   String? _submittingSessionId;
+  int _submissionSerial = 0;
+  final Map<String, int> _activeSubmissionSerialsBySessionId = <String, int>{};
+  final Map<String, int> _locallyStoppedSubmissionSerialsBySessionId =
+      <String, int>{};
   bool _shouldAutoFollowMessages = true;
   bool _pendingForcedScrollToBottom = false;
   bool _queuedForcedScrollToBottom = false;
@@ -529,6 +533,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (sessionId == null) {
       return AiSendPhase.idle;
     }
+    final activeSubmissionSerial =
+        _activeSubmissionSerialsBySessionId[sessionId];
+    if (activeSubmissionSerial != null &&
+        _locallyStoppedSubmissionSerialsBySessionId[sessionId] ==
+            activeSubmissionSerial) {
+      return AiSendPhase.idle;
+    }
     final controllerPhase = sessionController.sendPhaseForSession(sessionId);
     if (controllerPhase != AiSendPhase.idle) {
       return controllerPhase;
@@ -549,9 +560,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   bool _canStopCurrentSessionResponse(AiSessionController sessionController) {
-    return sessionController.canStopResponding(
-      sessionController.currentSessionId,
-    );
+    final sessionId = sessionController.currentSessionId;
+    if (sessionId == null) {
+      return false;
+    }
+    return sessionController.canStopResponding(sessionId) ||
+        _submittingSessionId == sessionId ||
+        _activeSubmissionSerialsBySessionId.containsKey(sessionId);
   }
 
   Map<String, AiSendPhase> _navigationSendPhases(
@@ -4739,6 +4754,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ? _visibleUserMessageCount(initialSession)
         : 0;
     final editingMessageIdBeforeSend = sessionController.editingMessageId;
+    _submissionSerial += 1;
+    final submissionSerial = _submissionSerial;
+    _activeSubmissionSerialsBySessionId[targetSessionId] = submissionSerial;
+    _locallyStoppedSubmissionSerialsBySessionId.remove(targetSessionId);
 
     _storeComposerDraftForSession(
       targetSessionId,
@@ -4752,6 +4771,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _armAutoFollowToBottom(notifyPausedState: false);
     });
     _scheduleScrollToBottom(force: true);
+    bool submissionWasStopped() =>
+        _locallyStoppedSubmissionSerialsBySessionId[targetSessionId] ==
+        submissionSerial;
     try {
       final submitPreflightTimingsMs = <String, int>{
         ...callerPreflightTimingsMs,
@@ -4769,6 +4791,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             runtimeContextStopwatch.elapsedMilliseconds;
       }
       if (!mounted) {
+        return;
+      }
+      if (submissionWasStopped()) {
+        if (_shouldRestoreSubmittedPrompt(
+          sessionController: sessionController,
+          sessionId: targetSessionId,
+          prompt: prompt,
+          initialUserMessageCount: initialUserMessageCount,
+          editingMessageId: editingMessageIdBeforeSend,
+        )) {
+          _restoreSubmittedDraft(
+            sessionController,
+            sessionId: targetSessionId,
+            prompt: prompt,
+            attachments: pendingAttachments,
+            creationRequest: creationRequest,
+          );
+        }
         return;
       }
       final sent = await sessionController.sendMessage(
@@ -4803,6 +4843,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (!sent) {
+        if (submissionWasStopped()) {
+          if (_shouldRestoreSubmittedPrompt(
+            sessionController: sessionController,
+            sessionId: targetSessionId,
+            prompt: prompt,
+            initialUserMessageCount: initialUserMessageCount,
+            editingMessageId: editingMessageIdBeforeSend,
+          )) {
+            _restoreSubmittedDraft(
+              sessionController,
+              sessionId: targetSessionId,
+              prompt: prompt,
+              attachments: pendingAttachments,
+              creationRequest: creationRequest,
+            );
+          }
+          return;
+        }
         if (_shouldRestoreSubmittedPrompt(
           sessionController: sessionController,
           sessionId: targetSessionId,
@@ -4874,14 +4932,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
       }
     } finally {
+      final isActiveSubmission =
+          _activeSubmissionSerialsBySessionId[targetSessionId] ==
+          submissionSerial;
+      if (isActiveSubmission) {
+        _activeSubmissionSerialsBySessionId.remove(targetSessionId);
+        if (_locallyStoppedSubmissionSerialsBySessionId[targetSessionId] ==
+            submissionSerial) {
+          _locallyStoppedSubmissionSerialsBySessionId.remove(targetSessionId);
+        }
+      }
       if (mounted) {
         setState(() {
-          if (_submittingSessionId == targetSessionId) {
+          if (isActiveSubmission && _submittingSessionId == targetSessionId) {
             _submittingSessionId = null;
           }
         });
         _processMessageQueueIfNeeded(sessionController);
-      } else if (_submittingSessionId == targetSessionId) {
+      } else if (isActiveSubmission &&
+          _submittingSessionId == targetSessionId) {
         _submittingSessionId = null;
       }
     }
@@ -5277,7 +5346,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (sessionId == null) {
       return;
     }
-    await sessionController.stopResponding(sessionId);
+    final activeSubmissionSerial =
+        _activeSubmissionSerialsBySessionId[sessionId];
+    if (_submittingSessionId == sessionId || activeSubmissionSerial != null) {
+      if (activeSubmissionSerial != null) {
+        _locallyStoppedSubmissionSerialsBySessionId[sessionId] =
+            activeSubmissionSerial;
+      }
+      if (mounted) {
+        setState(() {
+          if (_submittingSessionId == sessionId) {
+            _submittingSessionId = null;
+          }
+        });
+      } else {
+        _submittingSessionId = null;
+      }
+    }
+    unawaited(
+      sessionController.stopResponding(sessionId).catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        silentLog('openhand_home_page', 'stop responding', error, stackTrace);
+      }),
+    );
   }
 
   void _scheduleScrollToBottom({
@@ -5787,7 +5880,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final currentSessionId = sessionController.currentSessionId;
         final hasActiveResponse =
             currentSessionId != null &&
-            sessionController.canStopResponding(currentSessionId);
+            _canStopCurrentSessionResponse(sessionController);
         if (!hasActiveResponse) {
           _showHomeSnackBar(
             context,
