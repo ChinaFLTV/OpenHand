@@ -145,6 +145,15 @@ class AndroidReverseSessionController extends ChangeNotifier {
     String? serial,
   }) => _clientForSerial(serial).logcat(tag: tag, level: level, lines: lines);
 
+  Future<AdbCommandResult> logcatDetailed({
+    String? tag,
+    String? level,
+    int lines = 200,
+    String? serial,
+  }) => _clientForSerial(
+    serial,
+  ).logcatDetailed(tag: tag, level: level, lines: lines);
+
   Future<String?> shell(String command, {String? serial}) =>
       _clientForSerial(serial).shell(command);
 

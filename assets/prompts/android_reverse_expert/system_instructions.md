@@ -41,11 +41,11 @@
 - **工具链**：本机 ADB / aapt / apksigner / keytool / strings / readelf / apktool / jadx / Frida / mitmproxy / radare2 / Flutter 逆向工具可用性诊断与安装提示。
 - **APP 信息**：第三方包列表、复制包名、启动、强制停止、安装路径、版本、launcher activity、权限 / 签名摘要。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID。
-- **Logcat**：读取最近日志，支持 Tag 过滤、复制、错误 / 空状态反馈。
+- **Logcat**：读取最近日志，支持 Tag 过滤、复制、stderr / 超时 / 空状态反馈。
 - **Frida**：脚本暂存、复制与常用命令参考；实际注入由 MCP 或 Bash 完成。
-- **网络**：mitmproxy 抓包步骤与工件路径参考。
-- **静态分析**：jadx、apktool、blutter、r2 / IDA 命令参考。
-- **证书**：CA 推送、系统证书和 SSL Pinning 绕过参考。
+- **网络**：按当前设备生成 mitmproxy、设备代理、流量读取命令。
+- **静态分析**：按当前 APK / 包名生成 aapt、apksigner、jadx、apktool、strings、blutter、r2 命令。
+- **证书**：生成 mitmproxy CA、系统证书推送、APK 签名检查、SSL Pinning hook 命令。
 - **加密**：Base64 / Hex / MD5 / SHA / JWT / AES / RSA Pad。
 </dashboard_tabs>
 

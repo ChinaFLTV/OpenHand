@@ -387,28 +387,44 @@ class _AndroidReverseDashboardDialogState
     });
     try {
       final tag = _logcatFilterCtrl.text.trim();
-      final raw = await _ctrl.logcat(
+      final result = await _ctrl.logcatDetailed(
         lines: _kDefaultLogcatLines,
         tag: tag.isEmpty ? null : tag,
         serial: _targetSerial,
       );
       if (mounted) {
-        final lines = (raw ?? '')
+        final lines = result.stdout
             .split('\n')
             .map((line) => line.trimRight())
             .where((line) => line.trim().isNotEmpty)
             .toList(growable: false);
+        final err = result.stderr.trim();
+        final isZh = openHandIsChineseLocale(context);
         setState(() {
           _logcatLines
             ..clear()
             ..addAll(lines);
-          _logcatError = lines.isEmpty
-              ? (openHandIsChineseLocale(context)
-                    ? '没有读取到 Logcat 输出。请确认设备在线，或清空 Tag 过滤后重试。'
-                    : 'No Logcat output was read. Check the device or clear the tag filter and retry.')
-              : null;
+          if (lines.isNotEmpty && result.timedOut) {
+            _logcatError = isZh
+                ? 'Logcat 读取超时，已展示可用输出。'
+                : 'Logcat timed out; usable output is shown.';
+          } else if (lines.isNotEmpty) {
+            _logcatError = null;
+          } else if (err.isNotEmpty) {
+            _logcatError = err;
+          } else {
+            _logcatError = isZh
+                ? '没有读取到 Logcat 输出。请确认设备在线，或清空 Tag 过滤后重试。'
+                : 'No Logcat output was read. Check the device or clear the tag filter and retry.';
+          }
         });
       }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _logcatLines.clear();
+        _logcatError = '$error';
+      });
     } finally {
       if (mounted) setState(() => _loadingLogcat = false);
     }
@@ -2012,6 +2028,15 @@ class _AndroidReverseDashboardDialogState
                   onSubmitted: (_) => _fetchLogcat(),
                 ),
               ),
+              if (_logcatError != null && _logcatLines.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _InfoCard(
+                  cs: cs,
+                  theme: theme,
+                  icon: Icons.info_outline_rounded,
+                  text: _logcatError!,
+                ),
+              ],
             ],
           ),
         ),
@@ -2180,10 +2205,11 @@ class _AndroidReverseDashboardDialogState
   // ── Network tab ─────────────────────────────────────────────────────────
 
   Widget _buildNetworkTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final networkDir = '${_ctrl.artifactsRootDir}/network';
+    final adb = _adbCommandPrefix();
+    return OpenHandSafeScrollbar(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
           Text(
             isZh ? '网络抓包 (mitmproxy)' : 'Network capture (mitmproxy)',
@@ -2201,35 +2227,45 @@ class _AndroidReverseDashboardDialogState
                 : 'Traffic is intercepted by mitmproxy. Install the CA cert in the Certs tab, configure the device proxy to <host IP>:8080, then start mitmdump.',
           ),
           const SizedBox(height: 12),
-          Text(
-            isZh ? 'mitmdump 快速启动' : 'mitmdump quick start',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _monospaceCard(
+          _commandCard(
             cs,
-            'mitmdump -p 8080 -w flows.mitm\n'
-            '# 读取保存的流量\n'
-            'mitmproxy -r flows.mitm',
+            theme,
+            isZh,
+            title: isZh ? '启动抓包' : 'Start capture',
+            command:
+                'mkdir -p ${_shellQuote(networkDir)}\n'
+                'mitmdump -p 8080 -w ${_shellQuote('$networkDir/flows.mitm')}',
           ),
-          const SizedBox(height: 12),
-          Text(
-            isZh ? '本地工件目录' : 'Local artifacts',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '设备代理' : 'Device proxy',
+            command:
+                '$adb shell settings put global http_proxy <host-ip>:8080\n'
+                '$adb shell settings get global http_proxy\n'
+                '$adb shell settings delete global http_proxy',
           ),
-          const SizedBox(height: 4),
-          Text(
-            '~/.openhand/android_reverse/sessions/${widget.sessionId}/network.jsonl',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              color: cs.onSurface,
-            ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '读取抓包文件' : 'Read saved flows',
+            command:
+                'mitmproxy -r ${_shellQuote('$networkDir/flows.mitm')}\n'
+                '# ${isZh ? "建议同时保存结构化摘要" : "Recommended structured summary"}\n'
+                'mitmdump -nr ${_shellQuote('$networkDir/flows.mitm')} > ${_shellQuote('$networkDir/flows.txt')}',
+          ),
+          const SizedBox(height: 10),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.folder_rounded,
+            text:
+                '${isZh ? "本地工件目录" : "Local artifacts"}: $networkDir\n'
+                'network.jsonl',
           ),
         ],
       ),
@@ -2239,10 +2275,12 @@ class _AndroidReverseDashboardDialogState
   // ── Static analysis tab ─────────────────────────────────────────────────
 
   Widget _buildStaticTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final apk = _apkCommandTarget();
+    final packageSlug = _safeArtifactName(_packageCommandTarget());
+    final decompiledDir = '${_ctrl.artifactsRootDir}/decompiled/$packageSlug';
+    return OpenHandSafeScrollbar(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
           Text(
             isZh ? '静态分析工具参考' : 'Static analysis reference',
@@ -2251,61 +2289,56 @@ class _AndroidReverseDashboardDialogState
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            isZh ? 'jadx 反编译' : 'jadx decompile',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          _monospaceCard(
+          _commandCard(
             cs,
-            'jadx -d out_dir app.apk\n'
-            'grep -r "sign\\|encrypt\\|token" out_dir/',
+            theme,
+            isZh,
+            title: isZh ? 'APK 身份与签名' : 'APK identity and signing',
+            command:
+                'aapt dump badging $apk | head -40\n'
+                'apksigner verify --print-certs $apk',
           ),
-          const SizedBox(height: 12),
-          Text(
-            isZh ? 'apktool 解包 + smali' : 'apktool unpack + smali',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          _monospaceCard(
+          const SizedBox(height: 10),
+          _commandCard(
             cs,
-            'apktool d app.apk -o out_dir\n'
-            'grep -r "invoke-virtual.*sign" out_dir/smali/',
+            theme,
+            isZh,
+            title: isZh ? 'jadx 反编译' : 'jadx decompile',
+            command:
+                'mkdir -p ${_shellQuote('$decompiledDir/jadx')}\n'
+                'jadx -d ${_shellQuote('$decompiledDir/jadx')} $apk\n'
+                'grep -RInE "sign|encrypt|token|https?://" ${_shellQuote('$decompiledDir/jadx')} | head -200',
           ),
-          const SizedBox(height: 12),
-          Text(
-            isZh ? 'Flutter/Dart AOT (blutter)' : 'Flutter/Dart AOT (blutter)',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          _monospaceCard(
+          const SizedBox(height: 10),
+          _commandCard(
             cs,
-            'blutter libapp.so out_dir/\n'
-            '# 查看 Doldrums 或 blutter 输出的 asm.txt',
+            theme,
+            isZh,
+            title: isZh ? 'apktool 解包 + smali' : 'apktool unpack + smali',
+            command:
+                'apktool d -f $apk -o ${_shellQuote('$decompiledDir/apktool')}\n'
+                'grep -RInE "invoke-.*(sign|encrypt)|https?://" ${_shellQuote('$decompiledDir/apktool/smali')} | head -200',
           ),
-          const SizedBox(height: 12),
-          Text(
-            isZh ? 'radare2 / IDA Pro' : 'radare2 / IDA Pro',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          _monospaceCard(
+          const SizedBox(height: 10),
+          _commandCard(
             cs,
-            'r2 lib/arm64-v8a/libxxx.so\n'
-            'aaa; afl | grep <keyword>\n'
-            '# IDA Pro MCP 可通过 AI 直接调用',
+            theme,
+            isZh,
+            title: isZh ? '字符串快速定位' : 'Fast string scan',
+            command:
+                'unzip -p $apk "classes*.dex" | strings | grep -Ei "https?://|sign|encrypt|token" | head -200\n'
+                'unzip -l $apk | grep -E "\\.so\$|assets/"',
+          ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? 'Flutter / Native' : 'Flutter / Native',
+            command:
+                'blutter libapp.so ${_shellQuote('$decompiledDir/blutter')}\n'
+                'readelf -Ws lib/arm64-v8a/libxxx.so | grep -Ei "sign|encrypt|ssl|http"\n'
+                'r2 -A lib/arm64-v8a/libxxx.so',
           ),
         ],
       ),
@@ -2315,10 +2348,12 @@ class _AndroidReverseDashboardDialogState
   // ── Certs tab ────────────────────────────────────────────────────────────
 
   Widget _buildCertsTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final adb = _adbCommandPrefix();
+    final apk = _apkCommandTarget();
+    final pkg = _packageCommandTarget();
+    return OpenHandSafeScrollbar(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
           Text(
             isZh ? '证书管理与 SSL Pinning' : 'Certificate management & SSL Pinning',
@@ -2336,36 +2371,47 @@ class _AndroidReverseDashboardDialogState
                 : 'HTTPS capture requires the device to trust the mitmproxy/Burp CA. Android 7+ needs system-level certs (root/Magisk) or Network Security Config for user certs.',
           ),
           const SizedBox(height: 12),
-          Text(
-            isZh ? '推送用户 CA 证书' : 'Push user CA cert',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          _monospaceCard(
+          _commandCard(
             cs,
-            '# 生成 mitmproxy CA 证书哈希文件名\n'
-            'openssl x509 -inform PEM -subject_hash_old \\\n'
-            '  -in ~/.mitmproxy/mitmproxy-ca-cert.pem | head -1\n'
-            '# 推送到系统证书目录（需 root）\n'
-            'adb push <hash>.0 /system/etc/security/cacerts/\n'
-            'adb shell chmod 644 /system/etc/security/cacerts/<hash>.0',
+            theme,
+            isZh,
+            title: isZh ? '准备 mitmproxy CA' : 'Prepare mitmproxy CA',
+            command:
+                'CERT=~/.mitmproxy/mitmproxy-ca-cert.pem\n'
+                'HASH=\$(openssl x509 -inform PEM -subject_hash_old -in "\$CERT" | head -1)\n'
+                'cp "\$CERT" "\$HASH.0"\n'
+                'openssl x509 -inform PEM -in "\$CERT" -noout -subject -issuer -dates',
           ),
-          const SizedBox(height: 12),
-          Text(
-            isZh ? 'SSL Pinning 绕过（Frida hook）' : 'SSL Pinning bypass (Frida)',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          _monospaceCard(
+          const SizedBox(height: 10),
+          _commandCard(
             cs,
-            '# 使用 snippets/hook_ssl_pinning.js\n'
-            'frida -U -f <pkg> -l hook_ssl_pinning.js',
+            theme,
+            isZh,
+            title: isZh ? '推送系统 CA（需 root）' : 'Push system CA (root required)',
+            command:
+                '$adb root\n'
+                '$adb remount\n'
+                '$adb push "\$HASH.0" /system/etc/security/cacerts/\n'
+                '$adb shell chmod 644 /system/etc/security/cacerts/"\$HASH.0"\n'
+                '$adb shell ls -l /system/etc/security/cacerts/"\$HASH.0"',
+          ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '检查 APK 签名证书' : 'Inspect APK signing cert',
+            command: 'apksigner verify --print-certs $apk',
+          ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? 'SSL Pinning 绕过' : 'SSL Pinning bypass',
+            command:
+                '# 使用 assets/prompts/android_reverse_expert/snippets/hook_ssl_pinning.js\n'
+                'frida -U -f $pkg -l assets/prompts/android_reverse_expert/snippets/hook_ssl_pinning.js',
           ),
         ],
       ),
@@ -2462,6 +2508,63 @@ class _AndroidReverseDashboardDialogState
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
+  Widget _commandCard(
+    ColorScheme cs,
+    ThemeData theme,
+    bool isZh, {
+    required String title,
+    required String command,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.65)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 15),
+                tooltip: isZh ? '复制命令' : 'Copy command',
+                onPressed: () => _copyText(command),
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 30,
+                  height: 30,
+                ),
+              ),
+            ],
+          ),
+          SelectableText(
+            command,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: cs.onSurface,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _monospaceCard(ColorScheme cs, String text) {
     return Container(
       width: double.infinity,
@@ -2490,6 +2593,41 @@ class _AndroidReverseDashboardDialogState
     } catch (_) {
       return base64Encode(utf8.encode(input));
     }
+  }
+
+  String _adbCommandPrefix() {
+    final serial = _targetSerial?.trim();
+    if (serial == null || serial.isEmpty) return 'adb';
+    return 'adb -s ${_shellQuote(serial)}';
+  }
+
+  String _packageCommandTarget() {
+    final selected = _selectedPackageName?.trim();
+    if (selected != null && selected.isNotEmpty) return selected;
+    final configured = _ctrl.config.packageName?.trim();
+    if (configured != null && configured.isNotEmpty) return configured;
+    return '<pkg>';
+  }
+
+  String _apkCommandTarget() {
+    final apkPath = _ctrl.config.apkPath?.trim();
+    if (apkPath == null || apkPath.isEmpty) return '<app.apk>';
+    return _shellQuote(apkPath);
+  }
+
+  String _safeArtifactName(String value) {
+    final cleaned = value
+        .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return cleaned.isEmpty || cleaned == 'pkg' ? 'app' : cleaned;
+  }
+
+  String _shellQuote(String value) {
+    if (RegExp(r'^[A-Za-z0-9_./:@%+=,-]+$').hasMatch(value)) {
+      return value;
+    }
+    return "'${value.replaceAll("'", "'\"'\"'")}'";
   }
 }
 

@@ -357,13 +357,24 @@ class AndroidReverseAdbClient {
 
   /// 拉取最近 [lines] 行 logcat（非流式）。
   Future<String?> logcat({String? tag, String? level, int lines = 200}) async {
+    final result = await logcatDetailed(tag: tag, level: level, lines: lines);
+    if (result.timedOut && !result.hasUsableStdout) return null;
+    if (!result.ok && !result.hasUsableStdout) return null;
+    return result.stdout.trim();
+  }
+
+  Future<AdbCommandResult> logcatDetailed({
+    String? tag,
+    String? level,
+    int lines = 200,
+  }) {
     final filter = <String>[];
     if (tag != null && tag.trim().isNotEmpty) {
       filter
         ..add('${tag.trim()}:${level ?? 'V'}')
         ..add('*:S');
     }
-    return _runDevice(<String>[
+    return _runDeviceDetailed(<String>[
       'logcat',
       '-d',
       '-t',
