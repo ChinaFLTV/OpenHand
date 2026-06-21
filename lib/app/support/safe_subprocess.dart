@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
 import 'silent_log.dart';
@@ -490,6 +491,121 @@ Future<ProcessResult> runTrackedProcessOrFailed(
     includeParentEnvironment: includeParentEnvironment,
   );
   return r ?? ProcessResult(-1, -1, '', '');
+}
+
+/// Runs a short-lived process with optional stdin bytes, bounded stdout/stderr
+/// capture, and a hard timeout that kills the child on expiry.
+///
+/// Use this for OS helpers such as `pbcopy` / `pbpaste` where callers need
+/// byte-accurate input or output.  It intentionally returns raw [Uint8List]
+/// values in [ProcessResult.stdout] / [ProcessResult.stderr].
+Future<ProcessResult?> runBinaryProcessWithTimeout(
+  String executable,
+  List<String> arguments, {
+  List<int> stdinBytes = const <int>[],
+  Duration timeout = const Duration(seconds: 4),
+  int maxStdoutBytes = 1024 * 1024,
+  int maxStderrBytes = 64 * 1024,
+  String tag = 'safe_subprocess.binary',
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
+}) async {
+  Process? process;
+  StreamSubscription<List<int>>? stdoutSub;
+  StreamSubscription<List<int>>? stderrSub;
+  final stdoutDone = Completer<void>();
+  final stderrDone = Completer<void>();
+  final stdoutBytes = BytesBuilder(copy: false);
+  final stderrBytes = BytesBuilder(copy: false);
+
+  void completeIfNeeded(Completer<void> completer) {
+    if (!completer.isCompleted) completer.complete();
+  }
+
+  void collectLimited(BytesBuilder builder, List<int> chunk, int maxBytes) {
+    if (maxBytes <= 0 || builder.length >= maxBytes) return;
+    final remaining = maxBytes - builder.length;
+    if (chunk.length <= remaining) {
+      builder.add(chunk);
+    } else {
+      builder.add(chunk.sublist(0, remaining));
+    }
+  }
+
+  try {
+    process = await Process.start(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory,
+      environment: environment,
+      runInShell: runInShell,
+      includeParentEnvironment: includeParentEnvironment,
+    );
+    _registerTrackedChild(process);
+    stdoutSub = process.stdout.listen(
+      (chunk) => collectLimited(stdoutBytes, chunk, maxStdoutBytes),
+      onError: (_) => completeIfNeeded(stdoutDone),
+      onDone: () => completeIfNeeded(stdoutDone),
+      cancelOnError: true,
+    );
+    stderrSub = process.stderr.listen(
+      (chunk) => collectLimited(stderrBytes, chunk, maxStderrBytes),
+      onError: (_) => completeIfNeeded(stderrDone),
+      onDone: () => completeIfNeeded(stderrDone),
+      cancelOnError: true,
+    );
+
+    final stdinFuture = () async {
+      try {
+        if (stdinBytes.isNotEmpty) {
+          process?.stdin.add(stdinBytes);
+        }
+        await process?.stdin.flush();
+      } finally {
+        await process?.stdin.close();
+      }
+    }();
+
+    final exitCode =
+        await (() async {
+          await stdinFuture;
+          return process!.exitCode;
+        })().timeout(
+          timeout,
+          onTimeout: () {
+            process?.kill(ProcessSignal.sigkill);
+            return -1;
+          },
+        );
+    await stdoutDone.future.timeout(
+      const Duration(milliseconds: 200),
+      onTimeout: () {},
+    );
+    await stderrDone.future.timeout(
+      const Duration(milliseconds: 200),
+      onTimeout: () {},
+    );
+    if (exitCode == -1) return null;
+    return ProcessResult(
+      process.pid,
+      exitCode,
+      stdoutBytes.takeBytes(),
+      stderrBytes.takeBytes(),
+    );
+  } catch (error, stack) {
+    try {
+      process?.kill(ProcessSignal.sigkill);
+    } catch (killError, killStack) {
+      silentLog(tag, 'kill after failure', killError, killStack);
+    }
+    silentLog(tag, '$executable ${arguments.take(1).join(' ')}', error, stack);
+    return null;
+  } finally {
+    await stdoutSub?.cancel();
+    await stderrSub?.cancel();
+  }
 }
 
 /// 跨平台「拉起系统 GUI 应用打开 URL / 文件 / 目录」专用通道。

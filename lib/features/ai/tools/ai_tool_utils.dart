@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../service/bash/ai_bash_tool_service.dart';
@@ -28,6 +29,8 @@ class AiToolUtils {
   static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;
   static const int maxGeneratedTextPayloadCharacters = 10 * kBytesPerMiB;
   static const int maxMissingPathSuggestionScanEntries = 256;
+  static const Duration _metadataProcessTimeout = Duration(seconds: 2);
+  static const Duration _searchProcessTimeout = Duration(seconds: 30);
 
   static int _safeWriteArtifactCounter = 0;
   static final Map<String, Future<void>> _fileMutationLocks =
@@ -1168,10 +1171,12 @@ class AiToolUtils {
     final sourceStat = await FileStat.stat(sourceFile.path);
     if (sourceStat.type == FileSystemEntityType.notFound) return;
     final permissionBits = sourceStat.mode & 0x1FF;
-    final chmodResult = await Process.run('chmod', <String>[
-      permissionBits.toRadixString(8),
-      targetFile.path,
-    ]);
+    final chmodResult = await runTrackedProcessOrFailed(
+      'chmod',
+      <String>[permissionBits.toRadixString(8), targetFile.path],
+      timeout: _metadataProcessTimeout,
+      tag: 'ai_tool_utils.copy_file_mode',
+    );
     if (chmodResult.exitCode == 0) return;
     final message = '${chmodResult.stderr}'.trim();
     throw FileSystemException(
@@ -1313,7 +1318,7 @@ class AiToolUtils {
   /// 获取当前平台的 ripgrep 子目录名称。
   ///
   /// 返回格式：`{arch}-{os}`，例如 `arm64-darwin`、`x64-win32`。
-  static String _getRipgrepPlatformDir() {
+  static Future<String> _getRipgrepPlatformDir() async {
     final String os;
     if (Platform.isMacOS) {
       os = 'darwin';
@@ -1335,7 +1340,9 @@ class AiToolUtils {
       // macOS: 通过可执行文件路径或 uname 推断
       // Apple Silicon 通常在 arm64 目录，Intel 在 x86_64
       // 简化判断：如果路径包含 arm64 或 M1/M2/M3 系列，使用 arm64
-      if (executable.contains('arm64') || _isAppleSilicon()) {
+      final hostIsAppleSilicon =
+          executable.contains('arm64') || await _isAppleSilicon();
+      if (hostIsAppleSilicon) {
         arch = 'arm64';
       } else {
         arch = 'x64';
@@ -1362,21 +1369,31 @@ class AiToolUtils {
   }
 
   /// 检测是否为 Apple Silicon Mac。
-  static bool _isAppleSilicon() {
+  static Future<bool> _isAppleSilicon() async {
     // 环境变量:运行在 Rosetta 下的 x86_64 二进制,宿主为 Apple Silicon
     final sysctl = Platform.environment['SYSCTL_PROC_TRANSLATED'];
     if (sysctl == '1') return true;
 
-    // 首选:同步执行 `uname -m` 读取内核架构
+    // 首选:读取内核架构
     try {
-      final result = Process.runSync('uname', <String>['-m']);
+      final result = await runTrackedProcessOrFailed(
+        'uname',
+        <String>['-m'],
+        timeout: _metadataProcessTimeout,
+        tag: 'ai_tool_utils.detect_apple_silicon',
+      );
       if (result.exitCode == 0) {
         final machine = '${result.stdout}'.trim().toLowerCase();
         if (machine == 'arm64' || machine == 'aarch64') return true;
         if (machine == 'x86_64' || machine == 'i386') return false;
       }
-    } catch (_) {
-      // uname 不可用时回退到路径探测
+    } catch (error, stack) {
+      silentLog(
+        'ai_tool_utils',
+        'detect Apple Silicon via uname',
+        error,
+        stack,
+      );
     }
 
     // 回退:Homebrew 在 Apple Silicon 上默认安装到 /opt/homebrew
@@ -1390,7 +1407,7 @@ class AiToolUtils {
   /// 2. macOS 打包：应用包内的 Resources/vendor/ripgrep
   /// 3. Windows 打包：可执行文件同级的 vendor/ripgrep
   static Future<String?> _getEmbeddedRipgrepPath() async {
-    final platformDir = _getRipgrepPlatformDir();
+    final platformDir = await _getRipgrepPlatformDir();
     final rgName = Platform.isWindows ? 'rg.exe' : 'rg';
 
     // 候选路径列表
@@ -1464,12 +1481,31 @@ class AiToolUtils {
           try {
             final stat = await file.stat();
             // 检查是否有执行权限 (mode & 0x49 = owner/group/other execute)
-            if (stat.mode & 0x49 == 0) {
+            if ((stat.mode & 0x49) == 0) {
               // 尝试添加执行权限
-              await Process.run('chmod', <String>['+x', candidate]);
+              final chmodResult = await runTrackedProcessOrFailed(
+                'chmod',
+                <String>['+x', candidate],
+                timeout: _metadataProcessTimeout,
+                tag: 'ai_tool_utils.rg_chmod',
+              );
+              if (chmodResult.exitCode != 0) {
+                silentLog(
+                  'ai_tool_utils',
+                  'chmod embedded rg',
+                  'exit ${chmodResult.exitCode}: ${chmodResult.stderr}',
+                );
+                continue;
+              }
             }
-          } catch (_) {
-            // 忽略权限检查失败
+          } catch (error, stack) {
+            silentLog(
+              'ai_tool_utils',
+              'check embedded rg permission',
+              error,
+              stack,
+            );
+            continue;
           }
         }
         return candidate;
@@ -1506,7 +1542,7 @@ class AiToolUtils {
   ///
   /// 查找优先级：
   /// 1. **应用内嵌入的 rg**（确保无需用户预装）
-  /// 2. PATH 环境变量（通过 which 命令）
+  /// 2. PATH 环境变量（通过 which/where 命令）
   /// 3. 常见系统安装路径
   /// 4. macOS 登录 shell 环境
   ///
@@ -1524,7 +1560,12 @@ class AiToolUtils {
     // 2. 尝试从 PATH 环境变量查找（通过 which/where 命令）
     try {
       final whichCmd = Platform.isWindows ? 'where' : 'which';
-      final whichResult = await Process.run(whichCmd, <String>['rg']);
+      final whichResult = await runTrackedProcessOrFailed(
+        whichCmd,
+        <String>['rg'],
+        timeout: _metadataProcessTimeout,
+        tag: 'ai_tool_utils.resolve_rg_path',
+      );
       if (whichResult.exitCode == 0) {
         final foundPath = whichResult.stdout
             .toString()
@@ -1536,8 +1577,8 @@ class AiToolUtils {
           return _cachedRgPath;
         }
       }
-    } catch (_) {
-      // which/where 命令失败，继续尝试其他方式
+    } catch (error, stack) {
+      silentLog('ai_tool_utils', 'resolve rg via PATH', error, stack);
     }
 
     // 3. 直接检查常见系统安装路径（非 Windows）
@@ -1553,12 +1594,14 @@ class AiToolUtils {
     // 4. 尝试从登录 shell 获取环境变量（macOS）
     if (Platform.isMacOS) {
       try {
-        final shellResult = await Process.run(
+        final shellResult = await runTrackedProcessOrFailed(
           '/bin/zsh',
           <String>['-l', '-c', 'which rg'],
           environment: <String, String>{
             'HOME': Platform.environment['HOME'] ?? '',
           },
+          timeout: _metadataProcessTimeout,
+          tag: 'ai_tool_utils.resolve_rg_login_shell',
         );
         if (shellResult.exitCode == 0) {
           final foundPath = shellResult.stdout.toString().trim();
@@ -1567,8 +1610,8 @@ class AiToolUtils {
             return _cachedRgPath;
           }
         }
-      } catch (_) {
-        // 登录 shell 查找失败
+      } catch (error, stack) {
+        silentLog('ai_tool_utils', 'resolve rg via login shell', error, stack);
       }
     }
 
@@ -1594,14 +1637,25 @@ class AiToolUtils {
     List<String> args, {
     String? workingDirectory,
     bool inheritEnvironment = true,
+    Duration timeout = _searchProcessTimeout,
   }) async {
     try {
-      return await Process.run(
+      final result = await runProcessWithTimeout(
         executable,
         args,
         workingDirectory: workingDirectory,
-        environment: inheritEnvironment ? Platform.environment : null,
+        environment: inheritEnvironment ? null : const <String, String>{},
+        includeParentEnvironment: inheritEnvironment,
+        timeout: timeout,
+        tag: 'ai_tool_utils.run_process_safely',
       );
+      return result ??
+          ProcessResult(
+            -1,
+            124,
+            '',
+            'Process execution timed out or failed to start.',
+          );
     } on ProcessException catch (error) {
       return ProcessResult(
         0,

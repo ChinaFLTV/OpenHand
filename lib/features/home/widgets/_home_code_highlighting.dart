@@ -2897,6 +2897,10 @@ class _MermaidDiagramView extends StatefulWidget {
 
 class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   static const Duration _mermaidLoadTimeout = Duration(seconds: 60);
+  static const Duration _svgClipboardProcessTimeout = Duration(seconds: 2);
+  static const int _svgClipboardVerificationMinBytes = 64 * 1024;
+  static const int _svgClipboardVerificationMaxBytes = 16 * 1024 * 1024;
+  static const int _svgClipboardStderrMaxBytes = 8 * 1024;
 
   final GlobalKey _interactiveRegionKey = GlobalKey();
   WebViewController? _controller;
@@ -3452,15 +3456,21 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     // macOS 上 Flutter 的 Clipboard.setData / Pasteboard.writeText 在部分
     // 用户环境里会"静默"返回成功但剪贴板里没数据；先走 OS 原生 pbcopy，
     // 再回退到 Pasteboard / Clipboard.setData。
+    final svgBytes = _svgUtf8Bytes(svg);
     bool writeOk = false;
     String? writeMethod;
     if (Platform.isMacOS) {
       try {
-        final proc = await Process.start('pbcopy', const <String>[]);
-        proc.stdin.write(utf8.encode(svg));
-        await proc.stdin.flush();
-        await proc.stdin.close();
-        if (await proc.exitCode == 0) {
+        final result = await runBinaryProcessWithTimeout(
+          'pbcopy',
+          const <String>[],
+          stdinBytes: svgBytes,
+          timeout: _svgClipboardProcessTimeout,
+          maxStdoutBytes: 0,
+          maxStderrBytes: _svgClipboardStderrMaxBytes,
+          tag: 'home_code_highlighting.pbcopy',
+        );
+        if (result?.exitCode == 0) {
           writeOk = true;
           writeMethod = 'pbcopy';
         }
@@ -3504,7 +3514,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
     // 验证剪贴板（OS 通道 pbpaste 优先，Flutter 通道为辅），用以决定
     // snackbar 文案与是否提供"打开文件"按钮。
-    final verification = await _verifySvgClipboard(svg);
+    final verification = await _verifySvgClipboard(
+      expectedByteLength: svgBytes.length,
+    );
 
     // 始终把 SVG 写到 /tmp 临时文件，给用户一条不依赖剪贴板的可靠路径。
     String? savedPath;
@@ -3537,8 +3549,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           content: Text(
             _localizedText(
               context,
-              zh: 'SVG 已复制（${svg.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
-              en: 'SVG copied (${svg.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
+              zh: 'SVG 已复制（${svgBytes.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
+              en: 'SVG copied (${svgBytes.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
             ),
             maxLines: 4,
           ),
@@ -3553,8 +3565,8 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           content: Text(
             _localizedText(
               context,
-              zh: '剪贴板不可信：写 ${svg.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
-              en: 'Clipboard unreliable: wrote ${svg.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
+              zh: '剪贴板不可信：写 ${svgBytes.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
+              en: 'Clipboard unreliable: wrote ${svgBytes.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
             ),
             maxLines: 4,
           ),
@@ -3582,24 +3594,33 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
   }
 
-  Future<_SvgClipboardVerification> _verifySvgClipboard(String svg) async {
+  Future<_SvgClipboardVerification> _verifySvgClipboard({
+    required int expectedByteLength,
+  }) async {
     int pbpasteLen = 0;
     int pbpasteSvgOpenCount = 0;
     int pbpasteSvgCloseCount = 0;
     int flutterLen = 0;
     try {
-      final proc = await Process.start('pbpaste', const <String>[]);
-      final chunks = <int>[];
-      await for (final chunk in proc.stdout) {
-        chunks.addAll(chunk);
-      }
-      await proc.exitCode;
-      final bytes = Uint8List.fromList(chunks);
-      pbpasteLen = bytes.length;
-      if (pbpasteLen > 0) {
-        final text = utf8.decode(bytes, allowMalformed: true);
-        pbpasteSvgOpenCount = '<svg'.allMatches(text).length;
-        pbpasteSvgCloseCount = '</svg>'.allMatches(text).length;
+      final result = await runBinaryProcessWithTimeout(
+        'pbpaste',
+        const <String>[],
+        timeout: _svgClipboardProcessTimeout,
+        maxStdoutBytes: math.min(
+          math.max(expectedByteLength + 1, _svgClipboardVerificationMinBytes),
+          _svgClipboardVerificationMaxBytes,
+        ),
+        maxStderrBytes: _svgClipboardStderrMaxBytes,
+        tag: 'home_code_highlighting.pbpaste',
+      );
+      if (result?.exitCode == 0 && result?.stdout is Uint8List) {
+        final bytes = result!.stdout as Uint8List;
+        pbpasteLen = bytes.length;
+        if (pbpasteLen > 0) {
+          final text = utf8.decode(bytes, allowMalformed: true);
+          pbpasteSvgOpenCount = '<svg'.allMatches(text).length;
+          pbpasteSvgCloseCount = '</svg>'.allMatches(text).length;
+        }
       }
     } catch (error, stack) {
       silentLog(
@@ -3621,7 +3642,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       );
     }
     final osLayerOk =
-        pbpasteLen == svg.length &&
+        pbpasteLen == expectedByteLength &&
         pbpasteSvgOpenCount == 1 &&
         pbpasteSvgCloseCount == 1;
     return _SvgClipboardVerification(

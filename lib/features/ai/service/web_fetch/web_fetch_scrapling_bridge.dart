@@ -493,7 +493,7 @@ class WebFetchScraplingBridge {
       yield event;
     }
 
-    final tlsBundle = _detectTlsBundle(attempt);
+    final tlsBundle = await _detectTlsBundle(attempt);
     if (!attempt.succeeded && tlsBundle != null) {
       yield WebFetchScraplingRuntimeEvent(
         type: WebFetchScraplingRuntimeEventType.status,
@@ -665,10 +665,10 @@ class WebFetchScraplingBridge {
     }
   }
 
-  String? _detectTlsBundle(_RuntimeAttemptResult result) {
+  Future<String?> _detectTlsBundle(_RuntimeAttemptResult result) async {
     final combined = '${result.stdout}\n${result.stderr}'.toLowerCase();
     if (!combined.contains('certificate_verify_failed')) return null;
-    final certifi = _probeCertifiBundle();
+    final certifi = await _probeCertifiBundle();
     if (certifi != null && File(certifi).existsSync()) return certifi;
     for (final candidate in <String>[
       '/etc/ssl/cert.pem',
@@ -681,12 +681,14 @@ class WebFetchScraplingBridge {
     return null;
   }
 
-  String? _probeCertifiBundle() {
+  Future<String?> _probeCertifiBundle() async {
     try {
-      final result = Process.runSync('python3', const <String>[
-        '-c',
-        'import certifi; print(certifi.where())',
-      ]);
+      final result = await runTrackedProcessOrFailed(
+        'python3',
+        const <String>['-c', 'import certifi; print(certifi.where())'],
+        timeout: const Duration(seconds: 2),
+        tag: 'web_fetch_scrapling_bridge.probe_certifi',
+      );
       if (result.exitCode == 0) {
         final value = '${result.stdout}'.trim();
         return value.isEmpty ? null : value;
@@ -736,7 +738,19 @@ class WebFetchScraplingBridge {
     await file.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
     if (!Platform.isWindows) {
       try {
-        await Process.run('chmod', <String>['700', file.path]);
+        final result = await runTrackedProcessOrFailed(
+          'chmod',
+          <String>['700', file.path],
+          timeout: const Duration(seconds: 2),
+          tag: 'web_fetch_scrapling_bridge.chmod_helper',
+        );
+        if (result.exitCode != 0) {
+          silentLog(
+            'web_fetch_scrapling_bridge',
+            'chmod helper',
+            'exit ${result.exitCode}: ${result.stderr}',
+          );
+        }
       } catch (error, stack) {
         silentLog('web_fetch_scrapling_bridge', 'chmod helper', error, stack);
       }

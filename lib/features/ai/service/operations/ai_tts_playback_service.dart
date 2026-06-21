@@ -905,10 +905,12 @@ class AiTtsPlaybackService {
 
   Future<Set<String>> _loadMacOsVoiceNames() async {
     try {
-      final result = await Process.run('say', const <String>[
-        '-v',
-        '?',
-      ]).timeout(const Duration(seconds: 2));
+      final result = await runTrackedProcessOrFailed(
+        'say',
+        const <String>['-v', '?'],
+        timeout: const Duration(seconds: 2),
+        tag: 'ai_tts.load_voices',
+      );
       if (result.exitCode != 0) return const <String>{};
       final output = '${result.stdout}';
       return output

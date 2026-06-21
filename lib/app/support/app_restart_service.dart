@@ -5,10 +5,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
 const Duration _kRelaunchDelay = Duration(milliseconds: 1800);
 const Duration _kExitRequestTimeout = Duration(seconds: 3);
+const Duration _kRelaunchChmodTimeout = Duration(seconds: 2);
 
 typedef AppRestartProcessStarter =
     Future<Process> Function(
@@ -144,7 +146,21 @@ class AppRestartService {
     try {
       await script.writeAsString(scriptBody, flush: true);
       if (!_isWindows) {
-        await Process.run('/bin/chmod', <String>['700', script.path]);
+        final chmodResult = await runTrackedProcessOrFailed(
+          '/bin/chmod',
+          <String>['700', script.path],
+          timeout: _kRelaunchChmodTimeout,
+          tag: 'app_restart.chmod_relaunch_script',
+        );
+        if (chmodResult.exitCode != 0) {
+          final message = '${chmodResult.stderr}'.trim();
+          throw FileSystemException(
+            message.isEmpty
+                ? 'Unable to mark relaunch helper executable.'
+                : message,
+            script.path,
+          );
+        }
       }
       await _startDetachedHelper(script.path);
       return AppRelaunchTicket._(
