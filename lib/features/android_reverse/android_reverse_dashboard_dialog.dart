@@ -322,6 +322,7 @@ class _AndroidReverseDashboardDialogState
   bool _runningShell = false;
   bool _runningDeviceAction = false;
   bool _runningStaticQuickScan = false;
+  bool _writingNetworkAddon = false;
   bool _loadingDeviceDetails = false;
   bool _logcatPackageFilterEnabled = false;
   String? _selectedDeviceSerial;
@@ -339,6 +340,7 @@ class _AndroidReverseDashboardDialogState
   String? _packageAnalysisOutput;
   String? _selectedFridaSnippetAsset;
   String? _staticQuickScanOutput;
+  String? _networkAddonOutput;
   final _processFilter = TextEditingController();
 
   @override
@@ -805,6 +807,51 @@ class _AndroidReverseDashboardDialogState
       });
     } finally {
       if (mounted) setState(() => _runningStaticQuickScan = false);
+    }
+  }
+
+  Future<void> _ensureMitmproxyAddon() async {
+    if (_writingNetworkAddon) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() => _writingNetworkAddon = true);
+    try {
+      final addonPath = await _ctrl.ensureMitmproxyJsonlAddon();
+      if (!mounted) return;
+      final command =
+          'OPENHAND_NETWORK_JSONL=${_shellQuote(_ctrl.networkJsonlPath)} '
+          'mitmdump -p 8080 -s ${_shellQuote(addonPath)} '
+          '-w ${_shellQuote('${_ctrl.networkDir}/flows.mitm')}';
+      setState(() {
+        _networkAddonOutput = [
+          isZh
+              ? '已生成 mitmproxy JSONL addon:'
+              : 'Generated mitmproxy JSONL addon:',
+          addonPath,
+          '',
+          isZh ? '启动命令:' : 'Start command:',
+          command,
+          '',
+          'JSONL: ${_ctrl.networkJsonlPath}',
+        ].join('\n');
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _networkAddonOutput =
+            '${isZh ? "生成 mitmproxy addon 失败" : "Failed to generate mitmproxy addon"}: $error';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isZh
+                ? '生成 mitmproxy addon 失败。'
+                : 'Failed to generate mitmproxy addon.',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _writingNetworkAddon = false);
     }
   }
 
@@ -3877,16 +3924,53 @@ class _AndroidReverseDashboardDialogState
 
   Widget _buildNetworkTab(ColorScheme cs, ThemeData theme, bool isZh) {
     final networkDir = _ctrl.networkDir;
+    final addonPath = _ctrl.mitmproxyAddonPath;
+    final addonOutput = _networkAddonOutput?.trim();
     final adb = _adbCommandPrefix();
     return OpenHandSafeScrollbar(
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            isZh ? '网络抓包 (mitmproxy)' : 'Network capture (mitmproxy)',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 220),
+                child: Text(
+                  isZh ? '网络抓包 (mitmproxy)' : 'Network capture (mitmproxy)',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: _writingNetworkAddon
+                      ? null
+                      : _ensureMitmproxyAddon,
+                  icon: _writingNetworkAddon
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.8),
+                        )
+                      : const Icon(Icons.receipt_long_rounded, size: 15),
+                  label: Text(isZh ? '生成 JSONL Addon' : 'Generate JSONL addon'),
+                ),
+              ),
+              if (addonOutput != null && addonOutput.isNotEmpty)
+                SizedBox(
+                  height: _kAdbInlineControlHeight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _copyText(addonOutput),
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: Text(isZh ? '复制结果' : 'Copy result'),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           _InfoCard(
@@ -3894,9 +3978,13 @@ class _AndroidReverseDashboardDialogState
             theme: theme,
             icon: Icons.info_outline_rounded,
             text: isZh
-                ? '网络流量由 mitmproxy 代理拦截。请先在"证书"面板安装 CA 证书，然后在设备上配置代理为 <本机 IP>:8080，再启动 mitmdump。'
-                : 'Traffic is intercepted by mitmproxy. Install the CA cert in the Certs tab, configure the device proxy to <host IP>:8080, then start mitmdump.',
+                ? '网络流量由 mitmproxy 代理拦截。可先生成 JSONL addon，把 HTTP 记录写入 network.jsonl；HTTPS 需先在"证书"面板安装 CA 证书。'
+                : 'Traffic is intercepted by mitmproxy. Generate the JSONL addon to write HTTP records into network.jsonl; HTTPS requires installing the CA cert in the Certs tab first.',
           ),
+          if (addonOutput != null && addonOutput.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _monospaceCard(cs, addonOutput),
+          ],
           const SizedBox(height: 12),
           _commandCard(
             cs,
@@ -3905,7 +3993,7 @@ class _AndroidReverseDashboardDialogState
             title: isZh ? '启动抓包' : 'Start capture',
             command:
                 'mkdir -p ${_shellQuote(networkDir)}\n'
-                'mitmdump -p 8080 -w ${_shellQuote('$networkDir/flows.mitm')}',
+                'OPENHAND_NETWORK_JSONL=${_shellQuote(_ctrl.networkJsonlPath)} mitmdump -p 8080 -s ${_shellQuote(addonPath)} -w ${_shellQuote('$networkDir/flows.mitm')}',
           ),
           const SizedBox(height: 10),
           _commandCard(
@@ -3936,7 +4024,8 @@ class _AndroidReverseDashboardDialogState
             icon: Icons.folder_rounded,
             text:
                 '${isZh ? "本地工件目录" : "Local artifacts"}: $networkDir\n'
-                'network.jsonl',
+                'network.jsonl\n'
+                'openhand_mitm_jsonl.py',
           ),
         ],
       ),

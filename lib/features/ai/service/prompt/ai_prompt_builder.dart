@@ -2306,6 +2306,7 @@ class AiPromptBuilder {
       'local_read_hints': <String>[
         'tail -200 ${p.join(rootDir, 'logcat.jsonl')}',
         'tail -200 ${p.join(rootDir, 'network.jsonl')}',
+        'find ${p.join(rootDir, 'network')} -maxdepth 2 -type f | head -200',
         'find ${p.join(rootDir, 'apks')} -maxdepth 3 -type f',
         'find ${p.join(rootDir, 'screenshots')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'recordings')} -maxdepth 2 -type f',
@@ -2321,6 +2322,7 @@ class AiPromptBuilder {
         'packages: analyze launcher/activity, launch without guessing MainActivity, force-stop, clear data, uninstall, pull APKs to artifacts, filter logcat by package',
         'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
         'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl',
+        'network: generate mitmproxy JSONL addon, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
         'frida: built-in hook snippets plus device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
       ],
       'dashboard_visible_metadata_keys': presentKeys,

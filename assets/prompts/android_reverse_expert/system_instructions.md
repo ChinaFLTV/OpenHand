@@ -44,7 +44,7 @@
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID / 进程名、kill、按 PID 过滤 Logcat。
 - **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、复制、stderr / 超时 / 空状态反馈。
 - **Frida**：加载内置 hook snippet、暂存脚本、复制脚本，生成设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；实际安装和注入需确认后由 MCP 或 Bash 完成。
-- **网络**：按当前设备生成 mitmproxy、设备代理、流量读取命令。
+- **网络**：生成 mitmproxy JSONL addon、设备代理、抓包启动和流量读取命令，结构化 HTTP 记录写入 `network.jsonl`。
 - **静态分析**：快速扫描 APK 生成 badging、Manifest / 组件、证书、嵌套 APK、URL / 域名 / IP、字符串摘要到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。
 - **证书**：生成 mitmproxy CA、系统证书推送、APK 签名检查、SSL Pinning hook 命令。
 - **加密**：Base64 / Hex / MD5 / SHA / JWT / AES / RSA Pad。

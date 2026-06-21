@@ -3379,6 +3379,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       'local_read_hints': <String>[
         'tail -200 ${controller.logcatJsonlPath}',
         'tail -200 ${controller.networkJsonlPath}',
+        'find ${controller.networkDir} -maxdepth 2 -type f | head -200',
         'find ${controller.apksDir} -maxdepth 3 -type f',
         'find ${controller.screenshotsDir} -maxdepth 2 -type f',
         'find ${controller.recordingsDir} -maxdepth 2 -type f',
@@ -3407,6 +3408,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'toolchain_install_update_uninstall_copy_commands',
         'static_quick_scan_apk_nested_manifest_components_network_artifacts',
         'frida_server_abi_push_start_forward_copy_commands',
+        'mitmproxy_jsonl_addon_network_flow_artifacts',
       ],
       'dashboard_tabs': const <String>[
         'devices',

@@ -56,6 +56,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get fridaDir => '$artifactsRootDir/frida';
   String get decompiledDir => '$artifactsRootDir/decompiled';
   String get networkDir => '$artifactsRootDir/network';
+  String get mitmproxyAddonPath => '$networkDir/openhand_mitm_jsonl.py';
   String get scriptsDir => '$artifactsRootDir/scripts';
   String get logsDir => '$artifactsRootDir/logs';
 
@@ -461,6 +462,21 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
   }
 
+  Future<String> ensureMitmproxyJsonlAddon() async {
+    try {
+      await Directory(networkDir).create(recursive: true);
+      await File(networkJsonlPath).create(recursive: true);
+      final file = File(mitmproxyAddonPath);
+      await file.writeAsString(_mitmproxyJsonlAddon);
+      return file.path;
+    } catch (e, st) {
+      silentLog(_kTag, 'ensureMitmproxyJsonlAddon failed', e, st);
+      _errorMessage = '$e';
+      _safeNotify();
+      rethrow;
+    }
+  }
+
   // ── 内部 ───────────────────────────────────────────────────────────────
 
   Future<void> _ensureArtifactDirectories() async {
@@ -719,4 +735,92 @@ else
 fi
 
 printf 'quick scan completed\n'
+''';
+
+const String _mitmproxyJsonlAddon = r'''
+import base64
+import hashlib
+import json
+import os
+import time
+from pathlib import Path
+
+from mitmproxy import http
+
+OUT_PATH = Path(
+    os.environ.get("OPENHAND_NETWORK_JSONL")
+    or Path(__file__).with_name("network.jsonl")
+)
+MAX_BODY_PREVIEW = int(os.environ.get("OPENHAND_BODY_PREVIEW_BYTES", "4096"))
+
+
+def _headers(headers):
+    return {str(k): str(v) for k, v in headers.items()}
+
+
+def _body_preview(raw):
+    if not raw:
+        return None
+    clipped = raw[:MAX_BODY_PREVIEW]
+    truncated = len(raw) > len(clipped)
+    try:
+        return {
+            "encoding": "utf-8",
+            "truncated": truncated,
+            "value": clipped.decode("utf-8"),
+        }
+    except UnicodeDecodeError:
+        return {
+            "encoding": "base64",
+            "truncated": truncated,
+            "value": base64.b64encode(clipped).decode("ascii"),
+        }
+
+
+def _write(record):
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with OUT_PATH.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")))
+        fh.write("\n")
+
+
+def response(flow: http.HTTPFlow):
+    request = flow.request
+    response = flow.response
+    req_body = request.raw_content or b""
+    resp_body = response.raw_content or b""
+    record = {
+        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "method": request.method,
+        "scheme": request.scheme,
+        "host": request.host,
+        "port": request.port,
+        "path": request.path,
+        "url": request.pretty_url,
+        "status_code": response.status_code,
+        "reason": response.reason,
+        "request_headers": _headers(request.headers),
+        "response_headers": _headers(response.headers),
+        "request_body_sha256": hashlib.sha256(req_body).hexdigest()
+        if req_body
+        else None,
+        "response_body_sha256": hashlib.sha256(resp_body).hexdigest()
+        if resp_body
+        else None,
+        "request_body_preview": _body_preview(req_body),
+        "response_body_preview": _body_preview(resp_body),
+    }
+    _write(record)
+
+
+def error(flow: http.HTTPFlow):
+    request = flow.request
+    record = {
+        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "method": request.method if request else None,
+        "host": request.host if request else None,
+        "url": request.pretty_url if request else None,
+        "error": str(flow.error) if flow.error else "unknown",
+    }
+    _write(record)
 ''';
