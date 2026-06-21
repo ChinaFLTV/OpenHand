@@ -617,8 +617,8 @@ class _AndroidReverseDashboardDialogState
       if (mounted) {
         final lines = result.stdout
             .split('\n')
-            .map((line) => line.trimRight())
-            .where((line) => line.trim().isNotEmpty)
+            .map(_sanitizeLogcatLine)
+            .where(_hasVisibleLogcatText)
             .toList(growable: false);
         final err = result.stderr.trim();
         setState(() {
@@ -672,6 +672,19 @@ class _AndroidReverseDashboardDialogState
     } finally {
       if (mounted) setState(() => _loadingLogcat = false);
     }
+  }
+
+  String _sanitizeLogcatLine(String line) {
+    return line
+        .replaceAll(
+          RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]'),
+          '',
+        )
+        .trimRight();
+  }
+
+  bool _hasVisibleLogcatText(String line) {
+    return line.replaceAll(RegExp(r'\s+'), '').isNotEmpty;
   }
 
   Future<void> _saveLogcatSnapshot() async {
