@@ -1180,6 +1180,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       );
     }
     final files = <String>[
+      'SUMMARY.md',
       'badging.txt',
       'manifest.txt',
       'components.txt',
@@ -1510,7 +1511,7 @@ Files:
 Rules:
 1. Use only real mcp__* tool names from the Tool Catalog or ToolSearch result.
 2. If ADB/Frida MCP is enabled but absent, report the missing server before Bash fallback.
-3. Prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
+3. Read quick_scan/SUMMARY.md first, then prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
 4. Do not guess launcher activities. Resolve them with package manager data.
 5. Before mitmproxy capture, read network/README.md and run network/proxy_probe.sh.
 6. Before any Frida install/push/start action, run frida/frida_doctor.sh once and follow its report.
@@ -2105,6 +2106,7 @@ cd "$OUT_DIR" || exit 2
 : > flutter.txt
 : > native_libs.txt
 : > suspicious_files.txt
+: > SUMMARY.md
 : > network_candidates.txt
 : > business_urls.txt
 : > business_domains.txt
@@ -2241,6 +2243,42 @@ else
   echo "strings not found" > interesting_strings.txt
   echo "strings not found" > network_sources.txt
 fi
+
+{
+  printf '# Android reverse quick scan summary\n\n'
+  printf '%s\n' "- generated_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '%s\n\n' "- apk: $APK_PATH"
+  printf '## Top network candidates\n\n'
+  if [ -s network_candidates.txt ]; then
+    sed -n '1,80p' network_candidates.txt
+  else
+    printf '(empty)\n'
+  fi
+  printf '\n## Business URLs\n\n'
+  if [ -s business_urls.txt ]; then
+    sed -n '1,80p' business_urls.txt
+  else
+    printf '(empty)\n'
+  fi
+  printf '\n## Business domains\n\n'
+  if [ -s business_domains.txt ]; then
+    sed -n '1,80p' business_domains.txt
+  else
+    printf '(empty)\n'
+  fi
+  printf '\n## Network evidence sources\n\n'
+  if [ -s business_network_sources.txt ]; then
+    sed -n '1,120p' business_network_sources.txt
+  else
+    printf '(empty)\n'
+  fi
+  printf '\n## App shape\n\n'
+  sed -n '1,40p' flutter.txt 2>/dev/null || true
+  sed -n '1,40p' suspicious_files.txt 2>/dev/null || true
+  printf '\n## Guidance\n\n'
+  printf '%s\n' '- If business URL/domain candidates are present, report the static conclusion before dynamic validation.'
+  printf '%s\n' '- Use Frida or mitmproxy only for runtime-only parameters or optional validation.'
+} > SUMMARY.md
 
 printf 'quick scan completed\n'
 ''';
@@ -2690,6 +2728,7 @@ section "Quick scan candidates"
 quick_scan_dir="$(find "$SESSION_DIR/decompiled" -path '*/quick_scan' -type d 2>/dev/null | sort | tail -1)"
 if [[ -n "$quick_scan_dir" ]]; then
   printf '%s\n\n' "- quick_scan_dir: $quick_scan_dir" >> "$OUT"
+  fence_file "$quick_scan_dir/SUMMARY.md" 160
   fence_file "$quick_scan_dir/network_candidates.txt" 160
   fence_file "$quick_scan_dir/business_network_sources.txt" 160
 else

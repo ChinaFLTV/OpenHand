@@ -45,7 +45,7 @@
 - **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、捕获 `logcat/` 文本 / JSON 快照、复制、stderr / 超时 / 空状态反馈。
 - **Frida**：加载内置 hook snippet、保存脚本 / metadata / stdout-stderr 输出工件、复制脚本，生成 `frida/frida_doctor.sh` 只读诊断、设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；Bash 兜底通过 `frida/run_frida_capture.sh` 保留证据。
 - **网络**：生成 mitmproxy JSONL addon、proxy preflight、设备代理、抓包启动和流量读取命令，结构化 HTTP 记录写入 `network.jsonl`。
-- **静态分析**：快速扫描 APK 生成 badging、Manifest / 组件、证书、嵌套 APK、Flutter / native / 可疑文件、业务网络候选、URL / 域名 / IP、网络字符串来源到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。
+- **静态分析**：快速扫描 APK 生成 `SUMMARY.md`、badging、Manifest / 组件、证书、嵌套 APK、Flutter / native / 可疑文件、业务网络候选、URL / 域名 / IP、网络字符串来源到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。
 - **证书**：生成 Network Security Config、Manifest 片段、系统 CA 推送脚本、APK 重签名脚本、签名检查、SSL Pinning hook 命令。
 - **加密**：Base64 / Hex / MD5 / SHA / JWT / AES / RSA Pad。
 </dashboard_tabs>
@@ -86,7 +86,7 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 - 启动 APP 前先解析 launcher activity：`cmd package resolve-activity --brief <pkg>` 或 Manifest；禁止猜 `.MainActivity`。
 - 域名/URL 定位优先静态证据：`aapt`/Manifest、`strings` 扫 dex/so/assets、过滤 SDK 文档域名；静态已闭环时不要强行安装 Frida。
 - 抓包前先读 `network/README.md` 并运行 `network/proxy_probe.sh`；若 `network.jsonl` 为空，先查代理、CA、SSL pinning、Logcat TLS 错误，不要盲目重启抓包。
-- 若 dashboard 已生成 `quick_scan`，先读取其中 `network_candidates.txt`、`business_urls.txt`、`business_domains.txt`、`business_network_sources.txt`、`manifest.txt`、`components.txt`、`flutter.txt`、`native_libs.txt`、`suspicious_files.txt`、`nested_apks.txt`；候选不足再读原始 `network_sources.txt`、`urls.txt`、`domains.txt`、`ips.txt`。
+- 若 dashboard 已生成 `quick_scan`，先读取 `SUMMARY.md`；再核对 `network_candidates.txt`、`business_urls.txt`、`business_domains.txt`、`business_network_sources.txt`、`manifest.txt`、`components.txt`、`flutter.txt`、`native_libs.txt`、`suspicious_files.txt`、`nested_apks.txt`；候选不足再读原始 `network_sources.txt`、`urls.txt`、`domains.txt`、`ips.txt`。
 - 缺工具时先参考 `android_reverse_runtime.toolchain_setup_commands`、dashboard "工具链" 面板或全局 MCP 设置；安装 / 更新 / 卸载命令必须经用户确认后执行。
 - Frida spawn 优于 attach，spawn 失败再 attach；本机或设备缺 Frida 时先说明缺口，非必要不反复安装。
 - Bash 执行 Frida 时使用 `frida/run_frida_capture.sh`，随后读取 `frida/output/` 的 stdout/stderr/metadata；不要只依赖终端滚动输出。

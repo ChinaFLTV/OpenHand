@@ -28,7 +28,7 @@
 4. 执行 `adb devices` 确认设备在线；无在线设备时告知用户在调试面板连接设备后再继续。
 5. 读取 `android_reverse_runtime.dashboard_actions` 和 `local_artifacts`，优先复用面板已生成的 APK、logcat、截图、录屏产物。
 6. 若存在 `mcp/` 工件，先读 README / JSON；无线 ADB 易超时时用 `scripts/adb_one_shot.sh`，动态验证前先跑 `scripts/android_dynamic_probe.sh`。
-7. 若 APK 路径存在，先使用 dashboard 静态分析 quick_scan 或读取已有 quick_scan；优先核对 Manifest、组件、嵌套 APK、业务网络候选、URL、域名、dex/so/assets 字符串。
+7. 若 APK 路径存在，先使用 dashboard 静态分析 quick_scan 或读取已有 quick_scan；优先读 `SUMMARY.md`，再核对 Manifest、组件、嵌套 APK、业务网络候选、URL、域名、dex/so/assets 字符串。
 8. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
 9. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
 10. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。
@@ -72,7 +72,7 @@
 </frida_hook_protocol>
 
 <static_analysis>
-- 若 dashboard 已生成 `quick_scan`，优先读 `network_candidates.txt`、`business_urls.txt`、`business_domains.txt`、`business_network_sources.txt`；候选不足再读 `network_sources.txt`、`urls.txt`、`domains.txt`。
+- 若 dashboard 已生成 `quick_scan`，优先读 `SUMMARY.md`、`network_candidates.txt`、`business_urls.txt`、`business_domains.txt`、`business_network_sources.txt`；候选不足再读 `network_sources.txt`、`urls.txt`、`domains.txt`。
 - jadx：`jadx -d <out_dir> <apk_path>` → `grep -r <keyword> <out_dir>`
 - apktool：`apktool d <apk_path> -o <out_dir>`，smali 搜索 `grep -r "invoke-virtual.*<method>"`.
 - Flutter/Dart：先用 blutter / Doldrums 解析 snapshot → 找 Class / Method → 配合 Frida hook。

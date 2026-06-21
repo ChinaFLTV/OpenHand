@@ -4482,6 +4482,7 @@ class _AndroidReverseDashboardDialogState
             title: isZh ? '读取快速扫描产物' : 'Read quick scan artifacts',
             command:
                 'cd ${_shellQuote('$decompiledDir/quick_scan')}\n'
+                'cat SUMMARY.md\n'
                 'cat network_candidates.txt business_urls.txt business_domains.txt business_network_sources.txt\n'
                 'cat network_sources.txt urls.txt domains.txt ips.txt\n'
                 'cat flutter.txt native_libs.txt suspicious_files.txt nested_apks.txt',

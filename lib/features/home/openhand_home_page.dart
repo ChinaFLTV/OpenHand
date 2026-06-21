@@ -3431,6 +3431,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         '${controller.fridaDoctorScriptPath} --timeout 6',
         '${controller.fridaCaptureScriptPath} --help',
         'find ${controller.decompiledDir} -maxdepth 3 -type f | head -200',
+        'find ${controller.decompiledDir} -path "*/quick_scan/SUMMARY.md" -type f -exec cat {} \\;',
         'find ${controller.decompiledDir} -path "*/quick_scan/*" -type f | head -200',
         'find ${controller.mcpDir} -maxdepth 2 -type f | head -200',
         'cat ${controller.mcpReadmePath}',
