@@ -19,9 +19,7 @@ import '../model/plugin_info.dart';
 import '../plugin_service_controller.dart';
 
 void _showPluginSnackBar(BuildContext context, SnackBar snackBar) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  OpenHandSnackBar.show(context, messenger, snackBar);
+  OpenHandSnackBar.showInContext(context, snackBar);
 }
 
 class PluginServiceView extends StatefulWidget {

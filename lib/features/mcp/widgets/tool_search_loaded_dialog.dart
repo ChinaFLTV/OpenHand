@@ -38,9 +38,7 @@ Future<void> showToolSearchLoadedDialog(
 }
 
 void _showToolSearchSnackBar(BuildContext context, SnackBar snackBar) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  OpenHandSnackBar.show(context, messenger, snackBar);
+  OpenHandSnackBar.showInContext(context, snackBar);
 }
 
 /// 列出本会话已通过 `ToolSearch` 加载的工具名。

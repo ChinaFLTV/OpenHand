@@ -32,9 +32,7 @@ import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 
 void _showGatewaySnackBar(BuildContext context, SnackBar snackBar) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  OpenHandSnackBar.show(context, messenger, snackBar);
+  OpenHandSnackBar.showInContext(context, snackBar);
 }
 
 class MessageGatewayView extends StatefulWidget {

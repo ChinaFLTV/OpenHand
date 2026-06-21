@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseDeviceEmulationDialog(
@@ -32,6 +33,11 @@ class _DeviceEmuDialog extends StatefulWidget {
 }
 
 class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
+  static const int _kMinDeviceMetric = 100;
+  static const double _kDefaultDeviceScaleFactor = 1;
+  static const double _kMinDeviceScaleFactor = 0.1;
+  static const double _kMaxDeviceScaleFactor = 10;
+
   final _w = TextEditingController(text: '1280');
   final _h = TextEditingController(text: '720');
   final _dpr = TextEditingController(text: '2');
@@ -55,6 +61,30 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     super.dispose();
   }
 
+  Future<bool> _setDevicePreset(
+    WebReverseDevicePreset? preset, {
+    required String action,
+  }) async {
+    try {
+      return await widget.controller.setDeviceMetricsPreset(preset);
+    } catch (error, stack) {
+      silentLog('web-reverse', action, error, stack);
+      return false;
+    }
+  }
+
+  void _showApplyFailed(AppLocalizations? loc) {
+    final message = loc?.tlCallFailed ?? 'Failed';
+    setState(() {
+      _busy = false;
+      _status = message;
+    });
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger != null) {
+      OpenHandSnackBar.showErrorOn(context, messenger, message);
+    }
+  }
+
   Future<void> _applyPreset(WebReverseDevicePreset p) async {
     final loc = AppLocalizations.of(context);
     setState(() {
@@ -68,12 +98,12 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
       _mobile = p.mobile;
       _ua.text = p.userAgent ?? '';
     });
-    try {
-      await widget.controller.setDeviceMetricsPreset(p);
-    } catch (e, st) {
-      silentLog('web-reverse', 'device-emu.preset', e, st);
-    }
+    final ok = await _setDevicePreset(p, action: 'device-emu.preset');
     if (!mounted) return;
+    if (!ok) {
+      _showApplyFailed(loc);
+      return;
+    }
     setState(() {
       _busy = false;
       _status =
@@ -92,12 +122,19 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
 
   Future<void> _applyCustom() async {
     final loc = AppLocalizations.of(context);
-    final w = int.tryParse(_w.text.trim()) ?? 0;
-    final h = int.tryParse(_h.text.trim()) ?? 0;
-    final dpr = double.tryParse(_dpr.text.trim()) ?? 1;
-    if (w < 100 || h < 100) {
+    final w = intFromValue(_w.text, fallback: 0);
+    final h = intFromValue(_h.text, fallback: 0);
+    final dpr = clampedDoubleFromText(
+      _dpr.text,
+      fallback: _kDefaultDeviceScaleFactor,
+      min: _kMinDeviceScaleFactor,
+      max: _kMaxDeviceScaleFactor,
+    );
+    if (w < _kMinDeviceMetric || h < _kMinDeviceMetric) {
       setState(
-        () => _status = loc?.webReverseDeviceEmuMinSize ?? 'min 100×100',
+        () => _status =
+            loc?.webReverseDeviceEmuMinSize ??
+            'min $_kMinDeviceMetric×$_kMinDeviceMetric',
       );
       return;
     }
@@ -117,9 +154,17 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
         mobile: _mobile,
         userAgent: _ua.text.trim().isEmpty ? null : _ua.text.trim(),
       );
-      await widget.controller.setDeviceMetricsPreset(preset);
-    } catch (e, st) {
-      silentLog('web-reverse', 'device-emu.custom', e, st);
+      final ok = await _setDevicePreset(preset, action: 'device-emu.custom');
+      if (!mounted) return;
+      if (!ok) {
+        _showApplyFailed(loc);
+        return;
+      }
+    } catch (error, stack) {
+      silentLog('web-reverse', 'device-emu.custom', error, stack);
+      if (!mounted) return;
+      _showApplyFailed(loc);
+      return;
     }
     if (!mounted) return;
     setState(() {
@@ -145,12 +190,12 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
       _status =
           loc?.webReverseDeviceEmuClearingOverrides ?? 'Clearing overrides...';
     });
-    try {
-      await widget.controller.setDeviceMetricsPreset(null);
-    } catch (e, st) {
-      silentLog('web-reverse', 'device-emu.reset', e, st);
-    }
+    final ok = await _setDevicePreset(null, action: 'device-emu.reset');
     if (!mounted) return;
+    if (!ok) {
+      _showApplyFailed(loc);
+      return;
+    }
     setState(() {
       _busy = false;
       _status = loc?.webReverseDeviceEmuResetDone ?? 'Reset to default';
@@ -162,202 +207,171 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 680),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 760,
+      maxHeight: 680,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.devices_other_rounded,
+            title: loc?.webReverseDeviceEmuTitle ?? 'Device Emulation',
+            subtitle:
+                'Emulation.setDeviceMetricsOverride + setUserAgentOverride',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.devices_other_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseDeviceEmuTitle ?? 'Device Emulation',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Emulation.setDeviceMetricsOverride + setUserAgentOverride',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    loc?.webReverseDeviceEmuPresets ?? 'Presets',
+                    style: theme.textTheme.labelLarge,
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _presets
+                        .map(
+                          (p) => OutlinedButton.icon(
+                            onPressed: _busy ? null : () => _applyPreset(p),
+                            icon: Icon(
+                              p.mobile
+                                  ? Icons.phone_iphone_rounded
+                                  : Icons.desktop_windows_rounded,
+                              size: 16,
+                            ),
+                            label: Text(
+                              '${p.label} · ${p.width}×${p.height}@${p.deviceScaleFactor}x',
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    loc?.webReverseDeviceEmuCustom ?? 'Custom',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _w,
+                          decoration: InputDecoration(
+                            labelText: loc?.webReverseDeviceEmuWidth ?? 'Width',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _h,
+                          decoration: InputDecoration(
+                            labelText:
+                                loc?.webReverseDeviceEmuHeight ?? 'Height',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _dpr,
+                          decoration: InputDecoration(
+                            labelText: 'DPR',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SwitchListTile(
+                    value: _mobile,
+                    onChanged: _busy
+                        ? null
+                        : (v) => setState(() => _mobile = v),
+                    title: Text(loc?.webReverseDeviceEmuMobileMode ?? 'mobile'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _ua,
+                    decoration: InputDecoration(
+                      labelText: 'User-Agent (override)',
+                      hintText:
+                          loc?.webReverseDeviceEmuUaHint ??
+                          'leave empty to keep default',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    minLines: 2,
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OpenHandDialogActionButton.primary(
+                        onPressed: _busy ? null : _applyCustom,
+                        icon: Icons.check_circle_rounded,
+                        label:
+                            loc?.webReverseDeviceEmuApplyCustom ??
+                            'Apply Custom',
+                      ),
+                      OpenHandDialogActionButton.secondary(
+                        onPressed: _busy ? null : _reset,
+                        icon: Icons.restore_rounded,
+                        label: loc?.webReverseDeviceEmuReset ?? 'Reset',
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc?.webReverseDeviceEmuPresets ?? 'Presets',
-                      style: theme.textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _presets
-                          .map(
-                            (p) => OutlinedButton.icon(
-                              onPressed: _busy ? null : () => _applyPreset(p),
-                              icon: Icon(
-                                p.mobile
-                                    ? Icons.phone_iphone_rounded
-                                    : Icons.desktop_windows_rounded,
-                                size: 16,
-                              ),
-                              label: Text(
-                                '${p.label} · ${p.width}×${p.height}@${p.deviceScaleFactor}x',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      loc?.webReverseDeviceEmuCustom ?? 'Custom',
-                      style: theme.textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _w,
-                            decoration: InputDecoration(
-                              labelText:
-                                  loc?.webReverseDeviceEmuWidth ?? 'Width',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _h,
-                            decoration: InputDecoration(
-                              labelText:
-                                  loc?.webReverseDeviceEmuHeight ?? 'Height',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _dpr,
-                            decoration: InputDecoration(
-                              labelText: 'DPR',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SwitchListTile(
-                      value: _mobile,
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(() => _mobile = v),
-                      title: Text(
-                        loc?.webReverseDeviceEmuMobileMode ?? 'mobile',
-                      ),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _ua,
-                      decoration: InputDecoration(
-                        labelText: 'User-Agent (override)',
-                        hintText:
-                            loc?.webReverseDeviceEmuUaHint ??
-                            'leave empty to keep default',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      minLines: 2,
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        OpenHandDialogActionButton.primary(
-                          onPressed: _busy ? null : _applyCustom,
-                          icon: Icons.check_circle_rounded,
-                          label:
-                              loc?.webReverseDeviceEmuApplyCustom ??
-                              'Apply Custom',
-                        ),
-                        OpenHandDialogActionButton.secondary(
-                          onPressed: _busy ? null : _reset,
-                          icon: Icons.restore_rounded,
-                          label: loc?.webReverseDeviceEmuReset ?? 'Reset',
-                        ),
-                      ],
-                    ),
-                  ],
+          ),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: cs.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.surfaceContainerHigh,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseDeviceEmuClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: loc?.webReverseDeviceEmuClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

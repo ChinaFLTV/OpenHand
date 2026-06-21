@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
@@ -119,28 +120,57 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       cdp: cdp,
       urls: urls,
       outputDir: _outDir!,
+      captureNetwork: _captureNetwork,
+      captureConsole: _captureConsole,
+      captureScreenshot: _captureScreenshot,
       onProgress: (p) {
         if (!mounted) return;
         setState(() => _progress.add(p));
       },
     );
     _runner = runner;
-    final results = await runner.run();
+    final List<HeadlessBatchUrlResult> results;
+    try {
+      results = await runner.run();
+    } catch (error, stack) {
+      silentLog('web-reverse', 'headless-batch.run', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _running = false;
+        _runner = null;
+      });
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        loc0?.webReverseHeadlessBatchPhaseFailed ?? 'Failed',
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
+    final cancelled = runner.isCancelled;
     setState(() {
       _running = false;
       _results = results;
       _runner = null;
     });
     final ok = results.where((r) => r.ok).length;
-    OpenHandSnackBar.showSuccessOn(
-      context,
-      messenger,
-      loc1?.webReverseHeadlessBatchFinished(ok, results.length) ??
-          'Batch finished: $ok/${results.length} ok',
-      duration: const Duration(seconds: 3),
-    );
+    if (cancelled) {
+      OpenHandSnackBar.showInfoOn(
+        context,
+        messenger,
+        loc1?.webReverseHeadlessBatchPhaseCancelled ?? 'Cancelled',
+      );
+    } else {
+      OpenHandSnackBar.showSuccessOn(
+        context,
+        messenger,
+        loc1?.webReverseHeadlessBatchFinished(ok, results.length) ??
+            'Batch finished: $ok/${results.length} ok',
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 
   void _cancel() {

@@ -56,9 +56,7 @@ part 'hardness_session_dashboard.file_hover.part.dart';
 part 'hardness_session_dashboard.steering.part.dart';
 
 void _showHardnessSnackBar(BuildContext context, SnackBar snackBar) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  OpenHandSnackBar.show(context, messenger, snackBar);
+  OpenHandSnackBar.showInContext(context, snackBar);
 }
 
 // Pre-compiled regex for detecting log-level prefixes in output lines.

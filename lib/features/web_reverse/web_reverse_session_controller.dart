@@ -3690,12 +3690,12 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 在浏览器主 page 上启用/关闭缓存。
-  Future<void> setCacheDisabled(bool disabled) async {
+  Future<bool> setCacheDisabled(bool disabled) async {
     _cacheDisabled = disabled;
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) {
       _safeNotify();
-      return;
+      return false;
     }
     try {
       await cdp.send(
@@ -3710,8 +3710,11 @@ class WebReverseSessionController extends ChangeNotifier {
         error,
         stack,
       );
+      _safeNotify();
+      return false;
     }
     _safeNotify();
+    return true;
   }
 
   /// 安装一个轻量 FPS 计数器到 page：基于 requestAnimationFrame 的滚动计数。
@@ -4460,9 +4463,9 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   /// 设备模拟预设：移动 / 平板 / 桌面三档；底层走
-  Future<void> setDeviceMetricsPreset(WebReverseDevicePreset? preset) async {
+  Future<bool> setDeviceMetricsPreset(WebReverseDevicePreset? preset) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
+    if (cdp == null || _pageSessionId == null) return false;
     try {
       if (preset == null) {
         await cdp.send(
@@ -4474,7 +4477,7 @@ class WebReverseSessionController extends ChangeNotifier {
           params: const <String, Object?>{'userAgent': ''},
           sessionId: _pageSessionId,
         );
-        return;
+        return true;
       }
       await cdp.send(
         'Emulation.setDeviceMetricsOverride',
@@ -4486,13 +4489,12 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      if (preset.userAgent != null) {
-        await cdp.send(
-          'Emulation.setUserAgentOverride',
-          params: <String, Object?>{'userAgent': preset.userAgent},
-          sessionId: _pageSessionId,
-        );
-      }
+      await cdp.send(
+        'Emulation.setUserAgentOverride',
+        params: <String, Object?>{'userAgent': preset.userAgent ?? ''},
+        sessionId: _pageSessionId,
+      );
+      return true;
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -4500,6 +4502,7 @@ class WebReverseSessionController extends ChangeNotifier {
         error,
         stack,
       );
+      return false;
     }
   }
 

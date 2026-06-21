@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseThrottleDialog(
@@ -34,6 +35,9 @@ class _ThrottleDialog extends StatefulWidget {
 }
 
 class _ThrottleDialogState extends State<_ThrottleDialog> {
+  static const int _kMaxThrottleKbps = 10 * 1000 * 1000;
+  static const int _kMaxLatencyMs = 60 * 1000;
+
   String _selectedId = 'no-throttle';
   final TextEditingController _downCtrl = TextEditingController(text: '0');
   final TextEditingController _upCtrl = TextEditingController(text: '0');
@@ -80,9 +84,24 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
         latencyMs = preset.latencyMs;
       } else {
         offline = _customOffline;
-        downKbps = _parseNonNegative(_downCtrl.text);
-        upKbps = _parseNonNegative(_upCtrl.text);
-        latencyMs = _parseNonNegative(_latencyCtrl.text);
+        downKbps = clampedIntFromText(
+          _downCtrl.text,
+          fallback: 0,
+          min: 0,
+          max: _kMaxThrottleKbps,
+        );
+        upKbps = clampedIntFromText(
+          _upCtrl.text,
+          fallback: 0,
+          min: 0,
+          max: _kMaxThrottleKbps,
+        );
+        latencyMs = clampedIntFromText(
+          _latencyCtrl.text,
+          fallback: 0,
+          min: 0,
+          max: _kMaxLatencyMs,
+        );
       }
       final ok = await widget.controller.setNetworkConditions(
         WebReverseNetworkConditions(
@@ -95,23 +114,15 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
       );
       if (!mounted) return;
       if (!ok) {
-        final reason = loc?.webReverseThrottleUnknownError ?? 'unknown';
-        setState(
-          () => _status =
-              loc?.webReverseThrottleStatusFailed(reason) ?? 'Failed: $reason',
-        );
-        final m = ScaffoldMessenger.maybeOf(context);
-        if (m != null) {
-          OpenHandSnackBar.showErrorOn(
-            context,
-            m,
-            loc?.webReverseThrottleApplyFailed ?? 'Apply failed',
-          );
-        }
+        _showApplyFailed(loc);
         return;
       }
-      await widget.controller.setCacheDisabled(_disableCache);
+      final cacheOk = await widget.controller.setCacheDisabled(_disableCache);
       if (!mounted) return;
+      if (!cacheOk) {
+        _showApplyFailed(loc, reason: 'Network.setCacheDisabled');
+        return;
+      }
       final current = widget.controller.networkConditions;
       _selectedId = current.preset.id;
       _loadConditionsToCustom(current);
@@ -160,9 +171,22 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     _latencyCtrl.text = '${conditions.latencyMs}';
   }
 
-  int _parseNonNegative(String text) {
-    final value = int.tryParse(text.trim()) ?? 0;
-    return value < 0 ? 0 : value;
+  void _showApplyFailed(AppLocalizations? loc, {String? reason}) {
+    final effectiveReason =
+        reason ?? loc?.webReverseThrottleUnknownError ?? 'unknown';
+    setState(
+      () => _status =
+          loc?.webReverseThrottleStatusFailed(effectiveReason) ??
+          'Failed: $effectiveReason',
+    );
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger != null) {
+      OpenHandSnackBar.showErrorOn(
+        context,
+        messenger,
+        loc?.webReverseThrottleApplyFailed ?? 'Apply failed',
+      );
+    }
   }
 
   @override
@@ -171,238 +195,209 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final isZh = widget.isZh;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 720,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.network_check_rounded,
+            title: loc?.webReverseThrottleTitle ?? 'Network Throttling',
+            subtitle:
+                loc?.webReverseThrottleSubtitle ??
+                'Network.emulateNetworkConditions: presets or custom kbps/latency',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.network_check_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseThrottleTitle ?? 'Network Throttling',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseThrottleSubtitle ??
-                              'Network.emulateNetworkConditions: presets or custom kbps/latency',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+                  Text(
+                    loc?.webReverseThrottlePresets ?? 'Presets',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: WebReverseThrottlePreset.values
+                        .where((p) => p.isSelectable)
+                        .map((p) {
+                          final selected = _selectedId == p.id;
+                          return ChoiceChip(
+                            label: Text(p.displayLabel(isZh)),
+                            selected: selected,
+                            onSelected: _applying
+                                ? null
+                                : (_) {
+                                    setState(() {
+                                      _selectedId = p.id;
+                                      _loadPresetToCustom(p);
+                                    });
+                                    _apply(preset: p);
+                                  },
+                          );
+                        })
+                        .toList(),
                   ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc?.webReverseThrottlePresets ?? 'Presets',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                  const SizedBox(height: 18),
+                  Text(
+                    loc?.webReverseThrottleCustom ?? 'Custom',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _downCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            labelText:
+                                loc?.webReverseThrottleDownKbps ??
+                                'Down kbps (0=∞)',
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: WebReverseThrottlePreset.values
-                          .where((p) => p.isSelectable)
-                          .map((p) {
-                            final selected = _selectedId == p.id;
-                            return ChoiceChip(
-                              label: Text(p.displayLabel(isZh)),
-                              selected: selected,
-                              onSelected: _applying
-                                  ? null
-                                  : (_) {
-                                      setState(() {
-                                        _selectedId = p.id;
-                                        _loadPresetToCustom(p);
-                                      });
-                                      _apply(preset: p);
-                                    },
-                            );
-                          })
-                          .toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      loc?.webReverseThrottleCustom ?? 'Custom',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _upCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            labelText:
+                                loc?.webReverseThrottleUpKbps ??
+                                'Up kbps (0=∞)',
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _downCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              labelText:
-                                  loc?.webReverseThrottleDownKbps ??
-                                  'Down kbps (0=∞)',
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _upCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              labelText:
-                                  loc?.webReverseThrottleUpKbps ??
-                                  'Up kbps (0=∞)',
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _latencyCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              labelText:
-                                  loc?.webReverseThrottleLatencyMs ??
-                                  'Latency ms',
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _customOffline,
-                          onChanged: (v) =>
-                              setState(() => _customOffline = v ?? false),
-                        ),
-                        Text(loc?.webReverseThrottleOffline ?? 'Offline'),
-                        const SizedBox(width: 16),
-                        Checkbox(
-                          value: _disableCache,
-                          onChanged: (v) =>
-                              setState(() => _disableCache = v ?? false),
-                        ),
-                        Text(
-                          loc?.webReverseThrottleDisableCache ??
-                              'Disable cache',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        OpenHandDialogActionButton.primary(
-                          onPressed: _applying
-                              ? null
-                              : () {
-                                  setState(() => _selectedId = 'custom');
-                                  _apply();
-                                },
-                          icon: Icons.play_arrow_rounded,
-                          busy: _applying,
-                          label:
-                              loc?.webReverseThrottleApplyCustom ??
-                              'Apply custom',
-                        ),
-                        OpenHandDialogActionButton.secondary(
-                          onPressed: _applying ? null : _reset,
-                          icon: Icons.restart_alt_rounded,
-                          label:
-                              loc?.webReverseThrottleReset ??
-                              'Reset (no throttle)',
-                        ),
-                      ],
-                    ),
-                    if (_status.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
-                        child: Text(
-                          _status,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _latencyCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            labelText:
+                                loc?.webReverseThrottleLatencyMs ??
+                                'Latency ms',
+                            border: const OutlineInputBorder(),
                           ),
                         ),
                       ),
                     ],
-                    const SizedBox(height: 18),
-                    Text(
-                      loc?.webReverseThrottleNotes ?? 'Notes',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _customOffline,
+                        onChanged: (v) =>
+                            setState(() => _customOffline = v ?? false),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      loc?.webReverseThrottleNotesBody ??
-                          '· Throttle applies to the entire session of current target; reset or close to restore.\n'
-                              '· kbps is converted to bytes/s via *1024/8 before sending; offline ignores throughput.\n'
-                              '· Cache disable applies to both Fetch & Disk Cache, useful for cold-load reproduction.',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+                      Text(loc?.webReverseThrottleOffline ?? 'Offline'),
+                      const SizedBox(width: 16),
+                      Checkbox(
+                        value: _disableCache,
+                        onChanged: (v) =>
+                            setState(() => _disableCache = v ?? false),
+                      ),
+                      Text(
+                        loc?.webReverseThrottleDisableCache ?? 'Disable cache',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OpenHandDialogActionButton.primary(
+                        onPressed: _applying
+                            ? null
+                            : () {
+                                setState(() => _selectedId = 'custom');
+                                _apply();
+                              },
+                        icon: Icons.play_arrow_rounded,
+                        busy: _applying,
+                        label:
+                            loc?.webReverseThrottleApplyCustom ??
+                            'Apply custom',
+                      ),
+                      OpenHandDialogActionButton.secondary(
+                        onPressed: _applying ? null : _reset,
+                        icon: Icons.restart_alt_rounded,
+                        label:
+                            loc?.webReverseThrottleReset ??
+                            'Reset (no throttle)',
+                      ),
+                    ],
+                  ),
+                  if (_status.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: cs.outlineVariant),
+                      ),
+                      child: Text(
+                        _status,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseThrottleClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
+                  const SizedBox(height: 18),
+                  Text(
+                    loc?.webReverseThrottleNotes ?? 'Notes',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    loc?.webReverseThrottleNotesBody ??
+                        '· Throttle applies to the entire session of current target; reset or close to restore.\n'
+                            '· kbps is converted to bytes/s via *1024/8 before sending; offline ignores throughput.\n'
+                            '· Cache disable applies to both Fetch & Disk Cache, useful for cold-load reproduction.',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseThrottleClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -269,6 +269,17 @@ class OpenHandSnackBar {
     _showOn(context, messenger, snackBar);
   }
 
+  static void showInContext(BuildContext context, SnackBar snackBar) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger != null) {
+      show(context, messenger, snackBar);
+      return;
+    }
+    if (_preferGlobalRoute()) {
+      OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
+    }
+  }
+
   static void _showOn(
     BuildContext context,
     ScaffoldMessengerState messenger,

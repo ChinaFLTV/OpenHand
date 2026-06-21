@@ -267,9 +267,7 @@ Future<void> _awaitEndOfFrame() async {
 }
 
 void _showHomeSnackBar(BuildContext context, SnackBar snackBar) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  OpenHandSnackBar.show(context, messenger, snackBar);
+  OpenHandSnackBar.showInContext(context, snackBar);
 }
 
 void _showHomeSnackBarWithMessenger(

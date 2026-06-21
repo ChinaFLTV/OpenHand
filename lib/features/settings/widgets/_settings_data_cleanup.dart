@@ -1,9 +1,7 @@
 part of 'settings_view.dart';
 
 void _showDataCleanupSnackBar(BuildContext context, SnackBar snackBar) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-  OpenHandSnackBar.show(context, messenger, snackBar);
+  OpenHandSnackBar.showInContext(context, snackBar);
 }
 
 /// 这是一个独立的 [StatefulWidget]，自己持有 [DataCleanupService] 实例，
