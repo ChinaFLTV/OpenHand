@@ -967,7 +967,7 @@ class AiToolUtils {
       if (!await tempFile.exists()) rethrow;
       await _replaceTextFileWithTemporaryBackup(file, tempFile);
     } catch (_) {
-      if (await tempFile.exists()) await tempFile.delete();
+      await _deleteFileIfExistsBestEffort(tempFile, 'cleanup safe write temp');
       rethrow;
     }
   }
@@ -1079,6 +1079,19 @@ class AiToolUtils {
     );
   }
 
+  static Future<void> _deleteFileIfExistsBestEffort(
+    File file,
+    String where,
+  ) async {
+    try {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (error, stack) {
+      silentLog('ai_tool_utils', where, error, stack);
+    }
+  }
+
   static Future<void> _replaceTextFileWithTemporaryBackup(
     File targetFile,
     File tempFile,
@@ -1096,25 +1109,26 @@ class AiToolUtils {
         await backupFile.delete();
       }
     } catch (_) {
-      if (await tempFile.exists()) {
-        try {
-          await tempFile.delete();
-        } on FileSystemException {
-          // Best-effort cleanup; preserve the original write error.
-        }
-      }
+      await _deleteFileIfExistsBestEffort(
+        tempFile,
+        'cleanup backup write temp',
+      );
       if (movedExistingFile &&
           backupFile != null &&
           await backupFile.exists()) {
-        try {
-          if (await targetFile.exists()) await targetFile.delete();
-        } on FileSystemException {
-          // Best-effort cleanup before restoring the previous target.
-        }
+        await _deleteFileIfExistsBestEffort(
+          targetFile,
+          'cleanup failed target before rollback',
+        );
         try {
           await backupFile.rename(targetFile.path);
-        } on FileSystemException {
-          // Preserve the original write error if rollback also fails.
+        } on FileSystemException catch (error, stack) {
+          silentLog(
+            'ai_tool_utils',
+            'rollback safe write backup',
+            error,
+            stack,
+          );
         }
       }
       rethrow;
