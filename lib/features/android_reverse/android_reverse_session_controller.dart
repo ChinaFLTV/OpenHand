@@ -21,6 +21,7 @@ const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'frida',
   'decompiled',
   'network',
+  'certs',
   'scripts',
   'logs',
 ];
@@ -57,6 +58,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get decompiledDir => '$artifactsRootDir/decompiled';
   String get networkDir => '$artifactsRootDir/network';
   String get mitmproxyAddonPath => '$networkDir/openhand_mitm_jsonl.py';
+  String get certsDir => '$artifactsRootDir/certs';
   String get scriptsDir => '$artifactsRootDir/scripts';
   String get logsDir => '$artifactsRootDir/logs';
 
@@ -477,6 +479,39 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
   }
 
+  Future<String> ensureCertificateArtifacts({String? packageName}) async {
+    try {
+      final resXmlDir = Directory('$certsDir/res/xml');
+      await resXmlDir.create(recursive: true);
+      final networkSecurityConfigPath =
+          '${resXmlDir.path}/network_security_config.xml';
+      final manifestSnippetPath = '$certsDir/AndroidManifest.application.xml';
+      final installScriptPath = '$certsDir/install_mitm_ca_root.sh';
+      final readmePath = '$certsDir/README.md';
+      final pkg = packageName?.trim();
+      await Future.wait(<Future<File>>[
+        File(
+          networkSecurityConfigPath,
+        ).writeAsString(_networkSecurityConfigXml),
+        File(manifestSnippetPath).writeAsString(_manifestNetworkConfigSnippet),
+        File(installScriptPath).writeAsString(_installMitmCaRootScript),
+        File(readmePath).writeAsString(_certificateReadme(pkg)),
+      ]);
+      return <String>[
+        'Certificate artifacts: $certsDir',
+        'network_security_config: $networkSecurityConfigPath',
+        'manifest_snippet: $manifestSnippetPath',
+        'root_ca_install_script: $installScriptPath',
+        'readme: $readmePath',
+      ].join('\n');
+    } catch (e, st) {
+      silentLog(_kTag, 'ensureCertificateArtifacts failed', e, st);
+      _errorMessage = '$e';
+      _safeNotify();
+      rethrow;
+    }
+  }
+
   // ── 内部 ───────────────────────────────────────────────────────────────
 
   Future<void> _ensureArtifactDirectories() async {
@@ -824,3 +859,75 @@ def error(flow: http.HTTPFlow):
     }
     _write(record)
 ''';
+
+const String _networkSecurityConfigXml =
+    r'''<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>
+''';
+
+const String _manifestNetworkConfigSnippet =
+    r'''<!-- Merge these attributes into the target <application> element. -->
+<application
+    android:networkSecurityConfig="@xml/network_security_config"
+    android:usesCleartextTraffic="true">
+</application>
+''';
+
+const String _installMitmCaRootScript = r'''#!/usr/bin/env bash
+set -euo pipefail
+
+CERT_PATH="${1:-${MITM_CERT_PATH:-$HOME/.mitmproxy/mitmproxy-ca-cert.pem}}"
+ADB_SERIAL="${ADB_SERIAL:-}"
+ADB=(adb)
+if [[ -n "$ADB_SERIAL" ]]; then
+  ADB=(adb -s "$ADB_SERIAL")
+fi
+
+if [[ ! -f "$CERT_PATH" ]]; then
+  echo "mitmproxy CA not found: $CERT_PATH" >&2
+  exit 2
+fi
+
+HASH="$(openssl x509 -inform PEM -subject_hash_old -in "$CERT_PATH" | head -1)"
+TMP_CERT="/tmp/${HASH}.0"
+cp "$CERT_PATH" "$TMP_CERT"
+
+"${ADB[@]}" root
+"${ADB[@]}" remount
+"${ADB[@]}" push "$TMP_CERT" "/system/etc/security/cacerts/${HASH}.0"
+"${ADB[@]}" shell "chmod 644 /system/etc/security/cacerts/${HASH}.0"
+"${ADB[@]}" shell "ls -l /system/etc/security/cacerts/${HASH}.0"
+''';
+
+String _certificateReadme(String? packageName) {
+  final target = packageName == null || packageName.isEmpty
+      ? '<target package>'
+      : packageName;
+  return '''# Android reverse certificate artifacts
+
+Target: $target
+
+Files:
+- `res/xml/network_security_config.xml`: trusts system and user CAs for debug capture.
+- `AndroidManifest.application.xml`: application attribute snippet for apktool merge.
+- `install_mitm_ca_root.sh`: pushes mitmproxy CA as a system cert on rooted devices.
+
+Flow:
+1. For repackaging, copy `res/xml/network_security_config.xml` into apktool output and merge the manifest snippet into `<application>`.
+2. For rooted dynamic capture, run `ADB_SERIAL=<serial> bash install_mitm_ca_root.sh`.
+3. Use the Network tab mitmproxy JSONL addon to write `network.jsonl`.
+4. If SSL pinning remains, use `hook_ssl_pinning.js` before capturing traffic.
+''';
+}

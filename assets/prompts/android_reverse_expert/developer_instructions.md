@@ -75,6 +75,7 @@
 - 推荐 mitmproxy（需设备安装 CA + APP 信任证书）或 Burp Suite；配置步骤见 dashboard "证书" 面板。
 - mitmproxy 启动：优先用 dashboard 生成的 `openhand_mitm_jsonl.py`，同时写 `network.jsonl` 与 `flows.mitm`。
 - 本地流量读取：优先读 `network.jsonl`，需要完整报文再读 `flows.mitm`。
+- 证书配置优先复用 dashboard 生成的 `certs/` 工件，不要重复手写 XML / 安装脚本。
 - SSL Pinning 绕过使用 `hook_ssl_pinning.js`，常见方案已覆盖 OkHttp3 / TrustManager / Network Security Config。
 </network_inspection>
 

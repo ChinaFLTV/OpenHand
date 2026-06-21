@@ -2300,6 +2300,7 @@ class AiPromptBuilder {
         'network_dir': p.join(rootDir, 'network'),
         'frida_dir': p.join(rootDir, 'frida'),
         'decompiled_dir': p.join(rootDir, 'decompiled'),
+        'certs_dir': p.join(rootDir, 'certs'),
         'scripts_dir': p.join(rootDir, 'scripts'),
         'logs_dir': p.join(rootDir, 'logs'),
       },
@@ -2313,6 +2314,7 @@ class AiPromptBuilder {
         'find ${p.join(rootDir, 'frida')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'decompiled')} -maxdepth 3 -type f | head -200',
         'find ${p.join(rootDir, 'decompiled')} -path "*/quick_scan/*" -type f | head -200',
+        'find ${p.join(rootDir, 'certs')} -maxdepth 3 -type f | head -200',
       ],
       'dashboard_actions': const <String>[
         'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, field snapshot, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
@@ -2323,6 +2325,7 @@ class AiPromptBuilder {
         'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
         'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl',
         'network: generate mitmproxy JSONL addon, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
+        'certs: generate Network Security Config, manifest snippet, root CA install script, APK signing check, SSL pinning hook command',
         'frida: built-in hook snippets plus device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
       ],
       'dashboard_visible_metadata_keys': presentKeys,

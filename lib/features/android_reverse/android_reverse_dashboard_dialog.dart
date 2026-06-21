@@ -323,6 +323,7 @@ class _AndroidReverseDashboardDialogState
   bool _runningDeviceAction = false;
   bool _runningStaticQuickScan = false;
   bool _writingNetworkAddon = false;
+  bool _writingCertificateArtifacts = false;
   bool _loadingDeviceDetails = false;
   bool _logcatPackageFilterEnabled = false;
   String? _selectedDeviceSerial;
@@ -341,6 +342,7 @@ class _AndroidReverseDashboardDialogState
   String? _selectedFridaSnippetAsset;
   String? _staticQuickScanOutput;
   String? _networkAddonOutput;
+  String? _certificateArtifactOutput;
   final _processFilter = TextEditingController();
 
   @override
@@ -852,6 +854,35 @@ class _AndroidReverseDashboardDialogState
       );
     } finally {
       if (mounted) setState(() => _writingNetworkAddon = false);
+    }
+  }
+
+  Future<void> _ensureCertificateArtifacts() async {
+    if (_writingCertificateArtifacts) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() => _writingCertificateArtifacts = true);
+    try {
+      final output = await _ctrl.ensureCertificateArtifacts(
+        packageName: _logcatPackageTarget(),
+      );
+      if (!mounted) return;
+      setState(() => _certificateArtifactOutput = output);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _certificateArtifactOutput =
+            '${isZh ? "生成证书工件失败" : "Failed to generate certificate artifacts"}: $error';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isZh ? '生成证书工件失败。' : 'Failed to generate certificate artifacts.',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _writingCertificateArtifacts = false);
     }
   }
 
@@ -4161,15 +4192,53 @@ class _AndroidReverseDashboardDialogState
     final adb = _adbCommandPrefix();
     final apk = _apkCommandTarget();
     final pkg = _packageCommandTarget();
+    final artifactOutput = _certificateArtifactOutput?.trim();
     return OpenHandSafeScrollbar(
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            isZh ? '证书管理与 SSL Pinning' : 'Certificate management & SSL Pinning',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 260),
+                child: Text(
+                  isZh
+                      ? '证书管理与 SSL Pinning'
+                      : 'Certificate management & SSL Pinning',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: _writingCertificateArtifacts
+                      ? null
+                      : _ensureCertificateArtifacts,
+                  icon: _writingCertificateArtifacts
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 1.8),
+                        )
+                      : const Icon(Icons.description_rounded, size: 15),
+                  label: Text(isZh ? '生成证书工件' : 'Generate cert artifacts'),
+                ),
+              ),
+              if (artifactOutput != null && artifactOutput.isNotEmpty)
+                SizedBox(
+                  height: _kAdbInlineControlHeight,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _copyText(artifactOutput),
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: Text(isZh ? '复制结果' : 'Copy result'),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           _InfoCard(
@@ -4180,7 +4249,24 @@ class _AndroidReverseDashboardDialogState
                 ? 'HTTPS 抓包需要设备信任 mitmproxy / Burp CA 证书。Android 7+ 需要系统级证书（需 root 或 Magisk）或通过 Network Security Config 添加用户证书。'
                 : 'HTTPS capture requires the device to trust the mitmproxy/Burp CA. Android 7+ needs system-level certs (root/Magisk) or Network Security Config for user certs.',
           ),
+          if (artifactOutput != null && artifactOutput.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _monospaceCard(cs, artifactOutput),
+          ],
           const SizedBox(height: 12),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh
+                ? 'Network Security Config 工件'
+                : 'Network Security Config artifacts',
+            command:
+                'cat ${_shellQuote('${_ctrl.certsDir}/res/xml/network_security_config.xml')}\n'
+                'cat ${_shellQuote('${_ctrl.certsDir}/AndroidManifest.application.xml')}\n'
+                'bash ${_shellQuote('${_ctrl.certsDir}/install_mitm_ca_root.sh')}',
+          ),
+          const SizedBox(height: 10),
           _commandCard(
             cs,
             theme,
