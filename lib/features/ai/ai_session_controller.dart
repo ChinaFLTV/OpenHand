@@ -6403,6 +6403,10 @@ class AiSessionController extends ChangeNotifier {
             ? planModeExecutionApprovedForSend
             : true,
       });
+      final bypassWriteConfirmation =
+          isFullAccess &&
+          currentSession?.templateId !=
+              AiPromptTemplatePolicies.androidReverseExpertTemplateId;
       return await _toolRuntimeService.execute(
         sessionId: executionSessionId ?? sessionId,
         catalog: toolCatalog,
@@ -6410,7 +6414,7 @@ class AiSessionController extends ChangeNotifier {
         model: model,
         previouslyReadFiles: readFilePaths,
         denyCommandRules: denyCommandRules,
-        requireWriteCommandConfirmation: isFullAccess
+        requireWriteCommandConfirmation: bypassWriteConfirmation
             ? false
             : requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,

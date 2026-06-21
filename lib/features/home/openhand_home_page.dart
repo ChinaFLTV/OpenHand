@@ -5636,6 +5636,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         restoreSubmittedDraftIfNeeded(localStop: true);
         return;
       }
+      final sendSession = sessionController.sessions
+          .cast<AiSession?>()
+          .firstWhere((s) => s?.id == targetSessionId, orElse: () => null);
+      final isAndroidReverseSession =
+          sendSession?.templateId == 'android_reverse_expert';
+      final requireWriteConfirmation = isAndroidReverseSession
+          ? true
+          : sendSession?.fullAccessPermission == true
+          ? false
+          : settingsController.aiWriteCommandConfirmationEnabled;
       final sent = await sessionController.sendMessage(
         sessionId: targetSessionId,
         content: prompt,
@@ -5648,17 +5658,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             .map((item) => item.filePath)
             .toList(growable: false),
         denyCommandRules: settingsController.aiDenyCommandRules,
-        requireWriteCommandConfirmation:
-            sessionController.sessions
-                    .cast<AiSession?>()
-                    .firstWhere(
-                      (s) => s?.id == targetSessionId,
-                      orElse: () => null,
-                    )
-                    ?.fullAccessPermission ==
-                true
-            ? false
-            : settingsController.aiWriteCommandConfirmationEnabled,
+        requireWriteCommandConfirmation: requireWriteConfirmation,
         confirmWriteCommand: (request) =>
             _confirmWriteCommand(request, sessionId: targetSessionId),
         additionalSystemReminders: additionalSystemReminders,
