@@ -30,6 +30,8 @@ const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
 const int _kDeviceSnapshotMaxLines = 80;
+const int _kMinTcpPort = 1;
+const int _kMaxTcpPort = 65535;
 const String _kDeviceSnapshotScript = '''
 printf '[battery]\\n'
 dumpsys battery | grep -E 'level:|status:|temperature:|voltage:|AC powered:|USB powered:|Wireless powered:' || true
@@ -307,6 +309,8 @@ class _AndroidReverseDashboardDialogState
   final TextEditingController _wirelessEndpointCtrl = TextEditingController();
   final TextEditingController _forwardLocalCtrl = TextEditingController();
   final TextEditingController _forwardRemoteCtrl = TextEditingController();
+  final TextEditingController _reverseDeviceCtrl = TextEditingController();
+  final TextEditingController _reverseHostCtrl = TextEditingController();
   final TextEditingController _logcatFilterCtrl = TextEditingController();
   final TextEditingController _logcatPidCtrl = TextEditingController();
   final TextEditingController _installApkPathCtrl = TextEditingController();
@@ -339,6 +343,7 @@ class _AndroidReverseDashboardDialogState
   String _logcatLevel = 'V';
   Map<String, String> _deviceProps = const <String, String>{};
   List<String> _forwardRows = const <String>[];
+  List<String> _reverseRows = const <String>[];
   String? _deviceSnapshotOutput;
   List<String> _packages = const <String>[];
   List<AndroidReverseToolchainProbeResult> _toolchainRows =
@@ -382,6 +387,8 @@ class _AndroidReverseDashboardDialogState
     _wirelessEndpointCtrl.dispose();
     _forwardLocalCtrl.dispose();
     _forwardRemoteCtrl.dispose();
+    _reverseDeviceCtrl.dispose();
+    _reverseHostCtrl.dispose();
     _logcatFilterCtrl.dispose();
     _logcatPidCtrl.dispose();
     _installApkPathCtrl.dispose();
@@ -621,6 +628,7 @@ class _AndroidReverseDashboardDialogState
         setState(() {
           _deviceProps = const <String, String>{};
           _forwardRows = const <String>[];
+          _reverseRows = const <String>[];
           _deviceSnapshotOutput = null;
         });
       }
@@ -631,6 +639,7 @@ class _AndroidReverseDashboardDialogState
       final isZh = openHandIsChineseLocale(context);
       final propsFuture = _ctrl.getProperties(serial: serial);
       final forwardsFuture = _ctrl.listForwards(serial: serial);
+      final reversesFuture = _ctrl.listReverses(serial: serial);
       final snapshotFuture = _ctrl.shellDetailed(
         _kDeviceSnapshotScript,
         serial: serial,
@@ -638,11 +647,17 @@ class _AndroidReverseDashboardDialogState
       );
       final props = await propsFuture;
       final forwards = await forwardsFuture;
+      final reverses = await reversesFuture;
       final snapshot = await snapshotFuture;
       if (!mounted) return;
       setState(() {
         _deviceProps = props;
         _forwardRows = (forwards ?? '')
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList(growable: false);
+        _reverseRows = (reverses ?? '')
             .split('\n')
             .map((line) => line.trim())
             .where((line) => line.isNotEmpty)
@@ -1830,6 +1845,7 @@ class _AndroidReverseDashboardDialogState
                         vertical: 12,
                       ),
                     ),
+                    onSubmitted: (_) => _addForward(),
                   ),
                 ),
               ),
@@ -1849,6 +1865,7 @@ class _AndroidReverseDashboardDialogState
                         vertical: 12,
                       ),
                     ),
+                    onSubmitted: (_) => _addForward(),
                   ),
                 ),
               ),
@@ -1881,6 +1898,7 @@ class _AndroidReverseDashboardDialogState
                   _ForwardRow(
                     row: row,
                     colorScheme: cs,
+                    removeTooltip: isZh ? '移除转发' : 'Remove forward',
                     onRemove: _runningDeviceAction
                         ? null
                         : () => _removeForwardFromRow(row),
@@ -1907,6 +1925,116 @@ class _AndroidReverseDashboardDialogState
                           ),
                     icon: const Icon(Icons.delete_outline_rounded, size: 14),
                     label: Text(isZh ? '移除全部转发' : 'Remove all forwards'),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 14),
+          Text(
+            isZh ? '反向端口映射' : 'Reverse port mapping',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: _kAdbInlineControlHeight,
+                  child: TextField(
+                    controller: _reverseDeviceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: isZh ? '设备端口' : 'device port',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                    onSubmitted: (_) => _addReverse(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: _kAdbInlineControlHeight,
+                  child: TextField(
+                    controller: _reverseHostCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: isZh ? '主机端口' : 'host port',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                    onSubmitted: (_) => _addReverse(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: _kAdbInlineControlHeight,
+                child: FilledButton.tonalIcon(
+                  onPressed: serial == null || _runningDeviceAction
+                      ? null
+                      : _addReverse,
+                  icon: const Icon(Icons.add_link_rounded, size: 16),
+                  label: Text(isZh ? '添加' : 'Add'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_reverseRows.isEmpty)
+            Text(
+              isZh ? '暂无反向映射' : 'No active reverse mappings',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final row in _reverseRows)
+                  _ForwardRow(
+                    row: row,
+                    colorScheme: cs,
+                    removeTooltip: isZh ? '移除反向映射' : 'Remove reverse mapping',
+                    onRemove: _runningDeviceAction
+                        ? null
+                        : () => _removeReverseFromRow(row),
+                  ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _runningDeviceAction
+                        ? null
+                        : () => _runDeviceAction(
+                            () => _ctrl
+                                .removeAllReverses(serial: serial)
+                                .then(
+                                  (ok) => AdbCommandResult(
+                                    args: const <String>[
+                                      'reverse',
+                                      '--remove-all',
+                                    ],
+                                    exitCode: ok ? 0 : 1,
+                                    stdout: ok ? 'removed all reverses' : '',
+                                    stderr: ok ? '' : 'remove-all failed',
+                                  ),
+                                ),
+                          ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                    label: Text(isZh ? '移除全部反向映射' : 'Remove all reverses'),
                   ),
                 ),
               ],
@@ -2082,9 +2210,15 @@ class _AndroidReverseDashboardDialogState
   Future<void> _addForward() async {
     final local = int.tryParse(_forwardLocalCtrl.text.trim());
     final remote = int.tryParse(_forwardRemoteCtrl.text.trim());
-    if (local == null || remote == null || local <= 0 || remote <= 0) return;
+    if (!_isValidTcpPort(local) || !_isValidTcpPort(remote)) {
+      _setDeviceActionMessage(
+        zh: '端口转发失败：本地端口和设备端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
+        en: 'Forward failed: local and device ports must be between $_kMinTcpPort and $_kMaxTcpPort.',
+      );
+      return;
+    }
     await _runDeviceAction(
-      () => _ctrl.forwardPortDetailed(local, remote, serial: _targetSerial),
+      () => _ctrl.forwardPortDetailed(local!, remote!, serial: _targetSerial),
     );
   }
 
@@ -2094,6 +2228,34 @@ class _AndroidReverseDashboardDialogState
     if (local == null) return;
     await _runDeviceAction(
       () => _ctrl.removeForwardDetailed(local, serial: _targetSerial),
+    );
+  }
+
+  Future<void> _addReverse() async {
+    final devicePort = int.tryParse(_reverseDeviceCtrl.text.trim());
+    final hostPort = int.tryParse(_reverseHostCtrl.text.trim());
+    if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
+      _setDeviceActionMessage(
+        zh: '反向映射失败：设备端口和主机端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
+        en: 'Reverse mapping failed: device and host ports must be between $_kMinTcpPort and $_kMaxTcpPort.',
+      );
+      return;
+    }
+    await _runDeviceAction(
+      () => _ctrl.reversePortDetailed(
+        devicePort!,
+        hostPort!,
+        serial: _targetSerial,
+      ),
+    );
+  }
+
+  Future<void> _removeReverseFromRow(String row) async {
+    final match = RegExp(r'tcp:(\d+)').firstMatch(row);
+    final devicePort = int.tryParse(match?.group(1) ?? '');
+    if (devicePort == null) return;
+    await _runDeviceAction(
+      () => _ctrl.removeReverseDetailed(devicePort, serial: _targetSerial),
     );
   }
 
@@ -2165,7 +2327,7 @@ class _AndroidReverseDashboardDialogState
         PopupMenuItem(
           value: _DeviceMenuAction.listForwards,
           child: Text(
-            openHandIsChineseLocale(context) ? '查看端口转发' : 'List forwards',
+            openHandIsChineseLocale(context) ? '查看端口映射' : 'List port mappings',
           ),
         ),
         const PopupMenuDivider(),
@@ -2256,6 +2418,16 @@ class _AndroidReverseDashboardDialogState
       case _DeviceMenuAction.disconnect:
         await _runDeviceAction(() => _ctrl.disconnect(device.serial));
     }
+  }
+
+  bool _isValidTcpPort(int? port) =>
+      port != null && port >= _kMinTcpPort && port <= _kMaxTcpPort;
+
+  void _setDeviceActionMessage({required String zh, required String en}) {
+    if (!mounted) return;
+    setState(() {
+      _lastDeviceActionOutput = openHandIsChineseLocale(context) ? zh : en;
+    });
   }
 
   Future<void> _showPackageMenu(
@@ -5352,11 +5524,13 @@ class _ForwardRow extends StatelessWidget {
     required this.row,
     required this.colorScheme,
     required this.onRemove,
+    required this.removeTooltip,
   });
 
   final String row;
   final ColorScheme colorScheme;
   final VoidCallback? onRemove;
+  final String removeTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -5384,11 +5558,7 @@ class _ForwardRow extends StatelessWidget {
           IconButton(
             onPressed: onRemove,
             icon: const Icon(Icons.close_rounded, size: 14),
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '移除转发',
-              en: 'Remove forward',
-            ),
+            tooltip: removeTooltip,
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 30, height: 30),
           ),

@@ -1463,7 +1463,7 @@ class AiPromptBuilder {
       } else if (isAndroidReverse) {
         buffer.writeln(
           'Capability invocation priority for the Android Reverse Expert template: '
-          'ADB MCP (or adb Bash) is the first-line device channel for shell, file transfer, logcat, and port forwarding. '
+          'ADB MCP (or adb Bash) is the first-line device channel for shell, file transfer, logcat, and forward/reverse port mapping. '
           'Frida MCP (or frida CLI Bash) is the first-line dynamic instrumentation channel; spawn before attach where possible. '
           'Static analysis (jadx / apktool / radare2 / IDA Pro MCP) precedes dynamic hooking — decompile before hooking unknown code. '
           'Hook scripts MUST be loaded from `assets/prompts/android_reverse_expert/snippets/`; never hand-craft hook code. '
@@ -2388,7 +2388,7 @@ class AiPromptBuilder {
         'find ${p.join(rootDir, 'certs')} -maxdepth 3 -type f | head -200',
       ],
       'dashboard_actions': const <String>[
-        'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, field snapshot/report artifacts, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
+        'devices: wireless adb, tcpip 5555, root/remount/reboot, forward/reverse mappings, field snapshot/report artifacts, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
         'toolchain: diagnostics plus generated toolchain/README.md and setup_commands.json with copy-only install/update/uninstall commands',
         'mcp_plugins: Android-related MCP health, discovered mcp__* names, ToolSearch query, Node/Python/pip/Playwright runtime prerequisites',
         'mcp_artifacts: generated mcp/SETUP.md, mcp/openhand_android_reverse_mcp_templates.json, mcp/README.md, scripts/adb_one_shot.sh, scripts/android_dynamic_probe.sh, frida/README.md, and frida/frida_doctor.sh',
@@ -2399,7 +2399,7 @@ class AiPromptBuilder {
         'network: generate mitmproxy JSONL addon, README, proxy preflight script, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
         'certs: generate Network Security Config, manifest snippet, root CA install script, APK resigning scripts, APK signing check, SSL pinning hook command',
         'reproduce: scripts/README.md plus reproduce_http.py, reproduce_curl.sh, and make_evidence_bundle.sh for final runnable delivery',
-        'frida: built-in hook snippets, saved script/metadata/output artifacts, frida_doctor.sh read-only diagnostics, run_frida_capture.sh stdout/stderr capture, device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
+        'frida: built-in hook snippets, saved script/metadata/output artifacts, frida_doctor.sh read-only diagnostics, run_frida_capture.sh stdout/stderr capture, device frida-server status, ABI, push/start, forward/reverse, spawn/attach copy commands',
       ],
       'dashboard_visible_metadata_keys': presentKeys,
     };

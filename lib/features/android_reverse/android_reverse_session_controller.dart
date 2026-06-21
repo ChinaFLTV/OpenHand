@@ -466,6 +466,29 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<bool> removeAllForwards({String? serial}) =>
       _clientForSerial(serial).removeAllForwards();
 
+  Future<bool> reversePort(int devicePort, int hostPort, {String? serial}) =>
+      _clientForSerial(serial).reversePort(devicePort, hostPort);
+
+  Future<bool> removeReverse(int devicePort, {String? serial}) =>
+      _clientForSerial(serial).removeReverse(devicePort);
+
+  Future<AdbCommandResult> reversePortDetailed(
+    int devicePort,
+    int hostPort, {
+    String? serial,
+  }) => _clientForSerial(serial).reversePortDetailed(devicePort, hostPort);
+
+  Future<AdbCommandResult> removeReverseDetailed(
+    int devicePort, {
+    String? serial,
+  }) => _clientForSerial(serial).removeReverseDetailed(devicePort);
+
+  Future<String?> listReverses({String? serial}) =>
+      _clientForSerial(serial).listReverses();
+
+  Future<bool> removeAllReverses({String? serial}) =>
+      _clientForSerial(serial).removeAllReverses();
+
   Future<AdbCommandResult> saveFridaScriptToArtifacts({
     required String script,
     String? presetAssetPath,
@@ -599,6 +622,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       final devices = await _adbClient.listDevices();
       final propsFuture = client.getProperties();
       final forwardsFuture = client.listForwards();
+      final reversesFuture = client.listReverses();
       final snapshotFuture = client.shellDetailed(
         _deviceReportSnapshotScript,
         timeout: _kDeviceReportTimeout,
@@ -610,6 +634,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           : client.resolveLauncherActivity(packageName);
       final props = await propsFuture;
       final forwards = await forwardsFuture;
+      final reverses = await reversesFuture;
       final snapshot = await snapshotFuture;
       final logcat = await logcatFuture;
       final launcher = await launcherFuture;
@@ -630,6 +655,11 @@ class AndroidReverseSessionController extends ChangeNotifier {
             .toList(growable: false),
         'properties': props,
         'forwards': (forwards ?? '')
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList(growable: false),
+        'reverses': (reverses ?? '')
             .split('\n')
             .map((line) => line.trim())
             .where((line) => line.isNotEmpty)
@@ -655,6 +685,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         devices: devices,
         props: props,
         forwards: forwards,
+        reverses: reverses,
         packageName: packageName,
         launcher: launcher,
         snapshot: snapshot,
@@ -1250,6 +1281,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     required List<AdbDevice> devices,
     required Map<String, String> props,
     required String? forwards,
+    required String? reverses,
     required String? packageName,
     required String? launcher,
     required AdbCommandResult snapshot,
@@ -1303,6 +1335,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
       ..writeln()
       ..writeln('## Forwards')
       ..writeln(_fenced(forwards?.trim()))
+      ..writeln()
+      ..writeln('## Reverses')
+      ..writeln(_fenced(reverses?.trim()))
       ..writeln()
       ..writeln('## Snapshot')
       ..writeln(_fenced(snapshot.stdout.trim()))
@@ -1455,7 +1490,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
       'server_templates': <Map<String, Object?>>[
         <String, Object?>{
           'id': 'android-adb-stdio',
-          'purpose': 'ADB shell, package, file transfer, logcat, forward',
+          'purpose':
+              'ADB shell, package, file transfer, logcat, forward/reverse',
           'config': <String, Object?>{
             'mcpServers': <String, Object?>{
               'android-adb': <String, Object?>{
@@ -1519,6 +1555,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       ],
       'adb_one_shot_examples': <String>[
         '$adbOneShotScriptPath devices',
+        '$adbOneShotScriptPath reverse --list',
         if (serial != null && serial.isNotEmpty)
           '$adbOneShotScriptPath -s $serial --timeout 6 getprop ro.product.cpu.abi',
         if (packageName != null && packageName.isNotEmpty)
@@ -1588,7 +1625,7 @@ Use this checklist before relying on Android reverse MCP tools.
 
 ## Recommended servers
 
-- ADB: device list, shell, file transfer, package, logcat, port forward.
+- ADB: device list, shell, file transfer, package, logcat, forward/reverse.
 - Frida: spawn, attach, load script, read output.
 - IDA Pro: decompiler and database inspection when an IDA bridge is already running.
 - anything-analyzer: archive, APK, dex, ELF, and text triage.
@@ -1790,6 +1827,9 @@ adb_quick shell "pidof frida-server || ps -A | grep frida || ls -l /data/local/t
 
 section adb_forwards
 adb_quick forward --list 2>&1
+
+section adb_reverses
+adb_quick reverse --list 2>&1
 
 section frida_ps_probe
 if command -v frida-ps >/dev/null 2>&1; then
@@ -2019,7 +2059,7 @@ case "$1" in
     run_with_timeout "$ADB_BIN" "$@"
     status=$?
     ;;
-  forward|install|uninstall|push|pull|logcat)
+  forward|reverse|install|uninstall|push|pull|logcat)
     run_adb "$@"
     status=$?
     ;;
@@ -2029,11 +2069,13 @@ case "$1" in
       echo "missing shell command" >&2
       exit 64
     fi
-    run_adb shell "$*" </dev/null
+    shell_command="$*"$'\n''exit'
+    run_adb shell "$shell_command" </dev/null
     status=$?
     ;;
   *)
-    run_adb shell "$*" </dev/null
+    shell_command="$*"$'\n''exit'
+    run_adb shell "$shell_command" </dev/null
     status=$?
     ;;
 esac
@@ -2138,6 +2180,7 @@ run_section adb_shell_ping adb_quick shell true
 run_section device_abi adb_quick shell getprop ro.product.cpu.abi
 run_section device_sdk adb_quick shell getprop ro.build.version.sdk
 run_section adb_forwards adb_quick forward --list
+run_section adb_reverses adb_quick reverse --list
 
 if valid_package; then
   run_section package_path adb_quick shell "pm path $PACKAGE_NAME"

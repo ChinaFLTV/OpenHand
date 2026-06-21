@@ -110,5 +110,5 @@
 <housekeeping>
 - 任务完成后：清理 `tmp_` 临时文件；Frida 输出、反编译结果、复现脚本保留。
 - 最终交付里列出所有产物的相对路径。
-- 结束时检查端口转发是否需要清理：`adb forward --list`。
+- 结束时检查端口映射是否需要清理：`adb forward --list` 与 `adb reverse --list`。
 </housekeeping>

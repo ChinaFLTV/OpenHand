@@ -12,6 +12,8 @@ const Duration _kAdbTransferTimeout = Duration(minutes: 5);
 const Duration _kAdbShellQuickReadTimeout = Duration(seconds: 6);
 const Duration _kAdbShellReadTimeout = Duration(seconds: 8);
 const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
+const int _kMinTcpPort = 1;
+const int _kMaxTcpPort = 65535;
 
 class AdbCommandResult {
   const AdbCommandResult({
@@ -170,11 +172,15 @@ class AndroidReverseAdbClient {
   // ── 基本 Shell 命令 ───────────────────────────────────────────────────
 
   Future<String?> shell(String command, {Duration? timeout}) async {
-    return _runDevice(<String>['shell', command], timeout: timeout);
+    final args = _shellCommandArgs(command);
+    if (args == null) return null;
+    return _runDevice(args, timeout: timeout);
   }
 
   Future<AdbCommandResult> shellDetailed(String command, {Duration? timeout}) {
-    return _runDeviceDetailed(<String>['shell', command], timeout: timeout);
+    final args = _shellCommandArgs(command);
+    if (args == null) return _emptyShellCommandResult();
+    return _runDeviceDetailed(args, timeout: timeout);
   }
 
   Future<String?> shellLines(List<String> args) async {
@@ -602,6 +608,9 @@ class AndroidReverseAdbClient {
   // ── 端口转发 ──────────────────────────────────────────────────────────
 
   Future<bool> forwardPort(int localPort, int remotePort) async {
+    if (!_isValidTcpPort(localPort) || !_isValidTcpPort(remotePort)) {
+      return false;
+    }
     final result = await _runDevice(<String>[
       'forward',
       'tcp:$localPort',
@@ -611,6 +620,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<bool> removeForward(int localPort) async {
+    if (!_isValidTcpPort(localPort)) return false;
     final result = await _runDevice(<String>[
       'forward',
       '--remove',
@@ -629,6 +639,9 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> forwardPortDetailed(int localPort, int remotePort) {
+    if (!_isValidTcpPort(localPort) || !_isValidTcpPort(remotePort)) {
+      return _invalidPortResult('forward', localPort, remotePort);
+    }
     return _runDeviceDetailed(<String>[
       'forward',
       'tcp:$localPort',
@@ -637,10 +650,66 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> removeForwardDetailed(int localPort) {
+    if (!_isValidTcpPort(localPort)) {
+      return _invalidPortResult('forward --remove', localPort, null);
+    }
     return _runDeviceDetailed(<String>[
       'forward',
       '--remove',
       'tcp:$localPort',
+    ]);
+  }
+
+  Future<bool> reversePort(int devicePort, int hostPort) async {
+    if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
+      return false;
+    }
+    final result = await _runDevice(<String>[
+      'reverse',
+      'tcp:$devicePort',
+      'tcp:$hostPort',
+    ]);
+    return result != null;
+  }
+
+  Future<bool> removeReverse(int devicePort) async {
+    if (!_isValidTcpPort(devicePort)) return false;
+    final result = await _runDevice(<String>[
+      'reverse',
+      '--remove',
+      'tcp:$devicePort',
+    ]);
+    return result != null;
+  }
+
+  Future<String?> listReverses() {
+    return _runDevice(<String>['reverse', '--list']);
+  }
+
+  Future<bool> removeAllReverses() async {
+    final result = await _runDevice(<String>['reverse', '--remove-all']);
+    return result != null;
+  }
+
+  Future<AdbCommandResult> reversePortDetailed(int devicePort, int hostPort) {
+    if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
+      return _invalidPortResult('reverse', devicePort, hostPort);
+    }
+    return _runDeviceDetailed(<String>[
+      'reverse',
+      'tcp:$devicePort',
+      'tcp:$hostPort',
+    ]);
+  }
+
+  Future<AdbCommandResult> removeReverseDetailed(int devicePort) {
+    if (!_isValidTcpPort(devicePort)) {
+      return _invalidPortResult('reverse --remove', devicePort, null);
+    }
+    return _runDeviceDetailed(<String>[
+      'reverse',
+      '--remove',
+      'tcp:$devicePort',
     ]);
   }
 
@@ -841,6 +910,48 @@ class AndroidReverseAdbClient {
     Duration? timeout,
   }) {
     return _runDetailed(<String>[..._deviceArgs(), ...args], timeout: timeout);
+  }
+
+  List<String>? _shellCommandArgs(String command) {
+    final trimmed = command.trim();
+    if (trimmed.isEmpty) return null;
+    final wrapped = trimmed.endsWith('\nexit') || trimmed.endsWith('\nexit\n')
+        ? trimmed
+        : '$trimmed\nexit';
+    return <String>['shell', wrapped];
+  }
+
+  Future<AdbCommandResult> _emptyShellCommandResult() {
+    return Future<AdbCommandResult>.value(
+      const AdbCommandResult(
+        args: <String>['shell', '<empty-command>'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'ADB shell command is empty.',
+      ),
+    );
+  }
+
+  bool _isValidTcpPort(int value) =>
+      value >= _kMinTcpPort && value <= _kMaxTcpPort;
+
+  Future<AdbCommandResult> _invalidPortResult(
+    String command,
+    int firstPort,
+    int? secondPort,
+  ) {
+    return Future<AdbCommandResult>.value(
+      AdbCommandResult(
+        args: <String>[
+          command,
+          'tcp:$firstPort',
+          if (secondPort != null) 'tcp:$secondPort',
+        ],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'TCP port must be between $_kMinTcpPort and $_kMaxTcpPort.',
+      ),
+    );
   }
 
   bool _looksLikePackageName(String value) {

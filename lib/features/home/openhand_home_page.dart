@@ -3457,6 +3457,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'adb_tcpip_5555',
         'adb_root_remount_reboot',
         'adb_forward_add_remove',
+        'adb_reverse_add_remove',
         'adb_device_field_snapshot_battery_display_storage_foreground_abi',
         'adb_device_field_report_markdown_json_artifacts',
         'adb_shell_presets',
@@ -3483,7 +3484,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'frida_doctor_read_only_diagnostics_artifact',
         'frida_output_runbook_artifacts',
         'frida_capture_stdout_stderr_artifacts',
-        'frida_server_abi_push_start_forward_copy_commands',
+        'frida_server_abi_push_start_forward_reverse_copy_commands',
         'mitmproxy_jsonl_addon_network_flow_artifacts',
         'network_proxy_probe_runbook_artifacts',
         'certificate_network_security_config_artifacts',
@@ -6115,7 +6116,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _stopResponding() async {
     final sessionController = context.read<AiSessionController>();
-    final sessionId = sessionController.currentSessionId;
+    final sessionId =
+        sessionController.currentSessionId ?? _submittingSessionId;
     if (sessionId == null) {
       return;
     }
