@@ -2098,7 +2098,7 @@ case "$1" in
     run_with_timeout "$ADB_BIN" "$@"
     status=$?
     ;;
-  forward|reverse|install|uninstall|push|pull|logcat)
+  get-state|get-serialno|get-devpath|wait-for-device|root|unroot|remount|reboot|tcpip|usb|jdwp|forward|reverse|install|uninstall|push|pull|logcat)
     run_adb "$@"
     status=$?
     ;;
@@ -2121,6 +2121,7 @@ esac
 
 if [[ "$status" -eq 124 ]]; then
   echo "ADB command timed out after ${TIMEOUT_SECONDS}s" >&2
+  echo "If stdout contains the requested value, treat it as usable partial output before retrying." >&2
 fi
 exit "$status"
 ''';
