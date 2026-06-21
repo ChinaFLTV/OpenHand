@@ -231,6 +231,11 @@ class WebReverseSessionController extends ChangeNotifier {
     _started = true;
     try {
       await _artifacts.init();
+      if (_stopped || _disposed) {
+        _started = false;
+        await _safeStop();
+        return;
+      }
       _launchResult = await _launcher.launch(
         executablePath: executablePath,
         browserKind: config.browserKind,
@@ -238,12 +243,27 @@ class WebReverseSessionController extends ChangeNotifier {
         startUrl: config.targetUrl,
         proxy: config.proxy,
       );
+      if (_stopped || _disposed) {
+        _started = false;
+        await _safeStop();
+        return;
+      }
       _browserCdp = WebReverseCdpClient(
         endpoint: _launchResult!.webSocketDebuggerUrl,
       );
       await _browserCdp!.connect();
+      if (_stopped || _disposed) {
+        _started = false;
+        await _safeStop();
+        return;
+      }
       // attach 到目标 page target，订阅其网络 / 控制台事件。
       await _attachToFirstPage();
+      if (_stopped || _disposed) {
+        _started = false;
+        await _safeStop();
+        return;
+      }
       _startAliveWatchdog();
       _safeNotify();
     } catch (error, stack) {

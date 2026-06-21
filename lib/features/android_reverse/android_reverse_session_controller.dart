@@ -87,7 +87,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<void> start() async {
     if (_state != AndroidReverseSessionState.idle) return;
     await _ensureArtifactDirectories();
+    if (_state == AndroidReverseSessionState.stopped || _disposed) return;
     await _refreshDevices();
+    if (_state == AndroidReverseSessionState.stopped || _disposed) return;
     _state = AndroidReverseSessionState.running;
     _watchdogTimer = Timer.periodic(_kDeviceWatchdogInterval, (_) {
       if (!_disposed) _scheduleRefresh();

@@ -208,6 +208,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Map<String, int> _activeSubmissionSerialsBySessionId = <String, int>{};
   final Map<String, int> _locallyStoppedSubmissionSerialsBySessionId =
       <String, int>{};
+  final Set<String> _locallyStoppedPendingSubmissionSessionIds = <String>{};
   bool _shouldAutoFollowMessages = true;
   bool _pendingForcedScrollToBottom = false;
   bool _queuedForcedScrollToBottom = false;
@@ -542,6 +543,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final activeSubmissionSerial =
         _activeSubmissionSerialsBySessionId[sessionId];
+    if (_locallyStoppedPendingSubmissionSessionIds.contains(sessionId)) {
+      return AiSendPhase.idle;
+    }
     if (activeSubmissionSerial != null &&
         _locallyStoppedSubmissionSerialsBySessionId[sessionId] ==
             activeSubmissionSerial) {
@@ -3015,12 +3019,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final session = sessionController.currentSession;
     if (session == null) return created;
+    _beginPendingAutoStartSubmission(session.id);
     await _applyNewSessionModelSelection(
       sessionId: session.id,
       providerConfigId: setup.selectedModelConfigId,
       modelId: setup.selectedModelId,
     );
-    if (!mounted) return created;
+    if (!mounted) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
     // 把 user-data-dir 在 session.id 就绪后改写为 `<root>/profile_<browser>_<sid>`，
     // 这样每个会话各占一个 profile 目录，从源头规避另一个 Chrome 实例
     // 抓着同一 user-data-dir 时触发的 "Profile is in use" 锁导致 CDP 起不来。
@@ -3033,7 +3041,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     await sessionController.updateSessionMetadata(session.id, <String, Object?>{
       'web_reverse_config': scopedConfig.toJson(),
     });
-    if (!mounted) return created;
+    if (!mounted) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
     // 启动 controller。
     final controller = WebReverseSessionController(
       config: scopedConfig,
@@ -3090,18 +3101,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         silentLog('openhand_home_page', 'web reverse stop', e, st);
       }
       controller.dispose();
+      _clearPendingAutoStartSubmission(session.id);
       return created;
     }
     if (!runtimePersisted) {
+      _clearPendingAutoStartSubmission(session.id);
       return created;
     }
-    if (!mounted) return created;
+    if (!mounted) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
+    if (_autoStartSubmissionWasStopped(session.id)) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
     final requestConfig = scopedConfig.copyWith(
       cdpPort: controller.cdpPort ?? scopedConfig.cdpPort,
     );
     // 替换 composer 文本并发送首条 prompt。
     _replaceComposerText(requestConfig.toRequestTemplate());
-    await _sendMessage();
+    try {
+      await _sendMessage();
+    } finally {
+      _clearPendingAutoStartSubmission(session.id);
+    }
     return created;
   }
 
@@ -3184,17 +3208,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final session = sessionController.currentSession;
     if (session == null) return created;
+    _beginPendingAutoStartSubmission(session.id);
     final config = setup.config;
     await _applyNewSessionModelSelection(
       sessionId: session.id,
       providerConfigId: setup.selectedModelConfigId,
       modelId: setup.selectedModelId,
     );
-    if (!mounted) return created;
+    if (!mounted) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
     await sessionController.updateSessionMetadata(session.id, <String, Object?>{
       'android_reverse_config': config.toJson(),
     });
-    if (!mounted) return created;
+    if (!mounted) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
     final controller = AndroidReverseSessionController(
       config: config,
       artifactsRootDir:
@@ -3215,9 +3246,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
     await _persistAndroidReverseRuntimeMetadata(session.id, controller);
-    if (!mounted) return created;
+    if (!mounted) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
+    if (_autoStartSubmissionWasStopped(session.id)) {
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
     _replaceComposerText(config.toRequestTemplate());
-    await _sendMessage();
+    try {
+      await _sendMessage();
+    } finally {
+      _clearPendingAutoStartSubmission(session.id);
+    }
     return created;
   }
 
@@ -4997,6 +5039,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  void _beginPendingAutoStartSubmission(String sessionId) {
+    _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
+    if (mounted) {
+      setState(() => _submittingSessionId = sessionId);
+    } else {
+      _submittingSessionId = sessionId;
+    }
+  }
+
+  bool _autoStartSubmissionWasStopped(String sessionId) {
+    return _locallyStoppedPendingSubmissionSessionIds.contains(sessionId);
+  }
+
+  void _clearPendingAutoStartSubmission(String sessionId) {
+    _locallyStoppedPendingSubmissionSessionIds.remove(sessionId);
+    if (_activeSubmissionSerialsBySessionId.containsKey(sessionId)) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        if (_submittingSessionId == sessionId) {
+          _submittingSessionId = null;
+        }
+      });
+    } else if (_submittingSessionId == sessionId) {
+      _submittingSessionId = null;
+    }
+  }
+
   /// Translates the composer-private [_CreationMode] enum into the public
   /// [AiCreationRequest] model that the controller/adapter layers speak.
   AiCreationRequest _creationRequestFromComposer(_CreationMode mode) {
@@ -5136,8 +5207,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final editingMessageIdBeforeSend = sessionController.editingMessageId;
     _submissionSerial += 1;
     final submissionSerial = _submissionSerial;
+    final stoppedBeforeSubmissionSerial =
+        _locallyStoppedPendingSubmissionSessionIds.remove(targetSessionId);
     _activeSubmissionSerialsBySessionId[targetSessionId] = submissionSerial;
-    _locallyStoppedSubmissionSerialsBySessionId.remove(targetSessionId);
+    if (stoppedBeforeSubmissionSerial) {
+      _locallyStoppedSubmissionSerialsBySessionId[targetSessionId] =
+          submissionSerial;
+    } else {
+      _locallyStoppedSubmissionSerialsBySessionId.remove(targetSessionId);
+    }
 
     _storeComposerDraftForSession(
       targetSessionId,
@@ -5155,6 +5233,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _locallyStoppedSubmissionSerialsBySessionId[targetSessionId] ==
         submissionSerial;
     try {
+      if (submissionWasStopped()) {
+        if (_shouldRestoreSubmittedPrompt(
+          sessionController: sessionController,
+          sessionId: targetSessionId,
+          prompt: prompt,
+          initialUserMessageCount: initialUserMessageCount,
+          editingMessageId: editingMessageIdBeforeSend,
+        )) {
+          _restoreSubmittedDraft(
+            sessionController,
+            sessionId: targetSessionId,
+            prompt: prompt,
+            attachments: pendingAttachments,
+            creationRequest: creationRequest,
+          );
+        }
+        return;
+      }
       final submitPreflightTimingsMs = <String, int>{
         ...callerPreflightTimingsMs,
       };
@@ -5335,6 +5431,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           submissionSerial;
       if (isActiveSubmission) {
         _activeSubmissionSerialsBySessionId.remove(targetSessionId);
+        _locallyStoppedPendingSubmissionSessionIds.remove(targetSessionId);
         if (_locallyStoppedSubmissionSerialsBySessionId[targetSessionId] ==
             submissionSerial) {
           _locallyStoppedSubmissionSerialsBySessionId.remove(targetSessionId);
@@ -5750,6 +5847,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (activeSubmissionSerial != null) {
         _locallyStoppedSubmissionSerialsBySessionId[sessionId] =
             activeSubmissionSerial;
+      } else {
+        _locallyStoppedPendingSubmissionSessionIds.add(sessionId);
       }
       if (mounted) {
         setState(() {
@@ -5761,6 +5860,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _submittingSessionId = null;
       }
     }
+    _stopReverseRuntimeForSession(sessionId);
     unawaited(
       sessionController.stopResponding(sessionId).catchError((
         Object error,
@@ -5769,6 +5869,42 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         silentLog('openhand_home_page', 'stop responding', error, stackTrace);
       }),
     );
+  }
+
+  void _stopReverseRuntimeForSession(String sessionId) {
+    final webReverseController = _webReverseControllers[sessionId];
+    if (webReverseController != null) {
+      _webReverseCdpMcpBridge.stopSession(sessionId);
+      unawaited(
+        webReverseController.stop().catchError((
+          Object error,
+          StackTrace stack,
+        ) {
+          silentLog(
+            'openhand_home_page',
+            'stop web reverse runtime',
+            error,
+            stack,
+          );
+        }),
+      );
+    }
+    final androidReverseController = _androidReverseControllers[sessionId];
+    if (androidReverseController != null) {
+      unawaited(
+        androidReverseController.stop().catchError((
+          Object error,
+          StackTrace stack,
+        ) {
+          silentLog(
+            'openhand_home_page',
+            'stop android reverse runtime',
+            error,
+            stack,
+          );
+        }),
+      );
+    }
   }
 
   void _scheduleScrollToBottom({
