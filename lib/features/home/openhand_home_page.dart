@@ -3716,6 +3716,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           'status': plugin.status.name,
           'enabled': plugin.enabled,
           'installed': plugin.isInstalled,
+          'available_actions': <String>[
+            if (!plugin.isInstalled) 'install',
+            if (plugin.isInstalled) 'check_update',
+            if (plugin.isInstalled && plugin.hasUpdate) 'update',
+            if (plugin.isInstalled) plugin.enabled ? 'disable' : 'enable',
+            if (plugin.isInstalled && plugin.supportsUninstall) 'uninstall',
+          ],
           if (plugin.installedVersion?.trim().isNotEmpty ?? false)
             'installed_version': plugin.installedVersion!.trim(),
           if (plugin.latestVersion?.trim().isNotEmpty ?? false)
@@ -3727,6 +3734,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         });
       }
       return <String, Object?>{
+        'operation_source': 'OpenHand PluginServiceController',
         'is_loading': pluginController.isLoading,
         'is_operating': pluginController.isOperating,
         'installed_count': plugins

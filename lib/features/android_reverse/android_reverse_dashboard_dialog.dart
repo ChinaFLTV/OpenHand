@@ -168,6 +168,15 @@ enum _ProcessMenuAction { copyPid, copyName, kill, forceStopPackage, logcatPid }
 
 enum _ToolchainCommandAction { install, update, uninstall, reference }
 
+enum _RuntimePluginAction {
+  install,
+  checkUpdate,
+  update,
+  enable,
+  disable,
+  uninstall,
+}
+
 class _FridaSnippetPreset {
   const _FridaSnippetPreset({
     required this.id,
@@ -3218,8 +3227,8 @@ class _AndroidReverseDashboardDialogState
             theme: theme,
             icon: Icons.info_outline_rounded,
             text: isZh
-                ? '此页只展示 OpenHand 已配置的 MCP server、工具目录和相邻运行时状态。Android 专用 MCP / Frida / IDA / anything-analyzer 仍需在全局 MCP 面板按服务自身说明安装或启用。'
-                : 'This page shows configured MCP servers, discovered tools, and adjacent runtime prerequisites. Android-specific MCP, Frida, IDA, and anything-analyzer servers still need to be installed or enabled from the global MCP panel.',
+                ? '此页展示 OpenHand 已配置的 MCP server、工具目录和相邻运行时状态。Node / Python / pip / Playwright 可在本页菜单中经确认后安装、更新、卸载；Android 专用 MCP / Frida / IDA / anything-analyzer 仍需在全局 MCP 面板按服务自身说明安装或启用。'
+                : 'This page shows configured MCP servers, discovered tools, and adjacent runtime prerequisites. Node / Python / pip / Playwright can be installed, updated, or removed from the row menu after confirmation; Android-specific MCP, Frida, IDA, and anything-analyzer servers still need to be installed or enabled from the global MCP panel.',
           ),
           const SizedBox(height: 10),
           _monospaceCard(
@@ -3577,6 +3586,7 @@ class _AndroidReverseDashboardDialogState
     ThemeData theme,
     bool isZh,
   ) {
+    final pluginController = context.watch<PluginServiceController>();
     final color = plugin.isInstalled
         ? plugin.enabled
               ? cs.primary
@@ -3584,6 +3594,11 @@ class _AndroidReverseDashboardDialogState
         : cs.tertiary;
     final version = plugin.installedVersion?.trim();
     final path = plugin.installPath?.trim();
+    final actions = _runtimePluginActions(plugin);
+    final actionBusy =
+        plugin.isBusy ||
+        pluginController.isOperating ||
+        pluginController.checkingPluginId == plugin.id;
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
       decoration: BoxDecoration(
@@ -3650,8 +3665,206 @@ class _AndroidReverseDashboardDialogState
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
             ),
           ],
+          if (actions.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            PopupMenuButton<_RuntimePluginAction>(
+              tooltip: isZh ? '插件操作' : 'Plugin actions',
+              enabled: !actionBusy,
+              icon: actionBusy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 1.8),
+                    )
+                  : const Icon(Icons.more_horiz_rounded, size: 17),
+              itemBuilder: (context) => actions
+                  .map(
+                    (action) => PopupMenuItem<_RuntimePluginAction>(
+                      value: action,
+                      child: Row(
+                        children: [
+                          Icon(_runtimePluginActionIcon(action), size: 16),
+                          const SizedBox(width: 8),
+                          Text(_runtimePluginActionLabel(action, isZh)),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+              onSelected: (action) =>
+                  unawaited(_handleRuntimePluginAction(plugin, action, isZh)),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  List<_RuntimePluginAction> _runtimePluginActions(PluginInfo plugin) {
+    if (plugin.isBusy) return const <_RuntimePluginAction>[];
+    if (plugin.isInstalled) {
+      return <_RuntimePluginAction>[
+        _RuntimePluginAction.checkUpdate,
+        if (plugin.hasUpdate) _RuntimePluginAction.update,
+        plugin.enabled
+            ? _RuntimePluginAction.disable
+            : _RuntimePluginAction.enable,
+        if (plugin.supportsUninstall) _RuntimePluginAction.uninstall,
+      ];
+    }
+    return const <_RuntimePluginAction>[_RuntimePluginAction.install];
+  }
+
+  IconData _runtimePluginActionIcon(_RuntimePluginAction action) {
+    return switch (action) {
+      _RuntimePluginAction.install => Icons.download_rounded,
+      _RuntimePluginAction.checkUpdate => Icons.refresh_rounded,
+      _RuntimePluginAction.update => Icons.system_update_alt_rounded,
+      _RuntimePluginAction.enable => Icons.toggle_on_rounded,
+      _RuntimePluginAction.disable => Icons.toggle_off_outlined,
+      _RuntimePluginAction.uninstall => Icons.delete_outline_rounded,
+    };
+  }
+
+  String _runtimePluginActionLabel(_RuntimePluginAction action, bool isZh) {
+    return switch (action) {
+      _RuntimePluginAction.install => isZh ? '安装' : 'Install',
+      _RuntimePluginAction.checkUpdate => isZh ? '检查更新' : 'Check updates',
+      _RuntimePluginAction.update => isZh ? '更新' : 'Update',
+      _RuntimePluginAction.enable => isZh ? '启用' : 'Enable',
+      _RuntimePluginAction.disable => isZh ? '禁用' : 'Disable',
+      _RuntimePluginAction.uninstall => isZh ? '卸载' : 'Uninstall',
+    };
+  }
+
+  Future<void> _handleRuntimePluginAction(
+    PluginInfo plugin,
+    _RuntimePluginAction action,
+    bool isZh,
+  ) async {
+    final pluginController = context.read<PluginServiceController>();
+    switch (action) {
+      case _RuntimePluginAction.enable:
+      case _RuntimePluginAction.disable:
+        pluginController.toggleEnabled(
+          plugin.id,
+          enabled: action == _RuntimePluginAction.enable,
+        );
+        _showSnack(
+          action == _RuntimePluginAction.enable
+              ? (isZh ? '已启用 ${plugin.name}' : '${plugin.name} enabled')
+              : (isZh ? '已禁用 ${plugin.name}' : '${plugin.name} disabled'),
+        );
+        return;
+      case _RuntimePluginAction.checkUpdate:
+        final refreshed = await pluginController.checkPluginUpdate(plugin.id);
+        if (!mounted) return;
+        final latest = pluginController.pluginById(plugin.id) ?? refreshed;
+        _showSnack(
+          latest == null
+              ? (pluginController.errorMessage ??
+                    (isZh ? '检查更新失败' : 'Failed to check updates'))
+              : latest.hasUpdate && latest.latestVersion != null
+              ? (isZh
+                    ? '发现新版本：${latest.latestVersion}'
+                    : 'New version available: ${latest.latestVersion}')
+              : (isZh ? '未发现新版本' : 'No updates available'),
+        );
+        return;
+      case _RuntimePluginAction.install:
+      case _RuntimePluginAction.update:
+      case _RuntimePluginAction.uninstall:
+        await _runRuntimePluginMutation(plugin, action, isZh);
+    }
+  }
+
+  Future<void> _runRuntimePluginMutation(
+    PluginInfo plugin,
+    _RuntimePluginAction action,
+    bool isZh,
+  ) async {
+    final title = switch (action) {
+      _RuntimePluginAction.install =>
+        isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?',
+      _RuntimePluginAction.update =>
+        isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?',
+      _RuntimePluginAction.uninstall =>
+        isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?',
+      _ => '',
+    };
+    final message = switch (action) {
+      _RuntimePluginAction.install =>
+        isZh
+            ? '将通过 OpenHand 插件服务安装 ${plugin.name}。安装可能需要下载依赖文件。'
+            : 'OpenHand plugin service will install ${plugin.name}. Dependencies may be downloaded.',
+      _RuntimePluginAction.update =>
+        isZh
+            ? '将通过 OpenHand 插件服务更新 ${plugin.name}。'
+            : 'OpenHand plugin service will update ${plugin.name}.',
+      _RuntimePluginAction.uninstall =>
+        isZh
+            ? '将从本机卸载 ${plugin.name}。此操作可能影响依赖它的能力。'
+            : 'This will remove ${plugin.name} from this machine and may affect dependent capabilities.',
+      _ => '',
+    };
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: title,
+      message: message,
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: _runtimePluginActionLabel(action, isZh),
+      destructive: action == _RuntimePluginAction.uninstall,
+    );
+    if (!confirmed || !mounted) return;
+
+    final pluginController = context.read<PluginServiceController>();
+    final success = switch (action) {
+      _RuntimePluginAction.install => await pluginController.installPlugin(
+        plugin.id,
+      ),
+      _RuntimePluginAction.update => await pluginController.updatePlugin(
+        plugin.id,
+      ),
+      _RuntimePluginAction.uninstall => await pluginController.uninstallPlugin(
+        plugin.id,
+      ),
+      _ => false,
+    };
+    if (!mounted) return;
+    _showSnack(
+      success
+          ? switch (action) {
+              _RuntimePluginAction.install =>
+                isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed',
+              _RuntimePluginAction.update =>
+                isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated',
+              _RuntimePluginAction.uninstall =>
+                isZh ? '${plugin.name} 卸载成功' : '${plugin.name} uninstalled',
+              _ => plugin.name,
+            }
+          : (pluginController.errorMessage ??
+                switch (action) {
+                  _RuntimePluginAction.install =>
+                    isZh
+                        ? '${plugin.name} 安装失败'
+                        : '${plugin.name} install failed',
+                  _RuntimePluginAction.update =>
+                    isZh
+                        ? '${plugin.name} 更新失败'
+                        : '${plugin.name} update failed',
+                  _RuntimePluginAction.uninstall =>
+                    isZh
+                        ? '${plugin.name} 卸载失败'
+                        : '${plugin.name} uninstall failed',
+                  _ => plugin.name,
+                }),
+    );
+  }
+
+  void _showSnack(String message) {
+    if (!mounted || message.trim().isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
   }
 

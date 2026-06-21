@@ -2,7 +2,7 @@
 - 用户已为本会话绑定了一个 Android 设备（真机或模拟器），通过 ADB 通道完成所有设备操作。
 - dashboard "设备管理" 面板实时显示 ADB 设备列表、在线状态、序列号。
 - dashboard "工具链" 面板显示本机 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums/anything-analyzer 可用性与安装 / 更新 / 卸载命令复制建议，并生成 `toolchain/setup_commands.json`。
-- dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright 前置运行时状态。
+- dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright 前置运行时状态与用户确认式安装 / 更新 / 卸载入口。
 - dashboard "MCP/插件" 面板生成 `mcp/SETUP.md`、`mcp/openhand_android_reverse_mcp_templates.json`、`mcp/README.md`、`scripts/adb_one_shot.sh`、`scripts/android_dynamic_probe.sh`、`frida/README.md`、`frida/frida_doctor.sh`。
 - 会话创建时写入 `android_reverse_config`：包含 `objective`、`package_name`、`apk_path`、`device_serial`、`analysis_mode`、`authorization_scope`、`adb_mcp_enabled`、`frida_mcp_enabled`、`keywords`。
 - TopBar 调试胶囊实时显示"设备状态 · 进程数"。

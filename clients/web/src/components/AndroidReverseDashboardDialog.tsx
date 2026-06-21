@@ -271,7 +271,8 @@ function McpTab({ metadata, summary }: { metadata: Record<string, unknown>; summ
               const plugin = recordFromUnknown(item);
               const id = stringFromUnknown(plugin['id']) || 'plugin';
               const status = stringFromUnknown(plugin['status']) || 'unknown';
-              return `${id}: ${status}`;
+              const actions = stringListFromUnknown(plugin['available_actions']);
+              return `${id}: ${status}${actions.length > 0 ? ` · ${actions.join('/')}` : ''}`;
             })}
           />
         </Section>
