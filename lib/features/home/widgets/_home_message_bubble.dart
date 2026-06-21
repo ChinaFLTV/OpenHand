@@ -577,483 +577,482 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
-    final bubbleBody = Column(
-      crossAxisAlignment: isUser
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: borderRadius,
-            border: isScrollHighlighted
-                ? Border.all(color: highlightBorderColor, width: 1.8)
-                : isToolCall
-                ? Border.all(color: colorScheme.secondary, width: 1.2)
-                : widget.isSelected
-                ? Border.all(
-                    color: colorScheme.primary.withValues(alpha: 0.38),
-                    width: 1.5,
-                  )
-                : Border.all(
-                    color: colorScheme.outlineVariant.withValues(
-                      alpha: theme.brightness == Brightness.dark ? 0.18 : 0.10,
-                    ),
-                  ),
-            boxShadow: [
-              if (isScrollHighlighted)
-                BoxShadow(
-                  color: colorScheme.primary.withValues(alpha: 0.22),
-                  blurRadius: 24,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 4),
+    final bubbleCard = Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: borderRadius,
+        border: isScrollHighlighted
+            ? Border.all(color: highlightBorderColor, width: 1.8)
+            : isToolCall
+            ? Border.all(color: colorScheme.secondary, width: 1.2)
+            : widget.isSelected
+            ? Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.38),
+                width: 1.5,
+              )
+            : Border.all(
+                color: colorScheme.outlineVariant.withValues(
+                  alpha: theme.brightness == Brightness.dark ? 0.18 : 0.10,
                 ),
-              BoxShadow(
-                color: colorScheme.shadow.withValues(
-                  alpha: theme.brightness == Brightness.dark ? 0.06 : 0.04,
-                ),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
               ),
-            ],
+        boxShadow: [
+          if (isScrollHighlighted)
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.22),
+              blurRadius: 24,
+              spreadRadius: 1,
+              offset: const Offset(0, 4),
+            ),
+          BoxShadow(
+            color: colorScheme.shadow.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.06 : 0.04,
+            ),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            // 消息卡片的单一外层尺寸动画壳：只承接“有明确语义边界”的高度变化
-            //（如展开/收起、body 模式切换、action row 显隐），而不是对每个
-            // streaming chunk 做逐帧高度插值。时长/曲线统一复用
-            // `_home_motion_tokens.dart`，避免多层尺寸动画再次互相竞争。
-            child: Builder(
-              builder: (context) {
-                final bubbleContent = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isCompressionPoint)
-                      _MessageMetaRow(
-                        key: _metaCapsuleKey,
-                        icon: Icons.summarize_rounded,
-                        label: AppLocalizations.of(
-                          context,
-                        )!.threadCompressionCheckpointLabel,
-                        color: textColor,
-                      )
-                    else if (isReasoning)
-                      _ReasoningMetaRow(
-                        key: _metaCapsuleKey,
-                        message: message,
-                        color: textColor,
-                        showSweep: widget.showReasoningSweep,
-                        expanded: reasoningExpanded,
-                        onTap: () {
-                          _setReasoningExpandedOverride(!reasoningExpanded);
-                        },
-                      )
-                    else if (isToolCall)
-                      _ToolCallMetaRow(
-                        key: _metaCapsuleKey,
-                        data: _ToolCallStatusViewData.from(context, message),
-                        color: textColor,
-                      )
-                    else if (isToolResult)
-                      _MessageMetaRow(
-                        key: _metaCapsuleKey,
-                        icon: Icons.inventory_2_outlined,
-                        label: _localizedText(
-                          context,
-                          zh: '工具结果',
-                          en: 'Tool Result',
-                        ),
-                        color: textColor,
-                      )
-                    else if (showAssistantResponseMetaRow)
-                      _ResponseMetaRow(
-                        key: _metaCapsuleKey,
-                        message: message,
-                        color: textColor,
-                        showSweep: isStreamingAssistant,
-                        expanded: assistantResponseExpanded,
-                        onTap: canCollapseAssistantResponse
-                            ? toggleAssistantResponseExpansion
-                            : null,
-                      ),
-                    if (isCompressionPoint ||
-                        isReasoning ||
-                        isToolCall ||
-                        isToolResult ||
-                        showAssistantResponseMetaRow)
-                      const SizedBox(height: 10),
-                    if (isCompressionPoint)
-                      _CompressionCheckpointBody(
-                        content: message.content,
-                        expanded: _compressionExpanded,
-                        onToggle: () {
-                          setState(() {
-                            _compressionExpanded = !_compressionExpanded;
-                          });
-                        },
-                        selectable: true,
-                        textColor: textColor,
-                        fadeColor: backgroundColor,
-                        styleSheet: markdownStyleSheet.styleSheet,
-                        builders: markdownBuilders,
-                        inlineSyntaxes: inlineSyntaxes,
-                        pathRoots: filePathRoots,
-                        parseKey: filePathParseKey,
-                      )
-                    else if (isReasoning)
-                      _showRawContent
-                          ? SelectableText(
-                              effectiveContent.isEmpty ? ' ' : effectiveContent,
-                              style: markdownStyleSheet.styleSheet.p?.copyWith(
-                                color: textColor,
-                              ),
-                            )
-                          : _ReasoningBody(
-                              content: effectiveContent,
-                              expanded: reasoningExpanded,
-                              streaming: isStreamingReasoning,
-                              selectable: true,
-                              textColor: textColor,
-                              fadeColor: backgroundColor,
-                              styleSheet: markdownStyleSheet.styleSheet,
-                              builders: markdownBuilders,
-                              inlineSyntaxes: inlineSyntaxes,
-                              pathRoots: filePathRoots,
-                              parseKey: filePathParseKey,
-                            )
-                    else if (isToolCall)
-                      _ToolCallBody(message: message, selectable: true)
-                    else if (isSelfLearning)
-                      ClipRect(child: _SelfLearningCard(message: message))
-                    else if (isUser)
-                      _PlainTextMessageBody(
-                        data: effectiveContent.isEmpty ? ' ' : effectiveContent,
-                        textColor: textColor,
-                        backgroundColor: backgroundColor,
-                        style: markdownStyleSheet.styleSheet.p,
-                      )
-                    else
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 撤回 IndexedStack 改回 ternary。
-                          // IndexedStack 的 StackFit.loose 让容器高度始终
-                          // 等于最大子项（WebView 的 estimatedHeight ~ 800px），
-                          // raw 模式下 SelectableText（~100px）只占顶部一
-                          // 小块，下方留出 700px 空白，且整张卡片无法响应
-                          // "原始↔渲染"的高度切换——卡死在最大子项高度。
-                          // 切回 ternary 后，raw 模式仅 SelectableText 占
-                          // 高度、渲染模式仅 dispatcher 占高度，AnimatedSize
-                          // 在两者间平滑过渡；切换的 250ms 防抖是用户可
-                          // 接受的代价（与 WebView 加载本身的耗时同一数量级）。
-                          if (_showRawContent)
-                            SelectableText(
-                              effectiveContent.isEmpty ? ' ' : effectiveContent,
-                              style: markdownStyleSheet.styleSheet.p?.copyWith(
-                                color: textColor,
-                              ),
-                            )
-                          else if (isStreamingAssistant &&
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        // 消息卡片的单一外层尺寸动画壳：只承接“有明确语义边界”的高度变化
+        //（如展开/收起、body 模式切换、action row 显隐），而不是对每个
+        // streaming chunk 做逐帧高度插值。时长/曲线统一复用
+        // `_home_motion_tokens.dart`，避免多层尺寸动画再次互相竞争。
+        child: Builder(
+          builder: (context) {
+            final bubbleContent = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isCompressionPoint)
+                  _MessageMetaRow(
+                    key: _metaCapsuleKey,
+                    icon: Icons.summarize_rounded,
+                    label: AppLocalizations.of(
+                      context,
+                    )!.threadCompressionCheckpointLabel,
+                    color: textColor,
+                  )
+                else if (isReasoning)
+                  _ReasoningMetaRow(
+                    key: _metaCapsuleKey,
+                    message: message,
+                    color: textColor,
+                    showSweep: widget.showReasoningSweep,
+                    expanded: reasoningExpanded,
+                    onTap: () {
+                      _setReasoningExpandedOverride(!reasoningExpanded);
+                    },
+                  )
+                else if (isToolCall)
+                  _ToolCallMetaRow(
+                    key: _metaCapsuleKey,
+                    data: _ToolCallStatusViewData.from(context, message),
+                    color: textColor,
+                  )
+                else if (isToolResult)
+                  _MessageMetaRow(
+                    key: _metaCapsuleKey,
+                    icon: Icons.inventory_2_outlined,
+                    label: _localizedText(
+                      context,
+                      zh: '工具结果',
+                      en: 'Tool Result',
+                    ),
+                    color: textColor,
+                  )
+                else if (showAssistantResponseMetaRow)
+                  _ResponseMetaRow(
+                    key: _metaCapsuleKey,
+                    message: message,
+                    color: textColor,
+                    showSweep: isStreamingAssistant,
+                    expanded: assistantResponseExpanded,
+                    onTap: canCollapseAssistantResponse
+                        ? toggleAssistantResponseExpansion
+                        : null,
+                  ),
+                if (isCompressionPoint ||
+                    isReasoning ||
+                    isToolCall ||
+                    isToolResult ||
+                    showAssistantResponseMetaRow)
+                  const SizedBox(height: 10),
+                if (isCompressionPoint)
+                  _CompressionCheckpointBody(
+                    content: message.content,
+                    expanded: _compressionExpanded,
+                    onToggle: () {
+                      setState(() {
+                        _compressionExpanded = !_compressionExpanded;
+                      });
+                    },
+                    selectable: true,
+                    textColor: textColor,
+                    fadeColor: backgroundColor,
+                    styleSheet: markdownStyleSheet.styleSheet,
+                    builders: markdownBuilders,
+                    inlineSyntaxes: inlineSyntaxes,
+                    pathRoots: filePathRoots,
+                    parseKey: filePathParseKey,
+                  )
+                else if (isReasoning)
+                  _showRawContent
+                      ? SelectableText(
+                          effectiveContent.isEmpty ? ' ' : effectiveContent,
+                          style: markdownStyleSheet.styleSheet.p?.copyWith(
+                            color: textColor,
+                          ),
+                        )
+                      : _ReasoningBody(
+                          content: effectiveContent,
+                          expanded: reasoningExpanded,
+                          streaming: isStreamingReasoning,
+                          selectable: true,
+                          textColor: textColor,
+                          fadeColor: backgroundColor,
+                          styleSheet: markdownStyleSheet.styleSheet,
+                          builders: markdownBuilders,
+                          inlineSyntaxes: inlineSyntaxes,
+                          pathRoots: filePathRoots,
+                          parseKey: filePathParseKey,
+                        )
+                else if (isToolCall)
+                  _ToolCallBody(message: message, selectable: true)
+                else if (isSelfLearning)
+                  ClipRect(child: _SelfLearningCard(message: message))
+                else if (isUser)
+                  _PlainTextMessageBody(
+                    data: effectiveContent.isEmpty ? ' ' : effectiveContent,
+                    textColor: textColor,
+                    backgroundColor: backgroundColor,
+                    style: markdownStyleSheet.styleSheet.p,
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 撤回 IndexedStack 改回 ternary。
+                      // IndexedStack 的 StackFit.loose 让容器高度始终
+                      // 等于最大子项（WebView 的 estimatedHeight ~ 800px），
+                      // raw 模式下 SelectableText（~100px）只占顶部一
+                      // 小块，下方留出 700px 空白，且整张卡片无法响应
+                      // "原始↔渲染"的高度切换——卡死在最大子项高度。
+                      // 切回 ternary 后，raw 模式仅 SelectableText 占
+                      // 高度、渲染模式仅 dispatcher 占高度，AnimatedSize
+                      // 在两者间平滑过渡；切换的 250ms 防抖是用户可
+                      // 接受的代价（与 WebView 加载本身的耗时同一数量级）。
+                      if (_showRawContent)
+                        SelectableText(
+                          effectiveContent.isEmpty ? ' ' : effectiveContent,
+                          style: markdownStyleSheet.styleSheet.p?.copyWith(
+                            color: textColor,
+                          ),
+                        )
+                      else if (isStreamingAssistant &&
+                          resolvedMessageContentFormat ==
+                              AiMessageContentFormat.html)
+                        // HTML 格式：流式阶段不暴露原始 `<div>...` 字符，
+                        // 改为渲染 `_AssistantMessageBodyDispatcher`
+                        // 内部的 Q 弹骨架屏占位；流式结束后由内部
+                        // AnimatedSwitcher 一次性切换到真正的 WebView 渲染。
+                        buildAssistantBodyDispatcher(
+                          data: effectiveContent,
+                          format: resolvedMessageContentFormat,
+                          isStreaming: true,
+                        )
+                      else if (isStreamingAssistant)
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.992, end: 1.0),
+                          duration: cardMotionDurationFor(
+                            context,
+                            expanding: true,
+                          ),
+                          curve: kCardMotionCurve,
+                          child:
                               resolvedMessageContentFormat ==
-                                  AiMessageContentFormat.html)
-                            // HTML 格式：流式阶段不暴露原始 `<div>...` 字符，
-                            // 改为渲染 `_AssistantMessageBodyDispatcher`
-                            // 内部的 Q 弹骨架屏占位；流式结束后由内部
-                            // AnimatedSwitcher 一次性切换到真正的 WebView 渲染。
-                            buildAssistantBodyDispatcher(
-                              data: effectiveContent,
-                              format: resolvedMessageContentFormat,
-                              isStreaming: true,
-                            )
-                          else if (isStreamingAssistant)
-                            TweenAnimationBuilder<double>(
-                              tween: Tween<double>(begin: 0.992, end: 1.0),
-                              duration: cardMotionDurationFor(
-                                context,
-                                expanding: true,
-                              ),
-                              curve: kCardMotionCurve,
-                              child:
-                                  resolvedMessageContentFormat ==
-                                      AiMessageContentFormat.markdown
-                                  ? StreamingTextRevealText(
-                                      text: effectiveContent.isEmpty
-                                          ? ' '
-                                          : effectiveContent,
-                                      streaming: true,
-                                      animateSize: false,
-                                      builder: (context, visibleContent) =>
-                                          buildStreamingMarkdownBody(
-                                            visibleContent,
-                                          ),
-                                    )
-                                  : StreamingTextRevealText(
-                                      text: effectiveContent.isEmpty
-                                          ? ' '
-                                          : effectiveContent,
-                                      streaming: true,
-                                      animateSize: false,
-                                      builder: (context, visibleContent) =>
-                                          _StreamingAssistantTextBody(
-                                            data: visibleContent.isEmpty
-                                                ? ' '
-                                                : visibleContent,
-                                            textColor: textColor,
-                                            backgroundColor: backgroundColor,
-                                            style:
-                                                markdownStyleSheet.styleSheet.p,
-                                          ),
-                                    ),
-                              builder: (context, value, child) {
-                                return Transform.scale(
-                                  scale: value,
-                                  alignment: Alignment.topLeft,
-                                  child: child,
-                                );
-                              },
-                            )
-                          else
-                            buildAssistantBodyDispatcher(
-                              data: effectiveContent,
-                              format: resolvedMessageContentFormat,
-                              collapsedOverride: canCollapseAssistantResponse
-                                  ? assistantResponseCollapsed
-                                  : null,
-                              onCollapsedChanged: canCollapseAssistantResponse
-                                  ? (collapsed) {
-                                      _setAssistantResponseExpandedOverride(
-                                        !collapsed,
-                                      );
-                                    }
-                                  : null,
-                              showCollapseToggle: !canCollapseAssistantResponse,
-                            ),
-                          if (isStreamingAssistant &&
-                              resolvedMessageContentFormat !=
-                                  AiMessageContentFormat.html) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _TypewriterCaret(color: textColor),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _localizedText(
-                                    context,
-                                    zh: '生成中',
-                                    en: 'Streaming',
-                                  ),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: textColor.withValues(alpha: 0.72),
-                                  ),
+                                  AiMessageContentFormat.markdown
+                              ? StreamingTextRevealText(
+                                  text: effectiveContent.isEmpty
+                                      ? ' '
+                                      : effectiveContent,
+                                  streaming: true,
+                                  animateSize: false,
+                                  builder: (context, visibleContent) =>
+                                      buildStreamingMarkdownBody(
+                                        visibleContent,
+                                      ),
+                                )
+                              : StreamingTextRevealText(
+                                  text: effectiveContent.isEmpty
+                                      ? ' '
+                                      : effectiveContent,
+                                  streaming: true,
+                                  animateSize: false,
+                                  builder: (context, visibleContent) =>
+                                      _StreamingAssistantTextBody(
+                                        data: visibleContent.isEmpty
+                                            ? ' '
+                                            : visibleContent,
+                                        textColor: textColor,
+                                        backgroundColor: backgroundColor,
+                                        style: markdownStyleSheet.styleSheet.p,
+                                      ),
                                 ),
-                              ],
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              alignment: Alignment.topLeft,
+                              child: child,
+                            );
+                          },
+                        )
+                      else
+                        buildAssistantBodyDispatcher(
+                          data: effectiveContent,
+                          format: resolvedMessageContentFormat,
+                          collapsedOverride: canCollapseAssistantResponse
+                              ? assistantResponseCollapsed
+                              : null,
+                          onCollapsedChanged: canCollapseAssistantResponse
+                              ? (collapsed) {
+                                  _setAssistantResponseExpandedOverride(
+                                    !collapsed,
+                                  );
+                                }
+                              : null,
+                          showCollapseToggle: !canCollapseAssistantResponse,
+                        ),
+                      if (isStreamingAssistant &&
+                          resolvedMessageContentFormat !=
+                              AiMessageContentFormat.html) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _TypewriterCaret(color: textColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              _localizedText(
+                                context,
+                                zh: '生成中',
+                                en: 'Streaming',
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: textColor.withValues(alpha: 0.72),
+                              ),
                             ),
                           ],
-                        ],
-                      ),
-                  ],
-                );
-                final allowBubbleSizeMotion =
-                    !widget.transcriptScrollActive &&
-                    ((isReasoning && !isStreamingReasoning) ||
-                        _reasoningExpandedOverride != null ||
-                        _assistantResponseExpandedOverride != null ||
-                        _showRawContent != widget.initiallyShowRawContent);
-                final bubbleSizeDuration = allowBubbleSizeMotion
-                    ? cardMotionDurationFor(
-                        context,
-                        expanding:
-                            (_reasoningExpandedOverride != null &&
-                                reasoningExpanded) ||
-                            (_assistantResponseExpandedOverride != null &&
-                                assistantResponseExpanded) ||
-                            _showRawContent,
-                      )
-                    : Duration.zero;
-                return ClipRect(
-                  child: maybeAnimatedSize(
-                    duration: bubbleSizeDuration,
-                    curve: kCardMotionCurve,
-                    alignment: Alignment.topLeft,
-                    child: bubbleContent,
+                        ),
+                      ],
+                    ],
                   ),
-                );
-              },
+              ],
+            );
+            final allowBubbleSizeMotion =
+                !widget.transcriptScrollActive &&
+                ((isReasoning && !isStreamingReasoning) ||
+                    _reasoningExpandedOverride != null ||
+                    _assistantResponseExpandedOverride != null ||
+                    _showRawContent != widget.initiallyShowRawContent);
+            final bubbleSizeDuration = allowBubbleSizeMotion
+                ? cardMotionDurationFor(
+                    context,
+                    expanding:
+                        (_reasoningExpandedOverride != null &&
+                            reasoningExpanded) ||
+                        (_assistantResponseExpandedOverride != null &&
+                            assistantResponseExpanded) ||
+                        _showRawContent,
+                  )
+                : Duration.zero;
+            return ClipRect(
+              child: maybeAnimatedSize(
+                duration: bubbleSizeDuration,
+                curve: kCardMotionCurve,
+                alignment: Alignment.topLeft,
+                child: bubbleContent,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    final selectedActionPanel = _SelectedMessageActionPanelSlot(
+      key: _actionPanelKey,
+      visible: widget.isSelected,
+      alignEnd: isUser,
+      motionKey: widget.actionPanelEntranceMotionKey,
+      animateEntrance: widget.animateActionPanelEntrance,
+      onEntranceConsumed: widget.onActionPanelEntranceConsumed,
+      message: message,
+      attachments: attachments,
+      hardnessAnnotation: heAnnotation,
+      textColor: textColor,
+      showModelLabel: !isUser,
+      onSelectResponseVariant: widget.onSelectResponseVariant,
+      actions: [
+        _MessageActionSpec(
+          id: 'copy',
+          onPressed: widget.onCopy,
+          icon: Icons.content_copy_outlined,
+          label: _localizedText(context, zh: '复制', en: 'Copy'),
+        ),
+        if (widget.speechEnabled && widget.onToggleSpeech != null)
+          _MessageActionSpec(
+            id: 'speech',
+            onPressed: widget.onToggleSpeech,
+            icon: widget.speechPlaying
+                ? Icons.stop_circle_outlined
+                : Icons.record_voice_over_outlined,
+            label: widget.speechPlaying
+                ? _localizedText(context, zh: '停止', en: 'Stop')
+                : _localizedText(context, zh: '朗读', en: 'Read'),
+          ),
+        if (widget.translationEnabled && widget.onToggleTranslation != null)
+          _MessageActionSpec(
+            id: 'translation-toggle',
+            onPressed: widget.translationLoading
+                ? null
+                : widget.onToggleTranslation,
+            icon: widget.translationLoading
+                ? Icons.hourglass_top_rounded
+                : widget.translationVisible
+                ? Icons.visibility_outlined
+                : Icons.translate_rounded,
+            label: widget.translationLoading
+                ? _localizedText(context, zh: '翻译中', en: 'Translating')
+                : widget.translationVisible
+                ? _localizedText(context, zh: '查看原始', en: 'Original')
+                : _localizedText(context, zh: '翻译', en: 'Translate'),
+          ),
+        if (isAiSideMessage && widget.onSetFeedback != null)
+          _MessageActionSpec(
+            id: 'feedback-like',
+            onPressed: () => widget.onSetFeedback!(
+              selectedFeedback == AiSessionMessageFeedback.liked
+                  ? null
+                  : AiSessionMessageFeedback.liked,
+            ),
+            icon: selectedFeedback == AiSessionMessageFeedback.liked
+                ? Icons.thumb_up_alt_rounded
+                : Icons.thumb_up_alt_outlined,
+            label: _localizedText(context, zh: '点赞', en: 'Like'),
+            selected: selectedFeedback == AiSessionMessageFeedback.liked,
+          ),
+        if (isAiSideMessage && widget.onSetFeedback != null)
+          _MessageActionSpec(
+            id: 'feedback-improve',
+            onPressed: () => widget.onSetFeedback!(
+              selectedFeedback == AiSessionMessageFeedback.needsImprovement
+                  ? null
+                  : AiSessionMessageFeedback.needsImprovement,
+            ),
+            icon: selectedFeedback == AiSessionMessageFeedback.needsImprovement
+                ? Icons.thumb_down_alt_rounded
+                : Icons.thumb_down_alt_outlined,
+            label: _localizedText(context, zh: '需要改进', en: 'Improve'),
+            selected:
+                selectedFeedback == AiSessionMessageFeedback.needsImprovement,
+          ),
+        if (isAssistantResponse &&
+            !isStreamingAssistant &&
+            widget.onRegenerateResponse != null)
+          _MessageActionSpec(
+            id: 'regenerate',
+            onPressed: widget.onRegenerateResponse,
+            icon: Icons.refresh_rounded,
+            label: _localizedText(context, zh: '重新生成', en: 'Regenerate'),
+          ),
+        if (widget.onEdit != null)
+          _MessageActionSpec(
+            id: 'edit',
+            onPressed: widget.onEdit,
+            icon: Icons.edit_outlined,
+            label: AppLocalizations.of(context)!.commonEdit,
+          ),
+        _MessageActionSpec(
+          id: 'fork',
+          onPressed: widget.onFork,
+          icon: Icons.call_merge_rounded,
+          label: _localizedText(context, zh: '派生', en: 'Fork'),
+        ),
+        _MessageActionSpec(
+          id: 'delete',
+          onPressed: widget.onDelete,
+          icon: Icons.delete_outline_rounded,
+          label: AppLocalizations.of(context)!.commonDelete,
+        ),
+        if (widget.onDeleteFromHere != null)
+          _MessageActionSpec(
+            id: 'delete-from-here',
+            onPressed: widget.onDeleteFromHere,
+            icon: Icons.delete_sweep_outlined,
+            label: _localizedText(
+              context,
+              zh: '删除此条及后续',
+              en: 'Delete From Here',
             ),
           ),
+        if (widget.onAudit != null)
+          _MessageActionSpec(
+            id: 'audit',
+            onPressed: () async => widget.onAudit!.call(),
+            icon: Icons.fact_check_outlined,
+            label: _localizedText(context, zh: '审计', en: 'Audit'),
+          ),
+        if (!isUser &&
+            !isToolCall &&
+            !isSelfLearning &&
+            !isCompressionPoint &&
+            !isStatus)
+          _MessageActionSpec(
+            id: 'raw-toggle',
+            onPressed: () async {
+              setState(() => _showRawContent = !_showRawContent);
+              widget.onShowRawContentChanged?.call(_showRawContent);
+            },
+            icon: _showRawContent
+                ? Icons.code_off_outlined
+                : Icons.code_outlined,
+            label: _showRawContent
+                ? _localizedText(context, zh: '显示渲染', en: 'Show Rendered')
+                : _localizedText(context, zh: '显示原始', en: 'Show Raw'),
+          ),
+        if (!isUser &&
+            !isToolCall &&
+            !isSelfLearning &&
+            !isCompressionPoint &&
+            !isStatus &&
+            resolvedMessageContentFormat == AiMessageContentFormat.html &&
+            _looksLikeHtml(effectiveContent))
+          _MessageActionSpec(
+            id: 'open-html',
+            onPressed: () async {
+              await showAnimatedDialog<void>(
+                context: context,
+                builder: (dialogContext) => _HtmlPreviewDialog(
+                  htmlContent: effectiveContent,
+                  theme: Theme.of(context),
+                ),
+              );
+            },
+            icon: Icons.open_in_browser_rounded,
+            label: _localizedText(context, zh: '浏览器打开', en: 'Open in Browser'),
+          ),
+      ],
+    );
+    final messageLayout = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: alignment,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
+            child: bubbleCard,
+          ),
         ),
-        _SelectedMessageActionPanelSlot(
-          key: _actionPanelKey,
-          visible: widget.isSelected,
-          alignEnd: isUser,
-          motionKey: widget.actionPanelEntranceMotionKey,
-          animateEntrance: widget.animateActionPanelEntrance,
-          onEntranceConsumed: widget.onActionPanelEntranceConsumed,
-          message: message,
-          attachments: attachments,
-          hardnessAnnotation: heAnnotation,
-          textColor: textColor,
-          showModelLabel: !isUser,
-          onSelectResponseVariant: widget.onSelectResponseVariant,
-          actions: [
-            _MessageActionSpec(
-              id: 'copy',
-              onPressed: widget.onCopy,
-              icon: Icons.content_copy_outlined,
-              label: _localizedText(context, zh: '复制', en: 'Copy'),
-            ),
-            if (widget.speechEnabled && widget.onToggleSpeech != null)
-              _MessageActionSpec(
-                id: 'speech',
-                onPressed: widget.onToggleSpeech,
-                icon: widget.speechPlaying
-                    ? Icons.stop_circle_outlined
-                    : Icons.record_voice_over_outlined,
-                label: widget.speechPlaying
-                    ? _localizedText(context, zh: '停止', en: 'Stop')
-                    : _localizedText(context, zh: '朗读', en: 'Read'),
-              ),
-            if (widget.translationEnabled && widget.onToggleTranslation != null)
-              _MessageActionSpec(
-                id: 'translation-toggle',
-                onPressed: widget.translationLoading
-                    ? null
-                    : widget.onToggleTranslation,
-                icon: widget.translationLoading
-                    ? Icons.hourglass_top_rounded
-                    : widget.translationVisible
-                    ? Icons.visibility_outlined
-                    : Icons.translate_rounded,
-                label: widget.translationLoading
-                    ? _localizedText(context, zh: '翻译中', en: 'Translating')
-                    : widget.translationVisible
-                    ? _localizedText(context, zh: '查看原始', en: 'Original')
-                    : _localizedText(context, zh: '翻译', en: 'Translate'),
-              ),
-            if (isAiSideMessage && widget.onSetFeedback != null)
-              _MessageActionSpec(
-                id: 'feedback-like',
-                onPressed: () => widget.onSetFeedback!(
-                  selectedFeedback == AiSessionMessageFeedback.liked
-                      ? null
-                      : AiSessionMessageFeedback.liked,
-                ),
-                icon: selectedFeedback == AiSessionMessageFeedback.liked
-                    ? Icons.thumb_up_alt_rounded
-                    : Icons.thumb_up_alt_outlined,
-                label: _localizedText(context, zh: '点赞', en: 'Like'),
-                selected: selectedFeedback == AiSessionMessageFeedback.liked,
-              ),
-            if (isAiSideMessage && widget.onSetFeedback != null)
-              _MessageActionSpec(
-                id: 'feedback-improve',
-                onPressed: () => widget.onSetFeedback!(
-                  selectedFeedback == AiSessionMessageFeedback.needsImprovement
-                      ? null
-                      : AiSessionMessageFeedback.needsImprovement,
-                ),
-                icon:
-                    selectedFeedback ==
-                        AiSessionMessageFeedback.needsImprovement
-                    ? Icons.thumb_down_alt_rounded
-                    : Icons.thumb_down_alt_outlined,
-                label: _localizedText(context, zh: '需要改进', en: 'Improve'),
-                selected:
-                    selectedFeedback ==
-                    AiSessionMessageFeedback.needsImprovement,
-              ),
-            if (isAssistantResponse &&
-                !isStreamingAssistant &&
-                widget.onRegenerateResponse != null)
-              _MessageActionSpec(
-                id: 'regenerate',
-                onPressed: widget.onRegenerateResponse,
-                icon: Icons.refresh_rounded,
-                label: _localizedText(context, zh: '重新生成', en: 'Regenerate'),
-              ),
-            if (widget.onEdit != null)
-              _MessageActionSpec(
-                id: 'edit',
-                onPressed: widget.onEdit,
-                icon: Icons.edit_outlined,
-                label: AppLocalizations.of(context)!.commonEdit,
-              ),
-            _MessageActionSpec(
-              id: 'fork',
-              onPressed: widget.onFork,
-              icon: Icons.call_merge_rounded,
-              label: _localizedText(context, zh: '派生', en: 'Fork'),
-            ),
-            _MessageActionSpec(
-              id: 'delete',
-              onPressed: widget.onDelete,
-              icon: Icons.delete_outline_rounded,
-              label: AppLocalizations.of(context)!.commonDelete,
-            ),
-            if (widget.onDeleteFromHere != null)
-              _MessageActionSpec(
-                id: 'delete-from-here',
-                onPressed: widget.onDeleteFromHere,
-                icon: Icons.delete_sweep_outlined,
-                label: _localizedText(
-                  context,
-                  zh: '删除此条及后续',
-                  en: 'Delete From Here',
-                ),
-              ),
-            if (widget.onAudit != null)
-              _MessageActionSpec(
-                id: 'audit',
-                onPressed: () async => widget.onAudit!.call(),
-                icon: Icons.fact_check_outlined,
-                label: _localizedText(context, zh: '审计', en: 'Audit'),
-              ),
-            if (!isUser &&
-                !isToolCall &&
-                !isSelfLearning &&
-                !isCompressionPoint &&
-                !isStatus)
-              _MessageActionSpec(
-                id: 'raw-toggle',
-                onPressed: () async {
-                  setState(() => _showRawContent = !_showRawContent);
-                  widget.onShowRawContentChanged?.call(_showRawContent);
-                },
-                icon: _showRawContent
-                    ? Icons.code_off_outlined
-                    : Icons.code_outlined,
-                label: _showRawContent
-                    ? _localizedText(context, zh: '显示渲染', en: 'Show Rendered')
-                    : _localizedText(context, zh: '显示原始', en: 'Show Raw'),
-              ),
-            if (!isUser &&
-                !isToolCall &&
-                !isSelfLearning &&
-                !isCompressionPoint &&
-                !isStatus &&
-                resolvedMessageContentFormat == AiMessageContentFormat.html &&
-                _looksLikeHtml(effectiveContent))
-              _MessageActionSpec(
-                id: 'open-html',
-                onPressed: () async {
-                  await showAnimatedDialog<void>(
-                    context: context,
-                    builder: (dialogContext) => _HtmlPreviewDialog(
-                      htmlContent: effectiveContent,
-                      theme: Theme.of(context),
-                    ),
-                  );
-                },
-                icon: Icons.open_in_browser_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '浏览器打开',
-                  en: 'Open in Browser',
-                ),
-              ),
-          ],
-        ),
+        selectedActionPanel,
       ],
     );
     final messageContent = widget.trackLayoutChanges
@@ -1069,9 +1068,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
               widget.onLayoutChanged();
               return false;
             },
-            child: SizeChangedLayoutNotifier(child: bubbleBody),
+            child: SizeChangedLayoutNotifier(child: messageLayout),
           )
-        : bubbleBody;
+        : messageLayout;
 
     return Listener(
       behavior: HitTestBehavior.translucent,
@@ -1159,16 +1158,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           _scheduleSelectionToggle();
         }
       },
-      child: _BubbleHtmlInteractiveScope(
-        state: this,
-        child: Align(
-          alignment: alignment,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
-            child: messageContent,
-          ),
-        ),
-      ),
+      child: _BubbleHtmlInteractiveScope(state: this, child: messageContent),
     );
   }
 }
@@ -1198,12 +1188,12 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
 ButtonStyle _messageActionChipStyle(BuildContext context) {
   final theme = Theme.of(context);
   return OutlinedButton.styleFrom(
-    minimumSize: const Size(0, 30),
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-    textStyle: theme.textTheme.labelSmall?.copyWith(
+    minimumSize: const Size(0, 34),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    textStyle: theme.textTheme.labelMedium?.copyWith(
       fontWeight: FontWeight.w700,
     ),
-    visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+    visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
   );
 }
@@ -1453,7 +1443,7 @@ class _SelectedMessageActionPanelState
               : CrossAxisAlignment.start,
           children: [
             Wrap(
-              spacing: 6,
+              spacing: 8,
               runSpacing: 6,
               alignment: widget.alignEnd
                   ? WrapAlignment.end
@@ -1542,7 +1532,7 @@ class _MessageActionButton extends StatelessWidget {
               unawaited(onPressed!());
             },
       style: effectiveStyle,
-      icon: Icon(icon, size: 15),
+      icon: Icon(icon, size: 16),
       label: Text(
         label,
         maxLines: 1,

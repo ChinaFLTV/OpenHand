@@ -1583,9 +1583,7 @@ function MessageCardImpl({
               event.stopPropagation();
             }}
             style={{
-              maxWidth: bubbleMaxWidth,
-              marginLeft: isUserBubble ? 'auto' : '0',
-              marginRight: isUserBubble ? '0' : 'auto',
+              width: '100%',
             }}
           >
             <div class="oh-message-selected-panel-clip">

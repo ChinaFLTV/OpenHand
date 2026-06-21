@@ -671,17 +671,9 @@ html, body, #root {
 
 .oh-message-action-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 1px;
-  scrollbar-width: none;
-}
-
-.oh-message-action-row::-webkit-scrollbar {
-  display: none;
 }
 
 .oh-message-selected-info-row {
