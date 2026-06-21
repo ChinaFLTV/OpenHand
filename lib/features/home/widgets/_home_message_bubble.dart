@@ -72,6 +72,7 @@ class _MessageBubble extends StatefulWidget {
 
 class _MessageBubbleState extends State<_MessageBubble> {
   static const int _messageExpansionStateCacheLimit = 500;
+  static const double _messageBubbleMaxWidth = 760;
   static const double _selectionTapMaxDistance = 8;
   static const double _htmlSelectionDragStartDistance = 4;
   static const Duration _selectionTapMaxDuration = Duration(milliseconds: 350);
@@ -346,11 +347,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
     // 「本轮文件变动汇总」状态卡走专属 Widget，跳过通用 bubble 流。
     if (isRoundFileMutationSummary) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Align(
           alignment: Alignment.centerLeft,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
+            constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
             child: _RoundFileMutationSummaryCard(message: message),
           ),
         ),
@@ -1112,7 +1113,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         child: Align(
           alignment: alignment,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
+            constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
             child: messageContent,
           ),
         ),
