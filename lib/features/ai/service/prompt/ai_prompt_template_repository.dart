@@ -87,20 +87,10 @@ class AiPromptTemplateRepository {
       name: 'Web 逆向专家',
       iconName: 'travel_explore_rounded',
       description:
-          '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。',
+          '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。仅用于授权安全研究与学习。',
       internalVersion: '1.2.0',
       promptAssetDirectory:
           AiPromptTemplatePolicies.webReverseExpertPromptAssetDirectory,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.androidReverseExpertTemplateId,
-      name: 'Android 逆向专家',
-      iconName: 'android_rounded',
-      description:
-          '通过 ADB + Frida + jadx / apktool + mitmproxy 完成 Android APP 接口逆向、加密破解、Hook 脚本产出。Dashboard 提供设备管理、Logcat、网络抓包、证书注入等面板。仅用于授权安全研究与学习。',
-      internalVersion: '1.0.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.androidReverseExpertPromptAssetDirectory,
     ),
     AiThreadTemplate(
       id: AiPromptTemplatePolicies.siriHelperTemplateId,
@@ -111,6 +101,16 @@ class AiPromptTemplateRepository {
       promptAssetDirectory:
           AiPromptTemplatePolicies.siriHelperPromptAssetDirectory,
       availability: AiThreadTemplateAvailability.appleOnly,
+    ),
+    AiThreadTemplate(
+      id: AiPromptTemplatePolicies.androidReverseExpertTemplateId,
+      name: 'Android 逆向专家',
+      iconName: 'android_rounded',
+      description:
+          '通过 ADB + Frida + jadx / apktool + mitmproxy 完成 Android APP 接口逆向、加密破解、Hook 脚本产出。Dashboard 提供设备管理、Logcat、网络抓包、证书注入等面板。仅用于授权安全研究与学习。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory:
+          AiPromptTemplatePolicies.androidReverseExpertPromptAssetDirectory,
     ),
   ];
 
@@ -445,13 +445,13 @@ class _TemplatePromptFallbacks {
       developerInstructions: _webReverseDeveloperInstructions,
       compressionSummaryInstructions: _webReverseCompressionSummaryInstructions,
     ),
-    AiPromptTemplatePolicies
-        .androidReverseExpertTemplateId: _TemplatePromptFallback(
-      systemInstructions: _androidReverseSystemInstructions,
-      developerInstructions: _androidReverseDeveloperInstructions,
-      compressionSummaryInstructions:
-          _androidReverseCompressionSummaryInstructions,
-    ),
+    AiPromptTemplatePolicies.androidReverseExpertTemplateId:
+        _TemplatePromptFallback(
+          systemInstructions: _androidReverseSystemInstructions,
+          developerInstructions: _androidReverseDeveloperInstructions,
+          compressionSummaryInstructions:
+              _androidReverseCompressionSummaryInstructions,
+        ),
     AiPromptTemplatePolicies.siriHelperTemplateId: _TemplatePromptFallback(
       systemInstructions: _siriHelperSystemInstructions,
       developerInstructions: _siriHelperDeveloperInstructions,
