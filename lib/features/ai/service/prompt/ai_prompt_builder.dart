@@ -76,8 +76,6 @@ class AiPromptBuilder {
   static const int _compressionAttachmentDetailMaxChars = 2000;
   static const int _compressionPromptToolResultThresholdChars = 4096;
   static const int _compressionPromptToolResultHeadTailChars = 384;
-  static const int _freshToolResultPromptThresholdChars = 16000;
-  static const int _freshToolResultPromptHeadTailChars = 1024;
   static const int _compressionPromptMaxPlanRecords = 3;
   static const int _compressionPromptMaxPlanChars = 6000;
   static const int _compressionPromptMaxTodoItems = 40;
@@ -454,6 +452,10 @@ class AiPromptBuilder {
       runtimeContext.userInstructions,
       const <String>{},
     );
+    final includeDynamicSessionState =
+        latestUserMessage != null &&
+        !latestUserInline &&
+        dynamicSessionState.isNotEmpty;
 
     final messages = <AiChatTurn>[
       _systemSectionTurn(
@@ -553,12 +555,12 @@ class AiPromptBuilder {
       // output-format reminders）。
       //
       // 易变块（[3d] / [5.5] / System Reminder / Plan Mode Reminder /
-      // hook system-reminder）不能再插入到 history 与 latest user 之间；
-      // 否则一旦工具轮次把 [5.5] 改写，下一轮
-      // 从 history 之后开始就不再是“纯追加”路径，跨轮 prefix cache 会被截断。
-      // 因此顺序必须固定为：stable prefix → history → latest user → volatile tail。
-      // 这样易变块即便每轮重写，影响范围也只落在当前轮 user 之后，不会吞掉
-      // 历史+当前用户消息的共享前缀。实测工具会话可避免 0~50% 的异常塌方。
+      // hook system-reminder）不能插入到 history 与 latest user 之间；否则工具
+      // 轮次一旦追加新消息，下一轮从 history 之后开始就不再是纯追加路径。
+      // 顺序固定为：stable prefix → history → latest user → volatile tail。
+      // [3d] 只在用户发起轮注入一次；工具续写轮依赖上一轮状态快照与最新工具
+      // 结果继续推进，不重复追加 [3d]，避免上一轮尾部被挤开导致 provider
+      // prefix cache 断裂。
       //
       // 输出格式与主题提醒属于会话级稳定约束。放在 history 之前可以保持
       // 各模板的静态前缀顺序统一；用户切换格式/主题时只影响一次。
@@ -566,7 +568,7 @@ class AiPromptBuilder {
       ...historyTurns,
       // 用户消息本体（不含 hook system reminder）→ 共享前缀末端。
       ...latestUserNonSystemTurns,
-      if (dynamicSessionState.isNotEmpty)
+      if (includeDynamicSessionState)
         _jsonSystemSectionTurn(
           AiPromptSectionHeaders.dynamicSessionState,
           dynamicSessionState,
@@ -655,12 +657,17 @@ class AiPromptBuilder {
           inputCachePolicy.usesAutomaticProviderCache
       ..['cache_background_requests_deferred'] =
           inputCachePolicy.defersBackgroundRequests
-      ..['fresh_tool_result_prompt_guard_enabled'] =
+      ..['tool_result_prompt_guard_enabled'] =
           historyToolCompressionConfig.guardsFreshToolResults
-      ..['fresh_tool_result_prompt_threshold_chars'] =
-          historyToolCompressionConfig.freshResultThresholdChars
-      ..['fresh_tool_result_prompt_head_tail_chars'] =
-          historyToolCompressionConfig.freshResultHeadTailWindowChars
+      ..['tool_result_prompt_threshold_chars'] =
+          historyToolCompressionConfig.thresholdChars
+      ..['tool_result_prompt_head_tail_chars'] =
+          historyToolCompressionConfig.headTailWindowChars
+      ..['dynamic_session_state_delivery'] = includeDynamicSessionState
+          ? 'user_turn_tail'
+          : dynamicSessionState.isNotEmpty
+          ? 'omitted_for_tool_continuation'
+          : 'empty'
       ..['stable_cache_key'] = stableCacheKey
       ..['previous_stable_cache_key'] =
           '${session.lastPromptMetadata['stable_cache_key'] ?? ''}'.trim()
@@ -2329,10 +2336,11 @@ $identity''';
     var roundReasoningHasAssistantTurn = false;
     var previousMappedUserWasContinuation = false;
     // 找出"已被模型消费"的边界。任何 assistant / toolCall 消息都意味着
-    // 模型已经基于之前的工具结果产出了下一步动作；因此 index 大于
-    // `lastConsumerIndex` 的 tool 结果属于尚未被消费的最新工具输入，必须
-    // 在 prompt 中保留原文。边界之前的旧工具结果可以按统一摘要策略进入
-    // 历史，避免长工具链把大文件读取结果永久留在每次请求里。
+    // 模型已经基于之前的工具结果产出了下一步动作；index 大于
+    // `lastConsumerIndex` 的 tool 结果属于尚未被消费的最新工具输入。新鲜
+    // 与历史工具结果必须走同一摘要形态：同一条工具结果不能先以 preview
+    // 入 prompt、下一轮再被改写成 summary，否则所有模板的 provider prefix
+    // cache 都会在该历史位置断裂。
     var lastConsumerIndex = -1;
     for (var i = 0; i < messages.length; i++) {
       final kind = messages[i].kind;
@@ -4457,29 +4465,28 @@ $content
         inlineSystemReminders: inlineSystemReminders,
       );
     }
-    if (isFreshUnconsumedResult) {
+    final writeLikeToolResult = _isWriteLikeToolHistoryMessage(message);
+    if (isFreshUnconsumedResult && !writeLikeToolResult) {
       final original = _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,
       );
       if (!compressionConfig.guardsFreshToolResults ||
-          original.length <= compressionConfig.freshResultThresholdChars) {
+          original.length <= compressionConfig.thresholdChars) {
         return original;
       }
+      // Keep the first prompt representation byte-compatible with the later
+      // history representation. A separate "fresh preview" shape rewrites the
+      // same tool-result position on the next request and breaks provider
+      // prefix caches for every template that has tool loops.
       return _compressGenericToolResultContent(
         message,
         compressionConfig,
         inlineSystemReminders: inlineSystemReminders,
         originalOverride: original,
-        summaryMarker: '[fresh_tool_result_preview]',
-        thresholdOverride: compressionConfig.freshResultThresholdChars,
-        headTailWindowOverride:
-            compressionConfig.freshResultHeadTailWindowChars,
-        recoveryFallback:
-            'Fresh tool result exceeded the prompt budget and was previewed before first use. Use the original path, offsets, or a narrower rerun before relying on omitted content.',
       );
     }
-    if (!_isWriteLikeToolHistoryMessage(message)) {
+    if (!writeLikeToolResult) {
       // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
       // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
       // description/reason），保留首尾片段作为结构性补充信息，避免
@@ -5629,8 +5636,6 @@ class _ToolCompressionConfig {
     required this.maxPathHits,
     required this.writeSummaryMaxChars,
     required this.microCompressionEnabled,
-    required this.freshResultThresholdChars,
-    required this.freshResultHeadTailWindowChars,
   });
 
   factory _ToolCompressionConfig.forConversationHistory(
@@ -5657,24 +5662,6 @@ class _ToolCompressionConfig {
         1 << 20,
       ),
       microCompressionEnabled: runtimeContext.microCompressionEnabled,
-      freshResultThresholdChars: math.max(
-        thresholdChars,
-        math.min(
-          runtimeContext.maxToolOutputChars > 0
-              ? runtimeContext.maxToolOutputChars
-              : AiPromptBuilder._freshToolResultPromptThresholdChars,
-          AiPromptBuilder._freshToolResultPromptThresholdChars,
-        ),
-      ),
-      freshResultHeadTailWindowChars: headTailWindowChars <= 0
-          ? 0
-          : math.max(
-              headTailWindowChars,
-              math.min(
-                AiPromptBuilder._freshToolResultPromptHeadTailChars,
-                AiPromptBuilder._freshToolResultPromptThresholdChars ~/ 4,
-              ),
-            ),
     );
   }
 
@@ -5699,14 +5686,6 @@ class _ToolCompressionConfig {
         AiPromptBuilder._compressionPromptToolResultHeadTailChars,
       ),
       microCompressionEnabled: true,
-      freshResultThresholdChars: math.min(
-        base.freshResultThresholdChars,
-        AiPromptBuilder._freshToolResultPromptThresholdChars,
-      ),
-      freshResultHeadTailWindowChars: math.min(
-        base.freshResultHeadTailWindowChars,
-        AiPromptBuilder._freshToolResultPromptHeadTailChars,
-      ),
     );
   }
 
@@ -5717,8 +5696,6 @@ class _ToolCompressionConfig {
   final int maxPathHits;
   final int writeSummaryMaxChars;
   final bool microCompressionEnabled;
-  final int freshResultThresholdChars;
-  final int freshResultHeadTailWindowChars;
 
   bool get guardsFreshToolResults => enabled && summarizeResults;
 }
