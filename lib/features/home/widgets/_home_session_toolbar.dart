@@ -4211,6 +4211,8 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
 
     final running = ctrl?.isRunning ?? false;
     final deviceOnline = ctrl?.connectedDevice != null;
+    final processCount = ctrl?.processes.length ?? 0;
+    final processLabel = isZh ? '$processCount 进程' : '$processCount proc';
     final dotColor = !running
         ? cs.outline
         : !deviceOnline
@@ -4222,12 +4224,13 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
         (running ? (isZh ? '无设备' : 'no device') : (isZh ? '点击连接' : 'click'));
     final label = running
         ? (isZh
-              ? (deviceOnline ? deviceLabel : '无设备')
-              : (deviceOnline ? deviceLabel : 'no device'))
+              ? '${deviceOnline ? deviceLabel : '无设备'} · $processLabel'
+              : '${deviceOnline ? deviceLabel : 'no device'} · $processLabel')
         : (isZh ? '点击打开' : 'open');
     final tooltip = <String>[
       isZh ? 'Android 逆向调试面板' : 'Android Reverse Debugger',
       '${isZh ? "设备" : "Device"}: ${running ? (deviceOnline ? deviceLabel : (isZh ? "无设备" : "no device")) : (isZh ? "未运行" : "stopped")}',
+      '${isZh ? "进程" : "Processes"}: $processCount',
     ].join('\n');
 
     return _SessionToolbarStatusPill(
@@ -4237,7 +4240,7 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
       dotColor: dotColor,
       onTap: _onPillTap,
       reduceMotion: reduceMotion,
-      maxLabelWidth: 136,
+      maxLabelWidth: 168,
     );
   }
 }

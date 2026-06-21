@@ -3650,11 +3650,17 @@ export function SessionDetailPage() {
       const runtime = recordFromUnknown(meta['android_reverse_runtime']);
       const connected = recordFromUnknown(runtime['connected_device']);
       const serial = stringFromUnknown(connected['serial']) || stringFromUnknown(cfg['device_serial']);
+      const running = booleanFromUnknown(runtime['is_running']);
+      const state = stringFromUnknown(runtime['state']);
+      const processCount = Math.max(0, integerFromUnknown(runtime['process_count']));
+      const visibleDeviceCount = arrayFromUnknown(runtime['visible_devices']).length;
+      const deviceLabel = serial || (visibleDeviceCount > 0 ? `${visibleDeviceCount} 台设备` : running ? '无设备' : state === 'stopped' ? '已停止' : '待连接');
+      const processLabel = ` · ${processCount} 进程`;
       capsules.push({
         key: 'android-reverse-debug',
         icon: 'debug',
-        label: serial ? `ADB ${serial}` : t('topbar.androidReverseDebug', 'ADB 调试'),
-        title: t('topbar.androidReverseDebug.title', '查看 Android 逆向调试面板'),
+        label: `ADB ${deviceLabel}${processLabel}`,
+        title: `${t('topbar.androidReverseDebug.title', '查看 Android 逆向调试面板')} · ${deviceLabel}${processLabel}`,
         onClick: () => setAndroidReverseDashboardOpen(true),
       });
     }
