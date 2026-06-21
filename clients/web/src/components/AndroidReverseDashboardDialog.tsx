@@ -60,6 +60,8 @@ const artifactRows = [
   ['mcp_setup_guide', 'MCP 设置'],
   ['toolchain_setup_commands', '工具链命令'],
   ['certs_dir', '证书签名'],
+  ['certs_readme', '证书说明'],
+  ['verify_apk_signature_script', 'APK 验签'],
   ['scripts_dir', '复现脚本'],
 ] as const;
 

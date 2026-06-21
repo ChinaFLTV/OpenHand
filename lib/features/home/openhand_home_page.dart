@@ -3434,6 +3434,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'mcp_readme': controller.mcpReadmePath,
         'mcp_setup_guide': controller.mcpSetupGuidePath,
         'certs_dir': controller.certsDir,
+        'certs_readme': controller.certsReadmePath,
+        'network_security_config': controller.networkSecurityConfigPath,
+        'manifest_network_config_snippet':
+            controller.manifestNetworkConfigSnippetPath,
+        'root_ca_install_script': controller.installMitmCaRootScriptPath,
+        'generate_debug_keystore_script':
+            controller.generateDebugKeystoreScriptPath,
+        'sign_repacked_apk_script': controller.signRepackedApkScriptPath,
+        'verify_apk_signature_script': controller.verifyApkSignatureScriptPath,
         'toolchain_dir': controller.toolchainDir,
         'toolchain_readme': controller.toolchainReadmePath,
         'toolchain_setup_commands': controller.toolchainSetupCommandsPath,
@@ -3482,6 +3491,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         '${controller.adbOneShotScriptPath} --timeout 6 devices',
         '${controller.dynamicProbeScriptPath} --timeout 6',
         'find ${controller.certsDir} -maxdepth 3 -type f | head -200',
+        'cat ${controller.certsReadmePath}',
+        'bash ${controller.verifyApkSignatureScriptPath} <apk>',
       ],
       'dashboard_actions': const <String>[
         'static_quick_scan_auto_warm_when_apk_path_exists',

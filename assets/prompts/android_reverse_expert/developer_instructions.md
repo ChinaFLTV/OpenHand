@@ -18,6 +18,7 @@
   - `decompiled/` — quick_scan / jadx / apktool / blutter 输出
   - `mcp/` — MCP 设置清单、模板、ToolSearch 查询、ADB 兜底纪律
   - `toolchain/` — 工具链安装 / 更新 / 卸载命令注册表
+  - `certs/` — Network Security Config、CA 安装、debug keystore、重签名、APK 验签脚本
   - `scripts/` — 复现脚本、Python/curl 模板、证据打包脚本
 </runtime_context>
 

@@ -5239,9 +5239,9 @@ class _AndroidReverseDashboardDialogState
                 ? 'Network Security Config 工件'
                 : 'Network Security Config artifacts',
             command:
-                'cat ${_shellQuote('${_ctrl.certsDir}/res/xml/network_security_config.xml')}\n'
-                'cat ${_shellQuote('${_ctrl.certsDir}/AndroidManifest.application.xml')}\n'
-                'bash ${_shellQuote('${_ctrl.certsDir}/install_mitm_ca_root.sh')}',
+                'cat ${_shellQuote(_ctrl.networkSecurityConfigPath)}\n'
+                'cat ${_shellQuote(_ctrl.manifestNetworkConfigSnippetPath)}\n'
+                'bash ${_shellQuote(_ctrl.installMitmCaRootScriptPath)}',
           ),
           const SizedBox(height: 10),
           _commandCard(
@@ -5250,9 +5250,9 @@ class _AndroidReverseDashboardDialogState
             isZh,
             title: isZh ? 'APK 重签名工件' : 'APK resigning artifacts',
             command:
-                'bash ${_shellQuote('${_ctrl.certsDir}/generate_debug_keystore.sh')}\n'
-                'bash ${_shellQuote('${_ctrl.certsDir}/sign_repacked_apk.sh')} <unsigned.apk> <signed.apk>\n'
-                'bash ${_shellQuote('${_ctrl.certsDir}/verify_apk_signature.sh')} <signed.apk>',
+                'bash ${_shellQuote(_ctrl.generateDebugKeystoreScriptPath)}\n'
+                'bash ${_shellQuote(_ctrl.signRepackedApkScriptPath)} <unsigned.apk> <signed.apk>\n'
+                'bash ${_shellQuote(_ctrl.verifyApkSignatureScriptPath)} <signed.apk>',
           ),
           const SizedBox(height: 10),
           _commandCard(

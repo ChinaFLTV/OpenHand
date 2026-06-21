@@ -85,6 +85,17 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get networkReadmePath => '$networkDir/README.md';
   String get networkProxyProbeScriptPath => '$networkDir/proxy_probe.sh';
   String get certsDir => '$artifactsRootDir/certs';
+  String get certsReadmePath => '$certsDir/README.md';
+  String get networkSecurityConfigPath =>
+      '$certsDir/res/xml/network_security_config.xml';
+  String get manifestNetworkConfigSnippetPath =>
+      '$certsDir/AndroidManifest.application.xml';
+  String get installMitmCaRootScriptPath => '$certsDir/install_mitm_ca_root.sh';
+  String get generateDebugKeystoreScriptPath =>
+      '$certsDir/generate_debug_keystore.sh';
+  String get signRepackedApkScriptPath => '$certsDir/sign_repacked_apk.sh';
+  String get verifyApkSignatureScriptPath =>
+      '$certsDir/verify_apk_signature.sh';
   String get scriptsDir => '$artifactsRootDir/scripts';
   String get scriptsReadmePath => '$scriptsDir/README.md';
   String get adbOneShotScriptPath => '$scriptsDir/adb_one_shot.sh';
@@ -913,35 +924,50 @@ class AndroidReverseSessionController extends ChangeNotifier {
     try {
       final resXmlDir = Directory('$certsDir/res/xml');
       await resXmlDir.create(recursive: true);
-      final networkSecurityConfigPath =
-          '${resXmlDir.path}/network_security_config.xml';
-      final manifestSnippetPath = '$certsDir/AndroidManifest.application.xml';
-      final installScriptPath = '$certsDir/install_mitm_ca_root.sh';
-      final generateKeystorePath = '$certsDir/generate_debug_keystore.sh';
-      final signApkPath = '$certsDir/sign_repacked_apk.sh';
-      final verifySignaturePath = '$certsDir/verify_apk_signature.sh';
-      final readmePath = '$certsDir/README.md';
       final pkg = packageName?.trim();
       await Future.wait(<Future<File>>[
         File(
           networkSecurityConfigPath,
         ).writeAsString(_networkSecurityConfigXml),
-        File(manifestSnippetPath).writeAsString(_manifestNetworkConfigSnippet),
-        File(installScriptPath).writeAsString(_installMitmCaRootScript),
-        File(generateKeystorePath).writeAsString(_generateDebugKeystoreScript),
-        File(signApkPath).writeAsString(_signRepackedApkScript),
-        File(verifySignaturePath).writeAsString(_verifyApkSignatureScript),
-        File(readmePath).writeAsString(_certificateReadme(pkg)),
+        File(
+          manifestNetworkConfigSnippetPath,
+        ).writeAsString(_manifestNetworkConfigSnippet),
+        File(
+          installMitmCaRootScriptPath,
+        ).writeAsString(_installMitmCaRootScript),
+        File(
+          generateDebugKeystoreScriptPath,
+        ).writeAsString(_generateDebugKeystoreScript),
+        File(signRepackedApkScriptPath).writeAsString(_signRepackedApkScript),
+        File(
+          verifyApkSignatureScriptPath,
+        ).writeAsString(_verifyApkSignatureScript),
+        File(certsReadmePath).writeAsString(_certificateReadme(pkg)),
       ]);
+      if (!Platform.isWindows) {
+        final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
+        await runTrackedProcessOrFailed(
+          chmod,
+          <String>[
+            '+x',
+            installMitmCaRootScriptPath,
+            generateDebugKeystoreScriptPath,
+            signRepackedApkScriptPath,
+            verifyApkSignatureScriptPath,
+          ],
+          timeout: _kArtifactChmodTimeout,
+          tag: 'android_reverse.certs_chmod',
+        );
+      }
       return <String>[
         'Certificate artifacts: $certsDir',
         'network_security_config: $networkSecurityConfigPath',
-        'manifest_snippet: $manifestSnippetPath',
-        'root_ca_install_script: $installScriptPath',
-        'generate_debug_keystore: $generateKeystorePath',
-        'sign_repacked_apk: $signApkPath',
-        'verify_apk_signature: $verifySignaturePath',
-        'readme: $readmePath',
+        'manifest_snippet: $manifestNetworkConfigSnippetPath',
+        'root_ca_install_script: $installMitmCaRootScriptPath',
+        'generate_debug_keystore: $generateDebugKeystoreScriptPath',
+        'sign_repacked_apk: $signRepackedApkScriptPath',
+        'verify_apk_signature: $verifyApkSignatureScriptPath',
+        'readme: $certsReadmePath',
       ].join('\n');
     } catch (e, st) {
       silentLog(_kTag, 'ensureCertificateArtifacts failed', e, st);
