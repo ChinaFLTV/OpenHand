@@ -743,10 +743,46 @@ class AndroidReverseAdbClient {
   }) async {
     final effectiveTimeout = timeout ?? _kAdbCommandTimeout;
     Process? process;
+    StreamSubscription<String>? stdoutSub;
+    StreamSubscription<String>? stderrSub;
+    final stdoutBuffer = StringBuffer();
+    final stderrBuffer = StringBuffer();
+    final stdoutDone = Completer<void>();
+    final stderrDone = Completer<void>();
+
+    void complete(Completer<void> completer) {
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    Future<void> drainOutput() async {
+      await Future.wait<void>(<Future<void>>[
+        stdoutDone.future,
+        stderrDone.future,
+      ]).timeout(const Duration(milliseconds: 350), onTimeout: () => <void>[]);
+      if (!stdoutDone.isCompleted) await stdoutSub?.cancel();
+      if (!stderrDone.isCompleted) await stderrSub?.cancel();
+    }
+
     try {
       process = await startTrackedProcess(adbPath, args);
-      final stdoutFuture = process.stdout.transform(utf8.decoder).join();
-      final stderrFuture = process.stderr.transform(utf8.decoder).join();
+      stdoutSub = process.stdout
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .listen(
+            stdoutBuffer.write,
+            onError: (Object error, StackTrace stackTrace) {
+              complete(stdoutDone);
+            },
+            onDone: () => complete(stdoutDone),
+          );
+      stderrSub = process.stderr
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .listen(
+            stderrBuffer.write,
+            onError: (Object error, StackTrace stackTrace) {
+              complete(stderrDone);
+            },
+            onDone: () => complete(stderrDone),
+          );
       var timedOut = false;
       late int exitCode;
       try {
@@ -758,14 +794,9 @@ class AndroidReverseAdbClient {
         await Future<void>.delayed(const Duration(milliseconds: 180));
         process.kill(ProcessSignal.sigkill);
       }
-      final stdout = await stdoutFuture.timeout(
-        const Duration(milliseconds: 350),
-        onTimeout: () => '',
-      );
-      var stderr = await stderrFuture.timeout(
-        const Duration(milliseconds: 350),
-        onTimeout: () => '',
-      );
+      await drainOutput();
+      final stdout = stdoutBuffer.toString();
+      var stderr = stderrBuffer.toString();
       if (timedOut && stderr.trim().isEmpty) {
         stderr = 'ADB command timed out before completion.';
       }
@@ -778,12 +809,16 @@ class AndroidReverseAdbClient {
       );
     } catch (e, st) {
       process?.kill(ProcessSignal.sigkill);
+      await stdoutSub?.cancel();
+      await stderrSub?.cancel();
       silentLog(_kTag, 'adb ${args.join(' ')} failed', e, st);
+      final stdout = stdoutBuffer.toString();
+      final stderr = stderrBuffer.toString().trim();
       return AdbCommandResult(
         args: List<String>.unmodifiable(args),
         exitCode: -1,
-        stdout: '',
-        stderr: '$e',
+        stdout: stdout,
+        stderr: stderr.isEmpty ? '$e' : '$stderr\n$e',
       );
     }
   }

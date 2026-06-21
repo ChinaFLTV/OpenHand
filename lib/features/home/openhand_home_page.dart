@@ -3408,7 +3408,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'logcat_clear_save_jsonl',
         'mcp_plugin_linkage_status',
         'toolchain_install_update_uninstall_copy_commands',
-        'static_quick_scan_apk_nested_manifest_components_network_artifacts',
+        'static_quick_scan_apk_nested_flutter_native_suspicious_network_artifacts',
         'frida_server_abi_push_start_forward_copy_commands',
         'mitmproxy_jsonl_addon_network_flow_artifacts',
         'certificate_network_security_config_artifacts',

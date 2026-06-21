@@ -64,6 +64,7 @@
 </frida_hook_protocol>
 
 <static_analysis>
+- 若 dashboard 已生成 `quick_scan`，优先读 `network_sources.txt`、`urls.txt`、`domains.txt`、`flutter.txt`、`native_libs.txt`、`suspicious_files.txt`。
 - jadx：`jadx -d <out_dir> <apk_path>` → `grep -r <keyword> <out_dir>`
 - apktool：`apktool d <apk_path> -o <out_dir>`，smali 搜索 `grep -r "invoke-virtual.*<method>"`.
 - Flutter/Dart：先用 blutter / Doldrums 解析 snapshot → 找 Class / Method → 配合 Frida hook。

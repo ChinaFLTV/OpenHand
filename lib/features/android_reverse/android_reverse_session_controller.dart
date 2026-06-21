@@ -655,9 +655,13 @@ class AndroidReverseSessionController extends ChangeNotifier {
       'certs.txt',
       'zip_listing.txt',
       'nested_apks.txt',
+      'flutter.txt',
+      'native_libs.txt',
+      'suspicious_files.txt',
       'urls.txt',
       'domains.txt',
       'ips.txt',
+      'network_sources.txt',
       'interesting_strings.txt',
     ];
     for (final name in files) {
@@ -700,10 +704,15 @@ cd "$OUT_DIR" || exit 2
 : > certs.txt
 : > zip_listing.txt
 : > nested_apks.txt
+: > flutter.txt
+: > native_libs.txt
+: > suspicious_files.txt
 : > urls.txt
 : > domains.txt
 : > ips.txt
+: > network_sources.txt
 : > interesting_strings.txt
+: > _apk_entries.txt
 
 AAPT="$(command -v aapt || true)"
 if [ -z "$AAPT" ] && [ -d "$HOME/Library/Android/sdk/build-tools" ]; then
@@ -732,19 +741,36 @@ fi
 UNZIP="$(command -v unzip || true)"
 if [ -n "$UNZIP" ] && [ -x "$UNZIP" ]; then
   "$UNZIP" -l "$APK_PATH" > zip_listing.txt 2>&1
-  "$UNZIP" -Z1 "$APK_PATH" 2>/dev/null | grep -aEi '\.apk$' | head -20 > nested_apks.txt
+  "$UNZIP" -Z1 "$APK_PATH" 2>/dev/null > _apk_entries.txt
+  grep -aEi '\.apk$' _apk_entries.txt | head -20 > nested_apks.txt
+  grep -aE '^lib/[^/]+/[^/]+\.so$' _apk_entries.txt | sort -u > native_libs.txt
+  {
+    grep -aE '^lib/[^/]+/libflutter\.so$' _apk_entries.txt | sed 's/^/flutter_engine: /'
+    grep -aE '^lib/[^/]+/libapp\.so$' _apk_entries.txt | sed 's/^/flutter_dart_aot: /'
+    grep -aE '^assets/flutter_assets/' _apk_entries.txt | head -80 | sed 's/^/flutter_asset: /'
+  } > flutter.txt
+  [ -s flutter.txt ] || echo "(no Flutter markers found)" > flutter.txt
+  grep -aEi 'signaturekiller|jiagu|secneo|bangcle|ijiami|dexprotector|packer|protect|origin.*\.apk|\.apk$|frida|xposed|substrate|reflutter|libapp\.so|libflutter\.so' _apk_entries.txt | sort -u > suspicious_files.txt
 else
   echo "unzip not found" > zip_listing.txt
+  echo "unzip not found" > flutter.txt
+  echo "unzip not found" > native_libs.txt
+  echo "unzip not found" > suspicious_files.txt
 fi
 
 STRINGS="$(command -v strings || xcrun -find strings 2>/dev/null || true)"
 if [ -n "$STRINGS" ] && [ -x "$STRINGS" ]; then
+  run_strings() {
+    "$STRINGS" -n 6 "$@" 2>/dev/null
+  }
+  HOST_PATTERN='([A-Za-z][A-Za-z0-9-]*\.)+(com|net|org|cn|io|vip|top|xyz|app|dev|co|cc|tv|me|info|biz|pro|shop|site|online|cloud|tech|live|link|icu|ink|work|fun|club|store|ai|one|run|today|world|website|space|gov|edu|mil|int|jp|kr|us|uk|de|fr|ru|br|in|au|ca|hk|tw|sg)'
   {
-    "$STRINGS" "$APK_PATH" 2>/dev/null
     if [ -n "$UNZIP" ] && [ -x "$UNZIP" ]; then
-      "$UNZIP" -p "$APK_PATH" "classes*.dex" 2>/dev/null | "$STRINGS" 2>/dev/null
-      "$UNZIP" -p "$APK_PATH" "lib/*/*.so" 2>/dev/null | "$STRINGS" 2>/dev/null
-      "$UNZIP" -p "$APK_PATH" "assets/*" 2>/dev/null | "$STRINGS" 2>/dev/null
+      "$UNZIP" -p "$APK_PATH" "lib/*/*.so" 2>/dev/null | run_strings
+      "$UNZIP" -p "$APK_PATH" "classes*.dex" 2>/dev/null | run_strings
+      "$UNZIP" -Z1 "$APK_PATH" 2>/dev/null | grep -aE '^assets/.*\.(apk|json|txt|xml|properties|conf|ini|html|js)$' | head -120 | while IFS= read -r asset_entry; do
+        "$UNZIP" -p "$APK_PATH" "$asset_entry" 2>/dev/null | run_strings
+      done
       if [ -s nested_apks.txt ]; then
         rm -rf _nested_apks_tmp
         mkdir -p _nested_apks_tmp
@@ -752,21 +778,46 @@ if [ -n "$STRINGS" ] && [ -x "$STRINGS" ]; then
           safe_name="$(printf '%s' "$nested_apk" | tr '/ ' '__' | tr -cd 'A-Za-z0-9_.-')"
           nested_path="_nested_apks_tmp/${safe_name:-nested.apk}"
           "$UNZIP" -p "$APK_PATH" "$nested_apk" > "$nested_path" 2>/dev/null
-          "$STRINGS" "$nested_path" 2>/dev/null
-          "$UNZIP" -p "$nested_path" "classes*.dex" 2>/dev/null | "$STRINGS" 2>/dev/null
-          "$UNZIP" -p "$nested_path" "lib/*/*.so" 2>/dev/null | "$STRINGS" 2>/dev/null
-          "$UNZIP" -p "$nested_path" "assets/*" 2>/dev/null | "$STRINGS" 2>/dev/null
+          "$UNZIP" -p "$nested_path" "lib/*/*.so" 2>/dev/null | run_strings
+          "$UNZIP" -p "$nested_path" "classes*.dex" 2>/dev/null | run_strings
+          "$UNZIP" -Z1 "$nested_path" 2>/dev/null | grep -aE '^assets/.*\.(json|txt|xml|properties|conf|ini|html|js)$' | head -80 | while IFS= read -r nested_asset; do
+            "$UNZIP" -p "$nested_path" "$nested_asset" 2>/dev/null | run_strings
+          done
         done < nested_apks.txt
         rm -rf _nested_apks_tmp
       fi
+    else
+      run_strings "$APK_PATH"
     fi
-  } | awk 'length($0) <= 4096' | head -20000 > all_strings.txt
-  grep -aEio 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+' all_strings.txt | sed 's/[),;"]*$//' | sort -u | head -500 > urls.txt
-  grep -aEio '\b([A-Za-z0-9-]+\.)+[A-Za-z]{2,}\b' all_strings.txt | grep -aviE 'android\.com|w3\.org|google\.com|github\.com|schema\.org|apache\.org|mozilla\.org|gradle\.org' | sort -u | head -500 > domains.txt
-  grep -aEio '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' all_strings.txt | sort -u | head -200 > ips.txt
-  grep -aEi 'https?://|sign|encrypt|token|secret|okhttp|retrofit|webview|ssl|certificate|api|host|domain' all_strings.txt | sort -u | head -500 > interesting_strings.txt
+  } | LC_ALL=C awk 'length($0) <= 4096' | head -60000 > all_strings.txt
+  LC_ALL=C awk '{ line=$0; while (match(line, /https?:\/\/[^[:space:]]+/)) { print substr(line, RSTART, RLENGTH); line=substr(line, RSTART+RLENGTH) } }' all_strings.txt | LC_ALL=C sed "s/[),;\"'<>}]*$//" | LC_ALL=C sort -u | head -500 > urls.txt
+  {
+    LC_ALL=C grep -aEio "\b$HOST_PATTERN\b" all_strings.txt
+    LC_ALL=C sed -n 's#^[A-Za-z][A-Za-z0-9+.-]*://\([^/:?#]*\).*#\1#p' urls.txt
+  } | tr '[:upper:]' '[:lower:]' | LC_ALL=C grep -aviE 'android\.com|w3\.org|google\.com|github\.com|schema\.org|apache\.org|mozilla\.org|gradle\.org|\.(png|jpg|jpeg|webp|gif|svg|ttf|otf|xml|json|html|js|css|so|dex|apk|zip)$' | LC_ALL=C sort -u | head -500 > domains.txt
+  LC_ALL=C grep -aEio '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' all_strings.txt | LC_ALL=C sort -u | head -200 > ips.txt
+  LC_ALL=C grep -aEi 'https?://|sign|encrypt|token|secret|okhttp|retrofit|webview|ssl|certificate|api|host|domain' all_strings.txt | LC_ALL=C sort -u | head -500 > interesting_strings.txt
+  if [ -n "$UNZIP" ] && [ -x "$UNZIP" ] && [ -s _apk_entries.txt ]; then
+    rm -rf _network_sources_tmp
+    mkdir -p _network_sources_tmp
+    {
+      grep -aE '^lib/[^/]+/[^/]+\.so$' _apk_entries.txt
+      grep -aE '^classes[0-9]*\.dex$' _apk_entries.txt
+      grep -aE '^(assets|res/raw)/.*\.(apk|json|txt|xml|properties|conf|ini|html|js)$' _apk_entries.txt
+    } | awk '!seen[$0]++' | head -220 | while IFS= read -r entry; do
+      safe_entry="$(printf '%s' "$entry" | tr '/ ' '__' | tr -cd 'A-Za-z0-9_.-')"
+      entry_strings="_network_sources_tmp/${safe_entry:-entry}.txt"
+      "$UNZIP" -p "$APK_PATH" "$entry" 2>/dev/null | run_strings | LC_ALL=C awk 'length($0) <= 4096' > "$entry_strings"
+      {
+        LC_ALL=C awk 'index($0, "http://") || index($0, "https://")' "$entry_strings"
+        LC_ALL=C grep -aEi "$HOST_PATTERN|okhttp|retrofit|host|domain|api|graphql|socket|websocket|mqtt|sign|token|encrypt" "$entry_strings" | LC_ALL=C grep -aviE '\.(png|jpg|jpeg|webp|gif|svg|ttf|otf)$'
+      } | LC_ALL=C awk '!seen[$0]++' | head -120 | awk -v entry="$entry" '{print entry ":" $0}'
+    done | LC_ALL=C awk 'length($0) <= 4096' | head -1500 > network_sources.txt
+    rm -rf _network_sources_tmp
+  fi
 else
   echo "strings not found" > interesting_strings.txt
+  echo "strings not found" > network_sources.txt
 fi
 
 printf 'quick scan completed\n'

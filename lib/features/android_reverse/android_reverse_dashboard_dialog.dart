@@ -26,6 +26,7 @@ const int _kDefaultScreenRecordSeconds = 10;
 const int _kMcpRuntimeToolNameLimit = 64;
 const int _kMcpToolPreviewLimit = 8;
 const int _kMcpToolSearchLimit = 8;
+const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
 const int _kDeviceSnapshotMaxLines = 80;
@@ -910,11 +911,20 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _runShell() async {
-    final cmd = _shellCtrl.text.trim();
+    final rawCmd = _shellCtrl.text.trim();
+    final cmd = _normalizeAdbShellInput(rawCmd);
     if (cmd.isEmpty || _runningShell) return;
-    setState(() => _runningShell = true);
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningShell = true;
+      _shellOutputCtrl.text = isZh ? '执行中：$cmd' : 'Running: $cmd';
+    });
     try {
-      final result = await _ctrl.shellDetailed(cmd, serial: _targetSerial);
+      final result = await _ctrl.shellDetailed(
+        cmd,
+        serial: _targetSerial,
+        timeout: _kInteractiveShellTimeout,
+      );
       if (!mounted) return;
       final output = _formatAdbResult(result);
       setState(() {
@@ -4122,14 +4132,25 @@ class _AndroidReverseDashboardDialogState
             theme: theme,
             icon: Icons.folder_rounded,
             text: isZh
-                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、嵌套 APK、URL/域名/IP、dex/so/assets 字符串摘要到 $decompiledDir/quick_scan。'
-                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, nested APKs, URL/domain/IP, and dex/so/assets string summaries to $decompiledDir/quick_scan.',
+                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、嵌套 APK、Flutter/native/可疑文件、URL/域名/IP、网络字符串来源到 $decompiledDir/quick_scan。'
+                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, nested APKs, Flutter/native/suspicious files, URL/domain/IP, and network string sources to $decompiledDir/quick_scan.',
           ),
           if (scanOutput != null && scanOutput.isNotEmpty) ...[
             const SizedBox(height: 10),
             _monospaceCard(cs, scanOutput),
           ],
           const SizedBox(height: 12),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '读取快速扫描产物' : 'Read quick scan artifacts',
+            command:
+                'cd ${_shellQuote('$decompiledDir/quick_scan')}\n'
+                'cat network_sources.txt urls.txt domains.txt ips.txt\n'
+                'cat flutter.txt native_libs.txt suspicious_files.txt nested_apks.txt',
+          ),
+          const SizedBox(height: 10),
           _commandCard(
             cs,
             theme,
@@ -4783,6 +4804,18 @@ class _AndroidReverseDashboardDialogState
     final serial = _targetSerial?.trim();
     if (serial == null || serial.isEmpty) return 'adb';
     return 'adb -s ${_shellQuote(serial)}';
+  }
+
+  String _normalizeAdbShellInput(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return value;
+    final adbShellPrefix = RegExp(
+      r"""^adb(?:\s+-s\s+(?:"[^"]+"|'[^']+'|\S+))?\s+shell\s+""",
+      caseSensitive: false,
+    );
+    final match = adbShellPrefix.firstMatch(value);
+    if (match == null) return value;
+    return value.substring(match.end).trim();
   }
 
   String? _logcatPackageTarget() {
