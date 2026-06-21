@@ -924,10 +924,10 @@ class _AndroidReverseDashboardDialogState
           '-w ${_shellQuote('${_ctrl.networkDir}/flows.mitm')}';
       setState(() {
         _networkAddonOutput = [
-          isZh
-              ? '已生成 mitmproxy JSONL addon:'
-              : 'Generated mitmproxy JSONL addon:',
+          isZh ? '已生成网络抓包工件:' : 'Generated network capture artifacts:',
           addonPath,
+          'README: ${_ctrl.networkReadmePath}',
+          'Proxy probe: ${_ctrl.networkProxyProbeScriptPath}',
           '',
           isZh ? '启动命令:' : 'Start command:',
           command,
@@ -4350,8 +4350,19 @@ class _AndroidReverseDashboardDialogState
             cs,
             theme,
             isZh,
+            title: isZh ? '代理 / 证书预检' : 'Proxy / cert preflight',
+            command:
+                'cat ${_shellQuote(_ctrl.networkReadmePath)}\n'
+                '${_shellQuote(_ctrl.networkProxyProbeScriptPath)} --timeout 6',
+          ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
             title: isZh ? '读取抓包文件' : 'Read saved flows',
             command:
+                'tail -200 ${_shellQuote(_ctrl.networkJsonlPath)}\n'
                 'mitmproxy -r ${_shellQuote('$networkDir/flows.mitm')}\n'
                 '# ${isZh ? "建议同时保存结构化摘要" : "Recommended structured summary"}\n'
                 'mitmdump -nr ${_shellQuote('$networkDir/flows.mitm')} > ${_shellQuote('$networkDir/flows.txt')}',

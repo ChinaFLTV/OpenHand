@@ -76,6 +76,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get logcatDir => '$artifactsRootDir/logcat';
   String get networkDir => '$artifactsRootDir/network';
   String get mitmproxyAddonPath => '$networkDir/openhand_mitm_jsonl.py';
+  String get networkReadmePath => '$networkDir/README.md';
+  String get networkProxyProbeScriptPath => '$networkDir/proxy_probe.sh';
   String get certsDir => '$artifactsRootDir/certs';
   String get scriptsDir => '$artifactsRootDir/scripts';
   String get adbOneShotScriptPath => '$scriptsDir/adb_one_shot.sh';
@@ -820,7 +822,22 @@ class AndroidReverseSessionController extends ChangeNotifier {
       await Directory(networkDir).create(recursive: true);
       await File(networkJsonlPath).create(recursive: true);
       final file = File(mitmproxyAddonPath);
-      await file.writeAsString(_mitmproxyJsonlAddon);
+      await Future.wait(<Future<File>>[
+        file.writeAsString(_mitmproxyJsonlAddon),
+        File(networkReadmePath).writeAsString(_networkCaptureReadme),
+        File(
+          networkProxyProbeScriptPath,
+        ).writeAsString(_networkProxyProbeScript),
+      ]);
+      if (!Platform.isWindows) {
+        final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
+        await runTrackedProcessOrFailed(
+          chmod,
+          <String>['+x', networkProxyProbeScriptPath],
+          timeout: _kArtifactChmodTimeout,
+          tag: 'android_reverse.network_probe_chmod',
+        );
+      }
       return file.path;
     } catch (e, st) {
       silentLog(_kTag, 'ensureMitmproxyJsonlAddon failed', e, st);
@@ -891,6 +908,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         Directory(mcpDir).create(recursive: true),
         Directory(fridaScriptsDir).create(recursive: true),
         Directory(fridaOutputDir).create(recursive: true),
+        Directory(networkDir).create(recursive: true),
         Directory(scriptsDir).create(recursive: true),
       ]);
       final generatedAt = DateTime.now().toUtc().toIso8601String();
@@ -900,6 +918,11 @@ class AndroidReverseSessionController extends ChangeNotifier {
         ).writeAsString(_mcpLinkageTemplatesJson(generatedAt)),
         File(mcpReadmePath).writeAsString(_mcpLinkageReadme),
         File(fridaReadmePath).writeAsString(_fridaRunbookReadme),
+        File(networkReadmePath).writeAsString(_networkCaptureReadme),
+        File(
+          networkProxyProbeScriptPath,
+        ).writeAsString(_networkProxyProbeScript),
+        File(mitmproxyAddonPath).writeAsString(_mitmproxyJsonlAddon),
         File(adbOneShotScriptPath).writeAsString(_adbOneShotScript),
         File(dynamicProbeScriptPath).writeAsString(_androidDynamicProbeScript),
       ]);
@@ -907,7 +930,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
         final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
         await runTrackedProcessOrFailed(
           chmod,
-          <String>['+x', adbOneShotScriptPath, dynamicProbeScriptPath],
+          <String>[
+            '+x',
+            adbOneShotScriptPath,
+            dynamicProbeScriptPath,
+            networkProxyProbeScriptPath,
+          ],
           timeout: _kArtifactChmodTimeout,
           tag: 'android_reverse.mcp_linkage_chmod',
         );
@@ -919,6 +947,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'adb_one_shot: $adbOneShotScriptPath',
         'dynamic_probe: $dynamicProbeScriptPath',
         'frida_readme: $fridaReadmePath',
+        'network_readme: $networkReadmePath',
+        'network_proxy_probe: $networkProxyProbeScriptPath',
       ].join('\n');
     } catch (e, st) {
       silentLog(_kTag, 'write MCP linkage artifacts failed', e, st);
@@ -1323,6 +1353,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'quick_scan_root': decompiledDir,
         'logcat_jsonl': logcatJsonlPath,
         'network_jsonl': networkJsonlPath,
+        'network_readme': networkReadmePath,
+        'network_proxy_probe': networkProxyProbeScriptPath,
+        'mitmproxy_addon': mitmproxyAddonPath,
         'frida_scripts_dir': fridaScriptsDir,
         'frida_output_dir': fridaOutputDir,
       },
@@ -1418,6 +1451,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'Confirm device with adb devices or ADB MCP.',
         'Run scripts/android_dynamic_probe.sh once before dynamic validation on a flaky device.',
         'Read quick_scan artifacts before dynamic work when APK path exists.',
+        'Read network/README.md and run network/proxy_probe.sh before mitmproxy capture.',
         'Use MCP for ADB/Frida only when exact mcp__* tools are visible.',
         'Use dashboard-generated cert/network/frida artifacts instead of rewriting boilerplate.',
       ],
@@ -1437,6 +1471,7 @@ Files:
 - openhand_android_reverse_mcp_templates.json: MCP templates, checklist, and examples.
 - ../scripts/adb_one_shot.sh: short-timeout ADB wrapper for flaky wireless devices.
 - ../scripts/android_dynamic_probe.sh: one-pass ADB / launcher / Frida preflight.
+- ../network/README.md and ../network/proxy_probe.sh: mitmproxy and proxy diagnostics.
 - ../frida/README.md: Frida script, server, and output capture runbook.
 
 Rules:
@@ -1444,8 +1479,9 @@ Rules:
 2. If ADB/Frida MCP is enabled but absent, report the missing server before Bash fallback.
 3. Prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
 4. Do not guess launcher activities. Resolve them with package manager data.
-5. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
-6. Stop after two repeated failures on the same command, hook, install, or launch path.
+5. Before mitmproxy capture, read network/README.md and run network/proxy_probe.sh.
+6. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
+7. Stop after two repeated failures on the same command, hook, install, or launch path.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook
@@ -1946,6 +1982,137 @@ def error(flow: http.HTTPFlow):
         "error": str(flow.error) if flow.error else "unknown",
     }
     _write(record)
+''';
+
+const String _networkCaptureReadme = r'''# Android reverse network capture
+
+Use this directory for mitmproxy capture output and proxy diagnostics.
+
+Files:
+- openhand_mitm_jsonl.py: mitmproxy addon that writes compact HTTP records.
+- ../network.jsonl: structured request / response summaries.
+- flows.mitm: full mitmproxy flow file when capture is started with `-w`.
+- flows.txt: optional text export from `mitmdump -nr flows.mitm`.
+- proxy_probe.sh: ADB proxy / package / certificate failure preflight.
+
+Workflow:
+1. Generate certificate artifacts from the Certs tab before HTTPS capture.
+2. Start mitmproxy with `OPENHAND_NETWORK_JSONL=<session>/network.jsonl mitmdump -p 8080 -s openhand_mitm_jsonl.py -w flows.mitm`.
+3. Set the device proxy to `<host-ip>:8080`, then run `proxy_probe.sh`.
+4. Launch or exercise the target app, then read `../network.jsonl` first.
+5. If `network.jsonl` is empty, inspect proxy status, CA trust, SSL pinning, and logcat TLS errors before retrying.
+
+Stop rules:
+- Do not keep toggling proxy settings blindly; capture proxy state before changing it.
+- Clear the global proxy when the capture is finished.
+- If static quick_scan already proves the domain, network capture is optional validation.
+''';
+
+const String _networkProxyProbeScript = r'''#!/usr/bin/env bash
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSION_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ADB_ONE_SHOT="${ADB_ONE_SHOT:-$SESSION_DIR/scripts/adb_one_shot.sh}"
+ADB_BIN="${ADB_BIN:-adb}"
+TIMEOUT_SECONDS="${ADB_TIMEOUT_SECONDS:-6}"
+SERIAL="${ADB_SERIAL:-}"
+PACKAGE_NAME="${ANDROID_PACKAGE_NAME:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--serial)
+      if [[ $# -lt 2 ]]; then
+        echo "missing serial value" >&2
+        exit 64
+      fi
+      SERIAL="${2:-}"
+      shift 2
+      ;;
+    -p|--package)
+      if [[ $# -lt 2 ]]; then
+        echo "missing package value" >&2
+        exit 64
+      fi
+      PACKAGE_NAME="${2:-}"
+      shift 2
+      ;;
+    --timeout)
+      if [[ $# -lt 2 ]]; then
+        echo "missing timeout value" >&2
+        exit 64
+      fi
+      TIMEOUT_SECONDS="${2:-6}"
+      shift 2
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      exit 64
+      ;;
+  esac
+done
+
+run_with_timeout() {
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$TIMEOUT_SECONDS" "$@"
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+  fi
+}
+
+adb_quick() {
+  local serial_args=()
+  if [[ -n "$SERIAL" ]]; then
+    serial_args=(-s "$SERIAL")
+  fi
+  if [[ -x "$ADB_ONE_SHOT" ]]; then
+    "$ADB_ONE_SHOT" "${serial_args[@]}" --timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    run_with_timeout "$ADB_BIN" "${serial_args[@]}" "$@"
+  fi
+}
+
+section() {
+  printf '\n[%s]\n' "$1"
+}
+
+valid_package() {
+  [[ "$PACKAGE_NAME" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$ ]]
+}
+
+section metadata
+printf 'serial=%s\n' "${SERIAL:-auto}"
+printf 'package=%s\n' "${PACKAGE_NAME:-unset}"
+printf 'timeout_seconds=%s\n' "$TIMEOUT_SECONDS"
+printf 'network_jsonl=%s\n' "$SESSION_DIR/network.jsonl"
+
+section adb_devices
+"$ADB_BIN" devices -l 2>&1
+
+section device_proxy
+adb_quick shell "settings get global http_proxy; settings get global global_http_proxy_host 2>/dev/null; settings get global global_http_proxy_port 2>/dev/null" 2>&1
+
+section device_network
+adb_quick shell "ip route 2>/dev/null | head -20; ip -o addr show 2>/dev/null | grep -E 'inet ' | head -40" 2>&1
+
+section package_permissions
+if valid_package; then
+  adb_quick shell "dumpsys package $PACKAGE_NAME | grep -Ei 'versionName|targetSdk|android.permission.INTERNET|networkSecurityConfig|usesCleartextTraffic' | head -80" 2>&1
+else
+  echo "package is unset or invalid; pass -p <package.name> to enable package checks"
+fi
+
+section logcat_tls_tail
+if valid_package; then
+  adb_quick logcat -d -v time -t 320 2>&1 | grep -Ei "$PACKAGE_NAME|SSLHandshake|CertPath|Trust anchor|CLEARTEXT|UnknownHost|ConnectException|proxy|mitm" | tail -120 || true
+else
+  adb_quick logcat -d -v time -t 220 2>&1 | grep -Ei "SSLHandshake|CertPath|Trust anchor|CLEARTEXT|UnknownHost|ConnectException|proxy|mitm" | tail -80 || true
+fi
+
+section local_capture_files
+ls -lh "$SCRIPT_DIR" "$SESSION_DIR/network.jsonl" 2>/dev/null || true
 ''';
 
 const String _networkSecurityConfigXml =

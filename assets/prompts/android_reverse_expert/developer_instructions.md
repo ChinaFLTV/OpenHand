@@ -10,6 +10,7 @@
   - `logcat.jsonl` — 每行一条 logcat 事件
   - `logcat/` — Logcat 文本 / JSON 快照
   - `network.jsonl` — mitmproxy 流量事件（需启用代理）
+  - `network/` — mitmproxy addon、proxy preflight、flows.mitm、flows.txt
   - `packages/` — APP 信息 Markdown / JSON 报告
   - `apks/` — 从设备拉取的 base / split APK
   - `screenshots/`、`recordings/` — 面板截图和短录屏
@@ -81,6 +82,7 @@
 <network_inspection>
 - 推荐 mitmproxy（需设备安装 CA + APP 信任证书）或 Burp Suite；配置步骤见 dashboard "证书" 面板。
 - mitmproxy 启动：优先用 dashboard 生成的 `openhand_mitm_jsonl.py`，同时写 `network.jsonl` 与 `flows.mitm`。
+- 抓包前先读 `network/README.md`，运行 `network/proxy_probe.sh` 记录设备代理、包权限、TLS / 证书错误。
 - 本地流量读取：优先读 `network.jsonl`，需要完整报文再读 `flows.mitm`。
 - 证书配置与 APK 重签名优先复用 dashboard 生成的 `certs/` 工件，不要重复手写 XML / 安装脚本 / apksigner 脚本。
 - SSL Pinning 绕过使用 `hook_ssl_pinning.js`，常见方案已覆盖 OkHttp3 / TrustManager / Network Security Config。
