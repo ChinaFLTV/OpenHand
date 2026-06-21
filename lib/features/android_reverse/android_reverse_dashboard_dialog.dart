@@ -2849,8 +2849,8 @@ class _AndroidReverseDashboardDialogState
               Expanded(
                 child: Text(
                   isZh
-                      ? '生成会话级 MCP 模板、ADB 短超时包装器和使用清单，供线程直接读取。'
-                      : 'Generate session MCP templates, short-timeout ADB wrapper, and checklist for the thread.',
+                      ? '生成会话级 MCP 模板、ADB 短超时包装器、动态预检脚本和 Frida runbook，供线程直接读取。'
+                      : 'Generate session MCP templates, short-timeout ADB wrapper, dynamic preflight script, and Frida runbook for the thread.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),

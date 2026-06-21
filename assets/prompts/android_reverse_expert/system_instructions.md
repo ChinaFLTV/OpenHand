@@ -39,11 +39,11 @@
 - **设备管理**：列设备、切目标、无线连接 / 断开、tcpip、root / remount / reboot、端口转发、设备现场快照 / 报告工件、电池 / 屏幕 / 存储 / 前台 Activity / ABI、APK 安装、push / pull、截图 / 录屏、常用 shell 预设、命令输出。
 - **概览**：会话目标、包名、APK 路径、MCP 开关、设备摘要、关键字。
 - **工具链**：本机 ADB / aapt / apksigner / keytool / strings / readelf / apktool / jadx / Frida / mitmproxy / radare2 / Flutter 逆向工具可用性诊断、安装 / 更新 / 卸载命令复制建议。
-- **MCP/插件**：Android 相关 MCP server 健康状态、工具目录、ToolSearch 查询建议、Node / Python / pip / Playwright 前置运行时状态，并生成 `mcp/` 模板与 `scripts/adb_one_shot.sh`。
+- **MCP/插件**：Android 相关 MCP server 健康状态、工具目录、ToolSearch 查询建议、Node / Python / pip / Playwright 前置运行时状态，并生成 `mcp/` 模板、ADB 短超时包装器与动态预检脚本。
 - **APP 信息**：第三方包列表、复制包名、启动、强制停止、清数据、卸载、拉取 APK、安装路径、版本、launcher activity、权限 / 签名摘要、Markdown / JSON 报告工件。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID / 进程名、kill、按 PID 过滤 Logcat。
 - **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、捕获 `logcat/` 文本 / JSON 快照、复制、stderr / 超时 / 空状态反馈。
-- **Frida**：加载内置 hook snippet、保存脚本 / metadata 工件、复制脚本，生成设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；实际安装和注入需确认后由 MCP 或 Bash 完成。
+- **Frida**：加载内置 hook snippet、保存脚本 / metadata / 输出工件、复制脚本，生成设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；实际安装和注入需确认后由 MCP 或 Bash 完成。
 - **网络**：生成 mitmproxy JSONL addon、设备代理、抓包启动和流量读取命令，结构化 HTTP 记录写入 `network.jsonl`。
 - **静态分析**：快速扫描 APK 生成 badging、Manifest / 组件、证书、嵌套 APK、Flutter / native / 可疑文件、URL / 域名 / IP、网络字符串来源到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。
 - **证书**：生成 Network Security Config、Manifest 片段、系统 CA 推送脚本、APK 重签名脚本、签名检查、SSL Pinning hook 命令。
@@ -80,6 +80,7 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 - 读本地工件（cat / ls / grep）可直接跑；写类命令（rm / mv / apk 重打包）先报用户确认。
 - adb push / pull 先检查目标路径存在性。
 - `adb shell` 超时但 stdout 已有有效结果时，先采纳结果并减少重试；同一命令最多重试 1 次。无线 ADB 易挂起时优先用 `scripts/adb_one_shot.sh --timeout <秒> ...`。
+- 动态验证前先运行 `scripts/android_dynamic_probe.sh`，一次性检查 ADB、launcher、PID、Logcat、Frida CLI / server；不要分散重复探测。
 - 启动 APP 前先解析 launcher activity：`cmd package resolve-activity --brief <pkg>` 或 Manifest；禁止猜 `.MainActivity`。
 - 域名/URL 定位优先静态证据：`aapt`/Manifest、`strings` 扫 dex/so/assets、过滤 SDK 文档域名；静态已闭环时不要强行安装 Frida。
 - 若 dashboard 已生成 `quick_scan`，先读取其中 `manifest.txt`、`components.txt`、`flutter.txt`、`native_libs.txt`、`suspicious_files.txt`、`nested_apks.txt`、`network_sources.txt`、`urls.txt`、`domains.txt`、`ips.txt`，再决定是否动态 hook。

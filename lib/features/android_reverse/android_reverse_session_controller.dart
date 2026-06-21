@@ -66,6 +66,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get recordingsDir => '$artifactsRootDir/recordings';
   String get fridaDir => '$artifactsRootDir/frida';
   String get fridaScriptsDir => '$fridaDir/scripts';
+  String get fridaOutputDir => '$fridaDir/output';
+  String get fridaReadmePath => '$fridaDir/README.md';
   String get decompiledDir => '$artifactsRootDir/decompiled';
   String get mcpDir => '$artifactsRootDir/mcp';
   String get mcpTemplatesPath =>
@@ -77,6 +79,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get certsDir => '$artifactsRootDir/certs';
   String get scriptsDir => '$artifactsRootDir/scripts';
   String get adbOneShotScriptPath => '$scriptsDir/adb_one_shot.sh';
+  String get dynamicProbeScriptPath => '$scriptsDir/android_dynamic_probe.sh';
   String get logsDir => '$artifactsRootDir/logs';
 
   final AndroidReverseAdbClient _adbClient;
@@ -886,6 +889,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
     try {
       await Future.wait(<Future<void>>[
         Directory(mcpDir).create(recursive: true),
+        Directory(fridaScriptsDir).create(recursive: true),
+        Directory(fridaOutputDir).create(recursive: true),
         Directory(scriptsDir).create(recursive: true),
       ]);
       final generatedAt = DateTime.now().toUtc().toIso8601String();
@@ -894,13 +899,15 @@ class AndroidReverseSessionController extends ChangeNotifier {
           mcpTemplatesPath,
         ).writeAsString(_mcpLinkageTemplatesJson(generatedAt)),
         File(mcpReadmePath).writeAsString(_mcpLinkageReadme),
+        File(fridaReadmePath).writeAsString(_fridaRunbookReadme),
         File(adbOneShotScriptPath).writeAsString(_adbOneShotScript),
+        File(dynamicProbeScriptPath).writeAsString(_androidDynamicProbeScript),
       ]);
       if (!Platform.isWindows) {
         final chmod = File('/bin/chmod').existsSync() ? '/bin/chmod' : 'chmod';
         await runTrackedProcessOrFailed(
           chmod,
-          <String>['+x', adbOneShotScriptPath],
+          <String>['+x', adbOneShotScriptPath, dynamicProbeScriptPath],
           timeout: _kArtifactChmodTimeout,
           tag: 'android_reverse.mcp_linkage_chmod',
         );
@@ -910,6 +917,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'templates_json: $mcpTemplatesPath',
         'readme: $mcpReadmePath',
         'adb_one_shot: $adbOneShotScriptPath',
+        'dynamic_probe: $dynamicProbeScriptPath',
+        'frida_readme: $fridaReadmePath',
       ].join('\n');
     } catch (e, st) {
       silentLog(_kTag, 'write MCP linkage artifacts failed', e, st);
@@ -1305,9 +1314,13 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'templates_json': mcpTemplatesPath,
         'readme': mcpReadmePath,
         'adb_one_shot': adbOneShotScriptPath,
+        'dynamic_probe': dynamicProbeScriptPath,
+        'frida_readme': fridaReadmePath,
         'quick_scan_root': decompiledDir,
         'logcat_jsonl': logcatJsonlPath,
         'network_jsonl': networkJsonlPath,
+        'frida_scripts_dir': fridaScriptsDir,
+        'frida_output_dir': fridaOutputDir,
       },
       'tool_search_queries': const <String>[
         'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter',
@@ -1393,10 +1406,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
           '$adbOneShotScriptPath${serial != null && serial.isNotEmpty ? " -s $serial" : ""} --timeout 8 cmd package resolve-activity --brief $packageName',
         if (packageName != null && packageName.isNotEmpty)
           '$adbOneShotScriptPath${serial != null && serial.isNotEmpty ? " -s $serial" : ""} --timeout 8 pidof $packageName',
+        '$dynamicProbeScriptPath${serial != null && serial.isNotEmpty ? " -s $serial" : ""}${packageName != null && packageName.isNotEmpty ? " -p $packageName" : ""} --timeout 6',
       ],
       'workflow_checklist': const <String>[
         'Read android_reverse_config and android_reverse_runtime.',
         'Confirm device with adb devices or ADB MCP.',
+        'Run scripts/android_dynamic_probe.sh once before dynamic validation on a flaky device.',
         'Read quick_scan artifacts before dynamic work when APK path exists.',
         'Use MCP for ADB/Frida only when exact mcp__* tools are visible.',
         'Use dashboard-generated cert/network/frida artifacts instead of rewriting boilerplate.',
@@ -1416,6 +1431,8 @@ and Bash fallback discipline.
 Files:
 - openhand_android_reverse_mcp_templates.json: MCP templates, checklist, and examples.
 - ../scripts/adb_one_shot.sh: short-timeout ADB wrapper for flaky wireless devices.
+- ../scripts/android_dynamic_probe.sh: one-pass ADB / launcher / Frida preflight.
+- ../frida/README.md: Frida script, server, and output capture runbook.
 
 Rules:
 1. Use only real mcp__* tool names from the Tool Catalog or ToolSearch result.
@@ -1423,6 +1440,26 @@ Rules:
 3. Prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
 4. Do not guess launcher activities. Resolve them with package manager data.
 5. Stop after two repeated failures on the same command, hook, install, or launch path.
+''';
+
+const String _fridaRunbookReadme = r'''# Android reverse Frida runbook
+
+Use this directory for Frida scripts, metadata, and captured output.
+
+Directories:
+- scripts/: saved hook scripts and metadata generated by the dashboard.
+- output/: stdout/stderr captured from frida, frida-ps, and frida-server checks.
+
+Preflight:
+1. Run ../scripts/android_dynamic_probe.sh before dynamic validation.
+2. Match frida-server to the local `frida --version` and device ABI.
+3. Use launcher data from package reports or dynamic_probe; do not guess `.MainActivity`.
+4. If Frida CLI or frida-server is missing, report the gap and ask before installing.
+
+Stop rules:
+- Do not repeat the same install, launch, attach, or shell command more than twice.
+- If ADB times out but stdout has the needed value, treat it as partial success.
+- If static quick_scan already proves a domain or URL, Frida is optional validation.
 ''';
 
 const String _adbOneShotScript = r'''#!/usr/bin/env bash
@@ -1511,6 +1548,131 @@ if [[ "$status" -eq 124 ]]; then
   echo "ADB command timed out after ${TIMEOUT_SECONDS}s" >&2
 fi
 exit "$status"
+''';
+
+const String _androidDynamicProbeScript = r'''#!/usr/bin/env bash
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ADB_ONE_SHOT="${ADB_ONE_SHOT:-$SCRIPT_DIR/adb_one_shot.sh}"
+ADB_BIN="${ADB_BIN:-adb}"
+TIMEOUT_SECONDS="${ADB_TIMEOUT_SECONDS:-6}"
+SERIAL="${ADB_SERIAL:-}"
+PACKAGE_NAME="${ANDROID_PACKAGE_NAME:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--serial)
+      if [[ $# -lt 2 ]]; then
+        echo "missing serial value" >&2
+        exit 64
+      fi
+      SERIAL="${2:-}"
+      shift 2
+      ;;
+    -p|--package)
+      if [[ $# -lt 2 ]]; then
+        echo "missing package value" >&2
+        exit 64
+      fi
+      PACKAGE_NAME="${2:-}"
+      shift 2
+      ;;
+    --timeout)
+      if [[ $# -lt 2 ]]; then
+        echo "missing timeout value" >&2
+        exit 64
+      fi
+      TIMEOUT_SECONDS="${2:-6}"
+      shift 2
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      exit 64
+      ;;
+  esac
+done
+
+run_with_timeout() {
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$TIMEOUT_SECONDS" "$@"
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+  fi
+}
+
+adb_quick() {
+  local serial_args=()
+  if [[ -n "$SERIAL" ]]; then
+    serial_args=(-s "$SERIAL")
+  fi
+  if [[ -x "$ADB_ONE_SHOT" ]]; then
+    "$ADB_ONE_SHOT" "${serial_args[@]}" --timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    run_with_timeout "$ADB_BIN" "${serial_args[@]}" "$@"
+  fi
+}
+
+section() {
+  printf '\n[%s]\n' "$1"
+}
+
+run_section() {
+  section "$1"
+  shift
+  "$@" 2>&1
+  local status=$?
+  if [[ "$status" -ne 0 ]]; then
+    printf '(exit=%s)\n' "$status"
+  fi
+}
+
+valid_package() {
+  [[ "$PACKAGE_NAME" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$ ]]
+}
+
+section metadata
+printf 'serial=%s\n' "${SERIAL:-auto}"
+printf 'package=%s\n' "${PACKAGE_NAME:-unset}"
+printf 'timeout_seconds=%s\n' "$TIMEOUT_SECONDS"
+
+run_section adb_devices "$ADB_BIN" devices -l
+run_section adb_get_state adb_quick get-state
+run_section adb_shell_ping adb_quick shell true
+run_section device_abi adb_quick shell getprop ro.product.cpu.abi
+run_section device_sdk adb_quick shell getprop ro.build.version.sdk
+run_section adb_forwards adb_quick forward --list
+
+if valid_package; then
+  run_section package_path adb_quick shell "pm path $PACKAGE_NAME"
+  run_section launcher_resolve adb_quick shell "cmd package resolve-activity --brief $PACKAGE_NAME"
+  run_section package_pid adb_quick shell "pidof $PACKAGE_NAME"
+  run_section foreground adb_quick shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -6"
+  section package_logcat_tail
+  adb_quick logcat -d -v time -t 220 2>&1 | grep -i -- "$PACKAGE_NAME" | tail -80 || true
+else
+  section package_checks
+  echo "package is unset or invalid; pass -p <package.name> to enable package checks"
+fi
+
+section frida_cli
+if command -v frida >/dev/null 2>&1; then
+  frida --version 2>&1
+else
+  echo "frida not found"
+fi
+
+section frida_server
+adb_quick shell "pidof frida-server || ps -A | grep frida || ls -l /data/local/tmp/frida* 2>/dev/null || true" 2>&1
+
+section frida_ps
+if command -v frida-ps >/dev/null 2>&1; then
+  run_with_timeout frida-ps -Uai 2>&1 | head -120
+else
+  echo "frida-ps not found"
+fi
 ''';
 
 const String _deviceReportSnapshotScript = r'''
