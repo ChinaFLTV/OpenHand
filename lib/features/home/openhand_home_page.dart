@@ -3192,6 +3192,33 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return '${value.substring(0, maxChars)}\n...';
   }
 
+  String? _androidReverseInitialPackageFromPrompt(String? prompt) {
+    final value = prompt?.trim();
+    if (value == null || value.isEmpty) return null;
+    final labeled = RegExp(
+      r'(?:包名|package(?:\s+name)?|pkg)\s*[:：=]?\s*([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)',
+      caseSensitive: false,
+    ).firstMatch(value)?.group(1);
+    if (_looksLikeAndroidPackageName(labeled)) return labeled;
+    final commonPackage = RegExp(
+      r'\b(?:com|org|net|io|cn|dev|app)\.[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*){2,}\b',
+      caseSensitive: false,
+    ).firstMatch(value)?.group(0);
+    return _looksLikeAndroidPackageName(commonPackage) ? commonPackage : null;
+  }
+
+  bool _looksLikeAndroidPackageName(String? value) {
+    final packageName = value?.trim();
+    if (packageName == null ||
+        packageName.isEmpty ||
+        packageName.length > 220) {
+      return false;
+    }
+    return RegExp(
+      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
+    ).hasMatch(packageName);
+  }
+
   void _onWebReverseControllerChanged() {
     if (!mounted) return;
     for (final entry in _webReverseControllers.entries) {
@@ -3242,6 +3269,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final initialModel = _initialModelForAutoStartTemplate();
     final setup = await showAndroidReverseSetupDialog(
       context,
+      initialPackageName: _androidReverseInitialPackageFromPrompt(
+        initialPrompt,
+      ),
       initialObjective: _webReverseInitialObjectiveFromPrompt(initialPrompt),
       availableModels: settingsController.aiModels,
       recentModelSelections: settingsController.recentModelSelections,

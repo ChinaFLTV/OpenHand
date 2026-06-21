@@ -128,8 +128,18 @@ class _AndroidReverseSetupDialogState
     );
   }
 
+  bool get _requiresAuthorizationScope =>
+      _analysisMode == AndroidReverseAnalysisMode.dynamicFirst ||
+      _adbMcpEnabled ||
+      _fridaMcpEnabled;
+
+  bool get _hasAuthorizationScope =>
+      _authorizationScopeCtrl.text.trim().isNotEmpty;
+
   bool get _canSubmit =>
-      _objectiveCtrl.text.trim().isNotEmpty && _hasValidModelSelection;
+      _objectiveCtrl.text.trim().isNotEmpty &&
+      _hasValidModelSelection &&
+      (!_requiresAuthorizationScope || _hasAuthorizationScope);
 
   void _submit() {
     final keywords = _keywordsCtrl.text
@@ -293,18 +303,29 @@ class _AndroidReverseSetupDialogState
                   ),
                   const SizedBox(height: 14),
                   _LabelText(
-                    isZh ? '授权范围（建议填写）' : 'Authorization scope (recommended)',
+                    _requiresAuthorizationScope
+                        ? (isZh ? '授权范围 *' : 'Authorization scope *')
+                        : (isZh
+                              ? '授权范围（建议填写）'
+                              : 'Authorization scope (recommended)'),
                   ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _authorizationScopeCtrl,
                     maxLines: 2,
+                    onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: isZh
                           ? '例：自有测试 APP / CTF / 已获授权的安全研究，不涉及第三方隐私数据'
                           : 'e.g. owned test app / CTF / authorized research; no third-party private data',
                       border: const OutlineInputBorder(),
+                      errorText:
+                          _requiresAuthorizationScope && !_hasAuthorizationScope
+                          ? (isZh
+                                ? '动态验证或 MCP 通道需要先填写授权范围'
+                                : 'Dynamic verification or MCP requires an authorization scope')
+                          : null,
                     ),
                   ),
                   const SizedBox(height: 14),

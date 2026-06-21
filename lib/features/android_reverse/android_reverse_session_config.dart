@@ -121,13 +121,13 @@ class AndroidReverseSessionConfig {
     buf.writeln('- 分析模式：【${analysisMode.labelZh}】');
     if (authorizationScope != null && authorizationScope!.isNotEmpty) {
       buf.writeln('- 授权范围：【${authorizationScope!.trim()}】');
+    } else {
+      buf.writeln('- 授权范围：【未填写；仅允许非破坏性静态分析，动态动作需再次确认】');
     }
     buf
+      ..writeln('- ADB MCP：【${adbMcpEnabled ? '已启用' : '未启用；优先用 Bash/ADB 兜底'}】')
       ..writeln(
-        '- ADB MCP：【${adbMcpEnabled ? '已启用' : '未启用；如需 ADB MCP，请在调试面板手动开启'}】',
-      )
-      ..writeln(
-        '- Frida MCP：【${fridaMcpEnabled ? '已启用' : '未启用；如需 Frida MCP，请在调试面板手动开启'}】',
+        '- Frida MCP：【${fridaMcpEnabled ? '已启用' : '未启用；优先用 Bash/Frida CLI 兜底'}】',
       );
     if (keywords.isNotEmpty) {
       buf.writeln('- 关键字：【${keywords.join(', ')}】');
