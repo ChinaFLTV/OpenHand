@@ -3399,6 +3399,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'frida_doctor_script': controller.fridaDoctorScriptPath,
         'frida_capture_script': controller.fridaCaptureScriptPath,
         'decompiled_dir': controller.decompiledDir,
+        if (controller.lastStaticQuickScanDir != null)
+          'latest_quick_scan_dir': controller.lastStaticQuickScanDir,
+        if (controller.lastStaticQuickScanDir != null)
+          'latest_quick_scan_summary':
+              '${controller.lastStaticQuickScanDir}/SUMMARY.md',
         'mcp_dir': controller.mcpDir,
         'mcp_templates_json': controller.mcpTemplatesPath,
         'mcp_readme': controller.mcpReadmePath,
@@ -3435,6 +3440,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         '${controller.fridaDoctorScriptPath} --timeout 6',
         '${controller.fridaCaptureScriptPath} --help',
         'find ${controller.decompiledDir} -maxdepth 3 -type f | head -200',
+        if (controller.lastStaticQuickScanDir != null)
+          'cat ${controller.lastStaticQuickScanDir}/SUMMARY.md',
         'find ${controller.decompiledDir} -path "*/quick_scan/SUMMARY.md" -type f -exec cat {} \\;',
         'find ${controller.decompiledDir} -path "*/quick_scan/*" -type f | head -200',
         'find ${controller.mcpDir} -maxdepth 2 -type f | head -200',
@@ -3452,6 +3459,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'find ${controller.certsDir} -maxdepth 3 -type f | head -200',
       ],
       'dashboard_actions': const <String>[
+        'static_quick_scan_auto_warm_when_apk_path_exists',
         'adb_devices_refresh',
         'wireless_adb_connect_disconnect',
         'adb_tcpip_5555',
@@ -3491,6 +3499,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'apk_resigning_keystore_zipalign_apksigner_artifacts',
         'reproduce_python_curl_templates_and_evidence_bundle',
       ],
+      if (controller.lastStaticQuickScanDir != null)
+        'latest_static_quick_scan': <String, Object?>{
+          'dir': controller.lastStaticQuickScanDir,
+          'summary': '${controller.lastStaticQuickScanDir}/SUMMARY.md',
+          'exit_code': controller.lastStaticQuickScanResult?.exitCode,
+          'timed_out': controller.lastStaticQuickScanResult?.timedOut,
+        },
       'dashboard_tabs': const <String>[
         'devices',
         'overview',

@@ -15,6 +15,7 @@ const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
 const Duration _kDeviceReportTimeout = Duration(seconds: 18);
 const Duration _kPackageReportTimeout = Duration(seconds: 12);
 const Duration _kStaticQuickScanTimeout = Duration(seconds: 35);
+const Duration _kStaticQuickScanWarmTimeout = Duration(seconds: 18);
 const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
 const Duration _kArtifactChmodTimeout = Duration(seconds: 2);
 const int _kPackageReportSummaryMaxLines = 220;
@@ -111,6 +112,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
   List<AndroidProcess> _processes = const <AndroidProcess>[];
   List<AndroidProcess> get processes => _processes;
 
+  String? _lastStaticQuickScanDir;
+  String? get lastStaticQuickScanDir => _lastStaticQuickScanDir;
+
+  AdbCommandResult? _lastStaticQuickScanResult;
+  AdbCommandResult? get lastStaticQuickScanResult => _lastStaticQuickScanResult;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -129,6 +136,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
     if (_state != AndroidReverseSessionState.idle) return;
     await _ensureArtifactDirectories();
     await _writeMcpLinkageArtifacts(updateError: false);
+    if (_state == AndroidReverseSessionState.stopped || _disposed) return;
+    await _warmStaticQuickScanFromConfig();
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
     await _refreshDevices();
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
@@ -751,6 +760,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<AdbCommandResult> runStaticQuickScan({
     String? apkPath,
     String? packageName,
+    Duration timeout = _kStaticQuickScanTimeout,
   }) async {
     if (Platform.isWindows || !File('/bin/sh').existsSync()) {
       return const AdbCommandResult(
@@ -791,7 +801,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final result = await runTrackedProcessOrFailed(
       '/bin/sh',
       <String>['-lc', _staticQuickScanScript],
-      timeout: _kStaticQuickScanTimeout,
+      timeout: timeout,
       tag: 'android_reverse.static_quick_scan',
       environment: <String, String>{
         'APK_PATH': rawApkPath,
@@ -801,19 +811,23 @@ class AndroidReverseSessionController extends ChangeNotifier {
     sw.stop();
     final timedOut =
         result.exitCode == -1 &&
-        sw.elapsed + _kStaticQuickScanTimeoutSkew >= _kStaticQuickScanTimeout;
+        sw.elapsed + _kStaticQuickScanTimeoutSkew >= timeout;
     final summary = await _staticQuickScanSummary(
       outputDir,
       result,
       timedOut: timedOut,
     );
-    return AdbCommandResult(
+    final commandResult = AdbCommandResult(
       args: <String>['static-quick-scan', rawApkPath],
       exitCode: result.exitCode,
       stdout: summary,
       stderr: result.stderr.toString(),
       timedOut: timedOut,
     );
+    _lastStaticQuickScanDir = outputDir.path;
+    _lastStaticQuickScanResult = commandResult;
+    _safeNotify();
+    return commandResult;
   }
 
   Future<int> appendLogcatLines(
@@ -1115,6 +1129,27 @@ class AndroidReverseSessionController extends ChangeNotifier {
       stderr: stderr.toString().trimRight(),
       timedOut: results.any((result) => result.timedOut),
     );
+  }
+
+  Future<void> _warmStaticQuickScanFromConfig() async {
+    final apkPath = config.apkPath?.trim();
+    if (apkPath == null || apkPath.isEmpty) return;
+    try {
+      final result = await runStaticQuickScan(
+        apkPath: apkPath,
+        packageName: config.packageName,
+        timeout: _kStaticQuickScanWarmTimeout,
+      );
+      if (!result.ok && !result.hasUsableStdout) {
+        silentLog(
+          _kTag,
+          'warm static quick scan failed',
+          result.combinedOutput,
+        );
+      }
+    } catch (e, st) {
+      silentLog(_kTag, 'warm static quick scan error', e, st);
+    }
   }
 
   String _artifactTimestamp() {
@@ -1566,6 +1601,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       ],
       'workflow_checklist': const <String>[
         'Read android_reverse_config and android_reverse_runtime.',
+        'If latest_static_quick_scan exists, read its SUMMARY.md before new Bash scanning.',
         'Read mcp/SETUP.md before relying on MCP tools.',
         'Confirm device with adb devices or ADB MCP.',
         'Run scripts/android_dynamic_probe.sh once before dynamic validation on a flaky device.',
@@ -1633,6 +1669,7 @@ Use this checklist before relying on Android reverse MCP tools.
 ## Fallback
 
 - If a requested MCP is enabled in config but missing from the Tool Catalog, report it first.
+- If `latest_static_quick_scan` exists in runtime metadata, read its `SUMMARY.md` before new Bash scanning.
 - Use Bash fallback only after confirming `adb devices`, local CLI availability, and the target serial.
 - For flaky wireless ADB, prefer `../scripts/adb_one_shot.sh --timeout 6`.
 - Before Frida install, push, or start, run `../frida/frida_doctor.sh`.
