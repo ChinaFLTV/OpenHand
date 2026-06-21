@@ -68,6 +68,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get fridaScriptsDir => '$fridaDir/scripts';
   String get fridaOutputDir => '$fridaDir/output';
   String get fridaReadmePath => '$fridaDir/README.md';
+  String get fridaDoctorScriptPath => '$fridaDir/frida_doctor.sh';
   String get fridaCaptureScriptPath => '$fridaDir/run_frida_capture.sh';
   String get decompiledDir => '$artifactsRootDir/decompiled';
   String get mcpDir => '$artifactsRootDir/mcp';
@@ -923,6 +924,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         ).writeAsString(_mcpLinkageTemplatesJson(generatedAt)),
         File(mcpReadmePath).writeAsString(_mcpLinkageReadme),
         File(fridaReadmePath).writeAsString(_fridaRunbookReadme),
+        File(fridaDoctorScriptPath).writeAsString(_fridaDoctorScript),
         File(fridaCaptureScriptPath).writeAsString(_fridaCaptureScript),
         File(networkReadmePath).writeAsString(_networkCaptureReadme),
         File(
@@ -945,6 +947,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
             adbOneShotScriptPath,
             dynamicProbeScriptPath,
             networkProxyProbeScriptPath,
+            fridaDoctorScriptPath,
             fridaCaptureScriptPath,
             reproducePythonPath,
             reproduceCurlPath,
@@ -961,6 +964,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'adb_one_shot: $adbOneShotScriptPath',
         'dynamic_probe: $dynamicProbeScriptPath',
         'frida_readme: $fridaReadmePath',
+        'frida_doctor: $fridaDoctorScriptPath',
         'frida_capture: $fridaCaptureScriptPath',
         'network_readme: $networkReadmePath',
         'network_proxy_probe: $networkProxyProbeScriptPath',
@@ -1377,6 +1381,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'mitmproxy_addon': mitmproxyAddonPath,
         'frida_scripts_dir': fridaScriptsDir,
         'frida_output_dir': fridaOutputDir,
+        'frida_doctor_script': fridaDoctorScriptPath,
         'frida_capture_script': fridaCaptureScriptPath,
         'scripts_readme': scriptsReadmePath,
         'reproduce_python': reproducePythonPath,
@@ -1391,6 +1396,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'Use only real mcp__* names from Tool Catalog or ToolSearch results.',
         'If an enabled ADB/Frida MCP is missing, report the missing server and fall back to Bash only after device/tool confirmation.',
         'For flaky wireless ADB, use scripts/adb_one_shot.sh with a short timeout and accept usable stdout from timed-out commands.',
+        'Before installing or pushing Frida, run frida/frida_doctor.sh once and branch from its output.',
         'Do not run adb kill-server, adb start-server, or pkill adb without explicit user approval; prefer single-device short-timeout probes.',
         'Do not guess .MainActivity; resolve launcher activity or use dashboard package launch.',
         'Stop after two repeated failures of the same command, install step, hook, or launch path.',
@@ -1498,7 +1504,7 @@ Files:
 - ../scripts/adb_one_shot.sh: short-timeout ADB wrapper for flaky wireless devices.
 - ../scripts/android_dynamic_probe.sh: one-pass ADB / launcher / Frida preflight.
 - ../network/README.md and ../network/proxy_probe.sh: mitmproxy and proxy diagnostics.
-- ../frida/README.md and ../frida/run_frida_capture.sh: Frida script, server, and output capture runbook.
+- ../frida/README.md, frida_doctor.sh, run_frida_capture.sh: Frida diagnostics and output capture runbook.
 - ../scripts/README.md, reproduce_http.py, reproduce_curl.sh, make_evidence_bundle.sh: final delivery templates.
 
 Rules:
@@ -1507,10 +1513,11 @@ Rules:
 3. Prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
 4. Do not guess launcher activities. Resolve them with package manager data.
 5. Before mitmproxy capture, read network/README.md and run network/proxy_probe.sh.
-6. Capture Frida output through frida/run_frida_capture.sh so evidence is preserved under frida/output/.
-7. Put final reproductions under scripts/ and run make_evidence_bundle.sh before final delivery.
-8. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
-9. Stop after two repeated failures on the same command, hook, install, or launch path.
+6. Before any Frida install/push/start action, run frida/frida_doctor.sh once and follow its report.
+7. Capture Frida output through frida/run_frida_capture.sh so evidence is preserved under frida/output/.
+8. Put final reproductions under scripts/ and run make_evidence_bundle.sh before final delivery.
+9. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
+10. Stop after two repeated failures on the same command, hook, install, or launch path.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook
@@ -1521,19 +1528,192 @@ Directories:
 - scripts/: saved hook scripts and metadata generated by the dashboard.
 - output/: stdout/stderr captured from frida, frida-ps, and frida-server checks.
 Files:
+- frida_doctor.sh: read-only local/device Frida diagnostic; no install, push, or start side effects.
 - run_frida_capture.sh: spawn / attach wrapper that tees output to output/.
 
 Preflight:
 1. Run ../scripts/android_dynamic_probe.sh before dynamic validation.
-2. Match frida-server to the local `frida --version` and device ABI.
-3. Use launcher data from package reports or dynamic_probe; do not guess `.MainActivity`.
-4. If Frida CLI or frida-server is missing, report the gap and ask before installing.
-5. Run hooks through run_frida_capture.sh to keep stdout/stderr evidence.
+2. Run frida_doctor.sh before installing, pushing, or starting Frida.
+3. Match frida-server to the local `frida --version` and device ABI.
+4. Use launcher data from package reports or dynamic_probe; do not guess `.MainActivity`.
+5. If Frida CLI or frida-server is missing, report the gap and ask before installing.
+6. Run hooks through run_frida_capture.sh to keep stdout/stderr evidence.
 
 Stop rules:
 - Do not repeat the same install, launch, attach, or shell command more than twice.
 - If ADB times out but stdout has the needed value, treat it as partial success.
 - If static quick_scan already proves a domain or URL, Frida is optional validation.
+''';
+
+const String _fridaDoctorScript = r'''#!/usr/bin/env bash
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSION_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ADB_ONE_SHOT="${ADB_ONE_SHOT:-$SESSION_DIR/scripts/adb_one_shot.sh}"
+ADB_BIN="${ADB_BIN:-adb}"
+TIMEOUT_SECONDS="${ADB_TIMEOUT_SECONDS:-6}"
+SERIAL="${ADB_SERIAL:-}"
+PACKAGE_NAME="${ANDROID_PACKAGE_NAME:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--serial)
+      if [[ $# -lt 2 ]]; then
+        echo "missing serial value" >&2
+        exit 64
+      fi
+      SERIAL="${2:-}"
+      shift 2
+      ;;
+    -p|--package)
+      if [[ $# -lt 2 ]]; then
+        echo "missing package value" >&2
+        exit 64
+      fi
+      PACKAGE_NAME="${2:-}"
+      shift 2
+      ;;
+    --timeout)
+      if [[ $# -lt 2 ]]; then
+        echo "missing timeout value" >&2
+        exit 64
+      fi
+      TIMEOUT_SECONDS="${2:-6}"
+      shift 2
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      exit 64
+      ;;
+  esac
+done
+
+run_with_timeout() {
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$TIMEOUT_SECONDS" "$@"
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    perl -e '$SIG{ALRM}=sub{exit 124}; alarm shift; exec @ARGV' "$TIMEOUT_SECONDS" "$@"
+  fi
+}
+
+adb_quick() {
+  local serial_args=()
+  if [[ -n "$SERIAL" ]]; then
+    serial_args=(-s "$SERIAL")
+  fi
+  if [[ -x "$ADB_ONE_SHOT" ]]; then
+    "$ADB_ONE_SHOT" "${serial_args[@]}" --timeout "$TIMEOUT_SECONDS" "$@"
+  else
+    run_with_timeout "$ADB_BIN" "${serial_args[@]}" "$@"
+  fi
+}
+
+section() {
+  printf '\n[%s]\n' "$1"
+}
+
+run_section() {
+  section "$1"
+  shift
+  "$@" 2>&1
+  local status=$?
+  if [[ "$status" -ne 0 ]]; then
+    printf '(exit=%s)\n' "$status"
+  fi
+}
+
+valid_package() {
+  [[ "$PACKAGE_NAME" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$ ]]
+}
+
+abi_to_frida_suffix() {
+  case "$1" in
+    arm64-v8a) printf 'android-arm64' ;;
+    armeabi-v7a|armeabi) printf 'android-arm' ;;
+    x86_64) printf 'android-x86_64' ;;
+    x86) printf 'android-x86' ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+section metadata
+printf 'serial=%s\n' "${SERIAL:-auto}"
+printf 'package=%s\n' "${PACKAGE_NAME:-unset}"
+printf 'timeout_seconds=%s\n' "$TIMEOUT_SECONDS"
+printf 'mode=read_only_doctor\n'
+
+section local_frida
+if command -v frida >/dev/null 2>&1; then
+  LOCAL_FRIDA_VERSION="$(frida --version 2>&1 | head -1)"
+  printf 'frida=%s\n' "$LOCAL_FRIDA_VERSION"
+else
+  LOCAL_FRIDA_VERSION=""
+  echo 'frida=missing'
+fi
+if command -v frida-ps >/dev/null 2>&1; then
+  printf 'frida_ps=%s\n' "$(command -v frida-ps)"
+else
+  echo 'frida_ps=missing'
+fi
+if command -v python3 >/dev/null 2>&1; then
+  python3 - <<'PY' 2>/dev/null || true
+try:
+    import frida
+    print("python_frida=" + getattr(frida, "__version__", "present"))
+except Exception as exc:
+    print("python_frida=missing:" + exc.__class__.__name__)
+PY
+fi
+
+run_section adb_devices "$ADB_BIN" devices -l
+
+section device_abi
+DEVICE_ABI="$(adb_quick shell getprop ro.product.cpu.abi 2>&1 | tr -d '\r' | tail -1)"
+printf '%s\n' "$DEVICE_ABI"
+FRIDA_SUFFIX="$(abi_to_frida_suffix "$DEVICE_ABI")"
+printf 'frida_server_suffix=%s\n' "$FRIDA_SUFFIX"
+
+if [[ -n "$LOCAL_FRIDA_VERSION" && "$FRIDA_SUFFIX" != "unknown" ]]; then
+  section matching_server_url
+  printf 'https://github.com/frida/frida/releases/download/%s/frida-server-%s-%s.xz\n' \
+    "$LOCAL_FRIDA_VERSION" "$LOCAL_FRIDA_VERSION" "$FRIDA_SUFFIX"
+fi
+
+section device_frida_server
+adb_quick shell "pidof frida-server || ps -A | grep frida || ls -l /data/local/tmp/frida* 2>/dev/null || true" 2>&1
+
+section adb_forwards
+adb_quick forward --list 2>&1
+
+section frida_ps_probe
+if command -v frida-ps >/dev/null 2>&1; then
+  run_with_timeout frida-ps -Uai 2>&1 | head -120
+  status=$?
+  if [[ "$status" -ne 0 ]]; then
+    printf '(exit=%s)\n' "$status"
+  fi
+else
+  echo 'frida-ps missing; install frida-tools only after user approval'
+fi
+
+if valid_package; then
+  section target_process
+  adb_quick shell "pidof $PACKAGE_NAME || true" 2>&1
+fi
+
+section next_steps
+if [[ -z "$LOCAL_FRIDA_VERSION" ]]; then
+  echo '- Local Frida CLI is missing. Ask before installing frida-tools.'
+elif [[ "$FRIDA_SUFFIX" == "unknown" ]]; then
+  echo '- Device ABI is unknown. Resolve ABI before downloading frida-server.'
+else
+  echo '- If frida-server is missing, download the matching URL above, push it, chmod 755, start it, then re-run this doctor.'
+fi
+echo '- Do not repeat pip install, push, start, or attach commands after two failures.'
+echo '- Use run_frida_capture.sh for spawn/attach so stdout/stderr are saved.'
 ''';
 
 const String _fridaCaptureScript = r'''#!/usr/bin/env bash

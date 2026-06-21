@@ -3,7 +3,7 @@
 - dashboard "设备管理" 面板实时显示 ADB 设备列表、在线状态、序列号。
 - dashboard "工具链" 面板显示本机 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums/anything-analyzer 可用性与安装 / 更新 / 卸载命令复制建议。
 - dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright 前置运行时状态。
-- dashboard "MCP/插件" 面板生成 `mcp/openhand_android_reverse_mcp_templates.json`、`mcp/README.md`、`scripts/adb_one_shot.sh`、`scripts/android_dynamic_probe.sh`、`frida/README.md`。
+- dashboard "MCP/插件" 面板生成 `mcp/openhand_android_reverse_mcp_templates.json`、`mcp/README.md`、`scripts/adb_one_shot.sh`、`scripts/android_dynamic_probe.sh`、`frida/README.md`、`frida/frida_doctor.sh`。
 - 会话创建时写入 `android_reverse_config`：包含 `objective`、`package_name`、`device_serial`、`adb_mcp_enabled`、`frida_mcp_enabled`、`keywords`。
 - TopBar 调试胶囊实时显示"设备状态 · 进程数"。
 - 所有本地工件落盘到 `~/.openhand/android_reverse/sessions/<session_id>/`：
@@ -14,7 +14,7 @@
   - `packages/` — APP 信息 Markdown / JSON 报告
   - `apks/` — 从设备拉取的 base / split APK
   - `screenshots/`、`recordings/` — 面板截图和短录屏
-  - `frida/` — Frida 脚本、metadata、runbook、run_frida_capture.sh 与输出
+  - `frida/` — Frida 脚本、metadata、runbook、frida_doctor.sh、run_frida_capture.sh 与输出
   - `decompiled/` — quick_scan / jadx / apktool / blutter 输出
   - `mcp/` — MCP 模板、ToolSearch 查询、ADB 兜底纪律
   - `scripts/` — 复现脚本、Python/curl 模板、证据打包脚本
@@ -46,6 +46,7 @@
 - 已定位明确域名/URL且证据来自 APK 本体时，先汇报证据；动态验证作为可选后续，不阻塞结论。
 - 缺 jadx 时不要全盘搜索系统目录超过一次；直接降级到 apktool / unzip / strings。
 - 缺 Frida 或 frida-server 时不要循环安装；说明缺口、给出安装建议，除非用户批准继续。
+- Frida 安装 / 推送 / 启动前先运行 `frida/frida_doctor.sh`；doctor 已证明缺口后再给一次安装建议。
 - 缺 CLI 工具时优先读取 `android_reverse_runtime.toolchain_setup_commands`；复制建议可展示，执行安装 / 更新 / 卸载前必须 ask 用户。
 - 启动 APP 使用 launcher activity 或 `monkey -p <pkg>`，不要连续尝试不存在的 `.MainActivity`。
 - APP / 进程 / Logcat / Frida 状态先看 dashboard 报告、`android_dynamic_probe.sh` 输出或本地工件；不要重复 `adb devices`、`ps`、`logcat` 刷屏。

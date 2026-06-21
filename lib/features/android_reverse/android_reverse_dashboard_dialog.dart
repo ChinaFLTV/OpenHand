@@ -4125,6 +4125,7 @@ class _AndroidReverseDashboardDialogState
         : _commandToken(scriptAsset);
     final pkg = _commandToken(_packageCommandTarget());
     const savedScriptArg = '<saved-script.js>';
+    final doctorScript = _shellQuote(_ctrl.fridaDoctorScriptPath);
     final captureScript = _shellQuote(_ctrl.fridaCaptureScriptPath);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4216,8 +4217,19 @@ class _AndroidReverseDashboardDialogState
                   cs,
                   theme,
                   isZh,
+                  title: isZh ? 'Frida 只读诊断' : 'Frida read-only doctor',
+                  command:
+                      'cat ${_shellQuote(_ctrl.fridaReadmePath)}\n'
+                      '$doctorScript --timeout 6 --package $pkg',
+                ),
+                const SizedBox(height: 8),
+                _commandCard(
+                  cs,
+                  theme,
+                  isZh,
                   title: isZh ? '设备端 Frida 准备' : 'Prepare device Frida',
                   command:
+                      '$doctorScript --timeout 6 --package $pkg\n'
                       'frida --version\n'
                       '${_adbCommandPrefix()} shell getprop ro.product.cpu.abi\n'
                       '${_adbCommandPrefix()} shell pidof frida-server || true\n'

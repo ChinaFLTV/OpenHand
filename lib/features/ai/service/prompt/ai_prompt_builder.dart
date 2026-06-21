@@ -2312,6 +2312,7 @@ class AiPromptBuilder {
         'frida_scripts_dir': p.join(rootDir, 'frida', 'scripts'),
         'frida_output_dir': p.join(rootDir, 'frida', 'output'),
         'frida_readme': p.join(rootDir, 'frida', 'README.md'),
+        'frida_doctor_script': p.join(rootDir, 'frida', 'frida_doctor.sh'),
         'frida_capture_script': p.join(
           rootDir,
           'frida',
@@ -2359,6 +2360,7 @@ class AiPromptBuilder {
         'find ${p.join(rootDir, 'frida', 'scripts')} -maxdepth 1 -type f | head -200',
         'find ${p.join(rootDir, 'frida', 'output')} -maxdepth 1 -type f | head -200',
         'cat ${p.join(rootDir, 'frida', 'README.md')}',
+        '${p.join(rootDir, 'frida', 'frida_doctor.sh')} --timeout 6',
         '${p.join(rootDir, 'frida', 'run_frida_capture.sh')} --help',
         'find ${p.join(rootDir, 'decompiled')} -maxdepth 3 -type f | head -200',
         'find ${p.join(rootDir, 'decompiled')} -path "*/quick_scan/*" -type f | head -200',
@@ -2377,7 +2379,7 @@ class AiPromptBuilder {
         'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, field snapshot/report artifacts, battery/display/storage/foreground/ABI, shell presets, APK install, file push/pull, screenshot, screenrecord',
         'toolchain: diagnostics plus copy-only install/update/uninstall commands for Android reverse CLI tools',
         'mcp_plugins: Android-related MCP health, discovered mcp__* names, ToolSearch query, Node/Python/pip/Playwright runtime prerequisites',
-        'mcp_artifacts: generated mcp/openhand_android_reverse_mcp_templates.json, mcp/README.md, scripts/adb_one_shot.sh, scripts/android_dynamic_probe.sh, and frida/README.md',
+        'mcp_artifacts: generated mcp/openhand_android_reverse_mcp_templates.json, mcp/README.md, scripts/adb_one_shot.sh, scripts/android_dynamic_probe.sh, frida/README.md, and frida/frida_doctor.sh',
         'static_analysis: quick APK scan writes badging/Manifest/components/certs/nested APKs/Flutter/native/suspicious files/business network candidates/network sources/URL/domain/IP summaries to decompiled/<target>/quick_scan',
         'packages: analyze launcher/activity, generate markdown/json package reports, launch without guessing MainActivity, force-stop, clear data, uninstall, pull APKs to artifacts, filter logcat by package',
         'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
@@ -2385,7 +2387,7 @@ class AiPromptBuilder {
         'network: generate mitmproxy JSONL addon, README, proxy preflight script, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
         'certs: generate Network Security Config, manifest snippet, root CA install script, APK resigning scripts, APK signing check, SSL pinning hook command',
         'reproduce: scripts/README.md plus reproduce_http.py, reproduce_curl.sh, and make_evidence_bundle.sh for final runnable delivery',
-        'frida: built-in hook snippets, saved script/metadata/output artifacts, run_frida_capture.sh stdout/stderr capture, device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
+        'frida: built-in hook snippets, saved script/metadata/output artifacts, frida_doctor.sh read-only diagnostics, run_frida_capture.sh stdout/stderr capture, device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
       ],
       'dashboard_visible_metadata_keys': presentKeys,
     };
