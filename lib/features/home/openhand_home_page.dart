@@ -3430,6 +3430,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'frida_server_abi_push_start_forward_copy_commands',
         'mitmproxy_jsonl_addon_network_flow_artifacts',
         'certificate_network_security_config_artifacts',
+        'apk_resigning_keystore_zipalign_apksigner_artifacts',
       ],
       'dashboard_tabs': const <String>[
         'devices',

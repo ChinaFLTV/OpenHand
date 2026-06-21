@@ -46,7 +46,7 @@
 - **Frida**：加载内置 hook snippet、暂存脚本、复制脚本，生成设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；实际安装和注入需确认后由 MCP 或 Bash 完成。
 - **网络**：生成 mitmproxy JSONL addon、设备代理、抓包启动和流量读取命令，结构化 HTTP 记录写入 `network.jsonl`。
 - **静态分析**：快速扫描 APK 生成 badging、Manifest / 组件、证书、嵌套 APK、Flutter / native / 可疑文件、URL / 域名 / IP、网络字符串来源到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。
-- **证书**：生成 Network Security Config、Manifest 片段、系统 CA 推送脚本、APK 签名检查、SSL Pinning hook 命令。
+- **证书**：生成 Network Security Config、Manifest 片段、系统 CA 推送脚本、APK 重签名脚本、签名检查、SSL Pinning hook 命令。
 - **加密**：Base64 / Hex / MD5 / SHA / JWT / AES / RSA Pad。
 </dashboard_tabs>
 

@@ -602,6 +602,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
           '${resXmlDir.path}/network_security_config.xml';
       final manifestSnippetPath = '$certsDir/AndroidManifest.application.xml';
       final installScriptPath = '$certsDir/install_mitm_ca_root.sh';
+      final generateKeystorePath = '$certsDir/generate_debug_keystore.sh';
+      final signApkPath = '$certsDir/sign_repacked_apk.sh';
+      final verifySignaturePath = '$certsDir/verify_apk_signature.sh';
       final readmePath = '$certsDir/README.md';
       final pkg = packageName?.trim();
       await Future.wait(<Future<File>>[
@@ -610,6 +613,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
         ).writeAsString(_networkSecurityConfigXml),
         File(manifestSnippetPath).writeAsString(_manifestNetworkConfigSnippet),
         File(installScriptPath).writeAsString(_installMitmCaRootScript),
+        File(generateKeystorePath).writeAsString(_generateDebugKeystoreScript),
+        File(signApkPath).writeAsString(_signRepackedApkScript),
+        File(verifySignaturePath).writeAsString(_verifyApkSignatureScript),
         File(readmePath).writeAsString(_certificateReadme(pkg)),
       ]);
       return <String>[
@@ -617,6 +623,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'network_security_config: $networkSecurityConfigPath',
         'manifest_snippet: $manifestSnippetPath',
         'root_ca_install_script: $installScriptPath',
+        'generate_debug_keystore: $generateKeystorePath',
+        'sign_repacked_apk: $signApkPath',
+        'verify_apk_signature: $verifySignaturePath',
         'readme: $readmePath',
       ].join('\n');
     } catch (e, st) {
@@ -1187,6 +1196,123 @@ cp "$CERT_PATH" "$TMP_CERT"
 "${ADB[@]}" shell "ls -l /system/etc/security/cacerts/${HASH}.0"
 ''';
 
+const String _generateDebugKeystoreScript = r'''#!/usr/bin/env bash
+set -euo pipefail
+
+OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KEYSTORE="${1:-$OUT_DIR/openhand-debug.keystore}"
+ALIAS="${OPENHAND_KEY_ALIAS:-openhand}"
+STOREPASS="${OPENHAND_KEYSTORE_PASS:-android}"
+KEYPASS="${OPENHAND_KEY_PASS:-android}"
+
+if ! command -v keytool >/dev/null 2>&1; then
+  echo "keytool not found. Install a JDK first." >&2
+  exit 2
+fi
+
+if [[ -f "$KEYSTORE" ]]; then
+  echo "keystore already exists: $KEYSTORE"
+  exit 0
+fi
+
+keytool -genkeypair \
+  -keystore "$KEYSTORE" \
+  -storepass "$STOREPASS" \
+  -keypass "$KEYPASS" \
+  -alias "$ALIAS" \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000 \
+  -dname "CN=OpenHand Android Reverse,O=OpenHand,C=US"
+
+echo "created: $KEYSTORE"
+''';
+
+const String _signRepackedApkScript = r'''#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: bash sign_repacked_apk.sh <unsigned.apk> [signed.apk]" >&2
+  exit 2
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UNSIGNED_APK="$1"
+SIGNED_APK="${2:-${UNSIGNED_APK%.apk}-signed.apk}"
+ALIGNED_APK="${SIGNED_APK%.apk}-aligned.apk"
+KEYSTORE="${OPENHAND_KEYSTORE:-$SCRIPT_DIR/openhand-debug.keystore}"
+ALIAS="${OPENHAND_KEY_ALIAS:-openhand}"
+STOREPASS="${OPENHAND_KEYSTORE_PASS:-android}"
+KEYPASS="${OPENHAND_KEY_PASS:-android}"
+
+find_android_tool() {
+  local name="$1"
+  if command -v "$name" >/dev/null 2>&1; then
+    command -v "$name"
+    return 0
+  fi
+  local sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+  find "$sdk/build-tools" -name "$name" -type f 2>/dev/null | sort -r | head -1
+}
+
+APKSIGNER="$(find_android_tool apksigner)"
+ZIPALIGN="$(find_android_tool zipalign)"
+if [[ -z "$APKSIGNER" || ! -x "$APKSIGNER" ]]; then
+  echo "apksigner not found. Install Android SDK build-tools." >&2
+  exit 3
+fi
+if [[ -z "$ZIPALIGN" || ! -x "$ZIPALIGN" ]]; then
+  echo "zipalign not found. Install Android SDK build-tools." >&2
+  exit 3
+fi
+if [[ ! -f "$KEYSTORE" ]]; then
+  bash "$SCRIPT_DIR/generate_debug_keystore.sh" "$KEYSTORE"
+fi
+if [[ ! -f "$UNSIGNED_APK" ]]; then
+  echo "unsigned APK not found: $UNSIGNED_APK" >&2
+  exit 4
+fi
+
+"$ZIPALIGN" -f -p 4 "$UNSIGNED_APK" "$ALIGNED_APK"
+"$APKSIGNER" sign \
+  --ks "$KEYSTORE" \
+  --ks-key-alias "$ALIAS" \
+  --ks-pass "pass:$STOREPASS" \
+  --key-pass "pass:$KEYPASS" \
+  --out "$SIGNED_APK" \
+  "$ALIGNED_APK"
+"$APKSIGNER" verify --print-certs "$SIGNED_APK"
+
+echo "signed: $SIGNED_APK"
+''';
+
+const String _verifyApkSignatureScript = r'''#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: bash verify_apk_signature.sh <apk>" >&2
+  exit 2
+fi
+
+APK="$1"
+if [[ ! -f "$APK" ]]; then
+  echo "APK not found: $APK" >&2
+  exit 3
+fi
+
+APKSIGNER="$(command -v apksigner || true)"
+if [[ -z "$APKSIGNER" ]]; then
+  SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+  APKSIGNER="$(find "$SDK/build-tools" -name apksigner -type f 2>/dev/null | sort -r | head -1)"
+fi
+if [[ -z "$APKSIGNER" || ! -x "$APKSIGNER" ]]; then
+  echo "apksigner not found. Install Android SDK build-tools." >&2
+  exit 4
+fi
+
+"$APKSIGNER" verify --verbose --print-certs "$APK"
+''';
+
 String _certificateReadme(String? packageName) {
   final target = packageName == null || packageName.isEmpty
       ? '<target package>'
@@ -1199,11 +1325,15 @@ Files:
 - `res/xml/network_security_config.xml`: trusts system and user CAs for debug capture.
 - `AndroidManifest.application.xml`: application attribute snippet for apktool merge.
 - `install_mitm_ca_root.sh`: pushes mitmproxy CA as a system cert on rooted devices.
+- `generate_debug_keystore.sh`: creates a reusable OpenHand debug keystore.
+- `sign_repacked_apk.sh`: zipaligns and signs a rebuilt APK.
+- `verify_apk_signature.sh`: verifies APK signature schemes and certs.
 
 Flow:
 1. For repackaging, copy `res/xml/network_security_config.xml` into apktool output and merge the manifest snippet into `<application>`.
 2. For rooted dynamic capture, run `ADB_SERIAL=<serial> bash install_mitm_ca_root.sh`.
-3. Use the Network tab mitmproxy JSONL addon to write `network.jsonl`.
-4. If SSL pinning remains, use `hook_ssl_pinning.js` before capturing traffic.
+3. For rebuilt APKs, run `bash sign_repacked_apk.sh <unsigned.apk> <signed.apk>`.
+4. Use the Network tab mitmproxy JSONL addon to write `network.jsonl`.
+5. If SSL pinning remains, use `hook_ssl_pinning.js` before capturing traffic.
 ''';
 }

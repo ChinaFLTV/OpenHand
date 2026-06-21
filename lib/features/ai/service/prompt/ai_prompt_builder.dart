@@ -2327,7 +2327,7 @@ class AiPromptBuilder {
         'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
         'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl',
         'network: generate mitmproxy JSONL addon, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
-        'certs: generate Network Security Config, manifest snippet, root CA install script, APK signing check, SSL pinning hook command',
+        'certs: generate Network Security Config, manifest snippet, root CA install script, APK resigning scripts, APK signing check, SSL pinning hook command',
         'frida: built-in hook snippets plus device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
       ],
       'dashboard_visible_metadata_keys': presentKeys,

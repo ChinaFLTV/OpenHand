@@ -4317,6 +4317,17 @@ class _AndroidReverseDashboardDialogState
             cs,
             theme,
             isZh,
+            title: isZh ? 'APK 重签名工件' : 'APK resigning artifacts',
+            command:
+                'bash ${_shellQuote('${_ctrl.certsDir}/generate_debug_keystore.sh')}\n'
+                'bash ${_shellQuote('${_ctrl.certsDir}/sign_repacked_apk.sh')} <unsigned.apk> <signed.apk>\n'
+                'bash ${_shellQuote('${_ctrl.certsDir}/verify_apk_signature.sh')} <signed.apk>',
+          ),
+          const SizedBox(height: 10),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
             title: isZh ? '准备 mitmproxy CA' : 'Prepare mitmproxy CA',
             command:
                 'CERT=~/.mitmproxy/mitmproxy-ca-cert.pem\n'
