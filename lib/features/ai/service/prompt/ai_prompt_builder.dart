@@ -2302,6 +2302,7 @@ class AiPromptBuilder {
         'recordings_dir': p.join(rootDir, 'recordings'),
         'network_dir': p.join(rootDir, 'network'),
         'frida_dir': p.join(rootDir, 'frida'),
+        'frida_scripts_dir': p.join(rootDir, 'frida', 'scripts'),
         'decompiled_dir': p.join(rootDir, 'decompiled'),
         'mcp_dir': p.join(rootDir, 'mcp'),
         'mcp_templates_json': p.join(
@@ -2326,6 +2327,7 @@ class AiPromptBuilder {
         'find ${p.join(rootDir, 'screenshots')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'recordings')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'frida')} -maxdepth 2 -type f',
+        'find ${p.join(rootDir, 'frida', 'scripts')} -maxdepth 1 -type f | head -200',
         'find ${p.join(rootDir, 'decompiled')} -maxdepth 3 -type f | head -200',
         'find ${p.join(rootDir, 'decompiled')} -path "*/quick_scan/*" -type f | head -200',
         'find ${p.join(rootDir, 'mcp')} -maxdepth 2 -type f | head -200',
@@ -2345,7 +2347,7 @@ class AiPromptBuilder {
         'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl, capture txt/json snapshots under logcat/',
         'network: generate mitmproxy JSONL addon, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
         'certs: generate Network Security Config, manifest snippet, root CA install script, APK resigning scripts, APK signing check, SSL pinning hook command',
-        'frida: built-in hook snippets plus device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
+        'frida: built-in hook snippets, saved script/metadata artifacts, device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
       ],
       'dashboard_visible_metadata_keys': presentKeys,
     };

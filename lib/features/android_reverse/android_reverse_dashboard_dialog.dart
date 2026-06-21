@@ -331,6 +331,7 @@ class _AndroidReverseDashboardDialogState
   bool _writingMcpArtifacts = false;
   bool _capturingLogcatSnapshot = false;
   bool _loadingDeviceDetails = false;
+  bool _savingFridaScript = false;
   bool _logcatPackageFilterEnabled = false;
   String? _selectedDeviceSerial;
   String? _lastDeviceActionOutput;
@@ -346,6 +347,7 @@ class _AndroidReverseDashboardDialogState
   String? _selectedPackageName;
   String? _packageAnalysisOutput;
   String? _selectedFridaSnippetAsset;
+  String? _fridaArtifactOutput;
   String? _staticQuickScanOutput;
   String? _logcatArtifactOutput;
   String? _networkAddonOutput;
@@ -1032,6 +1034,41 @@ class _AndroidReverseDashboardDialogState
           duration: const Duration(seconds: 3),
         ),
       );
+    }
+  }
+
+  Future<void> _saveFridaScriptArtifact() async {
+    if (_savingFridaScript) return;
+    final script = _fridaScriptCtrl.text;
+    if (script.trim().isEmpty) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() => _savingFridaScript = true);
+    try {
+      final result = await _ctrl.saveFridaScriptToArtifacts(
+        script: script,
+        presetAssetPath: _selectedFridaSnippetAsset,
+        packageName: _logcatPackageTarget(),
+      );
+      if (!mounted) return;
+      setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+      if (result.ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isZh ? '已保存 Frida 脚本工件。' : 'Frida script artifact saved.',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _fridaArtifactOutput =
+            '${isZh ? "保存 Frida 脚本失败" : "Failed to save Frida script"}: $error';
+      });
+    } finally {
+      if (mounted) setState(() => _savingFridaScript = false);
     }
   }
 
@@ -4087,7 +4124,7 @@ class _AndroidReverseDashboardDialogState
         ? '<script.js>'
         : _commandToken(scriptAsset);
     final pkg = _commandToken(_packageCommandTarget());
-    final scriptOutputPath = _shellQuote('${_ctrl.fridaDir}/script.js');
+    const savedScriptArg = '<saved-script.js>';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -4124,6 +4161,24 @@ class _AndroidReverseDashboardDialogState
             ),
             const SizedBox(width: 8),
             FilledButton.tonalIcon(
+              onPressed:
+                  _fridaScriptCtrl.text.trim().isEmpty || _savingFridaScript
+                  ? null
+                  : _saveFridaScriptArtifact,
+              icon: _savingFridaScript
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.6),
+                    )
+                  : const Icon(Icons.save_alt_rounded, size: 14),
+              label: Text(isZh ? '保存工件' : 'Save artifact'),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonalIcon(
               onPressed: _fridaScriptCtrl.text.trim().isEmpty
                   ? null
                   : () => _copyText(_fridaScriptCtrl.text),
@@ -4141,14 +4196,18 @@ class _AndroidReverseDashboardDialogState
           child: OpenHandSafeScrollbar(
             child: ListView(
               children: [
+                if (_fridaArtifactOutput?.trim().isNotEmpty ?? false) ...[
+                  _monospaceCard(cs, _fridaArtifactOutput!.trim()),
+                  const SizedBox(height: 8),
+                ],
                 _commandCard(
                   cs,
                   theme,
                   isZh,
-                  title: isZh ? '保存当前脚本' : 'Save current script',
+                  title: isZh ? '读取脚本工件' : 'Read script artifacts',
                   command:
-                      'mkdir -p ${_shellQuote(_ctrl.fridaDir)}\n'
-                      '# ${isZh ? "将脚本框内容保存为" : "Save editor content as"} $scriptOutputPath',
+                      'find ${_shellQuote(_ctrl.fridaScriptsDir)} -maxdepth 1 -type f | sort\n'
+                      'cat ${_shellQuote(_ctrl.fridaScriptsDir)}/<saved-script>.js',
                 ),
                 const SizedBox(height: 8),
                 _commandCard(
@@ -4179,7 +4238,7 @@ class _AndroidReverseDashboardDialogState
                   title: isZh ? 'Spawn 注入' : 'Spawn inject',
                   command:
                       'frida -U -f $pkg -l $scriptArg --no-pause\n'
-                      'frida -U -f $pkg -l $scriptOutputPath --no-pause',
+                      'frida -U -f $pkg -l $savedScriptArg --no-pause',
                 ),
                 const SizedBox(height: 8),
                 _commandCard(

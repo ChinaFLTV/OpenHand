@@ -65,6 +65,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String get screenshotsDir => '$artifactsRootDir/screenshots';
   String get recordingsDir => '$artifactsRootDir/recordings';
   String get fridaDir => '$artifactsRootDir/frida';
+  String get fridaScriptsDir => '$fridaDir/scripts';
   String get decompiledDir => '$artifactsRootDir/decompiled';
   String get mcpDir => '$artifactsRootDir/mcp';
   String get mcpTemplatesPath =>
@@ -447,6 +448,70 @@ class AndroidReverseSessionController extends ChangeNotifier {
 
   Future<bool> removeAllForwards({String? serial}) =>
       _clientForSerial(serial).removeAllForwards();
+
+  Future<AdbCommandResult> saveFridaScriptToArtifacts({
+    required String script,
+    String? presetAssetPath,
+    String? packageName,
+  }) async {
+    final normalizedScript = script.trimRight();
+    if (normalizedScript.trim().isEmpty) {
+      return const AdbCommandResult(
+        args: <String>['frida-script-save', '<empty>'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Frida script is empty.',
+      );
+    }
+    final target = _safeArtifactName(
+      _firstNonEmpty(<String?>[packageName, config.packageName, 'generic']),
+    );
+    final presetName = (presetAssetPath ?? 'custom_script')
+        .split('/')
+        .last
+        .replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
+    final preset = _safeArtifactName(presetName);
+    final stamp = _artifactTimestamp();
+    final scriptPath = '$fridaScriptsDir/${target}_${preset}_$stamp.js';
+    final jsonPath = '$fridaScriptsDir/${target}_${preset}_$stamp.json';
+    try {
+      await Directory(fridaScriptsDir).create(recursive: true);
+      final capturedAt = DateTime.now().toUtc().toIso8601String();
+      final metadata = <String, Object?>{
+        'captured_at': capturedAt,
+        if (packageName?.trim().isNotEmpty ?? false)
+          'package_name': packageName!.trim(),
+        if (presetAssetPath?.trim().isNotEmpty ?? false)
+          'preset_asset_path': presetAssetPath!.trim(),
+        'script_path': scriptPath,
+        'char_count': normalizedScript.length,
+        'line_count': normalizedScript.split('\n').length,
+      };
+      await Future.wait(<Future<void>>[
+        File(scriptPath).writeAsString('$normalizedScript\n'),
+        File(
+          jsonPath,
+        ).writeAsString(const JsonEncoder.withIndent('  ').convert(metadata)),
+      ]);
+      return AdbCommandResult(
+        args: const <String>['frida-script-save'],
+        exitCode: 0,
+        stdout: <String>[
+          'Frida script: $scriptPath',
+          'Frida script metadata: $jsonPath',
+        ].join('\n'),
+        stderr: '',
+      );
+    } catch (e, st) {
+      silentLog(_kTag, 'saveFridaScriptToArtifacts failed', e, st);
+      return AdbCommandResult(
+        args: const <String>['frida-script-save'],
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+      );
+    }
+  }
 
   Future<AdbCommandResult> connect(String endpoint) =>
       _adbClient.connect(endpoint);

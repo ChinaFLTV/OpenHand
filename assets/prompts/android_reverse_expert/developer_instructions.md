@@ -13,7 +13,7 @@
   - `packages/` — APP 信息 Markdown / JSON 报告
   - `apks/` — 从设备拉取的 base / split APK
   - `screenshots/`、`recordings/` — 面板截图和短录屏
-  - `frida/` — Frida 脚本与输出
+  - `frida/` — Frida 脚本、metadata 与输出
   - `decompiled/` — quick_scan / jadx / apktool / blutter 输出
   - `mcp/` — MCP 模板、ToolSearch 查询、ADB 兜底纪律
   - `scripts/` — 复现脚本
