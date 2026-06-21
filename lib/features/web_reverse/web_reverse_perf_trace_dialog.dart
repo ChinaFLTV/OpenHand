@@ -187,160 +187,129 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 700),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.timeline_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReversePerfTitle ?? 'Performance Trace',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReversePerfSubtitle ??
-                              'Tracing → chrome-trace JSON',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Row(
-                children: [
-                  Text(
-                    loc?.webReversePerfDuration ?? 'Duration',
-                    style: theme.textTheme.labelLarge,
-                  ),
-                  Expanded(
-                    child: Slider(
-                      value: _seconds,
-                      min: 2,
-                      max: 30,
-                      divisions: 28,
-                      label: '${_seconds.round()}s',
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(() => _seconds = v),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 44,
-                    child: Text(
-                      '${_seconds.round()}s',
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  loc?.webReversePerfCategories ?? 'Trace Categories',
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 720,
+      maxHeight: 700,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.timeline_rounded,
+            title: loc?.webReversePerfTitle ?? 'Performance Trace',
+            subtitle:
+                loc?.webReversePerfSubtitle ?? 'Tracing → chrome-trace JSON',
+            closeEnabled: !_busy,
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Row(
+              children: [
+                Text(
+                  loc?.webReversePerfDuration ?? 'Duration',
                   style: theme.textTheme.labelLarge,
                 ),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _categories.map((c) {
-                    final on = _selected.contains(c);
-                    return FilterChip(
-                      label: Text(c, style: const TextStyle(fontSize: 11.5)),
-                      selected: on,
-                      onSelected: _busy
-                          ? null
-                          : (v) {
-                              setState(() {
-                                if (v) {
-                                  _selected.add(c);
-                                } else {
-                                  _selected.remove(c);
-                                }
-                              });
-                            },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            if (_busy) const LinearProgressIndicator(minHeight: 3),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                color: cs.surfaceContainerHigh,
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                Expanded(
+                  child: Slider(
+                    value: _seconds,
+                    min: 2,
+                    max: 30,
+                    divisions: 28,
+                    label: '${_seconds.round()}s',
+                    onChanged: _busy
+                        ? null
+                        : (v) => setState(() => _seconds = v),
                   ),
                 ),
-              ),
-            buildOpenHandDialogActionsBar(
-              actions: [
-                if (_lastSaved.isNotEmpty)
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReversePerfCopyPath ?? 'Copy path',
-                    icon: Icons.copy_rounded,
-                    onPressed: _copyPath,
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    '${_seconds.round()}s',
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.titleSmall,
                   ),
-                if (_busy)
-                  OpenHandDialogActionButton.destructive(
-                    label: loc?.webReversePerfStop ?? 'Stop',
-                    icon: Icons.stop_circle_rounded,
-                    onPressed: _earlyStop == null ? null : _stop,
-                  )
-                else
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReversePerfStart ?? 'Start',
-                    icon: Icons.fiber_manual_record_rounded,
-                    onPressed: _selected.isEmpty ? null : _start,
-                  ),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.webReversePerfClose ?? 'Close',
-                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                loc?.webReversePerfCategories ?? 'Trace Categories',
+                style: theme.textTheme.labelLarge,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _categories.map((c) {
+                  final on = _selected.contains(c);
+                  return FilterChip(
+                    label: Text(c, style: const TextStyle(fontSize: 11.5)),
+                    selected: on,
+                    onSelected: _busy
+                        ? null
+                        : (v) {
+                            setState(() {
+                              if (v) {
+                                _selected.add(c);
+                              } else {
+                                _selected.remove(c);
+                              }
+                            });
+                          },
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              color: cs.surfaceContainerHigh,
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          buildOpenHandDialogActionsBar(
+            actions: [
+              if (_lastSaved.isNotEmpty)
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReversePerfCopyPath ?? 'Copy path',
+                  icon: Icons.copy_rounded,
+                  onPressed: _copyPath,
+                ),
+              if (_busy)
+                OpenHandDialogActionButton.destructive(
+                  label: loc?.webReversePerfStop ?? 'Stop',
+                  icon: Icons.stop_circle_rounded,
+                  onPressed: _earlyStop == null ? null : _stop,
+                )
+              else
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReversePerfStart ?? 'Start',
+                  icon: Icons.fiber_manual_record_rounded,
+                  onPressed: _selected.isEmpty ? null : _start,
+                ),
+              OpenHandDialogActionButton.primary(
+                label: loc?.webReversePerfClose ?? 'Close',
+                onPressed: _busy ? null : () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

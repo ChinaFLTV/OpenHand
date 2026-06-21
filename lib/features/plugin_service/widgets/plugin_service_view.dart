@@ -181,7 +181,7 @@ class _PluginCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isZh = openHandIsChineseLocale(context);
     final stateColor = switch (plugin.status) {
-      PluginStatus.installed => const Color(0xFF16A34A),
+      PluginStatus.installed => OpenHandStatusColors.success,
       PluginStatus.error => theme.colorScheme.error,
       PluginStatus.installing ||
       PluginStatus.updating ||
@@ -417,7 +417,7 @@ class _PluginCard extends StatelessWidget {
                   ? Icons.toggle_on_rounded
                   : Icons.toggle_off_outlined,
               size: 20,
-              color: plugin.enabled ? const Color(0xFF16A34A) : null,
+              color: plugin.enabled ? OpenHandStatusColors.success : null,
             ),
           ),
         // 安装
@@ -730,204 +730,184 @@ class _PluginOperationProgressDialogState
     final logs = widget.controller.operationLogs;
     final isOperating = widget.controller.isOperating;
 
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 480),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 560,
+      maxHeight: 480,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: isOperating
+                ? Icons.terminal_rounded
+                : Icons.check_circle_rounded,
+            title: '${widget.action} ${widget.pluginName}',
+            iconColor: isOperating
+                ? theme.colorScheme.primary
+                : OpenHandStatusColors.success,
+            iconWidget: isOperating
+                ? FadeTransition(
+                    opacity: _pulseController.drive(
+                      Tween<double>(begin: 0.4, end: 1.0),
+                    ),
+                    child: Icon(
+                      Icons.terminal_rounded,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
+                  )
+                : null,
+            showCloseButton: false,
+            actions: [
+              if (isOperating)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ),
+            ],
+          ),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          // 环境信息
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.3,
+            ),
+            child: DefaultTextStyle(
+              style: theme.textTheme.bodySmall!.copyWith(
+                fontFamily: 'monospace',
+                fontSize: 10.5,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-              child: Row(
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 4,
                 children: [
-                  if (isOperating)
-                    FadeTransition(
-                      opacity: _pulseController.drive(
-                        Tween(begin: 0.4, end: 1.0),
-                      ),
-                      child: Icon(
-                        Icons.terminal_rounded,
-                        size: 20,
-                        color: theme.colorScheme.primary,
+                  Text('PID: $pid'),
+                  Text('OS: ${Platform.operatingSystem}'),
+                  Text('Arch: ${Platform.version.split(' ').last}'),
+                  Text(
+                    isZh
+                        ? '日志: ${logs.length} 行'
+                        : 'Logs: ${logs.length} lines',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // 进度条
+          if (isOperating)
+            LinearProgressIndicator(
+              minHeight: 3,
+              color: theme.colorScheme.primary,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            )
+          else
+            Container(height: 3, color: OpenHandStatusColors.success),
+          // 终端输出区域
+          Flexible(
+            child: Container(
+              color: const Color(0xFF1E1E1E),
+              child: logs.isEmpty
+                  ? Center(
+                      child: Text(
+                        isZh ? '等待输出…' : 'Waiting for output…',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF808080),
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     )
-                  else
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      size: 20,
-                      color: Color(0xFF16A34A),
-                    ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '${widget.action} ${widget.pluginName}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                  : NotificationListener<ScrollNotification>(
+                      onNotification: _scrollGuard.handleNotification,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: logs.length,
+                        itemBuilder: (context, index) {
+                          final line = logs[index];
+                          final isError =
+                              line.startsWith('✗') ||
+                              line.toLowerCase().startsWith('error');
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                height: 1.5,
+                                color: isError
+                                    ? const Color(0xFFFF6B6B)
+                                    : const Color(0xFFD4D4D4),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
+            ),
+          ),
+          // 底部状态栏
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border(
+                top: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
                   ),
-                  if (isOperating)
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
-            // 环境信息
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.3,
-              ),
-              child: DefaultTextStyle(
-                style: theme.textTheme.bodySmall!.copyWith(
-                  fontFamily: 'monospace',
-                  fontSize: 10.5,
+            child: Row(
+              children: [
+                Icon(
+                  isOperating
+                      ? Icons.hourglass_top_rounded
+                      : Icons.done_all_rounded,
+                  size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 4,
-                  children: [
-                    Text('PID: $pid'),
-                    Text('OS: ${Platform.operatingSystem}'),
-                    Text('Arch: ${Platform.version.split(' ').last}'),
-                    Text(
-                      isZh
-                          ? '日志: ${logs.length} 行'
-                          : 'Logs: ${logs.length} lines',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // 进度条
-            if (isOperating)
-              LinearProgressIndicator(
-                minHeight: 3,
-                color: theme.colorScheme.primary,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              )
-            else
-              Container(height: 3, color: const Color(0xFF16A34A)),
-            // 终端输出区域
-            Flexible(
-              child: Container(
-                color: const Color(0xFF1E1E1E),
-                child: logs.isEmpty
-                    ? Center(
-                        child: Text(
-                          isZh ? '等待输出…' : 'Waiting for output…',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF808080),
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      )
-                    : NotificationListener<ScrollNotification>(
-                        onNotification: _scrollGuard.handleNotification,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: logs.length,
-                          itemBuilder: (context, index) {
-                            final line = logs[index];
-                            final isError =
-                                line.startsWith('✗') ||
-                                line.toLowerCase().startsWith('error');
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Text(
-                                line,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  height: 1.5,
-                                  color: isError
-                                      ? const Color(0xFFFF6B6B)
-                                      : const Color(0xFFD4D4D4),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-            ),
-            // 底部状态栏
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  top: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
                     isOperating
-                        ? Icons.hourglass_top_rounded
-                        : Icons.done_all_rounded,
-                    size: 14,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      isOperating
-                          ? (isZh ? '正在执行…' : 'Executing…')
-                          : (isZh ? '操作完成' : 'Completed'),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                        ? (isZh ? '正在执行…' : 'Executing…')
+                        : (isZh ? '操作完成' : 'Completed'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: () {
-                      if (isOperating) {
-                        widget.controller.forceCancel();
-                      }
-                      Navigator.of(context).pop();
-                    },
-                    icon: Icon(
-                      isOperating ? Icons.close : Icons.done,
-                      size: 16,
-                    ),
-                    label: Text(
-                      isOperating
-                          ? (isZh ? '强制关闭' : 'Force Close')
-                          : (isZh ? '关闭' : 'Close'),
-                    ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    if (isOperating) {
+                      widget.controller.forceCancel();
+                    }
+                    Navigator.of(context).pop();
+                  },
+                  icon: Icon(isOperating ? Icons.close : Icons.done, size: 16),
+                  label: Text(
+                    isOperating
+                        ? (isZh ? '强制关闭' : 'Force Close')
+                        : (isZh ? '关闭' : 'Close'),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1041,7 +1021,7 @@ class _DependencyRow extends StatelessWidget {
                 installed ? Icons.check_circle : Icons.cancel,
                 size: 14,
                 color: installed
-                    ? const Color(0xFF16A34A)
+                    ? OpenHandStatusColors.success
                     : theme.colorScheme.error,
               ),
               label: Text(
@@ -1235,132 +1215,100 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
     final isZh = widget.isZh;
     final plugin = widget.plugin;
 
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 520),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 标题
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 20,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '${plugin.name} ${isZh ? "详情" : "Details"}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 18),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
-            // 内容
-            Flexible(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        // 基本信息
-                        _DetailSection(
-                          title: isZh ? '基本信息' : 'Basic Info',
-                          icon: Icons.extension_rounded,
-                          children: [
-                            _DetailRow(
-                              label: isZh ? '名称' : 'Name',
-                              value: plugin.name,
-                            ),
-                            _DetailRow(label: 'ID', value: plugin.id),
-                            _DetailRow(
-                              label: isZh ? '描述' : 'Description',
-                              value: plugin.description,
-                            ),
-                            _DetailRow(
-                              label: isZh ? '状态' : 'Status',
-                              value: plugin.status.name,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // 环境信息
-                        _DetailSection(
-                          title: isZh ? '环境信息' : 'Environment',
-                          icon: Icons.computer_rounded,
-                          children: [
-                            for (final entry in _envInfo.entries)
-                              _DetailRow(label: entry.key, value: entry.value),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // 依赖关系
-                        _DetailSection(
-                          title: isZh ? '依赖关系' : 'Dependencies',
-                          icon: Icons.account_tree_rounded,
-                          children: [
-                            _DetailRow(
-                              label: isZh ? '依赖' : 'Depends on',
-                              value: plugin.dependencies.isEmpty
-                                  ? (isZh ? '无' : 'None')
-                                  : plugin.dependencies.join(', '),
-                            ),
-                            _DetailRow(
-                              label: isZh ? '被依赖' : 'Required by',
-                              value: plugin.dependents.isEmpty
-                                  ? (isZh ? '无' : 'None')
-                                  : plugin.dependents.join(', '),
-                            ),
-                          ],
-                        ),
-                        if (plugin.id == 'playwright') ...[
-                          const SizedBox(height: 16),
-                          _DetailSection(
-                            title: 'MCP',
-                            icon: Icons.hub_rounded,
-                            children: [
-                              _DetailRow(
-                                label: isZh ? 'MCP 包' : 'MCP Package',
-                                value: '@playwright/mcp',
-                              ),
-                              _DetailRow(
-                                label: isZh ? '说明' : 'Description',
-                                value: isZh
-                                    ? '提供浏览器自动化能力的 MCP 服务'
-                                    : 'MCP server for browser automation',
-                              ),
-                            ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 480,
+      maxHeight: 520,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.info_outline_rounded,
+            title: '${plugin.name} ${isZh ? "详情" : "Details"}',
+          ),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          // 内容
+          Flexible(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      // 基本信息
+                      _DetailSection(
+                        title: isZh ? '基本信息' : 'Basic Info',
+                        icon: Icons.extension_rounded,
+                        children: [
+                          _DetailRow(
+                            label: isZh ? '名称' : 'Name',
+                            value: plugin.name,
+                          ),
+                          _DetailRow(label: 'ID', value: plugin.id),
+                          _DetailRow(
+                            label: isZh ? '描述' : 'Description',
+                            value: plugin.description,
+                          ),
+                          _DetailRow(
+                            label: isZh ? '状态' : 'Status',
+                            value: plugin.status.name,
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      // 环境信息
+                      _DetailSection(
+                        title: isZh ? '环境信息' : 'Environment',
+                        icon: Icons.computer_rounded,
+                        children: [
+                          for (final entry in _envInfo.entries)
+                            _DetailRow(label: entry.key, value: entry.value),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // 依赖关系
+                      _DetailSection(
+                        title: isZh ? '依赖关系' : 'Dependencies',
+                        icon: Icons.account_tree_rounded,
+                        children: [
+                          _DetailRow(
+                            label: isZh ? '依赖' : 'Depends on',
+                            value: plugin.dependencies.isEmpty
+                                ? (isZh ? '无' : 'None')
+                                : plugin.dependencies.join(', '),
+                          ),
+                          _DetailRow(
+                            label: isZh ? '被依赖' : 'Required by',
+                            value: plugin.dependents.isEmpty
+                                ? (isZh ? '无' : 'None')
+                                : plugin.dependents.join(', '),
+                          ),
+                        ],
+                      ),
+                      if (plugin.id == 'playwright') ...[
+                        const SizedBox(height: 16),
+                        _DetailSection(
+                          title: 'MCP',
+                          icon: Icons.hub_rounded,
+                          children: [
+                            _DetailRow(
+                              label: isZh ? 'MCP 包' : 'MCP Package',
+                              value: '@playwright/mcp',
+                            ),
+                            _DetailRow(
+                              label: isZh ? '说明' : 'Description',
+                              value: isZh
+                                  ? '提供浏览器自动化能力的 MCP 服务'
+                                  : 'MCP server for browser automation',
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
-            ),
-          ],
-        ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -1676,178 +1624,134 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     final theme = Theme.of(context);
     final isZh = widget.isZh;
 
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 500),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.hub_rounded,
-                    size: 20,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${widget.plugin.name} MCP',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 520,
+      maxHeight: 500,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.hub_rounded,
+            title: '${widget.plugin.name} MCP',
+            subtitle: '@playwright/mcp',
+          ),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          // 状态 + 操作按钮
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+            child: _checking
+                ? const Center(child: CircularProgressIndicator())
+                : Row(
+                    children: [
+                      Icon(
+                        _mcpInstalled ? Icons.check_circle : Icons.cancel,
+                        size: 18,
+                        color: _mcpInstalled
+                            ? OpenHandStatusColors.success
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _mcpInstalled
+                            ? '${isZh ? "已安装" : "Installed"}${_mcpVersion != null ? " v$_mcpVersion" : ""}'
+                            : (isZh ? '未安装' : 'Not Installed'),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                        Text(
-                          '@playwright/mcp',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 18),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
-            // 状态 + 操作按钮
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-              child: _checking
-                  ? const Center(child: CircularProgressIndicator())
-                  : Row(
-                      children: [
-                        Icon(
-                          _mcpInstalled ? Icons.check_circle : Icons.cancel,
-                          size: 18,
-                          color: _mcpInstalled
-                              ? const Color(0xFF16A34A)
-                              : theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _mcpInstalled
-                              ? '${isZh ? "已安装" : "Installed"}${_mcpVersion != null ? " v$_mcpVersion" : ""}'
-                              : (isZh ? '未安装' : 'Not Installed'),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (!_mcpInstalled)
-                          IconButton.filled(
-                            tooltip: isZh ? '安装' : 'Install',
-                            onPressed: _operating ? null : _installMcp,
-                            icon: const Icon(Icons.download_rounded, size: 18),
-                          )
-                        else ...[
-                          IconButton.filledTonal(
-                            tooltip: isZh ? '更新' : 'Update',
-                            onPressed: _operating ? null : _updateMcp,
-                            icon: const Icon(
-                              Icons.system_update_alt_rounded,
-                              size: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          IconButton.filledTonal(
-                            tooltip: isZh ? '卸载' : 'Uninstall',
-                            onPressed: _operating ? null : _uninstallMcp,
-                            style: IconButton.styleFrom(
-                              foregroundColor: theme.colorScheme.error,
-                            ),
-                            icon: const Icon(
-                              Icons.delete_outline_rounded,
-                              size: 18,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Text(
-                  _error!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ),
-            // 终端输出区域
-            if (_logs.isNotEmpty || _operating)
-              Flexible(
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _logs.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                      ),
+                      const Spacer(),
+                      if (!_mcpInstalled)
+                        IconButton.filled(
+                          tooltip: isZh ? '安装' : 'Install',
+                          onPressed: _operating ? null : _installMcp,
+                          icon: const Icon(Icons.download_rounded, size: 18),
                         )
-                      : NotificationListener<ScrollNotification>(
-                          onNotification: _logGuard.handleNotification,
-                          child: ListView.builder(
-                            controller: _logScroll,
-                            padding: const EdgeInsets.all(10),
-                            itemCount: _logs.length,
-                            itemBuilder: (context, index) {
-                              final line = _logs[index];
-                              final isErr =
-                                  line.startsWith('✗') ||
-                                  line.toLowerCase().startsWith('error');
-                              final isSuccess = line.startsWith('✓');
-                              final isFail = line.startsWith('✗');
-                              return Text(
-                                line,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  height: 1.5,
-                                  color: isErr || isFail
-                                      ? const Color(0xFFFF6B6B)
-                                      : isSuccess
-                                      ? const Color(0xFF4ADE80)
-                                      : const Color(0xFFD4D4D4),
-                                ),
-                              );
-                            },
+                      else ...[
+                        IconButton.filledTonal(
+                          tooltip: isZh ? '更新' : 'Update',
+                          onPressed: _operating ? null : _updateMcp,
+                          icon: const Icon(
+                            Icons.system_update_alt_rounded,
+                            size: 18,
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        IconButton.filledTonal(
+                          tooltip: isZh ? '卸载' : 'Uninstall',
+                          onPressed: _operating ? null : _uninstallMcp,
+                          style: IconButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error,
+                          ),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                _error!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
                 ),
               ),
-          ],
-        ),
+            ),
+          // 终端输出区域
+          if (_logs.isNotEmpty || _operating)
+            Flexible(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _logs.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _logGuard.handleNotification,
+                        child: ListView.builder(
+                          controller: _logScroll,
+                          padding: const EdgeInsets.all(10),
+                          itemCount: _logs.length,
+                          itemBuilder: (context, index) {
+                            final line = _logs[index];
+                            final isErr =
+                                line.startsWith('✗') ||
+                                line.toLowerCase().startsWith('error');
+                            final isSuccess = line.startsWith('✓');
+                            final isFail = line.startsWith('✗');
+                            return Text(
+                              line,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                height: 1.5,
+                                color: isErr || isFail
+                                    ? const Color(0xFFFF6B6B)
+                                    : isSuccess
+                                    ? const Color(0xFF4ADE80)
+                                    : const Color(0xFFD4D4D4),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ),
+        ],
       ),
     );
   }

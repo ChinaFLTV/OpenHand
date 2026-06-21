@@ -737,9 +737,14 @@ Widget buildOpenHandToolDialogHeader({
   required String title,
   String? subtitle,
   List<Widget> actions = const <Widget>[],
+  Widget? iconWidget,
+  Color? iconColor,
+  double iconSize = 20,
   VoidCallback? onClose,
   String? closeTooltip,
   EdgeInsetsGeometry padding = kOpenHandToolDialogHeaderPadding,
+  bool showCloseButton = true,
+  bool closeEnabled = true,
 }) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
@@ -748,7 +753,8 @@ Widget buildOpenHandToolDialogHeader({
     padding: padding,
     child: Row(
       children: [
-        Icon(icon, color: colorScheme.primary),
+        iconWidget ??
+            Icon(icon, size: iconSize, color: iconColor ?? colorScheme.primary),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -776,13 +782,16 @@ Widget buildOpenHandToolDialogHeader({
           ),
         ),
         ...actions,
-        IconButton(
-          tooltip:
-              closeTooltip ??
-              MaterialLocalizations.of(context).closeButtonTooltip,
-          onPressed: onClose ?? () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.close_rounded),
-        ),
+        if (showCloseButton)
+          IconButton(
+            tooltip:
+                closeTooltip ??
+                MaterialLocalizations.of(context).closeButtonTooltip,
+            onPressed: closeEnabled
+                ? (onClose ?? () => Navigator.of(context).maybePop())
+                : null,
+            icon: const Icon(Icons.close_rounded),
+          ),
       ],
     ),
   );

@@ -2792,25 +2792,13 @@ class _AndroidReverseDashboardDialogState
     required String message,
     required String confirmLabel,
   }) async {
-    final isZh = openHandIsChineseLocale(context);
-    final result = await showAnimatedDialog<bool>(
+    return showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(isZh ? '取消' : 'Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      destructive: true,
     );
-    return result ?? false;
   }
 
   Future<void> _showProcessMenu(

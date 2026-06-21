@@ -83,78 +83,51 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
         : _groups
               .where((g) => g.key.toLowerCase().contains(_filter.toLowerCase()))
               .toList(growable: false);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(theme, cs, loc),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 360,
-                    child: _buildGroupList(theme, cs, loc, filtered),
-                  ),
-                  VerticalDivider(width: 1, color: cs.outlineVariant),
-                  Expanded(
-                    child: _selected == null || _selected!.samples.isEmpty
-                        ? _buildEmpty(theme, cs, loc)
-                        : _buildDetail(theme, cs, loc, _selected!),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-      child: Row(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 1080,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.fingerprint_rounded, color: cs.primary),
-          const SizedBox(width: 10),
+          _buildHeader(loc),
+          Divider(height: 1, color: cs.outlineVariant),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  loc?.webReverseSignatureDiffHeaderTitle ??
-                      'Signature Field Locator',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                SizedBox(
+                  width: 360,
+                  child: _buildGroupList(theme, cs, loc, filtered),
                 ),
-                Text(
-                  loc?.webReverseSignatureDiffHeaderSubtitle ??
-                      'Identify dynamic (sign / ts / nonce) vs stable fields across captures of the same endpoint',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                VerticalDivider(width: 1, color: cs.outlineVariant),
+                Expanded(
+                  child: _selected == null || _selected!.samples.isEmpty
+                      ? _buildEmpty(theme, cs, loc)
+                      : _buildDetail(theme, cs, loc, _selected!),
                 ),
               ],
             ),
           ),
-          IconButton(
-            tooltip: loc?.webReverseSignatureDiffRefresh ?? 'Refresh',
-            onPressed: _refresh,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeader(AppLocalizations? loc) {
+    return buildOpenHandToolDialogHeader(
+      context: context,
+      icon: Icons.fingerprint_rounded,
+      title:
+          loc?.webReverseSignatureDiffHeaderTitle ?? 'Signature Field Locator',
+      subtitle:
+          loc?.webReverseSignatureDiffHeaderSubtitle ??
+          'Identify dynamic (sign / ts / nonce) vs stable fields across captures of the same endpoint',
+      actions: [
+        IconButton(
+          tooltip: loc?.webReverseSignatureDiffRefresh ?? 'Refresh',
+          onPressed: _refresh,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
     );
   }
 
