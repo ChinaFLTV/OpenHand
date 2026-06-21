@@ -2318,7 +2318,7 @@ class AiPromptBuilder {
         'toolchain: diagnostics plus copy-only install/update/uninstall commands for Android reverse CLI tools',
         'mcp_plugins: Android-related MCP health, discovered mcp__* names, ToolSearch query, Node/Python/pip/Playwright runtime prerequisites',
         'static_analysis: quick APK scan writes badging/Manifest/components/certs/URL/domain/IP/string summaries to decompiled/<target>/quick_scan',
-        'packages: analyze, launch, force-stop, clear data, uninstall, pull APKs to artifacts, filter logcat by package',
+        'packages: analyze launcher/activity, launch without guessing MainActivity, force-stop, clear data, uninstall, pull APKs to artifacts, filter logcat by package',
         'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
         'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl',
       ],

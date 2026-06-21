@@ -3397,7 +3397,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'file_push_pull',
         'screenshot_capture_to_artifacts',
         'screen_record_to_artifacts',
-        'package_launch_force_stop_clear_uninstall',
+        'package_analyze_launcher_launch_force_stop_clear_uninstall',
         'package_pull_apks_to_artifacts',
         'process_kill_force_stop',
         'logcat_level_tag_pid_package_filter',

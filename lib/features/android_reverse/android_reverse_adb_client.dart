@@ -254,18 +254,24 @@ class AndroidReverseAdbClient {
 
   Future<String?> resolveLauncherActivity(String packageName) async {
     if (!_looksLikePackageName(packageName)) return null;
-    final result = await shellDetailed(
+    final commands = <String>[
+      'cmd package resolve-activity --brief '
+          '-a android.intent.action.MAIN '
+          '-c android.intent.category.LAUNCHER '
+          '-p $packageName',
       'cmd package resolve-activity --brief $packageName',
-      timeout: _kAdbShellReadTimeout,
-    );
-    if (!result.ok && !result.hasUsableStdout) return null;
-    final raw = result.stdout;
-    if (raw.trim().isEmpty) return null;
-    for (final line
-        in raw.split('\n').map((line) => line.trim()).toList().reversed) {
-      if (line.isEmpty || !line.contains('/')) continue;
-      if (line.toLowerCase().contains('no activity')) continue;
-      return line;
+    ];
+    for (final command in commands) {
+      final result = await shellDetailed(
+        command,
+        timeout: _kAdbShellReadTimeout,
+      );
+      if (!result.ok && !result.hasUsableStdout) continue;
+      final launcher = _launcherActivityFromResolveOutput(
+        result.stdout,
+        packageName,
+      );
+      if (launcher != null) return launcher;
     }
     return null;
   }
@@ -799,6 +805,28 @@ class AndroidReverseAdbClient {
     return RegExp(
       r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
     ).hasMatch(packageName);
+  }
+
+  String? _launcherActivityFromResolveOutput(String raw, String packageName) {
+    if (raw.trim().isEmpty) return null;
+    final lines = raw.split('\n').map((line) => line.trim()).toList().reversed;
+    for (final line in lines) {
+      if (line.isEmpty || !line.contains('/')) continue;
+      final lower = line.toLowerCase();
+      if (lower.contains('no activity') ||
+          lower.contains('unable to resolve')) {
+        continue;
+      }
+      final match = RegExp(
+        r'([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+/[A-Za-z0-9_.$]+)',
+      ).firstMatch(line);
+      final component = match?.group(1) ?? line;
+      if (!component.startsWith(packageName) && !component.startsWith('/')) {
+        continue;
+      }
+      return component.startsWith('/') ? '$packageName$component' : component;
+    }
+    return null;
   }
 
   String? _firstPidFromText(String? raw) {
