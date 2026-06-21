@@ -81,6 +81,7 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 - adb push / pull 先检查目标路径存在性。
 - `adb shell` 超时但 stdout 已有有效结果时，先采纳结果并减少重试；同一命令最多重试 1 次。无线 ADB 易挂起时优先用 `scripts/adb_one_shot.sh --timeout <秒> ...`。
 - 动态验证前先运行 `scripts/android_dynamic_probe.sh`，一次性检查 ADB、launcher、PID、Logcat、Frida CLI / server；不要分散重复探测。
+- `adb kill-server`、`adb start-server`、`pkill adb` 属于全局 ADB 恢复动作，执行前必须 ask 用户；优先使用单设备断开 / 重连 / 短超时探测。
 - 启动 APP 前先解析 launcher activity：`cmd package resolve-activity --brief <pkg>` 或 Manifest；禁止猜 `.MainActivity`。
 - 域名/URL 定位优先静态证据：`aapt`/Manifest、`strings` 扫 dex/so/assets、过滤 SDK 文档域名；静态已闭环时不要强行安装 Frida。
 - 若 dashboard 已生成 `quick_scan`，先读取其中 `network_candidates.txt`、`business_urls.txt`、`business_domains.txt`、`business_network_sources.txt`、`manifest.txt`、`components.txt`、`flutter.txt`、`native_libs.txt`、`suspicious_files.txt`、`nested_apks.txt`；候选不足再读原始 `network_sources.txt`、`urls.txt`、`domains.txt`、`ips.txt`。

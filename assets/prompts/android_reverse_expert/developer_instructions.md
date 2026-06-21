@@ -48,6 +48,7 @@
 - 缺 CLI 工具时优先读取 `android_reverse_runtime.toolchain_setup_commands`；复制建议可展示，执行安装 / 更新 / 卸载前必须 ask 用户。
 - 启动 APP 使用 launcher activity 或 `monkey -p <pkg>`，不要连续尝试不存在的 `.MainActivity`。
 - APP / 进程 / Logcat / Frida 状态先看 dashboard 报告、`android_dynamic_probe.sh` 输出或本地工件；不要重复 `adb devices`、`ps`、`logcat` 刷屏。
+- `adb kill-server`、`adb start-server`、`pkill adb` 会影响全局设备通道，执行前必须 ask 用户；优先用单设备短超时探测。
 </efficiency_rules>
 
 <frida_hook_protocol>

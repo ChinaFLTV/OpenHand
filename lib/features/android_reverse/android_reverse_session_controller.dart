@@ -1334,6 +1334,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'Use only real mcp__* names from Tool Catalog or ToolSearch results.',
         'If an enabled ADB/Frida MCP is missing, report the missing server and fall back to Bash only after device/tool confirmation.',
         'For flaky wireless ADB, use scripts/adb_one_shot.sh with a short timeout and accept usable stdout from timed-out commands.',
+        'Do not run adb kill-server, adb start-server, or pkill adb without explicit user approval; prefer single-device short-timeout probes.',
         'Do not guess .MainActivity; resolve launcher activity or use dashboard package launch.',
         'Stop after two repeated failures of the same command, install step, hook, or launch path.',
       ],
@@ -1443,7 +1444,8 @@ Rules:
 2. If ADB/Frida MCP is enabled but absent, report the missing server before Bash fallback.
 3. Prefer quick_scan artifacts for URL/domain evidence before Frida or mitmproxy.
 4. Do not guess launcher activities. Resolve them with package manager data.
-5. Stop after two repeated failures on the same command, hook, install, or launch path.
+5. Do not restart the global ADB server (`adb kill-server`, `adb start-server`, `pkill adb`) without explicit user approval.
+6. Stop after two repeated failures on the same command, hook, install, or launch path.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook
