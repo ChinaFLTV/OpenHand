@@ -603,6 +603,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       'components.txt',
       'certs.txt',
       'zip_listing.txt',
+      'nested_apks.txt',
       'urls.txt',
       'domains.txt',
       'ips.txt',
@@ -647,6 +648,7 @@ cd "$OUT_DIR" || exit 2
 : > components.txt
 : > certs.txt
 : > zip_listing.txt
+: > nested_apks.txt
 : > urls.txt
 : > domains.txt
 : > ips.txt
@@ -679,6 +681,7 @@ fi
 UNZIP="$(command -v unzip || true)"
 if [ -n "$UNZIP" ] && [ -x "$UNZIP" ]; then
   "$UNZIP" -l "$APK_PATH" > zip_listing.txt 2>&1
+  "$UNZIP" -Z1 "$APK_PATH" 2>/dev/null | grep -aEi '\.apk$' | head -20 > nested_apks.txt
 else
   echo "unzip not found" > zip_listing.txt
 fi
@@ -691,6 +694,20 @@ if [ -n "$STRINGS" ] && [ -x "$STRINGS" ]; then
       "$UNZIP" -p "$APK_PATH" "classes*.dex" 2>/dev/null | "$STRINGS" 2>/dev/null
       "$UNZIP" -p "$APK_PATH" "lib/*/*.so" 2>/dev/null | "$STRINGS" 2>/dev/null
       "$UNZIP" -p "$APK_PATH" "assets/*" 2>/dev/null | "$STRINGS" 2>/dev/null
+      if [ -s nested_apks.txt ]; then
+        rm -rf _nested_apks_tmp
+        mkdir -p _nested_apks_tmp
+        while IFS= read -r nested_apk; do
+          safe_name="$(printf '%s' "$nested_apk" | tr '/ ' '__' | tr -cd 'A-Za-z0-9_.-')"
+          nested_path="_nested_apks_tmp/${safe_name:-nested.apk}"
+          "$UNZIP" -p "$APK_PATH" "$nested_apk" > "$nested_path" 2>/dev/null
+          "$STRINGS" "$nested_path" 2>/dev/null
+          "$UNZIP" -p "$nested_path" "classes*.dex" 2>/dev/null | "$STRINGS" 2>/dev/null
+          "$UNZIP" -p "$nested_path" "lib/*/*.so" 2>/dev/null | "$STRINGS" 2>/dev/null
+          "$UNZIP" -p "$nested_path" "assets/*" 2>/dev/null | "$STRINGS" 2>/dev/null
+        done < nested_apks.txt
+        rm -rf _nested_apks_tmp
+      fi
     fi
   } | awk 'length($0) <= 4096' | head -20000 > all_strings.txt
   grep -aEio 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+' all_strings.txt | sed 's/[),;"]*$//' | sort -u | head -500 > urls.txt

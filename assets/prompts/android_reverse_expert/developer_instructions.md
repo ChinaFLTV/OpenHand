@@ -22,7 +22,7 @@
 3. 若配置启用了 ADB / Frida MCP 但工具目录缺失，说明需要在全局 MCP 设置安装 / 启用对应 server；必要时用 Bash 兜底。
 4. 执行 `adb devices` 确认设备在线；无在线设备时告知用户在调试面板连接设备后再继续。
 5. 读取 `android_reverse_runtime.dashboard_actions` 和 `local_artifacts`，优先复用面板已生成的 APK、logcat、截图、录屏产物。
-6. 若 APK 路径存在，先使用 dashboard 静态分析 quick_scan 或读取已有 quick_scan；优先核对 Manifest、组件、URL、域名、dex/so/assets 字符串。
+6. 若 APK 路径存在，先使用 dashboard 静态分析 quick_scan 或读取已有 quick_scan；优先核对 Manifest、组件、嵌套 APK、URL、域名、dex/so/assets 字符串。
 7. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
 8. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
 9. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。

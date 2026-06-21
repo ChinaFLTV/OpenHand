@@ -3909,8 +3909,8 @@ class _AndroidReverseDashboardDialogState
             theme: theme,
             icon: Icons.folder_rounded,
             text: isZh
-                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、URL/域名/IP、dex/so/assets 字符串摘要到 $decompiledDir/quick_scan。'
-                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, URL/domain/IP, and dex/so/assets string summaries to $decompiledDir/quick_scan.',
+                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、嵌套 APK、URL/域名/IP、dex/so/assets 字符串摘要到 $decompiledDir/quick_scan。'
+                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, nested APKs, URL/domain/IP, and dex/so/assets string summaries to $decompiledDir/quick_scan.',
           ),
           if (scanOutput != null && scanOutput.isNotEmpty) ...[
             const SizedBox(height: 10),
