@@ -7,6 +7,8 @@
 - 所有本地工件落盘到 `~/.openhand/android_reverse/sessions/<session_id>/`：
   - `logcat.jsonl` — 每行一条 logcat 事件
   - `network.jsonl` — mitmproxy 流量事件（需启用代理）
+  - `apks/` — 从设备拉取的 base / split APK
+  - `screenshots/`、`recordings/` — 面板截图和短录屏
   - `frida/` — Frida 脚本与输出
   - `decompiled/` — jadx 反编译输出
   - `scripts/` — 复现脚本
@@ -18,10 +20,11 @@
 2. 从工具目录确认 ADB MCP / Frida MCP 精确工具名；若在 deferred 列表，先 ToolSearch 加载。
 3. 若配置启用了 ADB / Frida MCP 但工具目录缺失，说明需要在全局 MCP 设置安装 / 启用对应 server；必要时用 Bash 兜底。
 4. 执行 `adb devices` 确认设备在线；无在线设备时告知用户在调试面板连接设备后再继续。
-5. 若 APK 路径存在，先提取包名、launcher activity、Manifest、dex/so/assets 字符串；域名定位任务先走静态闭环。
-6. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
-7. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
-8. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。
+5. 读取 `android_reverse_runtime.dashboard_actions` 和 `local_artifacts`，优先复用面板已生成的 APK、logcat、截图、录屏产物。
+6. 若 APK 路径存在，先提取包名、launcher activity、Manifest、dex/so/assets 字符串；域名定位任务先走静态闭环。
+7. 非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
+8. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
+9. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。
 </initial_handshake>
 
 <mcp_adb_workflow>
@@ -37,6 +40,7 @@
 - 缺 jadx 时不要全盘搜索系统目录超过一次；直接降级到 apktool / unzip / strings。
 - 缺 Frida 或 frida-server 时不要循环安装；说明缺口、给出安装建议，除非用户批准继续。
 - 启动 APP 使用 launcher activity 或 `monkey -p <pkg>`，不要连续尝试不存在的 `.MainActivity`。
+- APP / 进程 / Logcat 状态先看 dashboard 产物或运行时快照；不要重复 `adb devices`、`ps`、`logcat` 刷屏。
 </efficiency_rules>
 
 <frida_hook_protocol>

@@ -2293,6 +2293,9 @@ class AiPromptBuilder {
         'root_dir': rootDir,
         'logcat_jsonl': p.join(rootDir, 'logcat.jsonl'),
         'network_jsonl': p.join(rootDir, 'network.jsonl'),
+        'apks_dir': p.join(rootDir, 'apks'),
+        'screenshots_dir': p.join(rootDir, 'screenshots'),
+        'recordings_dir': p.join(rootDir, 'recordings'),
         'network_dir': p.join(rootDir, 'network'),
         'frida_dir': p.join(rootDir, 'frida'),
         'decompiled_dir': p.join(rootDir, 'decompiled'),
@@ -2302,8 +2305,17 @@ class AiPromptBuilder {
       'local_read_hints': <String>[
         'tail -200 ${p.join(rootDir, 'logcat.jsonl')}',
         'tail -200 ${p.join(rootDir, 'network.jsonl')}',
+        'find ${p.join(rootDir, 'apks')} -maxdepth 3 -type f',
+        'find ${p.join(rootDir, 'screenshots')} -maxdepth 2 -type f',
+        'find ${p.join(rootDir, 'recordings')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'frida')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'decompiled')} -maxdepth 3 -type f | head -200',
+      ],
+      'dashboard_actions': const <String>[
+        'devices: wireless adb, tcpip 5555, root/remount/reboot, forwards, shell presets, APK install, file push/pull, screenshot, screenrecord',
+        'packages: analyze, launch, force-stop, clear data, uninstall, pull APKs to artifacts, filter logcat by package',
+        'processes: copy PID/name, kill, force-stop package, filter logcat by PID',
+        'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl',
       ],
       'dashboard_visible_metadata_keys': presentKeys,
     };

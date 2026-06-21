@@ -20,7 +20,9 @@ const double _kAdbInlineControlHeight = 44;
 const double _kIconButtonGap = 8;
 const int _kDefaultLogcatLines = 300;
 const int _kPackageDumpsysSummaryMaxLines = 160;
+const int _kDefaultScreenRecordSeconds = 10;
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
+const List<String> _kLogcatLevels = <String>['V', 'D', 'I', 'W', 'E', 'F'];
 
 Future<void> showAndroidReverseDashboardDialog(
   BuildContext context, {
@@ -55,11 +57,27 @@ enum _DeviceMenuAction {
   copySerial,
   refreshProps,
   listForwards,
+  tcpip5555,
+  screenshot,
+  screenRecord,
   root,
   remount,
   reboot,
   disconnect,
 }
+
+enum _PackageMenuAction {
+  analyze,
+  copyPackage,
+  launch,
+  forceStop,
+  clearData,
+  pullApks,
+  logcat,
+  uninstall,
+}
+
+enum _ProcessMenuAction { copyPid, copyName, kill, forceStopPackage, logcatPid }
 
 class _FridaSnippetPreset {
   const _FridaSnippetPreset({
@@ -204,6 +222,12 @@ class _AndroidReverseDashboardDialogState
   final TextEditingController _forwardLocalCtrl = TextEditingController();
   final TextEditingController _forwardRemoteCtrl = TextEditingController();
   final TextEditingController _logcatFilterCtrl = TextEditingController();
+  final TextEditingController _logcatPidCtrl = TextEditingController();
+  final TextEditingController _installApkPathCtrl = TextEditingController();
+  final TextEditingController _pushLocalCtrl = TextEditingController();
+  final TextEditingController _pushRemoteCtrl = TextEditingController();
+  final TextEditingController _pullRemoteCtrl = TextEditingController();
+  final TextEditingController _pullLocalCtrl = TextEditingController();
   final TextEditingController _fridaScriptCtrl = TextEditingController();
   final TextEditingController _base64Ctrl = TextEditingController();
   final TextEditingController _base64OutCtrl = TextEditingController();
@@ -215,9 +239,11 @@ class _AndroidReverseDashboardDialogState
   bool _runningShell = false;
   bool _runningDeviceAction = false;
   bool _loadingDeviceDetails = false;
+  bool _logcatPackageFilterEnabled = false;
   String? _selectedDeviceSerial;
   String? _lastDeviceActionOutput;
   String? _logcatError;
+  String _logcatLevel = 'V';
   Map<String, String> _deviceProps = const <String, String>{};
   List<String> _forwardRows = const <String>[];
   List<String> _packages = const <String>[];
@@ -233,6 +259,13 @@ class _AndroidReverseDashboardDialogState
   void initState() {
     super.initState();
     _ctrl = widget.controller;
+    _logcatPackageFilterEnabled = (_ctrl.config.packageName ?? '')
+        .trim()
+        .isNotEmpty;
+    _installApkPathCtrl.text = _ctrl.config.apkPath ?? '';
+    _pushRemoteCtrl.text = '/sdcard/Download/';
+    _pullRemoteCtrl.text = '/sdcard/Download/';
+    _pullLocalCtrl.text = _ctrl.artifactsRootDir;
     _ctrl.addListener(_onControllerChanged);
     _fridaScriptCtrl.addListener(_onFridaScriptChanged);
     _refreshAll();
@@ -250,6 +283,12 @@ class _AndroidReverseDashboardDialogState
     _forwardLocalCtrl.dispose();
     _forwardRemoteCtrl.dispose();
     _logcatFilterCtrl.dispose();
+    _logcatPidCtrl.dispose();
+    _installApkPathCtrl.dispose();
+    _pushLocalCtrl.dispose();
+    _pushRemoteCtrl.dispose();
+    _pullRemoteCtrl.dispose();
+    _pullLocalCtrl.dispose();
     _fridaScriptCtrl.dispose();
     _base64Ctrl.dispose();
     _base64OutCtrl.dispose();
@@ -478,10 +517,31 @@ class _AndroidReverseDashboardDialogState
       _logcatError = null;
     });
     try {
+      final isZh = openHandIsChineseLocale(context);
       final tag = _logcatFilterCtrl.text.trim();
+      final explicitPid = _logcatPidCtrl.text.trim();
+      final packageName = _logcatPackageFilterEnabled
+          ? _logcatPackageTarget()
+          : null;
+      var pid = RegExp(r'^\d+$').hasMatch(explicitPid) ? explicitPid : null;
+      String? filterNotice;
+      if (pid == null && packageName != null) {
+        pid = await _ctrl.pidOfPackage(packageName, serial: _targetSerial);
+        if (pid == null || pid.trim().isEmpty) {
+          filterNotice = isZh
+              ? '目标包未运行或无法解析 PID，已按当前等级读取全局 Logcat。'
+              : 'Target package is not running or PID was unavailable; loaded global logcat with the selected level.';
+        }
+      } else if (explicitPid.isNotEmpty && pid == null) {
+        filterNotice = isZh
+            ? 'PID 只能填写数字，已忽略该 PID 过滤。'
+            : 'PID must be numeric; PID filter was ignored.';
+      }
       final result = await _ctrl.logcatDetailed(
         lines: _kDefaultLogcatLines,
         tag: tag.isEmpty ? null : tag,
+        level: _logcatLevel,
+        pid: pid,
         serial: _targetSerial,
       );
       if (mounted) {
@@ -491,7 +551,6 @@ class _AndroidReverseDashboardDialogState
             .where((line) => line.trim().isNotEmpty)
             .toList(growable: false);
         final err = result.stderr.trim();
-        final isZh = openHandIsChineseLocale(context);
         setState(() {
           _logcatLines
             ..clear()
@@ -500,6 +559,8 @@ class _AndroidReverseDashboardDialogState
             _logcatError = isZh
                 ? 'Logcat 读取超时，已展示可用输出。'
                 : 'Logcat timed out; usable output is shown.';
+          } else if (lines.isNotEmpty && filterNotice != null) {
+            _logcatError = filterNotice;
           } else if (lines.isNotEmpty) {
             _logcatError = null;
           } else if (err.isNotEmpty) {
@@ -520,6 +581,58 @@ class _AndroidReverseDashboardDialogState
     } finally {
       if (mounted) setState(() => _loadingLogcat = false);
     }
+  }
+
+  Future<void> _clearLogcat() async {
+    if (_loadingLogcat) return;
+    setState(() {
+      _loadingLogcat = true;
+      _logcatError = null;
+    });
+    try {
+      final result = await _ctrl.clearLogcatDetailed(serial: _targetSerial);
+      if (!mounted) return;
+      final isZh = openHandIsChineseLocale(context);
+      setState(() {
+        _logcatLines.clear();
+        _logcatError = result.ok
+            ? (isZh ? '已清空设备 Logcat。' : 'Device logcat was cleared.')
+            : _formatAdbResult(result);
+      });
+    } finally {
+      if (mounted) setState(() => _loadingLogcat = false);
+    }
+  }
+
+  Future<void> _saveLogcatSnapshot() async {
+    if (_logcatLines.isEmpty) return;
+    final tag = _logcatFilterCtrl.text.trim();
+    final pid = _logcatPidCtrl.text.trim();
+    final packageName = _logcatPackageFilterEnabled
+        ? _logcatPackageTarget()
+        : null;
+    final saved = await _ctrl.appendLogcatLines(
+      _logcatLines,
+      tag: tag.isEmpty ? null : tag,
+      level: _logcatLevel,
+      packageName: packageName,
+      pid: pid.isEmpty ? null : pid,
+      serial: _targetSerial,
+    );
+    if (!mounted) return;
+    final isZh = openHandIsChineseLocale(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saved > 0
+              ? (isZh
+                    ? '已保存 $saved 行到 ${_ctrl.logcatJsonlPath}'
+                    : 'Saved $saved lines to ${_ctrl.logcatJsonlPath}')
+              : (isZh ? '没有可保存的 Logcat 行。' : 'No logcat lines were saved.'),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _loadFridaSnippet(_FridaSnippetPreset preset) async {
@@ -1339,6 +1452,48 @@ class _AndroidReverseDashboardDialogState
                 ),
               ],
             ),
+          const SizedBox(height: 14),
+          Text(
+            isZh ? '文件 / APK' : 'Files / APK',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildPathActionRow(
+            primaryController: _installApkPathCtrl,
+            primaryHint: isZh ? '本地 APK 路径' : 'local APK path',
+            icon: Icons.install_mobile_rounded,
+            label: isZh ? '安装' : 'Install',
+            onPressed: serial == null || _runningDeviceAction
+                ? null
+                : _installApkFromPanel,
+          ),
+          const SizedBox(height: 8),
+          _buildPathActionRow(
+            primaryController: _pushLocalCtrl,
+            primaryHint: isZh ? '本地路径' : 'local path',
+            secondaryController: _pushRemoteCtrl,
+            secondaryHint: isZh ? '设备路径' : 'remote path',
+            icon: Icons.upload_file_rounded,
+            label: 'push',
+            onPressed: serial == null || _runningDeviceAction
+                ? null
+                : _pushFileFromPanel,
+          ),
+          const SizedBox(height: 8),
+          _buildPathActionRow(
+            primaryController: _pullRemoteCtrl,
+            primaryHint: isZh ? '设备路径' : 'remote path',
+            secondaryController: _pullLocalCtrl,
+            secondaryHint: isZh ? '本地目录 / 文件' : 'local dir / file',
+            icon: Icons.download_rounded,
+            label: 'pull',
+            onPressed: serial == null || _runningDeviceAction
+                ? null
+                : _pullFileFromPanel,
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -1385,9 +1540,23 @@ class _AndroidReverseDashboardDialogState
                 label: isZh ? '截屏' : 'Screenshot',
                 onPressed: serial == null
                     ? null
-                    : () => _runShellPreset(
-                        'screencap -p /sdcard/openhand_screen.png; '
-                        'ls -l /sdcard/openhand_screen.png',
+                    : () => _runDeviceAction(
+                        () => _ctrl.captureScreenshotToArtifacts(
+                          serial: _targetSerial,
+                        ),
+                      ),
+              ),
+              _SmallActionButton(
+                icon: Icons.radio_button_checked_rounded,
+                label: isZh
+                    ? '录屏 ${_kDefaultScreenRecordSeconds}s'
+                    : 'Record ${_kDefaultScreenRecordSeconds}s',
+                onPressed: serial == null || _runningDeviceAction
+                    ? null
+                    : () => _runDeviceAction(
+                        () => _ctrl.screenRecordToArtifacts(
+                          serial: _targetSerial,
+                        ),
                       ),
               ),
               _SmallActionButton(
@@ -1395,7 +1564,18 @@ class _AndroidReverseDashboardDialogState
                 label: isZh ? '清 Logcat' : 'Clear logcat',
                 onPressed: serial == null
                     ? null
-                    : () => _runShellPreset('logcat -c'),
+                    : () => _runDeviceAction(
+                        () => _ctrl.clearLogcatDetailed(serial: _targetSerial),
+                      ),
+              ),
+              _SmallActionButton(
+                icon: Icons.wifi_tethering_rounded,
+                label: 'tcpip 5555',
+                onPressed: serial == null || _runningDeviceAction
+                    ? null
+                    : () => _runDeviceAction(
+                        () => _ctrl.tcpip(5555, serial: _targetSerial),
+                      ),
               ),
               _SmallActionButton(
                 icon: Icons.settings_rounded,
@@ -1452,6 +1632,33 @@ class _AndroidReverseDashboardDialogState
     await _runShell();
   }
 
+  Future<void> _installApkFromPanel() async {
+    final path = _installApkPathCtrl.text.trim();
+    if (path.isEmpty) return;
+    await _runDeviceAction(
+      () => _ctrl.installApkDetailed(path, serial: _targetSerial),
+    );
+    await _doRefreshPackages();
+  }
+
+  Future<void> _pushFileFromPanel() async {
+    final local = _pushLocalCtrl.text.trim();
+    final remote = _pushRemoteCtrl.text.trim();
+    if (local.isEmpty || remote.isEmpty) return;
+    await _runDeviceAction(
+      () => _ctrl.pushDetailed(local, remote, serial: _targetSerial),
+    );
+  }
+
+  Future<void> _pullFileFromPanel() async {
+    final remote = _pullRemoteCtrl.text.trim();
+    final local = _pullLocalCtrl.text.trim();
+    if (remote.isEmpty || local.isEmpty) return;
+    await _runDeviceAction(
+      () => _ctrl.pullDetailed(remote, local, serial: _targetSerial),
+    );
+  }
+
   Future<void> _showDeviceMenu(AdbDevice device, Offset? globalPosition) async {
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -1491,6 +1698,25 @@ class _AndroidReverseDashboardDialogState
         ),
         const PopupMenuDivider(),
         const PopupMenuItem(
+          value: _DeviceMenuAction.tcpip5555,
+          child: Text('adb tcpip 5555'),
+        ),
+        PopupMenuItem(
+          value: _DeviceMenuAction.screenshot,
+          child: Text(
+            openHandIsChineseLocale(context) ? '截屏到工件目录' : 'Capture screenshot',
+          ),
+        ),
+        PopupMenuItem(
+          value: _DeviceMenuAction.screenRecord,
+          child: Text(
+            openHandIsChineseLocale(context)
+                ? '录屏 $_kDefaultScreenRecordSeconds 秒到工件目录'
+                : 'Record $_kDefaultScreenRecordSeconds seconds',
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
           value: _DeviceMenuAction.root,
           child: Text('adb root'),
         ),
@@ -1523,6 +1749,19 @@ class _AndroidReverseDashboardDialogState
       case _DeviceMenuAction.listForwards:
         setState(() => _selectedDeviceSerial = device.serial);
         await _refreshDeviceDetails();
+      case _DeviceMenuAction.tcpip5555:
+        setState(() => _selectedDeviceSerial = device.serial);
+        await _runDeviceAction(() => _ctrl.tcpip(5555, serial: device.serial));
+      case _DeviceMenuAction.screenshot:
+        setState(() => _selectedDeviceSerial = device.serial);
+        await _runDeviceAction(
+          () => _ctrl.captureScreenshotToArtifacts(serial: device.serial),
+        );
+      case _DeviceMenuAction.screenRecord:
+        setState(() => _selectedDeviceSerial = device.serial);
+        await _runDeviceAction(
+          () => _ctrl.screenRecordToArtifacts(serial: device.serial),
+        );
       case _DeviceMenuAction.root:
         await _runDeviceAction(() => _ctrl.root(serial: device.serial));
       case _DeviceMenuAction.remount:
@@ -1531,6 +1770,238 @@ class _AndroidReverseDashboardDialogState
         await _runDeviceAction(() => _ctrl.reboot(serial: device.serial));
       case _DeviceMenuAction.disconnect:
         await _runDeviceAction(() => _ctrl.disconnect(device.serial));
+    }
+  }
+
+  Future<void> _showPackageMenu(
+    String packageName,
+    Offset? globalPosition,
+  ) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+    final center = overlay.size.center(Offset.zero);
+    final position = globalPosition ?? overlay.localToGlobal(center);
+    final isZh = openHandIsChineseLocale(context);
+    final selected = await showMenu<_PackageMenuAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: _PackageMenuAction.analyze,
+          child: Text(isZh ? '分析 APP 信息' : 'Analyze app info'),
+        ),
+        PopupMenuItem(
+          value: _PackageMenuAction.copyPackage,
+          child: Text(isZh ? '复制包名' : 'Copy package name'),
+        ),
+        PopupMenuItem(
+          value: _PackageMenuAction.logcat,
+          child: Text(isZh ? '按此包过滤 Logcat' : 'Filter logcat by package'),
+        ),
+        PopupMenuItem(
+          value: _PackageMenuAction.pullApks,
+          child: Text(isZh ? '拉取 APK 到工件目录' : 'Pull APKs to artifacts'),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: _PackageMenuAction.launch,
+          child: Text(isZh ? '启动 APP' : 'Launch app'),
+        ),
+        PopupMenuItem(
+          value: _PackageMenuAction.forceStop,
+          child: Text(isZh ? '强制停止' : 'Force stop'),
+        ),
+        PopupMenuItem(
+          value: _PackageMenuAction.clearData,
+          child: Text(isZh ? '清除数据...' : 'Clear data...'),
+        ),
+        PopupMenuItem(
+          value: _PackageMenuAction.uninstall,
+          child: Text(isZh ? '卸载...' : 'Uninstall...'),
+        ),
+      ],
+    );
+    if (!mounted || selected == null) return;
+    await _handlePackageAction(packageName, selected);
+  }
+
+  Future<void> _handlePackageAction(
+    String packageName,
+    _PackageMenuAction action,
+  ) async {
+    final isZh = openHandIsChineseLocale(context);
+    switch (action) {
+      case _PackageMenuAction.analyze:
+        await _analyzePackage(packageName);
+      case _PackageMenuAction.copyPackage:
+        await _copyText(packageName);
+      case _PackageMenuAction.logcat:
+        setState(() {
+          _selectedPackageName = packageName;
+          _logcatPackageFilterEnabled = true;
+          _logcatPidCtrl.clear();
+          _currentTab = _Tab.logcat;
+        });
+        await _fetchLogcat();
+      case _PackageMenuAction.pullApks:
+        await _runDeviceAction(
+          () =>
+              _ctrl.pullPackageApksDetailed(packageName, serial: _targetSerial),
+        );
+      case _PackageMenuAction.launch:
+        await _runDeviceAction(
+          () => _ctrl.startPackageDetailed(packageName, serial: _targetSerial),
+        );
+      case _PackageMenuAction.forceStop:
+        await _runDeviceAction(
+          () => _ctrl.forceStopAppDetailed(packageName, serial: _targetSerial),
+        );
+      case _PackageMenuAction.clearData:
+        final confirmed = await _confirmAction(
+          title: isZh ? '清除 APP 数据' : 'Clear app data',
+          message: isZh
+              ? '将执行 pm clear $packageName，应用数据会被清空。'
+              : 'This will run pm clear $packageName and erase app data.',
+          confirmLabel: isZh ? '清除' : 'Clear',
+        );
+        if (!confirmed) return;
+        await _runDeviceAction(
+          () => _ctrl.clearPackageDataDetailed(
+            packageName,
+            serial: _targetSerial,
+          ),
+        );
+      case _PackageMenuAction.uninstall:
+        final confirmed = await _confirmAction(
+          title: isZh ? '卸载 APP' : 'Uninstall app',
+          message: isZh
+              ? '将从当前设备卸载 $packageName。'
+              : 'This will uninstall $packageName from the current device.',
+          confirmLabel: isZh ? '卸载' : 'Uninstall',
+        );
+        if (!confirmed) return;
+        await _runDeviceAction(
+          () => _ctrl.uninstallPackageDetailed(
+            packageName,
+            serial: _targetSerial,
+          ),
+        );
+        await _doRefreshPackages();
+    }
+  }
+
+  Future<bool> _confirmAction({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) async {
+    final isZh = openHandIsChineseLocale(context);
+    final result = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _showProcessMenu(
+    AndroidProcess process,
+    Offset? globalPosition,
+  ) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+    final center = overlay.size.center(Offset.zero);
+    final position = globalPosition ?? overlay.localToGlobal(center);
+    final isZh = openHandIsChineseLocale(context);
+    final isPackageProcess = _looksLikePackageName(process.name);
+    final selected = await showMenu<_ProcessMenuAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: _ProcessMenuAction.copyPid,
+          child: Text(isZh ? '复制 PID' : 'Copy PID'),
+        ),
+        PopupMenuItem(
+          value: _ProcessMenuAction.copyName,
+          child: Text(isZh ? '复制进程名' : 'Copy process name'),
+        ),
+        PopupMenuItem(
+          value: _ProcessMenuAction.logcatPid,
+          child: Text(isZh ? '按 PID 过滤 Logcat' : 'Filter logcat by PID'),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: _ProcessMenuAction.kill,
+          child: Text(isZh ? 'kill -9 进程...' : 'kill -9 process...'),
+        ),
+        if (isPackageProcess)
+          PopupMenuItem(
+            value: _ProcessMenuAction.forceStopPackage,
+            child: Text(isZh ? '强制停止包名' : 'Force-stop package'),
+          ),
+      ],
+    );
+    if (!mounted || selected == null) return;
+    await _handleProcessAction(process, selected);
+  }
+
+  Future<void> _handleProcessAction(
+    AndroidProcess process,
+    _ProcessMenuAction action,
+  ) async {
+    final isZh = openHandIsChineseLocale(context);
+    switch (action) {
+      case _ProcessMenuAction.copyPid:
+        await _copyText('${process.pid}');
+      case _ProcessMenuAction.copyName:
+        await _copyText(process.name);
+      case _ProcessMenuAction.logcatPid:
+        setState(() {
+          _logcatPidCtrl.text = '${process.pid}';
+          _logcatPackageFilterEnabled = false;
+          _currentTab = _Tab.logcat;
+        });
+        await _fetchLogcat();
+      case _ProcessMenuAction.kill:
+        final confirmed = await _confirmAction(
+          title: isZh ? '终止进程' : 'Kill process',
+          message: isZh
+              ? '将执行 kill -9 ${process.pid} (${process.name})。'
+              : 'This will run kill -9 ${process.pid} (${process.name}).',
+          confirmLabel: 'kill -9',
+        );
+        if (!confirmed) return;
+        await _runDeviceAction(
+          () => _ctrl.killProcessDetailed(process.pid, serial: _targetSerial),
+        );
+        await _doRefreshProcesses();
+      case _ProcessMenuAction.forceStopPackage:
+        if (!_looksLikePackageName(process.name)) return;
+        await _runDeviceAction(
+          () => _ctrl.forceStopAppDetailed(process.name, serial: _targetSerial),
+        );
+        await _doRefreshProcesses();
     }
   }
 
@@ -1792,86 +2263,103 @@ class _AndroidReverseDashboardDialogState
                     itemBuilder: (_, i) {
                       final pkg = _packages[i];
                       final selected = _selectedPackageName == pkg;
-                      return ListTile(
-                        selected: selected,
-                        selectedTileColor: cs.primaryContainer.withValues(
-                          alpha: 0.22,
-                        ),
-                        leading: Icon(
-                          Icons.apps_rounded,
-                          size: 18,
-                          color: selected ? cs.primary : cs.onSurfaceVariant,
-                        ),
-                        title: Text(
-                          pkg,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
+                      return GestureDetector(
+                        onSecondaryTapDown: (details) =>
+                            _showPackageMenu(pkg, details.globalPosition),
+                        onDoubleTap: () => _showPackageMenu(pkg, null),
+                        child: ListTile(
+                          selected: selected,
+                          selectedTileColor: cs.primaryContainer.withValues(
+                            alpha: 0.22,
                           ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 14),
-                              tooltip: isZh ? '复制包名' : 'Copy package name',
-                              onPressed: () => _copyText(pkg),
-                              visualDensity: VisualDensity.compact,
+                          leading: Icon(
+                            Icons.apps_rounded,
+                            size: 18,
+                            color: selected ? cs.primary : cs.onSurfaceVariant,
+                          ),
+                          title: Text(
+                            pkg,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
                             ),
-                            const SizedBox(width: _kIconButtonGap),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.play_arrow_rounded,
-                                size: 15,
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 14),
+                                tooltip: isZh ? '复制包名' : 'Copy package name',
+                                onPressed: () => _copyText(pkg),
+                                visualDensity: VisualDensity.compact,
                               ),
-                              tooltip: isZh ? '启动 APP' : 'Launch app',
-                              onPressed: _runningDeviceAction
-                                  ? null
-                                  : () => _runDeviceAction(
-                                      () => _ctrl.startPackageDetailed(
-                                        pkg,
-                                        serial: _targetSerial,
-                                      ),
-                                    ),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            const SizedBox(width: _kIconButtonGap),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.stop_rounded,
-                                size: 14,
-                                color: Colors.redAccent,
-                              ),
-                              tooltip: isZh ? '强制停止' : 'Force stop',
-                              onPressed: _runningDeviceAction
-                                  ? null
-                                  : () async {
-                                      await _runDeviceAction(
-                                        () => _ctrl.forceStopAppDetailed(
+                              const SizedBox(width: _kIconButtonGap),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 15,
+                                ),
+                                tooltip: isZh ? '启动 APP' : 'Launch app',
+                                onPressed: _runningDeviceAction
+                                    ? null
+                                    : () => _runDeviceAction(
+                                        () => _ctrl.startPackageDetailed(
                                           pkg,
                                           serial: _targetSerial,
                                         ),
-                                      );
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            isZh
-                                                ? '已发送强制停止：$pkg'
-                                                : 'Force-stop sent: $pkg',
+                                      ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              const SizedBox(width: _kIconButtonGap),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.stop_rounded,
+                                  size: 14,
+                                  color: Colors.redAccent,
+                                ),
+                                tooltip: isZh ? '强制停止' : 'Force stop',
+                                onPressed: _runningDeviceAction
+                                    ? null
+                                    : () async {
+                                        await _runDeviceAction(
+                                          () => _ctrl.forceStopAppDetailed(
+                                            pkg,
+                                            serial: _targetSerial,
                                           ),
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
+                                        );
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              isZh
+                                                  ? '已发送强制停止：$pkg'
+                                                  : 'Force-stop sent: $pkg',
+                                            ),
+                                            duration: const Duration(
+                                              seconds: 2,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              const SizedBox(width: _kIconButtonGap),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 16,
+                                ),
+                                tooltip: isZh ? '更多操作' : 'More actions',
+                                onPressed: () => _showPackageMenu(pkg, null),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ],
+                          ),
+                          onTap: () => _analyzePackage(pkg),
+                          dense: true,
                         ),
-                        onTap: () => _analyzePackage(pkg),
-                        dense: true,
                       );
                     },
                   ),
@@ -2014,37 +2502,57 @@ class _AndroidReverseDashboardDialogState
                     itemCount: _processes.length,
                     itemBuilder: (_, i) {
                       final p = _processes[i];
-                      return ListTile(
-                        leading: Text(
-                          '${p.pid}',
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                            color: cs.onSurfaceVariant,
+                      return GestureDetector(
+                        onSecondaryTapDown: (details) =>
+                            _showProcessMenu(p, details.globalPosition),
+                        onDoubleTap: () => _showProcessMenu(p, null),
+                        child: ListTile(
+                          leading: Text(
+                            '${p.pid}',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                        title: Text(
-                          p.name,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
+                          title: Text(
+                            p.name,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        subtitle: p.user != null
-                            ? Text(
-                                'user: ${p.user}',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
+                          subtitle: p.user != null
+                              ? Text(
+                                  'user: ${p.user}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                )
+                              : null,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 14),
+                                onPressed: () => _copyText('${p.pid}'),
+                                tooltip: isZh ? '复制 PID' : 'Copy PID',
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              const SizedBox(width: _kIconButtonGap),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 16,
                                 ),
-                              )
-                            : null,
-                        trailing: IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 14),
-                          onPressed: () => _copyText('${p.pid}'),
-                          tooltip: isZh ? '复制 PID' : 'Copy PID',
-                          visualDensity: VisualDensity.compact,
+                                onPressed: () => _showProcessMenu(p, null),
+                                tooltip: isZh ? '更多操作' : 'More actions',
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ],
+                          ),
+                          dense: true,
                         ),
-                        dense: true,
                       );
                     },
                   ),
@@ -2072,7 +2580,7 @@ class _AndroidReverseDashboardDialogState
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   if (_loadingLogcat)
                     const Padding(
                       padding: EdgeInsets.only(right: 8),
@@ -2082,66 +2590,192 @@ class _AndroidReverseDashboardDialogState
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       ),
                     ),
-                  SizedBox(
-                    height: _kAdbInlineControlHeight,
-                    child: FilledButton.tonalIcon(
-                      onPressed: _loadingLogcat ? null : _fetchLogcat,
-                      icon: const Icon(Icons.refresh_rounded, size: 14),
-                      label: Text(isZh ? '刷新' : 'Refresh'),
-                      style: FilledButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: _kAdbInlineControlHeight,
-                    child: FilledButton.tonalIcon(
-                      onPressed: _logcatLines.isEmpty
-                          ? null
-                          : () => _copyText(_logcatLines.join('\n')),
-                      icon: const Icon(Icons.copy_rounded, size: 14),
-                      label: Text(isZh ? '复制' : 'Copy'),
-                      style: FilledButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
+                  const Spacer(),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          SizedBox(
+                            height: _kAdbInlineControlHeight,
+                            child: FilledButton.tonalIcon(
+                              onPressed: _loadingLogcat ? null : _fetchLogcat,
+                              icon: const Icon(Icons.refresh_rounded, size: 14),
+                              label: Text(isZh ? '刷新' : 'Refresh'),
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: _kAdbInlineControlHeight,
+                            child: FilledButton.tonalIcon(
+                              onPressed: _logcatLines.isEmpty
+                                  ? null
+                                  : _saveLogcatSnapshot,
+                              icon: const Icon(
+                                Icons.save_alt_rounded,
+                                size: 14,
+                              ),
+                              label: Text(isZh ? '保存' : 'Save'),
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: _kAdbInlineControlHeight,
+                            child: FilledButton.tonalIcon(
+                              onPressed: _logcatLines.isEmpty
+                                  ? null
+                                  : () => _copyText(_logcatLines.join('\n')),
+                              icon: const Icon(Icons.copy_rounded, size: 14),
+                              label: Text(isZh ? '复制' : 'Copy'),
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: _kAdbInlineControlHeight,
+                            child: FilledButton.tonalIcon(
+                              onPressed: _loadingLogcat ? null : _clearLogcat,
+                              icon: const Icon(
+                                Icons.delete_sweep_rounded,
+                                size: 14,
+                              ),
+                              label: Text(isZh ? '清空' : 'Clear'),
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                height: _kAdbInlineControlHeight,
-                child: TextField(
-                  controller: _logcatFilterCtrl,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: isZh
-                        ? 'Tag 过滤（可选，留空读取全部）'
-                        : 'Tag filter (optional, empty reads all)',
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    suffixIcon: _logcatFilterCtrl.text.trim().isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 16),
-                            tooltip: isZh ? '清空过滤' : 'Clear filter',
-                            onPressed: () {
-                              setState(() => _logcatFilterCtrl.clear());
-                              _fetchLogcat();
-                            },
-                          ),
-                    suffixIconConstraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 260,
+                    height: _kAdbInlineControlHeight,
+                    child: TextField(
+                      controller: _logcatFilterCtrl,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: isZh ? 'Tag 过滤' : 'Tag filter',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        suffixIcon: _logcatFilterCtrl.text.trim().isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.clear_rounded, size: 16),
+                                tooltip: isZh ? '清空过滤' : 'Clear filter',
+                                onPressed: () {
+                                  setState(() => _logcatFilterCtrl.clear());
+                                  _fetchLogcat();
+                                },
+                              ),
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _fetchLogcat(),
                     ),
                   ),
-                  onChanged: (_) => setState(() {}),
-                  onSubmitted: (_) => _fetchLogcat(),
-                ),
+                  SizedBox(
+                    width: 92,
+                    height: _kAdbInlineControlHeight,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _logcatLevel,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        labelText: isZh ? '等级' : 'Level',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: [
+                        for (final level in _kLogcatLevels)
+                          DropdownMenuItem<String>(
+                            value: level,
+                            child: Text(level),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _logcatLevel = value);
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 150,
+                    height: _kAdbInlineControlHeight,
+                    child: TextField(
+                      controller: _logcatPidCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'PID',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        suffixIcon: _logcatPidCtrl.text.trim().isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.clear_rounded, size: 16),
+                                tooltip: isZh ? '清空 PID' : 'Clear PID',
+                                onPressed: () {
+                                  setState(() => _logcatPidCtrl.clear());
+                                  _fetchLogcat();
+                                },
+                              ),
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _fetchLogcat(),
+                    ),
+                  ),
+                  FilterChip(
+                    selected: _logcatPackageFilterEnabled,
+                    avatar: const Icon(Icons.apps_rounded, size: 15),
+                    label: Text(
+                      _logcatPackageTarget() ?? (isZh ? '未指定包名' : 'No package'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onSelected: _logcatPackageTarget() == null
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _logcatPackageFilterEnabled = value;
+                              if (value) _logcatPidCtrl.clear();
+                            });
+                          },
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ),
               if (_logcatError != null && _logcatLines.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -2818,10 +3452,80 @@ class _AndroidReverseDashboardDialogState
     }
   }
 
+  Widget _buildPathActionRow({
+    required TextEditingController primaryController,
+    required String primaryHint,
+    TextEditingController? secondaryController,
+    String? secondaryHint,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _pathTextField(
+            controller: primaryController,
+            hintText: primaryHint,
+          ),
+        ),
+        if (secondaryController != null) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: _pathTextField(
+              controller: secondaryController,
+              hintText: secondaryHint ?? '',
+            ),
+          ),
+        ],
+        const SizedBox(width: 8),
+        SizedBox(
+          height: _kAdbInlineControlHeight,
+          child: FilledButton.tonalIcon(
+            onPressed: onPressed,
+            icon: Icon(icon, size: 16),
+            label: Text(label),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _pathTextField({
+    required TextEditingController controller,
+    required String hintText,
+  }) {
+    return SizedBox(
+      height: _kAdbInlineControlHeight,
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: hintText,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
+        ),
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+      ),
+    );
+  }
+
   String _adbCommandPrefix() {
     final serial = _targetSerial?.trim();
     if (serial == null || serial.isEmpty) return 'adb';
     return 'adb -s ${_shellQuote(serial)}';
+  }
+
+  String? _logcatPackageTarget() {
+    final selected = _selectedPackageName?.trim();
+    if (selected != null && selected.isNotEmpty) return selected;
+    final configured = _ctrl.config.packageName?.trim();
+    if (configured != null && configured.isNotEmpty) return configured;
+    return null;
   }
 
   String _packageCommandTarget() {
@@ -2857,6 +3561,14 @@ class _AndroidReverseDashboardDialogState
     final trimmed = value.trim();
     if (trimmed.startsWith('<') && trimmed.endsWith('>')) return trimmed;
     return _shellQuote(trimmed);
+  }
+
+  bool _looksLikePackageName(String value) {
+    final packageName = value.trim();
+    if (packageName.length > 220) return false;
+    return RegExp(
+      r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
+    ).hasMatch(packageName);
   }
 }
 

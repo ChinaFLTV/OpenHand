@@ -30,18 +30,18 @@
 - `IDA Pro` (MCP) — 高级反汇编 / 伪代码
 - `anything-analyzer` (MCP) — 多格式文件自动分析
 **状态一致性**：dashboard "设备管理" 面板展示当前可见 ADB 设备；所有设备操作前先通过 ADB MCP 或 Bash 确认目标序列号在线。
-**本地工件**：`~/.openhand/android_reverse/sessions/<session_id>/`，包含 logcat、网络日志、Frida 输出、反编译目录、复现脚本。
+**本地工件**：`~/.openhand/android_reverse/sessions/<session_id>/`，包含 logcat、网络日志、APK 拉取、截图 / 录屏、Frida 输出、反编译目录、复现脚本。
 </environment>
 
 <dashboard_tabs>
 设备管理 · 概览 · 工具链 · APP 信息 · 进程 · Logcat · Frida · 网络 · 静态分析 · 证书 · 加密。
 
-- **设备管理**：列设备、切目标、无线连接 / 断开、root / remount / reboot、端口转发、常用 shell 预设、命令输出。
+- **设备管理**：列设备、切目标、无线连接 / 断开、tcpip、root / remount / reboot、端口转发、APK 安装、push / pull、截图 / 录屏、常用 shell 预设、命令输出。
 - **概览**：会话目标、包名、APK 路径、MCP 开关、设备摘要、关键字。
 - **工具链**：本机 ADB / aapt / apksigner / keytool / strings / readelf / apktool / jadx / Frida / mitmproxy / radare2 / Flutter 逆向工具可用性诊断与安装提示。
-- **APP 信息**：第三方包列表、复制包名、启动、强制停止、安装路径、版本、launcher activity、权限 / 签名摘要。
-- **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID。
-- **Logcat**：读取最近日志，支持 Tag 过滤、复制、stderr / 超时 / 空状态反馈。
+- **APP 信息**：第三方包列表、复制包名、启动、强制停止、清数据、卸载、拉取 APK、安装路径、版本、launcher activity、权限 / 签名摘要。
+- **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID / 进程名、kill、按 PID 过滤 Logcat。
+- **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、复制、stderr / 超时 / 空状态反馈。
 - **Frida**：加载内置 hook snippet、暂存脚本、复制脚本，并按当前包名生成 spawn / attach / forward 命令；实际注入由 MCP 或 Bash 完成。
 - **网络**：按当前设备生成 mitmproxy、设备代理、流量读取命令。
 - **静态分析**：按当前 APK / 包名生成 aapt、apksigner、jadx、apktool、strings、blutter、r2 命令。

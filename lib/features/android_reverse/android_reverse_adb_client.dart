@@ -7,6 +7,8 @@ import '../../app/support/silent_log.dart';
 
 const String _kTag = 'android_reverse_adb_client';
 const Duration _kAdbCommandTimeout = Duration(seconds: 30);
+const Duration _kAdbInstallTimeout = Duration(minutes: 3);
+const Duration _kAdbTransferTimeout = Duration(minutes: 5);
 
 class AdbCommandResult {
   const AdbCommandResult({
@@ -177,14 +179,22 @@ class AndroidReverseAdbClient {
   }
 
   Future<String?> getPackagePath(String packageName) async {
-    if (!_looksLikePackageName(packageName)) return null;
+    final paths = await getPackagePaths(packageName);
+    return paths.firstOrNull;
+  }
+
+  Future<List<String>> getPackagePaths(String packageName) async {
+    if (!_looksLikePackageName(packageName)) return const <String>[];
     final raw = await shell('pm path $packageName');
-    if (raw == null) return null;
-    for (final line in raw.split('\n')) {
-      final trimmed = line.trim();
-      if (trimmed.startsWith('package:')) return trimmed.substring(8).trim();
-    }
-    return null;
+    if (raw == null) return const <String>[];
+    final paths = raw
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.startsWith('package:'))
+        .map((line) => line.substring(8).trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    return List<String>.unmodifiable(paths);
   }
 
   Future<String?> getPackageVersion(String packageName) async {
@@ -243,8 +253,31 @@ class AndroidReverseAdbClient {
       'install',
       '-r',
       localApkPath,
-    ], timeout: const Duration(minutes: 3));
+    ], timeout: _kAdbInstallTimeout);
     return result != null && result.contains('Success');
+  }
+
+  Future<AdbCommandResult> installApkDetailed(
+    String localApkPath, {
+    bool grantRuntimePermissions = true,
+  }) {
+    final path = localApkPath.trim();
+    if (path.isEmpty) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['install', '<empty-apk-path>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'APK path is empty.',
+        ),
+      );
+    }
+    return _runDeviceDetailed(<String>[
+      'install',
+      '-r',
+      if (grantRuntimePermissions) '-g',
+      path,
+    ], timeout: _kAdbInstallTimeout);
   }
 
   Future<bool> forceStopApp(String packageName) async {
@@ -264,6 +297,41 @@ class AndroidReverseAdbClient {
       );
     }
     return shellDetailed('am force-stop $packageName');
+  }
+
+  Future<AdbCommandResult> clearPackageDataDetailed(String packageName) {
+    if (!_looksLikePackageName(packageName)) {
+      return Future<AdbCommandResult>.value(
+        AdbCommandResult(
+          args: const <String>['shell', 'pm clear <invalid-package>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Invalid Android package name: $packageName',
+        ),
+      );
+    }
+    return shellDetailed('pm clear $packageName');
+  }
+
+  Future<AdbCommandResult> uninstallPackageDetailed(
+    String packageName, {
+    bool keepData = false,
+  }) {
+    if (!_looksLikePackageName(packageName)) {
+      return Future<AdbCommandResult>.value(
+        AdbCommandResult(
+          args: const <String>['uninstall', '<invalid-package>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Invalid Android package name: $packageName',
+        ),
+      );
+    }
+    return _runDeviceDetailed(<String>[
+      'uninstall',
+      if (keepData) '-k',
+      packageName,
+    ], timeout: _kAdbInstallTimeout);
   }
 
   Future<bool> startActivity(String packageName, {String? activity}) async {
@@ -333,6 +401,32 @@ class AndroidReverseAdbClient {
     return processes;
   }
 
+  Future<String?> pidOfPackage(String packageName) async {
+    if (!_looksLikePackageName(packageName)) return null;
+    final direct = await shell('pidof $packageName');
+    final directPid = _firstPidFromText(direct);
+    if (directPid != null) return directPid;
+    final procs = await listProcesses(filterName: packageName);
+    for (final proc in procs) {
+      if (proc.name == packageName) return '${proc.pid}';
+    }
+    return procs.isEmpty ? null : '${procs.first.pid}';
+  }
+
+  Future<AdbCommandResult> killProcessDetailed(int pid) {
+    if (pid <= 0) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['shell', 'kill -9 <invalid-pid>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Invalid process id.',
+        ),
+      );
+    }
+    return shellDetailed('kill -9 $pid');
+  }
+
   // ── 文件传输 ──────────────────────────────────────────────────────────
 
   Future<bool> push(String localPath, String remotePath) async {
@@ -340,7 +434,7 @@ class AndroidReverseAdbClient {
       'push',
       localPath,
       remotePath,
-    ], timeout: const Duration(minutes: 5));
+    ], timeout: _kAdbTransferTimeout);
     return result != null && !result.toLowerCase().contains('error');
   }
 
@@ -349,8 +443,48 @@ class AndroidReverseAdbClient {
       'pull',
       remotePath,
       localPath,
-    ], timeout: const Duration(minutes: 5));
+    ], timeout: _kAdbTransferTimeout);
     return result != null && !result.toLowerCase().contains('error');
+  }
+
+  Future<AdbCommandResult> pushDetailed(String localPath, String remotePath) {
+    final local = localPath.trim();
+    final remote = remotePath.trim();
+    if (local.isEmpty || remote.isEmpty) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['push', '<local>', '<remote>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Both local and remote paths are required.',
+        ),
+      );
+    }
+    return _runDeviceDetailed(<String>[
+      'push',
+      local,
+      remote,
+    ], timeout: _kAdbTransferTimeout);
+  }
+
+  Future<AdbCommandResult> pullDetailed(String remotePath, String localPath) {
+    final remote = remotePath.trim();
+    final local = localPath.trim();
+    if (remote.isEmpty || local.isEmpty) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['pull', '<remote>', '<local>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Both remote and local paths are required.',
+        ),
+      );
+    }
+    return _runDeviceDetailed(<String>[
+      'pull',
+      remote,
+      local,
+    ], timeout: _kAdbTransferTimeout);
   }
 
   // ── Logcat ────────────────────────────────────────────────────────────
@@ -367,20 +501,32 @@ class AndroidReverseAdbClient {
     String? tag,
     String? level,
     int lines = 200,
+    String? pid,
   }) {
     final filter = <String>[];
+    final normalizedLevel = _normalizeLogcatLevel(level);
     if (tag != null && tag.trim().isNotEmpty) {
       filter
-        ..add('${tag.trim()}:${level ?? 'V'}')
+        ..add('${tag.trim()}:$normalizedLevel')
         ..add('*:S');
+    } else if (normalizedLevel != 'V') {
+      filter.add('*:$normalizedLevel');
     }
     return _runDeviceDetailed(<String>[
       'logcat',
       '-d',
       '-t',
       '$lines',
+      if (pid != null && RegExp(r'^\d+$').hasMatch(pid.trim())) ...[
+        '--pid',
+        pid.trim(),
+      ],
       if (filter.isNotEmpty) ...filter,
     ], timeout: const Duration(seconds: 15));
+  }
+
+  Future<AdbCommandResult> clearLogcatDetailed() {
+    return _runDeviceDetailed(<String>['logcat', '-c']);
   }
 
   // ── 端口转发 ──────────────────────────────────────────────────────────
@@ -449,6 +595,65 @@ class AndroidReverseAdbClient {
   Future<AdbCommandResult> root() => _runDeviceDetailed(<String>['root']);
 
   Future<AdbCommandResult> remount() => _runDeviceDetailed(<String>['remount']);
+
+  Future<AdbCommandResult> tcpip(int port) {
+    if (port <= 0 || port > 65535) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['tcpip', '<invalid-port>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Invalid TCP/IP port.',
+        ),
+      );
+    }
+    return _runDeviceDetailed(<String>['tcpip', '$port']);
+  }
+
+  Future<AdbCommandResult> captureScreenshotDetailed(String remotePath) {
+    final path = remotePath.trim();
+    if (path.isEmpty) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['shell', 'screencap -p <remote-path>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Remote screenshot path is empty.',
+        ),
+      );
+    }
+    final quoted = _quoteShell(path);
+    return shellDetailed(
+      'mkdir -p ${_quoteShell(_remoteParent(path))}; '
+      'screencap -p $quoted; '
+      'ls -l $quoted',
+      timeout: const Duration(seconds: 12),
+    );
+  }
+
+  Future<AdbCommandResult> screenRecordDetailed(
+    String remotePath, {
+    int seconds = 10,
+  }) {
+    final path = remotePath.trim();
+    if (path.isEmpty || seconds <= 0 || seconds > 180) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['shell', 'screenrecord --time-limit <seconds> <path>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Remote recording path or duration is invalid.',
+        ),
+      );
+    }
+    final quoted = _quoteShell(path);
+    return shellDetailed(
+      'mkdir -p ${_quoteShell(_remoteParent(path))}; '
+      'screenrecord --time-limit $seconds $quoted; '
+      'ls -l $quoted',
+      timeout: Duration(seconds: seconds + 12),
+    );
+  }
 
   // ── 内部实现 ──────────────────────────────────────────────────────────
 
@@ -539,5 +744,32 @@ class AndroidReverseAdbClient {
     return RegExp(
       r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
     ).hasMatch(packageName);
+  }
+
+  String? _firstPidFromText(String? raw) {
+    if (raw == null) return null;
+    final match = RegExp(r'\b\d+\b').firstMatch(raw);
+    return match?.group(0);
+  }
+
+  String _normalizeLogcatLevel(String? raw) {
+    final value = (raw ?? 'V').trim().toUpperCase();
+    return const <String>{'V', 'D', 'I', 'W', 'E', 'F'}.contains(value)
+        ? value
+        : 'V';
+  }
+
+  String _remoteParent(String path) {
+    final normalized = path.trim();
+    final slash = normalized.lastIndexOf('/');
+    if (slash <= 0) return '/sdcard';
+    return normalized.substring(0, slash);
+  }
+
+  String _quoteShell(String value) {
+    if (RegExp(r'^[A-Za-z0-9_./:@%+=,-]+$').hasMatch(value)) {
+      return value;
+    }
+    return "'${value.replaceAll("'", "'\"'\"'")}'";
   }
 }
