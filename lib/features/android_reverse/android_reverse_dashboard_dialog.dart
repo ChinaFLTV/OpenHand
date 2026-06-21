@@ -4125,6 +4125,7 @@ class _AndroidReverseDashboardDialogState
         : _commandToken(scriptAsset);
     final pkg = _commandToken(_packageCommandTarget());
     const savedScriptArg = '<saved-script.js>';
+    final captureScript = _shellQuote(_ctrl.fridaCaptureScriptPath);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -4207,7 +4208,8 @@ class _AndroidReverseDashboardDialogState
                   title: isZh ? '读取脚本工件' : 'Read script artifacts',
                   command:
                       'find ${_shellQuote(_ctrl.fridaScriptsDir)} -maxdepth 1 -type f | sort\n'
-                      'cat ${_shellQuote(_ctrl.fridaScriptsDir)}/<saved-script>.js',
+                      'cat ${_shellQuote(_ctrl.fridaScriptsDir)}/<saved-script>.js\n'
+                      'find ${_shellQuote(_ctrl.fridaOutputDir)} -maxdepth 1 -type f | sort',
                 ),
                 const SizedBox(height: 8),
                 _commandCard(
@@ -4237,8 +4239,8 @@ class _AndroidReverseDashboardDialogState
                   isZh,
                   title: isZh ? 'Spawn 注入' : 'Spawn inject',
                   command:
-                      'frida -U -f $pkg -l $scriptArg --no-pause\n'
-                      'frida -U -f $pkg -l $savedScriptArg --no-pause',
+                      '$captureScript --package $pkg --script $scriptArg --spawn\n'
+                      '$captureScript --package $pkg --script $savedScriptArg --spawn',
                 ),
                 const SizedBox(height: 8),
                 _commandCard(
@@ -4248,7 +4250,7 @@ class _AndroidReverseDashboardDialogState
                   title: isZh ? 'Attach / 诊断' : 'Attach / diagnose',
                   command:
                       'frida-ps -Uai | grep $pkg\n'
-                      'frida -U -n $pkg -l $scriptArg\n'
+                      '$captureScript --package $pkg --script $scriptArg --attach\n'
                       '${_adbCommandPrefix()} forward tcp:27042 tcp:27042',
                 ),
               ],

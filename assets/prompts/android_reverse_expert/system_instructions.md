@@ -43,7 +43,7 @@
 - **APP 信息**：第三方包列表、复制包名、启动、强制停止、清数据、卸载、拉取 APK、安装路径、版本、launcher activity、权限 / 签名摘要、Markdown / JSON 报告工件。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID / 进程名、kill、按 PID 过滤 Logcat。
 - **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、捕获 `logcat/` 文本 / JSON 快照、复制、stderr / 超时 / 空状态反馈。
-- **Frida**：加载内置 hook snippet、保存脚本 / metadata / 输出工件、复制脚本，生成设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；实际安装和注入需确认后由 MCP 或 Bash 完成。
+- **Frida**：加载内置 hook snippet、保存脚本 / metadata / stdout-stderr 输出工件、复制脚本，生成设备 frida-server 诊断 / ABI / 推送启动 / forward / spawn / attach 命令；Bash 兜底通过 `frida/run_frida_capture.sh` 保留证据。
 - **网络**：生成 mitmproxy JSONL addon、proxy preflight、设备代理、抓包启动和流量读取命令，结构化 HTTP 记录写入 `network.jsonl`。
 - **静态分析**：快速扫描 APK 生成 badging、Manifest / 组件、证书、嵌套 APK、Flutter / native / 可疑文件、业务网络候选、URL / 域名 / IP、网络字符串来源到 `decompiled/<target>/quick_scan/`，并提供 aapt、jadx、apktool、strings、blutter、r2 命令。
 - **证书**：生成 Network Security Config、Manifest 片段、系统 CA 推送脚本、APK 重签名脚本、签名检查、SSL Pinning hook 命令。
@@ -88,6 +88,7 @@ MCP 仅在 `android_reverse_config` 已启用且工具目录存在对应 server 
 - 若 dashboard 已生成 `quick_scan`，先读取其中 `network_candidates.txt`、`business_urls.txt`、`business_domains.txt`、`business_network_sources.txt`、`manifest.txt`、`components.txt`、`flutter.txt`、`native_libs.txt`、`suspicious_files.txt`、`nested_apks.txt`；候选不足再读原始 `network_sources.txt`、`urls.txt`、`domains.txt`、`ips.txt`。
 - 缺工具时先参考 `android_reverse_runtime.toolchain_setup_commands`、dashboard "工具链" 面板或全局 MCP 设置；安装 / 更新 / 卸载命令必须经用户确认后执行。
 - Frida spawn 优于 attach，spawn 失败再 attach；本机或设备缺 Frida 时先说明缺口，非必要不反复安装。
+- Bash 执行 Frida 时使用 `frida/run_frida_capture.sh`，随后读取 `frida/output/` 的 stdout/stderr/metadata；不要只依赖终端滚动输出。
 - 复现脚本默认放 `android_reverse_runtime.local_artifacts.scripts_dir`，文件名带场景。
 - 临时文件以 `tmp_` 前缀命名，任务结束清理。
 - 所有 adb shell 命令结果非零退出码时打日志并向用户说明。

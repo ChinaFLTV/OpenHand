@@ -2312,6 +2312,11 @@ class AiPromptBuilder {
         'frida_scripts_dir': p.join(rootDir, 'frida', 'scripts'),
         'frida_output_dir': p.join(rootDir, 'frida', 'output'),
         'frida_readme': p.join(rootDir, 'frida', 'README.md'),
+        'frida_capture_script': p.join(
+          rootDir,
+          'frida',
+          'run_frida_capture.sh',
+        ),
         'decompiled_dir': p.join(rootDir, 'decompiled'),
         'mcp_dir': p.join(rootDir, 'mcp'),
         'mcp_templates_json': p.join(
@@ -2344,7 +2349,9 @@ class AiPromptBuilder {
         'find ${p.join(rootDir, 'recordings')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'frida')} -maxdepth 2 -type f',
         'find ${p.join(rootDir, 'frida', 'scripts')} -maxdepth 1 -type f | head -200',
+        'find ${p.join(rootDir, 'frida', 'output')} -maxdepth 1 -type f | head -200',
         'cat ${p.join(rootDir, 'frida', 'README.md')}',
+        '${p.join(rootDir, 'frida', 'run_frida_capture.sh')} --help',
         'find ${p.join(rootDir, 'decompiled')} -maxdepth 3 -type f | head -200',
         'find ${p.join(rootDir, 'decompiled')} -path "*/quick_scan/*" -type f | head -200',
         'find ${p.join(rootDir, 'mcp')} -maxdepth 2 -type f | head -200',
@@ -2365,7 +2372,7 @@ class AiPromptBuilder {
         'logcat: tag/level/PID/package filters, clear device logcat, save current lines to logcat.jsonl, capture txt/json snapshots under logcat/',
         'network: generate mitmproxy JSONL addon, README, proxy preflight script, configure device proxy, write HTTP flow summaries to network.jsonl and flows.mitm',
         'certs: generate Network Security Config, manifest snippet, root CA install script, APK resigning scripts, APK signing check, SSL pinning hook command',
-        'frida: built-in hook snippets, saved script/metadata/output artifacts, device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
+        'frida: built-in hook snippets, saved script/metadata/output artifacts, run_frida_capture.sh stdout/stderr capture, device frida-server status, ABI, push/start, forward, spawn/attach copy commands',
       ],
       'dashboard_visible_metadata_keys': presentKeys,
     };

@@ -14,7 +14,7 @@
   - `packages/` — APP 信息 Markdown / JSON 报告
   - `apks/` — 从设备拉取的 base / split APK
   - `screenshots/`、`recordings/` — 面板截图和短录屏
-  - `frida/` — Frida 脚本、metadata、runbook 与输出
+  - `frida/` — Frida 脚本、metadata、runbook、run_frida_capture.sh 与输出
   - `decompiled/` — quick_scan / jadx / apktool / blutter 输出
   - `mcp/` — MCP 模板、ToolSearch 查询、ADB 兜底纪律
   - `scripts/` — 复现脚本
@@ -64,9 +64,9 @@
 - 注入流程：
   1. `Read` 对应 snippet 文件
   2. 在聊天框贴出脚本与注入目的（一句话即可）
-  3. 调工具目录中对应的 Frida spawn/attach 能力
+  3. 调工具目录中对应的 Frida spawn/attach 能力；Bash 兜底时用 `frida/run_frida_capture.sh`
   4. 触发目标动作
-  5. 调工具目录中对应的 Frida output / logcat 能力，过滤关键前缀
+  5. 调工具目录中对应的 Frida output / logcat 能力，或读取 `frida/output/`，过滤关键前缀
 - 禁止手写 hook：模型自由发挥的 hook 经常漏边界、污染堆栈、把异常吞掉。
 </frida_hook_protocol>
 
