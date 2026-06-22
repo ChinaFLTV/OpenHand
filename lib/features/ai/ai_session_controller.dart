@@ -2490,14 +2490,46 @@ class AiSessionController extends ChangeNotifier {
     return didChange ? updatedMessages : messages;
   }
 
+  List<AiSessionMessage> _hideMessagesAfterUserForRegeneration({
+    required List<AiSessionMessage> messages,
+    required int userIndex,
+    required Object marker,
+  }) {
+    if (userIndex < 0 || userIndex >= messages.length - 1) {
+      return messages;
+    }
+    var didChange = false;
+    final updatedMessages = <AiSessionMessage>[];
+    for (var i = 0; i < messages.length; i++) {
+      final message = messages[i];
+      if (i <= userIndex || message.isDeleted) {
+        updatedMessages.add(message);
+        continue;
+      }
+      didChange = true;
+      updatedMessages.add(
+        message.copyWith(
+          isDeleted: true,
+          metadata: <String, Object?>{
+            ...message.metadata,
+            _responseRegenerationHiddenMessageKey: marker,
+          },
+        ),
+      );
+    }
+    return didChange ? updatedMessages : messages;
+  }
+
   List<AiSessionMessage> _restoreResponseRegenerationHiddenMessages(
     List<AiSessionMessage> messages,
-    Object marker,
-  ) {
+    Object marker, {
+    Set<String>? onlyMessageIds,
+  }) {
     var didChange = false;
     final updatedMessages = <AiSessionMessage>[];
     for (final message in messages) {
-      if (message.metadata[_responseRegenerationHiddenMessageKey] != marker) {
+      if (message.metadata[_responseRegenerationHiddenMessageKey] != marker ||
+          (onlyMessageIds != null && !onlyMessageIds.contains(message.id))) {
         updatedMessages.add(message);
         continue;
       }
@@ -2509,6 +2541,180 @@ class AiSessionController extends ChangeNotifier {
       );
     }
     return didChange ? updatedMessages : messages;
+  }
+
+  List<AiSessionMessage> _hideGeneratedRegenerationMessages({
+    required List<AiSessionMessage> messages,
+    required int userIndex,
+    required Set<String> originalMessageIds,
+    required Object marker,
+  }) {
+    if (userIndex < 0 || userIndex >= messages.length - 1) {
+      return messages;
+    }
+    var didChange = false;
+    final updatedMessages = <AiSessionMessage>[];
+    for (var i = 0; i < messages.length; i++) {
+      final message = messages[i];
+      if (i <= userIndex ||
+          originalMessageIds.contains(message.id) ||
+          message.isDeleted) {
+        updatedMessages.add(message);
+        continue;
+      }
+      didChange = true;
+      updatedMessages.add(
+        message.copyWith(
+          isDeleted: true,
+          metadata: <String, Object?>{
+            ...message.metadata,
+            _responseRegenerationHiddenMessageKey: marker,
+          },
+        ),
+      );
+    }
+    return didChange ? updatedMessages : messages;
+  }
+
+  AiSession? _mergeRegeneratedBranchIntoResponseVariant({
+    required AiSession session,
+    required String targetMessageId,
+    required String userMessageId,
+    required List<AiSessionMessageResponseVariant> baseVariants,
+    required Object regenerationHiddenMarker,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    final messages = session.messages;
+    final userIndex = messages.indexWhere(
+      (message) => message.id == userMessageId,
+    );
+    if (userIndex < 0) {
+      return null;
+    }
+    final targetIndex = messages.indexWhere(
+      (message) => message.id == targetMessageId,
+    );
+    if (targetIndex <= userIndex) {
+      return null;
+    }
+    var finalAssistantIndex = -1;
+    for (var i = messages.length - 1; i > userIndex; i--) {
+      final message = messages[i];
+      if (!message.isDeleted &&
+          message.id != targetMessageId &&
+          message.kind == AiSessionMessageKind.assistant) {
+        finalAssistantIndex = i;
+        break;
+      }
+    }
+    if (finalAssistantIndex == -1) {
+      return null;
+    }
+    final finalAssistant = messages[finalAssistantIndex];
+    if (finalAssistant.content.trim().isEmpty) {
+      return null;
+    }
+
+    final targetMessage = messages[targetIndex];
+    final generatedIntermediateMessages = <AiSessionMessage>[];
+    final generatedIntermediateIds = <String>{};
+    for (var i = userIndex + 1; i < messages.length; i++) {
+      final message = messages[i];
+      if (i == finalAssistantIndex ||
+          message.id == targetMessageId ||
+          message.isDeleted) {
+        continue;
+      }
+      generatedIntermediateMessages.add(message);
+      generatedIntermediateIds.add(message.id);
+    }
+
+    final generatedIntermediateMessageIds = generatedIntermediateMessages
+        .map((message) => message.id)
+        .toList(growable: false);
+    final newVariant = AiSessionMessageResponseVariant.fromMessage(
+      finalAssistant,
+      id: finalAssistant.id,
+      intermediateMessageIds: generatedIntermediateMessageIds,
+    );
+    final nextVariants = <AiSessionMessageResponseVariant>[
+      ...baseVariants,
+      newVariant,
+    ];
+    final nextIndex = nextVariants.length - 1;
+    final targetMetadata = Map<String, Object?>.from(targetMessage.metadata)
+      ..remove(_responseRegenerationHiddenMessageKey)
+      ..remove(aiSessionMessageMetadataStreamingKey);
+    final contentFormatKey =
+        '${finalAssistant.metadata[aiSessionMessageContentFormatKey] ?? runtimeContext.messageContentFormat.storageKey}'
+            .trim();
+    final visibleTarget = targetMessage.copyWith(
+      isDeleted: false,
+      content: finalAssistant.content,
+      createdAt: finalAssistant.createdAt,
+      modelId: finalAssistant.modelId,
+      modelLabel: finalAssistant.modelLabel,
+      usage: finalAssistant.usage,
+      metadata: targetMetadata,
+    );
+    final updatedTarget = visibleTarget.copyWith(
+      metadata: _responseVariantMetadata(
+        message: visibleTarget,
+        variants: nextVariants,
+        index: nextIndex,
+        streaming: false,
+        contentFormatKey: contentFormatKey.isEmpty
+            ? runtimeContext.messageContentFormat.storageKey
+            : contentFormatKey,
+      ),
+    );
+    final hiddenFinalAssistant = finalAssistant.copyWith(
+      isDeleted: true,
+      metadata: <String, Object?>{
+        ...finalAssistant.metadata,
+        _responseRegenerationHiddenMessageKey: regenerationHiddenMarker,
+        'hidden_regenerated_response_message': true,
+      },
+    );
+
+    final prefix = messages.take(userIndex + 1).toList(growable: false);
+    AiSessionMessage inactiveVariantIntermediate(AiSessionMessage message) {
+      final metadata = Map<String, Object?>.from(message.metadata)
+        ..remove(_responseRegenerationHiddenMessageKey)
+        ..[_responseVariantHiddenMessageKey] = true;
+      return message.copyWith(isDeleted: true, metadata: metadata);
+    }
+
+    final oldIntermediateMessages = messages
+        .sublist(userIndex + 1, targetIndex)
+        .where((message) => !generatedIntermediateIds.contains(message.id))
+        .map(inactiveVariantIntermediate)
+        .toList(growable: false);
+    final consumedIds = <String>{
+      targetMessageId,
+      finalAssistant.id,
+      ...oldIntermediateMessages.map((message) => message.id),
+      ...generatedIntermediateIds,
+    };
+    final trailingMessages = <AiSessionMessage>[
+      for (var i = userIndex + 1; i < messages.length; i++)
+        if (!consumedIds.contains(messages[i].id)) messages[i],
+      hiddenFinalAssistant,
+    ];
+    final reorderedMessages = <AiSessionMessage>[
+      ...prefix,
+      ...oldIntermediateMessages,
+      ...generatedIntermediateMessages,
+      updatedTarget,
+      ...trailingMessages,
+    ];
+    return _rebuildSession(
+      _copySessionWithMessagesPreservingWindow(
+        session,
+        reorderedMessages,
+        updatedAt: _clock().toUtc(),
+      ),
+    );
   }
 
   Map<String, Object?> _responseVariantMetadata({
@@ -2589,6 +2795,7 @@ class AiSessionController extends ChangeNotifier {
       );
       updatedMessages[targetIndex] = targetMessage.copyWith(
         content: selected.content,
+        createdAt: selected.createdAt,
         modelId: selected.modelId ?? targetMessage.modelId,
         modelLabel: selected.modelLabel ?? targetMessage.modelLabel,
         usage: selected.usage ?? targetMessage.usage,
@@ -2615,6 +2822,9 @@ class AiSessionController extends ChangeNotifier {
     required String messageId,
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
+    List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
+    bool requireWriteCommandConfirmation = true,
+    WriteCommandConfirmationCallback? confirmWriteCommand,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     _sessionPendingSendOperationIds.add(sessionId);
@@ -2663,9 +2873,6 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       final latestUserMessage = session.messages[userIndex];
-      final promptHistoryMessages = session.messages
-          .take(userIndex + 1)
-          .toList(growable: false);
 
       final baseVariants = _normalizeResponseVariantIntermediateMessageIds(
         variants: targetMessage.responseVariants,
@@ -2678,7 +2885,11 @@ class AiSessionController extends ChangeNotifier {
         baseVariants.length,
       );
       final restoreVariant = baseVariants[baseVariantIndex];
+      final regenerationStartedAt = _clock().toUtc();
       final regenerationHiddenMarker = _idGenerator();
+      final originalMessageIds = session.messages
+          .map((message) => message.id)
+          .toSet();
       final existingStopSignal = _sessionStopSignals[session.id];
       if (existingStopSignal != null && existingStopSignal.isCompleted) {
         _clearSessionExecutionState(session.id);
@@ -2691,103 +2902,41 @@ class AiSessionController extends ChangeNotifier {
       _setSessionSendPhase(session.id, AiSendPhase.responding);
       notifyListeners();
 
-      final previewStopwatch = Stopwatch()..start();
-      var lastPreviewMs = -_streamPreviewThrottle.inMilliseconds;
-
-      AiSession updateTargetMessage(
-        AiSession sourceSession,
-        AiSessionMessage Function(AiSessionMessage current) update,
-      ) {
-        final index = sourceSession.messages.indexWhere(
-          (message) => message.id == messageId,
-        );
-        if (index == -1) {
-          return sourceSession;
-        }
-        final messages = List<AiSessionMessage>.from(sourceSession.messages);
-        messages[index] = update(messages[index]);
-        return _copySessionWithMessagesPreservingWindow(
-          sourceSession,
-          messages,
-          updatedAt: _clock().toUtc(),
-        );
-      }
-
       AiSession applyRegenerationStart(AiSession sourceSession) {
-        final liveTargetIndex = sourceSession.messages.indexWhere(
-          (message) => message.id == messageId,
-        );
-        if (liveTargetIndex <= 0) {
-          return sourceSession;
-        }
-        final liveUserIndex = _latestVisibleUserMessageIndexBefore(
-          sourceSession,
-          liveTargetIndex,
+        final liveUserIndex = sourceSession.messages.indexWhere(
+          (message) => message.id == latestUserMessage.id,
         );
         if (liveUserIndex < 0) {
           return sourceSession;
         }
-        final hiddenMessages = _applyResponseVariantIntermediateVisibility(
+        final hiddenMessages = _hideMessagesAfterUserForRegeneration(
           messages: sourceSession.messages,
           userIndex: liveUserIndex,
-          targetIndex: liveTargetIndex,
-          activeIntermediateMessageIds: const <String>{},
-          hideMessagesAfterTarget: true,
-          regenerationHiddenMarker: regenerationHiddenMarker,
-        );
-        final messages = List<AiSessionMessage>.from(hiddenMessages);
-        final liveTargetMessage = messages[liveTargetIndex];
-        messages[liveTargetIndex] = liveTargetMessage.copyWith(
-          content: '',
-          modelId: model.id,
-          modelLabel: model.displayName,
-          metadata: _responseVariantMetadata(
-            message: liveTargetMessage,
-            variants: baseVariants,
-            index: baseVariantIndex,
-            streaming: true,
-          ),
+          marker: regenerationHiddenMarker,
         );
         return _rebuildSession(
           _copySessionWithMessagesPreservingWindow(
             sourceSession,
-            messages,
-            updatedAt: _clock().toUtc(),
+            hiddenMessages,
+            updatedAt: regenerationStartedAt,
           ),
         );
       }
 
-      void previewRegeneratedContent(
-        String content, {
-        required bool streaming,
-        bool force = false,
-      }) {
-        final nowMs = previewStopwatch.elapsedMilliseconds;
-        if (!force &&
-            nowMs - lastPreviewMs < _streamPreviewThrottle.inMilliseconds) {
-          return;
-        }
-        lastPreviewMs = nowMs;
-        final liveSession = _sessionById(session.id) ?? session;
-        final previewSession = updateTargetMessage(liveSession, (message) {
-          return message.copyWith(
-            content: content.isEmpty ? message.content : content,
-            modelId: model.id,
-            modelLabel: model.displayName,
-            metadata: <String, Object?>{
-              ...message.metadata,
-              aiSessionMessageMetadataStreamingKey: streaming,
-            },
-          );
-        });
-        session = previewSession;
-        _previewSession(previewSession);
-      }
-
       AiSession restoreTargetMessage(AiSession sourceSession) {
-        var messages = _restoreResponseRegenerationHiddenMessages(
-          sourceSession.messages,
+        final sourceUserIndex = sourceSession.messages.indexWhere(
+          (message) => message.id == latestUserMessage.id,
+        );
+        var messages = _hideGeneratedRegenerationMessages(
+          messages: sourceSession.messages,
+          userIndex: sourceUserIndex,
+          originalMessageIds: originalMessageIds,
+          marker: regenerationHiddenMarker,
+        );
+        messages = _restoreResponseRegenerationHiddenMessages(
+          messages,
           regenerationHiddenMarker,
+          onlyMessageIds: originalMessageIds,
         );
         var liveTargetIndex = messages.indexWhere(
           (message) => message.id == messageId,
@@ -2815,6 +2964,7 @@ class AiSessionController extends ChangeNotifier {
           final message = messages[liveTargetIndex];
           messages[liveTargetIndex] = message.copyWith(
             content: restoreVariant.content,
+            createdAt: restoreVariant.createdAt,
             modelId: restoreVariant.modelId ?? message.modelId,
             modelLabel: restoreVariant.modelLabel ?? message.modelLabel,
             usage: restoreVariant.usage ?? message.usage,
@@ -2856,152 +3006,74 @@ class AiSessionController extends ChangeNotifier {
           await _commitSessionLocked(restored);
           return true;
         }
-        final templateBundle = await _templateRepository.loadBundle(
-          session.templateId,
-        );
-        if (_isStopRequestedForSession(session.id)) {
-          final restored = restoreTargetMessage(
-            _sessionById(session.id) ?? session,
-          );
-          await _commitSessionLocked(restored);
-          return true;
-        }
-        final promptSession = session.copyWith(messages: promptHistoryMessages);
-        final promptResult = _promptBuilder.buildSessionPrompt(
-          templateBundle: templateBundle,
-          session: promptSession,
+        final generationSucceeded = await _runAssistantConversation(
+          session: session,
           model: model,
           runtimeContext: runtimeContext,
-          memoryEntries: runtimeContext.memoryEntries,
-          sessionMessages: promptSession.activeConversationMessagesForPrompt,
           latestUserMessageId: latestUserMessage.id,
-          resolvedToolsByName: _emptyToolCatalog.toolsByName,
-          mcpServerInstructionsByName:
-              _emptyToolCatalog.mcpServerInstructionsByName,
-          planModeRecoveryInspectionRequired: false,
-          displayCatalogOverride: const <AiToolDefinition>[],
+          denyCommandRules: denyCommandRules,
+          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+          confirmWriteCommand: confirmWriteCommand,
         );
-        final streamOpenTimeoutSeconds = math.max(
-          runtimeContext.connectTimeoutSeconds,
-          runtimeContext.responseTimeoutSeconds,
-        );
-        final streamResponse = await _chatClient.sendMessageStream(
-          model: model,
-          messages: promptResult.messages,
-          tools: const <AiToolDefinition>[],
-          responseModalities: const <String>[],
-          creationRequest: AiCreationRequest.none,
-          timeout: Duration(seconds: streamOpenTimeoutSeconds),
-          streamIdleTimeout: Duration(
-            seconds: runtimeContext.streamIdleTimeoutSeconds,
-          ),
-          cancelSignal: _stopSignalForSession(session.id),
-        );
-        _setSessionCancelHandler(session.id, streamResponse.cancel);
-        if (_isStopRequestedForSession(session.id) &&
-            streamResponse.cancel != null) {
-          await streamResponse.cancel!().catchError(
-            (Object _, StackTrace stackTrace) {},
-          );
-        }
-
-        final buffer = StringBuffer();
-        AiTokenUsage? streamedUsage;
-        await streamResponse.events.listen((event) {
-          switch (event.type) {
-            case AiChatStreamEventType.textDelta:
-              final delta = event.textDelta ?? '';
-              if (delta.isEmpty) return;
-              buffer.write(delta);
-              previewRegeneratedContent(
-                _sanitizeVisibleModelContent(buffer.toString()),
-                streaming: true,
-              );
-              break;
-            case AiChatStreamEventType.usage:
-              streamedUsage = event.usage;
-              break;
-            case AiChatStreamEventType.reasoningDelta:
-            case AiChatStreamEventType.toolCallDelta:
-              break;
-          }
-        }).asFuture<void>();
-        final result = await streamResponse.result;
-        _setSessionCancelHandler(session.id, null);
-        final wasStopped =
-            result.wasCancelled || _isStopRequestedForSession(session.id);
-        if (wasStopped) {
-          final restored = restoreTargetMessage(
-            _sessionById(session.id) ?? session,
-          );
+        final liveAfterGeneration = _sessionById(session.id) ?? session;
+        if (_isStopRequestedForSession(session.id)) {
+          final restored = restoreTargetMessage(liveAfterGeneration);
           await _commitSessionLocked(restored);
           return true;
         }
-        final finalContent = _sanitizeVisibleModelContent(
-          result.reply.trim().isNotEmpty ? result.reply : buffer.toString(),
-        );
-        if (finalContent.trim().isEmpty) {
-          final restored = restoreTargetMessage(
-            _sessionById(session.id) ?? session,
-          );
+        if (!generationSucceeded) {
+          final restored = restoreTargetMessage(liveAfterGeneration);
           await _commitSessionLocked(restored);
+          final existingError = lastErrorMessageForSession(session.id);
+          if (existingError == null || existingError.trim().isEmpty) {
+            _setLastSendErrorMessage(
+              session.id,
+              'Failed to regenerate response.',
+            );
+          }
+          notifyListeners();
+          return false;
+        }
+        final mergedSession = _mergeRegeneratedBranchIntoResponseVariant(
+          session: liveAfterGeneration,
+          targetMessageId: messageId,
+          userMessageId: latestUserMessage.id,
+          baseVariants: baseVariants,
+          regenerationHiddenMarker: regenerationHiddenMarker,
+          runtimeContext: runtimeContext,
+        );
+        if (mergedSession == null) {
+          final restored = restoreTargetMessage(liveAfterGeneration);
+          await _commitSessionLocked(restored);
+          final generatedVisibleMessages = liveAfterGeneration.messages.where(
+            (message) =>
+                !originalMessageIds.contains(message.id) && message.isVisible,
+          );
+          final generatedToolActivity = generatedVisibleMessages.any(
+            (message) =>
+                message.kind == AiSessionMessageKind.toolCall ||
+                message.kind == AiSessionMessageKind.tool ||
+                message.kind == AiSessionMessageKind.mcp,
+          );
           _setLastSendErrorMessage(
             session.id,
-            'Regenerated response is empty.',
+            generatedToolActivity
+                ? 'Regeneration finished tool activity but did not produce a final assistant response.'
+                : 'Regenerated response is empty.',
           );
           notifyListeners();
           return false;
         }
-        final liveBeforeFinal = _sessionById(session.id) ?? session;
-        final liveTargetIndex = liveBeforeFinal.messages.indexWhere(
-          (message) => message.id == messageId,
-        );
-        final liveUserIndex = liveTargetIndex <= 0
-            ? -1
-            : _latestVisibleUserMessageIndexBefore(
-                liveBeforeFinal,
-                liveTargetIndex,
-              );
-        final generatedIntermediateMessageIds =
-            liveUserIndex >= 0 && liveTargetIndex > liveUserIndex
-            ? _responseIntermediateMessageIdsInRange(
-                liveBeforeFinal.messages,
-                userIndex: liveUserIndex,
-                targetIndex: liveTargetIndex,
-                includeVisible: true,
-                includeVariantHidden: false,
-              )
-            : const <String>[];
-        final nextVariants = <AiSessionMessageResponseVariant>[
-          ...baseVariants,
-          AiSessionMessageResponseVariant(
-            id: _idGenerator(),
-            content: finalContent,
-            createdAt: _clock().toUtc(),
-            modelId: model.id,
-            modelLabel: model.displayName,
-            usage: result.usage ?? streamedUsage,
-            intermediateMessageIds: generatedIntermediateMessageIds,
-          ),
-        ];
-        final nextIndex = nextVariants.length - 1;
-        final finalSession = updateTargetMessage(liveBeforeFinal, (message) {
-          return message.copyWith(
-            content: finalContent,
-            modelId: model.id,
-            modelLabel: model.displayName,
-            usage: result.usage ?? streamedUsage ?? message.usage,
-            metadata: _responseVariantMetadata(
-              message: message,
-              variants: nextVariants,
-              index: nextIndex,
-              streaming: false,
-              contentFormatKey: runtimeContext.messageContentFormat.storageKey,
-            ),
+        final committed = await _commitSessionLocked(mergedSession);
+        if (!committed) {
+          _setLastSendErrorMessage(
+            session.id,
+            'Failed to persist the regenerated response.',
           );
-        });
-        previewRegeneratedContent(finalContent, streaming: false, force: true);
-        return _commitSessionLocked(_rebuildSession(finalSession));
+          notifyListeners();
+          return false;
+        }
+        return true;
       } catch (error, stackTrace) {
         silentLog(
           'ai_session_controller',
@@ -3017,7 +3089,6 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return false;
       } finally {
-        previewStopwatch.stop();
         _setSessionCancelHandler(session.id, null);
         _clearSessionExecutionState(session.id);
         notifyListeners();

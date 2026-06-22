@@ -8114,6 +8114,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       messageId: message.id,
       model: selectedModel,
       runtimeContext: runtimeContext,
+      denyCommandRules: settingsController.aiDenyCommandRules,
+      requireWriteCommandConfirmation:
+          session.fullAccessPermission == true &&
+              session.templateId !=
+                  AiPromptTemplatePolicies.androidReverseExpertTemplateId
+          ? false
+          : settingsController.aiWriteCommandConfirmationEnabled,
+      confirmWriteCommand: (request) =>
+          _confirmWriteCommand(request, sessionId: session.id),
     );
     if (!mounted || regenerated) {
       return;
