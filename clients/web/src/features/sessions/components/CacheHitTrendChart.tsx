@@ -187,7 +187,6 @@ export default function CacheHitTrendChart({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoverIdx]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);

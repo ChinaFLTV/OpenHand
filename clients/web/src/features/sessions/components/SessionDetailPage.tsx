@@ -6587,7 +6587,6 @@ function ThroughputBars({ samples, cap, limitValue }: { samples: number[]; cap: 
       rafRef.current = null;
     };
     // 仅在 samples 内容 / 窗口长度变化时重启动画。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowed.join(','), n]);
 
   const displayed = displayedRef.current.length === n ? displayedRef.current : targets;

@@ -2812,7 +2812,6 @@ class AiSessionController extends ChangeNotifier {
           updatedAt: _clock().toUtc(),
         ),
       );
-      _debugSessionLog(sessionId, 'select message response variant');
       return _commitSessionLocked(updatedSession);
     });
   }
@@ -4400,7 +4399,6 @@ class AiSessionController extends ChangeNotifier {
     if (!canStopResponding(sessionId)) {
       return;
     }
-    _debugSessionLog(sessionId, 'stop_requested');
     final stopSignal = _sessionStopSignals.putIfAbsent(
       sessionId,
       Completer<void>.new,
@@ -4489,21 +4487,15 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       if (_isStopRequestedForSession(session.id)) {
-        _debugSessionLog(session.id, 'send_message_skipped_after_stop');
         _clearSessionExecutionState(session.id);
         notifyListeners();
         return true;
       }
 
-      _debugSessionLog(
-        session.id,
-        'send_message_start model=${model.modelId} chars=${normalizedContent.length} attachments=${normalizedAttachmentPaths.length}',
-      );
       _sessionPendingSendOperationIds.remove(session.id);
       _sessionCancelHandlers.remove(session.id);
       final existingStopSignal = _sessionStopSignals[session.id];
       if (existingStopSignal != null && existingStopSignal.isCompleted) {
-        _debugSessionLog(session.id, 'send_message_cancelled_before_phase');
         _clearSessionExecutionState(session.id);
         notifyListeners();
         return true;
@@ -4522,10 +4514,6 @@ class AiSessionController extends ChangeNotifier {
         if (!_isStopRequestedForSession(preflightSessionId)) {
           return false;
         }
-        _debugSessionLog(
-          preflightSessionId,
-          'send_message_preflight_stopped stage=$stage',
-        );
         return true;
       }
 
@@ -4914,7 +4902,6 @@ class AiSessionController extends ChangeNotifier {
         );
         return succeeded;
       } catch (error) {
-        _debugSessionLog(resolvedSessionId, 'send_message_failed error=$error');
         final current = _sessionById(resolvedSessionId);
         if (current != null) {
           final failedToolSession = _markPendingToolCallsFailed(
@@ -5016,10 +5003,6 @@ class AiSessionController extends ChangeNotifier {
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
   }) async {
-    _debugSessionLog(
-      session.id,
-      'assistant_conversation_start model=${model.modelId} latest_user_message_id=${latestUserMessageId ?? ''}',
-    );
     _truncationContinuationCount = 0;
     final assistantBootstrapStopwatch = Stopwatch()..start();
     final preRequestTimingsMs = <String, int>{};
@@ -5117,10 +5100,6 @@ class AiSessionController extends ChangeNotifier {
       runtimeContext.sequentialToolRoundLimit,
     );
     if (_isStopRequestedForSession(workingSession.id)) {
-      _debugSessionLog(
-        workingSession.id,
-        'assistant_conversation_stopped_before_prefetch',
-      );
       return true;
     }
     final docsPrefetchStopwatch = Stopwatch()..start();
@@ -5136,10 +5115,6 @@ class AiSessionController extends ChangeNotifier {
     preRequestTimingsMs['claude_docs_prefetch'] =
         docsPrefetchStopwatch.elapsedMilliseconds;
     if (_isStopRequestedForSession(workingSession.id)) {
-      _debugSessionLog(
-        workingSession.id,
-        'assistant_conversation_stopped_after_prefetch',
-      );
       return true;
     }
     if (primedSession == null) {
@@ -5153,7 +5128,6 @@ class AiSessionController extends ChangeNotifier {
         workingSession = latestSession;
       }
       if (_isStopRequestedForSession(workingSession.id)) {
-        _debugSessionLog(workingSession.id, 'assistant_conversation_stopped');
         return true;
       }
       toolCatalog = applyRuntimeLazyLoadingForCurrentSession();
@@ -5171,10 +5145,6 @@ class AiSessionController extends ChangeNotifier {
           ? _emptyToolCatalog
           : fullCatalogForDisplay;
       final toolsForRound = toolCatalogForRound.definitions;
-      _debugSessionLog(
-        workingSession.id,
-        'stream_round_start round=${toolRoundCount + 1} awaiting_plan_approval=${workingSession.awaitingPlanApproval} plan_mode=${workingSession.mode.storageValue} execution_approved=$planModeExecutionApprovedForSend recovery_inspection_required=$planModeRecoveryInspectionRequired tools=${toolsForRound.length}',
-      );
       final promptBuildStopwatch = Stopwatch()..start();
       final promptHistoryStopwatch = Stopwatch()..start();
       final sessionMessagesForPrompt =
@@ -5298,19 +5268,11 @@ class AiSessionController extends ChangeNotifier {
         );
       } catch (error) {
         if (_isStopRequestedForSession(workingSession.id)) {
-          _debugSessionLog(
-            workingSession.id,
-            'stream_open_cancelled round=${toolRoundCount + 1}',
-          );
           return true;
         }
         final errorStage = toolRoundCount > 0
             ? 'chat_continuation_request'
             : 'chat_request';
-        _debugSessionLog(
-          workingSession.id,
-          'stream_open_failed round=${toolRoundCount + 1} stage=$errorStage error=$error',
-        );
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: errorStage,
@@ -5333,10 +5295,6 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return false;
       }
-      _debugSessionLog(
-        workingSession.id,
-        'stream_opened round=${toolRoundCount + 1} prompt_messages=${promptResult.messages.length}',
-      );
       _setSessionCancelHandler(workingSession.id, streamResponse.cancel);
       if (_isStopRequestedForSession(workingSession.id) &&
           streamResponse.cancel != null) {
@@ -5359,7 +5317,6 @@ class AiSessionController extends ChangeNotifier {
       final assistantRawBuffer = StringBuffer();
       final reasoningRawBuffer = StringBuffer();
       Timer? previewTimer;
-      String? pendingPreviewReason;
       String? pendingReasoningContent;
       var hasPendingReasoningPreview = false;
       var hasPreviewedStreamDelta = preStreamTelemetryPreviewed;
@@ -5541,27 +5498,17 @@ class AiSessionController extends ChangeNotifier {
         );
       }
 
-      void flushPreview(String reason) {
+      void flushPreview() {
         previewTimer?.cancel();
         previewTimer = null;
-        pendingPreviewReason = null;
         materializePendingReasoningPreview();
-        final sessionToPreview = streamedSession;
-        final lastMessage = sessionToPreview.messages.isEmpty
-            ? null
-            : sessionToPreview.messages.last;
-        _debugSessionLog(
-          workingSession.id,
-          'stream_preview_flush reason=$reason messages=${sessionToPreview.messages.length} last_kind=${lastMessage?.kind.storageValue ?? 'none'} last_chars=${lastMessage?.characterCount ?? 0}',
-        );
-        _previewSession(sessionToPreview);
+        _previewSession(streamedSession);
         hasPreviewedStreamDelta = true;
       }
 
       void schedulePreview(String reason) {
-        pendingPreviewReason = reason;
         if (!hasPreviewedStreamDelta) {
-          flushPreview('immediate_$reason');
+          flushPreview();
           return;
         }
         if (previewTimer != null) {
@@ -5574,7 +5521,7 @@ class AiSessionController extends ChangeNotifier {
           if (_isDisposed) {
             return;
           }
-          flushPreview('throttled_${pendingPreviewReason ?? reason}');
+          flushPreview();
         });
       }
 
@@ -6032,7 +5979,7 @@ class AiSessionController extends ChangeNotifier {
           await eventDrain.timeout(const Duration(milliseconds: 800));
         } on TimeoutException {
           await subscription.cancel();
-          flushPreview('event_drain_timeout');
+          flushPreview();
         }
       } catch (error) {
         // Cancel the preview timer on any error path to prevent a stale timer
@@ -6071,8 +6018,7 @@ class AiSessionController extends ChangeNotifier {
         _setSessionCancelHandler(workingSession.id, null);
         materializePendingReasoningPreview();
         streamedSession = setReasoningStreamingState(streamedSession, false);
-        flushPreview('stream_failed');
-        _debugSessionLog(workingSession.id, 'stream_failed error=$error');
+        flushPreview();
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'chat_stream',
@@ -6334,7 +6280,7 @@ class AiSessionController extends ChangeNotifier {
             : result.reasoning,
       );
       streamedSession = setReasoningStreamingState(streamedSession, false);
-      flushPreview('stream_completed');
+      flushPreview();
       // Attach per-round telemetry (URL/method/headers/body/raw_response/
       // timings/environment + composed prompt) to the user+assistant+reasoning
       // messages produced this round so the audit dialog has real data to
@@ -6348,10 +6294,6 @@ class AiSessionController extends ChangeNotifier {
         userMessageId: activeLatestUserMessageId,
         assistantMessageId: assistantMessageId,
         reasoningMessageId: reasoningMessageId,
-      );
-      _debugSessionLog(
-        workingSession.id,
-        'stream_completed cancelled=${result.wasCancelled} finish_reason=${result.finishReason ?? 'unknown'} truncated=${result.wasTruncated} reply_chars=${result.reply.length} reasoning_chars=${result.reasoning.length} tool_calls=${result.toolCalls.length}',
       );
 
       if (didCancelStream) {
@@ -6431,7 +6373,6 @@ class AiSessionController extends ChangeNotifier {
           return false;
         }
         workingSession = cancelledSession;
-        _debugSessionLog(workingSession.id, 'stream_exit_cancelled');
         return true;
       }
 
@@ -6442,10 +6383,6 @@ class AiSessionController extends ChangeNotifier {
         finalReply: sanitizedFinalReply,
         hasToolCalls: result.toolCalls.isNotEmpty,
       )) {
-        _debugSessionLog(
-          workingSession.id,
-          'stream_empty_plan_continuation_reply round=${toolRoundCount + 1}',
-        );
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'chat_continuation_request',
@@ -6472,10 +6409,6 @@ class AiSessionController extends ChangeNotifier {
         hasToolCalls: result.toolCalls.isNotEmpty,
         executionApprovedForSend: planModeExecutionApprovedForSend,
       )) {
-        _debugSessionLog(
-          workingSession.id,
-          'stream_plain_text_plan_approval_request round=${toolRoundCount + 1}',
-        );
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'plan_mode_approval_request',
@@ -6510,12 +6443,6 @@ class AiSessionController extends ChangeNotifier {
           _truncationContinuationCount += 1;
           if (_truncationContinuationCount <=
               _effectiveMaxTruncationContinuations) {
-            _debugSessionLog(
-              workingSession.id,
-              'auto_continue_truncated round=${toolRoundCount + 1} '
-              'truncation_count=$_truncationContinuationCount '
-              'finish_reason=${result.finishReason}',
-            );
             // Add a status message so the user can see that auto-
             // continuation happened, then loop back to the stream.
             final statusMessage = AiSessionMessage.status(
@@ -6548,12 +6475,6 @@ class AiSessionController extends ChangeNotifier {
             activeLatestUserMessageId = null;
             continue;
           }
-          _debugSessionLog(
-            workingSession.id,
-            'truncation_continuation_limit_reached '
-            'count=$_truncationContinuationCount '
-            'limit=$_effectiveMaxTruncationContinuations',
-          );
         }
         // Reset the truncation counter once the model finishes normally.
         _truncationContinuationCount = 0;
@@ -6584,12 +6505,6 @@ class AiSessionController extends ChangeNotifier {
                 : 'The model returned an empty response '
                       '(finish_reason: ${result.finishReason}). '
                       'This may indicate a content filter or an API-side issue.';
-            _debugSessionLog(
-              workingSession.id,
-              'empty_response_detected round=${toolRoundCount + 1} '
-              'finish_reason=${result.finishReason ?? 'null'} '
-              'has_reply=$hasReply has_reasoning=$hasReasoning',
-            );
             await _emitStopFailureHook(
               sessionId: workingSession.id,
               stage: 'chat_stream',
@@ -6622,10 +6537,6 @@ class AiSessionController extends ChangeNotifier {
           }
           workingSession = settledPlanSession;
         }
-        _debugSessionLog(
-          workingSession.id,
-          'assistant_waiting_for_user reason=${workingSession.awaitingPlanApproval ? 'plan_approval' : 'completed'}',
-        );
         await _emitStopHooks(
           sessionId: workingSession.id,
           reason: workingSession.awaitingPlanApproval
@@ -6654,10 +6565,6 @@ class AiSessionController extends ChangeNotifier {
       _truncationContinuationCount = 0;
       toolCallCount += result.toolCalls.length;
       if (toolCallCount > singleRoundToolCallLimit) {
-        _debugSessionLog(
-          workingSession.id,
-          'tool_call_limit_exceeded count=$toolCallCount limit=$singleRoundToolCallLimit',
-        );
         final limitedToolSession = _markPendingToolCallsFailed(
           workingSession,
           detail:
@@ -6703,10 +6610,6 @@ class AiSessionController extends ChangeNotifier {
       }
       toolRoundCount += 1;
       if (toolRoundCount > sequentialToolRoundLimit) {
-        _debugSessionLog(
-          workingSession.id,
-          'tool_round_limit_exceeded count=$toolRoundCount limit=$sequentialToolRoundLimit',
-        );
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'tool_loop',
@@ -6772,10 +6675,6 @@ class AiSessionController extends ChangeNotifier {
         final executionError =
             lastErrorMessageForSession(workingSession.id) ??
             'Tool execution failed.';
-        _debugSessionLog(
-          workingSession.id,
-          'tool_execution_failed error=$executionError',
-        );
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'tool_execution',
@@ -6804,10 +6703,6 @@ class AiSessionController extends ChangeNotifier {
       }
       activeLatestUserMessageId = null;
       if (_isStopRequestedForSession(workingSession.id)) {
-        _debugSessionLog(
-          workingSession.id,
-          'assistant_conversation_stopped_after_tools',
-        );
         return true;
       }
     }
@@ -6832,10 +6727,6 @@ class AiSessionController extends ChangeNotifier {
       toolCatalog: toolCatalog,
       toolCalls: toolCalls,
     )) {
-      _debugSessionLog(
-        session.id,
-        'tool_execution_parallel count=${toolCalls.length}',
-      );
       return _executeToolCallsInParallel(
         session: session,
         model: model,
@@ -6854,10 +6745,6 @@ class AiSessionController extends ChangeNotifier {
       if (_isStopRequestedForSession(workingSession.id)) {
         return _commitCancelledPendingToolCalls(workingSession);
       }
-      _debugSessionLog(
-        workingSession.id,
-        'tool_execution_start tool=${toolCall.name} tool_call_id=${toolCall.id}',
-      );
       final command = _toolCallCommand(toolCall);
       final workingDirectory = _toolCallWorkingDirectory(toolCall);
       final toolCallMessageId = _resolveToolCallMessageId(
@@ -6994,20 +6881,12 @@ class AiSessionController extends ChangeNotifier {
         );
         return null;
       }
-      _debugSessionLog(
-        workingSession.id,
-        'tool_execution_finish tool=${toolCall.name} status=${result.status.storageValue}',
-      );
       final loadedToolNames = _absorbToolSearchLoadedNames(
         sessionId: workingSession.id,
         result: result,
       );
       if (loadedToolNames.isNotEmpty && refreshToolCatalog != null) {
         workingToolCatalog = refreshToolCatalog(workingSession);
-        _debugSessionLog(
-          workingSession.id,
-          'tool_execution_catalog_refreshed loaded_runtime_tools=${loadedToolNames.length}',
-        );
       }
       workingSession = await _runUserPostToolUseHook(
         session: workingSession,
@@ -7036,10 +6915,6 @@ class AiSessionController extends ChangeNotifier {
     var workingSession = session;
     final runningStates = <_RunningToolCallState>[];
     for (final toolCall in toolCalls) {
-      _debugSessionLog(
-        workingSession.id,
-        'tool_execution_start tool=${toolCall.name} tool_call_id=${toolCall.id}',
-      );
       final command = _toolCallCommand(toolCall);
       final workingDirectory = _toolCallWorkingDirectory(toolCall);
       final toolCallMessageId = _resolveToolCallMessageId(
@@ -7206,10 +7081,6 @@ class AiSessionController extends ChangeNotifier {
       return null;
     }
     for (final result in results) {
-      _debugSessionLog(
-        workingSession.id,
-        'tool_execution_finish status=${result.status.storageValue} command=${result.command}',
-      );
       _absorbToolSearchLoadedNames(
         sessionId: workingSession.id,
         result: result,
@@ -7635,10 +7506,6 @@ class AiSessionController extends ChangeNotifier {
       if (prefetchTimedOut ||
           result.status == BashToolExecutionStatus.timedOut ||
           result.status == BashToolExecutionStatus.cancelled) {
-        _debugSessionLog(
-          workingSession.id,
-          'claude_docs_prefetch_skipped url=${target.url} status=${result.status.storageValue}',
-        );
         return workingSession;
       }
       final messageId = _resolveToolCallMessageId(workingSession, toolCall);
@@ -8831,10 +8698,6 @@ class AiSessionController extends ChangeNotifier {
     final consecutiveFailures =
         _compressionFailureCountsBySession[session.id] ?? 0;
     if (consecutiveFailures >= _maxConsecutiveCompressionFailures) {
-      _debugSessionLog(
-        session.id,
-        'compression_circuit_breaker_skip consecutive_failures=$consecutiveFailures',
-      );
       return session;
     }
     final activeConversationMessages = session.activeConversationMessages
@@ -8889,10 +8752,6 @@ class AiSessionController extends ChangeNotifier {
     );
     final messagesToCompress = compressionWindow.messagesToCompress;
     if (messagesToCompress.isEmpty) {
-      _debugSessionLog(
-        session.id,
-        'compression_window_empty candidate_group_count=${candidateGroupsToCompress.length} max_context_tokens=${model.maxContextTokens ?? 0}',
-      );
       return session;
     }
     final discardedMessages = compressionWindow.discardedMessages;
@@ -8949,10 +8808,6 @@ class AiSessionController extends ChangeNotifier {
             ...retryWindow.discardedMessages,
           ];
           retryMessagesToCompress = retryWindow.messagesToCompress;
-          _debugSessionLog(
-            session.id,
-            'compression_prompt_too_long_retry attempt=$promptTooLongRetryCount dropped=${retryWindow.discardedMessages.length} remaining=${retryMessagesToCompress.length}',
-          );
         }
       }
       final sourceMessages = <AiSessionMessage>[
@@ -9010,10 +8865,6 @@ class AiSessionController extends ChangeNotifier {
         (message) => message.id == anchorMessageId,
       );
       if (insertionIndex == -1) {
-        _debugSessionLog(
-          session.id,
-          'compression_insert_anchor_missing anchor_message_id=$anchorMessageId',
-        );
         return session;
       }
       final updatedMessages = <AiSessionMessage>[
@@ -11207,10 +11058,6 @@ $tail''';
     if (updatedCount == 0) {
       return session;
     }
-    _debugSessionLog(
-      session.id,
-      'tool_call_${debugLabel}_pending_messages count=$updatedCount',
-    );
     return _syncPlanHistory(
       session.copyWith(messages: updatedMessages, updatedAt: finishedAt),
       trackedAt: finishedAt,
@@ -11264,10 +11111,8 @@ $tail''';
 
   void _setSessionSendPhase(String sessionId, AiSendPhase phase) {
     if (phase != AiSendPhase.idle && _isStopRequestedForSession(sessionId)) {
-      _debugSessionLog(sessionId, 'phase_ignored_after_stop=$phase');
       return;
     }
-    _debugSessionLog(sessionId, 'phase=$phase');
     _sessionSendPhases[sessionId] = phase;
   }
 
@@ -11296,16 +11141,11 @@ $tail''';
   }
 
   void _clearSessionExecutionState(String sessionId) {
-    _debugSessionLog(sessionId, 'execution_state_cleared');
     _clearSessionSendPhase(sessionId);
     _sessionPendingSendOperationIds.remove(sessionId);
     _approvalPreviousPhases.remove(sessionId);
     _sessionCancelHandlers.remove(sessionId);
     _sessionStopSignals.remove(sessionId);
-  }
-
-  void _debugSessionLog(String sessionId, String message) {
-    return;
   }
 
   // ───────────────────────────────────────────────────────────────────────

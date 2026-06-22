@@ -226,8 +226,8 @@ const List<_FridaSnippetPreset> _kFridaSnippetPresets = <_FridaSnippetPreset>[
         'assets/prompts/android_reverse_expert/snippets/hook_native_func.js',
     labelZh: 'Native 函数',
     labelEn: 'Native function',
-    descZh: 'JNI/so 入参 hexdump',
-    descEn: 'JNI/so args and hexdump',
+    descZh: 'JNI/so 入参与返回值',
+    descEn: 'JNI/so args and return value',
   ),
   _FridaSnippetPreset(
     id: 'webview',

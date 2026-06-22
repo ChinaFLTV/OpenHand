@@ -59,7 +59,7 @@
 <frida_hook_protocol>
 - Hook 脚本从 `assets/prompts/android_reverse_expert/snippets/` 加载：
   - `hook_java_method.js` — Hook Java 方法入参/返回值/调用栈
-  - `hook_native_func.js` — Hook Native (JNI/so) 函数，NativePointer + hexdump
+  - `hook_native_func.js` — Hook Native (JNI/so) 函数，打印 NativePointer、参数、返回值
   - `hook_okhttp.js`     — Hook OkHttp3 onResponse，打 body + headers
   - `hook_ssl_pinning.js`— 绕过 X509TrustManager / OkHttp CertificatePinner
   - `hook_aes_cbc.js`    — Hook javax.crypto.Cipher doFinal，截 AES/CBC 明文

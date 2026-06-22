@@ -144,7 +144,6 @@ export function PopMenu({ items, trigger, wrapperClassName = '', align = 'right'
     if (Math.abs(desiredLeft - pos.left) > 1) {
       setPos((prev) => (prev ? { ...prev, left: Math.max(VIEWPORT_PADDING, desiredLeft) } : prev));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuVisible, pos?.width]);
 
   const menuNode = menuVisible

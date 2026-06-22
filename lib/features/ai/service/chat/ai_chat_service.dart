@@ -10,7 +10,6 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/byte_size_format.dart';
-import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
@@ -233,7 +232,6 @@ class AiChatService implements AiChatClient {
 
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';
-  static const Duration _streamIdleWarningInterval = Duration(seconds: 4);
 
   /// Defensive cap for the SSE line buffer. A well-behaved server delimits
   /// events with `\n\n`, keeping per-block size in the KB range. If a buggy
@@ -706,9 +704,6 @@ class AiChatService implements AiChatClient {
     }
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     if (!adapter.supportsServerStreaming) {
-      _debugAiStreamLog(
-        'model=${model.modelId} using synthetic stream adapter=${adapter.runtimeType}',
-      );
       return _sendMessageAsSyntheticStream(
         model: model,
         messages: messages,
@@ -792,9 +787,6 @@ class AiChatService implements AiChatClient {
           cancelSignal.then((_) => _cancelledStreamSentinel),
         ]);
         if (identical(firstResult, _cancelledStreamSentinel)) {
-          _debugAiStreamLog(
-            'model=${model.modelId} stream_cancelled_before_connect',
-          );
           unawaited(
             streamedResponseFuture
                 .then((response) => response.stream.drain<void>())
@@ -845,9 +837,6 @@ class AiChatService implements AiChatClient {
         telemetry: telemetrySnapshot(error: message),
       );
     }
-    _debugAiStreamLog(
-      'model=${model.modelId} stream_connected status=${streamedResponse.statusCode} url=${streamedResponse.request?.url ?? blueprint.url}',
-    );
 
     if (streamedResponse.statusCode < 200 ||
         streamedResponse.statusCode >= 300) {
@@ -873,42 +862,9 @@ class AiChatService implements AiChatClient {
     String? finishReason;
     final lineBuffer = StringBuffer();
     StreamSubscription<String>? responseSubscription;
-    Timer? idleWarningTimer;
-    var idleWarningBucket = 0;
-    var lastActivityAt = DateTime.now().toUtc();
-    var lastActivityLabel = 'connected';
 
     bool canEmitEvents() {
       return !resultCompleter.isCompleted && !eventController.isClosed;
-    }
-
-    void markStreamActivity(String label) {
-      lastActivityAt = DateTime.now().toUtc();
-      lastActivityLabel = label;
-      idleWarningBucket = 0;
-    }
-
-    void startIdleWarningTimer() {
-      idleWarningTimer?.cancel();
-      idleWarningTimer = startSafePeriodicTimer(_streamIdleWarningInterval, (
-        _,
-      ) {
-        if (resultCompleter.isCompleted) {
-          return;
-        }
-        final idleMs = DateTime.now()
-            .toUtc()
-            .difference(lastActivityAt)
-            .inMilliseconds;
-        final nextBucket = idleMs ~/ _streamIdleWarningInterval.inMilliseconds;
-        if (nextBucket <= 0 || nextBucket == idleWarningBucket) {
-          return;
-        }
-        idleWarningBucket = nextBucket;
-        _debugAiStreamLog(
-          'model=${model.modelId} stream_idle_warning idle_ms=$idleMs last_activity=$lastActivityLabel line_buffer=${lineBuffer.length} raw_chars=${rawResponseBuffer.length} reply_chars=${textBuffer.length} reasoning_chars=${reasoningBuffer.length} tool_calls=${toolCalls.length}',
-        );
-      });
     }
 
     void emitEvent(AiChatStreamEvent event) {
@@ -930,10 +886,6 @@ class AiChatService implements AiChatClient {
           : '\n\n';
       final delta = '$prefix$markdown\n';
       textBuffer.write(delta);
-      markStreamActivity('generated_media');
-      _debugAiStreamLog(
-        'model=${model.modelId} generated_media kind=${media.kind} url=${media.url}',
-      );
       emitEvent(AiChatStreamEvent.textDelta(delta));
     }
 
@@ -941,8 +893,6 @@ class AiChatService implements AiChatClient {
       if (resultCompleter.isCompleted) {
         return;
       }
-      idleWarningTimer?.cancel();
-      idleWarningTimer = null;
       final resolvedToolCalls = toolCalls.entries.toList(growable: false)
         ..sort((left, right) => left.key.compareTo(right.key));
       final streamedReply = textBuffer.toString().trim();
@@ -990,9 +940,6 @@ class AiChatService implements AiChatClient {
               .difference(streamStartedAt)
               .inMilliseconds,
         ),
-      );
-      _debugAiStreamLog(
-        'model=${model.modelId} stream_complete reason=$reason cancelled=$wasCancelled finish_reason=${effectiveFinishReason ?? 'unknown'} trailing_incomplete_dsml=${dsmlExtraction.hasTrailingIncompleteMarkup} reply_chars=${textBuffer.length} reasoning_chars=${reasoningBuffer.length} tool_calls=${resolvedToolCalls.length}',
       );
       if (!eventController.isClosed) {
         unawaited(eventController.close());
@@ -1053,11 +1000,6 @@ class AiChatService implements AiChatClient {
           errorMessage = '$errorField';
         }
         if (errorMessage.isNotEmpty) {
-          idleWarningTimer?.cancel();
-          idleWarningTimer = null;
-          _debugAiStreamLog(
-            'model=${model.modelId} in_stream_error error=$errorMessage',
-          );
           if (!resultCompleter.isCompleted) {
             resultCompleter.completeError(
               AiChatException(
@@ -1090,14 +1032,12 @@ class AiChatService implements AiChatClient {
           toolCalls: toolCalls,
           usage: () => usage,
           setUsage: (value) => usage = value,
-          markStreamActivity: markStreamActivity,
           emitEvent: emitEvent,
           completeStreamResult: (reason) => completeStreamResult(reason),
           cancelSubscription: () {
             unawaited(responseSubscription?.cancel());
           },
           setFinishReason: (value) => finishReason = value,
-          model: model,
         );
       } else if (isGeminiProtocol) {
         _processGeminiStreamEvent(
@@ -1107,10 +1047,8 @@ class AiChatService implements AiChatClient {
           toolCalls: toolCalls,
           usage: () => usage,
           setUsage: (value) => usage = value,
-          markStreamActivity: markStreamActivity,
           emitEvent: emitEvent,
           setFinishReason: (value) => finishReason = value,
-          model: model,
         );
       } else {
         _processOpenAiStreamEvent(
@@ -1120,25 +1058,19 @@ class AiChatService implements AiChatClient {
           toolCalls: toolCalls,
           usage: () => usage,
           setUsage: (value) => usage = value,
-          markStreamActivity: markStreamActivity,
           emitEvent: emitEvent,
           setFinishReason: (value) => finishReason = value,
-          model: model,
         );
       }
     }
 
     void processChunk(String chunk) {
-      markStreamActivity('chunk');
       lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
       // Defensive cap: if the buffer exceeds the threshold without a
       // `\n\n` delimiter, the upstream is misbehaving (or sending a single
       // event larger than any practical SSE payload). Drop the pending
       // bytes so we don't keep growing memory while the connection idles.
       if (lineBuffer.length > maxStreamLineBufferBytes) {
-        _debugAiStreamLog(
-          'model=${model.modelId} stream_line_buffer_overflow_dropped bytes=${lineBuffer.length}',
-        );
         lineBuffer.clear();
         return;
       }
@@ -1167,11 +1099,6 @@ class AiChatService implements AiChatClient {
         .listen(
           processChunk,
           onError: (Object error, StackTrace stackTrace) {
-            idleWarningTimer?.cancel();
-            idleWarningTimer = null;
-            _debugAiStreamLog(
-              'model=${model.modelId} stream_error error=$error',
-            );
             if (!resultCompleter.isCompleted) {
               final message = error is TimeoutException
                   ? AiTransportDiagnosticMessages.timeout(streamIdleTimeout)
@@ -1193,8 +1120,6 @@ class AiChatService implements AiChatClient {
             }
           },
           onDone: () {
-            idleWarningTimer?.cancel();
-            idleWarningTimer = null;
             if (lineBuffer.isNotEmpty) {
               processEventBlock(lineBuffer.toString());
             }
@@ -1202,15 +1127,11 @@ class AiChatService implements AiChatClient {
           },
           cancelOnError: true,
         );
-    startIdleWarningTimer();
 
     return AiChatStreamingResponse(
       events: eventController.stream,
       result: resultCompleter.future,
       cancel: () async {
-        idleWarningTimer?.cancel();
-        idleWarningTimer = null;
-        _debugAiStreamLog('model=${model.modelId} cancel_requested');
         completeStreamResult('cancelled', wasCancelled: true);
         await responseSubscription?.cancel();
       },
@@ -1615,10 +1536,8 @@ void _processOpenAiStreamEvent(
   required Map<int, _MutableToolCall> toolCalls,
   required AiTokenUsage? Function() usage,
   required void Function(AiTokenUsage?) setUsage,
-  required void Function(String) markStreamActivity,
   required void Function(AiChatStreamEvent) emitEvent,
   required void Function(String) setFinishReason,
-  required AiModelConfig model,
 }) {
   final usageJson = decoded['usage'];
   if (usageJson is Map || usageJson is Map<String, Object?>) {
@@ -1633,14 +1552,6 @@ void _processOpenAiStreamEvent(
       // very first/last chunk.
       final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
       setUsage(merged);
-      markStreamActivity('usage');
-      _debugAiStreamLog(
-        'model=${model.modelId} usage prompt=${merged.promptTokens ?? 0} '
-        'completion=${merged.completionTokens ?? 0} '
-        'total=${merged.totalTokens ?? 0} '
-        'cache_read=${merged.cacheReadTokens ?? 0} '
-        'cache_write=${merged.cacheCreationTokens ?? 0}',
-      );
       emitEvent(AiChatStreamEvent.usage(merged));
     }
   }
@@ -1658,10 +1569,6 @@ void _processOpenAiStreamEvent(
     final choiceFinishReason = '${choice['finish_reason'] ?? ''}'.trim();
     if (choiceFinishReason.isNotEmpty) {
       setFinishReason(choiceFinishReason);
-      markStreamActivity('finish_reason');
-      _debugAiStreamLog(
-        'model=${model.modelId} finish_reason=$choiceFinishReason',
-      );
     }
     final delta = choice['delta'];
     if (delta is! Map<String, Object?>) {
@@ -1670,19 +1577,11 @@ void _processOpenAiStreamEvent(
     final textDelta = _extractStreamText(delta['content']);
     if (textDelta.isNotEmpty) {
       textBuffer.write(textDelta);
-      markStreamActivity('text_delta');
-      _debugAiStreamLog(
-        'model=${model.modelId} text_delta chars=${textDelta.length}',
-      );
       emitEvent(AiChatStreamEvent.textDelta(textDelta));
     }
     final reasoningDelta = _extractReasoningText(delta);
     if (reasoningDelta.isNotEmpty) {
       reasoningBuffer.write(reasoningDelta);
-      markStreamActivity('reasoning_delta');
-      _debugAiStreamLog(
-        'model=${model.modelId} reasoning_delta chars=${reasoningDelta.length}',
-      );
       emitEvent(AiChatStreamEvent.reasoningDelta(reasoningDelta));
     }
     final toolCallJson = delta['tool_calls'];
@@ -1735,10 +1634,6 @@ void _processOpenAiStreamEvent(
         if (argumentsFragment.isNotEmpty) {
           entry.argumentsBuffer.write(argumentsFragment);
         }
-        markStreamActivity('tool_call_delta');
-        _debugAiStreamLog(
-          'model=${model.modelId} tool_call_delta index=$index name=${entry.name} arg_chars=${argumentsFragment.length}',
-        );
         emitEvent(
           AiChatStreamEvent.toolCallDelta(
             AiToolCallDelta(
@@ -1771,12 +1666,10 @@ void _processClaudeStreamEvent(
   required Map<int, _MutableToolCall> toolCalls,
   required AiTokenUsage? Function() usage,
   required void Function(AiTokenUsage?) setUsage,
-  required void Function(String) markStreamActivity,
   required void Function(AiChatStreamEvent) emitEvent,
   required void Function(String) completeStreamResult,
   required void Function() cancelSubscription,
   required void Function(String) setFinishReason,
-  required AiModelConfig model,
 }) {
   final type = '${decoded['type'] ?? ''}'.trim();
 
@@ -1797,15 +1690,13 @@ void _processClaudeStreamEvent(
               parsedUsage,
             );
             setUsage(merged);
-            markStreamActivity('usage');
             emitEvent(AiChatStreamEvent.usage(merged));
           }
         }
       }
 
     case 'ping':
-      // Heartbeat — just mark activity.
-      markStreamActivity('ping');
+      break;
 
     case 'content_block_start':
       // Track tool_use blocks so we capture the tool id and name.
@@ -1821,7 +1712,6 @@ void _processClaudeStreamEvent(
           if (name.isNotEmpty) entry.name = name;
         }
       }
-      markStreamActivity('content_block_start');
 
     case 'content_block_delta':
       final delta = decoded['delta'];
@@ -1831,25 +1721,16 @@ void _processClaudeStreamEvent(
         final text = '${delta['text'] ?? ''}';
         if (text.isNotEmpty) {
           textBuffer.write(text);
-          markStreamActivity('text_delta');
-          _debugAiStreamLog(
-            'model=${model.modelId} claude_text_delta chars=${text.length}',
-          );
           emitEvent(AiChatStreamEvent.textDelta(text));
         }
       } else if (deltaType == 'thinking_delta') {
         final thinking = '${delta['thinking'] ?? ''}';
         if (thinking.isNotEmpty) {
           reasoningBuffer.write(thinking);
-          markStreamActivity('reasoning_delta');
-          _debugAiStreamLog(
-            'model=${model.modelId} claude_thinking_delta chars=${thinking.length}',
-          );
           emitEvent(AiChatStreamEvent.reasoningDelta(thinking));
         }
       } else if (deltaType == 'signature_delta') {
         // Signature blocks — ignore for now.
-        markStreamActivity('signature_delta');
       } else if (deltaType == 'input_json_delta') {
         // Tool call argument fragment (Claude tool_use streaming).
         final partialJson = '${delta['partial_json'] ?? ''}';
@@ -1857,7 +1738,6 @@ void _processClaudeStreamEvent(
         final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
         if (partialJson.isNotEmpty) {
           entry.argumentsBuffer.write(partialJson);
-          markStreamActivity('tool_call_delta');
           emitEvent(
             AiChatStreamEvent.toolCallDelta(
               AiToolCallDelta(
@@ -1872,7 +1752,7 @@ void _processClaudeStreamEvent(
       }
 
     case 'content_block_stop':
-      markStreamActivity('content_block_stop');
+      break;
 
     case 'message_delta':
       // Final usage and stop_reason.
@@ -1881,10 +1761,6 @@ void _processClaudeStreamEvent(
         final stopReason = '${deltaPayload['stop_reason'] ?? ''}'.trim();
         if (stopReason.isNotEmpty) {
           setFinishReason(stopReason);
-          markStreamActivity('stop_reason');
-          _debugAiStreamLog(
-            'model=${model.modelId} claude_stop_reason=$stopReason',
-          );
         }
       }
       final usageJson = decoded['usage'];
@@ -1898,49 +1774,21 @@ void _processClaudeStreamEvent(
           // preserved even when message_delta only ships output_tokens.
           final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
           setUsage(merged);
-          markStreamActivity('usage');
-          _debugAiStreamLog(
-            'model=${model.modelId} claude_usage '
-            'input=${merged.promptTokens ?? 0} '
-            'output=${merged.completionTokens ?? 0} '
-            'cache_read=${merged.cacheReadTokens ?? 0} '
-            'cache_write=${merged.cacheCreationTokens ?? 0}',
-          );
           emitEvent(AiChatStreamEvent.usage(merged));
         }
       }
 
     case 'message_stop':
-      markStreamActivity('message_stop');
       completeStreamResult('claude_message_stop');
       cancelSubscription();
 
     case 'error':
-      // Claude sends error events with {"type": "error", "error": {...}}.
-      final errorPayload = decoded['error'];
-      String errorMessage = '';
-      if (errorPayload is Map<String, Object?>) {
-        errorMessage = '${errorPayload['message'] ?? ''}'.trim();
-        if (errorMessage.isEmpty) {
-          errorMessage = '$errorPayload';
-        }
-      } else if (errorPayload != null) {
-        errorMessage = '$errorPayload';
-      }
-      if (errorMessage.isNotEmpty) {
-        _debugAiStreamLog(
-          'model=${model.modelId} claude_error error=$errorMessage',
-        );
-      }
-      // The general in-stream error detection in processEventBlock will
-      // handle this case since the decoded map has an 'error' key.
-      markStreamActivity('error');
+      // The general in-stream error detection in processEventBlock handles
+      // this case because the decoded map has an `error` key.
+      break;
 
     default:
-      // Unknown event type — log and ignore.
-      _debugAiStreamLog(
-        'model=${model.modelId} claude_unknown_event type=$type',
-      );
+      break;
   }
 }
 
@@ -1970,10 +1818,8 @@ void _processGeminiStreamEvent(
   required Map<int, _MutableToolCall> toolCalls,
   required AiTokenUsage? Function() usage,
   required void Function(AiTokenUsage?) setUsage,
-  required void Function(String) markStreamActivity,
   required void Function(AiChatStreamEvent) emitEvent,
   required void Function(String) setFinishReason,
-  required AiModelConfig model,
 }) {
   // Parse usage metadata.
   final usageJson = decoded['usageMetadata'];
@@ -1985,7 +1831,6 @@ void _processGeminiStreamEvent(
     if (parsedUsage != null && !parsedUsage.isEmpty) {
       final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
       setUsage(merged);
-      markStreamActivity('usage');
       emitEvent(AiChatStreamEvent.usage(merged));
     }
   }
@@ -2003,10 +1848,6 @@ void _processGeminiStreamEvent(
           ? 'length'
           : geminiFinishReason.toLowerCase();
       setFinishReason(normalized);
-      markStreamActivity('finish_reason');
-      _debugAiStreamLog(
-        'model=${model.modelId} gemini_finish_reason=$geminiFinishReason',
-      );
     }
     final content = candidate['content'];
     if (content is! Map<String, Object?>) continue;
@@ -2020,10 +1861,6 @@ void _processGeminiStreamEvent(
       final text = '${part['text'] ?? ''}'.trim();
       if (text.isNotEmpty) {
         textBuffer.write(text);
-        markStreamActivity('text_delta');
-        _debugAiStreamLog(
-          'model=${model.modelId} gemini_text_delta chars=${text.length}',
-        );
         emitEvent(AiChatStreamEvent.textDelta(text));
         continue;
       }
@@ -2034,7 +1871,6 @@ void _processGeminiStreamEvent(
         final thinkingText = '${part['text'] ?? ''}';
         if (thinkingText.isNotEmpty) {
           reasoningBuffer.write(thinkingText);
-          markStreamActivity('reasoning_delta');
           emitEvent(AiChatStreamEvent.reasoningDelta(thinkingText));
           continue;
         }
@@ -2052,7 +1888,6 @@ void _processGeminiStreamEvent(
           final args = functionCall['args'];
           final argsJson = args is Map ? jsonEncode(args) : '{}';
           entry.argumentsBuffer.write(argsJson);
-          markStreamActivity('tool_call_delta');
           emitEvent(
             AiChatStreamEvent.toolCallDelta(
               AiToolCallDelta(
@@ -2067,10 +1902,6 @@ void _processGeminiStreamEvent(
       }
     }
   }
-}
-
-void _debugAiStreamLog(String message) {
-  return;
 }
 
 class AiChatException implements Exception {
