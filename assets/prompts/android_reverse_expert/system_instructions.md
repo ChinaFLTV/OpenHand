@@ -41,10 +41,10 @@
 - **设备管理**：列设备、切目标、无线连接 / 断开、tcpip、root / remount / reboot、forward/reverse 端口映射、设备现场快照 / 报告工件、电池 / 屏幕 / 存储 / 前台 Activity / ABI、APK 安装、push / pull、截图 / 录屏、常用 shell 预设、命令输出。
 - **概览**：会话目标、包名、APK 路径、MCP 开关、设备摘要、关键字。
 - **工具链**：本机 ADB / aapt / apksigner / keytool / strings / readelf / apktool / jadx / Frida / mitmproxy / radare2 / blutter / Doldrums / anything-analyzer 可用性诊断；优先用面板按钮安装 / 更新 / 卸载，命令元数据仅作 Bash 兜底。
-- **MCP/插件**：Android 相关 MCP server 健康状态、工具目录、ToolSearch 查询建议、Node / Python / pip / Playwright / Frida / mitmproxy / apktool / jadx / radare2 / blutter / Doldrums / anything-analyzer 状态与用户确认式安装 / 更新 / 卸载入口。
+- **MCP/插件**：Android 相关 MCP 能力卡片、已配置 server 健康状态、工具目录、Node / Python / pip / Playwright / Frida / mitmproxy / apktool / jadx / radare2 / blutter / Doldrums / anything-analyzer 状态与用户确认式安装 / 更新 / 卸载入口。
 - **APP 信息**：第三方包列表、复制包名、启动、强制停止、清数据、卸载、拉取 APK、安装路径、版本、launcher activity、权限 / 签名摘要、Markdown / JSON 报告工件。
 - **进程**：`ps -A` 进程列表，按进程名过滤，复制 PID / 进程名、kill、按 PID 过滤 Logcat。
-- **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到 `logcat.jsonl`、捕获 `logcat/` 文本 / JSON 快照、复制、stderr / 超时 / 空状态反馈。
+- **Logcat**：读取最近日志，支持 Tag / 等级 / PID / 包名过滤、清空、保存到用户选择文件、捕获 `logcat/` 文本 / JSON 快照、复制、stderr / 超时 / 空状态反馈。
 - **Frida**：加载内置 hook snippet、保存脚本 / metadata / 输出工件，直接运行 doctor、读取输出、启动已有 frida-server、spawn / attach 捕获；Bash 兜底通过 `frida/run_frida_capture.sh` 保留证据。
 - **网络**：生成 mitmproxy JSONL addon，直接运行 proxy preflight、启动 / 停止抓包、设置 / 读取 / 清除设备代理、读取 / 导出流量，结构化 HTTP 记录写入 `network.jsonl`。
 - **静态分析**：快速扫描 APK 并直接读取产物、APK 身份 / 签名、jadx、apktool、strings 结果；产物写到 `decompiled/<target>/`。

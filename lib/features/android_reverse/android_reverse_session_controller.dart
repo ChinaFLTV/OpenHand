@@ -2278,7 +2278,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 'type': 'stdio',
                 'transport': 'stdio',
                 'command': 'npx',
-                'args': const <String>['-y', '<adb-mcp-package>'],
+                'args': const <String>[
+                  '-y',
+                  '@landicefu/android-adb-mcp-server',
+                ],
               },
             },
           },
@@ -2294,7 +2297,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 'type': 'stdio',
                 'transport': 'stdio',
                 'command': 'npx',
-                'args': const <String>['-y', '<frida-mcp-package>'],
+                'args': const <String>['-y', 'frida-mcp'],
               },
             },
           },
@@ -2397,10 +2400,10 @@ Use this checklist before relying on Android reverse MCP tools.
 
 ## Read first
 
-1. Open `openhand_android_reverse_mcp_templates.json`.
-2. Copy only the server templates you intend to use into the global MCP config.
-3. Replace placeholders such as `<adb-mcp-package>`, `<frida-mcp-package>`, and `<port>`.
-4. Refresh the global MCP panel and confirm each server is enabled and healthy.
+1. Prefer the dashboard MCP capability cards to install, update, or uninstall supported servers.
+2. Use `openhand_android_reverse_mcp_templates.json` only as fallback metadata.
+3. For local HTTP/SSE servers, fill the concrete URL before saving.
+4. Refresh the MCP panel and confirm each server is enabled and healthy.
 5. Use only exact `mcp__*` tool names shown in the Tool Catalog or ToolSearch result.
 
 ## Recommended servers

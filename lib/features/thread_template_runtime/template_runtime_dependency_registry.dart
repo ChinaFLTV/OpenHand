@@ -271,9 +271,10 @@ class TemplateRuntimeDependencyRegistry {
         descriptionEn:
             'Device listing, adb shell, logcat, port forwarding, and APK actions.',
         keywords: <String>['adb', 'android', 'device', 'logcat', 'shell'],
+        packageName: '@landicefu/android-adb-mcp-server',
         suggestedServerName: 'Android ADB MCP',
         suggestedCommand: 'npx',
-        suggestedArgs: <String>['--yes', '<adb-mcp-package>'],
+        suggestedArgs: <String>['--yes', '@landicefu/android-adb-mcp-server'],
       ),
       TemplateRuntimeMcpCapabilitySpec(
         id: 'android_frida_mcp',
@@ -282,9 +283,10 @@ class TemplateRuntimeDependencyRegistry {
         descriptionZh: 'Frida 注入、Hook 与运行时动态验证。',
         descriptionEn: 'Frida injection, hooks, and runtime verification.',
         keywords: <String>['frida', 'objection', 'hook', 'spawn'],
+        packageName: 'frida-mcp',
         suggestedServerName: 'Android Frida MCP',
         suggestedCommand: 'npx',
-        suggestedArgs: <String>['--yes', '<frida-mcp-package>'],
+        suggestedArgs: <String>['--yes', 'frida-mcp'],
       ),
       TemplateRuntimeMcpCapabilitySpec(
         id: 'android_static_mcp',

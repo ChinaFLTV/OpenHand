@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -37,15 +39,16 @@ const double _kDashboardDialogMaxHeight = 720;
 const double _kShellOutputMaxHeight = 220;
 const double _kIconButtonGap = 8;
 const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(16);
-const int _kDefaultLogcatLines = 300;
-const int _kAutoLogcatLines = 120;
-const int _kMaxBufferedLogcatLines = 2400;
+const int _kDefaultLogcatLines = 200;
+const int _kAutoLogcatLines = 80;
+const int _kDefaultLogcatCacheLimit = 200;
+const int _kMinLogcatCacheLimit = 50;
+const int _kMaxLogcatCacheLimit = 2000;
 const int _kShellHistoryLimit = 6;
 const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
 const int _kMcpRuntimeToolNameLimit = 64;
 const int _kMcpToolPreviewLimit = 8;
-const int _kMcpToolSearchLimit = 8;
 const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
@@ -74,8 +77,6 @@ const List<String> _kAndroidMcpKeywords =
     TemplateRuntimeDependencyRegistry.androidReverseMcpKeywords;
 const List<String> _kAndroidRuntimePluginIds =
     TemplateRuntimeDependencyRegistry.androidReversePluginIds;
-const String _kAndroidMcpToolSearchFallbackQuery =
-    TemplateRuntimeDependencyRegistry.androidReverseToolSearchFallbackQuery;
 const OpenHandAnimationTransitionProfile _kAndroidDashboardMotionProfile =
     OpenHandAnimationTransitionProfile(
       fadeScaleBegin: 0.88,
@@ -88,31 +89,6 @@ const OpenHandAnimationTransitionProfile _kAndroidDashboardMotionProfile =
       slideLeftOffset: Offset(-0.20, 0),
       slideRightOffset: Offset(0.20, 0),
     );
-const String _kAndroidStdioMcpConfigTemplate = '''
-{
-  "mcpServers": {
-    "android-adb": {
-      "enabled": true,
-      "probeEnabled": true,
-      "type": "stdio",
-      "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "<adb-mcp-package>"]
-    }
-  }
-}''';
-const String _kAndroidHttpMcpConfigTemplate = '''
-{
-  "mcpServers": {
-    "ida-pro": {
-      "enabled": true,
-      "probeEnabled": true,
-      "type": "sse",
-      "transport": "sse",
-      "url": "http://127.0.0.1:<port>/sse"
-    }
-  }
-}''';
 
 Future<void> showAndroidReverseDashboardDialog(
   BuildContext context, {
@@ -186,6 +162,8 @@ enum _RuntimePluginAction {
   disable,
   uninstall,
 }
+
+enum _LogcatLineAction { copy, delete }
 
 class _FridaSnippetPreset {
   const _FridaSnippetPreset({
@@ -327,6 +305,7 @@ class _AndroidReverseDashboardDialogState
   _Tab _currentTab = _Tab.devices;
   late final AndroidReverseSessionController _ctrl;
   final _logcatLines = <String>[];
+  final _logcatParseCache = <String, _ParsedLogcatLine>{};
   final _shellHistory = <String>[];
   Timer? _logcatTimer;
   final ScrollController _logcatScrollController = ScrollController();
@@ -370,6 +349,8 @@ class _AndroidReverseDashboardDialogState
   bool _writingMcpArtifacts = false;
   bool _makingEvidenceBundle = false;
   bool _capturingLogcatSnapshot = false;
+  bool _clearingLogcat = false;
+  bool _savingLogcatFile = false;
   bool _loadingDeviceDetails = false;
   bool _savingFridaScript = false;
   bool _logcatPackageFilterEnabled = false;
@@ -382,6 +363,8 @@ class _AndroidReverseDashboardDialogState
   AdbCommandResult? _lastToolchainCommandResult;
   String? _logcatError;
   String _logcatLevel = 'V';
+  int _logcatCacheLimit = _kDefaultLogcatCacheLimit;
+  int _logcatMutationGeneration = 0;
   Map<String, String> _deviceProps = const <String, String>{};
   List<String> _forwardRows = const <String>[];
   List<String> _reverseRows = const <String>[];
@@ -798,6 +781,7 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _fetchLogcat({bool append = false, bool silent = false}) async {
     if (_loadingLogcat) return;
+    final generation = _logcatMutationGeneration;
     setState(() {
       _loadingLogcat = true;
       if (!silent) _logcatError = null;
@@ -813,7 +797,7 @@ class _AndroidReverseDashboardDialogState
         pid: pidFilter.pid,
         serial: _targetSerial,
       );
-      if (mounted) {
+      if (mounted && generation == _logcatMutationGeneration) {
         final incoming = result.stdout
             .split('\n')
             .map(_sanitizeLogcatLine)
@@ -859,6 +843,7 @@ class _AndroidReverseDashboardDialogState
     _logcatLines
       ..clear()
       ..addAll(_trimLogcatBuffer(lines));
+    _compactLogcatParseCache();
     return _logcatLines.length;
   }
 
@@ -872,16 +857,24 @@ class _AndroidReverseDashboardDialogState
     final additions = incoming.skip(overlap).toList(growable: false);
     if (additions.isEmpty) return 0;
     _logcatLines.addAll(additions);
-    final overflow = _logcatLines.length - _kMaxBufferedLogcatLines;
+    final overflow = _logcatLines.length - _logcatCacheLimit;
     if (overflow > 0) {
       _logcatLines.removeRange(0, overflow);
     }
+    _compactLogcatParseCache();
     return additions.length;
   }
 
   List<String> _trimLogcatBuffer(List<String> lines) {
-    if (lines.length <= _kMaxBufferedLogcatLines) return lines;
-    return lines.sublist(lines.length - _kMaxBufferedLogcatLines);
+    if (lines.length <= _logcatCacheLimit) return lines;
+    return lines.sublist(lines.length - _logcatCacheLimit);
+  }
+
+  void _compactLogcatParseCache() {
+    final maxCacheSize = _logcatCacheLimit * 3;
+    if (_logcatParseCache.length <= maxCacheSize) return;
+    final visible = _logcatLines.toSet();
+    _logcatParseCache.removeWhere((line, _) => !visible.contains(line));
   }
 
   int _tailHeadOverlap(List<String> existing, List<String> incoming) {
@@ -902,17 +895,30 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<void> _clearLogcat() async {
-    if (_loadingLogcat) return;
+    if (_clearingLogcat) return;
+    final isZh = openHandIsChineseLocale(context);
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: isZh ? '清空 Logcat？' : 'Clear Logcat?',
+      message: isZh
+          ? '将清空当前面板日志，并尝试清空设备 Logcat 缓冲区。自动刷新开启时会继续读取清空后的新日志。'
+          : 'This clears the panel logs and tries to clear the device logcat buffer. Auto refresh will continue reading new logs afterwards.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '清空' : 'Clear',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
     setState(() {
-      _loadingLogcat = true;
-      _logcatError = null;
+      _clearingLogcat = true;
+      _logcatLines.clear();
+      _logcatParseCache.clear();
+      _logcatMutationGeneration++;
+      _logcatError = isZh ? '正在清空设备 Logcat...' : 'Clearing device logcat...';
     });
     try {
       final result = await _ctrl.clearLogcatDetailed(serial: _targetSerial);
       if (!mounted) return;
-      final isZh = openHandIsChineseLocale(context);
       setState(() {
-        _logcatLines.clear();
         _logcatError = result.ok
             ? (isZh ? '已清空设备 Logcat。' : 'Device logcat was cleared.')
             : _formatAdbResult(result);
@@ -925,7 +931,7 @@ class _AndroidReverseDashboardDialogState
             '${isZh ? "清空 Logcat 失败" : "Failed to clear logcat"}: $error';
       });
     } finally {
-      if (mounted) setState(() => _loadingLogcat = false);
+      if (mounted) setState(() => _clearingLogcat = false);
     }
   }
 
@@ -984,35 +990,109 @@ class _AndroidReverseDashboardDialogState
     return slash?.group(1);
   }
 
-  Future<void> _saveLogcatSnapshot() async {
-    if (_logcatLines.isEmpty) return;
-    final tag = _logcatFilterCtrl.text.trim();
-    final pid = _logcatPidCtrl.text.trim();
-    final packageName = _logcatPackageFilterEnabled
-        ? _logcatPackageTarget()
-        : null;
-    final saved = await _ctrl.appendLogcatLines(
-      _logcatLines,
-      tag: tag.isEmpty ? null : tag,
-      level: _logcatLevel,
-      packageName: packageName,
-      pid: pid.isEmpty ? null : pid,
-      serial: _targetSerial,
-    );
+  _ParsedLogcatLine _parseCachedLogcatLine(String raw) {
+    return _logcatParseCache.putIfAbsent(raw, () => _parseLogcatLine(raw));
+  }
+
+  String _logcatLevelOptionLabel(String level, bool isZh) {
+    return switch (level) {
+      'V' => isZh ? '详细' : 'Verbose',
+      'D' => isZh ? '调试' : 'Debug',
+      'I' => isZh ? '信息' : 'Info',
+      'W' => isZh ? '警告' : 'Warning',
+      'E' => isZh ? '错误' : 'Error',
+      'F' => isZh ? '致命' : 'Fatal',
+      _ => level,
+    };
+  }
+
+  Future<void> _showLogcatLineMenu(
+    int index,
+    String line,
+    Offset position,
+    bool isZh,
+  ) async {
     if (!mounted) return;
-    final isZh = openHandIsChineseLocale(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          saved > 0
-              ? (isZh
-                    ? '已保存 $saved 行到 ${_ctrl.logcatJsonlPath}'
-                    : 'Saved $saved lines to ${_ctrl.logcatJsonlPath}')
-              : (isZh ? '没有可保存的 Logcat 行。' : 'No logcat lines were saved.'),
-        ),
-        duration: const Duration(seconds: 3),
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+    final selected = await showMenu<_LogcatLineAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 1, 1),
+        Offset.zero & overlay.size,
       ),
+      items: [
+        PopupMenuItem<_LogcatLineAction>(
+          value: _LogcatLineAction.copy,
+          child: Row(
+            children: [
+              const Icon(Icons.copy_rounded, size: 16),
+              const SizedBox(width: 8),
+              Text(isZh ? '复制日志' : 'Copy log'),
+            ],
+          ),
+        ),
+        PopupMenuItem<_LogcatLineAction>(
+          value: _LogcatLineAction.delete,
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline_rounded,
+                size: 16,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(width: 8),
+              Text(isZh ? '删除此条' : 'Delete row'),
+            ],
+          ),
+        ),
+      ],
     );
+    if (!mounted || selected == null) return;
+    switch (selected) {
+      case _LogcatLineAction.copy:
+        await _copyText(line);
+      case _LogcatLineAction.delete:
+        if (index < 0 || index >= _logcatLines.length) return;
+        setState(() {
+          _logcatLines.removeAt(index);
+          _logcatMutationGeneration++;
+          _compactLogcatParseCache();
+        });
+    }
+  }
+
+  Future<void> _saveLogcatSnapshot() async {
+    if (_logcatLines.isEmpty || _savingLogcatFile) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() => _savingLogcatFile = true);
+    String? path;
+    Object? failure;
+    try {
+      path = await _saveTextWithPicker(
+        suggestedName: 'openhand-logcat-${_fileTimestamp()}.log',
+        typeLabel: 'LOG',
+        extensions: const <String>['log', 'txt'],
+        content: '${_logcatLines.join('\n')}\n',
+      );
+    } catch (error) {
+      failure = error;
+    } finally {
+      if (mounted) setState(() => _savingLogcatFile = false);
+    }
+    if (!mounted) return;
+    if (failure != null) {
+      _showSnack(
+        '${isZh ? "保存 Logcat 失败" : "Failed to save Logcat"}: $failure',
+      );
+    } else if (path != null) {
+      _showSnack(
+        isZh
+            ? '已保存 ${_logcatLines.length} 行到 $path'
+            : 'Saved ${_logcatLines.length} lines to $path',
+      );
+    }
   }
 
   Future<void> _captureLogcatArtifactSnapshot() async {
@@ -1651,6 +1731,52 @@ fi
         timeout: const Duration(seconds: 8),
       ),
     );
+  }
+
+  Future<void> _exportNetworkFlowsWithPicker() async {
+    if (_runningNetworkAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: 'openhand-mitm-flows-${_fileTimestamp()}.txt',
+        acceptedTypeGroups: const <XTypeGroup>[
+          XTypeGroup(label: 'TXT', extensions: <String>['txt', 'log']),
+        ],
+      );
+    } catch (error) {
+      _showSnack(
+        '${isZh ? "打开保存对话框失败" : "Failed to open save dialog"}: $error',
+      );
+      return;
+    }
+    if (location == null || !mounted) return;
+    final destination = location.path;
+    await _runNetworkAction(() async {
+      final result = await _ctrl.exportMitmproxyFlows();
+      if (!result.ok && !result.partialOk) return result;
+      final source = File('${_ctrl.networkDir}/flows.txt');
+      if (!await source.exists()) {
+        return AdbCommandResult(
+          args: const <String>['network-capture-export'],
+          exitCode: -1,
+          stdout: result.stdout,
+          stderr: isZh
+              ? 'mitmproxy flows 文本产物不存在。'
+              : 'mitmproxy flows text artifact does not exist.',
+          displayCommand: result.displayCommand,
+        );
+      }
+      await source.copy(destination);
+      return AdbCommandResult(
+        args: const <String>['network-capture-export'],
+        exitCode: result.exitCode,
+        stdout: '${result.stdout.trimRight()}\nexported=$destination',
+        stderr: result.stderr,
+        timedOut: result.timedOut,
+        displayCommand: result.displayCommand,
+      );
+    });
   }
 
   Future<void> _runStaticAction(
@@ -3026,11 +3152,22 @@ fi
               _SmallActionButton(
                 icon: Icons.delete_sweep_rounded,
                 label: isZh ? '清 Logcat' : 'Clear logcat',
-                onPressed: serial == null
+                onPressed: serial == null || _runningDeviceAction
                     ? null
-                    : () => _runDeviceAction(
-                        () => _ctrl.clearLogcatDetailed(serial: _targetSerial),
-                      ),
+                    : () async {
+                        final confirmed = await _confirmAction(
+                          title: isZh ? '清空设备 Logcat？' : 'Clear device logcat?',
+                          message: isZh
+                              ? '将清空当前设备的 Logcat 缓冲区。'
+                              : 'This clears the current device logcat buffer.',
+                          confirmLabel: isZh ? '清空' : 'Clear',
+                        );
+                        if (!confirmed) return;
+                        await _runDeviceAction(
+                          () =>
+                              _ctrl.clearLogcatDetailed(serial: _targetSerial),
+                        );
+                      },
               ),
               _SmallActionButton(
                 icon: Icons.wifi_tethering_rounded,
@@ -3954,11 +4091,15 @@ fi
 
   Widget _buildMcpTab(ColorScheme cs, ThemeData theme, bool isZh) {
     final mcpController = context.watch<McpController>();
+    final capabilities =
+        TemplateRuntimeDependencyRegistry.androidReverse.mcpCapabilities;
     final serverRows = _androidMcpServerViews(mcpController);
-    final toolSearchNames = _androidMcpToolSearchNames(serverRows);
-    final toolSearchQuery = toolSearchNames.isEmpty
-        ? _kAndroidMcpToolSearchFallbackQuery
-        : 'select:${toolSearchNames.take(_kMcpToolSearchLimit).join(',')}';
+    final configuredCapabilityCount = capabilities.where((capability) {
+      return _matchingAndroidMcpServersForCapability(
+        mcpController,
+        capability,
+      ).isNotEmpty;
+    }).length;
     final totalAndroidTools = serverRows.fold<int>(
       0,
       (sum, row) => sum + row.matchedTools.length,
@@ -3968,26 +4109,20 @@ fi
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 220),
-                child: Text(
-                  isZh ? 'Android 相关 MCP' : 'Android-related MCP',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+          _dashboardSectionHeader(
+            leading: [
+              Text(
+                isZh ? 'Android 相关 MCP' : 'Android-related MCP',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 280),
                 child: Text(
                   isZh
-                      ? '${serverRows.length} 个相关 MCP · $totalAndroidTools 个相关工具'
-                      : '${serverRows.length} related MCP · $totalAndroidTools related tools',
+                      ? '$configuredCapabilityCount/${capabilities.length} 个能力已配置 · $totalAndroidTools 个工具'
+                      : '$configuredCapabilityCount/${capabilities.length} capabilities configured · $totalAndroidTools tools',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -3996,6 +4131,8 @@ fi
                   ),
                 ),
               ),
+            ],
+            actions: [
               _DashboardActionButton(
                 onPressed: mcpController.isLoading
                     ? null
@@ -4008,64 +4145,6 @@ fi
                       )
                     : const Icon(Icons.sync_rounded),
                 label: isZh ? '刷新 MCP' : 'Refresh MCP',
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.info_outline_rounded,
-            text: isZh
-                ? '此页只展示 OpenHand 已配置的 MCP server、工具目录和会话级 MCP 工件。插件与本机 CLI 前置条件已拆到“插件”页。'
-                : 'This page only shows configured MCP servers, tool catalogs, and session MCP artifacts. Plugins and local CLI prerequisites are split into the Plugins tab.',
-          ),
-          const SizedBox(height: 10),
-          _monospaceCard(
-            cs,
-            [
-              '${isZh ? "MCP 配置" : "MCP config"}: ${mcpController.serversFilePath}',
-              '${isZh ? "MCP 存储" : "MCP storage"}: ${mcpController.storageDirectoryPath}',
-            ].join('\n'),
-          ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.folder_rounded,
-            text: [
-              isZh
-                  ? '会话级 MCP 工件由下方按钮生成，已配置的 MCP 可在卡片内启停、探测、刷新或删除。'
-                  : 'Session MCP artifacts are generated from the button below. Configured MCP servers can be enabled, checked, refreshed, or deleted in-place.',
-              'setup_guide: ${_ctrl.mcpSetupGuidePath}',
-              'readme: ${_ctrl.mcpReadmePath}',
-              'templates: ${_ctrl.mcpTemplatesPath}',
-            ].join('\n'),
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'ToolSearch 建议' : 'ToolSearch suggestion',
-            command: toolSearchQuery,
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
-                child: Text(
-                  isZh
-                      ? '生成会话级 MCP 设置清单、模板、ADB 短超时包装器、动态预检脚本和 Frida runbook，供线程直接读取。'
-                      : 'Generate session MCP setup checklist, templates, short-timeout ADB wrapper, dynamic preflight script, and Frida runbook for the thread.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
               ),
               _DashboardActionButton(
                 onPressed: _writingMcpArtifacts
@@ -4082,9 +4161,49 @@ fi
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.info_outline_rounded,
+            text: isZh
+                ? '此页直接管理 Android 逆向 MCP 能力，状态与全局 MCP 面板使用同一份配置。可在能力卡片内安装、更新或卸载；本机 CLI 前置条件在“插件”页管理。'
+                : 'This page directly manages Android reverse MCP capabilities using the same configuration as the global MCP panel. Install, update, or uninstall from the capability cards; local CLI prerequisites live in Plugins.',
+          ),
+          const SizedBox(height: 10),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.folder_rounded,
+            text: [
+              isZh
+                  ? '会话级 MCP 工件由上方按钮生成，已配置的 MCP 可在卡片内启停、探测、刷新或删除。'
+                  : 'Session MCP artifacts are generated from the button above. Configured MCP servers can be enabled, checked, refreshed, or deleted in-place.',
+              'setup_guide: ${_ctrl.mcpSetupGuidePath}',
+              'readme: ${_ctrl.mcpReadmePath}',
+              'templates: ${_ctrl.mcpTemplatesPath}',
+            ].join('\n'),
+          ),
           if (_mcpArtifactOutput?.trim().isNotEmpty ?? false) ...[
             const SizedBox(height: 8),
             _monospaceCard(cs, _mcpArtifactOutput!.trim()),
+          ],
+          const SizedBox(height: 18),
+          _sectionTitle(
+            theme,
+            cs,
+            isZh ? '推荐 MCP 能力' : 'Recommended MCP capabilities',
+          ),
+          const SizedBox(height: 8),
+          for (final capability in capabilities) ...[
+            _buildAndroidMcpCapabilityCard(
+              capability,
+              mcpController,
+              cs,
+              theme,
+              isZh,
+            ),
+            const SizedBox(height: 8),
           ],
           const SizedBox(height: 18),
           _sectionTitle(
@@ -4117,33 +4236,6 @@ fi
               _buildMcpServerCard(row, cs, theme, isZh),
               const SizedBox(height: 8),
             ],
-          const SizedBox(height: 14),
-          _sectionTitle(theme, cs, isZh ? '配置模板' : 'Config templates'),
-          const SizedBox(height: 8),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'stdio MCP 模板（替换包名）' : 'stdio MCP template',
-            command: _kAndroidStdioMcpConfigTemplate,
-          ),
-          const SizedBox(height: 8),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '本地 HTTP/SSE MCP 模板' : 'Local HTTP/SSE MCP template',
-            command: _kAndroidHttpMcpConfigTemplate,
-          ),
-          const SizedBox(height: 14),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.rule_rounded,
-            text: isZh
-                ? '线程内只调用工具目录真实列出的 mcp__* 名称。若这里只能看到模板而没有工具，请先在 MCP 面板补齐 server 并刷新工具目录。'
-                : 'Thread tools must use real mcp__* names from the catalog. If only templates are shown here, add the server in the MCP panel and refresh its tool catalog first.',
-          ),
         ],
       ),
     );
@@ -4165,18 +4257,12 @@ fi
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 220),
-                child: Text(
-                  isZh ? 'Android 逆向插件' : 'Android reverse plugins',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+          _dashboardSectionHeader(
+            leading: [
+              Text(
+                isZh ? 'Android 逆向插件' : 'Android reverse plugins',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               ConstrainedBox(
@@ -4193,6 +4279,8 @@ fi
                   ),
                 ),
               ),
+            ],
+            actions: [
               _DashboardActionButton(
                 onPressed:
                     pluginController.isLoading || pluginController.isOperating
@@ -4502,6 +4590,233 @@ fi
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildAndroidMcpCapabilityCard(
+    TemplateRuntimeMcpCapabilitySpec capability,
+    McpController controller,
+    ColorScheme cs,
+    ThemeData theme,
+    bool isZh,
+  ) {
+    final matches = _matchingAndroidMcpServersForCapability(
+      controller,
+      capability,
+    );
+    final installed = matches.isNotEmpty;
+    final canInstall = _canRegisterAndroidMcpCapability(capability);
+    final statusColor = installed
+        ? cs.primary
+        : canInstall
+        ? cs.tertiary
+        : cs.outline;
+    final statusLabel = installed
+        ? (isZh ? '已配置 ${matches.length}' : '${matches.length} configured')
+        : canInstall
+        ? (isZh ? '可安装' : 'installable')
+        : (isZh ? '缺少安装源' : 'source missing');
+    final firstServer = matches.isEmpty ? null : matches.first;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            installed
+                ? Icons.extension_rounded
+                : Icons.add_circle_outline_rounded,
+            size: 19,
+            color: statusColor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      isZh ? capability.labelZh : capability.labelEn,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    _StatusPill(label: statusLabel, color: statusColor),
+                    if (capability.packageName?.trim().isNotEmpty ?? false)
+                      _StatusPill(
+                        label: capability.packageName!.trim(),
+                        color: cs.secondary,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    isZh ? capability.descriptionZh : capability.descriptionEn,
+                    if (firstServer != null)
+                      '${isZh ? "服务" : "server"}: ${firstServer.name}',
+                  ].join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Wrap(
+            spacing: _kDashboardTrailingActionGap,
+            runSpacing: 6,
+            alignment: WrapAlignment.end,
+            children: [
+              _DashboardActionButton(
+                onPressed: installed || !canInstall || controller.isLoading
+                    ? null
+                    : () => unawaited(
+                        _installAndroidMcpCapability(capability, isZh),
+                      ),
+                icon: const Icon(Icons.download_rounded),
+                label: isZh ? '安装' : 'Install',
+              ),
+              _DashboardActionButton(
+                onPressed: !installed || controller.isLoading
+                    ? null
+                    : () => unawaited(
+                        _refreshAndroidMcpCapability(matches, isZh),
+                      ),
+                icon: const Icon(Icons.system_update_alt_rounded),
+                label: isZh ? '更新' : 'Update',
+              ),
+              _DashboardActionButton(
+                onPressed: !installed || controller.isLoading
+                    ? null
+                    : () => unawaited(
+                        _uninstallAndroidMcpCapability(
+                          capability,
+                          matches,
+                          isZh,
+                        ),
+                      ),
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: isZh ? '卸载' : 'Uninstall',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _canRegisterAndroidMcpCapability(
+    TemplateRuntimeMcpCapabilitySpec capability,
+  ) {
+    final name = capability.suggestedServerName?.trim();
+    final command = capability.suggestedCommand?.trim();
+    final url = capability.suggestedUrl?.trim();
+    if (name == null || name.isEmpty) return false;
+    if ((command == null || command.isEmpty) && (url == null || url.isEmpty)) {
+      return false;
+    }
+    return !_hasMcpCapabilityPlaceholder(capability);
+  }
+
+  bool _hasMcpCapabilityPlaceholder(
+    TemplateRuntimeMcpCapabilitySpec capability,
+  ) {
+    bool hasPlaceholder(String? value) =>
+        value != null && (value.contains('<') || value.contains('>'));
+    return hasPlaceholder(capability.suggestedCommand) ||
+        hasPlaceholder(capability.suggestedUrl) ||
+        capability.suggestedArgs.any(hasPlaceholder);
+  }
+
+  Future<void> _installAndroidMcpCapability(
+    TemplateRuntimeMcpCapabilitySpec capability,
+    bool isZh,
+  ) async {
+    if (!_canRegisterAndroidMcpCapability(capability)) {
+      _showSnack(
+        isZh ? '该 MCP 缺少可直接安装的来源。' : 'This MCP has no direct install source.',
+      );
+      return;
+    }
+    final server = McpServer(
+      name: capability.suggestedServerName!.trim(),
+      type: (capability.suggestedUrl?.trim().isNotEmpty ?? false)
+          ? McpServerType.sse
+          : McpServerType.stdio,
+      enabled: true,
+      url: capability.suggestedUrl?.trim() ?? '',
+      command: capability.suggestedCommand?.trim() ?? '',
+      args: capability.suggestedArgs,
+    );
+    final ok = await context.read<McpController>().saveServer(server);
+    if (!mounted) return;
+    _showSnack(
+      ok
+          ? (isZh ? '已安装 MCP：${server.name}' : 'MCP installed: ${server.name}')
+          : (isZh
+                ? 'MCP 已存在或名称冲突：${server.name}'
+                : 'MCP exists or name conflicts: ${server.name}'),
+    );
+    if (ok) {
+      unawaited(context.read<McpController>().reconnectServer(server.name));
+    }
+  }
+
+  Future<void> _refreshAndroidMcpCapability(
+    List<McpServer> servers,
+    bool isZh,
+  ) async {
+    if (servers.isEmpty) return;
+    final controller = context.read<McpController>();
+    await Future.wait<void>(
+      servers.map((server) => controller.reconnectServer(server.name)),
+    );
+    if (!mounted) return;
+    _showSnack(isZh ? '已更新 MCP 状态。' : 'MCP status updated.');
+  }
+
+  Future<void> _uninstallAndroidMcpCapability(
+    TemplateRuntimeMcpCapabilitySpec capability,
+    List<McpServer> servers,
+    bool isZh,
+  ) async {
+    if (servers.isEmpty) return;
+    final names = servers.map((server) => server.name).join(', ');
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: isZh ? '卸载 MCP 能力？' : 'Uninstall MCP capability?',
+      message: isZh
+          ? '将从 OpenHand MCP 配置中删除 ${isZh ? capability.labelZh : capability.labelEn} 对应服务：$names。'
+          : 'This removes the servers for ${capability.labelEn} from the OpenHand MCP configuration: $names.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '卸载' : 'Uninstall',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    final controller = context.read<McpController>();
+    var ok = true;
+    for (final server in servers) {
+      ok = await controller.deleteServer(server) && ok;
+    }
+    if (!mounted) return;
+    _showSnack(
+      ok
+          ? (isZh ? '已卸载 MCP：$names' : 'MCP uninstalled: $names')
+          : (isZh ? '卸载 MCP 失败：$names' : 'Failed to uninstall MCP: $names'),
     );
   }
 
@@ -4834,6 +5149,30 @@ fi
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
+  }
+
+  Future<String?> _saveTextWithPicker({
+    required String suggestedName,
+    required String typeLabel,
+    required List<String> extensions,
+    required String content,
+  }) async {
+    final location = await getSaveLocation(
+      suggestedName: suggestedName,
+      acceptedTypeGroups: <XTypeGroup>[
+        XTypeGroup(label: typeLabel, extensions: extensions),
+      ],
+    );
+    if (location == null) return null;
+    await File(location.path).writeAsString(content, flush: true);
+    return location.path;
+  }
+
+  String _fileTimestamp() {
+    return DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .replaceAll(RegExp(r'\.\d+'), '');
   }
 
   Widget _buildToolchainCommandTile(
@@ -5330,13 +5669,10 @@ fi
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
+              _dashboardSectionHeader(
+                leading: [
                   Text(
-                    'Logcat (${_logcatLines.length} lines)',
+                    'Logcat (${_logcatLines.length}/$_logcatCacheLimit)',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -5348,6 +5684,8 @@ fi
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 1.5),
                     ),
+                ],
+                actions: [
                   _DashboardActionButton(
                     onPressed: _loadingLogcat ? null : _fetchLogcat,
                     icon: const Icon(Icons.refresh_rounded),
@@ -5379,10 +5717,16 @@ fi
                     label: isZh ? '快照' : 'Snapshot',
                   ),
                   _DashboardActionButton(
-                    onPressed: _logcatLines.isEmpty
+                    onPressed: _logcatLines.isEmpty || _savingLogcatFile
                         ? null
                         : _saveLogcatSnapshot,
-                    icon: const Icon(Icons.save_alt_rounded),
+                    icon: _savingLogcatFile
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.6),
+                          )
+                        : const Icon(Icons.save_alt_rounded),
                     label: isZh ? '保存' : 'Save',
                   ),
                   _DashboardActionButton(
@@ -5393,8 +5737,14 @@ fi
                     label: isZh ? '复制' : 'Copy',
                   ),
                   _DashboardActionButton(
-                    onPressed: _loadingLogcat ? null : _clearLogcat,
-                    icon: const Icon(Icons.delete_sweep_rounded),
+                    onPressed: _clearingLogcat ? null : _clearLogcat,
+                    icon: _clearingLogcat
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.6),
+                          )
+                        : const Icon(Icons.delete_sweep_rounded),
                     label: isZh ? '清空' : 'Clear',
                   ),
                 ],
@@ -5438,7 +5788,7 @@ fi
                     ),
                   ),
                   SizedBox(
-                    width: 92,
+                    width: isZh ? 132 : 136,
                     height: _kAdbInlineControlHeight,
                     child: DropdownButtonFormField<String>(
                       initialValue: _logcatLevel,
@@ -5455,12 +5805,54 @@ fi
                         for (final level in _kLogcatLevels)
                           DropdownMenuItem<String>(
                             value: level,
-                            child: Text(level),
+                            child: Text(_logcatLevelOptionLabel(level, isZh)),
                           ),
                       ],
                       onChanged: (value) {
                         if (value == null) return;
                         setState(() => _logcatLevel = value);
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: isZh ? 132 : 150,
+                    height: _kAdbInlineControlHeight,
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _logcatCacheLimit,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        labelText: isZh ? '缓存' : 'Cache',
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: const <int>[100, 200, 500, 1000, 2000]
+                          .map(
+                            (value) => DropdownMenuItem<int>(
+                              value: value,
+                              child: Text('$value'),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          _logcatCacheLimit = value
+                              .clamp(
+                                _kMinLogcatCacheLimit,
+                                _kMaxLogcatCacheLimit,
+                              )
+                              .toInt();
+                          final retained = _trimLogcatBuffer(
+                            List<String>.from(_logcatLines),
+                          );
+                          _logcatLines
+                            ..clear()
+                            ..addAll(retained);
+                          _compactLogcatParseCache();
+                        });
                       },
                     ),
                   ),
@@ -5549,6 +5941,9 @@ fi
               : OpenHandSafeScrollbar(
                   child: ListView.builder(
                     controller: _logcatScrollController,
+                    cacheExtent: 520,
+                    addAutomaticKeepAlives: false,
+                    addSemanticIndexes: false,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 4,
@@ -5557,9 +5952,12 @@ fi
                     itemBuilder: (_, i) {
                       final line = _logcatLines[i];
                       return _LogcatLineTile(
-                        parsed: _parseLogcatLine(line),
+                        parsed: _parseCachedLogcatLine(line),
                         colorScheme: cs,
                         theme: theme,
+                        isZh: isZh,
+                        onMenu: (position) =>
+                            _showLogcatLineMenu(i, line, position, isZh),
                       );
                     },
                   ),
@@ -5827,20 +6225,24 @@ fi
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 220),
-                child: Text(
-                  isZh ? '网络抓包 (mitmproxy)' : 'Network capture (mitmproxy)',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+          _dashboardSectionHeader(
+            leading: [
+              Text(
+                isZh ? '网络抓包 (mitmproxy)' : 'Network capture (mitmproxy)',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              _StatusPill(
+                label: captureRunning
+                    ? (isZh
+                          ? '抓包中 PID ${_ctrl.networkCapturePid}'
+                          : 'capturing PID ${_ctrl.networkCapturePid}')
+                    : (isZh ? '未抓包' : 'idle'),
+                color: captureRunning ? cs.primary : cs.outline,
+              ),
+            ],
+            actions: [
               _DashboardActionButton(
                 onPressed: _writingNetworkAddon ? null : _ensureMitmproxyAddon,
                 icon: _writingNetworkAddon
@@ -5864,14 +6266,6 @@ fi
                       )
                     : const Icon(Icons.fact_check_rounded),
                 label: isZh ? '运行预检' : 'Run preflight',
-              ),
-              _StatusPill(
-                label: captureRunning
-                    ? (isZh
-                          ? '抓包中 PID ${_ctrl.networkCapturePid}'
-                          : 'capturing PID ${_ctrl.networkCapturePid}')
-                    : (isZh ? '未抓包' : 'idle'),
-                color: captureRunning ? cs.primary : cs.outline,
               ),
               if (addonOutput != null && addonOutput.isNotEmpty)
                 _DashboardActionButton(
@@ -5963,7 +6357,7 @@ fi
               _DashboardActionButton(
                 onPressed: _runningNetworkAction
                     ? null
-                    : () => _runNetworkAction(_ctrl.exportMitmproxyFlows),
+                    : _exportNetworkFlowsWithPicker,
                 icon: const Icon(Icons.ios_share_rounded),
                 label: isZh ? '导出 flows' : 'Export flows',
               ),
@@ -6007,20 +6401,16 @@ fi
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 220),
-                child: Text(
-                  isZh ? '静态分析工作台' : 'Static analysis workbench',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+          _dashboardSectionHeader(
+            leading: [
+              Text(
+                isZh ? '静态分析工作台' : 'Static analysis workbench',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+            ],
+            actions: [
               _DashboardActionButton(
                 onPressed: staticBusy ? null : _runStaticQuickScan,
                 icon: _runningStaticQuickScan
@@ -6137,22 +6527,18 @@ fi
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 260),
-                child: Text(
-                  isZh
-                      ? '证书管理与 SSL Pinning'
-                      : 'Certificate management & SSL Pinning',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+          _dashboardSectionHeader(
+            leading: [
+              Text(
+                isZh
+                    ? '证书管理与 SSL Pinning'
+                    : 'Certificate management & SSL Pinning',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+            ],
+            actions: [
               _DashboardActionButton(
                 onPressed: _writingCertificateArtifacts
                     ? null
@@ -6412,6 +6798,55 @@ fi
     );
   }
 
+  Widget _dashboardSectionHeader({
+    required List<Widget> leading,
+    required List<Widget> actions,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final leadingWrap = Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: leading,
+        );
+        final actionWrap = Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: actions,
+        );
+        if (constraints.maxWidth < 720) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              leadingWrap,
+              if (actions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerLeft, child: actionWrap),
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: leadingWrap),
+            if (actions.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: actionWrap,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
   List<_AndroidMcpServerView> _androidMcpServerViews(McpController controller) {
     final rows = <_AndroidMcpServerView>[];
     for (final server in controller.servers) {
@@ -6445,17 +6880,48 @@ fi
     return List<_AndroidMcpServerView>.unmodifiable(rows);
   }
 
-  List<String> _androidMcpToolSearchNames(List<_AndroidMcpServerView> rows) {
-    final names = <String>{};
-    for (final row in rows) {
-      for (final tool in row.matchedTools) {
-        names.add(_mcpResolvedToolName(row.server, tool));
-        if (names.length >= _kMcpToolSearchLimit) {
-          return List<String>.unmodifiable(names);
-        }
-      }
+  List<McpServer> _matchingAndroidMcpServersForCapability(
+    McpController controller,
+    TemplateRuntimeMcpCapabilitySpec capability,
+  ) {
+    final suggestedName = capability.suggestedServerName?.trim();
+    final exactMatches = suggestedName == null || suggestedName.isEmpty
+        ? const <McpServer>[]
+        : controller.servers
+              .where(
+                (server) =>
+                    server.name.toLowerCase() == suggestedName.toLowerCase(),
+              )
+              .toList(growable: false);
+    if (exactMatches.isNotEmpty) return exactMatches;
+    return controller.servers
+        .where(
+          (server) => TemplateRuntimeDependencyRegistry.containsAnyKeyword(
+            _mcpServerSearchText(controller, server),
+            capability.keywords,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  String _mcpServerSearchText(McpController controller, McpServer server) {
+    final catalog = controller.toolCatalogFor(server.name);
+    final buffer = StringBuffer()
+      ..write(server.name)
+      ..write(' ')
+      ..write(server.summary)
+      ..write(' ')
+      ..write(server.type.transportValue);
+    for (final tool in catalog.tools) {
+      buffer
+        ..write(' ')
+        ..write(tool.id)
+        ..write(' ')
+        ..write(tool.name)
+        ..write(' ')
+        ..write(tool.description);
     }
-    return List<String>.unmodifiable(names);
+    return buffer.toString();
   }
 
   bool _isAndroidRelevantMcpTool(McpTool tool) {
@@ -6870,63 +7336,6 @@ fi
     };
   }
 
-  Widget _commandCard(
-    ColorScheme cs,
-    ThemeData theme,
-    bool isZh, {
-    required String title,
-    required String command,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.65)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.copy_rounded, size: 15),
-                tooltip: isZh ? '复制内容' : 'Copy content',
-                onPressed: () => _copyText(command),
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints.tightFor(
-                  width: 30,
-                  height: 30,
-                ),
-              ),
-            ],
-          ),
-          SelectableText(
-            command,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: cs.onSurface,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _monospaceCard(ColorScheme cs, String text) {
     return Container(
       width: double.infinity,
@@ -7287,11 +7696,15 @@ class _LogcatLineTile extends StatelessWidget {
     required this.parsed,
     required this.colorScheme,
     required this.theme,
+    required this.isZh,
+    required this.onMenu,
   });
 
   final _ParsedLogcatLine parsed;
   final ColorScheme colorScheme;
   final ThemeData theme;
+  final bool isZh;
+  final ValueChanged<Offset> onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -7305,75 +7718,97 @@ class _LogcatLineTile extends StatelessWidget {
             : 'pid ${parsed.pid}',
       if (parsed.tag?.trim().isNotEmpty ?? false) parsed.tag!.trim(),
     ];
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: level == null ? 0.03 : 0.07),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24,
-            height: 22,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Text(
-              level ?? '-',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
-                fontFamily: 'monospace',
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onSecondaryTapDown: (details) => onMenu(details.globalPosition),
+      onDoubleTapDown: (details) => onMenu(details.globalPosition),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: level == null ? 0.03 : 0.07),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                level == null ? '-' : _shortLevelLabel(level, isZh),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (meta.isNotEmpty)
-                  SelectableText(
-                    meta.join('  ·  '),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (meta.isNotEmpty)
+                    Text(
+                      meta.join('  ·  '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontFamily: 'monospace',
+                        height: 1.25,
+                      ),
+                    ),
+                  Text(
+                    parsed.message.isEmpty ? parsed.raw : parsed.message,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
                       fontFamily: 'monospace',
-                      height: 1.25,
+                      fontSize: 11,
+                      color: level == 'E' || level == 'F'
+                          ? color
+                          : colorScheme.onSurface,
+                      height: 1.36,
                     ),
                   ),
-                SelectableText(
-                  parsed.message.isEmpty ? parsed.raw : parsed.message,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: level == 'E' || level == 'F'
-                        ? colorScheme.error
-                        : colorScheme.onSurface,
-                    height: 1.36,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Color _levelColor(String? level, ColorScheme cs) {
     return switch (level) {
-      'F' || 'E' => cs.error,
-      'W' => cs.tertiary,
-      'I' => cs.primary,
-      'D' => cs.secondary,
+      'F' => const Color(0xFF8B1E1E),
+      'E' => cs.error,
+      'W' => const Color(0xFFB26A00),
+      'I' => const Color(0xFF1E63B6),
+      'D' => const Color(0xFF7B4BB3),
       'V' => cs.outline,
       _ => cs.onSurfaceVariant,
+    };
+  }
+
+  String _shortLevelLabel(String level, bool isZh) {
+    return switch (level) {
+      'V' => isZh ? '详' : 'V',
+      'D' => isZh ? '调' : 'D',
+      'I' => isZh ? '信' : 'I',
+      'W' => isZh ? '警' : 'W',
+      'E' => isZh ? '错' : 'E',
+      'F' => isZh ? '致' : 'F',
+      _ => level,
     };
   }
 }
