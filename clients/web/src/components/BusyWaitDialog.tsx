@@ -1,10 +1,8 @@
 import { useControlledDelayedVisibility } from '../hooks/useDelayedVisibility';
 import {
-  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from './DialogFrame';
 
 export interface BusyWaitDialogProps {
@@ -29,13 +27,10 @@ export function BusyWaitDialog({
     <DialogFrame
       closing={closing}
       closeOnBackdrop={false}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
-      })}
-      panelClassName="w-full max-w-sm rounded-m3-xl p-5"
-      panelStyle={createDialogPanelSurfaceStyle({
-        border: '1px solid var(--m3-outline-variant)',
+      {...createDialogFrameAppearance({
+        overlay: { zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX },
+        panelClassName: 'w-full max-w-sm rounded-m3-xl p-5',
+        panelSurface: { border: '1px solid var(--m3-outline-variant)' },
       })}
       ariaLabel={title}
     >

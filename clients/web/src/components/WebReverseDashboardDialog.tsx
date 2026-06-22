@@ -10,12 +10,10 @@ import {
   DashboardTabPill,
 } from './ReverseDashboardPrimitives';
 import {
-  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
   DialogHeader,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from './DialogFrame';
 import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
@@ -197,15 +195,14 @@ export function WebReverseDashboardDialog({
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: 'var(--m3-scrim-bg)',
-        blurPx: 0,
-        zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
-      })}
-      panelClassName="w-full max-w-[760px] rounded-m3-lg overflow-hidden"
-      panelStyle={createDialogPanelSurfaceStyle({
-        border: 'none',
+      {...createDialogFrameAppearance({
+        overlay: {
+          background: 'var(--m3-scrim-bg)',
+          blurPx: 0,
+          zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
+        },
+        panelClassName: 'w-full max-w-[760px] rounded-m3-lg overflow-hidden',
+        panelSurface: { border: 'none' },
       })}
       ariaLabel={t('webReverse.dashboard.title', 'Web 逆向调试面板')}
     >

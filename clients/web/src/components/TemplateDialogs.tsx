@@ -12,8 +12,7 @@ import {
   DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
   DialogHeader,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from './DialogFrame';
 
 interface DialogShellProps {
@@ -30,18 +29,20 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_COMPACT_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_STRONG_BACKGROUND,
-        zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
+        overlay: {
+          background: DIALOG_OVERLAY_STRONG_BACKGROUND,
+          zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
+        },
+        panelClassName: 'rounded-m3-xl w-full overflow-hidden flex flex-col',
+        panelSurface: {
+          border: 'none',
+          maxWidth: `${maxWidth}px`,
+          maxHeight: '88vh',
+        },
       })}
       ariaLabel={title}
-      panelClassName="rounded-m3-xl w-full overflow-hidden flex flex-col"
-      panelStyle={createDialogPanelSurfaceStyle({
-        border: 'none',
-        maxWidth: `${maxWidth}px`,
-        maxHeight: '88vh',
-      })}
     >
       <DialogHeader
         title={title}

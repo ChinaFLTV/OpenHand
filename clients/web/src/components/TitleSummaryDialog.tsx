@@ -4,11 +4,9 @@ import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
-  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from './DialogFrame';
 
 type Phase = 'config' | 'pending' | 'success' | 'error';
@@ -105,16 +103,17 @@ export function TitleSummaryDialog({
       closing={closing}
       onRequestClose={requestClose}
       closeOnBackdrop={phase !== 'pending'}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: 'color-mix(in srgb, black 48%, transparent)',
-        blurPx: 6,
-        zIndex: DIALOG_OVERLAY_FOCUSED_Z_INDEX,
-      })}
-      panelClassName="w-full max-w-md rounded-2xl px-6 py-5"
-      panelStyle={createDialogPanelSurfaceStyle({
-        boxShadow: 'var(--m3-elev-4)',
-        border: 'none',
+      {...createDialogFrameAppearance({
+        overlay: {
+          background: 'color-mix(in srgb, black 48%, transparent)',
+          blurPx: 6,
+          zIndex: DIALOG_OVERLAY_FOCUSED_Z_INDEX,
+        },
+        panelClassName: 'w-full max-w-md rounded-2xl px-6 py-5',
+        panelSurface: {
+          boxShadow: 'var(--m3-elev-4)',
+          border: 'none',
+        },
       })}
       ariaLabel={t('titleSummary.title', '获取 AI 摘要标题')}
     >

@@ -7,8 +7,7 @@ import {
   DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
   DIALOG_OVERLAY_INTENSE_BACKGROUND,
   DialogFrame,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from './DialogFrame';
 
 export interface SessionGoneDialogProps {
@@ -61,12 +60,12 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
     <DialogFrame
       closing={closing}
       closeOnBackdrop={false}
-      overlayClassName={DIALOG_OVERLAY_CENTER_COMPACT_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_INTENSE_BACKGROUND,
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
+        overlay: { background: DIALOG_OVERLAY_INTENSE_BACKGROUND },
+        panelClassName: 'rounded-m3-xl w-full max-w-[420px] flex flex-col',
+        panelSurface: { border: 'none' },
       })}
-      panelClassName="rounded-m3-xl w-full max-w-[420px] flex flex-col"
-      panelStyle={createDialogPanelSurfaceStyle({ border: 'none' })}
       ariaLabel={t('sessionGone.title', '会话已不存在')}
     >
       <header class="px-6 pt-6 pb-2 flex items-center gap-3">

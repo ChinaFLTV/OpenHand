@@ -67,8 +67,7 @@ import {
   DIALOG_OVERLAY_SOFT_BACKGROUND,
   DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
@@ -4749,14 +4748,14 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_STRONG_BACKGROUND,
-      })}
-      panelClassName="rounded-m3-md p-4 max-w-2xl w-full flex flex-col"
-      panelStyle={createDialogPanelSurfaceStyle({
-        maxHeight: '80vh',
-        border: '1px solid var(--m3-outline)',
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
+        overlay: { background: DIALOG_OVERLAY_STRONG_BACKGROUND },
+        panelClassName: 'rounded-m3-md p-4 max-w-2xl w-full flex flex-col',
+        panelSurface: {
+          maxHeight: '80vh',
+          border: '1px solid var(--m3-outline)',
+        },
       })}
       ariaLabel={`${t('common.audit', '审计')} ${message.id}`}
     >
@@ -4841,14 +4840,14 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_SOFT_BACKGROUND,
-      })}
-      panelClassName="w-full max-w-md rounded-m3-xl p-5 flex flex-col"
-      panelStyle={createDialogPanelSurfaceStyle({
-        border: '1px solid var(--m3-outline-variant)',
-        maxHeight: 'min(720px, calc(100vh - 32px))',
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
+        overlay: { background: DIALOG_OVERLAY_SOFT_BACKGROUND },
+        panelClassName: 'w-full max-w-md rounded-m3-xl p-5 flex flex-col',
+        panelSurface: {
+          border: '1px solid var(--m3-outline-variant)',
+          maxHeight: 'min(720px, calc(100vh - 32px))',
+        },
       })}
       ariaLabel={t('topbar.tokens', 'Token 统计')}
     >
@@ -5078,13 +5077,11 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_SOFT_BACKGROUND,
-      })}
-      panelClassName="w-full max-w-md rounded-m3-xl p-5"
-      panelStyle={createDialogPanelSurfaceStyle({
-        border: '1px solid var(--m3-outline-variant)',
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
+        overlay: { background: DIALOG_OVERLAY_SOFT_BACKGROUND },
+        panelClassName: 'w-full max-w-md rounded-m3-xl p-5',
+        panelSurface: { border: '1px solid var(--m3-outline-variant)' },
       })}
       ariaLabel={t('contextStats.title', '上下文使用情况')}
     >
@@ -5781,15 +5778,15 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_INVERSE_BACKGROUND,
-      })}
-      panelClassName="rounded-m3-lg p-5 w-full flex flex-col"
-      panelStyle={createDialogPanelSurfaceStyle({
-        border: '1px solid var(--m3-outline-variant)',
-        maxWidth: '860px',
-        maxHeight: '84vh',
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
+        overlay: { background: DIALOG_OVERLAY_INVERSE_BACKGROUND },
+        panelClassName: 'rounded-m3-lg p-5 w-full flex flex-col',
+        panelSurface: {
+          border: '1px solid var(--m3-outline-variant)',
+          maxWidth: '860px',
+          maxHeight: '84vh',
+        },
       })}
       ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
@@ -6145,14 +6142,14 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_STRONG_BACKGROUND,
-      })}
-      panelClassName="rounded-m3-md p-4 max-w-3xl w-full flex flex-col"
-      panelStyle={createDialogPanelSurfaceStyle({
-        border: '1px solid var(--m3-outline)',
-        maxHeight: '84vh',
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
+        overlay: { background: DIALOG_OVERLAY_STRONG_BACKGROUND },
+        panelClassName: 'rounded-m3-md p-4 max-w-3xl w-full flex flex-col',
+        panelSurface: {
+          border: '1px solid var(--m3-outline)',
+          maxHeight: '84vh',
+        },
       })}
       ariaLabel={t('topbar.audit', '会话审计')}
     >
@@ -6349,14 +6346,15 @@ function SessionThrottleDialog({
       closing={closing}
       onRequestClose={requestClose}
       closeOnBackdrop={!busy && !closing}
-      overlayClassName="oh-dialog-backdrop fixed inset-0 flex items-center justify-center p-4"
-      overlayStyle={createDialogOverlayStyle({
-        background: DIALOG_OVERLAY_INTENSE_BACKGROUND,
-      })}
-      panelClassName="rounded-m3-md p-5 w-full max-w-md"
-      panelStyle={createDialogPanelSurfaceStyle({
-        background: 'var(--m3-surface-container-high)',
-        border: 'none',
+      {...createDialogFrameAppearance({
+        overlayClassName:
+          'oh-dialog-backdrop fixed inset-0 flex items-center justify-center p-4',
+        overlay: { background: DIALOG_OVERLAY_INTENSE_BACKGROUND },
+        panelClassName: 'rounded-m3-md p-5 w-full max-w-md',
+        panelSurface: {
+          background: 'var(--m3-surface-container-high)',
+          border: 'none',
+        },
       })}
       ariaLabel={t('topbar.throttle.dialogTitle', '本会话流式节流')}
     >

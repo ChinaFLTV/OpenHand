@@ -20,8 +20,7 @@ import {
   DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from './DialogFrame';
 import { showSnackbar } from './Snackbar';
 
@@ -1055,25 +1054,27 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        background: 'color-mix(in srgb, black 58%, transparent)',
-        blurPx: 10,
-        zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
-      })}
-      panelClassName="rounded-m3-lg overflow-hidden"
-      panelStyle={{
-        ...createDialogPanelSurfaceStyle({
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
+        overlay: {
+          background: 'color-mix(in srgb, black 58%, transparent)',
+          blurPx: 10,
+          zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
+        },
+        panelClassName: 'rounded-m3-lg overflow-hidden',
+        panelSurface: {
           width: `${layout.panelWidth}px`,
           maxWidth: `${layout.maxPanelWidth}px`,
           maxHeight: `${layout.maxPanelHeight}px`,
           boxShadow: 'var(--m3-elev-4)',
           border: '1px solid var(--m3-outline)',
-        }),
-        display: 'flex',
-        flexDirection: 'column',
-        transition: panelTransition,
-      }}
+        },
+        panelStyleOverrides: {
+          display: 'flex',
+          flexDirection: 'column',
+          transition: panelTransition,
+        },
+      })}
       ariaLabel={item.name}
     >
       <header ref={headerRef} class="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}>

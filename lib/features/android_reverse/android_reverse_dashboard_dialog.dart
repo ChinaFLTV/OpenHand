@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
+import '../../shared/ui/openhand_dialog_motion_surface.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
@@ -27,8 +28,11 @@ const double _kDashboardActionIconSize = 14;
 const double _kDashboardIconActionButtonSize = 36;
 const double _kDashboardIconActionIconSize = 17;
 const double _kDashboardTrailingActionGap = 8;
+const double _kDashboardDialogMaxWidth = 960;
+const double _kDashboardDialogMaxHeight = 720;
 const double _kShellOutputMaxHeight = 220;
 const double _kIconButtonGap = 8;
+const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(16);
 const int _kDefaultLogcatLines = 300;
 const int _kShellHistoryLimit = 6;
 const int _kPackageDumpsysSummaryMaxLines = 160;
@@ -110,9 +114,11 @@ Future<void> showAndroidReverseDashboardDialog(
   return showAnimatedDialog<void>(
     context: context,
     transitionProfile: _kAndroidDashboardMotionProfile,
-    builder: (_) => _AndroidReverseDashboardDialog(
-      controller: controller,
-      sessionId: sessionId,
+    builder: (_) => OpenHandDialogMotionSurface(
+      child: _AndroidReverseDashboardDialog(
+        controller: controller,
+        sessionId: sessionId,
+      ),
     ),
   );
 }
@@ -1331,12 +1337,16 @@ class _AndroidReverseDashboardDialogState
         ) ??
         _ctrl.config;
 
-    return Dialog(
-      insetPadding: const EdgeInsets.all(16),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: _kDashboardDialogMaxWidth,
+      insetPadding: _kDashboardDialogInsetPadding,
       clipBehavior: Clip.hardEdge,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 960, maxHeight: 720),
+        constraints: const BoxConstraints(
+          maxWidth: _kDashboardDialogMaxWidth,
+          maxHeight: _kDashboardDialogMaxHeight,
+        ),
         child: Column(
           children: [
             // ── Header ──────────────────────────────────────────────────

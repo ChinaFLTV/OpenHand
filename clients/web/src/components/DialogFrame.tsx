@@ -51,6 +51,16 @@ export interface DialogPanelSurfaceStyleOptions {
   overflow?: JSX.CSSProperties['overflow'];
 }
 
+export interface DialogFrameAppearanceOptions {
+  overlayClassName?: string;
+  overlay?: DialogOverlayStyleOptions;
+  overlayStyle?: JSX.CSSProperties;
+  panelClassName?: string;
+  panelSurface?: DialogPanelSurfaceStyleOptions;
+  panelStyle?: JSX.CSSProperties;
+  panelStyleOverrides?: JSX.CSSProperties;
+}
+
 export interface DialogFrameProps {
   children: ComponentChildren;
   closing: boolean;
@@ -123,6 +133,31 @@ export function createDialogPanelSurfaceStyle({
   assignStringStyleValue(style, 'maxHeight', maxHeight);
   if (overflow != null) style.overflow = overflow;
   return style;
+}
+
+export function createDialogFrameAppearance({
+  overlayClassName = DIALOG_OVERLAY_CENTER_CLASS,
+  overlay,
+  overlayStyle,
+  panelClassName = '',
+  panelSurface,
+  panelStyle,
+  panelStyleOverrides,
+}: DialogFrameAppearanceOptions = {}): Pick<
+  DialogFrameProps,
+  'overlayClassName' | 'overlayStyle' | 'panelClassName' | 'panelStyle'
+> {
+  const resolvedPanelStyle =
+    panelStyle ?? {
+      ...createDialogPanelSurfaceStyle(panelSurface),
+      ...panelStyleOverrides,
+    };
+  return {
+    overlayClassName,
+    overlayStyle: overlayStyle ?? createDialogOverlayStyle(overlay),
+    panelClassName,
+    panelStyle: resolvedPanelStyle,
+  };
 }
 
 function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): string {

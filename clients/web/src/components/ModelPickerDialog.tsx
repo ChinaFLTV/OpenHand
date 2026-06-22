@@ -14,8 +14,7 @@ import {
   DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
-  createDialogOverlayStyle,
-  createDialogPanelSurfaceStyle,
+  createDialogFrameAppearance,
 } from './DialogFrame';
 
 const RECENT_KEY = 'openhand.web.recent_models';
@@ -210,20 +209,20 @@ export function ModelPickerDialog({
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      overlayClassName={DIALOG_OVERLAY_CENTER_FLUSH_CLASS}
-      overlayStyle={createDialogOverlayStyle({
-        zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
-      })}
-      panelClassName="flex flex-col"
-      panelStyle={{
-        ...createDialogPanelSurfaceStyle({
+      {...createDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
+        overlay: { zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX },
+        panelClassName: 'flex flex-col',
+        panelSurface: {
           width: 'min(420px, 92vw)',
           maxHeight: 'min(520px, 86vh)',
           border: 'none',
-        }),
-        borderRadius: '16px',
-        overflow: 'hidden',
-      }}
+        },
+        panelStyleOverrides: {
+          borderRadius: '16px',
+          overflow: 'hidden',
+        },
+      })}
       ariaLabel={t('modelPicker.search', '搜索模型…')}
     >
       <div class="px-4 py-4">
