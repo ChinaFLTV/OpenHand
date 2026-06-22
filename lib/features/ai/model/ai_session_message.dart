@@ -536,12 +536,14 @@ class AiSessionMessageResponseVariant {
     this.modelId,
     this.modelLabel,
     this.usage,
+    this.intermediateMessageIds = const <String>[],
   });
 
   factory AiSessionMessageResponseVariant.fromMessage(
     AiSessionMessage message, {
     String? id,
     DateTime? createdAt,
+    List<String> intermediateMessageIds = const <String>[],
   }) {
     return AiSessionMessageResponseVariant(
       id: id ?? message.id,
@@ -550,6 +552,7 @@ class AiSessionMessageResponseVariant {
       modelId: message.modelId,
       modelLabel: message.modelLabel,
       usage: message.usage,
+      intermediateMessageIds: _normalizeMessageIds(intermediateMessageIds),
     );
   }
 
@@ -568,6 +571,9 @@ class AiSessionMessageResponseVariant {
           : usageJson is Map
           ? AiTokenUsage.fromJson(Map<String, Object?>.from(usageJson))
           : null,
+      intermediateMessageIds: _normalizeMessageIds(
+        json['intermediate_message_ids'],
+      ),
     );
   }
 
@@ -577,6 +583,29 @@ class AiSessionMessageResponseVariant {
   final String? modelId;
   final String? modelLabel;
   final AiTokenUsage? usage;
+  final List<String> intermediateMessageIds;
+
+  AiSessionMessageResponseVariant copyWith({
+    String? id,
+    String? content,
+    DateTime? createdAt,
+    String? modelId,
+    String? modelLabel,
+    AiTokenUsage? usage,
+    List<String>? intermediateMessageIds,
+  }) {
+    return AiSessionMessageResponseVariant(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+      modelId: modelId ?? this.modelId,
+      modelLabel: modelLabel ?? this.modelLabel,
+      usage: usage ?? this.usage,
+      intermediateMessageIds: intermediateMessageIds == null
+          ? this.intermediateMessageIds
+          : _normalizeMessageIds(intermediateMessageIds),
+    );
+  }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -587,6 +616,8 @@ class AiSessionMessageResponseVariant {
       if (modelLabel != null && modelLabel!.trim().isNotEmpty)
         'model_label': modelLabel,
       if (usage != null && !usage!.isEmpty) 'usage': usage!.toJson(),
+      if (intermediateMessageIds.isNotEmpty)
+        'intermediate_message_ids': intermediateMessageIds,
     };
   }
 
@@ -630,5 +661,21 @@ class AiSessionMessageResponseVariant {
     if (length <= 0) return 0;
     final parsed = raw is int ? raw : int.tryParse('${raw ?? ''}'.trim()) ?? 0;
     return parsed.clamp(0, length - 1).toInt();
+  }
+
+  static List<String> _normalizeMessageIds(Object? raw) {
+    if (raw is! Iterable) {
+      return const <String>[];
+    }
+    final ids = <String>[];
+    final seen = <String>{};
+    for (final item in raw) {
+      final id = '$item'.trim();
+      if (id.isEmpty || !seen.add(id)) {
+        continue;
+      }
+      ids.add(id);
+    }
+    return List<String>.unmodifiable(ids);
   }
 }
