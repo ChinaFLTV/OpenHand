@@ -28,6 +28,7 @@ import 'android_reverse_toolchain_diagnostics.dart';
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const double _kAdbInlineControlHeight = 44;
+const double _kDashboardFilterControlHeight = 36;
 const double _kDashboardActionButtonHeight = 36;
 const double _kDashboardActionIconSize = 14;
 const double _kDashboardIconActionButtonSize = 36;
@@ -386,6 +387,7 @@ class _AndroidReverseDashboardDialogState
   String? _certificateArtifactOutput;
   String? _mcpArtifactOutput;
   String? _evidenceBundleOutput;
+  String _cryptoCopyValue = '';
   final _processFilter = TextEditingController();
 
   @override
@@ -3794,20 +3796,9 @@ fi
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 220),
-                child: Text(
-                  isZh ? '会话概览与交付' : 'Session overview & delivery',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+          _dashboardSectionHeader(
+            leading: const [],
+            actions: [
               _DashboardActionButton(
                 onPressed: _makingEvidenceBundle ? null : _makeEvidenceBundle,
                 icon: _makingEvidenceBundle
@@ -3826,15 +3817,6 @@ fi
                   label: isZh ? '复制结果' : 'Copy result',
                 ),
             ],
-          ),
-          const SizedBox(height: 8),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.inventory_2_rounded,
-            text: isZh
-                ? '证据包会汇总 quick_scan、network.jsonl、Frida 输出、Logcat、APP 报告和复现脚本索引，生成到 scripts/evidence_bundle_<time>.md。'
-                : 'Evidence bundle summarizes quick_scan, network.jsonl, Frida output, Logcat, APP reports, and reproduction scripts into scripts/evidence_bundle_<time>.md.',
           ),
           if (_evidenceBundleOutput?.trim().isNotEmpty ?? false) ...[
             const SizedBox(height: 10),
@@ -3900,36 +3882,17 @@ fi
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  isZh ? 'Android 逆向工具链' : 'Android reverse toolchain',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+          child: _dashboardSectionHeader(
+            leading: [
               if (_toolchainRows.isNotEmpty)
-                Flexible(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      isZh
-                          ? '必需缺失 $requiredMissing · 可选缺失 $optionalMissing'
-                          : 'Required missing $requiredMissing · optional missing $optionalMissing',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: requiredMissing == 0
-                            ? cs.onSurfaceVariant
-                            : cs.error,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
+                _StatusPill(
+                  label: isZh
+                      ? '必需缺失 $requiredMissing · 可选缺失 $optionalMissing'
+                      : 'required missing $requiredMissing · optional missing $optionalMissing',
+                  color: requiredMissing == 0 ? cs.primary : cs.error,
                 ),
-              const SizedBox(width: 10),
+            ],
+            actions: [
               _DashboardActionButton(
                 onPressed: _loadingToolchain ? null : _refreshToolchain,
                 icon: _loadingToolchain
@@ -3942,21 +3905,6 @@ fi
                 label: isZh ? '刷新' : 'Refresh',
               ),
             ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.folder_rounded,
-            text: [
-              isZh
-                  ? '工具链设置工件已由会话维护，可直接在下方执行安装、更新、卸载或查看信息。'
-                  : 'Session toolchain artifacts are maintained automatically. Use the actions below to install, update, uninstall, or view info.',
-              'README: ${_ctrl.toolchainReadmePath}',
-              'setup_commands: ${_ctrl.toolchainSetupCommandsPath}',
-            ].join('\n'),
           ),
         ),
         if (_lastToolchainCommandResult != null)
@@ -4119,25 +4067,11 @@ fi
         children: [
           _dashboardSectionHeader(
             leading: [
-              Text(
-                isZh ? 'Android 相关 MCP' : 'Android-related MCP',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 280),
-                child: Text(
-                  isZh
-                      ? '$configuredCapabilityCount/${capabilities.length} 个能力已配置 · $totalAndroidTools 个工具'
-                      : '$configuredCapabilityCount/${capabilities.length} capabilities configured · $totalAndroidTools tools',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              _StatusPill(
+                label: isZh
+                    ? '$configuredCapabilityCount/${capabilities.length} 个能力 · $totalAndroidTools 个工具'
+                    : '$configuredCapabilityCount/${capabilities.length} capabilities · $totalAndroidTools tools',
+                color: cs.primary,
               ),
             ],
             actions: [
@@ -4168,29 +4102,6 @@ fi
                 label: isZh ? '生成联动工件' : 'Generate artifacts',
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.info_outline_rounded,
-            text: isZh
-                ? '此页直接管理 Android 逆向 MCP 能力，状态与全局 MCP 面板使用同一份配置。可在能力卡片内安装、更新或卸载；本机 CLI 前置条件在“插件”页管理。'
-                : 'This page directly manages Android reverse MCP capabilities using the same configuration as the global MCP panel. Install, update, or uninstall from the capability cards; local CLI prerequisites live in Plugins.',
-          ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.folder_rounded,
-            text: [
-              isZh
-                  ? '会话级 MCP 工件由上方按钮生成，已配置的 MCP 可在卡片内启停、探测、刷新或删除。'
-                  : 'Session MCP artifacts are generated from the button above. Configured MCP servers can be enabled, checked, refreshed, or deleted in-place.',
-              'setup_guide: ${_ctrl.mcpSetupGuidePath}',
-              'readme: ${_ctrl.mcpReadmePath}',
-              'templates: ${_ctrl.mcpTemplatesPath}',
-            ].join('\n'),
           ),
           if (_mcpArtifactOutput?.trim().isNotEmpty ?? false) ...[
             const SizedBox(height: 8),
@@ -4267,25 +4178,13 @@ fi
         children: [
           _dashboardSectionHeader(
             leading: [
-              Text(
-                isZh ? 'Android 逆向插件' : 'Android reverse plugins',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 260),
-                child: Text(
-                  isZh
-                      ? '$installedRuntimeCount/${runtimePlugins.length} 个前置条件可用'
-                      : '$installedRuntimeCount/${runtimePlugins.length} prerequisites ready',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              _StatusPill(
+                label: isZh
+                    ? '$installedRuntimeCount/${runtimePlugins.length} 个前置条件可用'
+                    : '$installedRuntimeCount/${runtimePlugins.length} prerequisites ready',
+                color: installedRuntimeCount == runtimePlugins.length
+                    ? cs.primary
+                    : cs.tertiary,
               ),
             ],
             actions: [
@@ -4315,23 +4214,6 @@ fi
                 label: isZh ? '刷新工具链' : 'Refresh tools',
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.info_outline_rounded,
-            text: isZh
-                ? '此页只展示 Android 逆向线程模板依赖的本机插件与 CLI 前置条件。MCP server、工具目录和配置模板已拆到“MCP”页。'
-                : 'This page only shows local plugins and CLI prerequisites used by Android Reverse sessions. MCP servers, tool catalogs, and config templates are split into the MCP tab.',
-          ),
-          const SizedBox(height: 10),
-          _monospaceCard(
-            cs,
-            [
-              '${isZh ? "插件运行时" : "Plugin runtimes"}: $installedRuntimeCount/${runtimePlugins.length}',
-              '${isZh ? "关联插件" : "Related plugins"}: ${_kAndroidRuntimePluginIds.join(', ')}',
-            ].join('\n'),
           ),
           const SizedBox(height: 14),
           _sectionTitle(
@@ -4381,16 +4263,7 @@ fi
           const SizedBox(height: 8),
           if (_loadingToolchain && _toolchainRows.isEmpty)
             const Center(child: CircularProgressIndicator())
-          else if (_toolchainRows.isEmpty)
-            _InfoCard(
-              cs: cs,
-              theme: theme,
-              icon: Icons.construction_rounded,
-              text: isZh
-                  ? '尚未扫描 Android 逆向工具链。点击上方刷新工具链。'
-                  : 'Android reverse toolchain has not been scanned yet. Refresh toolchain above.',
-            )
-          else
+          else if (_toolchainRows.isNotEmpty)
             for (final row in _toolchainRows) ...[
               _buildToolchainCommandTile(row, cs, theme, isZh),
               const SizedBox(height: 8),
@@ -5271,15 +5144,16 @@ fi
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                '${isZh ? "第三方 APP" : "Third-party apps"} (${_packages.length})',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          child: _dashboardSectionHeader(
+            leading: [
+              _StatusPill(
+                label: isZh
+                    ? '${_packages.length} 个 APP'
+                    : '${_packages.length} apps',
+                color: cs.primary,
               ),
-              const Spacer(),
+            ],
+            actions: [
               _DashboardActionButton(
                 onPressed: _loadingPackages ? null : _doRefreshPackages,
                 icon: _loadingPackages
@@ -5642,8 +5516,11 @@ fi
       child: FilterChip(
         selected: selected,
         avatar: Icon(Icons.apps_rounded, size: 15, color: color),
+        showCheckmark: false,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 2),
         label: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 220),
+          constraints: const BoxConstraints(maxWidth: 160),
           child: Text(
             enabled ? packageName : (isZh ? '未指定包名' : 'No package'),
             maxLines: 1,
@@ -5669,6 +5546,40 @@ fi
     );
   }
 
+  Widget? _clearFieldSuffix({
+    required ColorScheme cs,
+    required bool visible,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    if (!visible) return null;
+    return Tooltip(
+      message: tooltip,
+      child: Center(
+        child: SizedBox.square(
+          dimension: 24,
+          child: IconButton(
+            onPressed: onPressed,
+            icon: const Icon(Icons.close_rounded, size: 16),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            splashRadius: 14,
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: cs.onSurfaceVariant,
+              hoverColor: cs.primary.withValues(alpha: 0.08),
+              focusColor: cs.primary.withValues(alpha: 0.08),
+              highlightColor: cs.primary.withValues(alpha: 0.12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLogcatTab(ColorScheme cs, ThemeData theme, bool isZh) {
     return Column(
       children: [
@@ -5679,11 +5590,9 @@ fi
             children: [
               _dashboardSectionHeader(
                 leading: [
-                  Text(
-                    'Logcat (${_logcatLines.length}/$_logcatCacheLimit)',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  _StatusPill(
+                    label: '${_logcatLines.length}/$_logcatCacheLimit',
+                    color: cs.primary,
                   ),
                   _buildLogcatPackageFilterChip(cs, theme, isZh),
                   if (_loadingLogcat)
@@ -5758,146 +5667,148 @@ fi
                 ],
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 260,
-                    height: _kAdbInlineControlHeight,
-                    child: TextField(
-                      controller: _logcatFilterCtrl,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: isZh ? 'Tag 过滤' : 'Tag filter',
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        suffixIcon: _logcatFilterCtrl.text.trim().isEmpty
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.clear_rounded, size: 16),
-                                tooltip: isZh ? '清空过滤' : 'Clear filter',
-                                onPressed: () {
-                                  setState(() => _logcatFilterCtrl.clear());
-                                  _fetchLogcat();
-                                },
-                              ),
-                        suffixIconConstraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
-                        ),
-                      ),
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => _fetchLogcat(),
-                    ),
-                  ),
-                  SizedBox(
-                    width: isZh ? 132 : 136,
-                    height: _kAdbInlineControlHeight,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _logcatLevel,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: isZh ? '等级' : 'Level',
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                      ),
-                      items: [
-                        for (final level in _kLogcatLevels)
-                          DropdownMenuItem<String>(
-                            value: level,
-                            child: Text(_logcatLevelOptionLabel(level, isZh)),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      height: _kDashboardFilterControlHeight,
+                      child: TextField(
+                        controller: _logcatFilterCtrl,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: isZh ? 'Tag 过滤' : 'Tag filter',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _logcatLevel = value);
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: isZh ? 132 : 150,
-                    height: _kAdbInlineControlHeight,
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _logcatCacheLimit,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: isZh ? '缓存' : 'Cache',
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
+                          suffixIcon: _clearFieldSuffix(
+                            cs: cs,
+                            visible: _logcatFilterCtrl.text.trim().isNotEmpty,
+                            tooltip: isZh ? '清空过滤' : 'Clear filter',
+                            onPressed: () {
+                              setState(() => _logcatFilterCtrl.clear());
+                              _fetchLogcat();
+                            },
+                          ),
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: 30,
+                            minHeight: 30,
+                          ),
                         ),
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (_) => _fetchLogcat(),
                       ),
-                      items: const <int>[100, 200, 500, 1000, 2000]
-                          .map(
-                            (value) => DropdownMenuItem<int>(
-                              value: value,
-                              child: Text('$value'),
+                    ),
+                    SizedBox(
+                      width: isZh ? 118 : 126,
+                      height: _kDashboardFilterControlHeight,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _logcatLevel,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          labelText: isZh ? '等级' : 'Level',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                        ),
+                        items: [
+                          for (final level in _kLogcatLevels)
+                            DropdownMenuItem<String>(
+                              value: level,
+                              child: Text(_logcatLevelOptionLabel(level, isZh)),
                             ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() {
-                          _logcatCacheLimit = value
-                              .clamp(
-                                _kMinLogcatCacheLimit,
-                                _kMaxLogcatCacheLimit,
-                              )
-                              .toInt();
-                          final retained = _trimLogcatBuffer(
-                            List<String>.from(_logcatLines),
-                          );
-                          _logcatLines
-                            ..clear()
-                            ..addAll(retained);
-                          _compactLogcatParseCache();
-                        });
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 150,
-                    height: _kAdbInlineControlHeight,
-                    child: TextField(
-                      controller: _logcatPidCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: 'PID',
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        suffixIcon: _logcatPidCtrl.text.trim().isEmpty
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.clear_rounded, size: 16),
-                                tooltip: isZh ? '清空 PID' : 'Clear PID',
-                                onPressed: () {
-                                  setState(() => _logcatPidCtrl.clear());
-                                  _fetchLogcat();
-                                },
-                              ),
-                        suffixIconConstraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
-                        ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _logcatLevel = value);
+                        },
                       ),
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => _fetchLogcat(),
                     ),
-                  ),
-                ],
+                    SizedBox(
+                      width: isZh ? 112 : 126,
+                      height: _kDashboardFilterControlHeight,
+                      child: DropdownButtonFormField<int>(
+                        initialValue: _logcatCacheLimit,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          labelText: isZh ? '缓存' : 'Cache',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                        ),
+                        items: const <int>[100, 200, 500, 1000, 2000]
+                            .map(
+                              (value) => DropdownMenuItem<int>(
+                                value: value,
+                                child: Text('$value'),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _logcatCacheLimit = value
+                                .clamp(
+                                  _kMinLogcatCacheLimit,
+                                  _kMaxLogcatCacheLimit,
+                                )
+                                .toInt();
+                            final retained = _trimLogcatBuffer(
+                              List<String>.from(_logcatLines),
+                            );
+                            _logcatLines
+                              ..clear()
+                              ..addAll(retained);
+                            _compactLogcatParseCache();
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 132,
+                      height: _kDashboardFilterControlHeight,
+                      child: TextField(
+                        controller: _logcatPidCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'PID',
+                          border: const OutlineInputBorder(),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          suffixIcon: _clearFieldSuffix(
+                            cs: cs,
+                            visible: _logcatPidCtrl.text.trim().isNotEmpty,
+                            tooltip: isZh ? '清空 PID' : 'Clear PID',
+                            onPressed: () {
+                              setState(() => _logcatPidCtrl.clear());
+                              _fetchLogcat();
+                            },
+                          ),
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: 30,
+                            minHeight: 30,
+                          ),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (_) => _fetchLogcat(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (_logcatError != null && _logcatLines.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -5988,8 +5899,6 @@ fi
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildFridaHeader(cs, theme, isZh),
-                const SizedBox(height: 10),
                 SizedBox(height: 150, child: snippets),
                 const SizedBox(height: 10),
                 Expanded(child: editor),
@@ -5999,8 +5908,6 @@ fi
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildFridaHeader(cs, theme, isZh),
-              const SizedBox(height: 10),
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -6015,17 +5922,6 @@ fi
           );
         },
       ),
-    );
-  }
-
-  Widget _buildFridaHeader(ColorScheme cs, ThemeData theme, bool isZh) {
-    return _InfoCard(
-      cs: cs,
-      theme: theme,
-      icon: Icons.bug_report_rounded,
-      text: isZh
-          ? '先从内置 snippet 加载脚本，再保存为会话工件；面板可直接运行诊断、读取输出、启动已有 frida-server，并执行 spawn / attach 捕获。'
-          : 'Load a built-in snippet and save it as a session artifact. The panel can run doctor checks, read output, start an existing frida-server, and execute spawn/attach capture directly.',
     );
   }
 
@@ -6198,27 +6094,17 @@ fi
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 160,
-          child: OpenHandSafeScrollbar(
-            child: ListView(
-              children: [
-                if (_fridaArtifactOutput?.trim().isNotEmpty ?? false) ...[
-                  _monospaceCard(cs, _fridaArtifactOutput!.trim()),
-                ] else
-                  _InfoCard(
-                    cs: cs,
-                    theme: theme,
-                    icon: Icons.output_rounded,
-                    text: isZh
-                        ? '执行结果、诊断摘要和 Frida 捕获输出会显示在这里。'
-                        : 'Execution results, doctor summaries, and Frida capture output appear here.',
-                  ),
-              ],
+        if (_fridaArtifactOutput?.trim().isNotEmpty ?? false) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 160,
+            child: OpenHandSafeScrollbar(
+              child: ListView(
+                children: [_monospaceCard(cs, _fridaArtifactOutput!.trim())],
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -6226,7 +6112,6 @@ fi
   // ── Network tab ─────────────────────────────────────────────────────────
 
   Widget _buildNetworkTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    final networkDir = _ctrl.networkDir;
     final addonOutput = _networkAddonOutput?.trim();
     final captureRunning = _ctrl.networkCaptureRunning;
     return OpenHandSafeScrollbar(
@@ -6235,12 +6120,6 @@ fi
         children: [
           _dashboardSectionHeader(
             leading: [
-              Text(
-                isZh ? '网络抓包 (mitmproxy)' : 'Network capture (mitmproxy)',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
               _StatusPill(
                 label: captureRunning
                     ? (isZh
@@ -6282,15 +6161,6 @@ fi
                   label: isZh ? '复制结果' : 'Copy result',
                 ),
             ],
-          ),
-          const SizedBox(height: 8),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.info_outline_rounded,
-            text: isZh
-                ? '网络流量由 mitmproxy 代理拦截。可先生成 JSONL addon，把 HTTP 记录写入 network.jsonl；HTTPS 需先在"证书"面板安装 CA 证书。'
-                : 'Traffic is intercepted by mitmproxy. Generate the JSONL addon to write HTTP records into network.jsonl; HTTPS requires installing the CA cert in the Certs tab first.',
           ),
           const SizedBox(height: 12),
           Row(
@@ -6373,26 +6243,7 @@ fi
           ),
           const SizedBox(height: 10),
           if (addonOutput != null && addonOutput.isNotEmpty)
-            _monospaceCard(cs, addonOutput)
-          else
-            _InfoCard(
-              cs: cs,
-              theme: theme,
-              icon: Icons.output_rounded,
-              text: isZh
-                  ? '抓包启动、设备代理、预检、读取与导出结果会显示在这里。'
-                  : 'Capture startup, proxy state, preflight, read, and export results appear here.',
-            ),
-          const SizedBox(height: 10),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.folder_rounded,
-            text:
-                '${isZh ? "本地工件目录" : "Local artifacts"}: $networkDir\n'
-                'network.jsonl\n'
-                'openhand_mitm_jsonl.py',
-          ),
+            _monospaceCard(cs, addonOutput),
         ],
       ),
     );
@@ -6401,8 +6252,6 @@ fi
   // ── Static analysis tab ─────────────────────────────────────────────────
 
   Widget _buildStaticTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    final packageSlug = _staticArtifactSlug();
-    final decompiledDir = '${_ctrl.decompiledDir}/$packageSlug';
     final scanOutput = _staticQuickScanOutput?.trim();
     final staticBusy = _runningStaticQuickScan || _runningStaticAction;
     return OpenHandSafeScrollbar(
@@ -6410,14 +6259,7 @@ fi
         padding: const EdgeInsets.all(16),
         children: [
           _dashboardSectionHeader(
-            leading: [
-              Text(
-                isZh ? '静态分析工作台' : 'Static analysis workbench',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            leading: const [],
             actions: [
               _DashboardActionButton(
                 onPressed: staticBusy ? null : _runStaticQuickScan,
@@ -6499,28 +6341,9 @@ fi
               ],
             ],
           ),
-          const SizedBox(height: 8),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.folder_rounded,
-            text: isZh
-                ? '快速扫描会读取当前 APK，生成 badging、Manifest/组件、签名证书、嵌套 APK、Flutter/native/可疑文件、业务网络候选、URL/域名/IP、网络字符串来源到 $decompiledDir/quick_scan。'
-                : 'Quick scan reads the current APK and writes badging, Manifest/components, signing certs, nested APKs, Flutter/native/suspicious files, business network candidates, URL/domain/IP, and network string sources to $decompiledDir/quick_scan.',
-          ),
           if (scanOutput != null && scanOutput.isNotEmpty) ...[
             const SizedBox(height: 10),
             _monospaceCard(cs, scanOutput),
-          ] else ...[
-            const SizedBox(height: 10),
-            _InfoCard(
-              cs: cs,
-              theme: theme,
-              icon: Icons.output_rounded,
-              text: isZh
-                  ? '静态扫描、反编译、验签和字符串定位结果会显示在这里。'
-                  : 'Static scan, decompile, signing, and string-scan results appear here.',
-            ),
           ],
         ],
       ),
@@ -6536,16 +6359,7 @@ fi
         padding: const EdgeInsets.all(16),
         children: [
           _dashboardSectionHeader(
-            leading: [
-              Text(
-                isZh
-                    ? '证书管理与 SSL Pinning'
-                    : 'Certificate management & SSL Pinning',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            leading: const [],
             actions: [
               _DashboardActionButton(
                 onPressed: _writingCertificateArtifacts
@@ -6633,15 +6447,6 @@ fi
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.verified_user_rounded,
-            text: isZh
-                ? 'HTTPS 抓包需要设备信任 mitmproxy / Burp CA 证书。Android 7+ 需要系统级证书（需 root 或 Magisk）或通过 Network Security Config 添加用户证书。'
-                : 'HTTPS capture requires the device to trust the mitmproxy/Burp CA. Android 7+ needs system-level certs (root/Magisk) or Network Security Config for user certs.',
-          ),
           const SizedBox(height: 12),
           _pathTextField(
             controller: _mitmCertPathCtrl,
@@ -6651,16 +6456,7 @@ fi
           ),
           const SizedBox(height: 10),
           if (artifactOutput != null && artifactOutput.isNotEmpty)
-            _monospaceCard(cs, artifactOutput)
-          else
-            _InfoCard(
-              cs: cs,
-              theme: theme,
-              icon: Icons.output_rounded,
-              text: isZh
-                  ? '证书工件、CA 检查、系统 CA 安装、密钥库生成和 APK 验签结果会显示在这里。SSL Pinning 绕过请在 Frida 页加载内置 SSL Pinning snippet 后直接执行。'
-                  : 'Certificate artifacts, CA inspection, system CA installation, keystore generation, and APK verification results appear here. For SSL pinning bypass, load the SSL Pinning snippet in the Frida tab and run it directly.',
-            ),
+            _monospaceCard(cs, artifactOutput),
         ],
       ),
     );
@@ -6674,13 +6470,6 @@ fi
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            isZh ? '加密工具台' : 'Crypto pad',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
           TextField(
             controller: _base64Ctrl,
             minLines: 4,
@@ -6769,26 +6558,16 @@ fi
                 label: isZh ? 'JWT 解析' : 'JWT decode',
               ),
               _DashboardActionButton(
-                onPressed: cryptoOutput.isEmpty
+                onPressed: _cryptoCopyValue.isEmpty
                     ? null
-                    : () => _copyText(_base64OutCtrl.text),
+                    : () => _copyText(_cryptoCopyValue),
                 icon: const Icon(Icons.copy_rounded),
                 label: isZh ? '复制结果' : 'Copy result',
               ),
             ],
           ),
           const SizedBox(height: 12),
-          if (cryptoOutput.isNotEmpty)
-            _monospaceCard(cs, _base64OutCtrl.text)
-          else
-            _InfoCard(
-              cs: cs,
-              theme: theme,
-              icon: Icons.lock_open_rounded,
-              text: isZh
-                  ? '选择上方动作后，格式化后的编解码、摘要或 JWT Header/Payload 会显示在这里。'
-                  : 'Choose an action above to show formatted encoding, digest, or JWT header/payload here.',
-            ),
+          if (cryptoOutput.isNotEmpty) _monospaceCard(cs, _base64OutCtrl.text),
         ],
       ),
     );
@@ -6825,30 +6604,30 @@ fi
           crossAxisAlignment: WrapCrossAlignment.center,
           children: actions,
         );
+        if (leading.isEmpty) {
+          return Align(alignment: Alignment.centerRight, child: actionWrap);
+        }
+        if (actions.isEmpty) {
+          return Align(alignment: Alignment.centerLeft, child: leadingWrap);
+        }
         if (constraints.maxWidth < 720) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               leadingWrap,
-              if (actions.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Align(alignment: Alignment.centerLeft, child: actionWrap),
-              ],
+              const SizedBox(height: 8),
+              Align(alignment: Alignment.centerRight, child: actionWrap),
             ],
           );
         }
         return Row(
           children: [
-            Expanded(child: leadingWrap),
-            if (actions.isNotEmpty) ...[
-              const SizedBox(width: 12),
-              Flexible(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: actionWrap,
-                ),
-              ),
-            ],
+            Flexible(flex: 3, child: leadingWrap),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 7,
+              child: Align(alignment: Alignment.centerRight, child: actionWrap),
+            ),
           ],
         );
       },
@@ -7476,10 +7255,12 @@ fi
   }
 
   void _setCryptoOutput(String title, String output) {
+    final value = output.trimRight();
     setState(() {
+      _cryptoCopyValue = value;
       _base64OutCtrl.text = [
         '# $title',
-        output.trimRight().isEmpty ? '(empty)' : output.trimRight(),
+        value.isEmpty ? '(empty)' : value,
       ].join('\n');
     });
   }
@@ -7625,28 +7406,6 @@ fi
     final configured = _ctrl.config.packageName?.trim();
     if (configured != null && configured.isNotEmpty) return configured;
     return null;
-  }
-
-  String _staticArtifactSlug() {
-    final pkg = _logcatPackageTarget();
-    if (pkg != null && pkg.isNotEmpty) return _safeArtifactName(pkg);
-    final apkPath = _ctrl.config.apkPath?.trim();
-    if (apkPath != null && apkPath.isNotEmpty) {
-      final name = apkPath.split('/').last.trim();
-      final base = name.toLowerCase().endsWith('.apk')
-          ? name.substring(0, name.length - 4)
-          : name;
-      return _safeArtifactName(base);
-    }
-    return 'app';
-  }
-
-  String _safeArtifactName(String value) {
-    final cleaned = value
-        .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    return cleaned.isEmpty || cleaned == 'pkg' ? 'app' : cleaned;
   }
 
   String _shellQuote(String value) {
