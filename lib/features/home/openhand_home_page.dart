@@ -76,6 +76,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/path_safety.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;

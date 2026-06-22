@@ -1,6 +1,9 @@
 import { useEffect } from 'preact/hooks';
 import { normalizeDurationMs } from '../shared/util/number';
-import { runWithAbortableTimeout } from '../utils/timed_abort';
+import {
+  isOperationAbortedError,
+  runWithAbortableTimeout,
+} from '../utils/timed_abort';
 import { useEventCallback } from './useEventCallback';
 
 const MIN_POLL_INTERVAL_MS = 250;
@@ -108,7 +111,7 @@ export function useAsyncPolling(
           },
         );
       } catch (error) {
-        if (!stopped) handleError(error);
+        if (!stopped && !isOperationAbortedError(error)) handleError(error);
       } finally {
         if (!controller.signal.aborted) {
           controller.abort();

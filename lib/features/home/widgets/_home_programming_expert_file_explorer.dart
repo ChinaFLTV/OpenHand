@@ -1380,18 +1380,14 @@ String _inferWorkspaceRoot(String filePath) {
   final cached = _workspaceRootCache[startDir];
   if (cached != null) return cached;
 
-  // Walk up collecting visited dirs so the answer can be memoized for the
-  // whole ancestry chain in one pass.
-  final visited = <String>[];
-  var dir = Directory(startDir);
-  while (true) {
-    visited.add(dir.path);
-    if (File(p.join(dir.path, 'pubspec.yaml')).existsSync() ||
-        Directory(p.join(dir.path, '.git')).existsSync() ||
-        File(p.join(dir.path, 'package.json')).existsSync() ||
-        File(p.join(dir.path, 'go.mod')).existsSync() ||
-        File(p.join(dir.path, 'Cargo.toml')).existsSync()) {
-      final root = dir.path;
+  final visited = ancestorDirectoriesFrom(startDir);
+  for (final directory in visited) {
+    if (File(p.join(directory, 'pubspec.yaml')).existsSync() ||
+        Directory(p.join(directory, '.git')).existsSync() ||
+        File(p.join(directory, 'package.json')).existsSync() ||
+        File(p.join(directory, 'go.mod')).existsSync() ||
+        File(p.join(directory, 'Cargo.toml')).existsSync()) {
+      final root = directory;
       for (final v in visited) {
         _workspaceRootCache[v] = root;
       }
@@ -1400,16 +1396,12 @@ String _inferWorkspaceRoot(String filePath) {
       }
       return root;
     }
-    final parent = dir.parent;
-    if (parent.path == dir.path) {
-      final root = dir.path;
-      for (final v in visited) {
-        _workspaceRootCache[v] = root;
-      }
-      return root;
-    }
-    dir = parent;
   }
+  final root = visited.isEmpty ? startDir : visited.last;
+  for (final v in visited) {
+    _workspaceRootCache[v] = root;
+  }
+  return root;
 }
 
 enum _EditorTabMenuAction {

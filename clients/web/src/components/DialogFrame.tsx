@@ -39,6 +39,9 @@ export const DIALOG_PANEL_DEFAULT_COLOR = 'var(--m3-on-surface)';
 export const DIALOG_PANEL_DEFAULT_SHADOW = 'var(--m3-elev-3)';
 export const DIALOG_PANEL_DEFAULT_BORDER = '1px solid var(--m3-outline-variant)';
 const DIALOG_SCROLL_LOCK_STYLE_VALUE = 'hidden';
+const DIALOG_SCROLL_LOCK_DATASET_KEY = 'dialogScrollLocked';
+const DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY = 'overscroll-behavior';
+const DIALOG_SCROLL_LOCK_OVERSCROLL_VALUE = 'none';
 
 export interface DialogPanelSurfaceStyleOptions {
   background?: string;
@@ -318,6 +321,20 @@ function dialogPanelStyle(
 let dialogScrollLockCount = 0;
 let previousBodyOverflow = '';
 let previousDocumentOverflow = '';
+let previousBodyOverscrollBehavior = '';
+let previousDocumentOverscrollBehavior = '';
+
+function restoreStyleProperty(
+  style: CSSStyleDeclaration,
+  property: string,
+  value: string,
+): void {
+  if (value) {
+    style.setProperty(property, value);
+  } else {
+    style.removeProperty(property);
+  }
+}
 
 function acquireDialogScrollLock(): () => void {
   if (typeof document === 'undefined') return () => {};
@@ -325,8 +342,25 @@ function acquireDialogScrollLock(): () => void {
   if (dialogScrollLockCount === 0) {
     previousBodyOverflow = body.style.overflow;
     previousDocumentOverflow = documentElement.style.overflow;
+    previousBodyOverscrollBehavior = body.style.getPropertyValue(
+      DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY,
+    );
+    previousDocumentOverscrollBehavior =
+      documentElement.style.getPropertyValue(
+        DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY,
+      );
     body.style.overflow = DIALOG_SCROLL_LOCK_STYLE_VALUE;
     documentElement.style.overflow = DIALOG_SCROLL_LOCK_STYLE_VALUE;
+    body.style.setProperty(
+      DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY,
+      DIALOG_SCROLL_LOCK_OVERSCROLL_VALUE,
+    );
+    documentElement.style.setProperty(
+      DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY,
+      DIALOG_SCROLL_LOCK_OVERSCROLL_VALUE,
+    );
+    body.dataset[DIALOG_SCROLL_LOCK_DATASET_KEY] = 'true';
+    documentElement.dataset[DIALOG_SCROLL_LOCK_DATASET_KEY] = 'true';
   }
   dialogScrollLockCount += 1;
 
@@ -338,8 +372,22 @@ function acquireDialogScrollLock(): () => void {
     if (dialogScrollLockCount > 0) return;
     body.style.overflow = previousBodyOverflow;
     documentElement.style.overflow = previousDocumentOverflow;
+    restoreStyleProperty(
+      body.style,
+      DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY,
+      previousBodyOverscrollBehavior,
+    );
+    restoreStyleProperty(
+      documentElement.style,
+      DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY,
+      previousDocumentOverscrollBehavior,
+    );
+    delete body.dataset[DIALOG_SCROLL_LOCK_DATASET_KEY];
+    delete documentElement.dataset[DIALOG_SCROLL_LOCK_DATASET_KEY];
     previousBodyOverflow = '';
     previousDocumentOverflow = '';
+    previousBodyOverscrollBehavior = '';
+    previousDocumentOverscrollBehavior = '';
   };
 }
 

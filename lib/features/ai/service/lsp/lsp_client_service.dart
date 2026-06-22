@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/path_safety.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
 
@@ -413,29 +414,26 @@ class AiLspClientService {
     final cached = _workspaceRootCache[startDir];
     if (cached != null) return cached;
 
-    final visited = <String>[];
-    var dir = Directory(startDir);
-    while (true) {
-      visited.add(dir.path);
-      if (Directory(p.join(dir.path, '.git')).existsSync()) {
-        return _memoizeWorkspaceRoot(visited, dir.path);
+    final visited = ancestorDirectoriesFrom(startDir);
+    for (final directory in visited) {
+      if (Directory(p.join(directory, '.git')).existsSync()) {
+        return _memoizeWorkspaceRoot(visited, directory);
       }
       var hit = false;
       for (final marker in _workspaceRootMarkerFiles) {
-        if (File(p.join(dir.path, marker)).existsSync()) {
+        if (File(p.join(directory, marker)).existsSync()) {
           hit = true;
           break;
         }
       }
       if (hit) {
-        return _memoizeWorkspaceRoot(visited, dir.path);
+        return _memoizeWorkspaceRoot(visited, directory);
       }
-      final parent = dir.parent;
-      if (parent.path == dir.path) {
-        return _memoizeWorkspaceRoot(visited, dir.path);
-      }
-      dir = parent;
     }
+    return _memoizeWorkspaceRoot(
+      visited,
+      visited.isEmpty ? startDir : visited.last,
+    );
   }
 
   static String _memoizeWorkspaceRoot(List<String> visited, String root) {

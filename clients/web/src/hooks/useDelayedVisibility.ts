@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 import { normalizeDurationMs } from '../shared/util/number';
+import { useTimeoutController } from './useTimeoutController';
 
 export interface DelayedVisibilityOptions {
   exitMs?: number;
@@ -38,13 +39,8 @@ export function useDelayedVisibility({
   const [closing, setClosing] = useState(false);
   const openRef = useRef(initiallyOpen);
   const closingRef = useRef(false);
-  const closeTimerRef = useRef<number | null>(null);
-
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimerRef.current == null || typeof window === 'undefined') return;
-    window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = null;
-  }, []);
+  const { clearTimer: clearCloseTimer, scheduleTimer: scheduleCloseTimer } =
+    useTimeoutController();
 
   const show = useCallback(() => {
     clearCloseTimer();
@@ -67,14 +63,13 @@ export function useDelayedVisibility({
     }
     closingRef.current = true;
     setClosing(true);
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
+    scheduleCloseTimer(() => {
       openRef.current = false;
       closingRef.current = false;
       setOpen(false);
       setClosing(false);
     }, closeMs);
-  }, [clearCloseTimer, exitMs, reduceMotion]);
+  }, [clearCloseTimer, exitMs, reduceMotion, scheduleCloseTimer]);
 
   const toggle = useCallback(() => {
     if (openRef.current && !closingRef.current) {
@@ -83,8 +78,6 @@ export function useDelayedVisibility({
       show();
     }
   }, [hide, show]);
-
-  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   return {
     open,
@@ -108,13 +101,7 @@ export function useControlledDelayedVisibility(
     open ? 'visible' : 'hidden',
   );
   const phaseRef = useRef<VisibilityPhase>(phase);
-  const timerRef = useRef<number | null>(null);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current == null || typeof window === 'undefined') return;
-    window.clearTimeout(timerRef.current);
-    timerRef.current = null;
-  }, []);
+  const { clearTimer, scheduleTimer } = useTimeoutController();
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -136,8 +123,7 @@ export function useControlledDelayedVisibility(
         setPhase('visible');
         return;
       }
-      timerRef.current = window.setTimeout(() => {
-        timerRef.current = null;
+      scheduleTimer(() => {
         phaseRef.current = 'visible';
         setPhase('visible');
       }, delayMs);
@@ -153,14 +139,11 @@ export function useControlledDelayedVisibility(
       setPhase('hidden');
       return;
     }
-    timerRef.current = window.setTimeout(() => {
-      timerRef.current = null;
+    scheduleTimer(() => {
       phaseRef.current = 'hidden';
       setPhase('hidden');
     }, closeMs);
-  }, [clearTimer, enterDelayMs, exitMs, open, reduceMotion]);
-
-  useEffect(() => () => clearTimer(), [clearTimer]);
+  }, [clearTimer, enterDelayMs, exitMs, open, reduceMotion, scheduleTimer]);
 
   return {
     visible: phase !== 'hidden',

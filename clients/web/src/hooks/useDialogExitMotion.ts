@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
+import { useTimeoutController } from './useTimeoutController';
 
 export interface DialogExitMotionOptions {
   exitMs?: number;
@@ -97,8 +98,8 @@ export function useDialogExitMotion<Reason extends string = string>(
   const closeOnEscapeRef = useRef(true);
   const escapeEntryIdRef = useRef(0);
   const closingRef = useRef(false);
-  const timeoutRef = useRef<number | null>(null);
   const closeReasonRef = useRef<Reason | undefined>(undefined);
+  const { clearTimer, scheduleTimer } = useTimeoutController();
   const exitMs =
     typeof optionsOrExitMs === 'number' ? optionsOrExitMs : options?.exitMs;
   const closeOnEscape = options?.closeOnEscape !== false;
@@ -125,14 +126,6 @@ export function useDialogExitMotion<Reason extends string = string>(
     onCloseRef.current(reason);
   }, []);
 
-  const clearCloseTimer = useCallback(() => {
-    if (timeoutRef.current == null) return;
-    if (typeof window !== 'undefined') {
-      window.clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = null;
-  }, []);
-
   const requestCloseWithReason = useCallback((reason?: Reason) => {
     if (closingRef.current) return;
     closeReasonRef.current = reason;
@@ -143,16 +136,9 @@ export function useDialogExitMotion<Reason extends string = string>(
     }
     closingRef.current = true;
     setClosing(true);
-    const durationMs = normalizeDialogExitDurationMs(exitMs);
-    if (reduceMotion || durationMs <= 0 || typeof window === 'undefined') {
-      finishClose();
-      return;
-    }
-    timeoutRef.current = window.setTimeout(() => {
-      timeoutRef.current = null;
-      finishClose();
-    }, durationMs);
-  }, [exitMs, finishClose, reduceMotion]);
+    const durationMs = reduceMotion ? 0 : normalizeDialogExitDurationMs(exitMs);
+    scheduleTimer(finishClose, durationMs);
+  }, [exitMs, finishClose, reduceMotion, scheduleTimer]);
 
   useEffect(() => {
     requestCloseWithReasonRef.current = requestCloseWithReason;
@@ -163,17 +149,11 @@ export function useDialogExitMotion<Reason extends string = string>(
   }, [requestCloseWithReason]);
 
   const resetClosing = useCallback(() => {
-    clearCloseTimer();
+    clearTimer();
     closingRef.current = false;
     closeReasonRef.current = undefined;
     setClosing(false);
-  }, [clearCloseTimer]);
-
-  useEffect(() => {
-    return () => {
-      clearCloseTimer();
-    };
-  }, [clearCloseTimer]);
+  }, [clearTimer]);
 
   useEffect(() => {
     if (!active || typeof window === 'undefined') return undefined;

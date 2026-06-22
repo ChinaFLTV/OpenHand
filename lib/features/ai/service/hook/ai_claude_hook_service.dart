@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../shared/util/path_safety.dart';
 
 const String aiHookSystemRemindersMetadataKey = 'hook_system_reminders';
 const String aiUserPromptHookFeedbackMetadataKey =
@@ -316,17 +317,7 @@ class AiClaudeHookService {
     addPath(p.join(homeDirectory, '.claude', 'settings.json'));
     addPath(p.join(homeDirectory, '.claude', 'settings.local.json'));
 
-    final directories = <String>[];
-    var current = cwd;
-    while (true) {
-      directories.add(current);
-      final parent = p.dirname(current);
-      if (parent == current) {
-        break;
-      }
-      current = parent;
-    }
-    for (final directory in directories.reversed) {
+    for (final directory in ancestorDirectoriesFrom(cwd, rootFirst: true)) {
       addPath(p.join(directory, '.claude', 'settings.json'));
       addPath(p.join(directory, '.claude', 'settings.local.json'));
     }

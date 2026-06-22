@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/path_safety.dart';
 import '../../model/ai_session_runtime_context.dart';
 
 class AiWorkspaceInstructionService {
@@ -98,17 +99,10 @@ class AiWorkspaceInstructionService {
       );
     }
 
-    final directories = <String>[];
-    var current = normalizedStart;
-    while (true) {
-      directories.add(current);
-      final parent = p.dirname(current);
-      if (parent == current) {
-        break;
-      }
-      current = parent;
-    }
-    for (final directory in directories.reversed) {
+    for (final directory in ancestorDirectoriesFrom(
+      normalizedStart,
+      rootFirst: true,
+    )) {
       for (final fileName in _workspaceInstructionFiles) {
         await addDocument(p.join(directory, fileName));
       }

@@ -1,5 +1,7 @@
 import 'package:path/path.dart' as p;
 
+const int kOpenHandMaxAncestorDirectoryDepth = 256;
+
 /// Returns true when [candidate] resolves to [parent] or a descendant of it.
 ///
 /// Both paths are normalized before comparison. The helper intentionally does
@@ -46,4 +48,31 @@ String safeRelativePathForDisplay(String target, {required String from}) {
     return normalizedTarget;
   }
   return p.relative(normalizedTarget, from: normalizedFrom);
+}
+
+/// Returns [startDirectory] and its parents, guarded by a max-depth and a
+/// visited set so malformed path inputs cannot create an unbounded traversal.
+List<String> ancestorDirectoriesFrom(
+  String startDirectory, {
+  bool rootFirst = false,
+  int maxDepth = kOpenHandMaxAncestorDirectoryDepth,
+}) {
+  final raw = startDirectory.trim();
+  if (raw.isEmpty || maxDepth <= 0) return const <String>[];
+  final limit = maxDepth > kOpenHandMaxAncestorDirectoryDepth
+      ? kOpenHandMaxAncestorDirectoryDepth
+      : maxDepth;
+  final directories = <String>[];
+  final seen = <String>{};
+  var current = p.normalize(raw);
+
+  while (directories.length < limit && seen.add(current)) {
+    directories.add(current);
+    final parent = p.dirname(current);
+    if (parent == current) break;
+    current = parent;
+  }
+
+  if (!rootFirst) return directories;
+  return directories.reversed.toList(growable: false);
 }

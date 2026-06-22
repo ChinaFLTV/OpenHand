@@ -19,6 +19,13 @@ export class OperationTimeoutError extends Error {
   }
 }
 
+export class OperationAbortedError extends Error {
+  constructor() {
+    super('Operation aborted');
+    this.name = 'OperationAbortedError';
+  }
+}
+
 export interface RunWithTimeoutOptions {
   timeoutMs?: number;
   createTimeoutError?: (timeoutMs: number) => unknown;
@@ -101,6 +108,16 @@ export function isOperationTimeoutError(
   return error instanceof OperationTimeoutError;
 }
 
+export function isOperationAbortedError(
+  error: unknown,
+): error is OperationAbortedError {
+  return error instanceof OperationAbortedError;
+}
+
+function abortReasonFromSignal(signal?: AbortSignal): unknown {
+  return signal?.reason ?? new OperationAbortedError();
+}
+
 export async function runWithTimeout<T>(
   operation: PromiseLike<T> | (() => PromiseLike<T> | T),
   { timeoutMs, createTimeoutError }: RunWithTimeoutOptions = {},
@@ -147,26 +164,38 @@ export async function runWithAbortableTimeout<T>(
   const abort = () => {
     if (!controller.signal.aborted) controller.abort();
   };
-
   if (signal?.aborted) {
     abort();
-  } else {
-    signal?.addEventListener('abort', abort, { once: true });
+    throw abortReasonFromSignal(signal);
   }
 
+  let abortReject: ((reason: unknown) => void) | null = null;
+  const abortPromise = new Promise<never>((_, reject) => {
+    abortReject = reject;
+  });
+  const abortAndReject = () => {
+    abort();
+    abortReject?.(abortReasonFromSignal(signal));
+  };
+  signal?.addEventListener('abort', abortAndReject, { once: true });
+
   try {
-    return await runWithTimeout(() => task(controller.signal), {
-      timeoutMs,
-      createTimeoutError: (effectiveTimeoutMs) => {
-        abort();
-        return (
-          createTimeoutError?.(effectiveTimeoutMs) ??
-          new OperationTimeoutError(effectiveTimeoutMs)
-        );
+    return await runWithTimeout(
+      () => Promise.race([Promise.resolve(task(controller.signal)), abortPromise]),
+      {
+        timeoutMs,
+        createTimeoutError: (effectiveTimeoutMs) => {
+          abort();
+          return (
+            createTimeoutError?.(effectiveTimeoutMs) ??
+            new OperationTimeoutError(effectiveTimeoutMs)
+          );
+        },
       },
-    });
+    );
   } finally {
-    signal?.removeEventListener('abort', abort);
+    signal?.removeEventListener('abort', abortAndReject);
+    abortReject = null;
     abort();
   }
 }

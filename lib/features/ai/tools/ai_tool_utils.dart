@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/path_safety.dart';
 import '../service/bash/ai_bash_tool_service.dart';
 import '../service/fs/ai_file_history_service.dart';
 import '../service/fs/ai_file_mutation_ledger.dart';
@@ -1531,15 +1532,11 @@ class AiToolUtils {
 
   /// 查找项目根目录（通过向上查找 pubspec.yaml）。
   static String? _findProjectRoot(String startDir) {
-    var current = startDir;
-    for (var i = 0; i < 10; i++) {
-      final pubspec = File(p.join(current, 'pubspec.yaml'));
+    for (final directory in ancestorDirectoriesFrom(startDir, maxDepth: 10)) {
+      final pubspec = File(p.join(directory, 'pubspec.yaml'));
       if (pubspec.existsSync()) {
-        return current;
+        return directory;
       }
-      final parent = p.dirname(current);
-      if (parent == current) break;
-      current = parent;
     }
     return null;
   }
