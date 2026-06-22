@@ -1,5 +1,27 @@
 part of '../openhand_home_page.dart';
 
+class _TranscriptHtmlKeepAlive extends StatefulWidget {
+  const _TranscriptHtmlKeepAlive({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_TranscriptHtmlKeepAlive> createState() =>
+      _TranscriptHtmlKeepAliveState();
+}
+
+class _TranscriptHtmlKeepAliveState extends State<_TranscriptHtmlKeepAlive>
+    with AutomaticKeepAliveClientMixin<_TranscriptHtmlKeepAlive> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
 /// 每个气泡的 BuildContext 注册到所属 transcript state 的局部
 /// 映射中，避免使用 GlobalObjectKey。GlobalObjectKey 在被 retake 时会
 /// 触发其 OverlayPortal 子节点（Tooltip）在 LayoutBuilder 重建期间向
@@ -1756,6 +1778,64 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return settings.aiMessageContentFormat;
   }
 
+  bool _messageUsesHtmlRenderer(
+    AiSessionMessage message,
+    SettingsController settings,
+  ) {
+    if (message.kind != AiSessionMessageKind.assistant) {
+      return false;
+    }
+    final format = _messageContentFormat(message, settings);
+    if (format == AiMessageContentFormat.plainText) {
+      return false;
+    }
+    final content =
+        _parseHeAnnotation(message.content)?.strippedContent ?? message.content;
+    final normalized = content.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    final hasHtmlLikeTags = _looksLikeHtml(normalized);
+    final hasTagStructure =
+        !hasHtmlLikeTags && _hasHtmlTagStructure(normalized);
+    if (!hasHtmlLikeTags && !hasTagStructure) {
+      return false;
+    }
+    if (format == AiMessageContentFormat.html) {
+      return true;
+    }
+    return !_startsWithFencedMermaidBlock(normalized) &&
+        !_containsMarkdownCodeFence(normalized);
+  }
+
+  bool _messageSupportsSpeech(
+    AiSessionMessage message,
+    SettingsController settings,
+  ) {
+    return switch (message.kind) {
+      AiSessionMessageKind.user || AiSessionMessageKind.reasoning => true,
+      AiSessionMessageKind.assistant =>
+        _messageContentFormat(message, settings) !=
+                AiMessageContentFormat.html &&
+            !_messageUsesHtmlRenderer(message, settings),
+      _ =>
+        _messageContentFormat(message, settings) != AiMessageContentFormat.html,
+    };
+  }
+
+  bool _messageIdTargetsUnsupportedSpeechContent(
+    String? messageId,
+    SettingsController settings,
+  ) {
+    if (messageId == null || messageId.isEmpty) return false;
+    for (final message in widget.session.displayMessages) {
+      if (message.id == messageId) {
+        return !_messageSupportsSpeech(message, settings);
+      }
+    }
+    return false;
+  }
+
   String _friendlyTranslationUiError(Object error) {
     final raw = error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
     final normalized = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -2356,7 +2436,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             builder: (context, ttsSnapshot, _) {
               final activeTtsUnsupported =
                   ttsSnapshot.playing &&
-                  _messageIdTargetsMultimediaContent(ttsSnapshot.messageId);
+                  (_messageIdTargetsMultimediaContent(ttsSnapshot.messageId) ||
+                      _messageIdTargetsUnsupportedSpeechContent(
+                        ttsSnapshot.messageId,
+                        settingsController,
+                      ));
               if (ttsSnapshot.playing &&
                   (!ttsSettings.enabled || activeTtsUnsupported)) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2520,7 +2604,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                       message,
                     );
                     final speechEnabled =
-                        ttsSettings.enabled && !hasMultimediaContent;
+                        ttsSettings.enabled &&
+                        !hasMultimediaContent &&
+                        _messageSupportsSpeech(message, settingsController);
                     final speechPlaying =
                         speechEnabled &&
                         ttsSnapshot.playing &&
@@ -2545,6 +2631,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         translationSettings.enabled &&
                         !hasMultimediaContent &&
                         _isMessageTranslatable(message, settingsController);
+                    final keepHtmlBubbleAlive =
+                        !entry.exiting &&
+                        _messageUsesHtmlRenderer(message, settingsController);
                     final bubble = _TranscriptBubbleRegistrar(
                       messageId: message.id,
                       registry: _bubbleRegistry,
@@ -2670,6 +2759,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         },
                       ),
                     );
+                    final stableBubble = keepHtmlBubbleAlive
+                        ? _TranscriptHtmlKeepAlive(child: bubble)
+                        : bubble;
                     final content = shouldAnimateAppearance
                         ? SettingsAwareAppearOnce(
                             child: Builder(
@@ -2679,11 +2771,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 ) {
                                   _animatedMessageIds.add(message.id);
                                 });
-                                return bubble;
+                                return stableBubble;
                               },
                             ),
                           )
-                        : bubble;
+                        : stableBubble;
                     // The selected action panel owns its height transition.
                     // Wrapping the whole transcript entry in another
                     // AnimatedSize makes media cards relayout twice and can

@@ -16,7 +16,8 @@
 //   每帧最多一个非平凡组件, 避免 60+ 长会话首屏 N 个 react-markdown
 //   并行 parse 卡死主线程; 1 KB 以下短消息保持同步, 减少视觉闪烁。
 
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { memo } from 'preact/compat';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
@@ -338,7 +339,12 @@ function looksLikeHtml(value: string): boolean {
   return HTML_LIKELY_TAG_RE.test(stripFencedCodeBlocks(value));
 }
 
-export { looksLikeHtml };
+function looksLikeRenderableHtml(value: string): boolean {
+  const hasHtmlLikeTags = looksLikeHtml(value);
+  return hasHtmlLikeTags || (!hasHtmlLikeTags && hasHtmlTagStructure(value));
+}
+
+export { looksLikeHtml, looksLikeRenderableHtml };
 
 /// 将一段 HTML 源码以 Blob URL 形式在新标签页打开。与 APP 端
 /// `_HtmlPreviewDialog` 的 "在浏览器中打开" 功能对齐：APP 在 OS 默认浏览器
@@ -395,9 +401,7 @@ function useStickyLooksLikeHtml(value: string): boolean {
     return false;
   }
   if (stickyRef.current) return true;
-  const hasHtmlLikeTags = looksLikeHtml(value);
-  const hasTagStructure = !hasHtmlLikeTags && hasHtmlTagStructure(value);
-  if (hasHtmlLikeTags || hasTagStructure) {
+  if (looksLikeRenderableHtml(value)) {
     stickyRef.current = true;
     return true;
   }
@@ -423,7 +427,8 @@ function loadDomPurify(): Promise<DomPurifyLike> {
   return domPurifyLoading;
 }
 
-function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
+const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [purify, setPurify] = useState<DomPurifyLike | null>(() => domPurifyCache);
   useEffect(() => {
     if (purify != null) return;
@@ -434,6 +439,17 @@ function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
     return () => { cancelled = true; };
   }, [purify]);
   const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
+  const safeHtml = useMemo(
+    () => purify == null ? '' : purify.sanitize(source, { USE_PROFILES: { html: true } }),
+    [purify, source],
+  );
+  useLayoutEffect(() => {
+    const element = containerRef.current;
+    if (element == null || purify == null) return;
+    if (element.innerHTML !== safeHtml) {
+      element.innerHTML = safeHtml;
+    }
+  }, [purify, safeHtml]);
   // HTML 模式必须尽量忠实呈现模型给出的界面结构。布局类声明（flex/grid）
   // 交给浏览器原生排版，外层只负责安全净化和溢出约束。
   if (purify == null) {
@@ -443,15 +459,14 @@ function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
       </pre>
     );
   }
-  const safeHtml = purify.sanitize(source, { USE_PROFILES: { html: true } });
   return (
     <div
+      ref={containerRef}
       class="oh-html-body text-sm"
       style={{ fontFamily }}
-      dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );
-}
+});
 
 interface CodeBlockSurfaceProps {
   lang: string | null;

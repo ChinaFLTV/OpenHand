@@ -4364,6 +4364,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
+  static const int _kEntranceCacheMaxSize = 512;
+  static final Set<int> _playedEntranceCacheKeys = <int>{};
   // 跨 State 生命周期的单调 floor。
   // State dispose 时把真实测量高度写入此 cache，新 State 重建后若 _height
   // 丢失则用 floor 兜底，防止 Stack 高度收缩到 estimatedHeight 导致
@@ -4410,6 +4412,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
   bool _heightFromFallback = false;
+  late final bool _playEntrance;
   int get _heightCacheKey => Object.hash(
     widget.data,
     widget.baseTextStyle?.fontSize,
@@ -4419,9 +4422,21 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   bool get _heightUpdatesFrozen =>
       _scrollActive || (_postScrollHeightApplyTimer?.isActive ?? false);
 
+  static bool _rememberEntranceFor(int cacheKey) {
+    if (_playedEntranceCacheKeys.contains(cacheKey)) {
+      return false;
+    }
+    _playedEntranceCacheKeys.add(cacheKey);
+    if (_playedEntranceCacheKeys.length > _kEntranceCacheMaxSize) {
+      _playedEntranceCacheKeys.remove(_playedEntranceCacheKeys.first);
+    }
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
+    _playEntrance = _rememberEntranceFor(_heightCacheKey);
     _armInitialRevealFallback();
   }
 
@@ -5055,15 +5070,53 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       ),
     );
 
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final content = Stack(
+      children: [
+        // Container(color: widget.backgroundColor) 作为
+        // macOS WKWebView 默认白底的 fallback——HTML 加载完成前避免
+        // 闪一下白屏与气泡底色形成强烈对比。其他平台
+        // transparentBackground: true 时同样受益，HTML 没设背景时
+        // 容器色自然透出与气泡衔接。
+        // loading 阶段用 Opacity(0) 隐藏 WebView 内容——
+        // 旧版 shimmer 透明叠加在 WebView 之上导致 HTML 渲染字符与骨架
+        // 条同时可见，UI 杂乱。隐藏 WebView 后用户只看到骨架屏，加载
+        // 完成后由 setState 触发 WebView 显示，衔接由外层 entrance
+        // TweenAnimationBuilder 的 fade+scale 落位动画保证自然 Q 弹。
+        Container(
+          color: widget.backgroundColor,
+          child: SizedBox(
+            width: double.infinity,
+            height: displayHeight,
+            child: Opacity(
+              opacity: showShimmer ? 0.0 : 1.0,
+              child: webViewChild,
+            ),
+          ),
+        ),
+        // 用 Stack 叠加替代 Column 堆叠——shimmer 永远
+        // 覆盖在 WebView 之上，**两个阶段 Column/Stretch 占的父级空间
+        // 始终一致**（仅 WebView 撑起 Stack 高度 = displayHeight）。
+        // 旧 Column 模式 shimmer 阶段 = `displayHeight + 1.0`（shimmer
+        // + 1px WebView）、WebView 阶段 = `displayHeight`，切换瞬间存在
+        // 1px 高度跳变 → 在用户处于"距 maxScrollExtent 较近"的位置时
+        // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动一段距离"
+        // 的偶发性 UI 异常。Stack 模式从根上消除该高度差。
+        if (showShimmer) const Positioned.fill(child: _HtmlBubbleShimmer()),
+      ],
+    );
 
-    // Q 弹进场：流式结束 → 一次性渲染 HTML 时，给 WebView 加一次 fade+scale
-    // 进场动画。曲线与全局卡片动效一致（轻微 overshoot 的回弹）。
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (reduceMotion || !_playEntrance) {
+      return content;
+    }
+
+    // Q 弹进场：首次渲染 HTML 时给 WebView 加一次 fade+scale 动画。
+    // 后续滚动回收或列表重建命中 `_playedEntranceCacheKeys`，直接返回
+    // 稳定内容，避免重复入场动画造成一闪一闪的视觉抖动。
     final entrance = TweenAnimationBuilder<double>(
-      key: const ValueKey<String>('openhand.htmlBubble.entrance'),
       tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: reduceMotion ? Duration.zero : kCardMotionDurationExpand,
-      curve: reduceMotion ? Curves.linear : kCardMotionCurve,
+      duration: kCardMotionDurationExpand,
+      curve: kCardMotionCurve,
       builder: (context, value, child) {
         return Opacity(
           opacity: value.clamp(0.0, 1.0),
@@ -5074,40 +5127,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           ),
         );
       },
-      child: Stack(
-        children: [
-          // Container(color: widget.backgroundColor) 作为
-          // macOS WKWebView 默认白底的 fallback——HTML 加载完成前避免
-          // 闪一下白屏与气泡底色形成强烈对比。其他平台
-          // transparentBackground: true 时同样受益，HTML 没设背景时
-          // 容器色自然透出与气泡衔接。
-          // loading 阶段用 Opacity(0) 隐藏 WebView 内容——
-          // 旧版 shimmer 透明叠加在 WebView 之上导致 HTML 渲染字符与骨架
-          // 条同时可见，UI 杂乱。隐藏 WebView 后用户只看到骨架屏，加载
-          // 完成后由 setState 触发 WebView 显示，衔接由外层 entrance
-          // TweenAnimationBuilder 的 fade+scale 落位动画保证自然 Q 弹。
-          Container(
-            color: widget.backgroundColor,
-            child: SizedBox(
-              width: double.infinity,
-              height: displayHeight,
-              child: Opacity(
-                opacity: showShimmer ? 0.0 : 1.0,
-                child: webViewChild,
-              ),
-            ),
-          ),
-          // 用 Stack 叠加替代 Column 堆叠——shimmer 永远
-          // 覆盖在 WebView 之上，**两个阶段 Column/Stretch 占的父级空间
-          // 始终一致**（仅 WebView 撑起 Stack 高度 = displayHeight）。
-          // 旧 Column 模式 shimmer 阶段 = `displayHeight + 1.0`（shimmer
-          // + 1px WebView）、WebView 阶段 = `displayHeight`，切换瞬间存在
-          // 1px 高度跳变 → 在用户处于"距 maxScrollExtent 较近"的位置时
-          // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动一段距离"
-          // 的偶发性 UI 异常。Stack 模式从根上消除该高度差。
-          if (showShimmer) const Positioned.fill(child: _HtmlBubbleShimmer()),
-        ],
-      ),
+      child: content,
     );
     return entrance;
   }

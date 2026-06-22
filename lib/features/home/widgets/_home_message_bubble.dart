@@ -1073,7 +1073,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
             !isToolCall &&
             !isSelfLearning &&
             !isCompressionPoint &&
-            !isStatus)
+            !isStatus &&
+            resolvedMessageContentFormat != AiMessageContentFormat.plainText)
           _MessageActionSpec(
             id: 'raw-toggle',
             onPressed: () async {

@@ -12,7 +12,7 @@
 import type { SessionMessage } from '../api/sessions';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
-import { Markdown, looksLikeHtml, openHtmlInNewTab } from './Markdown';
+import { Markdown, looksLikeHtml, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import { MediaPreviewDialog, MessageMedia, messageHasMultimedia, stripCollectedNetworkMedia } from './MessageMedia';
 import type { MediaItem } from './MessageMedia';
@@ -23,7 +23,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import { useMessageContentFormat } from '../hooks/useMessageContentFormat';
+import { useMessageContentFormat, type MessageContentFormat } from '../hooks/useMessageContentFormat';
 import {
   stopTtsPlayback,
   toggleTtsPlayback,
@@ -72,6 +72,12 @@ function roleLabel(role: string): string {
     case 'tool': return t('detail.role.tool', '工具');
     default: return role;
   }
+}
+
+function resolveMessageContentFormat(raw: unknown, fallback: MessageContentFormat): MessageContentFormat {
+  return raw === 'markdown' || raw === 'plain_text' || raw === 'html'
+    ? raw
+    : fallback;
 }
 
 interface KindStyle {
@@ -1176,19 +1182,45 @@ function MessageCardImpl({
     ? ` oh-appear-up${appearanceStaggerIndex > 0 ? ` oh-appear-stagger-${appearanceStaggerIndex}` : ''}`
     : '';
 
+  // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
+  // 优先级：metadata.content_format > global contentFormat。
+  const effectiveFormat = resolveMessageContentFormat(
+    message.metadata?.['content_format'],
+    contentFormat,
+  );
+  const supportsTextActions = effectiveFormat !== 'html';
+  const supportsRenderedSourceToggle =
+    effectiveFormat === 'html' || effectiveFormat === 'markdown';
+  const contentLooksHtml = looksLikeRenderableHtml(visibleContent);
+  const htmlRenderableMessage =
+    !isUserBubble &&
+    !useToolBody &&
+    !useStructuredToolBody &&
+    message.kind !== 'reasoning' &&
+    message.kind !== 'file_mutation_summary' &&
+    contentLooksHtml &&
+    (effectiveFormat === 'html' || effectiveFormat === 'markdown');
+  const textActionsSupported = supportsTextActions && !htmlRenderableMessage;
+  const canOpenHtmlInBrowser = effectiveFormat === 'html' && contentLooksHtml;
+  useEffect(() => {
+    if (!supportsRenderedSourceToggle && showRawContent) {
+      setShowRawContent(false);
+    }
+  }, [showRawContent, supportsRenderedSourceToggle]);
   const ttsPlaying = ttsPlayback.playing && ttsPlayback.messageId === message.id;
   const hasMultimediaContent = messageHasMultimedia(message);
+  const ttsUnsupported = hasMultimediaContent || !textActionsSupported;
   const canReadMessage = (
     ttsSettings.enabled &&
     !isUserBubble &&
-    !hasMultimediaContent &&
+    !ttsUnsupported &&
     content.trim().length > 0
   );
   useEffect(() => {
-    if (ttsPlaying && hasMultimediaContent) {
+    if (ttsPlaying && ttsUnsupported) {
       stopTtsPlayback();
     }
-  }, [hasMultimediaContent, ttsPlaying]);
+  }, [ttsPlaying, ttsUnsupported]);
   const hasAnyAction = Boolean(
     onCopy ||
     canReadMessage ||
@@ -1209,20 +1241,14 @@ function MessageCardImpl({
   }, [actionsVisible, actionPanelMotion.hide, actionPanelMotion.show]);
   const renderActionPanel = actionPanelMotion.visible;
   const actionPanelInteractive = actionsVisible && !actionPanelMotion.closing;
-  // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
-  // 优先级：metadata.content_format > global contentFormat。
-  const effectiveFormat = (
-    (typeof message.metadata?.['content_format'] === 'string'
-      ? message.metadata['content_format']
-      : null) ?? contentFormat
-  ) as 'markdown' | 'plain_text' | 'html';
   const isHtmlAssistantCard =
-    !isUserBubble &&
-    !useToolBody &&
-    !useStructuredToolBody &&
-    message.kind !== 'reasoning' &&
-    message.kind !== 'file_mutation_summary' &&
-    effectiveFormat === 'html';
+    htmlRenderableMessage ||
+    (!isUserBubble &&
+      !useToolBody &&
+      !useStructuredToolBody &&
+      message.kind !== 'reasoning' &&
+      message.kind !== 'file_mutation_summary' &&
+      effectiveFormat === 'html');
   const isWideSystemCard =
     useToolBody ||
     message.kind === 'reasoning' ||
@@ -1263,7 +1289,10 @@ function MessageCardImpl({
   // 用可见文本信号做局部高度 FLIP，避免整张卡被高频 WAAPI 裁剪。
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
-    !reduceMotion && !streamingContent && !keepExpandedDuringTurn,
+    !reduceMotion &&
+      !streamingContent &&
+      !keepExpandedDuringTurn &&
+      !isHtmlAssistantCard,
   );
   const cardPointerDownRef = useRef<{ x: number; y: number; at: number } | null>(
     null,
@@ -1633,7 +1662,7 @@ function MessageCardImpl({
                       onClick={() => onFork(message)}
                     />
                   ) : null}
-                  {!isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' ? (
+                  {!isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' && supportsRenderedSourceToggle ? (
                     <ActionBtn
                       icon={showRawContent ? 'codeOff' : 'code'}
                       label={showRawContent
@@ -1643,7 +1672,7 @@ function MessageCardImpl({
                       onClick={() => setShowRawContent((v) => !v)}
                     />
                   ) : null}
-                  {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && effectiveFormat === 'html' ? (
+                  {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && canOpenHtmlInBrowser ? (
                     <ActionBtn
                       icon="globe"
                       label={t('message.openInBrowser', '浏览器打开')}
