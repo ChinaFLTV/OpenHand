@@ -583,6 +583,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
       bool? collapsedOverride,
       ValueChanged<bool>? onCollapsedChanged,
       bool showCollapseToggle = true,
+      Object? contentMotionKey,
+      bool forceMotionWhenScrolling = false,
     }) {
       return _AssistantMessageBodyDispatcher(
         data: data.isEmpty ? ' ' : data,
@@ -607,6 +609,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         collapsedOverride: collapsedOverride,
         onCollapsedChanged: onCollapsedChanged,
         showCollapseToggle: showCollapseToggle,
+        contentMotionKey: contentMotionKey,
+        forceMotionWhenScrolling: forceMotionWhenScrolling,
       );
     }
 
@@ -624,6 +628,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
       );
     }
 
+    final responseVariantBodyMotionKey =
+        isAssistantResponse && message.responseVariants.length > 1
+        ? Object.hash(
+            message.id,
+            message.responseVariantIndex,
+            effectiveContent.length,
+            effectiveContent.hashCode,
+          )
+        : null;
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
     final bubbleCard = Container(
@@ -870,6 +883,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 }
                               : null,
                           showCollapseToggle: !canCollapseAssistantResponse,
+                          contentMotionKey: responseVariantBodyMotionKey,
+                          forceMotionWhenScrolling:
+                              _responseVariantSizeMotionActive,
                         ),
                       if (isStreamingAssistant &&
                           resolvedMessageContentFormat !=
@@ -898,7 +914,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
               ],
             );
             final allowBubbleSizeMotion =
-                !widget.transcriptScrollActive &&
+                (!widget.transcriptScrollActive ||
+                    _responseVariantSizeMotionActive) &&
                 ((isReasoning && !isStreamingReasoning) ||
                     _reasoningExpandedOverride != null ||
                     _assistantResponseExpandedOverride != null ||

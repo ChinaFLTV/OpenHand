@@ -2658,6 +2658,10 @@ class AiSessionController extends ChangeNotifier {
         session.copyWith(
           messages: updatedMessages,
           updatedAt: _clock().toUtc(),
+          // Updating one loaded message must not widen a windowed transcript.
+          messageLoadState: session.messageLoadState,
+          messageWindowStartIndex: session.messageWindowStartIndex,
+          messageTotalCount: session.messageTotalCount,
         ),
       );
       _debugSessionLog(sessionId, operationName);

@@ -5144,6 +5144,8 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     this.collapsedOverride,
     this.onCollapsedChanged,
     this.showCollapseToggle = true,
+    this.contentMotionKey,
+    this.forceMotionWhenScrolling = false,
   });
 
   final String data;
@@ -5164,6 +5166,8 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final bool? collapsedOverride;
   final ValueChanged<bool>? onCollapsedChanged;
   final bool showCollapseToggle;
+  final Object? contentMotionKey;
+  final bool forceMotionWhenScrolling;
 
   Widget _wrapSelection(Widget child) {
     if (!wrapInSelectionArea) return child;
@@ -5266,8 +5270,8 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   /// 把内部渲染产物按"是否处于流式阶段"做一次性模式切换：
   /// - 流式中且格式为 HTML → 骨架屏占位；
   /// - 流式结束 → 真正的格式分支（带智能回退）。
-  /// 这里的 AnimatedSwitcher 只负责 body 级别的 fade+scale 落位，不承担
-  /// 尺寸插值；高度动画统一交给外层消息气泡。
+  /// 这里的 AnimatedSwitcher 负责 body 级别的 fade+scale 落位；候选响应
+  /// 这类显式内容切换会额外启用局部尺寸过渡，外层消息气泡继续兜住整卡高度。
   Widget _buildDispatchedBody() {
     if (isStreaming && format == AiMessageContentFormat.html) {
       return _StreamingHtmlPlaceholder(
@@ -5288,10 +5292,13 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     final transcriptScrolling = context.select<TranscriptScrollActivity, bool>(
       (activity) => activity.value,
     );
+    final motionEnabled =
+        !reduceMotion && (!transcriptScrolling || forceMotionWhenScrolling);
+    final motionDuration = motionEnabled
+        ? cardMotionDurationFor(context, expanding: !isStreaming)
+        : Duration.zero;
     final body = AnimatedSwitcher(
-      duration: transcriptScrolling || reduceMotion
-          ? Duration.zero
-          : cardMotionDurationFor(context, expanding: !isStreaming),
+      duration: motionDuration,
       layoutBuilder: (currentChild, previousChildren) {
         return Stack(
           alignment: Alignment.topLeft,
@@ -5324,12 +5331,24 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         );
       },
       child: KeyedSubtree(
-        key: ValueKey<String>(
-          '${format.storageKey}|${isStreaming ? 'streaming' : 'stable'}|${wrapInSelectionArea ? 'select' : 'plain'}',
+        key: ValueKey<Object>(
+          Object.hash(
+            format.storageKey,
+            isStreaming,
+            wrapInSelectionArea,
+            contentMotionKey,
+          ),
         ),
         child: _buildDispatchedBody(),
       ),
     );
-    return _wrapSelection(body);
+    return _wrapSelection(
+      maybeAnimatedSize(
+        duration: motionDuration,
+        curve: kCardMotionCurve,
+        alignment: Alignment.topLeft,
+        child: body,
+      ),
+    );
   }
 }
