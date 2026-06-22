@@ -398,6 +398,8 @@ Future<T?> showAnimatedDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   DialogAnimationSettings? settings,
+  OpenHandAnimationTransitionProfile transitionProfile =
+      const OpenHandAnimationTransitionProfile(),
   bool barrierDismissible = true,
   bool dismissOnEscape = true,
   String? barrierLabel,
@@ -450,6 +452,7 @@ Future<T?> showAnimatedDialog<T>({
         animation: animation,
         secondaryAnimation: secondaryAnimation,
         settings: effectiveSettings,
+        profile: transitionProfile,
         child: child,
       );
     },
@@ -1103,11 +1106,13 @@ Widget _buildTransition({
   required Animation<double> animation,
   required Animation<double> secondaryAnimation,
   required DialogAnimationSettings settings,
+  required OpenHandAnimationTransitionProfile profile,
   required Widget child,
 }) {
   return buildAnimationStyleTransition(
     animation: animation,
     settings: settings,
+    profile: profile,
     child: child,
   );
 }

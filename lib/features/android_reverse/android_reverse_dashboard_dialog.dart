@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
-import '../../shared/ui/openhand_dialog_motion_surface.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
@@ -65,6 +64,18 @@ const List<String> _kAndroidRuntimePluginIds =
     TemplateRuntimeDependencyRegistry.androidReversePluginIds;
 const String _kAndroidMcpToolSearchFallbackQuery =
     TemplateRuntimeDependencyRegistry.androidReverseToolSearchFallbackQuery;
+const OpenHandAnimationTransitionProfile _kAndroidDashboardMotionProfile =
+    OpenHandAnimationTransitionProfile(
+      fadeScaleBegin: 0.88,
+      expandScaleBegin: 0.80,
+      rotateScaleBegin: 0.86,
+      elasticScaleBegin: 0.86,
+      springScaleBegin: 0.84,
+      slideUpOffset: Offset(0, 0.20),
+      slideDownOffset: Offset(0, -0.16),
+      slideLeftOffset: Offset(-0.20, 0),
+      slideRightOffset: Offset(0.20, 0),
+    );
 const String _kAndroidStdioMcpConfigTemplate = '''
 {
   "mcpServers": {
@@ -98,11 +109,10 @@ Future<void> showAndroidReverseDashboardDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => OpenHandDialogMotionSurface(
-      child: _AndroidReverseDashboardDialog(
-        controller: controller,
-        sessionId: sessionId,
-      ),
+    transitionProfile: _kAndroidDashboardMotionProfile,
+    builder: (_) => _AndroidReverseDashboardDialog(
+      controller: controller,
+      sessionId: sessionId,
     ),
   );
 }
