@@ -12,7 +12,7 @@ import type { JSX } from 'preact';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useRafScheduler } from '../hooks/useRafScheduler';
-import { clampNumber } from '../shared/ui/floating_position';
+import { clampNumber } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
 export interface MenuOption<T extends string = string> {

@@ -25,8 +25,6 @@ export const DEFAULT_FLOATING_ANCHOR_GAP = 4;
 export const DEFAULT_FLOATING_MIN_WIDTH = 160;
 export const DEFAULT_FLOATING_FALLBACK_HEIGHT = 160;
 
-export { clampNumber };
-
 export function computeAnchoredMenuPosition({
   anchor,
   preferredWidth,

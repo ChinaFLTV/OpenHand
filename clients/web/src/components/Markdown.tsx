@@ -163,8 +163,6 @@ class MarkdownFrameScheduler {
 }
 const markdownFrameScheduler = new MarkdownFrameScheduler();
 
-export { normalizeMarkdownDestination };
-
 export function isLocalMediaReference(raw: unknown): boolean {
   if (typeof raw !== 'string') return false;
   const value = normalizeMarkdownDestination(raw);
