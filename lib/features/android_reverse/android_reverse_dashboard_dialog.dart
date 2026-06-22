@@ -156,6 +156,7 @@ enum _ProcessMenuAction { copyPid, copyName, kill, forceStopPackage, logcatPid }
 enum _ToolchainCommandAction { install, update, uninstall, reference }
 
 enum _RuntimePluginAction {
+  info,
   install,
   checkUpdate,
   update,
@@ -2444,20 +2445,17 @@ fi
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: _DashboardActionButton(
-                      onPressed: _runningShell ? null : _runShell,
-                      icon: _runningShell
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.play_arrow_rounded, size: 16),
-                      label: isZh ? '执行' : 'Run',
-                      filled: true,
-                    ),
+                  _DashboardActionButton(
+                    onPressed: _runningShell ? null : _runShell,
+                    icon: _runningShell
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.play_arrow_rounded, size: 16),
+                    label: isZh ? '执行' : 'Run',
+                    filled: true,
                   ),
                 ],
               ),
@@ -2783,15 +2781,10 @@ fi
                 ),
               ),
               const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: _DashboardActionButton(
-                  onPressed: _runningDeviceAction
-                      ? null
-                      : _connectWirelessDevice,
-                  icon: const Icon(Icons.link_rounded),
-                  label: isZh ? '连接' : 'Connect',
-                ),
+              _DashboardActionButton(
+                onPressed: _runningDeviceAction ? null : _connectWirelessDevice,
+                icon: const Icon(Icons.link_rounded),
+                label: isZh ? '连接' : 'Connect',
               ),
             ],
           ),
@@ -3956,7 +3949,10 @@ fi
                               : Icons.error_outline_rounded,
                           color: statusColor,
                         ),
-                        title: Row(
+                        title: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               row.probe.label,
@@ -3964,22 +3960,20 @@ fi
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            if (row.probe.required) ...[
-                              const SizedBox(width: 8),
-                              Chip(
-                                label: Text(isZh ? '必需' : 'required'),
-                                visualDensity: VisualDensity.compact,
-                                side: BorderSide.none,
+                            if (row.probe.required)
+                              _StatusPill(
+                                label: isZh ? '必需' : 'required',
+                                color: cs.error,
+                                compact: true,
+                                subtle: true,
                               ),
-                            ],
-                            if (plugin != null) ...[
-                              const SizedBox(width: 8),
-                              Chip(
-                                label: Text(isZh ? '插件托管' : 'plugin-managed'),
-                                visualDensity: VisualDensity.compact,
-                                side: BorderSide.none,
+                            if (plugin != null)
+                              _StatusPill(
+                                label: isZh ? '插件托管' : 'plugin-managed',
+                                color: cs.secondary,
+                                compact: true,
+                                subtle: true,
                               ),
-                            ],
                           ],
                         ),
                         subtitle: Padding(
@@ -4343,6 +4337,7 @@ fi
               Wrap(
                 spacing: _kDashboardTrailingActionGap,
                 runSpacing: 6,
+                alignment: WrapAlignment.end,
                 children: [
                   _DashboardIconActionButton(
                     tooltip: server.enabled
@@ -4832,18 +4827,13 @@ fi
             const SizedBox(width: _kDashboardTrailingActionGap),
             _DashboardPopupIconActionButton<_RuntimePluginAction>(
               tooltip: isZh ? '插件操作' : 'Plugin actions',
-              enabled: !actionBusy,
-              icon: actionBusy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 1.8),
-                    )
-                  : const Icon(Icons.more_horiz_rounded, size: 17),
+              icon: const Icon(Icons.more_horiz_rounded, size: 17),
               itemBuilder: (context) => actions
                   .map(
                     (action) => PopupMenuItem<_RuntimePluginAction>(
                       value: action,
+                      enabled:
+                          action == _RuntimePluginAction.info || !actionBusy,
                       child: Row(
                         children: [
                           Icon(_runtimePluginActionIcon(action), size: 16),
@@ -4864,9 +4854,12 @@ fi
   }
 
   List<_RuntimePluginAction> _runtimePluginActions(PluginInfo plugin) {
-    if (plugin.isBusy) return const <_RuntimePluginAction>[];
+    if (plugin.isBusy) {
+      return const <_RuntimePluginAction>[_RuntimePluginAction.info];
+    }
     if (plugin.isInstalled) {
       return <_RuntimePluginAction>[
+        _RuntimePluginAction.info,
         _RuntimePluginAction.checkUpdate,
         if (plugin.hasUpdate || _kAndroidRuntimePluginIds.contains(plugin.id))
           _RuntimePluginAction.update,
@@ -4876,11 +4869,15 @@ fi
         if (plugin.supportsUninstall) _RuntimePluginAction.uninstall,
       ];
     }
-    return const <_RuntimePluginAction>[_RuntimePluginAction.install];
+    return const <_RuntimePluginAction>[
+      _RuntimePluginAction.info,
+      _RuntimePluginAction.install,
+    ];
   }
 
   IconData _runtimePluginActionIcon(_RuntimePluginAction action) {
     return switch (action) {
+      _RuntimePluginAction.info => Icons.info_outline_rounded,
       _RuntimePluginAction.install => Icons.download_rounded,
       _RuntimePluginAction.checkUpdate => Icons.refresh_rounded,
       _RuntimePluginAction.update => Icons.system_update_alt_rounded,
@@ -4892,6 +4889,7 @@ fi
 
   String _runtimePluginActionLabel(_RuntimePluginAction action, bool isZh) {
     return switch (action) {
+      _RuntimePluginAction.info => isZh ? '查看信息' : 'View info',
       _RuntimePluginAction.install => isZh ? '安装' : 'Install',
       _RuntimePluginAction.checkUpdate => isZh ? '检查更新' : 'Check updates',
       _RuntimePluginAction.update => isZh ? '更新' : 'Update',
@@ -4901,6 +4899,14 @@ fi
     };
   }
 
+  void _showRuntimePluginInfoDialog(PluginInfo plugin, bool isZh) {
+    showAnimatedDialog<void>(
+      context: context,
+      transitionProfile: _kAndroidDashboardMotionProfile,
+      builder: (_) => _RuntimePluginInfoDialog(plugin: plugin, isZh: isZh),
+    );
+  }
+
   Future<void> _handleRuntimePluginAction(
     PluginInfo plugin,
     _RuntimePluginAction action,
@@ -4908,6 +4914,9 @@ fi
   ) async {
     final pluginController = context.read<PluginServiceController>();
     switch (action) {
+      case _RuntimePluginAction.info:
+        _showRuntimePluginInfoDialog(plugin, isZh);
+        return;
       case _RuntimePluginAction.enable:
       case _RuntimePluginAction.disable:
         pluginController.toggleEnabled(
@@ -5103,6 +5112,8 @@ fi
                     ? (isZh ? '必需缺失' : 'required missing')
                     : (isZh ? '可选缺失' : 'optional missing'),
                 color: color,
+                compact: true,
+                subtle: true,
               ),
             ],
           ),
@@ -5118,20 +5129,16 @@ fi
             ),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final action in _toolchainVisibleActions(row.probe))
-                _SmallActionButton(
-                  icon: _toolchainCommandIcon(action),
-                  label: _toolchainCommandLabel(action, isZh),
-                  onPressed: _isToolchainCommandRunning(row.probe, action)
-                      ? null
-                      : () => _handleToolchainAction(row.probe, action, isZh),
-                ),
-            ],
-          ),
+          _dashboardActionWrap([
+            for (final action in _toolchainVisibleActions(row.probe))
+              _SmallActionButton(
+                icon: _toolchainCommandIcon(action),
+                label: _toolchainCommandLabel(action, isZh),
+                onPressed: _isToolchainCommandRunning(row.probe, action)
+                    ? null
+                    : () => _handleToolchainAction(row.probe, action, isZh),
+              ),
+          ]),
         ],
       ),
     );
@@ -5408,19 +5415,16 @@ fi
                 ),
               ),
               const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: _DashboardActionButton(
-                  onPressed: _loadingProcesses ? null : _doRefreshProcesses,
-                  icon: _loadingProcesses
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                  label: isZh ? '刷新' : 'Refresh',
-                ),
+              _DashboardActionButton(
+                onPressed: _loadingProcesses ? null : _doRefreshProcesses,
+                icon: _loadingProcesses
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                label: isZh ? '刷新' : 'Refresh',
               ),
             ],
           ),
@@ -5501,18 +5505,14 @@ fi
     ThemeData theme,
     bool isZh,
   ) {
-    final packageName = _logcatPackageTarget();
-    final enabled = packageName != null && packageName.isNotEmpty;
-    final selected = enabled && _logcatPackageFilterEnabled;
-    final color = !enabled
-        ? cs.outline
-        : selected
-        ? cs.primary
-        : cs.onSurfaceVariant;
+    final packageName = _logcatPackageTarget()?.trim();
+    if (packageName == null || packageName.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final selected = _logcatPackageFilterEnabled;
+    final color = selected ? cs.primary : cs.onSurfaceVariant;
     return Tooltip(
-      message: enabled
-          ? (isZh ? '按包名过滤 Logcat' : 'Filter logcat by package')
-          : (isZh ? '未配置目标包名' : 'No target package configured'),
+      message: isZh ? '按包名过滤 Logcat' : 'Filter logcat by package',
       child: FilterChip(
         selected: selected,
         avatar: Icon(Icons.apps_rounded, size: 15, color: color),
@@ -5522,7 +5522,7 @@ fi
         label: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 160),
           child: Text(
-            enabled ? packageName : (isZh ? '未指定包名' : 'No package'),
+            packageName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -5531,15 +5531,13 @@ fi
             ),
           ),
         ),
-        onSelected: !enabled
-            ? null
-            : (value) {
-                setState(() {
-                  _logcatPackageFilterEnabled = value;
-                  if (value) _logcatPidCtrl.clear();
-                });
-                unawaited(_fetchLogcat());
-              },
+        onSelected: (value) {
+          setState(() {
+            _logcatPackageFilterEnabled = value;
+            if (value) _logcatPidCtrl.clear();
+          });
+          unawaited(_fetchLogcat());
+        },
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -5594,7 +5592,8 @@ fi
                     label: '${_logcatLines.length}/$_logcatCacheLimit',
                     color: cs.primary,
                   ),
-                  _buildLogcatPackageFilterChip(cs, theme, isZh),
+                  if (_logcatPackageTarget()?.isNotEmpty ?? false)
+                    _buildLogcatPackageFilterChip(cs, theme, isZh),
                   if (_loadingLogcat)
                     const SizedBox(
                       width: 14,
@@ -5982,6 +5981,86 @@ fi
 
   Widget _buildFridaEditorPane(ColorScheme cs, ThemeData theme, bool isZh) {
     final scriptAsset = _selectedFridaSnippetAsset;
+    final selectedAssetLabel = Text(
+      scriptAsset ?? (isZh ? '未选择内置 snippet' : 'No built-in snippet selected'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: cs.onSurfaceVariant,
+        fontFamily: scriptAsset == null ? null : 'monospace',
+      ),
+    );
+    final actions = <Widget>[
+      _DashboardActionButton(
+        onPressed: _fridaScriptCtrl.text.trim().isEmpty || _savingFridaScript
+            ? null
+            : _saveFridaScriptArtifact,
+        icon: _savingFridaScript
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 1.6),
+              )
+            : const Icon(Icons.save_alt_rounded),
+        label: isZh ? '保存工件' : 'Save artifact',
+      ),
+      _DashboardActionButton(
+        onPressed: _fridaScriptCtrl.text.trim().isEmpty
+            ? null
+            : () => _copyText(_fridaScriptCtrl.text),
+        icon: const Icon(Icons.copy_rounded),
+        label: isZh ? '复制脚本' : 'Copy script',
+      ),
+      _DashboardActionButton(
+        onPressed: _runningFridaDoctor || _runningFridaAction
+            ? null
+            : _runFridaDoctor,
+        icon: _runningFridaDoctor
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 1.6),
+              )
+            : const Icon(Icons.health_and_safety_rounded),
+        label: isZh ? '运行诊断' : 'Run doctor',
+      ),
+      _DashboardActionButton(
+        onPressed: _runningFridaAction ? null : _readFridaArtifacts,
+        icon: _runningFridaAction
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 1.6),
+              )
+            : const Icon(Icons.folder_open_rounded),
+        label: isZh ? '读取工件' : 'Read artifacts',
+      ),
+      _DashboardActionButton(
+        onPressed: _runningFridaAction ? null : _startExistingFridaServer,
+        icon: _runningFridaAction
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 1.6),
+              )
+            : const Icon(Icons.play_circle_outline_rounded),
+        label: isZh ? '启动服务' : 'Start server',
+      ),
+      _DashboardActionButton(
+        onPressed: _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
+            ? null
+            : () => _runFridaCapture(spawn: true),
+        icon: const Icon(Icons.rocket_launch_rounded),
+        label: isZh ? 'Spawn 注入' : 'Spawn',
+      ),
+      _DashboardActionButton(
+        onPressed: _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
+            ? null
+            : () => _runFridaCapture(spawn: false),
+        icon: const Icon(Icons.link_rounded),
+        label: isZh ? 'Attach 注入' : 'Attach',
+      ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -5990,6 +6069,7 @@ fi
             controller: _fridaScriptCtrl,
             maxLines: null,
             expands: true,
+            textAlignVertical: TextAlignVertical.top,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
               isDense: true,
@@ -5998,101 +6078,31 @@ fi
                   : '// Load a snippet or paste script...',
               border: const OutlineInputBorder(),
               alignLabelWithHint: true,
+              contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 220, maxWidth: 520),
-              child: Text(
-                scriptAsset ??
-                    (isZh ? '未选择内置 snippet' : 'No built-in snippet selected'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontFamily: scriptAsset == null ? null : 'monospace',
-                ),
-              ),
-            ),
-            _DashboardActionButton(
-              onPressed:
-                  _fridaScriptCtrl.text.trim().isEmpty || _savingFridaScript
-                  ? null
-                  : _saveFridaScriptArtifact,
-              icon: _savingFridaScript
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.6),
-                    )
-                  : const Icon(Icons.save_alt_rounded),
-              label: isZh ? '保存工件' : 'Save artifact',
-            ),
-            _DashboardActionButton(
-              onPressed: _fridaScriptCtrl.text.trim().isEmpty
-                  ? null
-                  : () => _copyText(_fridaScriptCtrl.text),
-              icon: const Icon(Icons.copy_rounded),
-              label: isZh ? '复制脚本' : 'Copy script',
-            ),
-            _DashboardActionButton(
-              onPressed: _runningFridaDoctor || _runningFridaAction
-                  ? null
-                  : _runFridaDoctor,
-              icon: _runningFridaDoctor
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.6),
-                    )
-                  : const Icon(Icons.health_and_safety_rounded),
-              label: isZh ? '运行诊断' : 'Run doctor',
-            ),
-            _DashboardActionButton(
-              onPressed: _runningFridaAction ? null : _readFridaArtifacts,
-              icon: _runningFridaAction
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.6),
-                    )
-                  : const Icon(Icons.folder_open_rounded),
-              label: isZh ? '读取工件' : 'Read artifacts',
-            ),
-            _DashboardActionButton(
-              onPressed: _runningFridaAction ? null : _startExistingFridaServer,
-              icon: _runningFridaAction
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.6),
-                    )
-                  : const Icon(Icons.play_circle_outline_rounded),
-              label: isZh ? '启动服务' : 'Start server',
-            ),
-            _DashboardActionButton(
-              onPressed:
-                  _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
-                  ? null
-                  : () => _runFridaCapture(spawn: true),
-              icon: const Icon(Icons.rocket_launch_rounded),
-              label: isZh ? 'Spawn 注入' : 'Spawn',
-            ),
-            _DashboardActionButton(
-              onPressed:
-                  _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
-                  ? null
-                  : () => _runFridaCapture(spawn: false),
-              icon: const Icon(Icons.link_rounded),
-              label: isZh ? 'Attach 注入' : 'Attach',
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 720) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  selectedAssetLabel,
+                  const SizedBox(height: 8),
+                  _dashboardActionWrap(actions),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: selectedAssetLabel),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: _dashboardActionWrap(actions)),
+              ],
+            );
+          },
         ),
         if (_fridaArtifactOutput?.trim().isNotEmpty ?? false) ...[
           const SizedBox(height: 8),
@@ -6186,61 +6196,57 @@ fi
             ],
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _DashboardActionButton(
-                onPressed: _runningNetworkAction || captureRunning
-                    ? null
-                    : _startNetworkCapture,
-                icon: _runningNetworkAction
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.8),
-                      )
-                    : const Icon(Icons.fiber_manual_record_rounded),
-                label: isZh ? '启动抓包' : 'Start capture',
-              ),
-              _DashboardActionButton(
-                onPressed: _runningNetworkAction || !captureRunning
-                    ? null
-                    : () => _runNetworkAction(_ctrl.stopNetworkCapture),
-                icon: const Icon(Icons.stop_circle_rounded),
-                label: isZh ? '停止抓包' : 'Stop capture',
-              ),
-              _DashboardActionButton(
-                onPressed: _runningNetworkAction ? null : _setDeviceProxy,
-                icon: const Icon(Icons.settings_ethernet_rounded),
-                label: isZh ? '设置代理' : 'Set proxy',
-              ),
-              _DashboardActionButton(
-                onPressed: _runningNetworkAction ? null : _readDeviceProxy,
-                icon: const Icon(Icons.visibility_rounded),
-                label: isZh ? '读取代理' : 'Read proxy',
-              ),
-              _DashboardActionButton(
-                onPressed: _runningNetworkAction ? null : _clearDeviceProxy,
-                icon: const Icon(Icons.cleaning_services_rounded),
-                label: isZh ? '清除代理' : 'Clear proxy',
-              ),
-              _DashboardActionButton(
-                onPressed: _runningNetworkAction
-                    ? null
-                    : () => _runNetworkAction(_ctrl.readNetworkCaptureSummary),
-                icon: const Icon(Icons.article_rounded),
-                label: isZh ? '读取抓包' : 'Read capture',
-              ),
-              _DashboardActionButton(
-                onPressed: _runningNetworkAction
-                    ? null
-                    : _exportNetworkFlowsWithPicker,
-                icon: const Icon(Icons.ios_share_rounded),
-                label: isZh ? '导出 flows' : 'Export flows',
-              ),
-            ],
-          ),
+          _dashboardActionWrap([
+            _DashboardActionButton(
+              onPressed: _runningNetworkAction || captureRunning
+                  ? null
+                  : _startNetworkCapture,
+              icon: _runningNetworkAction
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.8),
+                    )
+                  : const Icon(Icons.fiber_manual_record_rounded),
+              label: isZh ? '启动抓包' : 'Start capture',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningNetworkAction || !captureRunning
+                  ? null
+                  : () => _runNetworkAction(_ctrl.stopNetworkCapture),
+              icon: const Icon(Icons.stop_circle_rounded),
+              label: isZh ? '停止抓包' : 'Stop capture',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningNetworkAction ? null : _setDeviceProxy,
+              icon: const Icon(Icons.settings_ethernet_rounded),
+              label: isZh ? '设置代理' : 'Set proxy',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningNetworkAction ? null : _readDeviceProxy,
+              icon: const Icon(Icons.visibility_rounded),
+              label: isZh ? '读取代理' : 'Read proxy',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningNetworkAction ? null : _clearDeviceProxy,
+              icon: const Icon(Icons.cleaning_services_rounded),
+              label: isZh ? '清除代理' : 'Clear proxy',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningNetworkAction
+                  ? null
+                  : () => _runNetworkAction(_ctrl.readNetworkCaptureSummary),
+              icon: const Icon(Icons.article_rounded),
+              label: isZh ? '读取抓包' : 'Read capture',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningNetworkAction
+                  ? null
+                  : _exportNetworkFlowsWithPicker,
+              icon: const Icon(Icons.ios_share_rounded),
+              label: isZh ? '导出 flows' : 'Export flows',
+            ),
+          ]),
           const SizedBox(height: 10),
           if (addonOutput != null && addonOutput.isNotEmpty)
             _monospaceCard(cs, addonOutput),
@@ -6484,88 +6490,84 @@ fi
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _setCryptoOutput(
-                        isZh ? 'Base64 编码' : 'Base64 encode',
-                        base64Encode(utf8.encode(_base64Ctrl.text)),
-                      ),
-                icon: const Icon(Icons.upload_rounded),
-                label: isZh ? 'Base64 编码' : 'B64 encode',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _decodeBase64Input(isZh),
-                icon: const Icon(Icons.download_rounded),
-                label: isZh ? 'Base64 解码' : 'B64 decode',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _setCryptoOutput(
-                        isZh ? 'URL 编码' : 'URL encode',
-                        Uri.encodeComponent(_base64Ctrl.text),
-                      ),
-                icon: const Icon(Icons.link_rounded),
-                label: isZh ? 'URL 编码' : 'URL encode',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _decodeUrlInput(isZh),
-                icon: const Icon(Icons.link_off_rounded),
-                label: isZh ? 'URL 解码' : 'URL decode',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _hashCryptoInput('MD5', crypto.md5),
-                icon: const Icon(Icons.tag_rounded),
-                label: 'MD5',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _hashCryptoInput('SHA1', crypto.sha1),
-                icon: const Icon(Icons.tag_rounded),
-                label: 'SHA1',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _hashCryptoInput('SHA256', crypto.sha256),
-                icon: const Icon(Icons.tag_rounded),
-                label: 'SHA256',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _hashCryptoInput('SHA512', crypto.sha512),
-                icon: const Icon(Icons.tag_rounded),
-                label: 'SHA512',
-              ),
-              _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _decodeJwtInput(isZh),
-                icon: const Icon(Icons.token_rounded),
-                label: isZh ? 'JWT 解析' : 'JWT decode',
-              ),
-              _DashboardActionButton(
-                onPressed: _cryptoCopyValue.isEmpty
-                    ? null
-                    : () => _copyText(_cryptoCopyValue),
-                icon: const Icon(Icons.copy_rounded),
-                label: isZh ? '复制结果' : 'Copy result',
-              ),
-            ],
-          ),
+          _dashboardActionWrap([
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _setCryptoOutput(
+                      isZh ? 'Base64 编码' : 'Base64 encode',
+                      base64Encode(utf8.encode(_base64Ctrl.text)),
+                    ),
+              icon: const Icon(Icons.upload_rounded),
+              label: isZh ? 'Base64 编码' : 'B64 encode',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _decodeBase64Input(isZh),
+              icon: const Icon(Icons.download_rounded),
+              label: isZh ? 'Base64 解码' : 'B64 decode',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _setCryptoOutput(
+                      isZh ? 'URL 编码' : 'URL encode',
+                      Uri.encodeComponent(_base64Ctrl.text),
+                    ),
+              icon: const Icon(Icons.link_rounded),
+              label: isZh ? 'URL 编码' : 'URL encode',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _decodeUrlInput(isZh),
+              icon: const Icon(Icons.link_off_rounded),
+              label: isZh ? 'URL 解码' : 'URL decode',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _hashCryptoInput('MD5', crypto.md5),
+              icon: const Icon(Icons.tag_rounded),
+              label: 'MD5',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _hashCryptoInput('SHA1', crypto.sha1),
+              icon: const Icon(Icons.tag_rounded),
+              label: 'SHA1',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _hashCryptoInput('SHA256', crypto.sha256),
+              icon: const Icon(Icons.tag_rounded),
+              label: 'SHA256',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _hashCryptoInput('SHA512', crypto.sha512),
+              icon: const Icon(Icons.tag_rounded),
+              label: 'SHA512',
+            ),
+            _DashboardActionButton(
+              onPressed: _base64Ctrl.text.isEmpty
+                  ? null
+                  : () => _decodeJwtInput(isZh),
+              icon: const Icon(Icons.token_rounded),
+              label: isZh ? 'JWT 解析' : 'JWT decode',
+            ),
+            _DashboardActionButton(
+              onPressed: _cryptoCopyValue.isEmpty
+                  ? null
+                  : () => _copyText(_cryptoCopyValue),
+              icon: const Icon(Icons.copy_rounded),
+              label: isZh ? '复制结果' : 'Copy result',
+            ),
+          ]),
           const SizedBox(height: 12),
           if (cryptoOutput.isNotEmpty) _monospaceCard(cs, _base64OutCtrl.text),
         ],
@@ -6622,15 +6624,27 @@ fi
         }
         return Row(
           children: [
-            Flexible(flex: 3, child: leadingWrap),
+            Flexible(child: leadingWrap),
             const SizedBox(width: 12),
             Expanded(
-              flex: 7,
               child: Align(alignment: Alignment.centerRight, child: actionWrap),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _dashboardActionWrap(List<Widget> actions) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: actions,
+      ),
     );
   }
 
@@ -7763,20 +7777,34 @@ class _DashboardPopupIconActionButton<T> extends StatelessWidget {
 }
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.color});
+  const _StatusPill({
+    required this.label,
+    required this.color,
+    this.compact = false,
+    this.subtle = false,
+  });
 
   final String label;
   final Color color;
+  final bool compact;
+  final bool subtle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+          : const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: subtle
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.56)
+            : color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.36)),
+        border: Border.all(
+          color: color.withValues(alpha: subtle ? 0.24 : 0.36),
+        ),
       ),
       child: Text(
         label,
@@ -7785,6 +7813,8 @@ class _StatusPill extends StatelessWidget {
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w800,
+          fontSize: compact ? 10.5 : null,
+          height: 1.05,
         ),
       ),
     );
@@ -7906,6 +7936,277 @@ class _SmallActionButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon),
       label: label,
+    );
+  }
+}
+
+class _RuntimePluginInfoDialog extends StatelessWidget {
+  const _RuntimePluginInfoDialog({required this.plugin, required this.isZh});
+
+  final PluginInfo plugin;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final specs = TemplateRuntimeDependencyRegistry.specsForPlugin(plugin.id);
+    final statusColor = plugin.isInstalled
+        ? plugin.enabled
+              ? cs.primary
+              : cs.outline
+        : plugin.status == PluginStatus.error
+        ? cs.error
+        : cs.tertiary;
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 520,
+      maxHeight: 560,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.extension_rounded,
+            title: '${plugin.name} ${isZh ? "信息" : "Info"}',
+            subtitle: plugin.id,
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Flexible(
+            child: OpenHandSafeScrollbar(
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [
+                  _RuntimePluginDetailSection(
+                    title: isZh ? '基本信息' : 'Basic info',
+                    icon: Icons.info_outline_rounded,
+                    children: [
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '名称' : 'Name',
+                        value: plugin.name,
+                      ),
+                      _RuntimePluginDetailRow(label: 'ID', value: plugin.id),
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '描述' : 'Description',
+                        value: plugin.description,
+                      ),
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '状态' : 'Status',
+                        value: _pluginStatusLabel(plugin, isZh),
+                        valueColor: statusColor,
+                      ),
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '启用' : 'Enabled',
+                        value: plugin.enabled
+                            ? (isZh ? '是' : 'Yes')
+                            : (isZh ? '否' : 'No'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _RuntimePluginDetailSection(
+                    title: isZh ? '版本与路径' : 'Version and path',
+                    icon: Icons.inventory_2_rounded,
+                    children: [
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '已安装版本' : 'Installed',
+                        value: plugin.installedVersion,
+                      ),
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '最新版本' : 'Latest',
+                        value: plugin.latestVersion,
+                      ),
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '安装路径' : 'Install path',
+                        value: plugin.installPath,
+                        monospace: true,
+                      ),
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '支持卸载' : 'Uninstallable',
+                        value: plugin.supportsUninstall
+                            ? (isZh ? '是' : 'Yes')
+                            : (isZh ? '否' : 'No'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _RuntimePluginDetailSection(
+                    title: isZh ? '依赖关系' : 'Dependencies',
+                    icon: Icons.account_tree_rounded,
+                    children: [
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '依赖' : 'Depends on',
+                        value: plugin.dependencies.isEmpty
+                            ? (isZh ? '无' : 'None')
+                            : plugin.dependencies.join(', '),
+                        monospace: plugin.dependencies.isNotEmpty,
+                      ),
+                      _RuntimePluginDetailRow(
+                        label: isZh ? '被依赖' : 'Required by',
+                        value: plugin.dependents.isEmpty
+                            ? (isZh ? '无' : 'None')
+                            : plugin.dependents.join(', '),
+                        monospace: plugin.dependents.isNotEmpty,
+                      ),
+                    ],
+                  ),
+                  if (specs.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _RuntimePluginDetailSection(
+                      title: isZh ? '逆向模板关联' : 'Reverse templates',
+                      icon: Icons.dashboard_customize_rounded,
+                      children: [
+                        _RuntimePluginDetailRow(
+                          label: isZh ? '关联模板' : 'Templates',
+                          value: specs
+                              .map((spec) => isZh ? spec.labelZh : spec.labelEn)
+                              .join(', '),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (plugin.errorMessage?.trim().isNotEmpty ?? false) ...[
+                    const SizedBox(height: 14),
+                    _RuntimePluginDetailSection(
+                      title: isZh ? '异常信息' : 'Error',
+                      icon: Icons.error_outline_rounded,
+                      accentColor: cs.error,
+                      children: [
+                        _RuntimePluginDetailRow(
+                          label: isZh ? '错误' : 'Error',
+                          value: plugin.errorMessage!.trim(),
+                          valueColor: cs.error,
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _pluginStatusLabel(PluginInfo plugin, bool isZh) {
+    return switch (plugin.status) {
+      PluginStatus.notInstalled => isZh ? '未安装' : 'Not installed',
+      PluginStatus.installed =>
+        plugin.enabled
+            ? (isZh ? '已安装并启用' : 'Installed and enabled')
+            : (isZh ? '已安装但禁用' : 'Installed but disabled'),
+      PluginStatus.installing => isZh ? '安装中' : 'Installing',
+      PluginStatus.updating => isZh ? '更新中' : 'Updating',
+      PluginStatus.uninstalling => isZh ? '卸载中' : 'Uninstalling',
+      PluginStatus.error => isZh ? '异常' : 'Error',
+    };
+  }
+}
+
+class _RuntimePluginDetailSection extends StatelessWidget {
+  const _RuntimePluginDetailSection({
+    required this.title,
+    required this.icon,
+    required this.children,
+    this.accentColor,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+  final Color? accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final color = accentColor ?? cs.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RuntimePluginDetailRow extends StatelessWidget {
+  const _RuntimePluginDetailRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.monospace = false,
+  });
+
+  final String label;
+  final String? value;
+  final Color? valueColor;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final normalized = value?.trim();
+    final display = normalized == null || normalized.isEmpty ? '-' : normalized;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 104,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SelectableText(
+              display,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: valueColor ?? cs.onSurface,
+                fontFamily: monospace ? 'monospace' : null,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
