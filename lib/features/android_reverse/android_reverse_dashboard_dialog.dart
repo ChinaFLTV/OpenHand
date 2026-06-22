@@ -356,6 +356,7 @@ class _AndroidReverseDashboardDialogState
   bool _logcatPackageFilterEnabled = false;
   bool _logcatAutoRefresh = false;
   bool _logcatStickToBottom = true;
+  bool _didKickInitialRefresh = false;
   String? _selectedDeviceSerial;
   String? _lastDeviceActionOutput;
   AdbCommandResult? _lastShellResult;
@@ -404,6 +405,13 @@ class _AndroidReverseDashboardDialogState
     _ctrl.addListener(_onControllerChanged);
     _fridaScriptCtrl.addListener(_onFridaScriptChanged);
     _logcatScrollController.addListener(_onLogcatScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didKickInitialRefresh) return;
+    _didKickInitialRefresh = true;
     _refreshAll();
     unawaited(_refreshToolchain());
   }
