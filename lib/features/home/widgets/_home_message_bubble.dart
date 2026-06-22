@@ -1240,8 +1240,9 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
 const double _messageActionChipHeight = 34;
 const double _messageActionChipHorizontalPadding = 10;
 const double _messageActionChipVerticalPadding = 6;
-const double _responseVariantArrowWidth = 26;
-const double _responseVariantLabelMinWidth = 42;
+const double _responseVariantChipHeight = 26;
+const double _responseVariantArrowWidth = 20;
+const double _responseVariantLabelMinWidth = 28;
 const double _messageActionIconSize = 16;
 
 ButtonStyle _messageActionChipStyle(BuildContext context) {
@@ -5307,7 +5308,7 @@ class _ResponseVariantSwitcherState extends State<_ResponseVariantSwitcher> {
         !_selecting &&
         widget.onSelect != null &&
         widget.currentIndex < widget.count - 1;
-    final label = '${widget.currentIndex + 1} / ${widget.count}';
+    final label = '${widget.currentIndex + 1}/${widget.count}';
     return Material(
       color: Colors.transparent,
       shape: StadiumBorder(side: side),
@@ -5317,7 +5318,7 @@ class _ResponseVariantSwitcherState extends State<_ResponseVariantSwitcher> {
         fontWeight: FontWeight.w800,
       ),
       child: SizedBox(
-        height: _messageActionChipHeight,
+        height: _responseVariantChipHeight,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -5398,7 +5399,7 @@ class _ResponseVariantArrowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveColor = color.withValues(alpha: enabled ? 0.92 : 0.28);
     return InkWell(
-      borderRadius: BorderRadius.circular(_messageActionChipHeight / 2),
+      borderRadius: BorderRadius.circular(_responseVariantChipHeight / 2),
       onTap: enabled
           ? () {
               _BubbleHtmlInteractiveScope.maybeOf(
@@ -5409,12 +5410,8 @@ class _ResponseVariantArrowButton extends StatelessWidget {
           : null,
       child: SizedBox(
         width: _responseVariantArrowWidth,
-        height: _messageActionChipHeight,
-        child: Icon(
-          icon,
-          size: _messageActionIconSize + 1,
-          color: effectiveColor,
-        ),
+        height: _responseVariantChipHeight,
+        child: Icon(icon, size: _messageActionIconSize, color: effectiveColor),
       ),
     );
   }
