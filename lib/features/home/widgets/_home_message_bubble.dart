@@ -815,8 +815,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               AiMessageContentFormat.html)
                         // HTML 格式：流式阶段不暴露原始 `<div>...` 字符，
                         // 改为渲染 `_AssistantMessageBodyDispatcher`
-                        // 内部的 Q 弹骨架屏占位；流式结束后由内部
-                        // AnimatedSwitcher 一次性切换到真正的 WebView 渲染。
+                        // 内部的骨架屏占位；流式结束后直接切到稳定
+                        // WebView 渲染，避免平台视图被 fade/scale 合成层包裹。
                         buildAssistantBodyDispatcher(
                           data: effectiveContent,
                           format: resolvedMessageContentFormat,

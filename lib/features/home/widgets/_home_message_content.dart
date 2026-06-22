@@ -3850,55 +3850,25 @@ class _DeferredHtmlBubbleWebViewState
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final scrolling = context.select<TranscriptScrollActivity, bool>(
-      (activity) => activity.value,
-    );
-    final duration = scrolling || reduceMotion
-        ? Duration.zero
-        : cardMotionDurationFor(context, expanding: true);
-    return AnimatedSwitcher(
-      duration: duration,
-      transitionBuilder: (child, animation) {
-        final opacity = openHandBoundedCurveAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        final motion = openHandCurveAnimation(
-          parent: animation,
-          curve: kCardMotionCurve,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: opacity,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.985, end: 1.0).animate(motion),
-            alignment: Alignment.topCenter,
-            child: child,
+    if (_mountWebView) {
+      return _HtmlBubbleWebView(
+        key: ValueKey<int>(
+          Object.hash(
+            widget.data,
+            widget.textColor,
+            widget.backgroundColor,
+            widget.baseTextStyle,
           ),
-        );
-      },
-      child: _mountWebView
-          ? _HtmlBubbleWebView(
-              key: ValueKey<int>(
-                Object.hash(
-                  widget.data,
-                  widget.textColor,
-                  widget.backgroundColor,
-                  widget.baseTextStyle,
-                ),
-              ),
-              data: widget.data,
-              textColor: widget.textColor,
-              backgroundColor: widget.backgroundColor,
-              baseTextStyle: widget.baseTextStyle,
-            )
-          : SizedBox(
-              key: const ValueKey<String>('html-webview-mount-placeholder'),
-              height: _estimateHtmlBubbleHeight(widget.data),
-              child: const _HtmlBubbleShimmer(),
-            ),
+        ),
+        data: widget.data,
+        textColor: widget.textColor,
+        backgroundColor: widget.backgroundColor,
+        baseTextStyle: widget.baseTextStyle,
+      );
+    }
+    return SizedBox(
+      height: _estimateHtmlBubbleHeight(widget.data),
+      child: const _HtmlBubbleShimmer(),
     );
   }
 }
@@ -4376,8 +4346,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
   static final Map<int, double> _heightCache = <int, double>{};
-  static const int _kEntranceCacheMaxSize = 512;
-  static final Set<int> _playedEntranceCacheKeys = <int>{};
   // 跨 State 生命周期的单调 floor。
   // State dispose 时把真实测量高度写入此 cache，新 State 重建后若 _height
   // 丢失则用 floor 兜底，防止 Stack 高度收缩到 estimatedHeight 导致
@@ -4387,13 +4355,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // HTML 文档字符串缓存。`_buildDocument()` 在每次 build 都会
   // 拼装 1-2KB HTML 字符串（多次 RegExp.match、字符串切片、模板拼接），
   // 长会话首屏 8-15 个 HTML 气泡同帧 build 时叠加，单帧 ~5-15ms 浪费
-  // 在重复拼装同一份文档上。改为按 (data 引用, textColor 引用,
-  // backgroundColor 引用) 在 State 维度内缓存，引用相同即视为输入未变。
-  // 使用引用比对而非 hash 避免罕见的 hash 冲突错返缓存。
+  // 在重复拼装同一份文档上。改为按内容/颜色/正文样式在 State 维度内缓存，
+  // 避免普通 rebuild 反复重建 HTML 文档。
   String? _documentCacheData;
   Color? _documentCacheTextColor;
   Color? _documentCacheBackgroundColor;
+  TextStyle? _documentCacheBaseTextStyle;
   String? _documentCache;
+  String? _webViewWidgetDocument;
+  Widget? _webViewWidget;
+  late final iaw.InAppWebViewSettings _webViewSettings =
+      iaw.InAppWebViewSettings(
+        transparentBackground: !Platform.isMacOS,
+        disableVerticalScroll: true,
+      );
   int _measurementCount = 0;
   int _loadGeneration = 0;
   Timer? _heightDebounceTimer;
@@ -4424,7 +4399,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
   bool _heightFromFallback = false;
-  late final bool _playEntrance;
   int get _heightCacheKey => Object.hash(
     widget.data,
     widget.baseTextStyle?.fontSize,
@@ -4433,17 +4407,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
 
   bool get _heightUpdatesFrozen =>
       _scrollActive || (_postScrollHeightApplyTimer?.isActive ?? false);
-
-  static bool _rememberEntranceFor(int cacheKey) {
-    if (_playedEntranceCacheKeys.contains(cacheKey)) {
-      return false;
-    }
-    _playedEntranceCacheKeys.add(cacheKey);
-    if (_playedEntranceCacheKeys.length > _kEntranceCacheMaxSize) {
-      _playedEntranceCacheKeys.remove(_playedEntranceCacheKeys.first);
-    }
-    return true;
-  }
 
   static void _writeBoundedHeightCache(
     Map<int, double> cache,
@@ -4459,7 +4422,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   @override
   void initState() {
     super.initState();
-    _playEntrance = _rememberEntranceFor(_heightCacheKey);
     _armInitialRevealFallback();
   }
 
@@ -4468,7 +4430,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data ||
         oldWidget.textColor != widget.textColor ||
-        oldWidget.backgroundColor != widget.backgroundColor) {
+        oldWidget.backgroundColor != widget.backgroundColor ||
+        oldWidget.baseTextStyle != widget.baseTextStyle) {
       _reload();
     }
   }
@@ -4508,11 +4471,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _postScrollHeightApplyTimer = null;
       _heightDebounceTimer?.cancel();
       _heightDebounceTimer = null;
-      _safeSetState(() => _scrollActive = true);
+      _scrollActive = true;
       return;
     }
+    _scrollActive = false;
     _schedulePostScrollHeightApply();
-    _safeSetState(() => _scrollActive = false);
   }
 
   void _schedulePostScrollHeightApply() {
@@ -4570,18 +4533,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   }
 
   Future<void> _reload() async {
-    final controller = _controller;
-    if (controller == null) return;
     _loadGeneration += 1;
     // 内容/样式变化时清除旧高度缓存与 floor，避免新内容被旧大值撑出空白。
     _heightCache.remove(_heightCacheKey);
     _heightFloorCache.remove(_heightCacheKey);
-    // 文档字符串缓存一并失效，下一次 _buildDocument() 会按新 data/颜色
-    // 重新拼装。
-    _documentCacheData = null;
-    _documentCacheTextColor = null;
-    _documentCacheBackgroundColor = null;
-    _documentCache = null;
+    _invalidateDocumentCaches();
     _safeSetState(() {
       _height = null;
       _hasError = false;
@@ -4591,6 +4547,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _firstMeasurementHandled = false;
     _heightDebounceTimer?.cancel();
     _armInitialRevealFallback();
+    final controller = _controller;
+    if (controller == null) return;
     try {
       await controller.loadData(data: _buildDocument());
     } catch (error, stack) {
@@ -4888,15 +4846,25 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
   }
 
+  void _invalidateDocumentCaches() {
+    _documentCacheData = null;
+    _documentCacheTextColor = null;
+    _documentCacheBackgroundColor = null;
+    _documentCacheBaseTextStyle = null;
+    _documentCache = null;
+    _webViewWidgetDocument = null;
+    _webViewWidget = null;
+  }
+
   String _buildDocument() {
-    // 按 (data 引用, textColor 引用, backgroundColor 引用) 命中
-    // 复用已拼装的文档字符串。build 阶段被 WebView reload 路径
+    // 按内容/颜色/正文样式命中复用已拼装的文档字符串。build 阶段被 WebView reload 路径
     // （didUpdateWidget 触发 _reload）会主动调用 buildDocument() 刷新
     // 缓存；普通 rebuild 命中后直接返回缓存，跳过 1-2KB 字符串拼装 +
     // RegExp 扫描 + healUnbalancedHtml。
-    if (identical(_documentCacheData, widget.data) &&
-        identical(_documentCacheTextColor, widget.textColor) &&
-        identical(_documentCacheBackgroundColor, widget.backgroundColor) &&
+    if (_documentCacheData == widget.data &&
+        _documentCacheTextColor == widget.textColor &&
+        _documentCacheBackgroundColor == widget.backgroundColor &&
+        _documentCacheBaseTextStyle == widget.baseTextStyle &&
         _documentCache != null) {
       return _documentCache!;
     }
@@ -4962,6 +4930,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _documentCacheData = widget.data;
     _documentCacheTextColor = widget.textColor;
     _documentCacheBackgroundColor = widget.backgroundColor;
+    _documentCacheBaseTextStyle = widget.baseTextStyle;
     _documentCache = result;
     return result;
   }
@@ -4984,6 +4953,65 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       );
     }
     return '$_embeddedDocumentResetStyle$html';
+  }
+
+  Widget _stableInAppWebView() {
+    final document = _buildDocument();
+    final cached = _webViewWidget;
+    if (cached != null && identical(_webViewWidgetDocument, document)) {
+      return cached;
+    }
+    _webViewWidgetDocument = document;
+    return _webViewWidget = iaw.InAppWebView(
+      initialData: iaw.InAppWebViewInitialData(data: document),
+      initialSettings: _webViewSettings,
+      onWebViewCreated: _handleWebViewCreated,
+      onLoadStop: (controller, _) => _installWebViewScripts(controller),
+      onReceivedError: _handleWebViewError,
+    );
+  }
+
+  void _handleWebViewCreated(iaw.InAppWebViewController controller) {
+    _controller = controller;
+    controller.addJavaScriptHandler(
+      handlerName: 'OpenHandHeight',
+      callback: (args) {
+        if (args.isEmpty) return;
+        final raw = args.first;
+        final value = raw is num
+            ? raw.toDouble()
+            : double.tryParse(raw.toString());
+        if (value == null || !value.isFinite) return;
+        _onContentSizeChanged(Size(0, value));
+      },
+    );
+  }
+
+  Future<void> _installWebViewScripts(
+    iaw.InAppWebViewController controller,
+  ) async {
+    try {
+      await controller.evaluateJavascript(source: _heightObserverScript);
+      await controller.evaluateJavascript(source: _selectionBridgeScript);
+    } catch (error, stack) {
+      silentLog(
+        'home_message_content',
+        'html bubble height observer install failed',
+        error,
+        stack,
+      );
+    }
+  }
+
+  void _handleWebViewError(
+    iaw.InAppWebViewController controller,
+    iaw.WebResourceRequest request,
+    iaw.WebResourceError error,
+  ) {
+    silentLog('home_message_content', 'html bubble webview error', error);
+    if (mounted) {
+      _safeSetState(() => _hasError = true);
+    }
   }
 
   /// 按内容长度粗略估算 HTML 渲染后占据的高度，用于 shimmer 占位期间
@@ -5041,58 +5069,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       // 绘。长会话滚动期间 8-15 个 HTML 气泡同时有 WebView 在跑 ResizeObserver，
       // 一次 setState 就会拖累整页 paint，RepaintBoundary 阻断这层
       // repaint 蔓延。
-      child: KeyedSubtree(
-        key: _webViewRegionKey,
-        child: iaw.InAppWebView(
-          initialData: iaw.InAppWebViewInitialData(data: _buildDocument()),
-          initialSettings: iaw.InAppWebViewSettings(
-            transparentBackground: !Platform.isMacOS,
-            disableVerticalScroll: true,
-          ),
-          onWebViewCreated: (controller) {
-            _controller = controller;
-            controller.addJavaScriptHandler(
-              handlerName: 'OpenHandHeight',
-              callback: (args) {
-                if (args.isEmpty) return;
-                final raw = args.first;
-                final value = raw is num
-                    ? raw.toDouble()
-                    : double.tryParse(raw.toString());
-                if (value == null || !value.isFinite) return;
-                _onContentSizeChanged(Size(0, value));
-              },
-            );
-          },
-          onLoadStop: (controller, url) async {
-            try {
-              await controller.evaluateJavascript(
-                source: _heightObserverScript,
-              );
-              await controller.evaluateJavascript(
-                source: _selectionBridgeScript,
-              );
-            } catch (error, stack) {
-              silentLog(
-                'home_message_content',
-                'html bubble height observer install failed',
-                error,
-                stack,
-              );
-            }
-          },
-          onReceivedError: (controller, request, error) {
-            silentLog(
-              'home_message_content',
-              'html bubble webview error',
-              error,
-            );
-            if (mounted) {
-              _safeSetState(() => _hasError = true);
-            }
-          },
-        ),
-      ),
+      child: KeyedSubtree(key: _webViewRegionKey, child: _stableInAppWebView()),
     );
 
     final content = Stack(
@@ -5102,20 +5079,14 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         // 闪一下白屏与气泡底色形成强烈对比。其他平台
         // transparentBackground: true 时同样受益，HTML 没设背景时
         // 容器色自然透出与气泡衔接。
-        // loading 阶段用 Opacity(0) 隐藏 WebView 内容——
-        // 旧版 shimmer 透明叠加在 WebView 之上导致 HTML 渲染字符与骨架
-        // 条同时可见，UI 杂乱。隐藏 WebView 后用户只看到骨架屏，加载
-        // 完成后由 setState 触发 WebView 显示，衔接由外层 entrance
-        // TweenAnimationBuilder 的 fade+scale 落位动画保证自然 Q 弹。
+        // loading 阶段 WebView 保持挂载并正常测高；骨架屏用不透明底色
+        // 覆盖在上方，避免对平台视图做 Opacity/fade/scale 合成导致滚动闪烁。
         Container(
           color: widget.backgroundColor,
           child: SizedBox(
             width: double.infinity,
             height: displayHeight,
-            child: Opacity(
-              opacity: showShimmer ? 0.0 : 1.0,
-              child: webViewChild,
-            ),
+            child: webViewChild,
           ),
         ),
         // 用 Stack 叠加替代 Column 堆叠——shimmer 永远
@@ -5126,35 +5097,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         // 1px 高度跳变 → 在用户处于"距 maxScrollExtent 较近"的位置时
         // 触发 Flutter clamp 滚动位置，表现为"强制往下滚动一段距离"
         // 的偶发性 UI 异常。Stack 模式从根上消除该高度差。
+        if (showShimmer)
+          Positioned.fill(child: ColoredBox(color: widget.backgroundColor)),
         if (showShimmer) const Positioned.fill(child: _HtmlBubbleShimmer()),
       ],
     );
-
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    if (reduceMotion || !_playEntrance) {
-      return content;
-    }
-
-    // Q 弹进场：首次渲染 HTML 时给 WebView 加一次 fade+scale 动画。
-    // 后续滚动回收或列表重建命中 `_playedEntranceCacheKeys`，直接返回
-    // 稳定内容，避免重复入场动画造成一闪一闪的视觉抖动。
-    final entrance = TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: kCardMotionDurationExpand,
-      curve: kCardMotionCurve,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value.clamp(0.0, 1.0),
-          child: Transform.scale(
-            scale: 0.985 + 0.015 * value,
-            alignment: Alignment.topCenter,
-            child: child,
-          ),
-        );
-      },
-      child: content,
-    );
-    return entrance;
+    return content;
   }
 }
 
@@ -5312,11 +5260,31 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         : _buildMarkdown();
   }
 
+  bool _buildsPlatformHtmlBody() {
+    if (isStreaming) {
+      return false;
+    }
+    final normalized = data.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return switch (format) {
+      AiMessageContentFormat.plainText => false,
+      AiMessageContentFormat.html =>
+        _looksLikeHtml(data) || _hasHtmlTagStructure(data),
+      AiMessageContentFormat.markdown =>
+        !_startsWithFencedMermaidBlock(normalized) &&
+            !_containsMarkdownCodeFence(normalized) &&
+            (_looksLikeHtml(data) || _hasHtmlTagStructure(data)),
+    };
+  }
+
   /// 把内部渲染产物按"是否处于流式阶段"做一次性模式切换：
   /// - 流式中且格式为 HTML → 骨架屏占位；
   /// - 流式结束 → 真正的格式分支（带智能回退）。
-  /// 这里的 AnimatedSwitcher 负责 body 级别的 fade+scale 落位；候选响应
-  /// 这类显式内容切换会额外启用局部尺寸过渡，外层消息气泡继续兜住整卡高度。
+  /// 非平台视图路径由外层 AnimatedSwitcher 负责 body 级别的 fade+scale
+  /// 落位；平台 HTML WebView 在 build() 中直接返回，避免滚动时被
+  /// Opacity/Scale/SelectionArea 等合成层触发闪烁或 DOM 状态重置。
   Widget _buildDispatchedBody() {
     if (isStreaming && format == AiMessageContentFormat.html) {
       return _StreamingHtmlPlaceholder(
@@ -5333,6 +5301,15 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_buildsPlatformHtmlBody()) {
+      return KeyedSubtree(
+        key: ValueKey<Object>(
+          Object.hash(format.storageKey, wrapInSelectionArea, contentMotionKey),
+        ),
+        child: _buildDispatchedBody(),
+      );
+    }
+
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final transcriptScrolling = context.select<TranscriptScrollActivity, bool>(
       (activity) => activity.value,
