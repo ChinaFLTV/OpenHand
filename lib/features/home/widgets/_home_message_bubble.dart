@@ -85,6 +85,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
   static const Duration _selectionTapMaxDuration = Duration(milliseconds: 350);
   static const Duration _htmlTapMaxDuration = Duration(milliseconds: 600);
   static const Duration _selectionToggleDelay = Duration(milliseconds: 80);
+  static const Duration _responseVariantSizeMotionResetDelay = Duration(
+    milliseconds: 360,
+  );
   static final Map<String, bool> _reasoningExpansionOverridesByMessageId =
       <String, bool>{};
   static final Map<String, bool> _assistantExpansionOverridesByMessageId =
@@ -94,6 +97,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool? _reasoningExpandedOverride;
   bool? _assistantResponseExpandedOverride;
   late bool _showRawContent = widget.initiallyShowRawContent;
+  bool _responseVariantSizeMotionActive = false;
+  bool _responseVariantSizeMotionExpanding = true;
 
   // 启用文本 selectable 后外层 GestureDetector 的 onTap
   // 会被子节点的文本选择手势抢占，导致点击气泡后
@@ -126,6 +131,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 限制 AnimatedSize 期间每帧触发的外层 layout-change 通知频率，
   // 避免逐帧 jumpTo 底部导致上下抽搐。
   Timer? _layoutChangeThrottleTimer;
+  Timer? _responseVariantSizeMotionResetTimer;
 
   void registerHtmlInteractiveRegion(
     GlobalKey key,
@@ -193,8 +199,49 @@ class _MessageBubbleState extends State<_MessageBubble> {
       _compressionExpanded = false;
       _loadExpansionOverridesForMessage(widget.message.id);
       _showRawContent = widget.initiallyShowRawContent;
+      _responseVariantSizeMotionResetTimer?.cancel();
+      _responseVariantSizeMotionResetTimer = null;
+      _responseVariantSizeMotionActive = false;
       _invalidateCache();
+      return;
     }
+    if (_isResponseVariantContentChange(oldWidget.message, widget.message)) {
+      _armResponseVariantSizeMotion(oldWidget.message, widget.message);
+    }
+  }
+
+  bool _isResponseVariantContentChange(
+    AiSessionMessage previous,
+    AiSessionMessage next,
+  ) {
+    if (next.kind != AiSessionMessageKind.assistant) return false;
+    final previousVariants = previous.responseVariants;
+    final nextVariants = next.responseVariants;
+    if (previousVariants.length <= 1 || nextVariants.length <= 1) {
+      return false;
+    }
+    return previous.responseVariantIndex != next.responseVariantIndex ||
+        previous.content != next.content;
+  }
+
+  void _armResponseVariantSizeMotion(
+    AiSessionMessage previous,
+    AiSessionMessage next,
+  ) {
+    _responseVariantSizeMotionResetTimer?.cancel();
+    _responseVariantSizeMotionActive = true;
+    _responseVariantSizeMotionExpanding =
+        next.content.length >= previous.content.length;
+    _responseVariantSizeMotionResetTimer = startSafeTimer(
+      _responseVariantSizeMotionResetDelay,
+      () {
+        _responseVariantSizeMotionResetTimer = null;
+        if (!mounted || !_responseVariantSizeMotionActive) return;
+        setState(() {
+          _responseVariantSizeMotionActive = false;
+        });
+      },
+    );
   }
 
   void _loadExpansionOverridesForMessage(String messageId) {
@@ -308,6 +355,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
     _pendingSelectionToggleTimer = null;
     _layoutChangeThrottleTimer?.cancel();
     _layoutChangeThrottleTimer = null;
+    _responseVariantSizeMotionResetTimer?.cancel();
+    _responseVariantSizeMotionResetTimer = null;
     super.dispose();
   }
 
@@ -853,6 +902,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ((isReasoning && !isStreamingReasoning) ||
                     _reasoningExpandedOverride != null ||
                     _assistantResponseExpandedOverride != null ||
+                    _responseVariantSizeMotionActive ||
                     _showRawContent != widget.initiallyShowRawContent);
             final bubbleSizeDuration = allowBubbleSizeMotion
                 ? cardMotionDurationFor(
@@ -862,6 +912,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             reasoningExpanded) ||
                         (_assistantResponseExpandedOverride != null &&
                             assistantResponseExpanded) ||
+                        (_responseVariantSizeMotionActive &&
+                            _responseVariantSizeMotionExpanding) ||
                         _showRawContent,
                   )
                 : Duration.zero;
@@ -1185,11 +1237,21 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
       oldWidget.state != state;
 }
 
+const double _messageActionChipHeight = 34;
+const double _messageActionChipHorizontalPadding = 10;
+const double _messageActionChipVerticalPadding = 6;
+const double _responseVariantArrowWidth = 26;
+const double _responseVariantLabelMinWidth = 42;
+const double _messageActionIconSize = 16;
+
 ButtonStyle _messageActionChipStyle(BuildContext context) {
   final theme = Theme.of(context);
   return OutlinedButton.styleFrom(
-    minimumSize: const Size(0, 34),
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    minimumSize: const Size(0, _messageActionChipHeight),
+    padding: const EdgeInsets.symmetric(
+      horizontal: _messageActionChipHorizontalPadding,
+      vertical: _messageActionChipVerticalPadding,
+    ),
     textStyle: theme.textTheme.labelMedium?.copyWith(
       fontWeight: FontWeight.w700,
     ),
@@ -1532,7 +1594,7 @@ class _MessageActionButton extends StatelessWidget {
               unawaited(onPressed!());
             },
       style: effectiveStyle,
-      icon: Icon(icon, size: 16),
+      icon: Icon(icon, size: _messageActionIconSize),
       label: Text(
         label,
         maxLines: 1,
@@ -5186,7 +5248,7 @@ class _HardnessAnnotationContextCapsules {
   }
 }
 
-class _ResponseVariantSwitcher extends StatelessWidget {
+class _ResponseVariantSwitcher extends StatefulWidget {
   const _ResponseVariantSwitcher({
     required this.currentIndex,
     required this.count,
@@ -5200,21 +5262,62 @@ class _ResponseVariantSwitcher extends StatelessWidget {
   final Future<void> Function(int index)? onSelect;
 
   @override
+  State<_ResponseVariantSwitcher> createState() =>
+      _ResponseVariantSwitcherState();
+}
+
+class _ResponseVariantSwitcherState extends State<_ResponseVariantSwitcher> {
+  bool _selecting = false;
+
+  Future<void> _select(int index) async {
+    if (_selecting || widget.onSelect == null) return;
+    if (index < 0 || index >= widget.count) return;
+    setState(() => _selecting = true);
+    try {
+      await widget.onSelect!(index);
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'openhand_home_page',
+          context: ErrorDescription('while selecting a response variant'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _selecting = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final style = _messageActionChipStyle(context);
     const states = <WidgetState>{};
-    final side = style.side?.resolve(states);
+    final side =
+        style.side?.resolve(states) ??
+        BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.70));
     final foreground =
-        style.foregroundColor?.resolve(states) ??
-        Theme.of(context).colorScheme.onSurface;
-    final previousEnabled = onSelect != null && currentIndex > 0;
-    final nextEnabled = onSelect != null && currentIndex < count - 1;
+        style.foregroundColor?.resolve(states) ?? widget.textColor;
+    final previousEnabled =
+        !_selecting && widget.onSelect != null && widget.currentIndex > 0;
+    final nextEnabled =
+        !_selecting &&
+        widget.onSelect != null &&
+        widget.currentIndex < widget.count - 1;
+    final label = '${widget.currentIndex + 1} / ${widget.count}';
     return Material(
       color: Colors.transparent,
-      shape: StadiumBorder(side: side ?? BorderSide(color: foreground)),
+      shape: StadiumBorder(side: side),
       clipBehavior: Clip.antiAlias,
+      textStyle: theme.textTheme.labelMedium?.copyWith(
+        color: foreground,
+        fontWeight: FontWeight.w800,
+      ),
       child: SizedBox(
-        height: 34,
+        height: _messageActionChipHeight,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -5222,15 +5325,46 @@ class _ResponseVariantSwitcher extends StatelessWidget {
               icon: Icons.chevron_left_rounded,
               enabled: previousEnabled,
               color: foreground,
-              onTap: () => onSelect?.call(currentIndex - 1),
+              onTap: () => unawaited(_select(widget.currentIndex - 1)),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                '${currentIndex + 1} / $count',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: foreground,
-                  fontWeight: FontWeight.w800,
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: _responseVariantLabelMinWidth,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: AnimatedSwitcher(
+                  duration: cardMotionDurationFor(context, expanding: true),
+                  switchInCurve: kCardMotionCurve,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final curved = openHandBoundedCurveAnimation(
+                      parent: animation,
+                      curve: kCardMotionCurve,
+                      reverseCurve: Curves.easeInCubic,
+                    );
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.92,
+                          end: 1,
+                        ).animate(curved),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    label,
+                    key: ValueKey<String>(label),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -5238,7 +5372,7 @@ class _ResponseVariantSwitcher extends StatelessWidget {
               icon: Icons.chevron_right_rounded,
               enabled: nextEnabled,
               color: foreground,
-              onTap: () => onSelect?.call(currentIndex + 1),
+              onTap: () => unawaited(_select(widget.currentIndex + 1)),
             ),
           ],
         ),
@@ -5264,6 +5398,7 @@ class _ResponseVariantArrowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveColor = color.withValues(alpha: enabled ? 0.92 : 0.28);
     return InkWell(
+      borderRadius: BorderRadius.circular(_messageActionChipHeight / 2),
       onTap: enabled
           ? () {
               _BubbleHtmlInteractiveScope.maybeOf(
@@ -5273,9 +5408,13 @@ class _ResponseVariantArrowButton extends StatelessWidget {
             }
           : null,
       child: SizedBox(
-        width: 32,
-        height: 34,
-        child: Icon(icon, size: 18, color: effectiveColor),
+        width: _responseVariantArrowWidth,
+        height: _messageActionChipHeight,
+        child: Icon(
+          icon,
+          size: _messageActionIconSize + 1,
+          color: effectiveColor,
+        ),
       ),
     );
   }
@@ -5319,7 +5458,8 @@ class _MessageContextCapsule extends StatelessWidget {
         onPressed?.call();
       },
       style: style,
-      icon: leading ?? Icon(icon, size: 16, color: iconColor),
+      icon:
+          leading ?? Icon(icon, size: _messageActionIconSize, color: iconColor),
       label: labelWidget,
     );
     if (onPressed != null) {

@@ -76,6 +76,7 @@ export 'service/operations/ai_translation_service.dart';
 export 'service/operations/ai_tts_playback_service.dart';
 export 'service/prompt/ai_output_format_prompts.dart';
 export 'service/prompt/ai_prompt_builder.dart';
+export 'service/prompt/ai_prompt_template_assembly.dart';
 export 'service/prompt/ai_prompt_template_repository.dart';
 export 'service/prompt/machine_expert_prompts.dart';
 export 'service/prompt/programming_expert_prompts.dart';
