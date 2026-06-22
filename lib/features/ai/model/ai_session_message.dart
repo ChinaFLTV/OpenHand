@@ -483,9 +483,25 @@ class AiSessionMessage {
   }
 
   AiSessionMessageFeedback? get feedback =>
+      _activeResponseVariantFeedback ?? metadataFeedback;
+
+  AiSessionMessageFeedback? get metadataFeedback =>
       AiSessionMessageFeedback.fromStorage(
         metadata[aiSessionMessageFeedbackMetadataKey],
       );
+
+  AiSessionMessageFeedback? get _activeResponseVariantFeedback {
+    if (kind != AiSessionMessageKind.assistant) {
+      return null;
+    }
+    final variants = responseVariants;
+    final hasStoredVariants =
+        metadata[aiSessionMessageResponseVariantsMetadataKey] is List;
+    if (variants.isEmpty || (variants.length == 1 && !hasStoredVariants)) {
+      return null;
+    }
+    return variants[responseVariantIndex].feedback;
+  }
 
   List<AiSessionMessageResponseVariant> get responseVariants =>
       AiSessionMessageResponseVariant.listFromMessage(this);
@@ -536,6 +552,7 @@ class AiSessionMessageResponseVariant {
     this.modelId,
     this.modelLabel,
     this.usage,
+    this.feedback,
     this.intermediateMessageIds = const <String>[],
   });
 
@@ -543,6 +560,7 @@ class AiSessionMessageResponseVariant {
     AiSessionMessage message, {
     String? id,
     DateTime? createdAt,
+    AiSessionMessageFeedback? feedback,
     List<String> intermediateMessageIds = const <String>[],
   }) {
     return AiSessionMessageResponseVariant(
@@ -552,6 +570,7 @@ class AiSessionMessageResponseVariant {
       modelId: message.modelId,
       modelLabel: message.modelLabel,
       usage: message.usage,
+      feedback: feedback ?? message.metadataFeedback,
       intermediateMessageIds: _normalizeMessageIds(intermediateMessageIds),
     );
   }
@@ -571,6 +590,9 @@ class AiSessionMessageResponseVariant {
           : usageJson is Map
           ? AiTokenUsage.fromJson(Map<String, Object?>.from(usageJson))
           : null,
+      feedback: AiSessionMessageFeedback.fromStorage(
+        json[aiSessionMessageFeedbackMetadataKey],
+      ),
       intermediateMessageIds: _normalizeMessageIds(
         json['intermediate_message_ids'],
       ),
@@ -583,6 +605,7 @@ class AiSessionMessageResponseVariant {
   final String? modelId;
   final String? modelLabel;
   final AiTokenUsage? usage;
+  final AiSessionMessageFeedback? feedback;
   final List<String> intermediateMessageIds;
 
   AiSessionMessageResponseVariant copyWith({
@@ -592,6 +615,8 @@ class AiSessionMessageResponseVariant {
     String? modelId,
     String? modelLabel,
     AiTokenUsage? usage,
+    AiSessionMessageFeedback? feedback,
+    bool clearFeedback = false,
     List<String>? intermediateMessageIds,
   }) {
     return AiSessionMessageResponseVariant(
@@ -601,6 +626,7 @@ class AiSessionMessageResponseVariant {
       modelId: modelId ?? this.modelId,
       modelLabel: modelLabel ?? this.modelLabel,
       usage: usage ?? this.usage,
+      feedback: clearFeedback ? null : feedback ?? this.feedback,
       intermediateMessageIds: intermediateMessageIds == null
           ? this.intermediateMessageIds
           : _normalizeMessageIds(intermediateMessageIds),
@@ -616,6 +642,8 @@ class AiSessionMessageResponseVariant {
       if (modelLabel != null && modelLabel!.trim().isNotEmpty)
         'model_label': modelLabel,
       if (usage != null && !usage!.isEmpty) 'usage': usage!.toJson(),
+      if (feedback != null)
+        aiSessionMessageFeedbackMetadataKey: feedback!.storageValue,
       if (intermediateMessageIds.isNotEmpty)
         'intermediate_message_ids': intermediateMessageIds,
     };
@@ -628,6 +656,22 @@ class AiSessionMessageResponseVariant {
       message.metadata[aiSessionMessageResponseVariantsMetadataKey],
     );
     if (parsed.isNotEmpty) {
+      final legacyFeedback = message.metadataFeedback;
+      if (legacyFeedback != null &&
+          parsed.every((variant) => variant.feedback == null)) {
+        final legacyIndex = clampIndex(
+          message.metadata[aiSessionMessageResponseVariantIndexMetadataKey],
+          parsed.length,
+        );
+        return List<AiSessionMessageResponseVariant>.unmodifiable(
+          <AiSessionMessageResponseVariant>[
+            for (var index = 0; index < parsed.length; index++)
+              index == legacyIndex
+                  ? parsed[index].copyWith(feedback: legacyFeedback)
+                  : parsed[index],
+          ],
+        );
+      }
       return parsed;
     }
     return <AiSessionMessageResponseVariant>[

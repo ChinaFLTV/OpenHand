@@ -2267,11 +2267,9 @@ class AiSessionController extends ChangeNotifier {
 
       final updatedMessages = List<AiSessionMessage>.from(liveSession.messages);
       updatedMessages[liveIndex] = liveUpdatedMessage;
-      final updatedSession = liveSession.copyWith(
-        messages: List<AiSessionMessage>.unmodifiable(updatedMessages),
-        messageLoadState: liveSession.messageLoadState,
-        messageWindowStartIndex: liveSession.messageWindowStartIndex,
-        messageTotalCount: liveSession.messageTotalCount,
+      final updatedSession = _copySessionWithMessagesPreservingWindow(
+        liveSession,
+        List<AiSessionMessage>.unmodifiable(updatedMessages),
       );
       if (_replaceSessionInMemory(updatedSession, sortSessions: false)) {
         notifyListeners();
@@ -2284,7 +2282,35 @@ class AiSessionController extends ChangeNotifier {
     AiSessionMessage message,
     AiSessionMessageFeedback? feedback,
   ) {
-    if (message.feedback == feedback) {
+    final variants = message.responseVariants;
+    if (message.kind == AiSessionMessageKind.assistant && variants.length > 1) {
+      final selectedIndex = message.responseVariantIndex;
+      final selectedVariant = variants[selectedIndex];
+      final hasLegacyMessageFeedback = message.metadata.containsKey(
+        aiSessionMessageFeedbackMetadataKey,
+      );
+      if (selectedVariant.feedback == feedback && !hasLegacyMessageFeedback) {
+        return message;
+      }
+      final updatedVariants = <AiSessionMessageResponseVariant>[
+        for (var index = 0; index < variants.length; index++)
+          index == selectedIndex
+              ? variants[index].copyWith(
+                  feedback: feedback,
+                  clearFeedback: feedback == null,
+                )
+              : variants[index],
+      ];
+      return message.copyWith(
+        metadata: _responseVariantMetadata(
+          message: message,
+          variants: updatedVariants,
+          index: selectedIndex,
+        ),
+      );
+    }
+
+    if (message.metadataFeedback == feedback) {
       return message;
     }
     final metadata = Map<String, Object?>.from(message.metadata);
@@ -2498,6 +2524,9 @@ class AiSessionController extends ChangeNotifier {
           .toList(growable: false)
       ..[aiSessionMessageResponseVariantIndexMetadataKey] =
           AiSessionMessageResponseVariant.clampIndex(index, variants.length);
+    if (variants.length > 1) {
+      metadata.remove(aiSessionMessageFeedbackMetadataKey);
+    }
     if (streaming != null) {
       metadata[aiSessionMessageMetadataStreamingKey] = streaming;
     }
@@ -2558,17 +2587,16 @@ class AiSessionController extends ChangeNotifier {
       final updatedMessages = List<AiSessionMessage>.from(
         messagesWithVisibleBranch,
       );
-      final metadata = Map<String, Object?>.from(targetMessage.metadata)
-        ..[aiSessionMessageResponseVariantsMetadataKey] = normalizedVariants
-            .map((variant) => variant.toJson())
-            .toList(growable: false)
-        ..[aiSessionMessageResponseVariantIndexMetadataKey] = nextIndex;
       updatedMessages[targetIndex] = targetMessage.copyWith(
         content: selected.content,
         modelId: selected.modelId ?? targetMessage.modelId,
         modelLabel: selected.modelLabel ?? targetMessage.modelLabel,
         usage: selected.usage ?? targetMessage.usage,
-        metadata: metadata,
+        metadata: _responseVariantMetadata(
+          message: targetMessage,
+          variants: normalizedVariants,
+          index: nextIndex,
+        ),
       );
       final updatedSession = _rebuildSession(
         _copySessionWithMessagesPreservingWindow(
