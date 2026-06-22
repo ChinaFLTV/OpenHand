@@ -424,12 +424,12 @@ class PluginScannerService {
     bool supportsUninstall = true,
   }) async {
     for (final command in commands) {
-      final pathResult = await _shellRun('command -v $command');
+      final pathResult = await _shellRun('command -v ${_shellQuote(command)}');
       if (pathResult.exitCode != 0) continue;
       final installPath = _extractAbsolutePath(pathResult.stdout.toString());
       if (installPath == null || installPath.isEmpty) continue;
       final versionResult = await _shellRun(
-        [command, ...versionArgs.map(_shellQuote)].join(' '),
+        [_shellQuote(command), ...versionArgs.map(_shellQuote)].join(' '),
       );
       final output = '${versionResult.stdout}\n${versionResult.stderr}'.trim();
       final version = versionResult.exitCode == 0
@@ -469,6 +469,10 @@ class PluginScannerService {
       'mitmproxy' => _mitmproxyNotInstalled,
       'apktool' => _apktoolNotInstalled,
       'jadx' => _jadxNotInstalled,
+      'radare2' => _radare2NotInstalled,
+      'blutter' => _blutterNotInstalled,
+      'doldrums' => _doldrumsNotInstalled,
+      'anything_analyzer' => _anythingAnalyzerNotInstalled,
       _ => PluginInfo(
         id: id,
         name: id,
@@ -854,6 +858,106 @@ class PluginScannerService {
     return _jadxNotInstalled;
   }
 
+  Future<PluginInfo> scanRadare2() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'radare2',
+        name: 'radare2',
+        description: '二进制静态分析与 ELF / native so 逆向工具',
+        commands: const <String>['r2', 'radare2'],
+        versionArgs: const <String>['-v'],
+        versionParser: _extractLooseVersion,
+        latestBrewFormula: 'radare2',
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanRadare2', e);
+    }
+    return _radare2NotInstalled;
+  }
+
+  Future<PluginInfo> scanBlutter() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'blutter',
+        name: 'blutter',
+        description: 'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析',
+        commands: <String>['blutter', _openHandToolBin('blutter')],
+        versionArgs: const <String>['--help'],
+        versionParser: (_) => null,
+        dependencies: const <String>['python', 'pip'],
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanBlutter', e);
+    }
+    return _blutterNotInstalled;
+  }
+
+  Future<PluginInfo> scanDoldrums() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'doldrums',
+        name: 'Doldrums',
+        description: 'Flutter snapshot / ELF 辅助分析工具',
+        commands: <String>[
+          'doldrums',
+          'Doldrums',
+          _openHandToolBin('doldrums'),
+        ],
+        versionArgs: const <String>['--help'],
+        versionParser: (_) => null,
+        dependencies: const <String>['python', 'pip'],
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanDoldrums', e);
+    }
+    return _doldrumsNotInstalled;
+  }
+
+  Future<PluginInfo> scanAnythingAnalyzer() async {
+    try {
+      final commandScan = await _scanCommandPlugin(
+        id: 'anything_analyzer',
+        name: 'Anything Analyzer',
+        description: '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动',
+        commands: <String>[
+          'anything-analyzer',
+          _openHandToolBin('anything-analyzer'),
+        ],
+        versionArgs: const <String>['--version'],
+        versionParser: _extractLooseVersion,
+      );
+      if (commandScan.isInstalled) return commandScan;
+      for (final path in _anythingAnalyzerAppCandidates()) {
+        if (Directory(path).existsSync() || File(path).existsSync()) {
+          return PluginInfo(
+            id: 'anything_analyzer',
+            name: 'Anything Analyzer',
+            description: '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动',
+            status: PluginStatus.installed,
+            installPath: path,
+          );
+        }
+      }
+    } catch (e) {
+      silentLog('PluginScanner', 'scanAnythingAnalyzer', e);
+    }
+    return _anythingAnalyzerNotInstalled;
+  }
+
+  static String _openHandToolBin(String name) {
+    final home = Platform.environment['HOME'] ?? '';
+    return '$home/.openhand/android_reverse_tools/bin/$name';
+  }
+
+  static List<String> _anythingAnalyzerAppCandidates() {
+    final home = Platform.environment['HOME'] ?? '';
+    return <String>[
+      '/Applications/Anything Analyzer.app',
+      '$home/Applications/Anything Analyzer.app',
+      '$home/.openhand/android_reverse_tools/anything-analyzer/Anything Analyzer.app',
+    ];
+  }
+
   static const _nodeNotInstalled = PluginInfo(
     id: 'nodejs',
     name: 'Node.js',
@@ -925,6 +1029,36 @@ class PluginScannerService {
     dependencies: ['java'],
   );
 
+  static const _radare2NotInstalled = PluginInfo(
+    id: 'radare2',
+    name: 'radare2',
+    description: '二进制静态分析与 ELF / native so 逆向工具',
+    status: PluginStatus.notInstalled,
+  );
+
+  static const _blutterNotInstalled = PluginInfo(
+    id: 'blutter',
+    name: 'blutter',
+    description: 'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析',
+    status: PluginStatus.notInstalled,
+    dependencies: ['python', 'pip'],
+  );
+
+  static const _doldrumsNotInstalled = PluginInfo(
+    id: 'doldrums',
+    name: 'Doldrums',
+    description: 'Flutter snapshot / ELF 辅助分析工具',
+    status: PluginStatus.notInstalled,
+    dependencies: ['python', 'pip'],
+  );
+
+  static const _anythingAnalyzerNotInstalled = PluginInfo(
+    id: 'anything_analyzer',
+    name: 'Anything Analyzer',
+    description: '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动',
+    status: PluginStatus.notInstalled,
+  );
+
   static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
     _nodeNotInstalled,
     _playwrightNotInstalled,
@@ -935,6 +1069,10 @@ class PluginScannerService {
     _mitmproxyNotInstalled,
     _apktoolNotInstalled,
     _jadxNotInstalled,
+    _radare2NotInstalled,
+    _blutterNotInstalled,
+    _doldrumsNotInstalled,
+    _anythingAnalyzerNotInstalled,
   ];
 
   Future<List<PluginInfo>> scanAll() async {
@@ -945,6 +1083,10 @@ class PluginScannerService {
     final mitmproxyFuture = scanMitmproxy();
     final apktoolFuture = scanApktool();
     final jadxFuture = scanJadx();
+    final radare2Future = scanRadare2();
+    final blutterFuture = scanBlutter();
+    final doldrumsFuture = scanDoldrums();
+    final anythingAnalyzerFuture = scanAnythingAnalyzer();
     final pythonRuntimeFuture = _resolvePythonRuntime();
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
@@ -953,6 +1095,10 @@ class PluginScannerService {
     final mitmproxy = await mitmproxyFuture;
     final apktool = await apktoolFuture;
     final jadx = await jadxFuture;
+    final radare2 = await radare2Future;
+    final blutter = await blutterFuture;
+    final doldrums = await doldrumsFuture;
+    final anythingAnalyzer = await anythingAnalyzerFuture;
     _PythonRuntimeScan? pythonRuntime;
     try {
       pythonRuntime = await pythonRuntimeFuture;
@@ -986,6 +1132,10 @@ class PluginScannerService {
       mitmproxy,
       apktool,
       jadx,
+      radare2,
+      blutter,
+      doldrums,
+      anythingAnalyzer,
     ];
   }
 }

@@ -822,6 +822,210 @@ fi
     );
   }
 
+  String _androidReverseToolRoot() {
+    final home = Platform.environment['HOME'] ?? '';
+    return '$home/.openhand/android_reverse_tools';
+  }
+
+  String _androidReverseToolBinDir() => '${_androidReverseToolRoot()}/bin';
+
+  Future<PluginOperationResult> _installOrUpdateGitPythonTool({
+    required String label,
+    required String repoUrl,
+    required String directoryName,
+    required String shimName,
+    required String entrypoint,
+    required List<String> pipPackages,
+    String? macosBrewPackages,
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('正在安装/更新 $label…');
+    final root = _androidReverseToolRoot();
+    final target = '$root/$directoryName';
+    final binDir = _androidReverseToolBinDir();
+    final shimPath = '$binDir/$shimName';
+    final entrypointPath = '$target/$entrypoint';
+    final shim =
+        '#!/usr/bin/env bash\n'
+        'exec python3 ${_pluginShellQuote(entrypointPath)} "\$@"\n';
+    final brewStep = macosBrewPackages == null || macosBrewPackages.isEmpty
+        ? ''
+        : '''
+if [ "\$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+  brew install $macosBrewPackages || true
+fi
+''';
+    final pipStep = pipPackages.isEmpty
+        ? ''
+        : 'python3 -m pip install --user --upgrade ${pipPackages.map(_pluginShellQuote).join(' ')}';
+    final script =
+        '''
+set -euo pipefail
+if ! command -v git >/dev/null 2>&1; then echo "git not found" >&2; exit 127; fi
+if ! command -v python3 >/dev/null 2>&1; then echo "python3 not found" >&2; exit 127; fi
+mkdir -p ${_pluginShellQuote(binDir)}
+$brewStep
+if [ -d ${_pluginShellQuote(target)}/.git ]; then
+  git -C ${_pluginShellQuote(target)} pull --ff-only
+else
+  rm -rf ${_pluginShellQuote(target)}
+  git clone --depth 1 ${_pluginShellQuote(repoUrl)} ${_pluginShellQuote(target)}
+fi
+$pipStep
+printf %s ${_pluginShellQuote(shim)} > ${_pluginShellQuote(shimPath)}
+chmod +x ${_pluginShellQuote(shimPath)}
+printf '%s\\n' ${_pluginShellQuote('$label shim: $shimPath')}
+''';
+    final result = await _runWithProgress(
+      _pickShell(),
+      ['-c', script],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 12),
+      environment: _proxyEnv(),
+    );
+    if (result.exitCode == 0) {
+      return PluginOperationResult(
+        success: true,
+        message: '$label 已安装或更新：$shimPath',
+      );
+    }
+    return PluginOperationResult(
+      success: false,
+      message: '$label 安装失败: ${_processErrorMessage(result)}',
+    );
+  }
+
+  Future<PluginOperationResult> _uninstallOpenHandTool({
+    required String label,
+    required String directoryName,
+    required String shimName,
+    void Function(String line)? onProgress,
+  }) async {
+    final root = _androidReverseToolRoot();
+    final script =
+        '''
+set -euo pipefail
+rm -rf ${_pluginShellQuote('$root/$directoryName')}
+rm -f ${_pluginShellQuote('${_androidReverseToolBinDir()}/$shimName')}
+''';
+    final result = await _runWithProgress(
+      _pickShell(),
+      ['-c', script],
+      onProgress: onProgress,
+      timeout: const Duration(seconds: 20),
+    );
+    if (result.exitCode == 0) {
+      return PluginOperationResult(success: true, message: '$label 已卸载');
+    }
+    return PluginOperationResult(
+      success: false,
+      message: '$label 卸载失败: ${_processErrorMessage(result)}',
+    );
+  }
+
+  Future<PluginOperationResult> _installOrUpdateAnythingAnalyzer({
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('正在下载 Anything Analyzer 最新发布包…');
+    final root = _androidReverseToolRoot();
+    final target = '$root/anything-analyzer';
+    final binDir = _androidReverseToolBinDir();
+    final shimPath = '$binDir/anything-analyzer';
+    final script =
+        '''
+set -euo pipefail
+if ! command -v curl >/dev/null 2>&1; then echo "curl not found" >&2; exit 127; fi
+if ! command -v python3 >/dev/null 2>&1; then echo "python3 not found" >&2; exit 127; fi
+mkdir -p ${_pluginShellQuote(target)} ${_pluginShellQuote(binDir)}
+META="\$(curl -fsSL https://api.github.com/repos/Mouseww/anything-analyzer/releases/latest)"
+ASSET="\$(printf '%s' "\$META" | python3 -c '
+import json, platform, sys
+data = json.load(sys.stdin)
+assets = data.get("assets", [])
+system = platform.system().lower()
+machine = platform.machine().lower()
+patterns = []
+if system == "darwin":
+    if "arm" in machine or "aarch" in machine:
+        patterns += ["arm64.dmg", "arm64.zip"]
+    patterns += ["x64.dmg", "x64.zip", "mac"]
+elif system == "linux":
+    patterns += [".AppImage", "linux"]
+elif system == "windows":
+    patterns += [".exe", "Setup"]
+for pattern in patterns:
+    for asset in assets:
+        name = asset.get("name", "")
+        if pattern.lower() in name.lower():
+            print(asset.get("browser_download_url", ""))
+            raise SystemExit(0)
+raise SystemExit(3)
+')"
+if [ -z "\$ASSET" ]; then echo "No compatible Anything Analyzer release asset found" >&2; exit 3; fi
+NAME="\${ASSET##*/}"
+PKG="${_pluginShellQuote(target)}/\$NAME"
+curl -fL "\$ASSET" -o "\$PKG"
+rm -rf ${_pluginShellQuote(target)}/current
+mkdir -p ${_pluginShellQuote(target)}/current
+case "\$NAME" in
+  *.dmg)
+    MOUNT="\$(hdiutil attach -nobrowse -readonly "\$PKG" | awk '/\\/Volumes\\// {for (i=1;i<=NF;i++) if (\$i ~ /^\\/Volumes\\//) {print \$i; exit}}')"
+    APP="\$(find "\$MOUNT" -maxdepth 2 -name '*.app' -type d | head -1)"
+    cp -R "\$APP" ${_pluginShellQuote(target)}/current/
+    hdiutil detach "\$MOUNT" >/dev/null
+    ;;
+  *.zip)
+    if ! command -v unzip >/dev/null 2>&1; then echo "unzip not found" >&2; exit 127; fi
+    unzip -q "\$PKG" -d ${_pluginShellQuote(target)}/current
+    ;;
+  *.AppImage)
+    cp "\$PKG" ${_pluginShellQuote(target)}/current/Anything-Analyzer.AppImage
+    chmod +x ${_pluginShellQuote(target)}/current/Anything-Analyzer.AppImage
+    ;;
+  *.exe)
+    cp "\$PKG" ${_pluginShellQuote(target)}/current/
+    ;;
+  *)
+    echo "Unsupported asset: \$NAME" >&2
+    exit 4
+    ;;
+esac
+cat > ${_pluginShellQuote(shimPath)} <<'SHIM'
+#!/usr/bin/env bash
+ROOT="\$HOME/.openhand/android_reverse_tools/anything-analyzer/current"
+APP="\$(find "\$ROOT" -maxdepth 2 -name '*.app' -type d 2>/dev/null | head -1)"
+if [ -n "\$APP" ]; then
+  exec open -a "\$APP" --args "\$@"
+fi
+APPIMAGE="\$(find "\$ROOT" -maxdepth 2 -name '*.AppImage' -type f 2>/dev/null | head -1)"
+if [ -n "\$APPIMAGE" ]; then
+  exec "\$APPIMAGE" "\$@"
+fi
+echo "Anything Analyzer app bundle not found under \$ROOT" >&2
+exit 2
+SHIM
+chmod +x ${_pluginShellQuote(shimPath)}
+printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
+''';
+    final result = await _runWithProgress(
+      _pickShell(),
+      ['-c', script],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+      environment: _proxyEnv(),
+    );
+    if (result.exitCode == 0) {
+      return PluginOperationResult(
+        success: true,
+        message: 'Anything Analyzer 已安装或更新：$shimPath',
+      );
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'Anything Analyzer 安装失败: ${_processErrorMessage(result)}',
+    );
+  }
+
   Future<PluginOperationResult> installJava({
     void Function(String line)? onProgress,
   }) => _installBrewFormula(
@@ -865,6 +1069,44 @@ fi
     verifyCommand: 'jadx',
     onProgress: onProgress,
   );
+
+  Future<PluginOperationResult> installRadare2({
+    void Function(String line)? onProgress,
+  }) => _installBrewFormula(
+    formula: 'radare2',
+    label: 'radare2',
+    verifyCommand: 'r2',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> installBlutter({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdateGitPythonTool(
+    label: 'blutter',
+    repoUrl: 'https://github.com/worawit/blutter.git',
+    directoryName: 'blutter',
+    shimName: 'blutter',
+    entrypoint: 'blutter.py',
+    pipPackages: const <String>['pyelftools', 'requests'],
+    macosBrewPackages: 'cmake ninja pkg-config icu4c capstone',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> installDoldrums({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdateGitPythonTool(
+    label: 'Doldrums',
+    repoUrl: 'https://github.com/rscloura/Doldrums.git',
+    directoryName: 'doldrums',
+    shimName: 'doldrums',
+    entrypoint: 'src/main.py',
+    pipPackages: const <String>['pyelftools'],
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> installAnythingAnalyzer({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdateAnythingAnalyzer(onProgress: onProgress);
 
   Future<PluginOperationResult> updateNodeJs({
     void Function(String line)? onProgress,
@@ -1291,6 +1533,26 @@ fi
     onProgress: onProgress,
   );
 
+  Future<PluginOperationResult> updateRadare2({
+    void Function(String line)? onProgress,
+  }) => _updateBrewFormula(
+    formula: 'radare2',
+    label: 'radare2',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> updateBlutter({
+    void Function(String line)? onProgress,
+  }) => installBlutter(onProgress: onProgress);
+
+  Future<PluginOperationResult> updateDoldrums({
+    void Function(String line)? onProgress,
+  }) => installDoldrums(onProgress: onProgress);
+
+  Future<PluginOperationResult> updateAnythingAnalyzer({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdateAnythingAnalyzer(onProgress: onProgress);
+
   Future<PluginOperationResult> uninstallNodeJs({
     required bool playwrightInstalled,
     void Function(String line)? onProgress,
@@ -1476,6 +1738,41 @@ fi
     onProgress: onProgress,
   );
 
+  Future<PluginOperationResult> uninstallRadare2({
+    void Function(String line)? onProgress,
+  }) => _uninstallBrewFormula(
+    formula: 'radare2',
+    label: 'radare2',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> uninstallBlutter({
+    void Function(String line)? onProgress,
+  }) => _uninstallOpenHandTool(
+    label: 'blutter',
+    directoryName: 'blutter',
+    shimName: 'blutter',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> uninstallDoldrums({
+    void Function(String line)? onProgress,
+  }) => _uninstallOpenHandTool(
+    label: 'Doldrums',
+    directoryName: 'doldrums',
+    shimName: 'doldrums',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> uninstallAnythingAnalyzer({
+    void Function(String line)? onProgress,
+  }) => _uninstallOpenHandTool(
+    label: 'Anything Analyzer',
+    directoryName: 'anything-analyzer',
+    shimName: 'anything-analyzer',
+    onProgress: onProgress,
+  );
+
   Future<List<String>> _remainingPyenvVersions({
     required String excluding,
   }) async {
@@ -1636,6 +1933,11 @@ class _ProgressLineCollector {
     _lines.add(line);
     onProgress?.call(line);
   }
+}
+
+String _pluginShellQuote(String value) {
+  if (value.isEmpty) return "''";
+  return "'${value.replaceAll("'", "'\"'\"'")}'";
 }
 
 String _truncateProgressLine(String line) {

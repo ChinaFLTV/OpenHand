@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -344,6 +345,9 @@ class _AndroidReverseDashboardDialogState
   final TextEditingController _pullRemoteCtrl = TextEditingController();
   final TextEditingController _pullLocalCtrl = TextEditingController();
   final TextEditingController _fridaScriptCtrl = TextEditingController();
+  final TextEditingController _networkProxyHostCtrl = TextEditingController();
+  final TextEditingController _networkProxyPortCtrl = TextEditingController();
+  final TextEditingController _mitmCertPathCtrl = TextEditingController();
   final TextEditingController _base64Ctrl = TextEditingController();
   final TextEditingController _base64OutCtrl = TextEditingController();
   bool _loadingLogcat = false;
@@ -355,8 +359,11 @@ class _AndroidReverseDashboardDialogState
   bool _runningShell = false;
   bool _runningDeviceAction = false;
   bool _runningStaticQuickScan = false;
+  bool _runningStaticAction = false;
   bool _runningFridaDoctor = false;
+  bool _runningFridaAction = false;
   bool _runningNetworkProbe = false;
+  bool _runningNetworkAction = false;
   bool _runningCertificateAction = false;
   bool _writingNetworkAddon = false;
   bool _writingCertificateArtifacts = false;
@@ -387,6 +394,7 @@ class _AndroidReverseDashboardDialogState
   String? _selectedPackageName;
   String? _packageAnalysisOutput;
   String? _selectedFridaSnippetAsset;
+  String? _lastSavedFridaScriptPath;
   String? _fridaArtifactOutput;
   String? _staticQuickScanOutput;
   String? _logcatArtifactOutput;
@@ -407,6 +415,9 @@ class _AndroidReverseDashboardDialogState
     _pushRemoteCtrl.text = '/sdcard/Download/';
     _pullRemoteCtrl.text = '/sdcard/Download/';
     _pullLocalCtrl.text = _ctrl.artifactsRootDir;
+    _networkProxyHostCtrl.text = '10.0.2.2';
+    _networkProxyPortCtrl.text = '8080';
+    _mitmCertPathCtrl.text = '~/.mitmproxy/mitmproxy-ca-cert.pem';
     _ctrl.addListener(_onControllerChanged);
     _fridaScriptCtrl.addListener(_onFridaScriptChanged);
     _logcatScrollController.addListener(_onLogcatScroll);
@@ -436,6 +447,9 @@ class _AndroidReverseDashboardDialogState
     _pullRemoteCtrl.dispose();
     _pullLocalCtrl.dispose();
     _fridaScriptCtrl.dispose();
+    _networkProxyHostCtrl.dispose();
+    _networkProxyPortCtrl.dispose();
+    _mitmCertPathCtrl.dispose();
     _base64Ctrl.dispose();
     _base64OutCtrl.dispose();
     _processFilter.dispose();
@@ -1309,7 +1323,10 @@ class _AndroidReverseDashboardDialogState
         packageName: _logcatPackageTarget(),
       );
       if (!mounted) return;
-      setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+      setState(() {
+        _lastSavedFridaScriptPath = _extractFridaScriptPath(result.stdout);
+        _fridaArtifactOutput = _formatAdbResult(result);
+      });
       if (result.ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1364,6 +1381,166 @@ class _AndroidReverseDashboardDialogState
     }
   }
 
+  Future<String?> _ensureFridaScriptPath() async {
+    final cached = _lastSavedFridaScriptPath?.trim();
+    if (cached != null && cached.isNotEmpty) return cached;
+    final script = _fridaScriptCtrl.text.trim();
+    if (script.isEmpty) return null;
+    final result = await _ctrl.saveFridaScriptToArtifacts(
+      script: _fridaScriptCtrl.text,
+      presetAssetPath: _selectedFridaSnippetAsset,
+      packageName: _logcatPackageTarget(),
+    );
+    final path = _extractFridaScriptPath(result.stdout);
+    if (mounted) {
+      setState(() {
+        _lastSavedFridaScriptPath = path;
+        _fridaArtifactOutput = _formatAdbResult(result);
+      });
+    }
+    return path;
+  }
+
+  String? _extractFridaScriptPath(String text) {
+    final match = RegExp(r'Frida script:\s*(.+)').firstMatch(text);
+    final path = match?.group(1)?.trim();
+    return path == null || path.isEmpty ? null : path;
+  }
+
+  Future<void> _runFridaCapture({required bool spawn}) async {
+    if (_runningFridaAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    final pkg = _logcatPackageTarget();
+    if (pkg == null || pkg.isEmpty) {
+      _showSnack(isZh ? '请先选择或配置包名。' : 'Select or configure a package first.');
+      return;
+    }
+    setState(() {
+      _runningFridaAction = true;
+      _fridaArtifactOutput = isZh
+          ? 'Frida 注入执行中...'
+          : 'Running Frida capture...';
+    });
+    try {
+      await _ctrl.ensureMcpLinkageArtifacts();
+      final scriptPath = await _ensureFridaScriptPath();
+      if (scriptPath == null || scriptPath.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _fridaArtifactOutput = isZh
+                ? '请先选择 snippet 或保存脚本。'
+                : 'Load a snippet or save a script first.';
+          });
+        }
+        return;
+      }
+      final serial = _targetSerial?.trim();
+      final result = await _ctrl.runLocalArtifactScriptDetailed(
+        scriptPath: _ctrl.fridaCaptureScriptPath,
+        args: <String>[
+          '--package',
+          pkg,
+          '--script',
+          scriptPath,
+          spawn ? '--spawn' : '--attach',
+          if (serial != null && serial.isNotEmpty) ...['-s', serial],
+        ],
+        timeout: const Duration(seconds: 28),
+        displayCommand:
+            'bash ${_shellQuote(_ctrl.fridaCaptureScriptPath)} --package ${_shellQuote(pkg)} --script ${_shellQuote(scriptPath)} ${spawn ? "--spawn" : "--attach"}',
+        tag: spawn
+            ? 'android_reverse.frida_spawn_capture'
+            : 'android_reverse.frida_attach_capture',
+      );
+      if (!mounted) return;
+      setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningFridaAction = false);
+    }
+  }
+
+  Future<void> _readFridaArtifacts() async {
+    if (_runningFridaAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningFridaAction = true;
+      _fridaArtifactOutput = isZh
+          ? '读取 Frida 工件中...'
+          : 'Reading Frida artifacts...';
+    });
+    try {
+      await _ctrl.ensureMcpLinkageArtifacts();
+      final result = await _ctrl.runLocalShellDetailed(
+        actionName: 'frida-read-artifacts',
+        command: r'''
+set +e
+printf '[scripts]\n'
+find "$FRIDA_SCRIPTS_DIR" -maxdepth 1 -type f 2>/dev/null | sort | tail -40
+printf '\n[output]\n'
+find "$FRIDA_OUTPUT_DIR" -maxdepth 1 -type f 2>/dev/null | sort | tail -40
+latest="$(find "$FRIDA_OUTPUT_DIR" -maxdepth 1 -type f 2>/dev/null | sort | tail -1)"
+if [ -n "$latest" ]; then
+  printf '\n[latest:%s]\n' "$latest"
+  tail -160 "$latest"
+fi
+''',
+        environment: <String, String>{
+          'FRIDA_SCRIPTS_DIR': _ctrl.fridaScriptsDir,
+          'FRIDA_OUTPUT_DIR': _ctrl.fridaOutputDir,
+        },
+        timeout: const Duration(seconds: 8),
+        displayCommand: 'read Frida artifacts',
+        tag: 'android_reverse.frida_read_artifacts',
+      );
+      if (!mounted) return;
+      setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningFridaAction = false);
+    }
+  }
+
+  Future<void> _startExistingFridaServer() async {
+    if (_runningFridaAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: isZh ? '启动设备端 frida-server？' : 'Start device frida-server?',
+      message: isZh
+          ? '仅会尝试启动已存在的 /data/local/tmp/frida-server 并建立 27042 端口转发，不会自动下载或推送二进制。'
+          : 'This only starts an existing /data/local/tmp/frida-server and forwards port 27042. It will not download or push binaries.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '启动' : 'Start',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _runningFridaAction = true;
+      _fridaArtifactOutput = isZh
+          ? '启动 frida-server 中...'
+          : 'Starting frida-server...';
+    });
+    try {
+      final start = await _ctrl.shellDetailed(
+        'if [ -x /data/local/tmp/frida-server ]; then pidof frida-server >/dev/null 2>&1 || nohup /data/local/tmp/frida-server >/dev/null 2>&1 & echo started; else echo missing:/data/local/tmp/frida-server; exit 2; fi',
+        serial: _targetSerial,
+        timeout: const Duration(seconds: 8),
+      );
+      final forward = await _ctrl.forwardPortDetailed(
+        27042,
+        27042,
+        serial: _targetSerial,
+      );
+      final output = <String>[
+        _formatAdbResult(start),
+        '',
+        _formatAdbResult(forward),
+      ].join('\n');
+      if (!mounted) return;
+      setState(() => _fridaArtifactOutput = output);
+    } finally {
+      if (mounted) setState(() => _runningFridaAction = false);
+    }
+  }
+
   Future<void> _runNetworkProxyProbe() async {
     if (_runningNetworkProbe) return;
     final isZh = openHandIsChineseLocale(context);
@@ -1394,6 +1571,114 @@ class _AndroidReverseDashboardDialogState
     } finally {
       if (mounted) setState(() => _runningNetworkProbe = false);
     }
+  }
+
+  Future<void> _runNetworkAction(
+    Future<AdbCommandResult> Function() action,
+  ) async {
+    if (_runningNetworkAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningNetworkAction = true;
+      _networkAddonOutput = isZh ? '网络动作执行中...' : 'Running network action...';
+    });
+    try {
+      final result = await action();
+      if (!mounted) return;
+      setState(() => _networkAddonOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningNetworkAction = false);
+    }
+  }
+
+  int? _networkProxyPort() {
+    final value = int.tryParse(_networkProxyPortCtrl.text.trim());
+    if (value == null || value < _kMinTcpPort || value > _kMaxTcpPort) {
+      return null;
+    }
+    return value;
+  }
+
+  String? _networkProxyHost() {
+    final host = _networkProxyHostCtrl.text.trim();
+    if (host.isEmpty || host.length > 255) return null;
+    if (!RegExp(r'^[A-Za-z0-9_.:-]+$').hasMatch(host)) return null;
+    return host;
+  }
+
+  Future<void> _startNetworkCapture() async {
+    final isZh = openHandIsChineseLocale(context);
+    final port = _networkProxyPort();
+    if (port == null) {
+      _showSnack(isZh ? '请输入合法端口。' : 'Enter a valid port.');
+      return;
+    }
+    await _runNetworkAction(() => _ctrl.startNetworkCapture(port: port));
+  }
+
+  Future<void> _setDeviceProxy() async {
+    final isZh = openHandIsChineseLocale(context);
+    final host = _networkProxyHost();
+    final port = _networkProxyPort();
+    if (host == null || port == null) {
+      _showSnack(isZh ? '请输入合法代理主机和端口。' : 'Enter a valid proxy host and port.');
+      return;
+    }
+    await _runNetworkAction(
+      () => _ctrl.shellDetailed(
+        'settings put global http_proxy ${_shellQuote('$host:$port')}; settings get global http_proxy',
+        serial: _targetSerial,
+        timeout: const Duration(seconds: 8),
+      ),
+    );
+  }
+
+  Future<void> _readDeviceProxy() {
+    return _runNetworkAction(
+      () => _ctrl.shellDetailed(
+        'settings get global http_proxy; settings get global global_http_proxy_host 2>/dev/null; settings get global global_http_proxy_port 2>/dev/null',
+        serial: _targetSerial,
+        timeout: const Duration(seconds: 8),
+      ),
+    );
+  }
+
+  Future<void> _clearDeviceProxy() {
+    return _runNetworkAction(
+      () => _ctrl.shellDetailed(
+        'settings delete global http_proxy; settings delete global global_http_proxy_host 2>/dev/null; settings delete global global_http_proxy_port 2>/dev/null; settings get global http_proxy',
+        serial: _targetSerial,
+        timeout: const Duration(seconds: 8),
+      ),
+    );
+  }
+
+  Future<void> _runStaticAction(
+    Future<AdbCommandResult> Function() action,
+  ) async {
+    if (_runningStaticAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningStaticAction = true;
+      _staticQuickScanOutput = isZh
+          ? '静态分析动作执行中...'
+          : 'Running static analysis action...';
+    });
+    try {
+      final result = await action();
+      if (!mounted) return;
+      setState(() => _staticQuickScanOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningStaticAction = false);
+    }
+  }
+
+  String? _mitmCertPathArg() {
+    final value = _mitmCertPathCtrl.text.trim();
+    if (value.isEmpty || value == '~/.mitmproxy/mitmproxy-ca-cert.pem') {
+      return null;
+    }
+    return value;
   }
 
   Future<void> _runCertificateArtifactScript({
@@ -1452,6 +1737,78 @@ class _AndroidReverseDashboardDialogState
       displayCommand:
           'bash ${_shellQuote(_ctrl.verifyApkSignatureScriptPath)} ${_shellQuote(apkPath)}',
     );
+  }
+
+  Future<void> _readCertificateArtifacts() async {
+    if (_runningCertificateAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningCertificateAction = true;
+      _certificateArtifactOutput = isZh
+          ? '读取证书工件中...'
+          : 'Reading certificate artifacts...';
+    });
+    try {
+      final result = await _ctrl.readCertificateArtifacts(
+        packageName: _logcatPackageTarget(),
+      );
+      if (!mounted) return;
+      setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningCertificateAction = false);
+    }
+  }
+
+  Future<void> _inspectMitmproxyCa() async {
+    if (_runningCertificateAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningCertificateAction = true;
+      _certificateArtifactOutput = isZh
+          ? '检查 CA 证书中...'
+          : 'Inspecting CA certificate...';
+    });
+    try {
+      final result = await _ctrl.inspectMitmproxyCa(
+        certPath: _mitmCertPathArg(),
+      );
+      if (!mounted) return;
+      setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningCertificateAction = false);
+    }
+  }
+
+  Future<void> _installMitmproxySystemCa() async {
+    if (_runningCertificateAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: isZh ? '安装系统 CA？' : 'Install system CA?',
+      message: isZh
+          ? '此操作会执行 adb root/remount，并把 mitmproxy CA 写入系统证书目录。仅在测试设备、root/Magisk 环境中使用。'
+          : 'This runs adb root/remount and writes the mitmproxy CA into the system cert store. Use only on rooted test devices.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '安装' : 'Install',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _runningCertificateAction = true;
+      _certificateArtifactOutput = isZh
+          ? '安装系统 CA 中...'
+          : 'Installing system CA...';
+    });
+    try {
+      final result = await _ctrl.installMitmproxyCaAsSystemCert(
+        certPath: _mitmCertPathArg(),
+        serial: _targetSerial,
+      );
+      if (!mounted) return;
+      setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningCertificateAction = false);
+    }
   }
 
   Future<void> _runShell() async {
@@ -4302,7 +4659,8 @@ class _AndroidReverseDashboardDialogState
     if (plugin.isInstalled) {
       return <_RuntimePluginAction>[
         _RuntimePluginAction.checkUpdate,
-        if (plugin.hasUpdate) _RuntimePluginAction.update,
+        if (plugin.hasUpdate || _kAndroidRuntimePluginIds.contains(plugin.id))
+          _RuntimePluginAction.update,
         plugin.enabled
             ? _RuntimePluginAction.disable
             : _RuntimePluginAction.enable,
@@ -5247,8 +5605,8 @@ class _AndroidReverseDashboardDialogState
       theme: theme,
       icon: Icons.bug_report_rounded,
       text: isZh
-          ? '先从内置 snippet 加载脚本，再按当前包名生成 spawn / attach 命令。实际注入仍由 AI 代理通过 Frida MCP 或 Bash 执行。'
-          : 'Load a built-in snippet first, then use generated spawn/attach commands for the current package. Injection is still executed by the AI agent via Frida MCP or Bash.',
+          ? '先从内置 snippet 加载脚本，再保存为会话工件；面板可直接运行诊断、读取输出、启动已有 frida-server，并执行 spawn / attach 捕获。'
+          : 'Load a built-in snippet and save it as a session artifact. The panel can run doctor checks, read output, start an existing frida-server, and execute spawn/attach capture directly.',
     );
   }
 
@@ -5309,13 +5667,6 @@ class _AndroidReverseDashboardDialogState
 
   Widget _buildFridaEditorPane(ColorScheme cs, ThemeData theme, bool isZh) {
     final scriptAsset = _selectedFridaSnippetAsset;
-    final scriptArg = scriptAsset == null
-        ? '<script.js>'
-        : _commandToken(scriptAsset);
-    final pkg = _commandToken(_packageCommandTarget());
-    const savedScriptArg = '<saved-script.js>';
-    final doctorScript = _shellQuote(_ctrl.fridaDoctorScriptPath);
-    final captureScript = _shellQuote(_ctrl.fridaCaptureScriptPath);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -5376,7 +5727,9 @@ class _AndroidReverseDashboardDialogState
               label: isZh ? '复制脚本' : 'Copy script',
             ),
             _DashboardActionButton(
-              onPressed: _runningFridaDoctor ? null : _runFridaDoctor,
+              onPressed: _runningFridaDoctor || _runningFridaAction
+                  ? null
+                  : _runFridaDoctor,
               icon: _runningFridaDoctor
                   ? const SizedBox(
                       width: 14,
@@ -5385,6 +5738,44 @@ class _AndroidReverseDashboardDialogState
                     )
                   : const Icon(Icons.health_and_safety_rounded),
               label: isZh ? '运行诊断' : 'Run doctor',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningFridaAction ? null : _readFridaArtifacts,
+              icon: _runningFridaAction
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.6),
+                    )
+                  : const Icon(Icons.folder_open_rounded),
+              label: isZh ? '读取工件' : 'Read artifacts',
+            ),
+            _DashboardActionButton(
+              onPressed: _runningFridaAction ? null : _startExistingFridaServer,
+              icon: _runningFridaAction
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.6),
+                    )
+                  : const Icon(Icons.play_circle_outline_rounded),
+              label: isZh ? '启动服务' : 'Start server',
+            ),
+            _DashboardActionButton(
+              onPressed:
+                  _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
+                  ? null
+                  : () => _runFridaCapture(spawn: true),
+              icon: const Icon(Icons.rocket_launch_rounded),
+              label: isZh ? 'Spawn 注入' : 'Spawn',
+            ),
+            _DashboardActionButton(
+              onPressed:
+                  _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
+                  ? null
+                  : () => _runFridaCapture(spawn: false),
+              icon: const Icon(Icons.link_rounded),
+              label: isZh ? 'Attach 注入' : 'Attach',
             ),
           ],
         ),
@@ -5396,71 +5787,15 @@ class _AndroidReverseDashboardDialogState
               children: [
                 if (_fridaArtifactOutput?.trim().isNotEmpty ?? false) ...[
                   _monospaceCard(cs, _fridaArtifactOutput!.trim()),
-                  const SizedBox(height: 8),
-                ],
-                _commandCard(
-                  cs,
-                  theme,
-                  isZh,
-                  title: isZh ? '读取脚本工件' : 'Read script artifacts',
-                  command:
-                      'find ${_shellQuote(_ctrl.fridaScriptsDir)} -maxdepth 1 -type f | sort\n'
-                      'cat ${_shellQuote(_ctrl.fridaScriptsDir)}/<saved-script>.js\n'
-                      'find ${_shellQuote(_ctrl.fridaOutputDir)} -maxdepth 1 -type f | sort',
-                ),
-                const SizedBox(height: 8),
-                _commandCard(
-                  cs,
-                  theme,
-                  isZh,
-                  title: isZh ? 'Frida 只读诊断' : 'Frida read-only doctor',
-                  command:
-                      'cat ${_shellQuote(_ctrl.fridaReadmePath)}\n'
-                      '$doctorScript --timeout 6 --package $pkg',
-                ),
-                const SizedBox(height: 8),
-                _commandCard(
-                  cs,
-                  theme,
-                  isZh,
-                  title: isZh ? '设备端 Frida 准备' : 'Prepare device Frida',
-                  command:
-                      '$doctorScript --timeout 6 --package $pkg\n'
-                      'frida --version\n'
-                      '${_adbCommandPrefix()} shell getprop ro.product.cpu.abi\n'
-                      '${_adbCommandPrefix()} shell pidof frida-server || true\n'
-                      '${_adbCommandPrefix()} shell ls -l /data/local/tmp/frida-server\n'
-                      '# ${isZh ? "按 ABI 下载匹配版本后再推送；执行前需用户确认" : "Download the matching server for the ABI before pushing; ask for approval before running"}\n'
-                      '# arm64-v8a=android-arm64, armeabi-v7a=android-arm, x86_64=android-x86_64\n'
-                      'FRIDA_VERSION="\$(frida --version)"\n'
-                      'curl -L -o /tmp/frida-server.xz "https://github.com/frida/frida/releases/download/\$FRIDA_VERSION/frida-server-\$FRIDA_VERSION-android-arm64.xz"\n'
-                      'xz -dkf /tmp/frida-server.xz\n'
-                      '${_adbCommandPrefix()} push /tmp/frida-server /data/local/tmp/frida-server\n'
-                      '${_adbCommandPrefix()} shell "chmod 755 /data/local/tmp/frida-server; /data/local/tmp/frida-server >/dev/null 2>&1 &"\n'
-                      '${_adbCommandPrefix()} forward tcp:27042 tcp:27042\n'
-                      'frida-ps -U',
-                ),
-                const SizedBox(height: 8),
-                _commandCard(
-                  cs,
-                  theme,
-                  isZh,
-                  title: isZh ? 'Spawn 注入' : 'Spawn inject',
-                  command:
-                      '$captureScript --package $pkg --script $scriptArg --spawn\n'
-                      '$captureScript --package $pkg --script $savedScriptArg --spawn',
-                ),
-                const SizedBox(height: 8),
-                _commandCard(
-                  cs,
-                  theme,
-                  isZh,
-                  title: isZh ? 'Attach / 诊断' : 'Attach / diagnose',
-                  command:
-                      'frida-ps -Uai | grep $pkg\n'
-                      '$captureScript --package $pkg --script $scriptArg --attach\n'
-                      '${_adbCommandPrefix()} forward tcp:27042 tcp:27042',
-                ),
+                ] else
+                  _InfoCard(
+                    cs: cs,
+                    theme: theme,
+                    icon: Icons.output_rounded,
+                    text: isZh
+                        ? '执行结果、诊断摘要和 Frida 捕获输出会显示在这里。'
+                        : 'Execution results, doctor summaries, and Frida capture output appear here.',
+                  ),
               ],
             ),
           ),
@@ -5473,9 +5808,8 @@ class _AndroidReverseDashboardDialogState
 
   Widget _buildNetworkTab(ColorScheme cs, ThemeData theme, bool isZh) {
     final networkDir = _ctrl.networkDir;
-    final addonPath = _ctrl.mitmproxyAddonPath;
     final addonOutput = _networkAddonOutput?.trim();
-    final adb = _adbCommandPrefix();
+    final captureRunning = _ctrl.networkCaptureRunning;
     return OpenHandSafeScrollbar(
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -5506,7 +5840,9 @@ class _AndroidReverseDashboardDialogState
                 label: isZh ? '生成 JSONL Addon' : 'Generate JSONL addon',
               ),
               _DashboardActionButton(
-                onPressed: _runningNetworkProbe ? null : _runNetworkProxyProbe,
+                onPressed: _runningNetworkProbe || _runningNetworkAction
+                    ? null
+                    : _runNetworkProxyProbe,
                 icon: _runningNetworkProbe
                     ? const SizedBox(
                         width: 14,
@@ -5515,6 +5851,14 @@ class _AndroidReverseDashboardDialogState
                       )
                     : const Icon(Icons.fact_check_rounded),
                 label: isZh ? '运行预检' : 'Run preflight',
+              ),
+              _StatusPill(
+                label: captureRunning
+                    ? (isZh
+                          ? '抓包中 PID ${_ctrl.networkCapturePid}'
+                          : 'capturing PID ${_ctrl.networkCapturePid}')
+                    : (isZh ? '未抓包' : 'idle'),
+                color: captureRunning ? cs.primary : cs.outline,
               ),
               if (addonOutput != null && addonOutput.isNotEmpty)
                 _DashboardActionButton(
@@ -5533,65 +5877,97 @@ class _AndroidReverseDashboardDialogState
                 ? '网络流量由 mitmproxy 代理拦截。可先生成 JSONL addon，把 HTTP 记录写入 network.jsonl；HTTPS 需先在"证书"面板安装 CA 证书。'
                 : 'Traffic is intercepted by mitmproxy. Generate the JSONL addon to write HTTP records into network.jsonl; HTTPS requires installing the CA cert in the Certs tab first.',
           ),
-          if (addonOutput != null && addonOutput.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _monospaceCard(cs, addonOutput),
-          ],
           const SizedBox(height: 12),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '启动抓包' : 'Start capture',
-            command:
-                'mkdir -p ${_shellQuote(networkDir)}\n'
-                'OPENHAND_NETWORK_JSONL=${_shellQuote(_ctrl.networkJsonlPath)} mitmdump -p 8080 -s ${_shellQuote(addonPath)} -w ${_shellQuote('$networkDir/flows.mitm')}',
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: _pathTextField(
+                  controller: _networkProxyHostCtrl,
+                  hintText: isZh
+                      ? '代理主机，例如 10.0.2.2'
+                      : 'Proxy host, e.g. 10.0.2.2',
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 120,
+                child: _pathTextField(
+                  controller: _networkProxyPortCtrl,
+                  hintText: isZh ? '端口' : 'Port',
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '设备代理' : 'Device proxy',
-            command:
-                '$adb shell settings put global http_proxy <host-ip>:8080\n'
-                '$adb shell settings get global http_proxy\n'
-                '$adb shell settings delete global http_proxy',
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DashboardActionButton(
+                onPressed: _runningNetworkAction || captureRunning
+                    ? null
+                    : _startNetworkCapture,
+                icon: _runningNetworkAction
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.fiber_manual_record_rounded),
+                label: isZh ? '启动抓包' : 'Start capture',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningNetworkAction || !captureRunning
+                    ? null
+                    : () => _runNetworkAction(_ctrl.stopNetworkCapture),
+                icon: const Icon(Icons.stop_circle_rounded),
+                label: isZh ? '停止抓包' : 'Stop capture',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningNetworkAction ? null : _setDeviceProxy,
+                icon: const Icon(Icons.settings_ethernet_rounded),
+                label: isZh ? '设置代理' : 'Set proxy',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningNetworkAction ? null : _readDeviceProxy,
+                icon: const Icon(Icons.visibility_rounded),
+                label: isZh ? '读取代理' : 'Read proxy',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningNetworkAction ? null : _clearDeviceProxy,
+                icon: const Icon(Icons.cleaning_services_rounded),
+                label: isZh ? '清除代理' : 'Clear proxy',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningNetworkAction
+                    ? null
+                    : () => _runNetworkAction(_ctrl.readNetworkCaptureSummary),
+                icon: const Icon(Icons.article_rounded),
+                label: isZh ? '读取抓包' : 'Read capture',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningNetworkAction
+                    ? null
+                    : () => _runNetworkAction(_ctrl.exportMitmproxyFlows),
+                icon: const Icon(Icons.ios_share_rounded),
+                label: isZh ? '导出 flows' : 'Export flows',
+              ),
+            ],
           ),
           const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '代理 / 证书预检' : 'Proxy / cert preflight',
-            command:
-                'cat ${_shellQuote(_ctrl.networkReadmePath)}\n'
-                '${_shellQuote(_ctrl.networkProxyProbeScriptPath)} --timeout 6',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '读取抓包文件' : 'Read saved flows',
-            command:
-                'tail -200 ${_shellQuote(_ctrl.networkJsonlPath)}\n'
-                'mitmproxy -r ${_shellQuote('$networkDir/flows.mitm')}\n'
-                '# ${isZh ? "建议同时保存结构化摘要" : "Recommended structured summary"}\n'
-                'mitmdump -nr ${_shellQuote('$networkDir/flows.mitm')} > ${_shellQuote('$networkDir/flows.txt')}',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '复现交付模板' : 'Reproduction templates',
-            command:
-                'cat ${_shellQuote(_ctrl.scriptsReadmePath)}\n'
-                'TARGET_URL=<url> HTTP_METHOD=GET ${_shellQuote(_ctrl.reproducePythonPath)}\n'
-                'TARGET_URL=<url> HTTP_METHOD=GET ${_shellQuote(_ctrl.reproduceCurlPath)}\n'
-                '${_shellQuote(_ctrl.evidenceBundleScriptPath)}',
-          ),
+          if (addonOutput != null && addonOutput.isNotEmpty)
+            _monospaceCard(cs, addonOutput)
+          else
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.output_rounded,
+              text: isZh
+                  ? '抓包启动、设备代理、预检、读取与导出结果会显示在这里。'
+                  : 'Capture startup, proxy state, preflight, read, and export results appear here.',
+            ),
           const SizedBox(height: 10),
           _InfoCard(
             cs: cs,
@@ -5610,10 +5986,10 @@ class _AndroidReverseDashboardDialogState
   // ── Static analysis tab ─────────────────────────────────────────────────
 
   Widget _buildStaticTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    final apk = _apkCommandTarget();
     final packageSlug = _staticArtifactSlug();
     final decompiledDir = '${_ctrl.decompiledDir}/$packageSlug';
     final scanOutput = _staticQuickScanOutput?.trim();
+    final staticBusy = _runningStaticQuickScan || _runningStaticAction;
     return OpenHandSafeScrollbar(
       child: ListView(
         padding: const EdgeInsets.all(16),
@@ -5633,7 +6009,7 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               _DashboardActionButton(
-                onPressed: _runningStaticQuickScan ? null : _runStaticQuickScan,
+                onPressed: staticBusy ? null : _runStaticQuickScan,
                 icon: _runningStaticQuickScan
                     ? const SizedBox(
                         width: 14,
@@ -5642,6 +6018,66 @@ class _AndroidReverseDashboardDialogState
                       )
                     : const Icon(Icons.manage_search_rounded),
                 label: isZh ? '快速扫描 APK' : 'Quick scan APK',
+              ),
+              _DashboardActionButton(
+                onPressed: staticBusy
+                    ? null
+                    : () => _runStaticAction(
+                        () => _ctrl.readStaticQuickScanArtifacts(
+                          apkPath: _ctrl.config.apkPath,
+                          packageName: _logcatPackageTarget(),
+                        ),
+                      ),
+                icon: const Icon(Icons.folder_open_rounded),
+                label: isZh ? '读取产物' : 'Read artifacts',
+              ),
+              _DashboardActionButton(
+                onPressed: staticBusy
+                    ? null
+                    : () => _runStaticAction(
+                        () => _ctrl.inspectApkIdentity(
+                          apkPath: _ctrl.config.apkPath,
+                          packageName: _logcatPackageTarget(),
+                        ),
+                      ),
+                icon: const Icon(Icons.badge_rounded),
+                label: isZh ? '身份验签' : 'Identity',
+              ),
+              _DashboardActionButton(
+                onPressed: staticBusy
+                    ? null
+                    : () => _runStaticAction(
+                        () => _ctrl.runJadxDecompile(
+                          apkPath: _ctrl.config.apkPath,
+                          packageName: _logcatPackageTarget(),
+                        ),
+                      ),
+                icon: const Icon(Icons.code_rounded),
+                label: isZh ? 'jadx 反编译' : 'jadx',
+              ),
+              _DashboardActionButton(
+                onPressed: staticBusy
+                    ? null
+                    : () => _runStaticAction(
+                        () => _ctrl.runApktoolUnpack(
+                          apkPath: _ctrl.config.apkPath,
+                          packageName: _logcatPackageTarget(),
+                        ),
+                      ),
+                icon: const Icon(Icons.inventory_2_rounded),
+                label: isZh ? 'apktool 解包' : 'apktool',
+              ),
+              _DashboardActionButton(
+                onPressed: staticBusy
+                    ? null
+                    : () => _runStaticAction(
+                        () => _ctrl.runStaticStringsScan(
+                          apkPath: _ctrl.config.apkPath,
+                          packageName: _logcatPackageTarget(),
+                        ),
+                      ),
+                icon: const Icon(Icons.search_rounded),
+                label: isZh ? '字符串扫描' : 'Strings',
               ),
               if (scanOutput != null && scanOutput.isNotEmpty) ...[
                 _DashboardActionButton(
@@ -5664,72 +6100,17 @@ class _AndroidReverseDashboardDialogState
           if (scanOutput != null && scanOutput.isNotEmpty) ...[
             const SizedBox(height: 10),
             _monospaceCard(cs, scanOutput),
+          ] else ...[
+            const SizedBox(height: 10),
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.output_rounded,
+              text: isZh
+                  ? '静态扫描、反编译、验签和字符串定位结果会显示在这里。'
+                  : 'Static scan, decompile, signing, and string-scan results appear here.',
+            ),
           ],
-          const SizedBox(height: 12),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '读取快速扫描产物' : 'Read quick scan artifacts',
-            command:
-                'cd ${_shellQuote('$decompiledDir/quick_scan')}\n'
-                'cat SUMMARY.md\n'
-                'cat network_candidates.txt business_urls.txt business_domains.txt business_network_sources.txt\n'
-                'cat network_sources.txt urls.txt domains.txt ips.txt\n'
-                'cat flutter.txt native_libs.txt suspicious_files.txt nested_apks.txt',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'APK 身份与签名' : 'APK identity and signing',
-            command:
-                'aapt dump badging $apk | head -40\n'
-                'apksigner verify --print-certs $apk',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'jadx 反编译' : 'jadx decompile',
-            command:
-                'mkdir -p ${_shellQuote('$decompiledDir/jadx')}\n'
-                'jadx -d ${_shellQuote('$decompiledDir/jadx')} $apk\n'
-                'grep -RInE "sign|encrypt|token|https?://" ${_shellQuote('$decompiledDir/jadx')} | head -200',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'apktool 解包 + smali' : 'apktool unpack + smali',
-            command:
-                'apktool d -f $apk -o ${_shellQuote('$decompiledDir/apktool')}\n'
-                'grep -RInE "invoke-.*(sign|encrypt)|https?://" ${_shellQuote('$decompiledDir/apktool/smali')} | head -200',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '字符串快速定位' : 'Fast string scan',
-            command:
-                'unzip -p $apk "classes*.dex" | strings | grep -Ei "https?://|sign|encrypt|token" | head -200\n'
-                'unzip -l $apk | grep -E "\\.so\$|assets/"',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'Flutter / Native' : 'Flutter / Native',
-            command:
-                'blutter libapp.so ${_shellQuote('$decompiledDir/blutter')}\n'
-                'readelf -Ws lib/arm64-v8a/libxxx.so | grep -Ei "sign|encrypt|ssl|http"\n'
-                'r2 -A lib/arm64-v8a/libxxx.so',
-          ),
         ],
       ),
     );
@@ -5738,9 +6119,6 @@ class _AndroidReverseDashboardDialogState
   // ── Certs tab ────────────────────────────────────────────────────────────
 
   Widget _buildCertsTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    final adb = _adbCommandPrefix();
-    final apk = _apkCommandTarget();
-    final pkg = _packageCommandTarget();
     final artifactOutput = _certificateArtifactOutput?.trim();
     return OpenHandSafeScrollbar(
       child: ListView(
@@ -5778,6 +6156,19 @@ class _AndroidReverseDashboardDialogState
               _DashboardActionButton(
                 onPressed: _runningCertificateAction
                     ? null
+                    : _readCertificateArtifacts,
+                icon: _runningCertificateAction
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.folder_open_rounded),
+                label: isZh ? '读取工件' : 'Read artifacts',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningCertificateAction
+                    ? null
                     : _generateDebugKeystore,
                 icon: _runningCertificateAction
                     ? const SizedBox(
@@ -5801,6 +6192,32 @@ class _AndroidReverseDashboardDialogState
                     : const Icon(Icons.verified_rounded),
                 label: isZh ? '验签 APK' : 'Verify APK',
               ),
+              _DashboardActionButton(
+                onPressed: _runningCertificateAction
+                    ? null
+                    : _inspectMitmproxyCa,
+                icon: _runningCertificateAction
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.policy_rounded),
+                label: isZh ? '检查 CA' : 'Inspect CA',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningCertificateAction
+                    ? null
+                    : _installMitmproxySystemCa,
+                icon: _runningCertificateAction
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.security_update_good_rounded),
+                label: isZh ? '安装系统 CA' : 'Install system CA',
+              ),
               if (artifactOutput != null && artifactOutput.isNotEmpty)
                 _DashboardActionButton(
                   onPressed: () => _copyText(artifactOutput),
@@ -5818,77 +6235,25 @@ class _AndroidReverseDashboardDialogState
                 ? 'HTTPS 抓包需要设备信任 mitmproxy / Burp CA 证书。Android 7+ 需要系统级证书（需 root 或 Magisk）或通过 Network Security Config 添加用户证书。'
                 : 'HTTPS capture requires the device to trust the mitmproxy/Burp CA. Android 7+ needs system-level certs (root/Magisk) or Network Security Config for user certs.',
           ),
-          if (artifactOutput != null && artifactOutput.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _monospaceCard(cs, artifactOutput),
-          ],
           const SizedBox(height: 12),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh
-                ? 'Network Security Config 工件'
-                : 'Network Security Config artifacts',
-            command:
-                'cat ${_shellQuote(_ctrl.networkSecurityConfigPath)}\n'
-                'cat ${_shellQuote(_ctrl.manifestNetworkConfigSnippetPath)}\n'
-                'bash ${_shellQuote(_ctrl.installMitmCaRootScriptPath)}',
+          _pathTextField(
+            controller: _mitmCertPathCtrl,
+            hintText: isZh
+                ? 'mitmproxy CA 路径，留默认使用 ~/.mitmproxy/mitmproxy-ca-cert.pem'
+                : 'mitmproxy CA path, default ~/.mitmproxy/mitmproxy-ca-cert.pem',
           ),
           const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'APK 重签名工件' : 'APK resigning artifacts',
-            command:
-                'bash ${_shellQuote(_ctrl.generateDebugKeystoreScriptPath)}\n'
-                'bash ${_shellQuote(_ctrl.signRepackedApkScriptPath)} <unsigned.apk> <signed.apk>\n'
-                'bash ${_shellQuote(_ctrl.verifyApkSignatureScriptPath)} <signed.apk>',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '准备 mitmproxy CA' : 'Prepare mitmproxy CA',
-            command:
-                'CERT=~/.mitmproxy/mitmproxy-ca-cert.pem\n'
-                'HASH=\$(openssl x509 -inform PEM -subject_hash_old -in "\$CERT" | head -1)\n'
-                'cp "\$CERT" "\$HASH.0"\n'
-                'openssl x509 -inform PEM -in "\$CERT" -noout -subject -issuer -dates',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '推送系统 CA（需 root）' : 'Push system CA (root required)',
-            command:
-                '$adb root\n'
-                '$adb remount\n'
-                '$adb push "\$HASH.0" /system/etc/security/cacerts/\n'
-                '$adb shell chmod 644 /system/etc/security/cacerts/"\$HASH.0"\n'
-                '$adb shell ls -l /system/etc/security/cacerts/"\$HASH.0"',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '检查 APK 签名证书' : 'Inspect APK signing cert',
-            command: 'apksigner verify --print-certs $apk',
-          ),
-          const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'SSL Pinning 绕过' : 'SSL Pinning bypass',
-            command:
-                '# 使用 assets/prompts/android_reverse_expert/snippets/hook_ssl_pinning.js\n'
-                'frida -U -f $pkg -l assets/prompts/android_reverse_expert/snippets/hook_ssl_pinning.js',
-          ),
+          if (artifactOutput != null && artifactOutput.isNotEmpty)
+            _monospaceCard(cs, artifactOutput)
+          else
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.output_rounded,
+              text: isZh
+                  ? '证书工件、CA 检查、系统 CA 安装、密钥库生成和 APK 验签结果会显示在这里。SSL Pinning 绕过请在 Frida 页加载内置 SSL Pinning snippet 后直接执行。'
+                  : 'Certificate artifacts, CA inspection, system CA installation, keystore generation, and APK verification results appear here. For SSL pinning bypass, load the SSL Pinning snippet in the Frida tab and run it directly.',
+            ),
         ],
       ),
     );
@@ -5897,10 +6262,10 @@ class _AndroidReverseDashboardDialogState
   // ── Crypto pad tab ────────────────────────────────────────────────────────
 
   Widget _buildCryptoTab(ColorScheme cs, ThemeData theme, bool isZh) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final cryptoOutput = _base64OutCtrl.text.trim();
+    return OpenHandSafeScrollbar(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
           Text(
             isZh ? '加密工具台' : 'Crypto pad',
@@ -5909,74 +6274,114 @@ class _AndroidReverseDashboardDialogState
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            isZh ? 'Base64' : 'Base64',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
           TextField(
             controller: _base64Ctrl,
+            minLines: 4,
+            maxLines: 8,
             decoration: InputDecoration(
               isDense: true,
-              hintText: isZh ? '输入文本...' : 'Input text...',
+              hintText: isZh
+                  ? '粘贴文本、Base64、URL 编码、JWT、密钥材料或待哈希内容...'
+                  : 'Paste text, Base64, URL encoding, JWT, key material, or content to hash...',
               border: const OutlineInputBorder(),
             ),
-            onChanged: (v) {
-              setState(() {
-                try {
-                  _base64OutCtrl.text = _safeBase64Encode(v);
-                } catch (_) {
-                  _base64OutCtrl.text = '';
-                }
-              });
-            },
+            onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 6),
-          Row(
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _base64OutCtrl,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: isZh ? 'Base64 输出' : 'Base64 output',
-                    border: const OutlineInputBorder(),
-                  ),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _setCryptoOutput(
+                        isZh ? 'Base64 编码' : 'Base64 encode',
+                        base64Encode(utf8.encode(_base64Ctrl.text)),
+                      ),
+                icon: const Icon(Icons.upload_rounded),
+                label: isZh ? 'Base64 编码' : 'B64 encode',
               ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: _DashboardActionButton(
-                  onPressed: _base64OutCtrl.text.isEmpty
-                      ? null
-                      : () => _copyText(_base64OutCtrl.text),
-                  icon: const Icon(Icons.copy_rounded),
-                  label: isZh ? '复制' : 'Copy',
-                ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _decodeBase64Input(isZh),
+                icon: const Icon(Icons.download_rounded),
+                label: isZh ? 'Base64 解码' : 'B64 decode',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _setCryptoOutput(
+                        isZh ? 'URL 编码' : 'URL encode',
+                        Uri.encodeComponent(_base64Ctrl.text),
+                      ),
+                icon: const Icon(Icons.link_rounded),
+                label: isZh ? 'URL 编码' : 'URL encode',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _decodeUrlInput(isZh),
+                icon: const Icon(Icons.link_off_rounded),
+                label: isZh ? 'URL 解码' : 'URL decode',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('MD5', crypto.md5),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'MD5',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('SHA1', crypto.sha1),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'SHA1',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('SHA256', crypto.sha256),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'SHA256',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('SHA512', crypto.sha512),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'SHA512',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _decodeJwtInput(isZh),
+                icon: const Icon(Icons.token_rounded),
+                label: isZh ? 'JWT 解析' : 'JWT decode',
+              ),
+              _DashboardActionButton(
+                onPressed: cryptoOutput.isEmpty
+                    ? null
+                    : () => _copyText(_base64OutCtrl.text),
+                icon: const Icon(Icons.copy_rounded),
+                label: isZh ? '复制结果' : 'Copy result',
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            isZh ? '常用编解码命令' : 'Encode/decode reference',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
+          const SizedBox(height: 12),
+          if (cryptoOutput.isNotEmpty)
+            _monospaceCard(cs, _base64OutCtrl.text)
+          else
+            _InfoCard(
+              cs: cs,
+              theme: theme,
+              icon: Icons.lock_open_rounded,
+              text: isZh
+                  ? '选择上方动作后，格式化后的编解码、摘要或 JWT Header/Payload 会显示在这里。'
+                  : 'Choose an action above to show formatted encoding, digest, or JWT header/payload here.',
             ),
-          ),
-          const SizedBox(height: 6),
-          _monospaceCard(
-            cs,
-            '# Base64\necho -n "text" | base64\necho "b64==" | base64 -d\n\n'
-            '# MD5 / SHA256\necho -n "text" | md5sum\necho -n "text" | sha256sum\n\n'
-            '# JWT decode (header.payload)\necho "<jwt_part>" | base64 -d',
-          ),
         ],
       ),
     );
@@ -6508,14 +6913,71 @@ class _AndroidReverseDashboardDialogState
     );
   }
 
-  String _safeBase64Encode(String input) {
-    if (input.isEmpty) return '';
+  void _setCryptoOutput(String title, String output) {
+    setState(() {
+      _base64OutCtrl.text = [
+        '# $title',
+        output.trimRight().isEmpty ? '(empty)' : output.trimRight(),
+      ].join('\n');
+    });
+  }
+
+  void _decodeBase64Input(bool isZh) {
     try {
-      final decoded = utf8.decode(base64Decode(input));
-      return decoded;
-    } catch (_) {
-      return base64Encode(utf8.encode(input));
+      final normalized = _base64Ctrl.text.replaceAll(RegExp(r'\s+'), '');
+      final decoded = utf8.decode(base64Decode(base64.normalize(normalized)));
+      _setCryptoOutput(isZh ? 'Base64 解码' : 'Base64 decode', decoded);
+    } catch (error) {
+      _setCryptoOutput(isZh ? 'Base64 解码失败' : 'Base64 decode failed', '$error');
     }
+  }
+
+  void _decodeUrlInput(bool isZh) {
+    try {
+      _setCryptoOutput(
+        isZh ? 'URL 解码' : 'URL decode',
+        Uri.decodeComponent(_base64Ctrl.text),
+      );
+    } catch (error) {
+      _setCryptoOutput(isZh ? 'URL 解码失败' : 'URL decode failed', '$error');
+    }
+  }
+
+  void _hashCryptoInput(String label, crypto.Hash algorithm) {
+    final bytes = utf8.encode(_base64Ctrl.text);
+    _setCryptoOutput(label, algorithm.convert(bytes).toString());
+  }
+
+  void _decodeJwtInput(bool isZh) {
+    try {
+      final token = _base64Ctrl.text.trim();
+      final parts = token.split('.');
+      if (parts.length < 2) {
+        throw const FormatException('JWT must contain header and payload.');
+      }
+      final header = _decodeJwtSegment(parts[0]);
+      final payload = _decodeJwtSegment(parts[1]);
+      const encoder = JsonEncoder.withIndent('  ');
+      final headerText = encoder.convert(jsonDecode(header));
+      final payloadText = encoder.convert(jsonDecode(payload));
+      _setCryptoOutput(
+        isZh ? 'JWT 解析' : 'JWT decode',
+        [
+          '## header',
+          headerText,
+          '',
+          '## payload',
+          payloadText,
+          if (parts.length > 2) ...['', '## signature', parts[2]],
+        ].join('\n'),
+      );
+    } catch (error) {
+      _setCryptoOutput(isZh ? 'JWT 解析失败' : 'JWT decode failed', '$error');
+    }
+  }
+
+  String _decodeJwtSegment(String segment) {
+    return utf8.decode(base64Url.decode(base64Url.normalize(segment)));
   }
 
   Widget _buildPathActionRow({
@@ -6583,12 +7045,6 @@ class _AndroidReverseDashboardDialogState
     );
   }
 
-  String _adbCommandPrefix() {
-    final serial = _targetSerial?.trim();
-    if (serial == null || serial.isEmpty) return 'adb';
-    return 'adb -s ${_shellQuote(serial)}';
-  }
-
   String _normalizeAdbShellInput(String raw) {
     final value = raw.trim();
     if (value.isEmpty) return value;
@@ -6607,20 +7063,6 @@ class _AndroidReverseDashboardDialogState
     final configured = _ctrl.config.packageName?.trim();
     if (configured != null && configured.isNotEmpty) return configured;
     return null;
-  }
-
-  String _packageCommandTarget() {
-    final selected = _selectedPackageName?.trim();
-    if (selected != null && selected.isNotEmpty) return selected;
-    final configured = _ctrl.config.packageName?.trim();
-    if (configured != null && configured.isNotEmpty) return configured;
-    return '<pkg>';
-  }
-
-  String _apkCommandTarget() {
-    final apkPath = _ctrl.config.apkPath?.trim();
-    if (apkPath == null || apkPath.isEmpty) return '<app.apk>';
-    return _shellQuote(apkPath);
   }
 
   String _staticArtifactSlug() {
@@ -6650,12 +7092,6 @@ class _AndroidReverseDashboardDialogState
       return value;
     }
     return "'${value.replaceAll("'", "'\"'\"'")}'";
-  }
-
-  String _commandToken(String value) {
-    final trimmed = value.trim();
-    if (trimmed.startsWith('<') && trimmed.endsWith('>')) return trimmed;
-    return _shellQuote(trimmed);
   }
 
   bool _looksLikePackageName(String value) {

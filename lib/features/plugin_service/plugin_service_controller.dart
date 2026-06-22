@@ -105,6 +105,10 @@ class PluginServiceController extends ManagedChangeNotifier {
       'mitmproxy',
       'apktool',
       'jadx',
+      'radare2',
+      'blutter',
+      'doldrums',
+      'anything_analyzer',
     ]) {
       final plugin = byId[id];
       if (plugin == null) continue;
@@ -143,6 +147,10 @@ class PluginServiceController extends ManagedChangeNotifier {
         'mitmproxy' => _scanner.scanMitmproxy(),
         'apktool' => _scanner.scanApktool(),
         'jadx' => _scanner.scanJadx(),
+        'radare2' => _scanner.scanRadare2(),
+        'blutter' => _scanner.scanBlutter(),
+        'doldrums' => _scanner.scanDoldrums(),
+        'anything_analyzer' => _scanner.scanAnythingAnalyzer(),
         _ => Future<PluginInfo?>.value(),
       };
       if (refreshed == null) return null;
@@ -214,6 +222,12 @@ class PluginServiceController extends ManagedChangeNotifier {
         'mitmproxy' => await _lifecycle.installMitmproxy(onProgress: _addLog),
         'apktool' => await _lifecycle.installApktool(onProgress: _addLog),
         'jadx' => await _lifecycle.installJadx(onProgress: _addLog),
+        'radare2' => await _lifecycle.installRadare2(onProgress: _addLog),
+        'blutter' => await _lifecycle.installBlutter(onProgress: _addLog),
+        'doldrums' => await _lifecycle.installDoldrums(onProgress: _addLog),
+        'anything_analyzer' => await _lifecycle.installAnythingAnalyzer(
+          onProgress: _addLog,
+        ),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
@@ -259,6 +273,12 @@ class PluginServiceController extends ManagedChangeNotifier {
         'mitmproxy' => await _lifecycle.updateMitmproxy(onProgress: _addLog),
         'apktool' => await _lifecycle.updateApktool(onProgress: _addLog),
         'jadx' => await _lifecycle.updateJadx(onProgress: _addLog),
+        'radare2' => await _lifecycle.updateRadare2(onProgress: _addLog),
+        'blutter' => await _lifecycle.updateBlutter(onProgress: _addLog),
+        'doldrums' => await _lifecycle.updateDoldrums(onProgress: _addLog),
+        'anything_analyzer' => await _lifecycle.updateAnythingAnalyzer(
+          onProgress: _addLog,
+        ),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
@@ -327,6 +347,12 @@ class PluginServiceController extends ManagedChangeNotifier {
         'mitmproxy' => await _lifecycle.uninstallMitmproxy(onProgress: _addLog),
         'apktool' => await _lifecycle.uninstallApktool(onProgress: _addLog),
         'jadx' => await _lifecycle.uninstallJadx(onProgress: _addLog),
+        'radare2' => await _lifecycle.uninstallRadare2(onProgress: _addLog),
+        'blutter' => await _lifecycle.uninstallBlutter(onProgress: _addLog),
+        'doldrums' => await _lifecycle.uninstallDoldrums(onProgress: _addLog),
+        'anything_analyzer' => await _lifecycle.uninstallAnythingAnalyzer(
+          onProgress: _addLog,
+        ),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {

@@ -20,8 +20,16 @@ const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
 const Duration _kArtifactChmodTimeout = Duration(seconds: 2);
 const Duration _kEvidenceBundleTimeout = Duration(seconds: 20);
 const Duration _kLocalScriptTimeout = Duration(seconds: 30);
+const Duration _kLocalShellActionTimeout = Duration(seconds: 20);
+const Duration _kNetworkCaptureStartupProbe = Duration(milliseconds: 900);
+const Duration _kNetworkCaptureStopGrace = Duration(milliseconds: 800);
+const Duration _kStaticArtifactReadTimeout = Duration(seconds: 8);
+const Duration _kStaticIdentityTimeout = Duration(seconds: 16);
+const Duration _kStaticStringsTimeout = Duration(seconds: 24);
+const Duration _kStaticDecompileTimeout = Duration(minutes: 3);
 const int _kPackageReportSummaryMaxLines = 220;
 const int _kStaticQuickScanPreviewLines = 80;
+const int _kNetworkCaptureTranscriptMaxChars = 24000;
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
   'devices',
   'packages',
@@ -41,6 +49,13 @@ const List<String> _kAndroidReverseArtifactSubdirs = <String>[
 
 /// Android 逆向会话状态。
 enum AndroidReverseSessionState { idle, running, deviceLost, stopped }
+
+class _ResolvedStaticApk {
+  const _ResolvedStaticApk({required this.apkPath, required this.slug});
+
+  final String apkPath;
+  final String slug;
+}
 
 /// 单个 Android 逆向会话的运行时编排。
 ///
@@ -131,6 +146,45 @@ class AndroidReverseSessionController extends ChangeNotifier {
   AdbCommandResult? _lastStaticQuickScanResult;
   AdbCommandResult? get lastStaticQuickScanResult => _lastStaticQuickScanResult;
 
+  Process? _networkCaptureProcess;
+  int? get networkCapturePid => _networkCaptureProcess?.pid;
+  bool get networkCaptureRunning => _networkCaptureProcess != null;
+
+  DateTime? _networkCaptureStartedAt;
+  DateTime? get networkCaptureStartedAt => _networkCaptureStartedAt;
+
+  final StringBuffer _networkCaptureStdout = StringBuffer();
+  final StringBuffer _networkCaptureStderr = StringBuffer();
+
+  String get networkCaptureTranscript {
+    final buffer = StringBuffer();
+    final process = _networkCaptureProcess;
+    if (process != null) {
+      buffer
+        ..writeln('mitmdump_pid=${process.pid}')
+        ..writeln(
+          'started_at=${_networkCaptureStartedAt?.toUtc().toIso8601String() ?? "-"}',
+        );
+    } else {
+      buffer.writeln('mitmdump_pid=-');
+    }
+    final stdoutText = _networkCaptureStdout.toString().trim();
+    final stderrText = _networkCaptureStderr.toString().trim();
+    if (stdoutText.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('[stdout]')
+        ..writeln(stdoutText);
+    }
+    if (stderrText.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('[stderr]')
+        ..writeln(stderrText);
+    }
+    return buffer.toString().trimRight();
+  }
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -174,6 +228,16 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _disposed = true;
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
+    final networkCapture = _networkCaptureProcess;
+    _networkCaptureProcess = null;
+    if (networkCapture != null) {
+      unawaited(
+        terminateTrackedProcessTree(
+          networkCapture,
+          gracefulTimeout: _kNetworkCaptureStopGrace,
+        ),
+      );
+    }
     super.dispose();
   }
 
@@ -1104,7 +1168,532 @@ class AndroidReverseSessionController extends ChangeNotifier {
     }
   }
 
+  Future<AdbCommandResult> runLocalShellDetailed({
+    required String actionName,
+    required String command,
+    Map<String, String> environment = const <String, String>{},
+    Duration timeout = _kLocalShellActionTimeout,
+    String? displayCommand,
+    String tag = 'android_reverse.local_shell',
+  }) {
+    return _runLocalShellDetailed(
+      actionName: actionName,
+      command: command,
+      environment: environment,
+      timeout: timeout,
+      displayCommand: displayCommand,
+      tag: tag,
+    );
+  }
+
+  Future<AdbCommandResult> startNetworkCapture({int port = 8080}) async {
+    if (port < 1 || port > 65535) {
+      return AdbCommandResult(
+        args: <String>['network-capture', 'start'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Invalid proxy port: $port',
+        displayCommand: 'start mitmdump capture',
+      );
+    }
+    if (_networkCaptureProcess != null) {
+      return AdbCommandResult(
+        args: <String>['network-capture', 'start'],
+        exitCode: 0,
+        stdout: networkCaptureTranscript,
+        stderr: 'mitmdump is already running.',
+        displayCommand: 'start mitmdump capture',
+      );
+    }
+    if (Platform.isWindows) {
+      return const AdbCommandResult(
+        args: <String>['network-capture', 'start'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'mitmdump capture requires a POSIX shell environment.',
+        displayCommand: 'start mitmdump capture',
+      );
+    }
+    try {
+      final mitmdump = await _resolveLocalExecutable('mitmdump');
+      if (mitmdump == null) {
+        return const AdbCommandResult(
+          args: <String>['network-capture', 'start'],
+          exitCode: 127,
+          stdout: '',
+          stderr: 'mitmdump not found. Install mitmproxy first.',
+          displayCommand: 'mitmdump',
+        );
+      }
+      final addonPath = await ensureMitmproxyJsonlAddon();
+      await Directory(networkDir).create(recursive: true);
+      await File(networkJsonlPath).create(recursive: true);
+      _networkCaptureStdout.clear();
+      _networkCaptureStderr.clear();
+      final process = await startTrackedProcessInNewGroup(
+        mitmdump,
+        <String>[
+          '-p',
+          '$port',
+          '-s',
+          addonPath,
+          '-w',
+          '$networkDir/flows.mitm',
+        ],
+        environment: <String, String>{
+          'OPENHAND_NETWORK_JSONL': networkJsonlPath,
+        },
+      );
+      _networkCaptureProcess = process;
+      _networkCaptureStartedAt = DateTime.now();
+      _wireNetworkCaptureStreams(process);
+      _safeNotify();
+      try {
+        final exitCode = await process.exitCode.timeout(
+          _kNetworkCaptureStartupProbe,
+        );
+        final stdoutText = networkCaptureTranscript;
+        _networkCaptureProcess = null;
+        _safeNotify();
+        return AdbCommandResult(
+          args: const <String>['network-capture', 'start'],
+          exitCode: exitCode,
+          stdout: stdoutText,
+          stderr: exitCode == 0
+              ? ''
+              : 'mitmdump exited during startup. Check port availability and mitmproxy installation.',
+          displayCommand:
+              'OPENHAND_NETWORK_JSONL=$networkJsonlPath mitmdump -p $port -s $addonPath -w $networkDir/flows.mitm',
+        );
+      } on TimeoutException {
+        return AdbCommandResult(
+          args: const <String>['network-capture', 'start'],
+          exitCode: 0,
+          stdout: <String>[
+            'mitmdump capture started',
+            'pid: ${process.pid}',
+            'port: $port',
+            'jsonl: $networkJsonlPath',
+            'flows: $networkDir/flows.mitm',
+          ].join('\n'),
+          stderr: '',
+          displayCommand:
+              'OPENHAND_NETWORK_JSONL=$networkJsonlPath mitmdump -p $port -s $addonPath -w $networkDir/flows.mitm',
+        );
+      }
+    } catch (e, st) {
+      silentLog(_kTag, 'startNetworkCapture failed', e, st);
+      _networkCaptureProcess = null;
+      _safeNotify();
+      return AdbCommandResult(
+        args: const <String>['network-capture', 'start'],
+        exitCode: -1,
+        stdout: networkCaptureTranscript,
+        stderr: '$e',
+        displayCommand: 'start mitmdump capture',
+      );
+    }
+  }
+
+  Future<AdbCommandResult> stopNetworkCapture() async {
+    final process = _networkCaptureProcess;
+    if (process == null) {
+      return AdbCommandResult(
+        args: const <String>['network-capture', 'stop'],
+        exitCode: 0,
+        stdout: networkCaptureTranscript,
+        stderr: 'mitmdump is not running.',
+        displayCommand: 'stop mitmdump capture',
+      );
+    }
+    await terminateTrackedProcessTree(
+      process,
+      gracefulTimeout: _kNetworkCaptureStopGrace,
+    );
+    int exitCode = 0;
+    try {
+      exitCode = await process.exitCode.timeout(
+        const Duration(milliseconds: 400),
+      );
+    } catch (_) {
+      exitCode = -1;
+    }
+    _networkCaptureProcess = null;
+    _safeNotify();
+    return AdbCommandResult(
+      args: const <String>['network-capture', 'stop'],
+      exitCode: exitCode,
+      stdout: networkCaptureTranscript,
+      stderr: exitCode == -1 ? 'mitmdump stop timed out after SIGTERM.' : '',
+      timedOut: exitCode == -1,
+      displayCommand: 'stop mitmdump capture',
+    );
+  }
+
+  Future<AdbCommandResult> readNetworkCaptureSummary({int lines = 120}) async {
+    final boundedLines = lines.clamp(20, 600).toInt();
+    return _runLocalShellDetailed(
+      actionName: 'network-capture-read',
+      command: _networkCaptureReadScript,
+      environment: <String, String>{
+        'NETWORK_JSONL': networkJsonlPath,
+        'NETWORK_DIR': networkDir,
+        'TAIL_LINES': '$boundedLines',
+      },
+      timeout: _kStaticArtifactReadTimeout,
+      displayCommand: 'read network capture artifacts',
+      tag: 'android_reverse.network_read',
+    );
+  }
+
+  Future<AdbCommandResult> exportMitmproxyFlows() async {
+    return _runLocalShellDetailed(
+      actionName: 'network-capture-export',
+      command: _networkCaptureExportScript,
+      environment: <String, String>{'NETWORK_DIR': networkDir},
+      timeout: _kLocalShellActionTimeout,
+      displayCommand: 'export mitmproxy flows',
+      tag: 'android_reverse.network_export',
+    );
+  }
+
+  Future<AdbCommandResult> readStaticQuickScanArtifacts({
+    String? apkPath,
+    String? packageName,
+  }) async {
+    var quickScanDir = _lastStaticQuickScanDir?.trim();
+    if (quickScanDir == null || quickScanDir.isEmpty) {
+      final resolved = await _resolveStaticApkForAction(
+        'static-read-quick-scan',
+        apkPath: apkPath,
+        packageName: packageName,
+        requireApk: false,
+      );
+      if (resolved == null) {
+        return const AdbCommandResult(
+          args: <String>['static-read-quick-scan'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Run quick scan first or configure an APK path.',
+          displayCommand: 'read quick scan artifacts',
+        );
+      }
+      quickScanDir = '$decompiledDir/${resolved.slug}/quick_scan';
+    }
+    if (!await Directory(quickScanDir).exists()) {
+      return AdbCommandResult(
+        args: const <String>['static-read-quick-scan'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Quick scan artifacts do not exist: $quickScanDir',
+        displayCommand: 'read quick scan artifacts',
+      );
+    }
+    return _runLocalShellDetailed(
+      actionName: 'static-read-quick-scan',
+      command: _staticQuickScanReadScript,
+      environment: <String, String>{'QUICK_SCAN_DIR': quickScanDir},
+      timeout: _kStaticArtifactReadTimeout,
+      displayCommand: 'read quick scan artifacts',
+      tag: 'android_reverse.static_read',
+    );
+  }
+
+  Future<AdbCommandResult> inspectApkIdentity({
+    String? apkPath,
+    String? packageName,
+  }) {
+    return _runStaticApkShellAction(
+      actionName: 'static-apk-identity',
+      apkPath: apkPath,
+      packageName: packageName,
+      outputCategory: 'identity',
+      command: _staticApkIdentityScript,
+      timeout: _kStaticIdentityTimeout,
+      displayCommand: 'inspect APK identity and signing certs',
+      tag: 'android_reverse.static_identity',
+    );
+  }
+
+  Future<AdbCommandResult> runJadxDecompile({
+    String? apkPath,
+    String? packageName,
+  }) {
+    return _runStaticApkShellAction(
+      actionName: 'static-jadx',
+      apkPath: apkPath,
+      packageName: packageName,
+      outputCategory: 'jadx_${_artifactTimestamp()}',
+      command: _staticJadxScript,
+      timeout: _kStaticDecompileTimeout,
+      displayCommand: 'jadx decompile APK',
+      tag: 'android_reverse.static_jadx',
+    );
+  }
+
+  Future<AdbCommandResult> runApktoolUnpack({
+    String? apkPath,
+    String? packageName,
+  }) {
+    return _runStaticApkShellAction(
+      actionName: 'static-apktool',
+      apkPath: apkPath,
+      packageName: packageName,
+      outputCategory: 'apktool_${_artifactTimestamp()}',
+      command: _staticApktoolScript,
+      timeout: _kStaticDecompileTimeout,
+      displayCommand: 'apktool unpack APK',
+      tag: 'android_reverse.static_apktool',
+    );
+  }
+
+  Future<AdbCommandResult> runStaticStringsScan({
+    String? apkPath,
+    String? packageName,
+  }) {
+    return _runStaticApkShellAction(
+      actionName: 'static-strings',
+      apkPath: apkPath,
+      packageName: packageName,
+      outputCategory: 'strings_${_artifactTimestamp()}',
+      command: _staticStringsScript,
+      timeout: _kStaticStringsTimeout,
+      displayCommand: 'scan APK strings',
+      tag: 'android_reverse.static_strings',
+    );
+  }
+
+  Future<AdbCommandResult> readCertificateArtifacts({
+    String? packageName,
+  }) async {
+    await ensureCertificateArtifacts(packageName: packageName);
+    return _runLocalShellDetailed(
+      actionName: 'certs-read-artifacts',
+      command: _certificateArtifactsReadScript,
+      environment: <String, String>{'CERTS_DIR': certsDir},
+      timeout: _kStaticArtifactReadTimeout,
+      displayCommand: 'read certificate artifacts',
+      tag: 'android_reverse.certs_read',
+    );
+  }
+
+  Future<AdbCommandResult> inspectMitmproxyCa({String? certPath}) async {
+    await ensureCertificateArtifacts();
+    return _runLocalShellDetailed(
+      actionName: 'certs-inspect-mitm-ca',
+      command: _mitmproxyCaInspectScript,
+      environment: <String, String>{
+        if (certPath?.trim().isNotEmpty ?? false)
+          'MITM_CERT_PATH': certPath!.trim(),
+      },
+      timeout: _kStaticIdentityTimeout,
+      displayCommand: 'inspect mitmproxy CA',
+      tag: 'android_reverse.certs_mitm_ca',
+    );
+  }
+
+  Future<AdbCommandResult> installMitmproxyCaAsSystemCert({
+    String? certPath,
+    String? serial,
+  }) async {
+    await ensureCertificateArtifacts();
+    return runLocalArtifactScriptDetailed(
+      scriptPath: installMitmCaRootScriptPath,
+      args: <String>[
+        if (certPath?.trim().isNotEmpty ?? false) certPath!.trim(),
+      ],
+      environment: <String, String>{
+        if (serial?.trim().isNotEmpty ?? false) 'ADB_SERIAL': serial!.trim(),
+      },
+      timeout: const Duration(seconds: 35),
+      displayCommand: 'install mitmproxy CA as system cert',
+      tag: 'android_reverse.certs_install_system_ca',
+    );
+  }
+
   // ── 内部 ───────────────────────────────────────────────────────────────
+
+  Future<AdbCommandResult> _runStaticApkShellAction({
+    required String actionName,
+    required String? apkPath,
+    required String? packageName,
+    required String outputCategory,
+    required String command,
+    required Duration timeout,
+    required String displayCommand,
+    required String tag,
+  }) async {
+    final resolved = await _resolveStaticApkForAction(
+      actionName,
+      apkPath: apkPath,
+      packageName: packageName,
+    );
+    if (resolved == null) {
+      return AdbCommandResult(
+        args: <String>[actionName, '<missing-apk>'],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'APK path is required and must point to an existing file.',
+        displayCommand: displayCommand,
+      );
+    }
+    final outputDir = Directory(
+      '$decompiledDir/${resolved.slug}/$outputCategory',
+    );
+    await outputDir.create(recursive: true);
+    return _runLocalShellDetailed(
+      actionName: actionName,
+      command: command,
+      environment: <String, String>{
+        'APK_PATH': resolved.apkPath,
+        'OUT_DIR': outputDir.path,
+      },
+      timeout: timeout,
+      displayCommand: displayCommand,
+      tag: tag,
+    );
+  }
+
+  Future<_ResolvedStaticApk?> _resolveStaticApkForAction(
+    String actionName, {
+    required String? apkPath,
+    required String? packageName,
+    bool requireApk = true,
+  }) async {
+    final rawApkPath = (apkPath ?? config.apkPath ?? '').trim();
+    if (rawApkPath.isEmpty) {
+      if (requireApk) return null;
+      final fallbackSlug = _safeArtifactName(
+        _firstNonEmpty(<String?>[packageName, config.packageName]),
+      );
+      return _ResolvedStaticApk(apkPath: '', slug: fallbackSlug);
+    }
+    if (requireApk && !await File(rawApkPath).exists()) return null;
+    return _ResolvedStaticApk(
+      apkPath: rawApkPath,
+      slug: _safeArtifactName(
+        _firstNonEmpty(<String?>[
+          packageName,
+          config.packageName,
+          _basenameWithoutExtension(rawApkPath),
+          actionName,
+        ]),
+      ),
+    );
+  }
+
+  Future<AdbCommandResult> _runLocalShellDetailed({
+    required String actionName,
+    required String command,
+    required Map<String, String> environment,
+    required Duration timeout,
+    required String? displayCommand,
+    required String tag,
+  }) async {
+    if (Platform.isWindows || !File('/bin/sh').existsSync()) {
+      return AdbCommandResult(
+        args: <String>[actionName],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Local shell actions require /bin/sh.',
+        displayCommand: displayCommand,
+      );
+    }
+    try {
+      final startedAt = Stopwatch()..start();
+      final result = await runTrackedProcessOrFailed(
+        '/bin/sh',
+        <String>['-lc', command],
+        timeout: timeout,
+        tag: tag,
+        environment: environment,
+      );
+      startedAt.stop();
+      final stdoutText = result.stdout.toString();
+      final stderrText = result.stderr.toString();
+      final timedOut =
+          result.exitCode == -1 &&
+          stdoutText.trim().isEmpty &&
+          stderrText.trim().isEmpty &&
+          startedAt.elapsed >= timeout;
+      return AdbCommandResult(
+        args: <String>[actionName],
+        exitCode: result.exitCode,
+        stdout: stdoutText,
+        stderr: timedOut
+            ? 'Local shell action timed out after ${timeout.inSeconds} seconds.'
+            : stderrText,
+        timedOut: timedOut,
+        displayCommand: displayCommand ?? actionName,
+      );
+    } catch (e, st) {
+      silentLog(_kTag, '_runLocalShellDetailed failed', e, st);
+      return AdbCommandResult(
+        args: <String>[actionName],
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+        displayCommand: displayCommand,
+      );
+    }
+  }
+
+  Future<String?> _resolveLocalExecutable(String name) async {
+    if (Platform.isWindows || name.trim().isEmpty) return null;
+    final result = await runTrackedProcessOrFailed(
+      '/bin/sh',
+      <String>['-lc', 'command -v "\$TOOL_NAME" || true'],
+      timeout: const Duration(seconds: 3),
+      tag: 'android_reverse.resolve_executable',
+      environment: <String, String>{'TOOL_NAME': name.trim()},
+    );
+    if (result.exitCode != 0) return null;
+    final path = result.stdout.toString().trim().split('\n').firstOrNull;
+    if (path == null || path.isEmpty) return null;
+    return path;
+  }
+
+  void _wireNetworkCaptureStreams(Process process) {
+    process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) => _appendNetworkCaptureLine(_networkCaptureStdout, line),
+          onError: (Object error, StackTrace stack) {
+            silentLog(_kTag, 'mitmdump stdout stream', error, stack);
+          },
+        );
+    process.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) => _appendNetworkCaptureLine(_networkCaptureStderr, line),
+          onError: (Object error, StackTrace stack) {
+            silentLog(_kTag, 'mitmdump stderr stream', error, stack);
+          },
+        );
+    unawaited(
+      process.exitCode.then((exitCode) {
+        _appendNetworkCaptureLine(
+          exitCode == 0 ? _networkCaptureStdout : _networkCaptureStderr,
+          'mitmdump exited with code $exitCode',
+        );
+        if (_networkCaptureProcess?.pid == process.pid) {
+          _networkCaptureProcess = null;
+          _safeNotify();
+        }
+      }),
+    );
+  }
+
+  void _appendNetworkCaptureLine(StringBuffer buffer, String line) {
+    buffer.writeln(line);
+    final text = buffer.toString();
+    if (text.length <= _kNetworkCaptureTranscriptMaxChars) return;
+    buffer
+      ..clear()
+      ..write(text.substring(text.length - _kNetworkCaptureTranscriptMaxChars));
+  }
 
   Future<String> _writeMcpLinkageArtifacts({required bool updateError}) async {
     try {
@@ -2661,6 +3250,218 @@ fi
 } > SUMMARY.md
 
 printf 'quick scan completed\n'
+''';
+
+const String _staticQuickScanReadScript = r'''
+set +e
+cd "$QUICK_SCAN_DIR" || exit 2
+printf 'quick_scan_dir=%s\n' "$QUICK_SCAN_DIR"
+for name in SUMMARY.md network_candidates.txt business_urls.txt business_domains.txt business_network_sources.txt network_sources.txt urls.txt domains.txt ips.txt interesting_strings.txt flutter.txt native_libs.txt suspicious_files.txt nested_apks.txt certs.txt components.txt; do
+  printf '\n[%s]\n' "$name"
+  if [ -s "$name" ]; then
+    sed -n '1,140p' "$name"
+  elif [ -e "$name" ]; then
+    printf '(empty)\n'
+  else
+    printf '(missing)\n'
+  fi
+done
+''';
+
+const String _staticApkIdentityScript = r'''
+set +e
+mkdir -p "$OUT_DIR"
+find_build_tool() {
+  local name="$1"
+  local path
+  path="$(command -v "$name" 2>/dev/null || true)"
+  if [ -z "$path" ] && [ -d "$HOME/Library/Android/sdk/build-tools" ]; then
+    path="$(find "$HOME/Library/Android/sdk/build-tools" -name "$name" -type f 2>/dev/null | sort -r | head -1)"
+  fi
+  printf '%s' "$path"
+}
+AAPT="$(find_build_tool aapt)"
+APKSIGNER="$(find_build_tool apksigner)"
+printf '[apk]\n'
+printf 'path=%s\n' "$APK_PATH"
+ls -lh "$APK_PATH" 2>&1
+printf '\n[output]\n%s\n' "$OUT_DIR"
+printf '\n[badging]\n'
+if [ -n "$AAPT" ] && [ -x "$AAPT" ]; then
+  "$AAPT" dump badging "$APK_PATH" > "$OUT_DIR/badging.txt" 2>&1
+  sed -n '1,80p' "$OUT_DIR/badging.txt"
+  "$AAPT" dump xmltree "$APK_PATH" AndroidManifest.xml > "$OUT_DIR/manifest.txt" 2>&1
+  grep -aEi 'package=|versionName|sdkVersion|targetSdkVersion|uses-permission|activity|service|receiver|provider|networkSecurityConfig|usesCleartextTraffic' "$OUT_DIR/manifest.txt" | head -220 > "$OUT_DIR/manifest_summary.txt"
+  printf '\n[manifest_summary]\n'
+  sed -n '1,220p' "$OUT_DIR/manifest_summary.txt"
+else
+  printf 'aapt not found\n'
+fi
+printf '\n[certificates]\n'
+if [ -n "$APKSIGNER" ] && [ -x "$APKSIGNER" ]; then
+  "$APKSIGNER" verify --print-certs "$APK_PATH" > "$OUT_DIR/certs.txt" 2>&1
+  sed -n '1,140p' "$OUT_DIR/certs.txt"
+else
+  printf 'apksigner not found\n'
+fi
+''';
+
+const String _staticJadxScript = r'''
+set +e
+JADX="$(command -v jadx 2>/dev/null || true)"
+if [ -z "$JADX" ]; then
+  printf 'jadx not found\n' >&2
+  exit 127
+fi
+mkdir -p "$OUT_DIR"
+printf 'output=%s\n' "$OUT_DIR"
+"$JADX" -d "$OUT_DIR/src" "$APK_PATH" > "$OUT_DIR/jadx.log" 2>&1
+status=$?
+printf 'exit=%s\n' "$status"
+printf '\n[jadx_log]\n'
+sed -n '1,160p' "$OUT_DIR/jadx.log"
+printf '\n[network_crypto_hits]\n'
+grep -RInE 'https?://|sign|encrypt|token|secret|okhttp|retrofit|certificate|ssl|Cipher|Mac\.getInstance|MessageDigest' "$OUT_DIR/src" 2>/dev/null | head -240 > "$OUT_DIR/network_crypto_hits.txt"
+if [ -s "$OUT_DIR/network_crypto_hits.txt" ]; then
+  sed -n '1,240p' "$OUT_DIR/network_crypto_hits.txt"
+else
+  printf '(empty)\n'
+fi
+exit "$status"
+''';
+
+const String _staticApktoolScript = r'''
+set +e
+APKTOOL="$(command -v apktool 2>/dev/null || true)"
+if [ -z "$APKTOOL" ]; then
+  printf 'apktool not found\n' >&2
+  exit 127
+fi
+mkdir -p "$OUT_DIR"
+printf 'output=%s\n' "$OUT_DIR"
+"$APKTOOL" d -f "$APK_PATH" -o "$OUT_DIR/unpacked" > "$OUT_DIR/apktool.log" 2>&1
+status=$?
+printf 'exit=%s\n' "$status"
+printf '\n[apktool_log]\n'
+sed -n '1,160p' "$OUT_DIR/apktool.log"
+printf '\n[manifest]\n'
+if [ -f "$OUT_DIR/unpacked/AndroidManifest.xml" ]; then
+  grep -aEi 'package=|permission|activity|service|receiver|provider|networkSecurityConfig|usesCleartextTraffic' "$OUT_DIR/unpacked/AndroidManifest.xml" | head -180
+else
+  printf '(missing)\n'
+fi
+printf '\n[smali_hits]\n'
+grep -RInE 'invoke-.*(sign|encrypt|token)|https?://|Cipher|MessageDigest|Mac;' "$OUT_DIR/unpacked/smali"* 2>/dev/null | head -240 > "$OUT_DIR/smali_hits.txt"
+if [ -s "$OUT_DIR/smali_hits.txt" ]; then
+  sed -n '1,240p' "$OUT_DIR/smali_hits.txt"
+else
+  printf '(empty)\n'
+fi
+exit "$status"
+''';
+
+const String _staticStringsScript = r'''
+set +e
+mkdir -p "$OUT_DIR"
+STRINGS="$(command -v strings 2>/dev/null || xcrun -find strings 2>/dev/null || true)"
+UNZIP="$(command -v unzip 2>/dev/null || true)"
+if [ -z "$STRINGS" ]; then
+  printf 'strings not found\n' >&2
+  exit 127
+fi
+printf 'output=%s\n' "$OUT_DIR"
+if [ -n "$UNZIP" ]; then
+  "$UNZIP" -p "$APK_PATH" 'classes*.dex' 'lib/*/*.so' 'assets/*' 2>/dev/null | "$STRINGS" -n 6 2>/dev/null | awk 'length($0) <= 4096' | head -60000 > "$OUT_DIR/all_strings.txt"
+  "$UNZIP" -Z1 "$APK_PATH" 2>/dev/null | grep -aE '\.so$|assets/|\.dex$|\.apk$' | head -400 > "$OUT_DIR/apk_entries.txt"
+else
+  "$STRINGS" -n 6 "$APK_PATH" 2>/dev/null | awk 'length($0) <= 4096' | head -60000 > "$OUT_DIR/all_strings.txt"
+  : > "$OUT_DIR/apk_entries.txt"
+fi
+grep -aEio 'https?://[^[:space:]"<>)]+' "$OUT_DIR/all_strings.txt" | sed 's/[),;]*$//' | sort -u | head -400 > "$OUT_DIR/urls.txt"
+grep -aEio '\b([A-Za-z][A-Za-z0-9-]*\.)+(com|net|org|cn|io|app|dev|cloud|top|vip|xyz|ai|run|site|online|shop|tech|jp|kr|us|uk|de|fr|ru|br|in|au|ca|hk|tw|sg)\b' "$OUT_DIR/all_strings.txt" | tr '[:upper:]' '[:lower:]' | sort -u | head -400 > "$OUT_DIR/domains.txt"
+grep -aEi 'sign|encrypt|decrypt|token|secret|apikey|authorization|okhttp|retrofit|graphql|websocket|ssl|certificate|Cipher|MessageDigest|Hmac|AES|RSA|SHA-256|MD5' "$OUT_DIR/all_strings.txt" | sort -u | head -500 > "$OUT_DIR/crypto_network_terms.txt"
+printf '\n[urls]\n'
+sed -n '1,160p' "$OUT_DIR/urls.txt"
+printf '\n[domains]\n'
+sed -n '1,160p' "$OUT_DIR/domains.txt"
+printf '\n[crypto_network_terms]\n'
+sed -n '1,220p' "$OUT_DIR/crypto_network_terms.txt"
+printf '\n[entries]\n'
+sed -n '1,120p' "$OUT_DIR/apk_entries.txt"
+''';
+
+const String _networkCaptureReadScript = r'''
+set +e
+printf '[network_jsonl]\n'
+printf 'path=%s\n' "$NETWORK_JSONL"
+if [ -s "$NETWORK_JSONL" ]; then
+  tail -n "${TAIL_LINES:-120}" "$NETWORK_JSONL"
+else
+  printf '(empty)\n'
+fi
+printf '\n[flows]\n'
+ls -lh "$NETWORK_DIR"/flows.mitm "$NETWORK_DIR"/flows.txt 2>/dev/null || true
+if [ -s "$NETWORK_DIR/flows.txt" ]; then
+  printf '\n[flows_text]\n'
+  sed -n '1,220p' "$NETWORK_DIR/flows.txt"
+fi
+''';
+
+const String _networkCaptureExportScript = r'''
+set +e
+FLOWS="$NETWORK_DIR/flows.mitm"
+TEXT="$NETWORK_DIR/flows.txt"
+if [ ! -s "$FLOWS" ]; then
+  printf 'mitmproxy flow file not found: %s\n' "$FLOWS" >&2
+  exit 2
+fi
+MITMDUMP="$(command -v mitmdump 2>/dev/null || true)"
+if [ -z "$MITMDUMP" ]; then
+  printf 'mitmdump not found\n' >&2
+  exit 127
+fi
+"$MITMDUMP" -nr "$FLOWS" > "$TEXT" 2>&1
+status=$?
+printf 'flows_text=%s\n' "$TEXT"
+printf 'exit=%s\n' "$status"
+printf '\n[preview]\n'
+sed -n '1,220p' "$TEXT"
+exit "$status"
+''';
+
+const String _certificateArtifactsReadScript = r'''
+set +e
+printf 'certs_dir=%s\n' "$CERTS_DIR"
+for name in README.md res/xml/network_security_config.xml AndroidManifest.application.xml install_mitm_ca_root.sh generate_debug_keystore.sh sign_repacked_apk.sh verify_apk_signature.sh; do
+  printf '\n[%s]\n' "$name"
+  path="$CERTS_DIR/$name"
+  if [ -s "$path" ]; then
+    sed -n '1,220p' "$path"
+  elif [ -e "$path" ]; then
+    printf '(empty)\n'
+  else
+    printf '(missing)\n'
+  fi
+done
+''';
+
+const String _mitmproxyCaInspectScript = r'''
+set +e
+CERT_PATH="${MITM_CERT_PATH:-$HOME/.mitmproxy/mitmproxy-ca-cert.pem}"
+printf 'cert_path=%s\n' "$CERT_PATH"
+if [ ! -s "$CERT_PATH" ]; then
+  printf 'mitmproxy CA not found: %s\n' "$CERT_PATH" >&2
+  exit 2
+fi
+OPENSSL="$(command -v openssl 2>/dev/null || true)"
+if [ -z "$OPENSSL" ]; then
+  printf 'openssl not found\n' >&2
+  exit 127
+fi
+printf '\n[hash]\n'
+"$OPENSSL" x509 -inform PEM -subject_hash_old -in "$CERT_PATH" | head -1
+printf '\n[subject]\n'
+"$OPENSSL" x509 -inform PEM -in "$CERT_PATH" -noout -subject -issuer -dates -fingerprint -sha256
 ''';
 
 const String _mitmproxyJsonlAddon = r'''

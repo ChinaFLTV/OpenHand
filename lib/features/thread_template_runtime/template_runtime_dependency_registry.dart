@@ -128,6 +128,10 @@ class TemplateRuntimeDependencyRegistry {
     'mitmproxy',
     'apktool',
     'jadx',
+    'radare2',
+    'blutter',
+    'doldrums',
+    'anything_analyzer',
   ];
 
   static const List<String> webReverseMcpKeywords = <String>[
