@@ -148,6 +148,10 @@ class AiSessionController extends ChangeNotifier {
       'hidden_by_response_variant';
   static const String _responseRegenerationHiddenMessageKey =
       'hidden_by_response_regeneration';
+  static const String _responseRegenerationArchivedMessageKey =
+      'hidden_regenerated_response_message';
+  static const String _responseRegenerationFailedGeneratedMessageKey =
+      'hidden_failed_regenerated_response_message';
   static const String _forkedFromOriginalSessionIdKey =
       'forked_from_original_session_id';
   static const String _forkedFromOriginalMessageIdKey =
@@ -714,6 +718,8 @@ class AiSessionController extends ChangeNotifier {
       <String, Future<AiSession?>>{};
   final Map<String, Future<AiSession?>> _sessionOlderMessageHydrationTasks =
       <String, Future<AiSession?>>{};
+  final Map<String, Future<void>> _responseRegenerationRecoveryTasks =
+      <String, Future<void>>{};
   final Set<String> _hydratingSessionMessageIds = <String>{};
   final Map<String, Future<void> Function()> _sessionCancelHandlers =
       <String, Future<void> Function()>{};
@@ -1651,10 +1657,22 @@ class AiSessionController extends ChangeNotifier {
       if (liveSession != null && liveSession.hasCompleteMessages) {
         return liveSession;
       }
-      final normalized = _normalizeStaleCompletedPlanState(
+      final shouldRecoverInterruptedRegeneration =
+          _canRestoreInterruptedResponseRegeneration(sessionId) &&
+          _hasRestorableResponseRegenerationState(loaded);
+      var normalized = _normalizeHydratedSessionForResume(
         loaded,
         normalizedAt: loaded.updatedAt,
+        restoreInterruptedResponseRegeneration:
+            _canRestoreInterruptedResponseRegeneration(sessionId),
       );
+      if (shouldRecoverInterruptedRegeneration) {
+        if (normalized.hasCompleteMessages) {
+          await _store.save(normalized);
+        } else {
+          _scheduleResponseRegenerationRecoveryPersistence(sessionId);
+        }
+      }
       final replaced = _replaceSessionInMemory(normalized, sortSessions: false);
       if (replaced) {
         notifyListeners();
@@ -1687,10 +1705,23 @@ class AiSessionController extends ChangeNotifier {
       if (loaded == null || _deletedSessionIds.contains(sessionId)) {
         return null;
       }
-      final normalized = _normalizeStaleCompletedPlanState(
+      final shouldRecoverInterruptedRegeneration =
+          _canRestoreInterruptedResponseRegeneration(sessionId) &&
+          _hasRestorableResponseRegenerationState(loaded);
+      var normalized = _normalizeHydratedSessionForResume(
         loaded,
         normalizedAt: loaded.updatedAt,
+        restoreInterruptedResponseRegeneration:
+            _canRestoreInterruptedResponseRegeneration(sessionId),
       );
+      if (shouldRecoverInterruptedRegeneration &&
+          !identical(normalized, loaded)) {
+        normalized = _mergeLiveSessionState(
+          normalized,
+          _sessionById(sessionId),
+        );
+        await _store.save(normalized);
+      }
       final liveSession = _sessionById(sessionId);
       if (liveSession != null &&
           liveSession.hasCompleteMessages &&
@@ -2513,6 +2544,7 @@ class AiSessionController extends ChangeNotifier {
           metadata: <String, Object?>{
             ...message.metadata,
             _responseRegenerationHiddenMessageKey: marker,
+            _responseRegenerationFailedGeneratedMessageKey: true,
           },
         ),
       );
@@ -2673,7 +2705,7 @@ class AiSessionController extends ChangeNotifier {
       metadata: <String, Object?>{
         ...finalAssistant.metadata,
         _responseRegenerationHiddenMessageKey: regenerationHiddenMarker,
-        'hidden_regenerated_response_message': true,
+        _responseRegenerationArchivedMessageKey: true,
       },
     );
 
@@ -8383,6 +8415,144 @@ class AiSessionController extends ChangeNotifier {
       awaitingPlanApproval: false,
       clearPendingPlan: true,
     );
+  }
+
+  AiSession _normalizeHydratedSessionForResume(
+    AiSession session, {
+    DateTime? normalizedAt,
+    bool restoreInterruptedResponseRegeneration = true,
+  }) {
+    var normalized = _normalizeStaleCompletedPlanState(
+      session,
+      normalizedAt: normalizedAt,
+    );
+    if (restoreInterruptedResponseRegeneration) {
+      normalized = _restoreInterruptedResponseRegenerationState(normalized);
+    }
+    return normalized;
+  }
+
+  bool _canRestoreInterruptedResponseRegeneration(String sessionId) {
+    return sendPhaseForSession(sessionId) == AiSendPhase.idle &&
+        !_sessionPendingSendOperationIds.contains(sessionId);
+  }
+
+  bool _isRegenerationRecoveryExcluded(AiSessionMessage message) {
+    return message.metadata[_responseRegenerationArchivedMessageKey] == true ||
+        message.metadata[_responseRegenerationFailedGeneratedMessageKey] ==
+            true;
+  }
+
+  bool _hasRestorableResponseRegenerationState(AiSession session) {
+    return _restorableResponseRegenerationMarkers(session).isNotEmpty;
+  }
+
+  Set<Object?> _restorableResponseRegenerationMarkers(AiSession session) {
+    final markers = <Object?>{};
+    for (final message in session.messages) {
+      final marker = message.metadata[_responseRegenerationHiddenMessageKey];
+      if (marker == null || _isRegenerationRecoveryExcluded(message)) {
+        continue;
+      }
+      final hasStoredResponseVariants =
+          message.kind == AiSessionMessageKind.assistant &&
+          message.metadata[aiSessionMessageResponseVariantsMetadataKey] is List;
+      if (hasStoredResponseVariants) {
+        markers.add(marker);
+      }
+    }
+    return markers;
+  }
+
+  AiSession _restoreInterruptedResponseRegenerationState(AiSession session) {
+    final restorableMarkers = _restorableResponseRegenerationMarkers(session);
+    if (restorableMarkers.isEmpty) {
+      return session;
+    }
+    var didChange = false;
+    final updatedMessages = <AiSessionMessage>[];
+    for (final message in session.messages) {
+      final marker = message.metadata[_responseRegenerationHiddenMessageKey];
+      if (marker == null ||
+          !restorableMarkers.contains(marker) ||
+          _isRegenerationRecoveryExcluded(message)) {
+        updatedMessages.add(message);
+        continue;
+      }
+      final metadata = Map<String, Object?>.from(message.metadata)
+        ..remove(_responseRegenerationHiddenMessageKey);
+      didChange = true;
+      updatedMessages.add(
+        message.copyWith(isDeleted: false, metadata: metadata),
+      );
+    }
+    if (!didChange) {
+      return session;
+    }
+    return _rebuildSession(
+      _copySessionWithMessagesPreservingWindow(
+        session,
+        updatedMessages,
+        updatedAt: session.updatedAt,
+      ),
+    );
+  }
+
+  void _scheduleResponseRegenerationRecoveryPersistence(String sessionId) {
+    if (_responseRegenerationRecoveryTasks.containsKey(sessionId) ||
+        !_canRestoreInterruptedResponseRegeneration(sessionId)) {
+      return;
+    }
+    late final Future<void> task;
+    task = _persistResponseRegenerationRecovery(sessionId).whenComplete(() {
+      if (identical(_responseRegenerationRecoveryTasks[sessionId], task)) {
+        _responseRegenerationRecoveryTasks.remove(sessionId);
+      }
+    });
+    _responseRegenerationRecoveryTasks[sessionId] = task;
+  }
+
+  Future<void> _persistResponseRegenerationRecovery(String sessionId) async {
+    try {
+      if (!_canRestoreInterruptedResponseRegeneration(sessionId)) {
+        return;
+      }
+      final loaded = await _store.loadSession(sessionId);
+      if (loaded == null ||
+          !_canRestoreInterruptedResponseRegeneration(sessionId) ||
+          !_hasRestorableResponseRegenerationState(loaded)) {
+        return;
+      }
+      final normalized = _normalizeHydratedSessionForResume(
+        loaded,
+        normalizedAt: loaded.updatedAt,
+      );
+      if (identical(normalized, loaded)) {
+        return;
+      }
+      final live = _sessionById(sessionId);
+      final effectiveSession = _mergeLiveSessionState(normalized, live);
+      await _store.save(effectiveSession);
+      if (live == null ||
+          live.hasCompleteMessages ||
+          !_canRestoreInterruptedResponseRegeneration(sessionId)) {
+        return;
+      }
+      final replaced = _replaceSessionInMemory(
+        effectiveSession,
+        sortSessions: false,
+      );
+      if (replaced) {
+        notifyListeners();
+      }
+    } catch (error, stackTrace) {
+      silentLog(
+        'ai_session_controller',
+        'persist response regeneration recovery',
+        error,
+        stackTrace,
+      );
+    }
   }
 
   AiSessionMessage? _userMessageById(AiSession session, String? messageId) {

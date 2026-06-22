@@ -374,6 +374,32 @@ class AiSessionStore {
     return grouped;
   }
 
+  Future<Map<String, int>> _loadMessageCountsBySessionIds(
+    List<String> ids,
+  ) async {
+    final counts = <String, int>{};
+    if (ids.isEmpty) return counts;
+    for (var start = 0; start < ids.length; start += _kMessageBatchSize) {
+      final end = math.min(start + _kMessageBatchSize, ids.length);
+      final batch = ids.sublist(start, end);
+      final placeholders = List<String>.filled(batch.length, '?').join(',');
+      final rows = await _db.rawQuery(
+        'SELECT session_id, COUNT(*) AS message_count '
+        'FROM messages WHERE session_id IN ($placeholders) '
+        'GROUP BY session_id',
+        batch,
+      );
+      for (final row in rows) {
+        final sessionId = row['session_id'];
+        final count = row['message_count'];
+        if (sessionId is String && count is num) {
+          counts[sessionId] = count.toInt();
+        }
+      }
+    }
+    return counts;
+  }
+
   /// Loads **only session metadata** (no messages).  Much faster for building
   /// the sidebar session list. Like [loadAll], excludes archived rows by
   /// default.
@@ -388,13 +414,22 @@ class AiSessionStore {
     );
 
     final sessions = <AiSession>[];
+    final sessionIds = <String>[
+      for (final row in sessionRows)
+        if (row['id'] is String) row['id'] as String,
+    ];
+    final messageCountsBySessionId = await _loadMessageCountsBySessionIds(
+      sessionIds,
+    );
     for (final row in sessionRows) {
       try {
+        final sessionId = row['id'] as String;
         sessions.add(
           _sessionFromRow(
             row,
             const <Map<String, Object?>>[],
             messageLoadState: AiSessionMessageLoadState.header,
+            messageTotalCount: messageCountsBySessionId[sessionId] ?? 0,
           ),
         );
       } catch (error) {

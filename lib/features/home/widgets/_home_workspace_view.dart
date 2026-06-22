@@ -165,6 +165,14 @@ class _WorkspaceView extends StatelessWidget {
         final effectiveComposerHeight = composerHeight
             .clamp(_composerMinHeight, maxComposerHeight)
             .toDouble();
+        final session = currentSession;
+        final hasLoadedMessages = session?.messages.isNotEmpty == true;
+        final shouldShowTranscriptHydrating =
+            session != null &&
+            !hasLoadedMessages &&
+            (transcriptHydrating ||
+                session.hasMoreHistoricalMessages ||
+                (session.hasPartialMessages && session.messageTotalCount > 0));
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,17 +180,17 @@ class _WorkspaceView extends StatelessWidget {
             Expanded(
               child: _WorkspacePrimarySwitcher(
                 key: const ValueKey<String>('workspace-primary-switcher'),
-                child: currentSession == null
+                child: session == null
                     ? const _WorkspaceEmptyState(
                         key: ValueKey<String>('no-session'),
                       )
-                    : currentSession!.messages.isEmpty
+                    : !hasLoadedMessages
                     ? Column(
-                        key: ValueKey<String>('empty-${currentSession!.id}'),
+                        key: ValueKey<String>('empty-${session.id}'),
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _SessionToolbar(
-                            session: currentSession!,
+                            session: session,
                             liveRuntimeToolPreview: liveRuntimeToolPreview,
                             sendPhase: sendPhase,
                             planTimelineCollapsed: planTimelineCollapsed,
@@ -198,23 +206,21 @@ class _WorkspaceView extends StatelessWidget {
                           ),
                           const SizedBox(height: 14),
                           Expanded(
-                            child:
-                                transcriptHydrating ||
-                                    currentSession!.hasMoreHistoricalMessages
+                            child: shouldShowTranscriptHydrating
                                 ? _TranscriptHydratingPlaceholder(
                                     key: ValueKey<String>(
-                                      'hydrating-${currentSession!.id}',
+                                      'hydrating-${session.id}',
                                     ),
                                   )
                                 : _WorkspaceEmptyState(
-                                    key: ValueKey<String>(currentSession!.id),
-                                    session: currentSession,
+                                    key: ValueKey<String>(session.id),
+                                    session: session,
                                   ),
                           ),
                         ],
                       )
                     : KeyedSubtree(
-                        key: ValueKey<String>('content-${currentSession!.id}'),
+                        key: ValueKey<String>('content-${session.id}'),
                         child: Stack(
                           children: [
                             // placeholder 阶段直接 SizedBox 占位，不
@@ -238,12 +244,12 @@ class _WorkspaceView extends StatelessWidget {
                                         onPointerSignal: onMessagePointerSignal,
                                         child: _SessionTranscript(
                                           key: ValueKey<String>(
-                                            'messages-${currentSession!.id}',
+                                            'messages-${session.id}',
                                           ),
                                           controller: messageScrollController,
                                           onScrollNotification:
                                               onMessageScrollNotification,
-                                          session: currentSession!,
+                                          session: session,
                                           liveRuntimeToolPreview:
                                               liveRuntimeToolPreview,
                                           sendPhase: sendPhase,
@@ -310,9 +316,9 @@ class _WorkspaceView extends StatelessWidget {
                                   curve: Curves.easeOutCubic,
                                   child: _SessionTranscriptLoadingPlaceholder(
                                     key: ValueKey<String>(
-                                      'session-transcript-loading-${currentSession!.id}',
+                                      'session-transcript-loading-${session.id}',
                                     ),
-                                    session: currentSession!,
+                                    session: session,
                                     liveRuntimeToolPreview:
                                         liveRuntimeToolPreview,
                                     sendPhase: sendPhase,
