@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
@@ -23,6 +24,9 @@ const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const double _kAdbInlineControlHeight = 44;
 const double _kDashboardActionButtonHeight = 36;
 const double _kDashboardActionIconSize = 14;
+const double _kDashboardIconActionButtonSize = 36;
+const double _kDashboardIconActionIconSize = 17;
+const double _kDashboardTrailingActionGap = 8;
 const double _kShellOutputMaxHeight = 220;
 const double _kIconButtonGap = 8;
 const int _kDefaultLogcatLines = 300;
@@ -3132,22 +3136,21 @@ class _AndroidReverseDashboardDialogState
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 16),
+                            _DashboardIconActionButton(
+                              icon: const Icon(Icons.copy_rounded),
                               tooltip: isZh ? '复制诊断' : 'Copy diagnostic',
                               onPressed: () => _copyText(
                                 '${row.probe.label}\n${row.displayValue}\n${row.installHint(isZh)}',
                               ),
-                              visualDensity: VisualDensity.compact,
                             ),
-                            PopupMenuButton<_ToolchainCommandAction>(
+                            const SizedBox(width: _kDashboardTrailingActionGap),
+                            _DashboardPopupIconActionButton<
+                              _ToolchainCommandAction
+                            >(
                               tooltip: isZh
                                   ? '复制安装/维护命令'
                                   : 'Copy setup commands',
-                              icon: const Icon(
-                                Icons.terminal_rounded,
-                                size: 16,
-                              ),
+                              icon: const Icon(Icons.terminal_rounded),
                               itemBuilder: (context) =>
                                   _toolchainCommandMenuItems(row.probe, isZh),
                               onSelected: (action) => _copyToolchainCommand(
@@ -3692,18 +3695,16 @@ class _AndroidReverseDashboardDialogState
             color: color,
           ),
           if (path != null && path.isNotEmpty) ...[
-            const SizedBox(width: 4),
-            IconButton(
+            const SizedBox(width: _kDashboardTrailingActionGap),
+            _DashboardIconActionButton(
               tooltip: isZh ? '复制路径' : 'Copy path',
-              icon: const Icon(Icons.copy_rounded, size: 15),
+              icon: const Icon(Icons.copy_rounded),
               onPressed: () => _copyText(path),
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
             ),
           ],
           if (actions.isNotEmpty) ...[
-            const SizedBox(width: 4),
-            PopupMenuButton<_RuntimePluginAction>(
+            const SizedBox(width: _kDashboardTrailingActionGap),
+            _DashboardPopupIconActionButton<_RuntimePluginAction>(
               tooltip: isZh ? '插件操作' : 'Plugin actions',
               enabled: !actionBusy,
               icon: actionBusy
@@ -5875,6 +5876,133 @@ class _DashboardActionButton extends StatelessWidget {
               label: labelWidget,
               style: style,
             ),
+    );
+  }
+}
+
+ButtonStyle _dashboardIconActionStyle(ColorScheme cs) {
+  return ButtonStyle(
+    fixedSize: const WidgetStatePropertyAll<Size>(
+      Size.square(_kDashboardIconActionButtonSize),
+    ),
+    minimumSize: const WidgetStatePropertyAll<Size>(
+      Size.square(_kDashboardIconActionButtonSize),
+    ),
+    maximumSize: const WidgetStatePropertyAll<Size>(
+      Size.square(_kDashboardIconActionButtonSize),
+    ),
+    padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(EdgeInsets.zero),
+    visualDensity: VisualDensity.compact,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    shape: const WidgetStatePropertyAll<OutlinedBorder>(CircleBorder()),
+    backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return cs.surfaceContainerHighest.withValues(alpha: 0.46);
+      }
+      if (states.contains(WidgetState.pressed)) {
+        return cs.secondaryContainer.withValues(alpha: 0.92);
+      }
+      if (states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused)) {
+        return cs.secondaryContainer.withValues(alpha: 0.72);
+      }
+      return cs.surfaceContainerHighest.withValues(alpha: 0.86);
+    }),
+    foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return cs.onSurface.withValues(alpha: 0.38);
+      }
+      return cs.onSurfaceVariant;
+    }),
+    iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return cs.onSurface.withValues(alpha: 0.38);
+      }
+      return cs.onSurfaceVariant;
+    }),
+    overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.pressed)) {
+        return cs.primary.withValues(alpha: 0.12);
+      }
+      if (states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused)) {
+        return cs.primary.withValues(alpha: 0.08);
+      }
+      return null;
+    }),
+  );
+}
+
+class _DashboardIconActionButton extends StatelessWidget {
+  const _DashboardIconActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final Widget icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox.square(
+      dimension: _kDashboardIconActionButtonSize,
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        splashRadius: _kDashboardIconActionButtonSize / 2,
+        style: _dashboardIconActionStyle(cs),
+        icon: IconTheme.merge(
+          data: const IconThemeData(size: _kDashboardIconActionIconSize),
+          child: icon,
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardPopupIconActionButton<T> extends StatelessWidget {
+  const _DashboardPopupIconActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.itemBuilder,
+    required this.onSelected,
+    this.enabled = true,
+  });
+
+  final Widget icon;
+  final String tooltip;
+  final PopupMenuItemBuilder<T> itemBuilder;
+  final PopupMenuItemSelected<T> onSelected;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox.square(
+      dimension: _kDashboardIconActionButtonSize,
+      child: IconButtonTheme(
+        data: IconButtonThemeData(style: _dashboardIconActionStyle(cs)),
+        child: AnimatedPopupMenuButton<T>(
+          tooltip: tooltip,
+          enabled: enabled,
+          icon: IconTheme.merge(
+            data: const IconThemeData(size: _kDashboardIconActionIconSize),
+            child: icon,
+          ),
+          iconSize: _kDashboardIconActionIconSize,
+          padding: EdgeInsets.zero,
+          splashRadius: _kDashboardIconActionButtonSize / 2,
+          buttonConstraints: const BoxConstraints.tightFor(
+            width: _kDashboardIconActionButtonSize,
+            height: _kDashboardIconActionButtonSize,
+          ),
+          itemBuilder: itemBuilder,
+          onSelected: onSelected,
+        ),
+      ),
     );
   }
 }
