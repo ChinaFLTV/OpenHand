@@ -4966,6 +4966,33 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-html-body *::after {
   box-sizing: border-box;
 }
+.oh-html-body.min-h-screen,
+.oh-html-body.h-screen,
+.oh-html-body.min-h-dvh,
+.oh-html-body.h-dvh,
+.oh-html-body.min-h-svh,
+.oh-html-body.h-svh,
+.oh-html-body.min-h-lvh,
+.oh-html-body.h-lvh,
+.oh-html-body [class~='min-h-screen'],
+.oh-html-body [class~='h-screen'],
+.oh-html-body [class~='min-h-dvh'],
+.oh-html-body [class~='h-dvh'],
+.oh-html-body [class~='min-h-svh'],
+.oh-html-body [class~='h-svh'],
+.oh-html-body [class~='min-h-lvh'],
+.oh-html-body [class~='h-lvh'],
+.oh-html-body [class*='100vh'],
+.oh-html-body [class*='100dvh'],
+.oh-html-body [class*='100svh'],
+.oh-html-body [class*='100lvh'],
+.oh-html-body [style*='100vh' i],
+.oh-html-body [style*='100dvh' i],
+.oh-html-body [style*='100svh' i],
+.oh-html-body [style*='100lvh' i] {
+  min-height: auto !important;
+  height: auto !important;
+}
 .oh-html-body [style*='display:flex' i],
 .oh-html-body [style*='display: flex' i],
 .oh-html-body [style*='display:grid' i],

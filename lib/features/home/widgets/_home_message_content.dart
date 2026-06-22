@@ -3713,28 +3713,11 @@ int _htmlBubbleHeightCacheKey(String data, TextStyle? baseTextStyle) {
 }
 
 void _warmHtmlBubbleMetrics(String data, TextStyle? baseTextStyle) {
-  final cacheKey = _htmlBubbleHeightCacheKey(data, baseTextStyle);
-  final cachedHeight = _HtmlBubbleWebViewState._heightCache[cacheKey];
-  final cachedFloor = _HtmlBubbleWebViewState._heightFloorCache[cacheKey];
-  final estimate = _estimateHtmlBubbleHeight(data);
-  if (cachedHeight == null) {
-    _HtmlBubbleWebViewState._heightCache[cacheKey] = estimate;
-    if (_HtmlBubbleWebViewState._heightCache.length >
-        _HtmlBubbleWebViewState._kHeightCacheMaxSize) {
-      _HtmlBubbleWebViewState._heightCache.remove(
-        _HtmlBubbleWebViewState._heightCache.keys.first,
-      );
-    }
-  }
-  if (cachedFloor == null) {
-    _HtmlBubbleWebViewState._heightFloorCache[cacheKey] = estimate;
-    if (_HtmlBubbleWebViewState._heightFloorCache.length >
-        _HtmlBubbleWebViewState._kHeightCacheMaxSize) {
-      _HtmlBubbleWebViewState._heightFloorCache.remove(
-        _HtmlBubbleWebViewState._heightFloorCache.keys.first,
-      );
-    }
-  }
+  // 这里只保留一次廉价估算，避免预热路径把“估算高度”写入真实高度
+  // cache/floor。真实 cache 只能由 WebView JS 测高回调写入，否则滚动
+  // 冻结期间会拿估算值当 floor，把消息卡片撑出大面积空白。
+  _htmlBubbleHeightCacheKey(data, baseTextStyle);
+  _estimateHtmlBubbleHeight(data);
 }
 
 class _HtmlWebViewFrameScheduler {
@@ -3971,11 +3954,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const Duration _kHeightDebounceDuration = Duration(milliseconds: 250);
   // 渲染占位高度估算常量：HTML 文本在 14px 字体下平均每行约容纳 80
   // 字符、24 像素高。占位时按内容长度给出一个不至于"突然伸长"的
-  // 初始高度，避免 shimmer 96px 与真实 2000+px 之间出现夸张落差。
+  // 初始高度，避免 shimmer 96px 与真实高度之间出现夸张落差。
   static const double _kEstimatedLineHeight = 24.0;
   static const int _kEstimatedCharsPerLine = 80;
   static const double _kEstimatedMinHeight = 96.0;
-  static const double _kEstimatedMaxHeight = 2000.0;
+  static const double _kEstimatedMaxHeight = 960.0;
   static const Duration _kInitialRevealFallbackDelay = Duration(
     milliseconds: 1600,
   );
@@ -3995,6 +3978,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 新值——让后续稳定测量来修正，避免"渲染下方空白"的偶发跳变。
   // 1.5 倍是经验值：合法增长（details 展开、聊天消息展开）通常 <1.3 倍。
   static const double _kReferenceOutlierRatio = 1.5;
+  static const String _viewportHeightResetCss =
+      'body.min-h-screen,body.h-screen,body.min-h-dvh,body.h-dvh,'
+      'body.min-h-svh,body.h-svh,body.min-h-lvh,body.h-lvh,'
+      'body[class*="100vh"],body[class*="100dvh"],'
+      'body[class*="100svh"],body[class*="100lvh"],'
+      'body [class~="min-h-screen"],body [class~="h-screen"],'
+      'body [class~="min-h-dvh"],body [class~="h-dvh"],'
+      'body [class~="min-h-svh"],body [class~="h-svh"],'
+      'body [class~="min-h-lvh"],body [class~="h-lvh"],'
+      'body [class*="100vh"],body [class*="100dvh"],'
+      'body [class*="100svh"],body [class*="100lvh"],'
+      'body [style*="100vh"],body [style*="100dvh"],'
+      'body [style*="100svh"],body [style*="100lvh"]{'
+      'min-height:auto!important;height:auto!important;}';
   static final RegExp _documentShellPattern = RegExp(
     r'<\s*(?:!doctype|html|head|body)\b',
     caseSensitive: false,
@@ -4014,6 +4011,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       'overflow-x:auto;overflow-y:hidden!important;}'
       'html,body,body *{-webkit-user-select:text;user-select:text;}'
       'body{box-sizing:border-box;cursor:text;}'
+      '$_viewportHeightResetCss'
       'a,button,summary,[role="button"]{cursor:pointer;}'
       'input,textarea,select{cursor:text;}'
       '</style>';
@@ -4038,7 +4036,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         style.id = 'openhand-html-bubble-runtime-reset';
         (document.head || document.documentElement).appendChild(style);
       }
-      var _resetCss = 'html,body{min-height:0!important;height:auto!important;overflow-y:hidden!important;}html,body,body *{-webkit-user-select:text;user-select:text;}body{box-sizing:border-box!important;cursor:text;}a,button,summary,[role="button"]{cursor:pointer;}input,textarea,select{cursor:text;}';
+      var _resetCss = 'html,body{min-height:0!important;height:auto!important;overflow-y:hidden!important;}html,body,body *{-webkit-user-select:text;user-select:text;}body{box-sizing:border-box!important;cursor:text;}body.min-h-screen,body.h-screen,body.min-h-dvh,body.h-dvh,body.min-h-svh,body.h-svh,body.min-h-lvh,body.h-lvh,body[class*="100vh"],body[class*="100dvh"],body[class*="100svh"],body[class*="100lvh"],body [class~="min-h-screen"],body [class~="h-screen"],body [class~="min-h-dvh"],body [class~="h-dvh"],body [class~="min-h-svh"],body [class~="h-svh"],body [class~="min-h-lvh"],body [class~="h-lvh"],body [class*="100vh"],body [class*="100dvh"],body [class*="100svh"],body [class*="100lvh"],body [style*="100vh"],body [style*="100dvh"],body [style*="100svh"],body [style*="100lvh"]{min-height:auto!important;height:auto!important;}a,button,summary,[role="button"]{cursor:pointer;}input,textarea,select{cursor:text;}';
 	      if (style.textContent !== _resetCss) {
 	        style.textContent = _resetCss;
 	      }
@@ -4052,6 +4050,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         if (bs.getPropertyValue('min-height') !== '0') bs.setProperty('min-height', '0', 'important');
         if (bs.getPropertyValue('height') !== 'auto') bs.setProperty('height', 'auto', 'important');
         if (bs.getPropertyValue('overflow-y') !== 'hidden') bs.setProperty('overflow-y', 'hidden', 'important');
+      }
+      normalizeViewportHeightFillers();
+    } catch (_) {}
+  }
+  function normalizeViewportHeightFillers() {
+    try {
+      var selector = 'body.min-h-screen,body.h-screen,body.min-h-dvh,body.h-dvh,body.min-h-svh,body.h-svh,body.min-h-lvh,body.h-lvh,body[class*="100vh"],body[class*="100dvh"],body[class*="100svh"],body[class*="100lvh"],body [class~="min-h-screen"],body [class~="h-screen"],body [class~="min-h-dvh"],body [class~="h-dvh"],body [class~="min-h-svh"],body [class~="h-svh"],body [class~="min-h-lvh"],body [class~="h-lvh"],body [class*="100vh"],body [class*="100dvh"],body [class*="100svh"],body [class*="100lvh"],body [style*="100vh"],body [style*="100dvh"],body [style*="100svh"],body [style*="100lvh"]';
+      var nodes = document.querySelectorAll ? document.querySelectorAll(selector) : [];
+      var limit = Math.min(nodes.length, 240);
+      for (var i = 0; i < limit; i++) {
+        var style = nodes[i] && nodes[i].style;
+        if (!style) continue;
+        style.setProperty('min-height', 'auto', 'important');
+        style.setProperty('height', 'auto', 'important');
       }
     } catch (_) {}
   }
@@ -4097,7 +4109,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     try { inlineStyle = String(node.getAttribute('style') || '').toLowerCase(); } catch (_) {}
     var minHeight = px(styles.minHeight);
     if (Math.abs(minHeight - viewport) < 2) return true;
-    if (/(^|;)\s*(?:min-height|height)\s*:[^;]*\d(?:\.\d+)?vh\b/.test(inlineStyle)) return true;
+    if (/(^|;)\s*(?:min-height|height)\s*:[^;]*\d(?:\.\d+)?(?:vh|dvh|svh|lvh)\b/.test(inlineStyle)) return true;
     return !!node.children && node.children.length > 0 && rect.height >= viewport - 1;
   }
   function visibleInContainer(node, container) {
@@ -4433,6 +4445,17 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     return true;
   }
 
+  static void _writeBoundedHeightCache(
+    Map<int, double> cache,
+    int key,
+    double value,
+  ) {
+    cache[key] = value;
+    if (cache.length > _kHeightCacheMaxSize) {
+      cache.remove(cache.keys.first);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -4515,10 +4538,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
     _bubbleStateForRegion = null;
-    // State 被 ListView 回收前，把当前真实高度保存为 floor。
-    // 新 State 重建后若 _height 丢失，可用此 floor 防止收缩。
-    if (_height != null) {
-      _heightFloorCache[_heightCacheKey] = _height!;
+    // State 被 ListView 回收前，只保存 JS 实测过的真实高度。fallback /
+    // outlier 估算值不能写入 floor，否则滚动冻结时会把消息卡撑出空白。
+    if (_height != null && !_heightFromFallback) {
+      _writeBoundedHeightCache(_heightFloorCache, _heightCacheKey, _height!);
     }
     super.dispose();
   }
@@ -4651,7 +4674,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       if (next > estimated * _kFirstMeasurementOutlierRatio) {
         // outlier 占位高度只写本地 _height，**绝不写入任何持久化 cache**，
         // 避免 estimatedHeight 污染 _heightCache / _heightFloorCache。
-        _safeSetState(() => _height = estimated);
+        _safeSetState(() {
+          _height = estimated;
+          _heightFromFallback = true;
+        });
         return;
       }
     }
@@ -4738,10 +4764,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         return;
       }
     }
-    _heightCache[_heightCacheKey] = next;
-    if (_heightCache.length > _kHeightCacheMaxSize) {
-      _heightCache.remove(_heightCache.keys.first);
-    }
+    _writeBoundedHeightCache(_heightCache, _heightCacheKey, next);
+    _writeBoundedHeightCache(_heightFloorCache, _heightCacheKey, next);
     _lastHeightApplyTime = DateTime.now();
     _safeSetState(() {
       _height = next;
@@ -4915,6 +4939,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           '-webkit-font-smoothing:antialiased;'
           '-webkit-user-select:text;user-select:text;cursor:text;}'
           'body{overflow-x:auto;}'
+          '$_viewportHeightResetCss'
           // 用独立的 oh-root 包裹负责提供"内容本身"的几何尺寸，
           // 避免 JS 用 document.scrollHeight 读到的是被 Flutter 侧 SizedBox 高度
           // 裹挟后的值（那样在 <details> 收起后高度不会变小，气泡只能变大
