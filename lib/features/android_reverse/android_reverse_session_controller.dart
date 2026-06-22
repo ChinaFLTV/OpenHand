@@ -2184,18 +2184,25 @@ class AndroidReverseSessionController extends ChangeNotifier {
   String _toolchainSetupCommandsJson() {
     final payload = <String, Object?>{
       'source': 'OpenHand Android Reverse dashboard',
-      'purpose': 'copy-only setup commands for Android reverse tooling',
+      'purpose':
+          'dashboard-managed setup actions and Bash fallback metadata for Android reverse tooling',
       'rules': const <String>[
-        'Do not execute install, update, or uninstall commands without user approval.',
+        'Prefer dashboard Toolchain / Plugins actions for install, update, and uninstall.',
+        'Fallback commands require user approval before execution.',
         'Prefer reading current toolchain diagnostics before changing tools.',
         'Use Frida doctor before installing, pushing, or starting frida-server.',
       ],
       'tools': androidReverseToolchainProbes
-          .map(
-            (probe) => <String, Object?>{
+          .map((probe) {
+            final pluginId = androidReverseToolchainPluginIdForProbe(probe.id);
+            return <String, Object?>{
               'id': probe.id,
               'label': probe.label,
               'required': probe.required,
+              if (pluginId != null) ...<String, Object?>{
+                'plugin_service_id': pluginId,
+                'preferred_action_surface': 'dashboard_plugin_service',
+              },
               'install_hint_zh': probe.installHintZh,
               'install_hint_en': probe.installHintEn,
               if (probe.installCommand?.trim().isNotEmpty ?? false)
@@ -2206,8 +2213,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 'uninstall_command': probe.uninstallCommand!.trim(),
               if (probe.referenceUrl?.trim().isNotEmpty ?? false)
                 'reference_url': probe.referenceUrl!.trim(),
-            },
-          )
+            };
+          })
           .toList(growable: false),
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -2369,7 +2376,7 @@ Files:
 - ../network/README.md and ../network/proxy_probe.sh: mitmproxy and proxy diagnostics.
 - ../frida/README.md, frida_doctor.sh, run_frida_capture.sh: Frida diagnostics and output capture runbook.
 - ../scripts/README.md, reproduce_http.py, reproduce_curl.sh, make_evidence_bundle.sh: final delivery templates.
-- ../toolchain/README.md and setup_commands.json: copy-only toolchain setup commands.
+- ../toolchain/README.md and setup_commands.json: dashboard setup action metadata and Bash fallback commands.
 
 Rules:
 1. Use only real mcp__* tool names from the Tool Catalog or ToolSearch result.
@@ -2422,17 +2429,19 @@ Use this checklist before relying on Android reverse MCP tools.
 
 const String _toolchainSetupReadme = r'''# Android reverse toolchain setup
 
-This directory stores copy-only setup commands for Android reverse tooling.
+This directory stores dashboard setup action metadata and Bash fallback commands
+for Android reverse tooling.
 
 Files:
 - setup_commands.json: install, update, uninstall, hint, and reference metadata.
 
 Rules:
-1. Read current dashboard diagnostics before changing tools.
-2. Ask the user before executing install, update, or uninstall commands.
-3. Do not repeat the same install command after two failures.
-4. For Frida, run `../frida/frida_doctor.sh` before installing, pushing, or starting frida-server.
-5. Prefer generated quick_scan evidence before installing optional dynamic tools; ask before dynamic validation when static evidence already closes the target.
+1. Prefer the dashboard Toolchain / Plugins buttons for install, update, and uninstall.
+2. Read current dashboard diagnostics before changing tools.
+3. Ask the user before running any fallback command from setup_commands.json.
+4. Do not repeat the same install command after two failures.
+5. For Frida, run `../frida/frida_doctor.sh` before installing, pushing, or starting frida-server.
+6. Prefer generated quick_scan evidence before installing optional dynamic tools; ask before dynamic validation when static evidence already closes the target.
 ''';
 
 const String _fridaRunbookReadme = r'''# Android reverse Frida runbook

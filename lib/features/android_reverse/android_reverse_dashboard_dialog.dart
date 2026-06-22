@@ -3744,6 +3744,7 @@ fi
   // ── Toolchain tab ───────────────────────────────────────────────────────
 
   Widget _buildToolchainTab(ColorScheme cs, ThemeData theme, bool isZh) {
+    final pluginController = context.watch<PluginServiceController>();
     final requiredMissing = _toolchainRows
         .where((row) => row.probe.required && !row.ok)
         .length;
@@ -3845,6 +3846,10 @@ fi
                         Divider(height: 1, color: cs.outlineVariant),
                     itemBuilder: (_, i) {
                       final row = _toolchainRows[i];
+                      final plugin = _toolchainPluginForProbe(
+                        row.probe,
+                        pluginController,
+                      );
                       final ok = row.ok;
                       final statusColor = ok
                           ? cs.primary
@@ -3870,6 +3875,14 @@ fi
                               const SizedBox(width: 8),
                               Chip(
                                 label: Text(isZh ? '必需' : 'required'),
+                                visualDensity: VisualDensity.compact,
+                                side: BorderSide.none,
+                              ),
+                            ],
+                            if (plugin != null) ...[
+                              const SizedBox(width: 8),
+                              Chip(
+                                label: Text(isZh ? '插件托管' : 'plugin-managed'),
                                 visualDensity: VisualDensity.compact,
                                 side: BorderSide.none,
                               ),
@@ -6479,6 +6492,19 @@ fi
   List<_ToolchainCommandAction> _toolchainVisibleActions(
     AndroidReverseToolchainProbe probe,
   ) {
+    final plugin = _toolchainPluginForProbe(probe);
+    if (plugin != null) {
+      return <_ToolchainCommandAction>[
+        if (plugin.isInstalled)
+          _ToolchainCommandAction.update
+        else
+          _ToolchainCommandAction.install,
+        if (plugin.isInstalled && plugin.supportsUninstall)
+          _ToolchainCommandAction.uninstall,
+        if (probe.referenceUrl?.trim().isNotEmpty ?? false)
+          _ToolchainCommandAction.reference,
+      ];
+    }
     return <_ToolchainCommandAction>[
       _ToolchainCommandAction.install,
       if (probe.updateCommand?.trim().isNotEmpty ?? false)
@@ -6506,6 +6532,16 @@ fi
     return '${probe.id}:${action.name}';
   }
 
+  PluginInfo? _toolchainPluginForProbe(
+    AndroidReverseToolchainProbe probe, [
+    PluginServiceController? pluginController,
+  ]) {
+    final pluginId = androidReverseToolchainPluginIdForProbe(probe.id);
+    if (pluginId == null) return null;
+    return (pluginController ?? context.read<PluginServiceController>())
+        .pluginById(pluginId);
+  }
+
   Future<void> _handleToolchainAction(
     AndroidReverseToolchainProbe probe,
     _ToolchainCommandAction action,
@@ -6514,6 +6550,11 @@ fi
     if (_isToolchainCommandRunning(probe, action)) return;
     if (action == _ToolchainCommandAction.reference) {
       await _copyToolchainCommand(probe, action, isZh);
+      return;
+    }
+    final plugin = _toolchainPluginForProbe(probe);
+    if (plugin != null) {
+      await _handleToolchainPluginAction(probe, plugin, action, isZh);
       return;
     }
     final commandAction = _toolchainCommandAction(action);
@@ -6577,6 +6618,110 @@ fi
             : (isZh
                   ? '${probe.label} ${_toolchainCommandLabel(action, isZh)}失败'
                   : '${probe.label} ${_toolchainCommandLabel(action, isZh).toLowerCase()} failed'),
+      );
+      unawaited(_refreshToolchain());
+    } finally {
+      if (mounted) {
+        setState(() => _runningToolchainCommandIds.remove(key));
+      }
+    }
+  }
+
+  Future<void> _handleToolchainPluginAction(
+    AndroidReverseToolchainProbe probe,
+    PluginInfo plugin,
+    _ToolchainCommandAction action,
+    bool isZh,
+  ) async {
+    final runtimeAction = switch (action) {
+      _ToolchainCommandAction.install => _RuntimePluginAction.install,
+      _ToolchainCommandAction.update => _RuntimePluginAction.update,
+      _ToolchainCommandAction.uninstall => _RuntimePluginAction.uninstall,
+      _ToolchainCommandAction.reference => null,
+    };
+    if (runtimeAction == null) return;
+    if (action == _ToolchainCommandAction.update && !plugin.isInstalled) {
+      _showSnack(
+        isZh ? '${plugin.name} 尚未安装。' : '${plugin.name} is not installed.',
+      );
+      return;
+    }
+    if (action == _ToolchainCommandAction.uninstall && !plugin.isInstalled) {
+      _showSnack(
+        isZh ? '${plugin.name} 尚未安装。' : '${plugin.name} is not installed.',
+      );
+      return;
+    }
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title:
+          '${_toolchainCommandLabel(action, isZh)} ${probe.label}${isZh ? "？" : "?"}',
+      message: isZh
+          ? 'OpenHand 将通过插件服务直接${_toolchainCommandLabel(action, isZh)} ${plugin.name}，完成后自动刷新插件和工具链状态。'
+          : 'OpenHand will ${_toolchainCommandLabel(action, isZh).toLowerCase()} ${plugin.name} through the plugin service, then refresh plugin and toolchain status.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: _toolchainCommandLabel(action, isZh),
+      destructive: action == _ToolchainCommandAction.uninstall,
+    );
+    if (!confirmed || !mounted) return;
+    final key = _toolchainCommandKey(probe, action);
+    final pluginController = context.read<PluginServiceController>();
+    setState(() {
+      _runningToolchainCommandIds.add(key);
+      _lastToolchainCommandResult = AdbCommandResult(
+        args: <String>['toolchain-plugin', action.name, plugin.id],
+        exitCode: -1,
+        stdout: isZh ? '插件服务执行中...' : 'Plugin service is running...',
+        stderr: '',
+        displayCommand: 'plugin:${plugin.id} ${action.name}',
+      );
+    });
+    try {
+      final success = switch (runtimeAction) {
+        _RuntimePluginAction.install => await pluginController.installPlugin(
+          plugin.id,
+        ),
+        _RuntimePluginAction.update => await pluginController.updatePlugin(
+          plugin.id,
+        ),
+        _RuntimePluginAction.uninstall =>
+          await pluginController.uninstallPlugin(plugin.id),
+        _ => false,
+      };
+      if (!mounted) return;
+      final latest = pluginController.pluginById(plugin.id) ?? plugin;
+      final logs = pluginController.operationLogs.join('\n').trim();
+      final stdout = <String>[
+        '${isZh ? "插件" : "Plugin"}: ${latest.name}',
+        '${isZh ? "动作" : "Action"}: ${_toolchainCommandLabel(action, isZh)}',
+        '${isZh ? "状态" : "Status"}: ${success ? (isZh ? "完成" : "completed") : (isZh ? "失败" : "failed")}',
+        if (latest.installedVersion?.trim().isNotEmpty ?? false)
+          '${isZh ? "版本" : "Version"}: ${latest.installedVersion}',
+        if (latest.installPath?.trim().isNotEmpty ?? false)
+          '${isZh ? "路径" : "Path"}: ${latest.installPath}',
+        if (logs.isNotEmpty) ...['', logs],
+      ].join('\n');
+      setState(() {
+        _lastToolchainCommandResult = AdbCommandResult(
+          args: <String>['toolchain-plugin', action.name, plugin.id],
+          exitCode: success ? 0 : -1,
+          stdout: stdout,
+          stderr: success
+              ? ''
+              : (pluginController.errorMessage ??
+                    latest.errorMessage ??
+                    (isZh ? '插件服务动作失败。' : 'Plugin service action failed.')),
+          displayCommand: 'plugin:${plugin.id} ${action.name}',
+        );
+      });
+      _showSnack(
+        success
+            ? (isZh
+                  ? '${plugin.name} ${_toolchainCommandLabel(action, isZh)}完成'
+                  : '${plugin.name} ${_toolchainCommandLabel(action, isZh).toLowerCase()} completed')
+            : (isZh
+                  ? '${plugin.name} ${_toolchainCommandLabel(action, isZh)}失败'
+                  : '${plugin.name} ${_toolchainCommandLabel(action, isZh).toLowerCase()} failed'),
       );
       unawaited(_refreshToolchain());
     } finally {

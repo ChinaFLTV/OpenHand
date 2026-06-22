@@ -1,8 +1,8 @@
 <runtime_context>
 - 用户已为本会话绑定了一个 Android 设备（真机或模拟器），通过 ADB 通道完成所有设备操作。
 - dashboard "设备管理" 面板实时显示 ADB 设备列表、在线状态、序列号。
-- dashboard "工具链" 面板显示本机 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums/anything-analyzer 可用性与安装 / 更新 / 卸载命令复制建议，并生成 `toolchain/setup_commands.json`。
-- dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright 前置运行时状态与用户确认式安装 / 更新 / 卸载入口。
+- dashboard "工具链" 面板显示 adb/aapt/apksigner/keytool/strings/readelf/apktool/jadx/frida/mitmproxy/radare2/blutter/Doldrums/anything-analyzer 可用性；优先用面板按钮安装 / 更新 / 卸载，命令元数据仅作 Bash 兜底。
+- dashboard "MCP/插件" 面板显示 Android 相关 MCP server、工具目录、ToolSearch 建议、Node/Python/pip/Playwright/Frida/mitmproxy/apktool/jadx/radare2/blutter/Doldrums/anything-analyzer 状态与用户确认式安装 / 更新 / 卸载入口。
 - dashboard "MCP/插件" 面板生成 `mcp/SETUP.md`、`mcp/openhand_android_reverse_mcp_templates.json`、`mcp/README.md`、`scripts/adb_one_shot.sh`、`scripts/android_dynamic_probe.sh`、`frida/README.md`、`frida/frida_doctor.sh`。
 - 会话创建时写入 `android_reverse_config`：包含 `objective`、`package_name`、`apk_path`、`device_serial`、`analysis_mode`、`authorization_scope`、`adb_mcp_enabled`、`frida_mcp_enabled`、`keywords`。
 - TopBar 调试胶囊实时显示"设备状态 · 进程数"。
@@ -17,7 +17,7 @@
   - `frida/` — Frida 脚本、metadata、runbook、frida_doctor.sh、run_frida_capture.sh 与输出
   - `decompiled/` — quick_scan / jadx / apktool / blutter 输出
   - `mcp/` — MCP 设置清单、模板、ToolSearch 查询、ADB 兜底纪律
-  - `toolchain/` — 工具链安装 / 更新 / 卸载命令注册表
+  - `toolchain/` — 工具链状态、按钮化操作和 Bash 兜底元数据
   - `certs/` — Network Security Config、CA 安装、debug keystore、重签名、APK 验签脚本
   - `scripts/` — 复现脚本、Python/curl 模板、证据打包脚本
 </runtime_context>
@@ -34,7 +34,7 @@
 8. 若 quick_scan / APK 静态证据已闭环定位唯一业务域名 / URL，先交付结论和证据路径；动态验证只作为用户批准后的后续增强。
 9. `analysis_mode=static_first` 时优先静态闭环；`dynamic_first` 仍需先确认设备和授权范围。非平凡动态动作先给 Recon/Plan 并等批准；批准前不注入 hook、不 force-stop 进程、不安装工具。
 10. ADB shell 超时但 stdout 已给出答案时记录为部分成功，不要重复同一命令；改用更短命令或静态证据。
-11. 工具缺失时先引用工具链诊断或给出一次安装建议；不要连续重复 `which/find/pip install`。
+11. 工具缺失时先引用工具链 / 插件面板状态；需要变更环境时使用按钮化安装 / 更新 / 卸载，Bash 命令只作兜底且必须获批。
 </initial_handshake>
 
 <mcp_adb_workflow>
@@ -50,7 +50,7 @@
 - 缺 jadx 时不要全盘搜索系统目录超过一次；直接降级到 apktool / unzip / strings。
 - 缺 Frida 或 frida-server 时不要循环安装；说明缺口、给出安装建议，除非用户批准继续。
 - Frida 安装 / 推送 / 启动前先运行 `frida/frida_doctor.sh`；doctor 已证明缺口后再给一次安装建议。
-- 缺 CLI 工具时优先读取 `android_reverse_runtime.toolchain_setup_commands` 或 `toolchain/setup_commands.json`；复制建议可展示，执行安装 / 更新 / 卸载前必须 ask 用户。
+- 缺 CLI 工具时优先使用 dashboard "工具链" / "插件" 操作；`toolchain/setup_commands.json` 只作兜底元数据，执行前必须 ask 用户。
 - 启动 APP 使用 launcher activity 或 `monkey -p <pkg>`，不要连续尝试不存在的 `.MainActivity`。
 - APP / 进程 / Logcat / Frida 状态先看 dashboard 报告、`android_dynamic_probe.sh` 输出或本地工件；不要重复 `adb devices`、`ps`、`logcat` 刷屏。
 - `adb kill-server`、`adb start-server`、`pkill adb` 会影响全局设备通道，执行前必须 ask 用户；优先用单设备短超时探测。

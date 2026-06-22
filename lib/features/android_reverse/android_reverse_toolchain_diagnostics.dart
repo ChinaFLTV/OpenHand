@@ -5,6 +5,21 @@ import '../../app/support/safe_subprocess.dart';
 const Duration _kToolchainProbeTimeout = Duration(seconds: 5);
 const Duration _kToolchainCommandTimeout = Duration(minutes: 10);
 
+const Map<String, String> androidReverseToolchainPluginIds = <String, String>{
+  'keytool': 'java',
+  'apktool': 'apktool',
+  'jadx': 'jadx',
+  'frida': 'frida',
+  'mitmproxy': 'mitmproxy',
+  'radare2': 'radare2',
+  'blutter': 'blutter',
+  'doldrums': 'doldrums',
+  'anything_analyzer': 'anything_analyzer',
+};
+
+String? androidReverseToolchainPluginIdForProbe(String probeId) =>
+    androidReverseToolchainPluginIds[probeId];
+
 enum AndroidReverseToolchainCommandAction { install, update, uninstall }
 
 class AndroidReverseToolchainCommandResult {
@@ -247,30 +262,37 @@ androidReverseToolchainProbes = <AndroidReverseToolchainProbe>[
   AndroidReverseToolchainProbe(
     id: 'blutter',
     label: 'blutter',
-    script: r'p="$(command -v blutter || true)"; [ -x "$p" ] && echo "$p"',
-    installHintZh: '按 blutter 项目说明安装，并把可执行文件加入 PATH。',
+    script:
+        r'p="$(command -v blutter || true)"; '
+        r'[ -x "$p" ] || p="$HOME/.openhand/android_reverse_tools/bin/blutter"; '
+        r'[ -x "$p" ] && echo "$p"',
+    installHintZh: '可在插件板块直接安装 blutter，或按项目说明安装并加入 PATH。',
     installHintEn:
-        'Install blutter from its project instructions and add it to PATH.',
+        'Install blutter from the Plugins tab, or from its project instructions and add it to PATH.',
     referenceUrl: 'https://github.com/worawit/blutter',
   ),
   AndroidReverseToolchainProbe(
     id: 'doldrums',
     label: 'Doldrums',
     script:
-        r'p="$(command -v Doldrums || command -v doldrums || true)"; [ -x "$p" ] && echo "$p"',
-    installHintZh: '按 Doldrums 项目说明安装，并把可执行文件加入 PATH。',
+        r'p="$(command -v Doldrums || command -v doldrums || true)"; '
+        r'[ -x "$p" ] || p="$HOME/.openhand/android_reverse_tools/bin/doldrums"; '
+        r'[ -x "$p" ] && echo "$p"',
+    installHintZh: '可在插件板块直接安装 Doldrums，或按项目说明安装并加入 PATH。',
     installHintEn:
-        'Install Doldrums from its project instructions and add it to PATH.',
+        'Install Doldrums from the Plugins tab, or from its project instructions and add it to PATH.',
     referenceUrl: 'https://github.com/rscloura/Doldrums',
   ),
   AndroidReverseToolchainProbe(
     id: 'anything_analyzer',
     label: 'anything-analyzer',
     script:
-        r'p="$(command -v anything-analyzer || true)"; [ -x "$p" ] && { echo "$p"; "$p" --version 2>/dev/null | head -1 || true; }',
-    installHintZh: '按 anything-analyzer MCP / CLI 说明安装，并在 MCP 面板启用对应 server。',
+        r'p="$(command -v anything-analyzer || true)"; '
+        r'[ -x "$p" ] || p="$HOME/.openhand/android_reverse_tools/bin/anything-analyzer"; '
+        r'[ -x "$p" ] && { echo "$p"; "$p" --version 2>/dev/null | head -1 || true; }',
+    installHintZh: '可在插件板块直接安装 Anything Analyzer，并在 MCP 面板启用对应 server。',
     installHintEn:
-        'Install from the anything-analyzer MCP / CLI instructions and enable the server in the MCP panel.',
+        'Install Anything Analyzer from the Plugins tab and enable the corresponding server in the MCP panel.',
   ),
 ];
 
