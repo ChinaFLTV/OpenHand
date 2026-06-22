@@ -320,175 +320,146 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
     final loc = AppLocalizations.of(context);
     final filtered = _filtered();
 
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1020, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.timeline_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseDomMutTitle ?? 'DOM Mutation Recorder',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseDomMutSubtitle ??
-                              'Injects MutationObserver → live timeline',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: loc?.webReverseDomMutExportJson ?? 'Export JSON',
-                    onPressed: _records.isEmpty ? null : _exportJson,
-                    icon: const Icon(Icons.upload_rounded),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 1020,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.timeline_rounded,
+            title: loc?.webReverseDomMutTitle ?? 'DOM Mutation Recorder',
+            subtitle:
+                loc?.webReverseDomMutSubtitle ??
+                'Injects MutationObserver → live timeline',
+            actions: [
+              IconButton(
+                tooltip: loc?.webReverseDomMutExportJson ?? 'Export JSON',
+                onPressed: _records.isEmpty ? null : _exportJson,
+                icon: const Icon(Icons.upload_rounded),
               ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: (_installing || _recording) ? null : _install,
+                  icon: Icon(
+                    _recording
+                        ? Icons.fiber_manual_record
+                        : Icons.play_arrow_rounded,
+                  ),
+                  label: Text(
+                    _recording
+                        ? (loc?.webReverseDomMutRecording ?? 'Recording')
+                        : (loc?.webReverseDomMutStart ?? 'Start'),
+                  ),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: _recording ? _stop : null,
+                  icon: const Icon(Icons.stop_rounded),
+                  label: Text(loc?.webReverseDomMutStop ?? 'Stop'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _records.isEmpty
+                      ? null
+                      : () => setState(_records.clear),
+                  icon: const Icon(Icons.cleaning_services_rounded, size: 16),
+                  label: Text(loc?.webReverseDomMutClear ?? 'Clear'),
+                ),
+                for (final k in const [
+                  'all',
+                  'childList',
+                  'attributes',
+                  'characterData',
+                ])
+                  ChoiceChip(
+                    label: Text(k),
+                    selected: _kindFilter == k,
+                    onSelected: (_) => setState(() => _kindFilter = k),
+                  ),
+                SizedBox(
+                  width: 220,
+                  child: TextField(
+                    onChanged: (v) => setState(() => _filter = v),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(
+                        Icons.filter_alt_outlined,
+                        size: 16,
+                      ),
+                      labelText:
+                          loc?.webReverseDomMutFilterHint ??
+                          'Filter (substring)',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                FilterChip(
+                  selected: _autoFollow,
+                  onSelected: (v) => setState(() => _autoFollow = v),
+                  label: Text(loc?.webReverseDomMutAutoFollow ?? 'Auto-follow'),
+                ),
+                Text(
+                  loc?.webReverseDomMutCounter(
+                        filtered.length,
+                        _records.length,
+                      ) ??
+                      '${filtered.length} / ${_records.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: (_installing || _recording) ? null : _install,
-                    icon: Icon(
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(
+                    child: Text(
                       _recording
-                          ? Icons.fiber_manual_record
-                          : Icons.play_arrow_rounded,
-                    ),
-                    label: Text(
-                      _recording
-                          ? (loc?.webReverseDomMutRecording ?? 'Recording')
-                          : (loc?.webReverseDomMutStart ?? 'Start'),
-                    ),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: _recording ? _stop : null,
-                    icon: const Icon(Icons.stop_rounded),
-                    label: Text(loc?.webReverseDomMutStop ?? 'Stop'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _records.isEmpty
-                        ? null
-                        : () => setState(_records.clear),
-                    icon: const Icon(Icons.cleaning_services_rounded, size: 16),
-                    label: Text(loc?.webReverseDomMutClear ?? 'Clear'),
-                  ),
-                  for (final k in const [
-                    'all',
-                    'childList',
-                    'attributes',
-                    'characterData',
-                  ])
-                    ChoiceChip(
-                      label: Text(k),
-                      selected: _kindFilter == k,
-                      onSelected: (_) => setState(() => _kindFilter = k),
-                    ),
-                  SizedBox(
-                    width: 220,
-                    child: TextField(
-                      onChanged: (v) => setState(() => _filter = v),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(
-                          Icons.filter_alt_outlined,
-                          size: 16,
-                        ),
-                        labelText:
-                            loc?.webReverseDomMutFilterHint ??
-                            'Filter (substring)',
-                        border: const OutlineInputBorder(),
-                        isDense: true,
+                          ? (loc?.webReverseDomMutWaiting ??
+                                'Waiting for mutations…')
+                          : (loc?.webReverseDomMutPressStart ?? 'Press Start'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                  FilterChip(
-                    selected: _autoFollow,
-                    onSelected: (v) => setState(() => _autoFollow = v),
-                    label: Text(
-                      loc?.webReverseDomMutAutoFollow ?? 'Auto-follow',
-                    ),
-                  ),
-                  Text(
-                    loc?.webReverseDomMutCounter(
-                          filtered.length,
-                          _records.length,
-                        ) ??
-                        '${filtered.length} / ${_records.length}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        _recording
-                            ? (loc?.webReverseDomMutWaiting ??
-                                  'Waiting for mutations…')
-                            : (loc?.webReverseDomMutPressStart ??
-                                  'Press Start'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scroll,
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) {
-                        final r = filtered[i];
-                        return _MutRow(rec: r);
-                      },
-                    ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseDomMutClose ?? 'Close',
-                    onPressed: () async {
-                      if (_recording) await _stop();
-                      if (context.mounted) Navigator.of(context).pop();
+                  )
+                : ListView.builder(
+                    controller: _scroll,
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final r = filtered[i];
+                      return _MutRow(rec: r);
                     },
                   ),
-                ],
-              ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseDomMutClose ?? 'Close',
+                  onPressed: () async {
+                    if (_recording) await _stop();
+                    if (context.mounted) Navigator.of(context).pop();
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

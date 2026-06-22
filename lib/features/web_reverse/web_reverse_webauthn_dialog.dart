@@ -218,247 +218,185 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
 
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.fingerprint_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.fingerprint_rounded,
+            title:
+                loc?.webReverseWebauthnTitle ??
+                'WebAuthn Virtual Authenticator',
+            subtitle:
+                'WebAuthn.enable / addVirtualAuthenticator / getCredentials',
+            actions: [
+              Switch(value: _enabled, onChanged: _busy ? null : _toggleEnable),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: !_enabled
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        loc?.webReverseWebauthnDisabledBody ??
+                            'Toggle WebAuthn on to enable virtual authenticators. navigator.credentials.create/get will succeed without physical hardware.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          loc?.webReverseWebauthnTitle ??
-                              'WebAuthn Virtual Authenticator',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                          loc?.webReverseWebauthnAdd ??
+                              'Add Virtual Authenticator',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            WebReverseSelectButton<String>(
+                              value: _newProtocol,
+                              minWidth: 136,
+                              tooltip: 'protocol',
+                              options: const [
+                                WebReverseSelectOption(
+                                  value: 'ctap2',
+                                  label: 'protocol: ctap2',
+                                ),
+                                WebReverseSelectOption(
+                                  value: 'u2f',
+                                  label: 'protocol: u2f',
+                                ),
+                              ],
+                              onChanged: (v) =>
+                                  setState(() => _newProtocol = v),
+                            ),
+                            WebReverseSelectButton<String>(
+                              value: _newTransport,
+                              minWidth: 152,
+                              tooltip: 'transport',
+                              options: const [
+                                WebReverseSelectOption(
+                                  value: 'usb',
+                                  label: 'transport: usb',
+                                ),
+                                WebReverseSelectOption(
+                                  value: 'nfc',
+                                  label: 'transport: nfc',
+                                ),
+                                WebReverseSelectOption(
+                                  value: 'ble',
+                                  label: 'transport: ble',
+                                ),
+                                WebReverseSelectOption(
+                                  value: 'internal',
+                                  label: 'transport: internal',
+                                ),
+                              ],
+                              onChanged: (v) =>
+                                  setState(() => _newTransport = v),
+                            ),
+                            _Flag(
+                              label: 'hasResidentKey',
+                              value: _newResidentKey,
+                              onChanged: (v) =>
+                                  setState(() => _newResidentKey = v),
+                            ),
+                            _Flag(
+                              label: 'hasUserVerification',
+                              value: _newUserVerification,
+                              onChanged: (v) =>
+                                  setState(() => _newUserVerification = v),
+                            ),
+                            _Flag(
+                              label: 'isUserVerified',
+                              value: _newIsVerified,
+                              onChanged: (v) =>
+                                  setState(() => _newIsVerified = v),
+                            ),
+                            _Flag(
+                              label: 'autoPresenceSimulation',
+                              value: _newAutoPresence,
+                              onChanged: (v) =>
+                                  setState(() => _newAutoPresence = v),
+                            ),
+                            FilledButton.tonalIcon(
+                              onPressed: _busy ? null : _addAuthenticator,
+                              icon: const Icon(Icons.add_rounded),
+                              label: Text(
+                                loc?.webReverseWebauthnAddBtn ?? 'Add',
+                              ),
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: buildOpenHandDialogValidationMessage(
+                            context,
+                            message: _lastError,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Divider(color: cs.outlineVariant),
+                        const SizedBox(height: 8),
                         Text(
-                          'WebAuthn.enable / addVirtualAuthenticator / getCredentials',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
+                          loc?.webReverseWebauthnCreatedCount(_auths.length) ??
+                              'Authenticators (${_auths.length})',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        if (_auths.isEmpty)
+                          Text(
+                            loc?.webReverseWebauthnNone ??
+                                'No authenticators yet',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        for (final a in _auths)
+                          _AuthCard(
+                            auth: a,
+                            busy: _busy,
+                            onRemove: () => _removeAuthenticator(a),
+                            onRefresh: () => _refreshCredentials(a),
+                            onToggleVerified: (v) => _toggleUserVerified(a, v),
+                          ),
                       ],
                     ),
                   ),
-                  Switch(
-                    value: _enabled,
-                    onChanged: _busy ? null : _toggleEnable,
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseWebauthnClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: !_enabled
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          loc?.webReverseWebauthnDisabledBody ??
-                              'Toggle WebAuthn on to enable virtual authenticators. navigator.credentials.create/get will succeed without physical hardware.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            loc?.webReverseWebauthnAdd ??
-                                'Add Virtual Authenticator',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 8,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              WebReverseSelectButton<String>(
-                                value: _newProtocol,
-                                minWidth: 136,
-                                tooltip: 'protocol',
-                                options: const [
-                                  WebReverseSelectOption(
-                                    value: 'ctap2',
-                                    label: 'protocol: ctap2',
-                                  ),
-                                  WebReverseSelectOption(
-                                    value: 'u2f',
-                                    label: 'protocol: u2f',
-                                  ),
-                                ],
-                                onChanged: (v) =>
-                                    setState(() => _newProtocol = v),
-                              ),
-                              WebReverseSelectButton<String>(
-                                value: _newTransport,
-                                minWidth: 152,
-                                tooltip: 'transport',
-                                options: const [
-                                  WebReverseSelectOption(
-                                    value: 'usb',
-                                    label: 'transport: usb',
-                                  ),
-                                  WebReverseSelectOption(
-                                    value: 'nfc',
-                                    label: 'transport: nfc',
-                                  ),
-                                  WebReverseSelectOption(
-                                    value: 'ble',
-                                    label: 'transport: ble',
-                                  ),
-                                  WebReverseSelectOption(
-                                    value: 'internal',
-                                    label: 'transport: internal',
-                                  ),
-                                ],
-                                onChanged: (v) =>
-                                    setState(() => _newTransport = v),
-                              ),
-                              _Flag(
-                                label: 'hasResidentKey',
-                                value: _newResidentKey,
-                                onChanged: (v) =>
-                                    setState(() => _newResidentKey = v),
-                              ),
-                              _Flag(
-                                label: 'hasUserVerification',
-                                value: _newUserVerification,
-                                onChanged: (v) =>
-                                    setState(() => _newUserVerification = v),
-                              ),
-                              _Flag(
-                                label: 'isUserVerified',
-                                value: _newIsVerified,
-                                onChanged: (v) =>
-                                    setState(() => _newIsVerified = v),
-                              ),
-                              _Flag(
-                                label: 'autoPresenceSimulation',
-                                value: _newAutoPresence,
-                                onChanged: (v) =>
-                                    setState(() => _newAutoPresence = v),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: _busy ? null : _addAuthenticator,
-                                icon: const Icon(Icons.add_rounded),
-                                label: Text(
-                                  loc?.webReverseWebauthnAddBtn ?? 'Add',
-                                ),
-                              ),
-                            ],
-                          ),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 280),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            transitionBuilder: (child, animation) {
-                              return SizeTransition(
-                                sizeFactor: animation,
-                                axisAlignment: -1.0,
-                                child: FadeTransition(
-                                  opacity: animation,
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: _lastError == null
-                                ? const SizedBox.shrink(
-                                    key: ValueKey('webauthn-err-empty'),
-                                  )
-                                : Padding(
-                                    key: const ValueKey('webauthn-err-on'),
-                                    padding: const EdgeInsets.only(top: 10),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: cs.errorContainer,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        _lastError!,
-                                        style: TextStyle(
-                                          fontFamily: 'monospace',
-                                          color: cs.onErrorContainer,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 16),
-                          Divider(color: cs.outlineVariant),
-                          const SizedBox(height: 8),
-                          Text(
-                            loc?.webReverseWebauthnCreatedCount(
-                                  _auths.length,
-                                ) ??
-                                'Authenticators (${_auths.length})',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_auths.isEmpty)
-                            Text(
-                              loc?.webReverseWebauthnNone ??
-                                  'No authenticators yet',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          for (final a in _auths)
-                            _AuthCard(
-                              auth: a,
-                              busy: _busy,
-                              onRemove: () => _removeAuthenticator(a),
-                              onRefresh: () => _refreshCredentials(a),
-                              onToggleVerified: (v) =>
-                                  _toggleUserVerified(a, v),
-                            ),
-                        ],
-                      ),
-                    ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseWebauthnClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

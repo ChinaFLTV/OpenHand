@@ -497,85 +497,64 @@ class _WsDialogState extends State<_WsDialog> {
       context: context,
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
-        return Dialog(
-          backgroundColor: cs.surfaceContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          insetPadding: const EdgeInsets.all(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 560),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_note_rounded, color: cs.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          isZh ? '编辑单帧再发送' : 'Edit frame & send',
-                          style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: cs.outlineVariant),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    child: TextField(
-                      controller: ctrl,
-                      maxLines: null,
-                      expands: true,
-                      textAlignVertical: TextAlignVertical.top,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: isZh
-                            ? '在这里修改 payload，然后点发送'
-                            : 'Edit payload, then send',
-                        filled: true,
-                        fillColor: cs.surface,
-                        border: const OutlineInputBorder(),
-                      ),
+        return buildOpenHandToolDialogShell(
+          context: ctx,
+          maxWidth: 720,
+          maxHeight: 560,
+          child: Column(
+            children: [
+              buildOpenHandToolDialogHeader(
+                context: ctx,
+                icon: Icons.edit_note_rounded,
+                title: isZh ? '编辑单帧再发送' : 'Edit frame & send',
+              ),
+              Divider(height: 1, color: cs.outlineVariant),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: TextField(
+                    controller: ctrl,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: isZh
+                          ? '在这里修改 payload，然后点发送'
+                          : 'Edit payload, then send',
+                      filled: true,
+                      fillColor: cs.surface,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
-                Divider(height: 1, color: cs.outlineVariant),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OpenHandDialogActionButton.secondary(
-                          label: isZh ? '取消' : 'Cancel',
-                          onPressed: () => Navigator.of(ctx).pop(),
-                        ),
+              ),
+              Divider(height: 1, color: cs.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OpenHandDialogActionButton.secondary(
+                        label: isZh ? '取消' : 'Cancel',
+                        onPressed: () => Navigator.of(ctx).pop(),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OpenHandDialogActionButton.primary(
-                          icon: Icons.send_rounded,
-                          label: isZh ? '发送' : 'Send',
-                          onPressed: () => Navigator.of(ctx).pop(ctrl.text),
-                        ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OpenHandDialogActionButton.primary(
+                        icon: Icons.send_rounded,
+                        label: isZh ? '发送' : 'Send',
+                        onPressed: () => Navigator.of(ctx).pop(ctrl.text),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -593,134 +572,114 @@ class _WsDialogState extends State<_WsDialog> {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
             final cs = Theme.of(ctx).colorScheme;
-            return Dialog(
-              backgroundColor: cs.surfaceContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              insetPadding: const EdgeInsets.all(20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-                      child: Row(
-                        children: [
-                          Icon(Icons.bug_report_rounded, color: cs.tertiary),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              isZh ? 'Fuzz 帧（按 JSON 叶子或字节变异）' : 'Fuzz frame',
-                              style: Theme.of(ctx).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w800),
+            return buildOpenHandToolDialogShell(
+              context: ctx,
+              maxWidth: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  buildOpenHandToolDialogHeader(
+                    context: ctx,
+                    icon: Icons.bug_report_rounded,
+                    iconColor: cs.tertiary,
+                    title: isZh ? 'Fuzz 帧（按 JSON 叶子或字节变异）' : 'Fuzz frame',
+                  ),
+                  Divider(height: 1, color: cs.outlineVariant),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isZh
+                              ? '基准 payload 长度：${basePayload.length} 字符'
+                              : 'Base payload: ${basePayload.length} chars',
+                          style: Theme.of(ctx).textTheme.labelSmall,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: countCtrl,
+                                decoration: InputDecoration(
+                                  labelText: isZh
+                                      ? '发送次数 (1-200)'
+                                      : 'Count (1-200)',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
                             ),
-                          ),
-                          IconButton(
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: delayCtrl,
+                                decoration: InputDecoration(
+                                  labelText: isZh
+                                      ? '间隔 ms (10-1000)'
+                                      : 'Delay ms (10-1000)',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          isZh ? '变异强度' : 'Intensity',
+                          style: Theme.of(ctx).textTheme.labelSmall,
+                        ),
+                        Slider(
+                          value: intensity.toDouble(),
+                          min: 1,
+                          max: 5,
+                          divisions: 4,
+                          label: '$intensity',
+                          onChanged: (v) =>
+                              setLocal(() => intensity = v.round()),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: cs.outlineVariant),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OpenHandDialogActionButton.secondary(
+                            label: isZh ? '取消' : 'Cancel',
                             onPressed: () => Navigator.of(ctx).pop(),
-                            icon: const Icon(Icons.close_rounded),
                           ),
-                        ],
-                      ),
-                    ),
-                    Divider(height: 1, color: cs.outlineVariant),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isZh
-                                ? '基准 payload 长度：${basePayload.length} 字符'
-                                : 'Base payload: ${basePayload.length} chars',
-                            style: Theme.of(ctx).textTheme.labelSmall,
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: countCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: isZh
-                                        ? '发送次数 (1-200)'
-                                        : 'Count (1-200)',
-                                    border: const OutlineInputBorder(),
-                                    isDense: true,
-                                  ),
-                                  keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OpenHandDialogActionButton.primary(
+                            icon: Icons.play_arrow_rounded,
+                            label: isZh ? '开始 Fuzz' : 'Start Fuzz',
+                            onPressed: () {
+                              final c =
+                                  int.tryParse(countCtrl.text.trim()) ?? 20;
+                              final d =
+                                  int.tryParse(delayCtrl.text.trim()) ?? 50;
+                              Navigator.of(ctx).pop(
+                                _FuzzConfig(
+                                  count: c.clamp(1, 200),
+                                  delayMs: d.clamp(10, 1000),
+                                  intensity: intensity,
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: delayCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: isZh
-                                        ? '间隔 ms (10-1000)'
-                                        : 'Delay ms (10-1000)',
-                                    border: const OutlineInputBorder(),
-                                    isDense: true,
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ),
-                            ],
+                              );
+                            },
                           ),
-                          const SizedBox(height: 14),
-                          Text(
-                            isZh ? '变异强度' : 'Intensity',
-                            style: Theme.of(ctx).textTheme.labelSmall,
-                          ),
-                          Slider(
-                            value: intensity.toDouble(),
-                            min: 1,
-                            max: 5,
-                            divisions: 4,
-                            label: '$intensity',
-                            onChanged: (v) =>
-                                setLocal(() => intensity = v.round()),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Divider(height: 1, color: cs.outlineVariant),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OpenHandDialogActionButton.secondary(
-                              label: isZh ? '取消' : 'Cancel',
-                              onPressed: () => Navigator.of(ctx).pop(),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OpenHandDialogActionButton.primary(
-                              icon: Icons.play_arrow_rounded,
-                              label: isZh ? '开始 Fuzz' : 'Start Fuzz',
-                              onPressed: () {
-                                final c =
-                                    int.tryParse(countCtrl.text.trim()) ?? 20;
-                                final d =
-                                    int.tryParse(delayCtrl.text.trim()) ?? 50;
-                                Navigator.of(ctx).pop(
-                                  _FuzzConfig(
-                                    count: c.clamp(1, 200),
-                                    delayMs: d.clamp(10, 1000),
-                                    intensity: intensity,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },
@@ -739,368 +698,329 @@ class _WsDialogState extends State<_WsDialog> {
     if (_selectedId == null && conns.isNotEmpty) {
       _selectedId = conns.last.requestId;
     }
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 980, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.swap_horiz_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isZh ? 'WebSocket 帧录制 / 重放' : 'WebSocket Frames',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          isZh
-                              ? '查看帧 · 重放 sent 帧到新连接'
-                              : 'inspect frames · replay sent frames in new ws',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: cur == null ? null : _copyFramesJson,
-                    icon: const Icon(Icons.copy_rounded),
-                    tooltip: isZh ? '复制帧 JSON' : 'Copy frames JSON',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 980,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.swap_horiz_rounded,
+            title: isZh ? 'WebSocket 帧录制 / 重放' : 'WebSocket Frames',
+            subtitle: isZh
+                ? '查看帧 · 重放 sent 帧到新连接'
+                : 'inspect frames · replay sent frames in new ws',
+            actions: [
+              IconButton(
+                onPressed: cur == null ? null : _copyFramesJson,
+                icon: const Icon(Icons.copy_rounded),
+                tooltip: isZh ? '复制帧 JSON' : 'Copy frames JSON',
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: conns.isEmpty
-                  ? Center(
-                      child: Text(
-                        isZh
-                            ? '当前会话没有 WebSocket / EventSource 连接'
-                            : 'No WebSocket / EventSource connections',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: conns.isEmpty
+                ? Center(
+                    child: Text(
+                      isZh
+                          ? '当前会话没有 WebSocket / EventSource 连接'
+                          : 'No WebSocket / EventSource connections',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: 280,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(8, 10, 4, 10),
-                            itemCount: conns.length,
-                            itemBuilder: (_, i) {
-                              final c = conns[i];
-                              final picked = c.requestId == _selectedId;
-                              return InkWell(
-                                borderRadius: BorderRadius.circular(10),
-                                onTap: () =>
-                                    setState(() => _selectedId = c.requestId),
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 6),
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
+                    ),
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: 280,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(8, 10, 4, 10),
+                          itemCount: conns.length,
+                          itemBuilder: (_, i) {
+                            final c = conns[i];
+                            final picked = c.requestId == _selectedId;
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () =>
+                                  setState(() => _selectedId = c.requestId),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: picked
+                                      ? cs.primaryContainer.withValues(
+                                          alpha: 0.4,
+                                        )
+                                      : cs.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
                                     color: picked
-                                        ? cs.primaryContainer.withValues(
-                                            alpha: 0.4,
-                                          )
-                                        : cs.surfaceContainerHigh,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: picked
-                                          ? cs.primary
-                                          : cs.outlineVariant,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        c.url,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${c.wsFrames.length} ${isZh ? '帧' : 'frames'}',
-                                        style: theme.textTheme.labelSmall,
-                                      ),
-                                    ],
+                                        ? cs.primary
+                                        : cs.outlineVariant,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        ),
-                        VerticalDivider(width: 1, color: cs.outlineVariant),
-                        Expanded(
-                          child: cur == null
-                              ? const SizedBox.shrink()
-                              : Column(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        12,
-                                        10,
-                                        12,
-                                        6,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: SelectableText(
-                                              cur.url,
-                                              style: const TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                          FilledButton.icon(
-                                            onPressed: _busy
-                                                ? null
-                                                : _replaySent,
-                                            icon: const Icon(
-                                              Icons.send_rounded,
-                                            ),
-                                            label: Text(
-                                              isZh
-                                                  ? '重放 sent 帧'
-                                                  : 'Replay sent',
-                                            ),
-                                          ),
-                                        ],
+                                    Text(
+                                      c.url,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 11,
                                       ),
                                     ),
-                                    if (_busy)
-                                      const LinearProgressIndicator(
-                                        minHeight: 3,
-                                      ),
-                                    Expanded(
-                                      child: ListView.builder(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        itemCount: cur.wsFrames.length,
-                                        itemBuilder: (_, i) {
-                                          final f = cur.wsFrames[i];
-                                          final isSent =
-                                              f.direction ==
-                                              CdpWebSocketDirection.sent;
-                                          final isErr =
-                                              f.direction ==
-                                              CdpWebSocketDirection.error;
-                                          return Container(
-                                            margin: const EdgeInsets.only(
-                                              bottom: 4,
-                                            ),
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: isErr
-                                                  ? cs.errorContainer
-                                                        .withValues(alpha: 0.5)
-                                                  : isSent
-                                                  ? cs.primaryContainer
-                                                        .withValues(alpha: 0.18)
-                                                  : cs.surfaceContainerHigh,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: cs.outlineVariant,
-                                              ),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Icon(
-                                                      isErr
-                                                          ? Icons
-                                                                .error_outline_rounded
-                                                          : isSent
-                                                          ? Icons
-                                                                .north_east_rounded
-                                                          : Icons
-                                                                .south_west_rounded,
-                                                      size: 14,
-                                                      color: isErr
-                                                          ? cs.error
-                                                          : isSent
-                                                          ? cs.primary
-                                                          : cs.tertiary,
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Text(
-                                                      _opName(f.opcode),
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color:
-                                                            cs.onSurfaceVariant,
-                                                      ),
-                                                    ),
-                                                    const Spacer(),
-                                                    Text(
-                                                      f.timestamp
-                                                          .toIso8601String()
-                                                          .substring(11, 23),
-                                                      style: TextStyle(
-                                                        fontFamily: 'monospace',
-                                                        fontSize: 10,
-                                                        color: cs
-                                                            .onSurfaceVariant
-                                                            .withValues(
-                                                              alpha: 0.7,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 4),
-                                                SelectableText(
-                                                  f.payload.length > 800
-                                                      ? '${f.payload.substring(0, 800)}…'
-                                                      : f.payload,
-                                                  style: const TextStyle(
-                                                    fontFamily: 'monospace',
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                                if (f.errorMessage != null)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          top: 3,
-                                                        ),
-                                                    child: Text(
-                                                      f.errorMessage!,
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        color: cs.error,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                if (!isErr &&
-                                                    f.payload.isNotEmpty)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          top: 4,
-                                                        ),
-                                                    child: Row(
-                                                      children: [
-                                                        _MiniFrameAction(
-                                                          icon: Icons
-                                                              .replay_rounded,
-                                                          tooltip: isZh
-                                                              ? '重发此帧'
-                                                              : 'Resend',
-                                                          onTap: _busy
-                                                              ? null
-                                                              : () =>
-                                                                    _editAndSend(
-                                                                      f.payload,
-                                                                    ),
-                                                          // 直接重发=编辑窗预填，用户点发送即可；
-                                                          // 若想免确认重发可改成 _replaySingle
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        _MiniFrameAction(
-                                                          icon: Icons
-                                                              .edit_rounded,
-                                                          tooltip: isZh
-                                                              ? '编辑并发送'
-                                                              : 'Edit & send',
-                                                          onTap: _busy
-                                                              ? null
-                                                              : () =>
-                                                                    _editAndSend(
-                                                                      f.payload,
-                                                                    ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        _MiniFrameAction(
-                                                          icon: Icons
-                                                              .bug_report_rounded,
-                                                          tooltip: isZh
-                                                              ? 'Fuzz 此帧'
-                                                              : 'Fuzz',
-                                                          onTap: _busy
-                                                              ? null
-                                                              : () => _fuzz(
-                                                                  f.payload,
-                                                                ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${c.wsFrames.length} ${isZh ? '帧' : 'frames'}',
+                                      style: theme.textTheme.labelSmall,
                                     ),
                                   ],
                                 ),
+                              ),
+                            );
+                          },
                         ),
-                      ],
-                    ),
-            ),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.surfaceContainerHigh,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                      ),
+                      VerticalDivider(width: 1, color: cs.outlineVariant),
+                      Expanded(
+                        child: cur == null
+                            ? const SizedBox.shrink()
+                            : Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      10,
+                                      12,
+                                      6,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: SelectableText(
+                                            cur.url,
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        FilledButton.icon(
+                                          onPressed: _busy ? null : _replaySent,
+                                          icon: const Icon(Icons.send_rounded),
+                                          label: Text(
+                                            isZh ? '重放 sent 帧' : 'Replay sent',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (_busy)
+                                    const LinearProgressIndicator(minHeight: 3),
+                                  Expanded(
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      itemCount: cur.wsFrames.length,
+                                      itemBuilder: (_, i) {
+                                        final f = cur.wsFrames[i];
+                                        final isSent =
+                                            f.direction ==
+                                            CdpWebSocketDirection.sent;
+                                        final isErr =
+                                            f.direction ==
+                                            CdpWebSocketDirection.error;
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 4,
+                                          ),
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: isErr
+                                                ? cs.errorContainer.withValues(
+                                                    alpha: 0.5,
+                                                  )
+                                                : isSent
+                                                ? cs.primaryContainer
+                                                      .withValues(alpha: 0.18)
+                                                : cs.surfaceContainerHigh,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: cs.outlineVariant,
+                                            ),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    isErr
+                                                        ? Icons
+                                                              .error_outline_rounded
+                                                        : isSent
+                                                        ? Icons
+                                                              .north_east_rounded
+                                                        : Icons
+                                                              .south_west_rounded,
+                                                    size: 14,
+                                                    color: isErr
+                                                        ? cs.error
+                                                        : isSent
+                                                        ? cs.primary
+                                                        : cs.tertiary,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    _opName(f.opcode),
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color:
+                                                          cs.onSurfaceVariant,
+                                                    ),
+                                                  ),
+                                                  const Spacer(),
+                                                  Text(
+                                                    f.timestamp
+                                                        .toIso8601String()
+                                                        .substring(11, 23),
+                                                    style: TextStyle(
+                                                      fontFamily: 'monospace',
+                                                      fontSize: 10,
+                                                      color: cs.onSurfaceVariant
+                                                          .withValues(
+                                                            alpha: 0.7,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              SelectableText(
+                                                f.payload.length > 800
+                                                    ? '${f.payload.substring(0, 800)}…'
+                                                    : f.payload,
+                                                style: const TextStyle(
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                              if (f.errorMessage != null)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 3,
+                                                      ),
+                                                  child: Text(
+                                                    f.errorMessage!,
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: cs.error,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (!isErr &&
+                                                  f.payload.isNotEmpty)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 4,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      _MiniFrameAction(
+                                                        icon: Icons
+                                                            .replay_rounded,
+                                                        tooltip: isZh
+                                                            ? '重发此帧'
+                                                            : 'Resend',
+                                                        onTap: _busy
+                                                            ? null
+                                                            : () =>
+                                                                  _editAndSend(
+                                                                    f.payload,
+                                                                  ),
+                                                        // 直接重发=编辑窗预填，用户点发送即可；
+                                                        // 若想免确认重发可改成 _replaySingle
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      _MiniFrameAction(
+                                                        icon:
+                                                            Icons.edit_rounded,
+                                                        tooltip: isZh
+                                                            ? '编辑并发送'
+                                                            : 'Edit & send',
+                                                        onTap: _busy
+                                                            ? null
+                                                            : () =>
+                                                                  _editAndSend(
+                                                                    f.payload,
+                                                                  ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      _MiniFrameAction(
+                                                        icon: Icons
+                                                            .bug_report_rounded,
+                                                        tooltip: isZh
+                                                            ? 'Fuzz 此帧'
+                                                            : 'Fuzz',
+                                                        onTap: _busy
+                                                            ? null
+                                                            : () => _fuzz(
+                                                                f.payload,
+                                                              ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: isZh ? '关闭' : 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
+          ),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: cs.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: isZh ? '关闭' : 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

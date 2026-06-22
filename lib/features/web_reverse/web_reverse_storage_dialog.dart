@@ -49,6 +49,7 @@ class _StorageDialogState extends State<_StorageDialog>
   String? _idbStore;
   List<Map<String, Object?>> _idbEntries = const [];
   bool _idbHasMore = false;
+  int _refreshGeneration = 0;
 
   @override
   void initState() {
@@ -71,40 +72,65 @@ class _StorageDialogState extends State<_StorageDialog>
   }
 
   Future<void> _refreshActive() async {
-    setState(() => _loading = true);
-    _origin ??= await widget.controller.currentOrigin();
-    switch (_tab.index) {
-      case 0:
-        _cookies = await widget.controller.listCookies();
-        break;
-      case 1:
-        if (_origin != null) {
-          _local = await widget.controller.listDomStorage(
-            origin: _origin!,
-            isLocalStorage: true,
-          );
+    final generation = ++_refreshGeneration;
+    final activeTab = _tab.index;
+    if (mounted) setState(() => _loading = true);
+
+    try {
+      final resolvedOrigin = _origin ?? await widget.controller.currentOrigin();
+      List<Map<String, Object?>>? cookies;
+      List<({String key, String value})>? local;
+      List<({String key, String value})>? session;
+      List<String>? idbDbs;
+
+      switch (activeTab) {
+        case 0:
+          cookies = await widget.controller.listCookies();
+          break;
+        case 1:
+          local = resolvedOrigin == null
+              ? const []
+              : await widget.controller.listDomStorage(
+                  origin: resolvedOrigin,
+                  isLocalStorage: true,
+                );
+          break;
+        case 2:
+          session = resolvedOrigin == null
+              ? const []
+              : await widget.controller.listDomStorage(
+                  origin: resolvedOrigin,
+                  isLocalStorage: false,
+                );
+          break;
+        case 3:
+          idbDbs = await widget.controller.listIndexedDbNames();
+          break;
+      }
+
+      if (!mounted || generation != _refreshGeneration) return;
+      setState(() {
+        _origin = resolvedOrigin;
+        if (cookies != null) _cookies = cookies;
+        if (local != null) _local = local;
+        if (session != null) _session = session;
+        if (idbDbs != null) {
+          _idbDbs = idbDbs;
+          if (_idbDb != null && !_idbDbs.contains(_idbDb)) {
+            _idbDb = null;
+            _idbStores = const [];
+            _idbStore = null;
+            _idbEntries = const [];
+          }
         }
-        break;
-      case 2:
-        if (_origin != null) {
-          _session = await widget.controller.listDomStorage(
-            origin: _origin!,
-            isLocalStorage: false,
-          );
-        }
-        break;
-      case 3:
-        _idbDbs = await widget.controller.listIndexedDbNames();
-        if (_idbDb != null && !_idbDbs.contains(_idbDb)) {
-          _idbDb = null;
-          _idbStores = const [];
-          _idbStore = null;
-          _idbEntries = const [];
-        }
-        break;
+        _loading = false;
+      });
+    } catch (error, stack) {
+      silentLog('web_reverse_storage_dialog', 'refresh', error, stack);
+      if (mounted && generation == _refreshGeneration) {
+        setState(() => _loading = false);
+      }
     }
-    if (!mounted) return;
-    setState(() => _loading = false);
   }
 
   Future<void> _selectIdb(String db) async {
@@ -114,12 +140,21 @@ class _StorageDialogState extends State<_StorageDialog>
       _idbStore = null;
       _idbEntries = const [];
     });
-    final desc = await widget.controller.describeIndexedDb(db);
-    if (!mounted) return;
-    setState(() {
-      _idbStores = desc?.stores ?? const [];
-      _loading = false;
-    });
+    try {
+      final desc = await widget.controller.describeIndexedDb(db);
+      if (!mounted) return;
+      setState(() {
+        _idbStores = desc?.stores ?? const [];
+        _loading = false;
+      });
+    } catch (error, stack) {
+      silentLog('web_reverse_storage_dialog', 'select indexeddb', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _idbStores = const [];
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _selectIdbStore(String store) async {
@@ -129,16 +164,31 @@ class _StorageDialogState extends State<_StorageDialog>
       _loading = true;
       _idbStore = store;
     });
-    final res = await widget.controller.readIndexedDbStore(
-      dbName: db,
-      storeName: store,
-    );
-    if (!mounted) return;
-    setState(() {
-      _idbEntries = res?.entries ?? const [];
-      _idbHasMore = res?.hasMore ?? false;
-      _loading = false;
-    });
+    try {
+      final res = await widget.controller.readIndexedDbStore(
+        dbName: db,
+        storeName: store,
+      );
+      if (!mounted) return;
+      setState(() {
+        _idbEntries = res?.entries ?? const [];
+        _idbHasMore = res?.hasMore ?? false;
+        _loading = false;
+      });
+    } catch (error, stack) {
+      silentLog(
+        'web_reverse_storage_dialog',
+        'select indexeddb store',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      setState(() {
+        _idbEntries = const [];
+        _idbHasMore = false;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _copyJson(Object? data) async {
@@ -662,71 +712,49 @@ class _StorageDialogState extends State<_StorageDialog>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
-              child: Row(
-                children: [
-                  Icon(Icons.storage_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      loc?.webReverseStorageTitle ?? 'Storage Manager',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            TabBar(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.storage_rounded,
+            title: loc?.webReverseStorageTitle ?? 'Storage Manager',
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+          ),
+          TabBar(
+            controller: _tab,
+            tabs: const [
+              Tab(text: 'Cookies'),
+              Tab(text: 'LocalStorage'),
+              Tab(text: 'SessionStorage'),
+              Tab(text: 'IndexedDB'),
+            ],
+          ),
+          if (_loading) const LinearProgressIndicator(minHeight: 3),
+          Expanded(
+            child: TabBarView(
               controller: _tab,
-              tabs: const [
-                Tab(text: 'Cookies'),
-                Tab(text: 'LocalStorage'),
-                Tab(text: 'SessionStorage'),
-                Tab(text: 'IndexedDB'),
+              children: [
+                _cookiesView(),
+                _storageView(isLocal: true),
+                _storageView(isLocal: false),
+                _idbView(),
               ],
             ),
-            if (_loading) const LinearProgressIndicator(minHeight: 3),
-            Expanded(
-              child: TabBarView(
-                controller: _tab,
-                children: [
-                  _cookiesView(),
-                  _storageView(isLocal: true),
-                  _storageView(isLocal: false),
-                  _idbView(),
-                ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: loc?.webReverseStorageClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseStorageClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

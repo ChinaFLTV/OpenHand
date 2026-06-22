@@ -343,184 +343,150 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
               '// No matching requests.\n// Adjust the filter or turn off "XHR/Fetch only".')
         : _buildOutput(entries.take(2).toList());
 
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.ios_share_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseCollectionExportTitle ??
-                              'Export Collection',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseCollectionExportSubtitle ??
-                              'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 920,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.ios_share_rounded,
+            title: loc?.webReverseCollectionExportTitle ?? 'Export Collection',
+            subtitle:
+                loc?.webReverseCollectionExportSubtitle ??
+                'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _CollectionFormat.values.map((f) {
+                final selected = _format == f;
+                return ChoiceChip(
+                  label: Text(_labelOf(f)),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _format = f),
+                );
+              }).toList(),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _CollectionFormat.values.map((f) {
-                  final selected = _format == f;
-                  return ChoiceChip(
-                    label: Text(_labelOf(f)),
-                    selected: selected,
-                    onSelected: (_) => setState(() => _format = f),
-                  );
-                }).toList(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 240,
-                    child: TextField(
-                      controller: _nameCtrl,
-                      decoration: InputDecoration(
-                        labelText:
-                            loc?.webReverseCollectionExportName ??
-                            'Collection name',
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _filterCtrl,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        labelText:
-                            loc?.webReverseCollectionExportUrlFilter ??
-                            'URL filter',
-                        prefixIcon: const Icon(
-                          Icons.filter_alt_rounded,
-                          size: 18,
-                        ),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilterChip(
-                    label: Text(
-                      loc?.webReverseCollectionExportXhrOnly ??
-                          'XHR/Fetch only',
-                    ),
-                    selected: _xhrOnly,
-                    onSelected: (v) => setState(() => _xhrOnly = v),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      loc?.webReverseCollectionExportMatchCount(
-                            entries.length,
-                            widget.controller.networkRequests.length,
-                          ) ??
-                          '${entries.length} match · ${widget.controller.networkRequests.length} total',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      '${loc?.webReverseCollectionExportPreview2 ?? 'Preview: first 2 entries'} · ${isZh ? '导出上限' : 'export cap'} $_kCollectionExportMaxEntries',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    preview,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 240,
+                  child: TextField(
+                    controller: _nameCtrl,
+                    decoration: InputDecoration(
+                      labelText:
+                          loc?.webReverseCollectionExportName ??
+                          'Collection name',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
                     ),
                   ),
                 ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            buildOpenHandDialogActionsBar(
-              padding: const EdgeInsets.all(12),
-              actions: [
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseCollectionExportClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _filterCtrl,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText:
+                          loc?.webReverseCollectionExportUrlFilter ??
+                          'URL filter',
+                      prefixIcon: const Icon(
+                        Icons.filter_alt_rounded,
+                        size: 18,
+                      ),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
                 ),
-                OpenHandDialogActionButton.primary(
-                  label:
-                      loc?.webReverseCollectionExportCopyAction ??
-                      'Copy collection',
-                  onPressed: entries.isEmpty ? null : _copy,
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: Text(
+                    loc?.webReverseCollectionExportXhrOnly ?? 'XHR/Fetch only',
+                  ),
+                  selected: _xhrOnly,
+                  onSelected: (v) => setState(() => _xhrOnly = v),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    loc?.webReverseCollectionExportMatchCount(
+                          entries.length,
+                          widget.controller.networkRequests.length,
+                        ) ??
+                        '${entries.length} match · ${widget.controller.networkRequests.length} total',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    '${loc?.webReverseCollectionExportPreview2 ?? 'Preview: first 2 entries'} · ${isZh ? '导出上限' : 'export cap'} $_kCollectionExportMaxEntries',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  preview,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          buildOpenHandDialogActionsBar(
+            padding: const EdgeInsets.all(12),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseCollectionExportClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              OpenHandDialogActionButton.primary(
+                label:
+                    loc?.webReverseCollectionExportCopyAction ??
+                    'Copy collection',
+                onPressed: entries.isEmpty ? null : _copy,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

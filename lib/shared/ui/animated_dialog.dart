@@ -656,6 +656,10 @@ Widget buildOpenHandToolDialogShell({
   Clip clipBehavior = Clip.antiAlias,
 }) {
   final colorScheme = Theme.of(context).colorScheme;
+  final effectiveMaxWidth =
+      _validDialogDimension(maxWidth) ?? kOpenHandToolDialogDefaultMaxWidth;
+  final effectiveMaxHeight =
+      _validDialogDimension(maxHeight) ?? kOpenHandToolDialogDefaultMaxHeight;
   return buildOpenHandDialog(
     backgroundColor: backgroundColor ?? colorScheme.surfaceContainer,
     shape:
@@ -665,8 +669,8 @@ Widget buildOpenHandToolDialogShell({
         ),
     clipBehavior: clipBehavior,
     insetPadding: insetPadding,
-    maxWidth: maxWidth,
-    maxHeight: maxHeight,
+    maxWidth: effectiveMaxWidth,
+    maxHeight: effectiveMaxHeight,
     child: child,
   );
 }
