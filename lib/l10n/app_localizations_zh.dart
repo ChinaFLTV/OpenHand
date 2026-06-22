@@ -1726,52 +1726,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiMaxHookTextCharactersInvalid => '请输入 100~1000000 之间的整数。';
 
   @override
-  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 单次响应字节上限';
-
-  @override
-  String get aiWebFetchMaxResponseBytesBody =>
-      '默认 1048576（1MB）。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSave => '保存';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 单次响应字节上限已保存。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesInvalid => '请输入有效整数。';
-
-  @override
-  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大重定向次数';
-
-  @override
-  String get aiWebFetchMaxRedirectsBody => '默认 5。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiWebFetchMaxRedirectsSave => '保存';
-
-  @override
-  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大重定向次数已保存。';
-
-  @override
-  String get aiWebFetchMaxRedirectsInvalid => '请输入有效整数。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 缓存条目上限';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesBody => '默认 64。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSave => '保存';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 缓存条目上限已保存。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesInvalid => '请输入有效整数。';
-
-  @override
   String get aiAttachmentMaxInlineImageDimensionLabel => '附件图片最大边长（像素）';
 
   @override
@@ -9609,52 +9563,6 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiMaxHookTextCharactersInvalid => '请输入 100~1000000 之间的整数。';
 
   @override
-  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 单次响应字节上限';
-
-  @override
-  String get aiWebFetchMaxResponseBytesBody =>
-      '默认 1048576（1MB）。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSave => '保存';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 单次响应字节上限已保存。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesInvalid => '请输入有效整数。';
-
-  @override
-  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大重定向次数';
-
-  @override
-  String get aiWebFetchMaxRedirectsBody => '默认 5。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiWebFetchMaxRedirectsSave => '保存';
-
-  @override
-  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大重定向次数已保存。';
-
-  @override
-  String get aiWebFetchMaxRedirectsInvalid => '请输入有效整数。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 缓存条目上限';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesBody => '默认 64。调整以适配你的网络与附件需求。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSave => '保存';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 缓存条目上限已保存。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesInvalid => '请输入有效整数。';
-
-  @override
   String get aiAttachmentMaxInlineImageDimensionLabel => '附件图片最大边长（像素）';
 
   @override
@@ -17489,52 +17397,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiMaxHookTextCharactersInvalid => '請輸入 100~1000000 之間的整數。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 單次回應位元組上限';
-
-  @override
-  String get aiWebFetchMaxResponseBytesBody =>
-      '默认 1048576（1MB）。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSave => '儲存';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 單次回應位元組上限已儲存。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大重新導向次數';
-
-  @override
-  String get aiWebFetchMaxRedirectsBody => '默认 5。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiWebFetchMaxRedirectsSave => '儲存';
-
-  @override
-  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大重新導向次數已儲存。';
-
-  @override
-  String get aiWebFetchMaxRedirectsInvalid => '請輸入有效整數。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 快取條目上限';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesBody => '默认 64。調整以適配你的網路與附件需求。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSave => '儲存';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 快取條目上限已儲存。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesInvalid => '請輸入有效整數。';
 
   @override
   String get aiAttachmentMaxInlineImageDimensionLabel => '附件圖片最大邊長（像素）';

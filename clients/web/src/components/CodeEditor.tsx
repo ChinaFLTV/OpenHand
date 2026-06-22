@@ -29,12 +29,6 @@ interface MonacoEditor {
   setValue(v: string): void;
   updateOptions(opts: Record<string, unknown>): void;
   onDidChangeModelContent(cb: () => void): { dispose(): void };
-  getModel(): MonacoModel | null;
-  layout(): void;
-}
-
-interface MonacoModel {
-  setValue(v: string): void;
 }
 
 let monacoLoadPromise: Promise<MonacoStub> | null = null;
@@ -189,19 +183,11 @@ export function CodeEditor({
     }
   }, [value]);
 
-  // readOnly + filename 切换
   useEffect(() => {
     const ed = editorRef.current;
     if (!ed) return;
     ed.updateOptions({ readOnly });
   }, [readOnly]);
-
-  useEffect(() => {
-    const ed = editorRef.current;
-    if (!ed) return;
-    // Monaco 需要通过 setModelLanguage; 简化: 重建 model 太重, 用 updateOptions 占位 — 仅生效一次
-    // 此处不切换语言, 因 FilesPage 在文件切换时父组件会 unmount/remount key 不同
-  }, [filename]);
 
   return (
     <div

@@ -131,9 +131,6 @@ class AiSessionRuntimeContext {
     this.subprocessGracefulShutdownMs = 500,
     this.bashOutputMaxBytes = 200000,
     this.maxConcurrentTools = 8,
-    this.webFetchMaxResponseBytes = kBytesPerMiB,
-    this.webFetchMaxRedirects = 5,
-    this.webFetchMaxCacheEntries = 64,
     this.attachmentMaxInlineImageDimension = 1568,
     this.attachmentMaxTextRawBytes = 2 * kBytesPerMiB,
     this.attachmentMaxPdfRawBytes = 2 * kBytesPerMiB,
@@ -320,15 +317,6 @@ class AiSessionRuntimeContext {
   /// 2026-05 — 工具加固：同会话并发派发工具调用上限。
   final int maxConcurrentTools;
 
-  /// Group C — WebFetch 单次响应字节上限。
-  final int webFetchMaxResponseBytes;
-
-  /// Group C — WebFetch 最大重定向次数。
-  final int webFetchMaxRedirects;
-
-  /// Group C — WebFetch 内存缓存条目上限。
-  final int webFetchMaxCacheEntries;
-
   /// Group C — 附件图片解码最大边长（像素）。
   final int attachmentMaxInlineImageDimension;
 
@@ -505,9 +493,6 @@ class AiSessionRuntimeContext {
       'subprocess_graceful_shutdown_ms': subprocessGracefulShutdownMs,
       'bash_output_max_bytes': bashOutputMaxBytes,
       'max_concurrent_tools': maxConcurrentTools,
-      'web_fetch_max_response_bytes': webFetchMaxResponseBytes,
-      'web_fetch_max_redirects': webFetchMaxRedirects,
-      'web_fetch_max_cache_entries': webFetchMaxCacheEntries,
       'attachment_max_inline_image_dimension':
           attachmentMaxInlineImageDimension,
       'attachment_max_text_raw_bytes': attachmentMaxTextRawBytes,

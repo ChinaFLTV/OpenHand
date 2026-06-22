@@ -1746,53 +1746,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiMaxHookTextCharactersInvalid => '100 から 1000000 までの整数を入力してください。';
 
   @override
-  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 最大レスポンスバイト数';
-
-  @override
-  String get aiWebFetchMaxResponseBytesBody =>
-      '既定値 1048576 (1MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSave => '保存';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 最大レスポンスバイト数を保存しました。';
-
-  @override
-  String get aiWebFetchMaxResponseBytesInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大リダイレクト数';
-
-  @override
-  String get aiWebFetchMaxRedirectsBody => '既定値 5。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiWebFetchMaxRedirectsSave => '保存';
-
-  @override
-  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大リダイレクト数を保存しました。';
-
-  @override
-  String get aiWebFetchMaxRedirectsInvalid => '有効な整数を入力してください。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 最大キャッシュエントリ数';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesBody =>
-      '既定値 64。ネットワークや添付ファイルのニーズに合わせて調整します。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSave => '保存';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 最大キャッシュエントリ数を保存しました。';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesInvalid => '有効な整数を入力してください。';
-
-  @override
   String get aiAttachmentMaxInlineImageDimensionLabel => '添付ファイル インライン画像の最大寸法';
 
   @override

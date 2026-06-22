@@ -418,7 +418,7 @@ class AiSessionController extends ChangeNotifier {
     safeSubprocessDefaultGracefulShutdownMs =
         runtimeContext.subprocessGracefulShutdownMs;
     _hookService.maxHookTextCharacters = runtimeContext.maxHookTextCharacters;
-    // Group C: 网络与附件类参数。
+    // Group C: 附件与流式缓冲参数。
     _attachmentService.maxInlineImageDimension =
         runtimeContext.attachmentMaxInlineImageDimension;
     _attachmentService.maxTextRawBytes =
@@ -435,14 +435,6 @@ class AiSessionController extends ChangeNotifier {
     if (bgChatClient is AiChatService) {
       bgChatClient.maxStreamLineBufferBytes =
           runtimeContext.chatMaxStreamLineBufferBytes;
-    }
-    final webFetch = _toolRuntimeService.toolRegistry.getTool(
-      AiBuiltinToolKind.webFetch,
-    );
-    if (webFetch is AiWebFetchTool) {
-      webFetch.maxResponseBytes = runtimeContext.webFetchMaxResponseBytes;
-      webFetch.maxRedirects = runtimeContext.webFetchMaxRedirects;
-      webFetch.maxCacheEntries = runtimeContext.webFetchMaxCacheEntries;
     }
     // Group D: 标题派生相关阈值（mutable static, 同一进程共享）。
     _fallbackTitleMaxCharacters = runtimeContext.fallbackTitleMaxCharacters;

@@ -1836,57 +1836,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Ganzzahl zwischen 100 und 1000000 eingeben.';
 
   @override
-  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch max. Antwort-Bytes';
-
-  @override
-  String get aiWebFetchMaxResponseBytesBody =>
-      'Standard 1048576 (1MB). An Netzwerk- oder Anhangsbedarf anpassen.';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSave => 'Speichern';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSaved =>
-      'WebFetch max. Antwort-Bytes gespeichert.';
-
-  @override
-  String get aiWebFetchMaxResponseBytesInvalid => 'Gültige Ganzzahl eingeben.';
-
-  @override
-  String get aiWebFetchMaxRedirectsLabel => 'WebFetch max. Weiterleitungen';
-
-  @override
-  String get aiWebFetchMaxRedirectsBody =>
-      'Standard 5. An Netzwerk- oder Anhangsbedarf anpassen.';
-
-  @override
-  String get aiWebFetchMaxRedirectsSave => 'Speichern';
-
-  @override
-  String get aiWebFetchMaxRedirectsSaved =>
-      'WebFetch max. Weiterleitungen gespeichert.';
-
-  @override
-  String get aiWebFetchMaxRedirectsInvalid => 'Gültige Ganzzahl eingeben.';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch max. Cache-Einträge';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesBody =>
-      'Standard 64. An Netzwerk- oder Anhangsbedarf anpassen.';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSave => 'Speichern';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSaved =>
-      'WebFetch max. Cache-Einträge gespeichert.';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesInvalid => 'Gültige Ganzzahl eingeben.';
-
-  @override
   String get aiAttachmentMaxInlineImageDimensionLabel =>
       'Anhang max. Inline-Bildmaße';
 

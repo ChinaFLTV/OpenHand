@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import '../../../../app/support/openhand_notification_service.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/url_validation.dart';
-import '../../../../shared/util/byte_size_format.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
@@ -44,12 +43,6 @@ class AiWebFetchTool extends AiTool {
   final WebFetchScraplingBridge _scraplingBridge;
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
 
-  // 由 AiSessionController 推送的运行时参数（保留向后兼容字段）。
-  // 这三项历史 settings 仍由 settings_controller 推到 runtime context；保留即可，
-  // 新代码主要依赖 [AiBuiltinToolConfig.webFetchSettings]。
-  int maxRedirects = 5;
-  int maxResponseBytes = kBytesPerMiB;
-  int maxCacheEntries = 64; // 仅作占位，新缓存层走磁盘 LRU
   List<AiModelConfig> availableModels = const <AiModelConfig>[];
 
   @override

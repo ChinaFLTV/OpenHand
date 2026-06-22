@@ -76,9 +76,6 @@ class AppSettingsSnapshot {
       aiWriteConfirmationTimeoutMs: defaultAiWriteConfirmationTimeoutMs,
       aiFastPathWriteAnalysisThreshold: defaultAiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters: defaultAiMaxHookTextCharacters,
-      aiWebFetchMaxResponseBytes: defaultAiWebFetchMaxResponseBytes,
-      aiWebFetchMaxRedirects: defaultAiWebFetchMaxRedirects,
-      aiWebFetchMaxCacheEntries: defaultAiWebFetchMaxCacheEntries,
       aiAttachmentMaxInlineImageDimension:
           defaultAiAttachmentMaxInlineImageDimension,
       aiAttachmentMaxTextRawBytes: defaultAiAttachmentMaxTextRawBytes,
@@ -187,9 +184,6 @@ class AppSettingsSnapshot {
     required this.aiWriteConfirmationTimeoutMs,
     required this.aiFastPathWriteAnalysisThreshold,
     required this.aiMaxHookTextCharacters,
-    required this.aiWebFetchMaxResponseBytes,
-    required this.aiWebFetchMaxRedirects,
-    required this.aiWebFetchMaxCacheEntries,
     required this.aiAttachmentMaxInlineImageDimension,
     required this.aiAttachmentMaxTextRawBytes,
     required this.aiAttachmentMaxPdfRawBytes,
@@ -446,19 +440,7 @@ class AppSettingsSnapshot {
   static const int minAiMaxHookTextCharacters = 100;
   static const int maxAiMaxHookTextCharacters = 1000000;
 
-  /// 2026-04-29 — Group C: 网络与附件类参数。
-  static const int defaultAiWebFetchMaxResponseBytes = kBytesPerMiB;
-  static const int minAiWebFetchMaxResponseBytes = 16 * kBytesPerKiB;
-  static const int maxAiWebFetchMaxResponseBytes = 256 * kBytesPerMiB;
-
-  static const int defaultAiWebFetchMaxRedirects = 5;
-  static const int minAiWebFetchMaxRedirects = 0;
-  static const int maxAiWebFetchMaxRedirects = 50;
-
-  static const int defaultAiWebFetchMaxCacheEntries = 64;
-  static const int minAiWebFetchMaxCacheEntries = 0;
-  static const int maxAiWebFetchMaxCacheEntries = 4096;
-
+  /// 2026-04-29 — Group C: 附件与流式缓冲参数。
   static const int defaultAiAttachmentMaxInlineImageDimension = 1568;
   static const int minAiAttachmentMaxInlineImageDimension = 64;
   static const int maxAiAttachmentMaxInlineImageDimension = 16384;
@@ -744,9 +726,6 @@ class AppSettingsSnapshot {
   final int aiWriteConfirmationTimeoutMs;
   final int aiFastPathWriteAnalysisThreshold;
   final int aiMaxHookTextCharacters;
-  final int aiWebFetchMaxResponseBytes;
-  final int aiWebFetchMaxRedirects;
-  final int aiWebFetchMaxCacheEntries;
   final int aiAttachmentMaxInlineImageDimension;
   final int aiAttachmentMaxTextRawBytes;
   final int aiAttachmentMaxPdfRawBytes;
@@ -955,9 +934,6 @@ class AppSettingsSnapshot {
     int? aiWriteConfirmationTimeoutMs,
     int? aiFastPathWriteAnalysisThreshold,
     int? aiMaxHookTextCharacters,
-    int? aiWebFetchMaxResponseBytes,
-    int? aiWebFetchMaxRedirects,
-    int? aiWebFetchMaxCacheEntries,
     int? aiAttachmentMaxInlineImageDimension,
     int? aiAttachmentMaxTextRawBytes,
     int? aiAttachmentMaxPdfRawBytes,
@@ -1109,12 +1085,6 @@ class AppSettingsSnapshot {
           this.aiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters:
           aiMaxHookTextCharacters ?? this.aiMaxHookTextCharacters,
-      aiWebFetchMaxResponseBytes:
-          aiWebFetchMaxResponseBytes ?? this.aiWebFetchMaxResponseBytes,
-      aiWebFetchMaxRedirects:
-          aiWebFetchMaxRedirects ?? this.aiWebFetchMaxRedirects,
-      aiWebFetchMaxCacheEntries:
-          aiWebFetchMaxCacheEntries ?? this.aiWebFetchMaxCacheEntries,
       aiAttachmentMaxInlineImageDimension:
           aiAttachmentMaxInlineImageDimension ??
           this.aiAttachmentMaxInlineImageDimension,

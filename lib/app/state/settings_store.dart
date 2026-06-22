@@ -209,9 +209,6 @@ class SettingsStore {
       'ai_fast_path_write_analysis_threshold':
           snapshot.aiFastPathWriteAnalysisThreshold,
       'ai_max_hook_text_characters': snapshot.aiMaxHookTextCharacters,
-      'ai_web_fetch_max_response_bytes': snapshot.aiWebFetchMaxResponseBytes,
-      'ai_web_fetch_max_redirects': snapshot.aiWebFetchMaxRedirects,
-      'ai_web_fetch_max_cache_entries': snapshot.aiWebFetchMaxCacheEntries,
       'ai_attachment_max_inline_image_dimension':
           snapshot.aiAttachmentMaxInlineImageDimension,
       'ai_attachment_max_text_raw_bytes': snapshot.aiAttachmentMaxTextRawBytes,
@@ -604,24 +601,6 @@ class SettingsStore {
       fallback: AppSettingsSnapshot.defaultAiMaxHookTextCharacters,
       min: AppSettingsSnapshot.minAiMaxHookTextCharacters,
       max: AppSettingsSnapshot.maxAiMaxHookTextCharacters,
-    );
-    final aiWebFetchMaxResponseBytes = clampedIntFromValue(
-      json['ai_web_fetch_max_response_bytes'],
-      fallback: AppSettingsSnapshot.defaultAiWebFetchMaxResponseBytes,
-      min: AppSettingsSnapshot.minAiWebFetchMaxResponseBytes,
-      max: AppSettingsSnapshot.maxAiWebFetchMaxResponseBytes,
-    );
-    final aiWebFetchMaxRedirects = clampedIntFromValue(
-      json['ai_web_fetch_max_redirects'],
-      fallback: AppSettingsSnapshot.defaultAiWebFetchMaxRedirects,
-      min: AppSettingsSnapshot.minAiWebFetchMaxRedirects,
-      max: AppSettingsSnapshot.maxAiWebFetchMaxRedirects,
-    );
-    final aiWebFetchMaxCacheEntries = clampedIntFromValue(
-      json['ai_web_fetch_max_cache_entries'],
-      fallback: AppSettingsSnapshot.defaultAiWebFetchMaxCacheEntries,
-      min: AppSettingsSnapshot.minAiWebFetchMaxCacheEntries,
-      max: AppSettingsSnapshot.maxAiWebFetchMaxCacheEntries,
     );
     final aiAttachmentMaxInlineImageDimension = clampedIntFromValue(
       json['ai_attachment_max_inline_image_dimension'],
@@ -1153,9 +1132,6 @@ class SettingsStore {
       aiWriteConfirmationTimeoutMs: aiWriteConfirmationTimeoutMs,
       aiFastPathWriteAnalysisThreshold: aiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters: aiMaxHookTextCharacters,
-      aiWebFetchMaxResponseBytes: aiWebFetchMaxResponseBytes,
-      aiWebFetchMaxRedirects: aiWebFetchMaxRedirects,
-      aiWebFetchMaxCacheEntries: aiWebFetchMaxCacheEntries,
       aiAttachmentMaxInlineImageDimension: aiAttachmentMaxInlineImageDimension,
       aiAttachmentMaxTextRawBytes: aiAttachmentMaxTextRawBytes,
       aiAttachmentMaxPdfRawBytes: aiAttachmentMaxPdfRawBytes,

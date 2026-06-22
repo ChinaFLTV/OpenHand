@@ -312,8 +312,7 @@ class AiToolRuntimeService {
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
   late final AiToolRegistry _toolRegistry;
 
-  /// Group C — 暴露给 [AiSessionController]，用于把 runtime context 中的网络
-  /// 类参数下放到 [AiWebFetchTool] 实例。
+  /// 暴露给 [AiSessionController]，用于同步需要随设置变化更新的工具实例。
   AiToolRegistry get toolRegistry => _toolRegistry;
 
   // 2026-04-12: 文件追踪和历史版本服务

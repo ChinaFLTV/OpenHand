@@ -1846,58 +1846,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Saisissez un entier entre 100 et 1000000.';
 
   @override
-  String get aiWebFetchMaxResponseBytesLabel =>
-      'Octets de réponse max. WebFetch';
-
-  @override
-  String get aiWebFetchMaxResponseBytesBody =>
-      'Par défaut 1048576 (1 Mo). Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSave => 'Enregistrer';
-
-  @override
-  String get aiWebFetchMaxResponseBytesSaved =>
-      'Octets de réponse max. WebFetch enregistrés.';
-
-  @override
-  String get aiWebFetchMaxResponseBytesInvalid => 'Saisissez un entier valide.';
-
-  @override
-  String get aiWebFetchMaxRedirectsLabel => 'Redirections max. WebFetch';
-
-  @override
-  String get aiWebFetchMaxRedirectsBody =>
-      'Par défaut 5. Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiWebFetchMaxRedirectsSave => 'Enregistrer';
-
-  @override
-  String get aiWebFetchMaxRedirectsSaved =>
-      'Redirections max. WebFetch enregistrées.';
-
-  @override
-  String get aiWebFetchMaxRedirectsInvalid => 'Saisissez un entier valide.';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'Entrées de cache max. WebFetch';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesBody =>
-      'Par défaut 64. Ajustez selon vos besoins réseau ou de pièces jointes.';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSave => 'Enregistrer';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesSaved =>
-      'Entrées de cache max. WebFetch enregistrées.';
-
-  @override
-  String get aiWebFetchMaxCacheEntriesInvalid => 'Saisissez un entier valide.';
-
-  @override
   String get aiAttachmentMaxInlineImageDimensionLabel =>
       'Dimension max. d’image inline en pièce jointe';
 
