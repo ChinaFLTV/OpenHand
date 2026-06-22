@@ -40,6 +40,7 @@ const int _transcriptWarmupMaxPerFrame = 1;
 const double _transcriptListCacheExtent = 120;
 const double _transcriptHistoryRevealListCacheExtent = 900;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
+const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 const Duration _transcriptHistoryRevealCooldown = Duration(milliseconds: 120);
 const int _scrollToBottomPositionRetryLimit = 16;

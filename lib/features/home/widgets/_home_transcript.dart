@@ -1458,24 +1458,47 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     AiSessionMessage message,
     AiSessionMessageFeedback? feedback,
   ) async {
-    final offset = _viewportOffsetForMessage(message.id);
-    final anchor = offset == null
-        ? null
-        : _TranscriptViewportAnchor(
-            messageId: message.id,
-            viewportOffset: offset,
-          );
+    final anchor = _captureMessageAnchor(message.id);
     await widget.onSetMessageFeedback(message, feedback);
-    if (!mounted || anchor == null) {
-      return;
-    }
+    await _restoreMessageAnchorAfterLayout(anchor);
+  }
+
+  Future<void> _selectMessageResponseVariantAnchored(
+    AiSessionMessage message,
+    int index,
+  ) async {
+    final anchor = _captureMessageAnchor(message.id);
+    await widget.onSelectMessageResponseVariant(message, index);
+    await _restoreMessageAnchorAfterLayout(
+      anchor,
+      stabilizeAlways: true,
+      settleFrameCount: _responseVariantAnchorSettleFrameCount,
+    );
+  }
+
+  _TranscriptViewportAnchor? _captureMessageAnchor(String messageId) {
+    final offset = _viewportOffsetForMessage(messageId);
+    if (offset == null) return null;
+    return _TranscriptViewportAnchor(
+      messageId: messageId,
+      viewportOffset: offset,
+    );
+  }
+
+  Future<void> _restoreMessageAnchorAfterLayout(
+    _TranscriptViewportAnchor? anchor, {
+    bool stabilizeAlways = false,
+    int settleFrameCount = _transcriptPrependAnchorSettleFrameCount,
+  }) async {
+    if (!mounted || anchor == null) return;
     await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     final restored = _restorePrependAnchor(anchor);
-    if (restored) {
-      _startPrependAnchorStabilization(anchor);
+    if (restored || stabilizeAlways) {
+      _startPrependAnchorStabilization(
+        anchor,
+        settleFrameCount: settleFrameCount,
+      );
     }
   }
 
@@ -1950,9 +1973,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return true;
   }
 
-  void _startPrependAnchorStabilization(_TranscriptViewportAnchor anchor) {
+  void _startPrependAnchorStabilization(
+    _TranscriptViewportAnchor anchor, {
+    int settleFrameCount = _transcriptPrependAnchorSettleFrameCount,
+  }) {
     _pendingPrependAnchor = anchor;
-    _pendingPrependAnchorFrames = _transcriptPrependAnchorSettleFrameCount;
+    _pendingPrependAnchorFrames = math.max(1, settleFrameCount);
     _queuePrependAnchorCorrection();
   }
 
@@ -2586,8 +2612,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                             _setMessageFeedbackAnchored(message, feedback),
                         onRegenerateResponse: () =>
                             widget.onRegenerateMessage(message),
-                        onSelectResponseVariant: (index) => widget
-                            .onSelectMessageResponseVariant(message, index),
+                        onSelectResponseVariant: (index) =>
+                            _selectMessageResponseVariantAnchored(
+                              message,
+                              index,
+                            ),
                         speechEnabled: speechEnabled,
                         speechPlaying: speechPlaying,
                         onToggleSpeech: speechEnabled
