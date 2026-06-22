@@ -39,6 +39,7 @@ const int _transcriptStagedMaterializationThreshold = 24;
 const int _transcriptWarmupMaxPerFrame = 1;
 const double _transcriptListCacheExtent = 120;
 const double _transcriptHistoryRevealListCacheExtent = 900;
+const int _htmlWebViewMaxMountedCount = 4;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;

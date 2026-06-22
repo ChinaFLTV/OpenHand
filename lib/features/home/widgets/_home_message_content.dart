@@ -3733,6 +3733,70 @@ class _HtmlWebViewFrameScheduler {
   void schedule(VoidCallback task) => _scheduler.schedule(task);
 }
 
+class _HtmlWebViewMountLimiter {
+  _HtmlWebViewMountLimiter();
+
+  final Set<int> _activeIds = <int>{};
+  final Queue<_HtmlWebViewMountPermit> _waiting =
+      Queue<_HtmlWebViewMountPermit>();
+  int _nextId = 0;
+
+  _HtmlWebViewMountPermit request(VoidCallback onGranted) {
+    final permit = _HtmlWebViewMountPermit._(++_nextId, this, onGranted);
+    if (_activeIds.length < _htmlWebViewMaxMountedCount) {
+      _activeIds.add(permit.id);
+      permit._granted = true;
+      return permit;
+    }
+    _waiting.add(permit);
+    return permit;
+  }
+
+  void release(_HtmlWebViewMountPermit permit) {
+    if (permit._released) return;
+    permit._released = true;
+    if (permit._granted) {
+      _activeIds.remove(permit.id);
+    } else {
+      _waiting.remove(permit);
+    }
+    _drain();
+  }
+
+  void _drain() {
+    while (_activeIds.length < _htmlWebViewMaxMountedCount &&
+        _waiting.isNotEmpty) {
+      final permit = _waiting.removeFirst();
+      if (permit._released) continue;
+      permit._granted = true;
+      _activeIds.add(permit.id);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!permit._released) {
+          permit._onGranted();
+        }
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
+  }
+}
+
+class _HtmlWebViewMountPermit {
+  _HtmlWebViewMountPermit._(this.id, this._owner, this._onGranted);
+
+  final int id;
+  final _HtmlWebViewMountLimiter _owner;
+  final VoidCallback _onGranted;
+  bool _granted = false;
+  bool _released = false;
+
+  bool get granted => _granted && !_released;
+
+  void release() => _owner.release(this);
+}
+
+final _HtmlWebViewMountLimiter _htmlWebViewMountLimiter =
+    _HtmlWebViewMountLimiter();
+
 class _DeferredHtmlBubbleWebView extends StatefulWidget {
   const _DeferredHtmlBubbleWebView({
     super.key,
@@ -3758,6 +3822,7 @@ class _DeferredHtmlBubbleWebViewState
   int _generation = 0;
   TranscriptScrollActivity? _scrollActivity;
   bool _pendingMountAfterScroll = false;
+  _HtmlWebViewMountPermit? _mountPermit;
 
   bool _hasWarmWebViewMetrics() {
     final cacheKey = _htmlBubbleHeightCacheKey(
@@ -3771,10 +3836,7 @@ class _DeferredHtmlBubbleWebViewState
   @override
   void initState() {
     super.initState();
-    _mountWebView = _hasWarmWebViewMetrics();
-    if (!_mountWebView) {
-      _scheduleMount();
-    }
+    _scheduleMount();
   }
 
   @override
@@ -3785,8 +3847,8 @@ class _DeferredHtmlBubbleWebViewState
         oldWidget.backgroundColor != widget.backgroundColor ||
         oldWidget.baseTextStyle != widget.baseTextStyle) {
       _pendingMountAfterScroll = false;
-      _mountWebView = _hasWarmWebViewMetrics();
       if (!_mountWebView) {
+        _releaseMountPermit();
         _scheduleMount();
       }
     }
@@ -3809,6 +3871,7 @@ class _DeferredHtmlBubbleWebViewState
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = null;
     _generation += 1;
+    _releaseMountPermit();
     super.dispose();
   }
 
@@ -3841,11 +3904,53 @@ class _DeferredHtmlBubbleWebViewState
         _pendingMountAfterScroll = true;
         return;
       }
-      _pendingMountAfterScroll = false;
-      setState(() {
-        _mountWebView = true;
-      });
+      _tryMountWebView(generation);
     });
+  }
+
+  void _tryMountWebView(int generation) {
+    if (!mounted || generation != _generation || _mountWebView) {
+      return;
+    }
+    final existing = _mountPermit;
+    if (existing != null) {
+      if (existing.granted) {
+        _pendingMountAfterScroll = false;
+        setState(() => _mountWebView = true);
+      }
+      return;
+    }
+
+    late final _HtmlWebViewMountPermit permit;
+    permit = _htmlWebViewMountLimiter.request(() {
+      if (!mounted ||
+          generation != _generation ||
+          _mountWebView ||
+          !identical(_mountPermit, permit)) {
+        permit.release();
+        return;
+      }
+      if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+        _pendingMountAfterScroll = true;
+        _mountPermit = null;
+        permit.release();
+        return;
+      }
+      _pendingMountAfterScroll = false;
+      setState(() => _mountWebView = true);
+    });
+    _mountPermit = permit;
+    if (permit.granted) {
+      _pendingMountAfterScroll = false;
+      setState(() => _mountWebView = true);
+    }
+  }
+
+  void _releaseMountPermit() {
+    final permit = _mountPermit;
+    if (permit == null) return;
+    _mountPermit = null;
+    permit.release();
   }
 
   @override

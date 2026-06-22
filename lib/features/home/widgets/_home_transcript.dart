@@ -2456,12 +2456,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.only(bottom: 12),
-                  // `ListView.builder` keeps already-built bubbles alive when
-                  // they scroll just outside the viewport (framework default).
-                  // We previously disabled this to limit memory; the cost of
-                  // re-parsing markdown / re-tokenising large code blocks on
-                  // every fling turned out to dominate scroll jank for long
-                  // sessions, so we now rely on the default keep-alive.
+                  // Long transcripts keep regular markdown/code bubbles cheap
+                  // through parser/highlight caches. HTML platform views are
+                  // heavier, so only the selected HTML bubble requests explicit
+                  // keep-alive; off-screen HTML cards release their WebView
+                  // permit and remount through the global limiter when needed.
                   // Repaint boundaries are essential for a message list: without
                   // them a single bubble's internal animation (e.g. streaming
                   // reasoning shimmer, tool-call progress) dirties the entire
@@ -2633,6 +2632,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         _isMessageTranslatable(message, settingsController);
                     final keepHtmlBubbleAlive =
                         !entry.exiting &&
+                        isSelected &&
                         _messageUsesHtmlRenderer(message, settingsController);
                     final bubble = _TranscriptBubbleRegistrar(
                       messageId: message.id,
