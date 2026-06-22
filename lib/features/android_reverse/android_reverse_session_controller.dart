@@ -19,6 +19,7 @@ const Duration _kStaticQuickScanWarmTimeout = Duration(seconds: 18);
 const Duration _kStaticQuickScanTimeoutSkew = Duration(milliseconds: 500);
 const Duration _kArtifactChmodTimeout = Duration(seconds: 2);
 const Duration _kEvidenceBundleTimeout = Duration(seconds: 20);
+const Duration _kLocalScriptTimeout = Duration(seconds: 30);
 const int _kPackageReportSummaryMaxLines = 220;
 const int _kStaticQuickScanPreviewLines = 80;
 const List<String> _kAndroidReverseArtifactSubdirs = <String>[
@@ -1034,6 +1035,71 @@ class AndroidReverseSessionController extends ChangeNotifier {
         stdout: '',
         stderr: '$e',
         displayCommand: 'make evidence bundle',
+      );
+    }
+  }
+
+  Future<AdbCommandResult> runLocalArtifactScriptDetailed({
+    required String scriptPath,
+    List<String> args = const <String>[],
+    Map<String, String> environment = const <String, String>{},
+    Duration timeout = _kLocalScriptTimeout,
+    String? displayCommand,
+    String tag = 'android_reverse.local_script',
+  }) async {
+    if (Platform.isWindows) {
+      return AdbCommandResult(
+        args: <String>['local-script', scriptPath, ...args],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Local artifact scripts require bash.',
+        displayCommand: displayCommand,
+      );
+    }
+    final script = File(scriptPath);
+    if (!await script.exists()) {
+      return AdbCommandResult(
+        args: <String>['local-script', scriptPath, ...args],
+        exitCode: -1,
+        stdout: '',
+        stderr: 'Script does not exist: $scriptPath',
+        displayCommand: displayCommand,
+      );
+    }
+    try {
+      final bash = File('/bin/bash').existsSync() ? '/bin/bash' : 'bash';
+      final result = await runTrackedProcessOrFailed(
+        bash,
+        <String>[scriptPath, ...args],
+        timeout: timeout,
+        tag: tag,
+        environment: environment.isEmpty ? null : environment,
+      );
+      final stdoutText = result.stdout.toString();
+      final stderrText = result.stderr.toString();
+      final timedOut =
+          result.exitCode == -1 &&
+          stdoutText.trim().isEmpty &&
+          stderrText.trim().isEmpty;
+      return AdbCommandResult(
+        args: <String>['local-script', scriptPath, ...args],
+        exitCode: result.exitCode,
+        stdout: stdoutText,
+        stderr: timedOut
+            ? 'Local script timed out after ${timeout.inSeconds} seconds.'
+            : stderrText,
+        timedOut: timedOut,
+        displayCommand:
+            displayCommand ?? '$bash $scriptPath ${args.join(' ')}'.trim(),
+      );
+    } catch (e, st) {
+      silentLog(_kTag, 'runLocalArtifactScriptDetailed failed', e, st);
+      return AdbCommandResult(
+        args: <String>['local-script', scriptPath, ...args],
+        exitCode: -1,
+        stdout: '',
+        stderr: '$e',
+        displayCommand: displayCommand,
       );
     }
   }

@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
+import '../../shared/ui/ansi_text.dart';
 import '../../shared/ui/openhand_dialog_motion_surface.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/structured_text_format.dart';
 import '../ai/index.dart';
 import '../mcp/index.dart';
 import '../plugin_service/index.dart';
@@ -28,12 +30,15 @@ const double _kDashboardActionIconSize = 14;
 const double _kDashboardIconActionButtonSize = 36;
 const double _kDashboardIconActionIconSize = 17;
 const double _kDashboardTrailingActionGap = 8;
+const double _kDeviceTrailingActionWidth = 88;
 const double _kDashboardDialogMaxWidth = 960;
 const double _kDashboardDialogMaxHeight = 720;
 const double _kShellOutputMaxHeight = 220;
 const double _kIconButtonGap = 8;
 const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(16);
 const int _kDefaultLogcatLines = 300;
+const int _kAutoLogcatLines = 120;
+const int _kMaxBufferedLogcatLines = 2400;
 const int _kShellHistoryLimit = 6;
 const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
@@ -43,6 +48,8 @@ const int _kMcpToolSearchLimit = 8;
 const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
 const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
+const Duration _kLogcatAutoRefreshInterval = Duration(seconds: 1);
+const Duration _kLogcatFollowScrollDuration = Duration(milliseconds: 360);
 const int _kDeviceSnapshotMaxLines = 80;
 const int _kMinTcpPort = 1;
 const int _kMaxTcpPort = 65535;
@@ -321,6 +328,7 @@ class _AndroidReverseDashboardDialogState
   final _logcatLines = <String>[];
   final _shellHistory = <String>[];
   Timer? _logcatTimer;
+  final ScrollController _logcatScrollController = ScrollController();
   final TextEditingController _shellCtrl = TextEditingController();
   final TextEditingController _shellOutputCtrl = TextEditingController();
   final TextEditingController _wirelessEndpointCtrl = TextEditingController();
@@ -347,6 +355,9 @@ class _AndroidReverseDashboardDialogState
   bool _runningShell = false;
   bool _runningDeviceAction = false;
   bool _runningStaticQuickScan = false;
+  bool _runningFridaDoctor = false;
+  bool _runningNetworkProbe = false;
+  bool _runningCertificateAction = false;
   bool _writingNetworkAddon = false;
   bool _writingCertificateArtifacts = false;
   bool _writingMcpArtifacts = false;
@@ -355,8 +366,13 @@ class _AndroidReverseDashboardDialogState
   bool _loadingDeviceDetails = false;
   bool _savingFridaScript = false;
   bool _logcatPackageFilterEnabled = false;
+  bool _logcatAutoRefresh = false;
+  bool _logcatStickToBottom = true;
   String? _selectedDeviceSerial;
   String? _lastDeviceActionOutput;
+  AdbCommandResult? _lastShellResult;
+  AdbCommandResult? _lastDeviceActionResult;
+  AdbCommandResult? _lastToolchainCommandResult;
   String? _logcatError;
   String _logcatLevel = 'V';
   Map<String, String> _deviceProps = const <String, String>{};
@@ -366,6 +382,7 @@ class _AndroidReverseDashboardDialogState
   List<String> _packages = const <String>[];
   List<AndroidReverseToolchainProbeResult> _toolchainRows =
       const <AndroidReverseToolchainProbeResult>[];
+  final Set<String> _runningToolchainCommandIds = <String>{};
   List<AndroidProcess> _processes = const <AndroidProcess>[];
   String? _selectedPackageName;
   String? _packageAnalysisOutput;
@@ -392,6 +409,7 @@ class _AndroidReverseDashboardDialogState
     _pullLocalCtrl.text = _ctrl.artifactsRootDir;
     _ctrl.addListener(_onControllerChanged);
     _fridaScriptCtrl.addListener(_onFridaScriptChanged);
+    _logcatScrollController.addListener(_onLogcatScroll);
     _refreshAll();
     unawaited(_refreshToolchain());
   }
@@ -400,7 +418,9 @@ class _AndroidReverseDashboardDialogState
   void dispose() {
     _ctrl.removeListener(_onControllerChanged);
     _fridaScriptCtrl.removeListener(_onFridaScriptChanged);
+    _logcatScrollController.removeListener(_onLogcatScroll);
     _logcatTimer?.cancel();
+    _logcatScrollController.dispose();
     _shellCtrl.dispose();
     _shellOutputCtrl.dispose();
     _wirelessEndpointCtrl.dispose();
@@ -428,6 +448,44 @@ class _AndroidReverseDashboardDialogState
 
   void _onFridaScriptChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onLogcatScroll() {
+    if (!_logcatScrollController.hasClients) return;
+    final position = _logcatScrollController.position;
+    final distanceToBottom = position.maxScrollExtent - position.pixels;
+    final shouldStick = distanceToBottom <= 72;
+    if (_logcatStickToBottom == shouldStick) return;
+    _logcatStickToBottom = shouldStick;
+  }
+
+  void _setLogcatAutoRefresh(bool enabled) {
+    if (_logcatAutoRefresh == enabled) return;
+    setState(() => _logcatAutoRefresh = enabled);
+    _logcatTimer?.cancel();
+    _logcatTimer = null;
+    if (!enabled) return;
+    _logcatStickToBottom = true;
+    unawaited(_fetchLogcat(append: _logcatLines.isNotEmpty, silent: true));
+    _logcatTimer = Timer.periodic(_kLogcatAutoRefreshInterval, (_) {
+      if (!mounted || !_logcatAutoRefresh || _loadingLogcat) return;
+      unawaited(_fetchLogcat(append: true, silent: true));
+    });
+  }
+
+  void _scheduleLogcatFollowScroll({bool force = false}) {
+    if (!force && !_logcatStickToBottom) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_logcatScrollController.hasClients) return;
+      final position = _logcatScrollController.position;
+      final target = position.maxScrollExtent;
+      if ((target - position.pixels).abs() < 2) return;
+      _logcatScrollController.animateTo(
+        target,
+        duration: _kLogcatFollowScrollDuration,
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   String? get _targetSerial {
@@ -724,60 +782,109 @@ class _AndroidReverseDashboardDialogState
     return buffer.toString().trimRight();
   }
 
-  Future<void> _fetchLogcat() async {
+  Future<void> _fetchLogcat({bool append = false, bool silent = false}) async {
     if (_loadingLogcat) return;
     setState(() {
       _loadingLogcat = true;
-      _logcatError = null;
+      if (!silent) _logcatError = null;
     });
     try {
       final isZh = openHandIsChineseLocale(context);
       final tag = _logcatFilterCtrl.text.trim();
       final pidFilter = await _resolveLogcatPidFilter(isZh: isZh);
       final result = await _ctrl.logcatDetailed(
-        lines: _kDefaultLogcatLines,
+        lines: append ? _kAutoLogcatLines : _kDefaultLogcatLines,
         tag: tag.isEmpty ? null : tag,
         level: _logcatLevel,
         pid: pidFilter.pid,
         serial: _targetSerial,
       );
       if (mounted) {
-        final lines = result.stdout
+        final incoming = result.stdout
             .split('\n')
             .map(_sanitizeLogcatLine)
             .where(_hasVisibleLogcatText)
             .toList(growable: false);
         final err = result.stderr.trim();
+        final added = append
+            ? _appendLogcatTail(incoming)
+            : _replaceLogcatLines(incoming);
         setState(() {
-          _logcatLines
-            ..clear()
-            ..addAll(lines);
-          if (lines.isNotEmpty && result.timedOut) {
+          if (incoming.isNotEmpty && result.timedOut) {
             _logcatError = isZh
                 ? 'Logcat 读取超时，已展示可用输出。'
                 : 'Logcat timed out; usable output is shown.';
-          } else if (lines.isNotEmpty && pidFilter.notice != null) {
+          } else if (incoming.isNotEmpty && pidFilter.notice != null) {
             _logcatError = pidFilter.notice;
-          } else if (lines.isNotEmpty) {
-            _logcatError = null;
+          } else if (incoming.isNotEmpty) {
+            if (!silent || added > 0) _logcatError = null;
           } else if (err.isNotEmpty) {
             _logcatError = err;
-          } else {
+          } else if (!silent && !append) {
             _logcatError = isZh
                 ? '没有读取到 Logcat 输出。请确认设备在线，或清空 Tag 过滤后重试。'
                 : 'No Logcat output was read. Check the device or clear the tag filter and retry.';
           }
         });
+        if (added > 0 || !append) {
+          _scheduleLogcatFollowScroll(force: !append || _logcatAutoRefresh);
+        }
       }
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _logcatLines.clear();
-        _logcatError = '$error';
+        if (!append) _logcatLines.clear();
+        if (!silent || !append) _logcatError = '$error';
       });
     } finally {
       if (mounted) setState(() => _loadingLogcat = false);
     }
+  }
+
+  int _replaceLogcatLines(List<String> lines) {
+    _logcatLines
+      ..clear()
+      ..addAll(_trimLogcatBuffer(lines));
+    return _logcatLines.length;
+  }
+
+  int _appendLogcatTail(List<String> incoming) {
+    if (incoming.isEmpty) return 0;
+    if (_logcatLines.isEmpty) {
+      _logcatLines.addAll(_trimLogcatBuffer(incoming));
+      return _logcatLines.length;
+    }
+    final overlap = _tailHeadOverlap(_logcatLines, incoming);
+    final additions = incoming.skip(overlap).toList(growable: false);
+    if (additions.isEmpty) return 0;
+    _logcatLines.addAll(additions);
+    final overflow = _logcatLines.length - _kMaxBufferedLogcatLines;
+    if (overflow > 0) {
+      _logcatLines.removeRange(0, overflow);
+    }
+    return additions.length;
+  }
+
+  List<String> _trimLogcatBuffer(List<String> lines) {
+    if (lines.length <= _kMaxBufferedLogcatLines) return lines;
+    return lines.sublist(lines.length - _kMaxBufferedLogcatLines);
+  }
+
+  int _tailHeadOverlap(List<String> existing, List<String> incoming) {
+    final max = existing.length < incoming.length
+        ? existing.length
+        : incoming.length;
+    for (var len = max; len > 0; len--) {
+      var matched = true;
+      for (var i = 0; i < len; i++) {
+        if (existing[existing.length - len + i] != incoming[i]) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) return len;
+    }
+    return 0;
   }
 
   Future<void> _clearLogcat() async {
@@ -819,6 +926,48 @@ class _AndroidReverseDashboardDialogState
 
   bool _hasVisibleLogcatText(String line) {
     return line.replaceAll(RegExp(r'\s+'), '').isNotEmpty;
+  }
+
+  _ParsedLogcatLine _parseLogcatLine(String raw) {
+    final line = raw.trimRight();
+    final timeMatch = RegExp(
+      r'^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\s+(\d+)\s+(\d+)\s+([VDIWEF])\s+([^:]+):\s?(.*)$',
+    ).firstMatch(line);
+    if (timeMatch != null) {
+      return _ParsedLogcatLine(
+        raw: line,
+        level: timeMatch.group(4),
+        time: timeMatch.group(1),
+        pid: timeMatch.group(2),
+        tid: timeMatch.group(3),
+        tag: timeMatch.group(5)?.trim(),
+        message: timeMatch.group(6)?.trimRight() ?? '',
+      );
+    }
+    final briefMatch = RegExp(
+      r'^([VDIWEF])\/([^(]+)\(\s*(\d+)\):\s?(.*)$',
+    ).firstMatch(line);
+    if (briefMatch != null) {
+      return _ParsedLogcatLine(
+        raw: line,
+        level: briefMatch.group(1),
+        pid: briefMatch.group(3),
+        tag: briefMatch.group(2)?.trim(),
+        message: briefMatch.group(4)?.trimRight() ?? '',
+      );
+    }
+    return _ParsedLogcatLine(
+      raw: line,
+      level: _fallbackLogcatLevel(line),
+      message: line,
+    );
+  }
+
+  String? _fallbackLogcatLevel(String line) {
+    final spaced = RegExp(r'\s([VDIWEF])\s').firstMatch(line);
+    if (spaced != null) return spaced.group(1);
+    final slash = RegExp(r'\b([VDIWEF])\/').firstMatch(line);
+    return slash?.group(1);
   }
 
   Future<void> _saveLogcatSnapshot() async {
@@ -1182,6 +1331,129 @@ class _AndroidReverseDashboardDialogState
     }
   }
 
+  Future<void> _runFridaDoctor() async {
+    if (_runningFridaDoctor) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningFridaDoctor = true;
+      _fridaArtifactOutput = isZh
+          ? 'Frida 诊断运行中...'
+          : 'Running Frida doctor...';
+    });
+    try {
+      await _ctrl.ensureMcpLinkageArtifacts();
+      final pkg = _logcatPackageTarget();
+      final serial = _targetSerial?.trim();
+      final result = await _ctrl.runLocalArtifactScriptDetailed(
+        scriptPath: _ctrl.fridaDoctorScriptPath,
+        args: <String>[
+          '--timeout',
+          '6',
+          if (pkg != null && pkg.isNotEmpty) ...['--package', pkg],
+          if (serial != null && serial.isNotEmpty) ...['-s', serial],
+        ],
+        timeout: const Duration(seconds: 15),
+        displayCommand:
+            'bash ${_shellQuote(_ctrl.fridaDoctorScriptPath)} --timeout 6${pkg == null ? "" : " --package ${_shellQuote(pkg)}"}',
+        tag: 'android_reverse.frida_doctor',
+      );
+      if (!mounted) return;
+      setState(() => _fridaArtifactOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningFridaDoctor = false);
+    }
+  }
+
+  Future<void> _runNetworkProxyProbe() async {
+    if (_runningNetworkProbe) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningNetworkProbe = true;
+      _networkAddonOutput = isZh
+          ? '代理 / 证书预检运行中...'
+          : 'Running proxy / cert preflight...';
+    });
+    try {
+      await _ctrl.ensureMitmproxyJsonlAddon();
+      final serial = _targetSerial?.trim();
+      final result = await _ctrl.runLocalArtifactScriptDetailed(
+        scriptPath: _ctrl.networkProxyProbeScriptPath,
+        args: const <String>['--timeout', '6'],
+        environment: <String, String>{
+          if (serial != null && serial.isNotEmpty) 'ADB_SERIAL': serial,
+          if (_logcatPackageTarget() != null)
+            'ANDROID_PACKAGE_NAME': _logcatPackageTarget()!,
+        },
+        timeout: const Duration(seconds: 18),
+        displayCommand:
+            'bash ${_shellQuote(_ctrl.networkProxyProbeScriptPath)} --timeout 6',
+        tag: 'android_reverse.network_proxy_probe',
+      );
+      if (!mounted) return;
+      setState(() => _networkAddonOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningNetworkProbe = false);
+    }
+  }
+
+  Future<void> _runCertificateArtifactScript({
+    required String scriptPath,
+    required List<String> args,
+    required String displayCommand,
+  }) async {
+    if (_runningCertificateAction) return;
+    final isZh = openHandIsChineseLocale(context);
+    setState(() {
+      _runningCertificateAction = true;
+      _certificateArtifactOutput = isZh
+          ? '证书动作执行中...'
+          : 'Running certificate action...';
+    });
+    try {
+      await _ctrl.ensureCertificateArtifacts(
+        packageName: _logcatPackageTarget(),
+      );
+      final serial = _targetSerial?.trim();
+      final result = await _ctrl.runLocalArtifactScriptDetailed(
+        scriptPath: scriptPath,
+        args: args,
+        environment: <String, String>{
+          if (serial != null && serial.isNotEmpty) 'ADB_SERIAL': serial,
+        },
+        displayCommand: displayCommand,
+        tag: 'android_reverse.certificate_action',
+      );
+      if (!mounted) return;
+      setState(() => _certificateArtifactOutput = _formatAdbResult(result));
+    } finally {
+      if (mounted) setState(() => _runningCertificateAction = false);
+    }
+  }
+
+  Future<void> _generateDebugKeystore() {
+    return _runCertificateArtifactScript(
+      scriptPath: _ctrl.generateDebugKeystoreScriptPath,
+      args: const <String>[],
+      displayCommand:
+          'bash ${_shellQuote(_ctrl.generateDebugKeystoreScriptPath)}',
+    );
+  }
+
+  Future<void> _verifyConfiguredApkSignature() async {
+    final apkPath = _ctrl.config.apkPath?.trim();
+    final isZh = openHandIsChineseLocale(context);
+    if (apkPath == null || apkPath.isEmpty) {
+      _showSnack(isZh ? '当前会话未配置 APK 路径。' : 'No APK path is configured.');
+      return;
+    }
+    await _runCertificateArtifactScript(
+      scriptPath: _ctrl.verifyApkSignatureScriptPath,
+      args: <String>[apkPath],
+      displayCommand:
+          'bash ${_shellQuote(_ctrl.verifyApkSignatureScriptPath)} ${_shellQuote(apkPath)}',
+    );
+  }
+
   Future<void> _runShell() async {
     final rawCmd = _shellCtrl.text.trim();
     final cmd = _normalizeAdbShellInput(rawCmd);
@@ -1198,6 +1470,7 @@ class _AndroidReverseDashboardDialogState
     final serial = _targetSerial;
     setState(() {
       _runningShell = true;
+      _lastShellResult = null;
       _rememberShellCommand(cmd);
       _shellOutputCtrl.text =
           '${isZh ? "执行中" : "Running"}: $cmd\n'
@@ -1213,6 +1486,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       final output = _formatAdbResult(result);
       setState(() {
+        _lastShellResult = result;
         _shellOutputCtrl.text = output;
       });
     } catch (error) {
@@ -1284,12 +1558,14 @@ class _AndroidReverseDashboardDialogState
     final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningDeviceAction = true;
+      _lastDeviceActionResult = null;
       _lastDeviceActionOutput = isZh ? '执行中...' : 'Running...';
     });
     try {
       final result = await action();
       if (!mounted) return;
       setState(() {
+        _lastDeviceActionResult = result;
         _lastDeviceActionOutput = _formatAdbResult(result);
         _runningDeviceAction = false;
       });
@@ -1297,6 +1573,7 @@ class _AndroidReverseDashboardDialogState
     } catch (error) {
       if (!mounted) return;
       setState(() {
+        _lastDeviceActionResult = null;
         _lastDeviceActionOutput =
             '${openHandIsChineseLocale(context) ? "执行失败" : "Run failed"}: $error';
         _runningDeviceAction = false;
@@ -1579,33 +1856,44 @@ class _AndroidReverseDashboardDialogState
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
           child: Row(
             children: [
-              Text(
-                isZh ? '已检测设备' : 'Detected devices',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      isZh ? '已检测设备' : 'Detected devices',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (_targetSerial != null)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Text(
+                          '${isZh ? "当前目标" : "Target"}: $_targetSerial',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (_targetSerial != null) ...[
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    '${isZh ? "当前目标" : "Target"}: $_targetSerial',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: _kDeviceTrailingActionWidth,
+                child: _DashboardActionButton(
+                  onPressed: () {
+                    _refreshAll();
+                  },
+                  icon: const Icon(Icons.refresh_rounded, size: 14),
+                  label: isZh ? '刷新' : 'Refresh',
                 ),
-              ],
-              const Spacer(),
-              _DashboardActionButton(
-                onPressed: () {
-                  _refreshAll();
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 14),
-                label: isZh ? '刷新' : 'Refresh',
               ),
             ],
           ),
@@ -1737,6 +2025,7 @@ class _AndroidReverseDashboardDialogState
 
   Widget _buildShellOutputPanel(ColorScheme cs, ThemeData theme, bool isZh) {
     final output = _shellOutputCtrl.text;
+    final result = _lastShellResult;
     return Container(
       constraints: const BoxConstraints(maxHeight: _kShellOutputMaxHeight),
       decoration: BoxDecoration(
@@ -1764,19 +2053,21 @@ class _AndroidReverseDashboardDialogState
                       ),
                     ),
                   ),
-                  IconButton(
+                  _DashboardIconActionButton(
                     tooltip: isZh ? '复制输出' : 'Copy output',
-                    icon: const Icon(Icons.copy_rounded, size: 15),
-                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.copy_rounded),
                     onPressed: output.trim().isEmpty
                         ? null
                         : () => _copyText(output),
                   ),
-                  IconButton(
+                  const SizedBox(width: _kDashboardTrailingActionGap),
+                  _DashboardIconActionButton(
                     tooltip: isZh ? '清空输出' : 'Clear output',
-                    icon: const Icon(Icons.close_rounded, size: 16),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => setState(() => _shellOutputCtrl.clear()),
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => setState(() {
+                      _lastShellResult = null;
+                      _shellOutputCtrl.clear();
+                    }),
                   ),
                 ],
               ),
@@ -1788,15 +2079,9 @@ class _AndroidReverseDashboardDialogState
               padding: const EdgeInsets.all(10),
               child: Align(
                 alignment: Alignment.topLeft,
-                child: SelectableText(
-                  output,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: cs.onSurface,
-                    height: 1.45,
-                  ),
-                ),
+                child: result == null
+                    ? _formattedTerminalText(output, cs)
+                    : _buildAdbCommandResultView(result, cs, theme, isZh),
               ),
             ),
           ),
@@ -2299,7 +2584,7 @@ class _AndroidReverseDashboardDialogState
             secondaryController: _pushRemoteCtrl,
             secondaryHint: isZh ? '设备路径' : 'remote path',
             icon: Icons.upload_file_rounded,
-            label: 'push',
+            label: isZh ? '推送' : 'Push',
             onPressed: serial == null || _runningDeviceAction
                 ? null
                 : _pushFileFromPanel,
@@ -2311,7 +2596,7 @@ class _AndroidReverseDashboardDialogState
             secondaryController: _pullLocalCtrl,
             secondaryHint: isZh ? '本地目录 / 文件' : 'local dir / file',
             icon: Icons.download_rounded,
-            label: 'pull',
+            label: isZh ? '拉取' : 'Pull',
             onPressed: serial == null || _runningDeviceAction
                 ? null
                 : _pullFileFromPanel,
@@ -2424,12 +2709,84 @@ class _AndroidReverseDashboardDialogState
                     ? null
                     : () => _runShellPreset('ip addr show | grep -E "inet "'),
               ),
+              _SmallActionButton(
+                icon: Icons.filter_center_focus_rounded,
+                label: isZh ? '前台窗口' : 'Focus',
+                onPressed: serial == null
+                    ? null
+                    : () => _runShellPreset(
+                        'dumpsys window | grep -E "mCurrentFocus|mFocusedApp" | head -8',
+                      ),
+              ),
+              _SmallActionButton(
+                icon: Icons.sd_storage_rounded,
+                label: isZh ? '存储' : 'Storage',
+                onPressed: serial == null
+                    ? null
+                    : () => _runShellPreset(
+                        'df -h /data /sdcard 2>/dev/null || df /data /sdcard',
+                      ),
+              ),
+              _SmallActionButton(
+                icon: Icons.tune_rounded,
+                label: isZh ? '属性' : 'Props',
+                onPressed: serial == null
+                    ? null
+                    : () => _runShellPreset(
+                        'getprop | grep -E "ro.product|ro.build|ro.debuggable|ro.secure" | head -120',
+                      ),
+              ),
+              _SmallActionButton(
+                icon: Icons.light_mode_rounded,
+                label: isZh ? '亮屏' : 'Wake',
+                onPressed: serial == null
+                    ? null
+                    : () => _runShellPreset('input keyevent KEYCODE_WAKEUP'),
+              ),
+              _SmallActionButton(
+                icon: Icons.power_settings_new_rounded,
+                label: isZh ? '电源键' : 'Power',
+                onPressed: serial == null
+                    ? null
+                    : () => _runShellPreset('input keyevent KEYCODE_POWER'),
+              ),
+              _SmallActionButton(
+                icon: Icons.volume_up_rounded,
+                label: isZh ? '音量+' : 'Vol+',
+                onPressed: serial == null
+                    ? null
+                    : () => _runShellPreset('input keyevent KEYCODE_VOLUME_UP'),
+              ),
+              _SmallActionButton(
+                icon: Icons.security_rounded,
+                label: isZh ? '包权限' : 'Permissions',
+                onPressed: serial == null || _logcatPackageTarget() == null
+                    ? null
+                    : () => _runShellPreset(
+                        'dumpsys package ${_logcatPackageTarget()} | grep -Ei "requested permissions:|install permissions:|runtime permissions:|android.permission" | head -140',
+                      ),
+              ),
             ],
           ),
           if (_lastDeviceActionOutput != null &&
               _lastDeviceActionOutput!.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
-            _monospaceCard(cs, _lastDeviceActionOutput!),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _lastDeviceActionResult == null
+                  ? _formattedTerminalText(_lastDeviceActionOutput!, cs)
+                  : _buildAdbCommandResultView(
+                      _lastDeviceActionResult!,
+                      cs,
+                      theme,
+                      isZh,
+                    ),
+            ),
           ],
         ],
       ),
@@ -2661,6 +3018,7 @@ class _AndroidReverseDashboardDialogState
   void _setDeviceActionMessage({required String zh, required String en}) {
     if (!mounted) return;
     setState(() {
+      _lastDeviceActionResult = null;
       _lastDeviceActionOutput = openHandIsChineseLocale(context) ? zh : en;
     });
   }
@@ -3085,16 +3443,40 @@ class _AndroidReverseDashboardDialogState
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '工具链设置工件' : 'Toolchain setup artifacts',
-            command:
-                'cat ${_shellQuote(_ctrl.toolchainReadmePath)}\n'
-                'cat ${_shellQuote(_ctrl.toolchainSetupCommandsPath)}',
+          child: _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.folder_rounded,
+            text: [
+              isZh
+                  ? '工具链设置工件已由会话维护，可直接在下方执行安装、更新、卸载或查看信息。'
+                  : 'Session toolchain artifacts are maintained automatically. Use the actions below to install, update, uninstall, or view info.',
+              'README: ${_ctrl.toolchainReadmePath}',
+              'setup_commands: ${_ctrl.toolchainSetupCommandsPath}',
+            ].join('\n'),
           ),
         ),
+        if (_lastToolchainCommandResult != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.58),
+                ),
+              ),
+              child: _buildAdbCommandResultView(
+                _lastToolchainCommandResult!,
+                cs,
+                theme,
+                isZh,
+              ),
+            ),
+          ),
         Expanded(
           child: _loadingToolchain && _toolchainRows.isEmpty
               ? const Center(child: CircularProgressIndicator())
@@ -3175,12 +3557,12 @@ class _AndroidReverseDashboardDialogState
                               _ToolchainCommandAction
                             >(
                               tooltip: isZh
-                                  ? '复制安装/维护命令'
-                                  : 'Copy setup commands',
+                                  ? '安装 / 更新 / 卸载 / 信息'
+                                  : 'Install / update / uninstall / info',
                               icon: const Icon(Icons.terminal_rounded),
                               itemBuilder: (context) =>
                                   _toolchainCommandMenuItems(row.probe, isZh),
-                              onSelected: (action) => _copyToolchainCommand(
+                              onSelected: (action) => _handleToolchainAction(
                                 row.probe,
                                 action,
                                 isZh,
@@ -3277,15 +3659,18 @@ class _AndroidReverseDashboardDialogState
             ].join('\n'),
           ),
           const SizedBox(height: 10),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '会话 MCP 设置清单' : 'Session MCP setup checklist',
-            command:
-                'cat ${_shellQuote(_ctrl.mcpSetupGuidePath)}\n'
-                'cat ${_shellQuote(_ctrl.mcpReadmePath)}\n'
-                'cat ${_shellQuote(_ctrl.mcpTemplatesPath)}',
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.folder_rounded,
+            text: [
+              isZh
+                  ? '会话级 MCP 工件由下方按钮生成，已配置的 MCP 可在卡片内启停、探测、刷新或删除。'
+                  : 'Session MCP artifacts are generated from the button below. Configured MCP servers can be enabled, checked, refreshed, or deleted in-place.',
+              'setup_guide: ${_ctrl.mcpSetupGuidePath}',
+              'readme: ${_ctrl.mcpReadmePath}',
+              'templates: ${_ctrl.mcpTemplatesPath}',
+            ].join('\n'),
           ),
           const SizedBox(height: 10),
           _commandCard(
@@ -3616,39 +4001,73 @@ class _AndroidReverseDashboardDialogState
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
-                tooltip: isZh ? '刷新此 MCP 工具目录' : 'Refresh this MCP catalog',
-                icon: catalog.isLoading
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.6),
-                      )
-                    : const Icon(Icons.sync_rounded, size: 16),
-                onPressed: catalog.isLoading
-                    ? null
-                    : () => unawaited(
-                        context.read<McpController>().refreshServerTools(
-                          server.name,
-                        ),
-                      ),
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints.tightFor(
-                  width: 32,
-                  height: 32,
-                ),
-              ),
-              if (query != null)
-                IconButton(
-                  tooltip: isZh ? '复制 ToolSearch 查询' : 'Copy ToolSearch query',
-                  icon: const Icon(Icons.manage_search_rounded, size: 16),
-                  onPressed: () => _copyText(query),
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 32,
-                    height: 32,
+              Wrap(
+                spacing: _kDashboardTrailingActionGap,
+                runSpacing: 6,
+                children: [
+                  _DashboardIconActionButton(
+                    tooltip: server.enabled
+                        ? (isZh ? '禁用 MCP' : 'Disable MCP')
+                        : (isZh ? '启用 MCP' : 'Enable MCP'),
+                    icon: Icon(
+                      server.enabled
+                          ? Icons.toggle_on_rounded
+                          : Icons.toggle_off_outlined,
+                    ),
+                    onPressed: () => unawaited(
+                      _toggleAndroidMcpServer(server, !server.enabled, isZh),
+                    ),
                   ),
-                ),
+                  _DashboardIconActionButton(
+                    tooltip: isZh ? '检查健康状态' : 'Check health',
+                    icon: health.status == McpServerHealthStatus.checking
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(strokeWidth: 1.7),
+                          )
+                        : const Icon(Icons.health_and_safety_rounded),
+                    onPressed: health.status == McpServerHealthStatus.checking
+                        ? null
+                        : () => unawaited(
+                            context.read<McpController>().checkServerHealth(
+                              server.name,
+                            ),
+                          ),
+                  ),
+                  _DashboardIconActionButton(
+                    tooltip: isZh ? '刷新此 MCP 工具目录' : 'Refresh this MCP catalog',
+                    icon: catalog.isLoading
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(strokeWidth: 1.7),
+                          )
+                        : const Icon(Icons.sync_rounded),
+                    onPressed: catalog.isLoading
+                        ? null
+                        : () => unawaited(
+                            context.read<McpController>().refreshServerTools(
+                              server.name,
+                            ),
+                          ),
+                  ),
+                  if (query != null)
+                    _DashboardIconActionButton(
+                      tooltip: isZh
+                          ? '复制 ToolSearch 查询'
+                          : 'Copy ToolSearch query',
+                      icon: const Icon(Icons.manage_search_rounded),
+                      onPressed: () => _copyText(query),
+                    ),
+                  _DashboardIconActionButton(
+                    tooltip: isZh ? '删除 MCP 服务' : 'Delete MCP service',
+                    icon: Icon(Icons.delete_outline_rounded, color: cs.error),
+                    onPressed: () =>
+                        unawaited(_deleteAndroidMcpServer(server, isZh)),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -3713,6 +4132,50 @@ class _AndroidReverseDashboardDialogState
           ],
         ],
       ),
+    );
+  }
+
+  Future<void> _toggleAndroidMcpServer(
+    McpServer server,
+    bool enabled,
+    bool isZh,
+  ) async {
+    final ok = await context.read<McpController>().updateServerEnabled(
+      server.name,
+      enabled,
+    );
+    if (!mounted) return;
+    _showSnack(
+      ok
+          ? enabled
+                ? (isZh
+                      ? '已启用 MCP：${server.name}'
+                      : 'MCP enabled: ${server.name}')
+                : (isZh
+                      ? '已禁用 MCP：${server.name}'
+                      : 'MCP disabled: ${server.name}')
+          : (isZh ? 'MCP 状态更新失败' : 'Failed to update MCP status'),
+    );
+  }
+
+  Future<void> _deleteAndroidMcpServer(McpServer server, bool isZh) async {
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: isZh ? '删除 MCP 服务？' : 'Delete MCP service?',
+      message: isZh
+          ? '将从 OpenHand MCP 配置中删除 ${server.name}。'
+          : 'This will remove ${server.name} from the OpenHand MCP configuration.',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    final ok = await context.read<McpController>().deleteServer(server);
+    if (!mounted) return;
+    _showSnack(
+      ok
+          ? (isZh ? '已删除 MCP：${server.name}' : 'MCP deleted: ${server.name}')
+          : (isZh ? '删除 MCP 失败' : 'Failed to delete MCP'),
     );
   }
 
@@ -4072,8 +4535,9 @@ class _AndroidReverseDashboardDialogState
                 _SmallActionButton(
                   icon: _toolchainCommandIcon(action),
                   label: _toolchainCommandLabel(action, isZh),
-                  onPressed: () =>
-                      _copyToolchainCommand(row.probe, action, isZh),
+                  onPressed: _isToolchainCommandRunning(row.probe, action)
+                      ? null
+                      : () => _handleToolchainAction(row.probe, action, isZh),
                 ),
             ],
           ),
@@ -4440,6 +4904,53 @@ class _AndroidReverseDashboardDialogState
 
   // ── Logcat tab ──────────────────────────────────────────────────────────
 
+  Widget _buildLogcatPackageFilterChip(
+    ColorScheme cs,
+    ThemeData theme,
+    bool isZh,
+  ) {
+    final packageName = _logcatPackageTarget();
+    final enabled = packageName != null && packageName.isNotEmpty;
+    final selected = enabled && _logcatPackageFilterEnabled;
+    final color = !enabled
+        ? cs.outline
+        : selected
+        ? cs.primary
+        : cs.onSurfaceVariant;
+    return Tooltip(
+      message: enabled
+          ? (isZh ? '按包名过滤 Logcat' : 'Filter logcat by package')
+          : (isZh ? '未配置目标包名' : 'No target package configured'),
+      child: FilterChip(
+        selected: selected,
+        avatar: Icon(Icons.apps_rounded, size: 15, color: color),
+        label: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220),
+          child: Text(
+            enabled ? packageName : (isZh ? '未指定包名' : 'No package'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        onSelected: !enabled
+            ? null
+            : (value) {
+                setState(() {
+                  _logcatPackageFilterEnabled = value;
+                  if (value) _logcatPidCtrl.clear();
+                });
+                unawaited(_fetchLogcat());
+              },
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+
   Widget _buildLogcatTab(ColorScheme cs, ThemeData theme, bool isZh) {
     return Column(
       children: [
@@ -4459,6 +4970,7 @@ class _AndroidReverseDashboardDialogState
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  _buildLogcatPackageFilterChip(cs, theme, isZh),
                   if (_loadingLogcat)
                     const SizedBox(
                       width: 14,
@@ -4469,6 +4981,18 @@ class _AndroidReverseDashboardDialogState
                     onPressed: _loadingLogcat ? null : _fetchLogcat,
                     icon: const Icon(Icons.refresh_rounded),
                     label: isZh ? '刷新' : 'Refresh',
+                  ),
+                  _DashboardActionButton(
+                    onPressed: () => _setLogcatAutoRefresh(!_logcatAutoRefresh),
+                    icon: Icon(
+                      _logcatAutoRefresh
+                          ? Icons.pause_circle_outline_rounded
+                          : Icons.play_circle_outline_rounded,
+                    ),
+                    label: _logcatAutoRefresh
+                        ? (isZh ? '停止自动' : 'Stop auto')
+                        : (isZh ? '自动刷新' : 'Auto refresh'),
+                    filled: _logcatAutoRefresh,
                   ),
                   _DashboardActionButton(
                     onPressed: _capturingLogcatSnapshot
@@ -4602,34 +5126,6 @@ class _AndroidReverseDashboardDialogState
                       onSubmitted: (_) => _fetchLogcat(),
                     ),
                   ),
-                  SizedBox(
-                    height: _kAdbInlineControlHeight,
-                    child: Align(
-                      child: FilterChip(
-                        selected: _logcatPackageFilterEnabled,
-                        avatar: const Icon(Icons.apps_rounded, size: 15),
-                        label: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 190),
-                          child: Text(
-                            _logcatPackageTarget() ??
-                                (isZh ? '未指定包名' : 'No package'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        onSelected: _logcatPackageTarget() == null
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  _logcatPackageFilterEnabled = value;
-                                  if (value) _logcatPidCtrl.clear();
-                                });
-                              },
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                  ),
                 ],
               ),
               if (_logcatError != null && _logcatLines.isNotEmpty) ...[
@@ -4681,6 +5177,7 @@ class _AndroidReverseDashboardDialogState
                 )
               : OpenHandSafeScrollbar(
                   child: ListView.builder(
+                    controller: _logcatScrollController,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 4,
@@ -4688,20 +5185,10 @@ class _AndroidReverseDashboardDialogState
                     itemCount: _logcatLines.length,
                     itemBuilder: (_, i) {
                       final line = _logcatLines[i];
-                      Color? color;
-                      if (line.contains(' E ') || line.contains('/ERROR')) {
-                        color = cs.error;
-                      } else if (line.contains(' W ') ||
-                          line.contains('/WARN')) {
-                        color = cs.tertiary;
-                      }
-                      return Text(
-                        line,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          color: color ?? cs.onSurface,
-                        ),
+                      return _LogcatLineTile(
+                        parsed: _parseLogcatLine(line),
+                        colorScheme: cs,
+                        theme: theme,
                       );
                     },
                   ),
@@ -4888,6 +5375,17 @@ class _AndroidReverseDashboardDialogState
               icon: const Icon(Icons.copy_rounded),
               label: isZh ? '复制脚本' : 'Copy script',
             ),
+            _DashboardActionButton(
+              onPressed: _runningFridaDoctor ? null : _runFridaDoctor,
+              icon: _runningFridaDoctor
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.6),
+                    )
+                  : const Icon(Icons.health_and_safety_rounded),
+              label: isZh ? '运行诊断' : 'Run doctor',
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -5006,6 +5504,17 @@ class _AndroidReverseDashboardDialogState
                       )
                     : const Icon(Icons.receipt_long_rounded),
                 label: isZh ? '生成 JSONL Addon' : 'Generate JSONL addon',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningNetworkProbe ? null : _runNetworkProxyProbe,
+                icon: _runningNetworkProbe
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.fact_check_rounded),
+                label: isZh ? '运行预检' : 'Run preflight',
               ),
               if (addonOutput != null && addonOutput.isNotEmpty)
                 _DashboardActionButton(
@@ -5265,6 +5774,32 @@ class _AndroidReverseDashboardDialogState
                       )
                     : const Icon(Icons.description_rounded),
                 label: isZh ? '生成证书工件' : 'Generate cert artifacts',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningCertificateAction
+                    ? null
+                    : _generateDebugKeystore,
+                icon: _runningCertificateAction
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.key_rounded),
+                label: isZh ? '生成密钥库' : 'Generate keystore',
+              ),
+              _DashboardActionButton(
+                onPressed: _runningCertificateAction
+                    ? null
+                    : _verifyConfiguredApkSignature,
+                icon: _runningCertificateAction
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : const Icon(Icons.verified_rounded),
+                label: isZh ? '验签 APK' : 'Verify APK',
               ),
               if (artifactOutput != null && artifactOutput.isNotEmpty)
                 _DashboardActionButton(
@@ -5550,6 +6085,116 @@ class _AndroidReverseDashboardDialogState
     ];
   }
 
+  bool _isToolchainCommandRunning(
+    AndroidReverseToolchainProbe probe,
+    _ToolchainCommandAction action,
+  ) {
+    return _runningToolchainCommandIds.contains(
+      _toolchainCommandKey(probe, action),
+    );
+  }
+
+  String _toolchainCommandKey(
+    AndroidReverseToolchainProbe probe,
+    _ToolchainCommandAction action,
+  ) {
+    return '${probe.id}:${action.name}';
+  }
+
+  Future<void> _handleToolchainAction(
+    AndroidReverseToolchainProbe probe,
+    _ToolchainCommandAction action,
+    bool isZh,
+  ) async {
+    if (_isToolchainCommandRunning(probe, action)) return;
+    if (action == _ToolchainCommandAction.reference) {
+      await _copyToolchainCommand(probe, action, isZh);
+      return;
+    }
+    final commandAction = _toolchainCommandAction(action);
+    if (commandAction == null) return;
+    final command = probe.commandFor(commandAction)?.trim() ?? '';
+    if (command.isEmpty) {
+      _showSnack(
+        isZh
+            ? '${probe.label} 暂无可自动执行的${_toolchainCommandLabel(action, isZh)}命令。'
+            : 'No executable ${_toolchainCommandLabel(action, isZh).toLowerCase()} command is available for ${probe.label}.',
+      );
+      return;
+    }
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title:
+          '${_toolchainCommandLabel(action, isZh)} ${probe.label}${isZh ? "？" : "?"}',
+      message: [
+        isZh
+            ? 'OpenHand 将直接执行以下命令，完成后自动刷新工具链诊断。'
+            : 'OpenHand will run the command below and refresh toolchain diagnostics afterwards.',
+        '',
+        command,
+      ].join('\n'),
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      confirmLabel: _toolchainCommandLabel(action, isZh),
+      destructive: action == _ToolchainCommandAction.uninstall,
+    );
+    if (!confirmed || !mounted) return;
+    final key = _toolchainCommandKey(probe, action);
+    setState(() {
+      _runningToolchainCommandIds.add(key);
+      _lastToolchainCommandResult = AdbCommandResult(
+        args: <String>['toolchain', action.name, probe.id],
+        exitCode: -1,
+        stdout: isZh ? '执行中...' : 'Running...',
+        stderr: '',
+        displayCommand: command,
+      );
+    });
+    try {
+      final result = await runAndroidReverseToolchainCommand(
+        probe,
+        commandAction,
+      );
+      if (!mounted) return;
+      final adbResult = AdbCommandResult(
+        args: <String>['toolchain', action.name, probe.id],
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        timedOut: result.timedOut,
+        displayCommand: result.command,
+      );
+      setState(() => _lastToolchainCommandResult = adbResult);
+      _showSnack(
+        adbResult.ok
+            ? (isZh
+                  ? '${probe.label} ${_toolchainCommandLabel(action, isZh)}完成'
+                  : '${probe.label} ${_toolchainCommandLabel(action, isZh).toLowerCase()} completed')
+            : (isZh
+                  ? '${probe.label} ${_toolchainCommandLabel(action, isZh)}失败'
+                  : '${probe.label} ${_toolchainCommandLabel(action, isZh).toLowerCase()} failed'),
+      );
+      unawaited(_refreshToolchain());
+    } finally {
+      if (mounted) {
+        setState(() => _runningToolchainCommandIds.remove(key));
+      }
+    }
+  }
+
+  AndroidReverseToolchainCommandAction? _toolchainCommandAction(
+    _ToolchainCommandAction action,
+  ) {
+    return switch (action) {
+      _ToolchainCommandAction.install =>
+        AndroidReverseToolchainCommandAction.install,
+      _ToolchainCommandAction.update =>
+        AndroidReverseToolchainCommandAction.update,
+      _ToolchainCommandAction.uninstall =>
+        AndroidReverseToolchainCommandAction.uninstall,
+      _ToolchainCommandAction.reference => null,
+    };
+  }
+
   Future<void> _copyToolchainCommand(
     AndroidReverseToolchainProbe probe,
     _ToolchainCommandAction action,
@@ -5596,10 +6241,10 @@ class _AndroidReverseDashboardDialogState
 
   String _toolchainCommandLabel(_ToolchainCommandAction action, bool isZh) {
     return switch (action) {
-      _ToolchainCommandAction.install => isZh ? '复制安装' : 'Copy install',
-      _ToolchainCommandAction.update => isZh ? '复制更新' : 'Copy update',
-      _ToolchainCommandAction.uninstall => isZh ? '复制卸载' : 'Copy uninstall',
-      _ToolchainCommandAction.reference => isZh ? '复制文档' : 'Copy docs',
+      _ToolchainCommandAction.install => isZh ? '安装' : 'Install',
+      _ToolchainCommandAction.update => isZh ? '更新' : 'Update',
+      _ToolchainCommandAction.uninstall => isZh ? '卸载' : 'Uninstall',
+      _ToolchainCommandAction.reference => isZh ? '查看信息' : 'Info',
     };
   }
 
@@ -5708,7 +6353,7 @@ class _AndroidReverseDashboardDialogState
               ),
               IconButton(
                 icon: const Icon(Icons.copy_rounded, size: 15),
-                tooltip: isZh ? '复制命令' : 'Copy command',
+                tooltip: isZh ? '复制内容' : 'Copy content',
                 onPressed: () => _copyText(command),
                 visualDensity: VisualDensity.compact,
                 constraints: const BoxConstraints.tightFor(
@@ -5740,14 +6385,125 @@ class _AndroidReverseDashboardDialogState
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: SelectableText(
-        text,
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 11,
-          color: cs.onSurface,
-          height: 1.5,
+      child: _formattedTerminalText(text, cs),
+    );
+  }
+
+  Widget _formattedTerminalText(String text, ColorScheme cs) {
+    final formatted = formatStructuredTextForDisplay(text);
+    final label = formatted.format == null
+        ? null
+        : structuredTextFormatLabel(formatted.format!);
+    final base = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 11,
+      color: cs.onSurface,
+      height: 1.5,
+    );
+    final content = ansiText(formatted.text, colorScheme: cs, base: base);
+    if (label == null) return content;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StatusPill(label: label, color: cs.primary),
+        const SizedBox(height: 6),
+        content,
+      ],
+    );
+  }
+
+  Widget _buildAdbCommandResultView(
+    AdbCommandResult result,
+    ColorScheme cs,
+    ThemeData theme,
+    bool isZh,
+  ) {
+    final ok = result.ok || result.partialOk;
+    final statusColor = ok ? cs.primary : cs.error;
+    final stdout = result.stdout.trim();
+    final stderr = result.stderr.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _StatusPill(
+              label: ok
+                  ? result.partialOk
+                        ? (isZh ? '部分完成' : 'partial')
+                        : (isZh ? '成功' : 'success')
+                  : (isZh ? '失败' : 'failed'),
+              color: statusColor,
+            ),
+            _StatusPill(
+              label: '${isZh ? "退出码" : "exit"} ${result.exitCode}',
+              color: statusColor,
+            ),
+            if (result.timedOut)
+              _StatusPill(label: isZh ? '超时' : 'timeout', color: cs.tertiary),
+          ],
         ),
+        const SizedBox(height: 8),
+        _resultSection(cs, theme, isZh ? '命令' : 'Command', result.commandLine),
+        if (stdout.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _resultSection(cs, theme, 'stdout', stdout),
+        ],
+        if (stderr.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _resultSection(cs, theme, 'stderr', stderr, isError: !ok),
+        ],
+        if (stdout.isEmpty && stderr.isEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            isZh ? '(命令无输出)' : '(no output)',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _resultSection(
+    ColorScheme cs,
+    ThemeData theme,
+    String title,
+    String text, {
+    bool isError = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isError
+            ? cs.errorContainer.withValues(alpha: 0.18)
+            : cs.surface.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: (isError ? cs.error : cs.outlineVariant).withValues(
+            alpha: 0.42,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: isError ? cs.error : cs.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _formattedTerminalText(text, cs),
+        ],
       ),
     );
   }
@@ -5790,12 +6546,15 @@ class _AndroidReverseDashboardDialogState
           ),
         ],
         const SizedBox(width: 8),
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: _DashboardActionButton(
-            onPressed: onPressed,
-            icon: Icon(icon),
-            label: label,
+        SizedBox(
+          width: _kDeviceTrailingActionWidth,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _DashboardActionButton(
+              onPressed: onPressed,
+              icon: Icon(icon),
+              label: label,
+            ),
           ),
         ),
       ],
@@ -5920,6 +6679,122 @@ class _AndroidMcpServerView {
   final McpToolCatalog catalog;
   final McpServerHealth health;
   final List<McpTool> matchedTools;
+}
+
+class _ParsedLogcatLine {
+  const _ParsedLogcatLine({
+    required this.raw,
+    required this.message,
+    this.level,
+    this.time,
+    this.pid,
+    this.tid,
+    this.tag,
+  });
+
+  final String raw;
+  final String message;
+  final String? level;
+  final String? time;
+  final String? pid;
+  final String? tid;
+  final String? tag;
+}
+
+class _LogcatLineTile extends StatelessWidget {
+  const _LogcatLineTile({
+    required this.parsed,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  final _ParsedLogcatLine parsed;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final level = parsed.level?.trim().toUpperCase();
+    final color = _levelColor(level, colorScheme);
+    final meta = <String>[
+      if (parsed.time?.trim().isNotEmpty ?? false) parsed.time!.trim(),
+      if (parsed.pid?.trim().isNotEmpty ?? false)
+        (parsed.tid?.trim().isNotEmpty ?? false)
+            ? 'pid ${parsed.pid}/${parsed.tid}'
+            : 'pid ${parsed.pid}',
+      if (parsed.tag?.trim().isNotEmpty ?? false) parsed.tag!.trim(),
+    ];
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: level == null ? 0.03 : 0.07),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(
+              level ?? '-',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (meta.isNotEmpty)
+                  SelectableText(
+                    meta.join('  ·  '),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontFamily: 'monospace',
+                      height: 1.25,
+                    ),
+                  ),
+                SelectableText(
+                  parsed.message.isEmpty ? parsed.raw : parsed.message,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: level == 'E' || level == 'F'
+                        ? colorScheme.error
+                        : colorScheme.onSurface,
+                    height: 1.36,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _levelColor(String? level, ColorScheme cs) {
+    return switch (level) {
+      'F' || 'E' => cs.error,
+      'W' => cs.tertiary,
+      'I' => cs.primary,
+      'D' => cs.secondary,
+      'V' => cs.outline,
+      _ => cs.onSurfaceVariant,
+    };
+  }
 }
 
 class _DashboardActionButton extends StatelessWidget {

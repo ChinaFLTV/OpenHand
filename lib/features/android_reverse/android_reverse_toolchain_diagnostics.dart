@@ -3,6 +3,34 @@ import 'dart:io';
 import '../../app/support/safe_subprocess.dart';
 
 const Duration _kToolchainProbeTimeout = Duration(seconds: 5);
+const Duration _kToolchainCommandTimeout = Duration(minutes: 10);
+
+enum AndroidReverseToolchainCommandAction { install, update, uninstall }
+
+class AndroidReverseToolchainCommandResult {
+  const AndroidReverseToolchainCommandResult({
+    required this.probe,
+    required this.action,
+    required this.command,
+    required this.exitCode,
+    required this.stdout,
+    required this.stderr,
+    required this.durationMs,
+    required this.timedOut,
+  });
+
+  final AndroidReverseToolchainProbe probe;
+  final AndroidReverseToolchainCommandAction action;
+  final String command;
+  final int exitCode;
+  final String stdout;
+  final String stderr;
+  final int durationMs;
+  final bool timedOut;
+
+  bool get ok => exitCode == 0 && !timedOut;
+  bool get hasOutput => stdout.trim().isNotEmpty || stderr.trim().isNotEmpty;
+}
 
 class AndroidReverseToolchainProbe {
   const AndroidReverseToolchainProbe({
@@ -28,6 +56,14 @@ class AndroidReverseToolchainProbe {
   final String? updateCommand;
   final String? uninstallCommand;
   final String? referenceUrl;
+
+  String? commandFor(AndroidReverseToolchainCommandAction action) {
+    return switch (action) {
+      AndroidReverseToolchainCommandAction.install => installCommand,
+      AndroidReverseToolchainCommandAction.update => updateCommand,
+      AndroidReverseToolchainCommandAction.uninstall => uninstallCommand,
+    };
+  }
 }
 
 class AndroidReverseToolchainProbeResult {
@@ -254,6 +290,78 @@ probeAndroidReverseToolchain() async {
         .toList(growable: false);
   }
   return Future.wait(androidReverseToolchainProbes.map(_runToolchainProbe));
+}
+
+Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
+  AndroidReverseToolchainProbe probe,
+  AndroidReverseToolchainCommandAction action,
+) async {
+  final command = probe.commandFor(action)?.trim() ?? '';
+  if (command.isEmpty) {
+    return AndroidReverseToolchainCommandResult(
+      probe: probe,
+      action: action,
+      command: '',
+      exitCode: -1,
+      stdout: '',
+      stderr: 'No ${action.name} command is available for ${probe.label}.',
+      durationMs: 0,
+      timedOut: false,
+    );
+  }
+  if (!androidReverseToolchainDiagnosticsSupported) {
+    return AndroidReverseToolchainCommandResult(
+      probe: probe,
+      action: action,
+      command: command,
+      exitCode: -1,
+      stdout: '',
+      stderr: 'Toolchain commands require /bin/sh on this platform.',
+      durationMs: 0,
+      timedOut: false,
+    );
+  }
+  final sw = Stopwatch()..start();
+  try {
+    final result = await runTrackedProcessOrFailed(
+      '/bin/sh',
+      <String>['-lc', command],
+      timeout: _kToolchainCommandTimeout,
+      tag: 'android_reverse_toolchain_command',
+    );
+    sw.stop();
+    final stdout = result.stdout.toString();
+    final stderr = result.stderr.toString();
+    final timedOut =
+        result.exitCode == -1 &&
+        stdout.trim().isEmpty &&
+        stderr.trim().isEmpty &&
+        sw.elapsed >= _kToolchainCommandTimeout;
+    return AndroidReverseToolchainCommandResult(
+      probe: probe,
+      action: action,
+      command: command,
+      exitCode: result.exitCode,
+      stdout: stdout,
+      stderr: timedOut
+          ? 'Toolchain command timed out after ${_kToolchainCommandTimeout.inMinutes} minutes.'
+          : stderr,
+      durationMs: sw.elapsedMilliseconds,
+      timedOut: timedOut,
+    );
+  } catch (e) {
+    sw.stop();
+    return AndroidReverseToolchainCommandResult(
+      probe: probe,
+      action: action,
+      command: command,
+      exitCode: -1,
+      stdout: '',
+      stderr: '$e',
+      durationMs: sw.elapsedMilliseconds,
+      timedOut: false,
+    );
+  }
 }
 
 Future<AndroidReverseToolchainProbeResult> _runToolchainProbe(
