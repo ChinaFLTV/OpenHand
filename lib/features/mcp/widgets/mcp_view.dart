@@ -223,6 +223,9 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     required List<McpServer> servers,
   }) {
     final l10n = AppLocalizations.of(context)!;
+    final controller = context.read<McpController>();
+    final linkageController = context.watch<TemplateRuntimeLinkageController>();
+    final templateCandidates = _templateMcpCandidateEntries(controller);
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -241,15 +244,23 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     }
     if (servers.isEmpty) {
       return ListView(
-        key: const ValueKey<String>('mcp-empty-with-template-bindings'),
+        key: const ValueKey<String>('mcp-empty'),
         padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
         children: [
-          _TemplateMcpAssociationPanel(
-            controller: context.read<McpController>(),
-            linkageController: context
-                .watch<TemplateRuntimeLinkageController>(),
-          ),
-          const SizedBox(height: 14),
+          for (final entry in templateCandidates) ...[
+            _TemplateMcpCandidateCard(
+              spec: entry.spec,
+              capability: entry.capability,
+              linkageController: linkageController,
+              onRegister: entry.capability.hasSuggestedServer
+                  ? () => _registerTemplateMcpCapability(
+                      context,
+                      entry.capability,
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 14),
+          ],
           FeatureStateCard.inline(
             icon: Icons.hub_outlined,
             title: l10n.mcpEmptyTitle,
@@ -264,11 +275,25 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
       cacheExtent: 600,
       children: [
-        _TemplateMcpAssociationPanel(
-          controller: context.read<McpController>(),
-          linkageController: context.watch<TemplateRuntimeLinkageController>(),
-        ),
-        const SizedBox(height: 14),
+        for (final entry in templateCandidates) ...[
+          SettingsAwareAppearOnce(
+            key: ValueKey<String>(
+              'mcp-template-candidate-${entry.spec.templateId}-${entry.capability.id}',
+            ),
+            child: _TemplateMcpCandidateCard(
+              spec: entry.spec,
+              capability: entry.capability,
+              linkageController: linkageController,
+              onRegister: entry.capability.hasSuggestedServer
+                  ? () => _registerTemplateMcpCapability(
+                      context,
+                      entry.capability,
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         for (final server in servers) ...[
           SettingsAwareAppearOnce(
             key: ValueKey<String>('mcp-server-appear-${server.name}'),
@@ -320,6 +345,65 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           const SizedBox(height: 14),
         ],
       ],
+    );
+  }
+
+  Future<void> _registerTemplateMcpCapability(
+    BuildContext context,
+    TemplateRuntimeMcpCapabilitySpec capability,
+  ) async {
+    final name = capability.suggestedServerName?.trim();
+    final command = capability.suggestedCommand?.trim();
+    final url = capability.suggestedUrl?.trim();
+    final hasPlaceholder =
+        (command?.contains('<') ?? false) ||
+        (url?.contains('<') ?? false) ||
+        capability.suggestedArgs.any(
+          (arg) => arg.contains('<') || arg.contains('>'),
+        );
+    if (name == null ||
+        name.isEmpty ||
+        hasPlaceholder ||
+        ((command == null || command.isEmpty) &&
+            (url == null || url.isEmpty))) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '该 MCP 需要先按服务说明填写包名或地址。',
+          en: 'This MCP needs a concrete package name or URL first.',
+        ),
+        kind: OpenHandSnackKind.error,
+      );
+      return;
+    }
+    final saved = await context.read<McpController>().saveServer(
+      McpServer(
+        name: name,
+        type: url != null && url.isNotEmpty
+            ? McpServerType.sse
+            : McpServerType.stdio,
+        enabled: true,
+        url: url ?? '',
+        command: command ?? '',
+        args: capability.suggestedArgs,
+      ),
+    );
+    if (!context.mounted) return;
+    _showSnackBar(
+      context,
+      saved
+          ? _localizedText(
+              context,
+              zh: '已添加 MCP 服务：$name',
+              en: 'MCP added: $name',
+            )
+          : _localizedText(
+              context,
+              zh: 'MCP 服务已存在或名称冲突：$name',
+              en: 'MCP exists or name conflicts: $name',
+            ),
+      kind: saved ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
   }
 
@@ -777,174 +861,50 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   }
 }
 
-class _TemplateMcpAssociationPanel extends StatelessWidget {
-  const _TemplateMcpAssociationPanel({
-    required this.controller,
-    required this.linkageController,
-  });
-
-  final McpController controller;
-  final TemplateRuntimeLinkageController linkageController;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Card(
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.account_tree_rounded, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _localizedText(
-                      context,
-                      zh: '线程模板关联 MCP',
-                      en: 'Thread template MCP bindings',
-                    ),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '${controller.servers.length} 个全局服务',
-                    en: '${controller.servers.length} global servers',
-                  ),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            for (final spec
-                in TemplateRuntimeDependencyRegistry
-                    .reverseEngineeringSpecs) ...[
-              _TemplateMcpSpecBlock(
-                spec: spec,
-                controller: controller,
-                linkageController: linkageController,
-              ),
-              if (!identical(
-                spec,
-                TemplateRuntimeDependencyRegistry.reverseEngineeringSpecs.last,
-              ))
-                const SizedBox(height: 12),
-            ],
-          ],
-        ),
-      ),
-    );
+List<
+  ({
+    TemplateRuntimeDependencySpec spec,
+    TemplateRuntimeMcpCapabilitySpec capability,
+  })
+>
+_templateMcpCandidateEntries(McpController controller) {
+  final entries =
+      <
+        ({
+          TemplateRuntimeDependencySpec spec,
+          TemplateRuntimeMcpCapabilitySpec capability,
+        })
+      >[];
+  for (final spec
+      in TemplateRuntimeDependencyRegistry.reverseEngineeringSpecs) {
+    for (final capability in spec.mcpCapabilities) {
+      final matches = _matchingServersForCapability(controller, capability);
+      if (matches.isEmpty) {
+        entries.add((spec: spec, capability: capability));
+      }
+    }
   }
+  return List.unmodifiable(entries);
 }
 
-class _TemplateMcpSpecBlock extends StatelessWidget {
-  const _TemplateMcpSpecBlock({
-    required this.spec,
-    required this.controller,
-    required this.linkageController,
-  });
-
-  final TemplateRuntimeDependencySpec spec;
-  final McpController controller;
-  final TemplateRuntimeLinkageController linkageController;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
-    final sessions = linkageController.sessionsForTemplate(spec.templateId);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                isZh ? spec.labelZh : spec.labelEn,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              _TemplateMcpTinyChip(
-                icon: Icons.forum_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '活跃快照 ${sessions.length}',
-                  en: '${sessions.length} runtime snapshots',
-                ),
-              ),
-              _TemplateMcpTinyChip(
-                icon: Icons.manage_search_rounded,
-                label: spec.toolSearchFallbackQuery,
-                monospace: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          for (final capability in spec.mcpCapabilities) ...[
-            _TemplateMcpCapabilityRow(
-              spec: spec,
-              capability: capability,
-              controller: controller,
-              linkageController: linkageController,
-            ),
-            if (!identical(capability, spec.mcpCapabilities.last))
-              const SizedBox(height: 8),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TemplateMcpCapabilityRow extends StatelessWidget {
-  const _TemplateMcpCapabilityRow({
+class _TemplateMcpCandidateCard extends StatelessWidget {
+  const _TemplateMcpCandidateCard({
     required this.spec,
     required this.capability,
-    required this.controller,
     required this.linkageController,
+    required this.onRegister,
   });
 
   final TemplateRuntimeDependencySpec spec;
   final TemplateRuntimeMcpCapabilitySpec capability;
-  final McpController controller;
   final TemplateRuntimeLinkageController linkageController;
+  final VoidCallback? onRegister;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isZh = openHandIsChineseLocale(context);
-    final matchedServers = _matchingServersForCapability(
-      controller,
-      capability,
-    );
-    final enabledServerCount = matchedServers
-        .where((server) => server.enabled)
-        .length;
     final latestState = linkageController.latestCapabilityState(
       spec.templateId,
       capability.id,
@@ -953,17 +913,18 @@ class _TemplateMcpCapabilityRow extends StatelessWidget {
       spec.templateId,
       capability.id,
     );
-    final effectiveReady = capability.openHandManaged
-        ? latestState?.enabled == true && latestState?.status == 'ready'
-        : enabledServerCount > 0;
-    final color = effectiveReady
+    final ready =
+        capability.openHandManaged &&
+        latestState?.enabled == true &&
+        latestState?.status == 'ready';
+    final color = ready
         ? OpenHandStatusColors.success
-        : matchedServers.isNotEmpty || capability.openHandManaged
+        : capability.openHandManaged
         ? OpenHandStatusColors.warning
         : cs.error;
     final statusText = capability.openHandManaged
         ? latestState == null
-              ? (isZh ? '会话内托管' : 'session-managed')
+              ? (isZh ? '会话托管' : 'session-managed')
               : latestState.enabled
               ? _localizedText(
                   context,
@@ -975,87 +936,120 @@ class _TemplateMcpCapabilityRow extends StatelessWidget {
                   zh: '会话关闭 · ${latestState.status}',
                   en: 'session off · ${latestState.status}',
                 )
-        : matchedServers.isEmpty
-        ? (isZh ? '未注册' : 'not registered')
-        : enabledServerCount > 0
-        ? (isZh
-              ? '已启用 $enabledServerCount/${matchedServers.length}'
-              : '$enabledServerCount/${matchedServers.length} enabled')
-        : (isZh ? '已注册但未启用' : 'registered but disabled');
-    final description = isZh
-        ? capability.descriptionZh
-        : capability.descriptionEn;
-    final serverNames = matchedServers
-        .map((server) => server.name)
-        .take(3)
-        .join(', ');
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          effectiveReady
-              ? Icons.check_circle_rounded
-              : capability.openHandManaged
-              ? Icons.motion_photos_auto_rounded
-              : matchedServers.isEmpty
-              ? Icons.add_circle_outline_rounded
-              : Icons.pause_circle_outline_rounded,
-          size: 18,
-          color: color,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
+        : (isZh ? '未注册' : 'not registered');
+    final hasPlaceholder = capability.suggestedArgs.any(
+      (arg) => arg.contains('<') || arg.contains('>'),
+    );
+    final canRegister = onRegister != null && !hasPlaceholder;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: cs.secondaryContainer.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                ready
+                    ? Icons.check_circle_rounded
+                    : capability.openHandManaged
+                    ? Icons.motion_photos_auto_rounded
+                    : Icons.add_circle_outline_rounded,
+                color: color,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        isZh ? capability.labelZh : capability.labelEn,
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      _TemplateMcpStateChip(label: statusText, color: color),
+                      _TemplateMcpTinyChip(
+                        icon: Icons.account_tree_rounded,
+                        label: isZh ? spec.labelZh : spec.labelEn,
+                      ),
+                      if (runtimeEnabledCount > 0)
+                        _TemplateMcpTinyChip(
+                          icon: Icons.toggle_on_rounded,
+                          label: _localizedText(
+                            context,
+                            zh: '会话启用 $runtimeEnabledCount',
+                            en: '$runtimeEnabledCount sessions on',
+                          ),
+                        ),
+                      if (capability.packageName != null)
+                        _TemplateMcpTinyChip(
+                          icon: Icons.inventory_2_outlined,
+                          label: capability.packageName!,
+                          monospace: true,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Text(
-                    isZh ? capability.labelZh : capability.labelEn,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    [
+                      isZh
+                          ? capability.descriptionZh
+                          : capability.descriptionEn,
+                      if (latestState?.message?.trim().isNotEmpty ?? false)
+                        latestState!.message!.trim(),
+                    ].join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
-                  _TemplateMcpStateChip(label: statusText, color: color),
-                  if (runtimeEnabledCount > 0)
+                  if (capability.suggestedServerName?.trim().isNotEmpty ??
+                      false) ...[
+                    const SizedBox(height: 10),
                     _TemplateMcpTinyChip(
-                      icon: Icons.toggle_on_rounded,
-                      label: _localizedText(
-                        context,
-                        zh: '会话启用 $runtimeEnabledCount',
-                        en: '$runtimeEnabledCount sessions on',
-                      ),
-                    ),
-                  if (capability.packageName != null)
-                    _TemplateMcpTinyChip(
-                      icon: Icons.inventory_2_outlined,
-                      label: capability.packageName!,
+                      icon: Icons.hub_rounded,
+                      label: capability.suggestedServerName!.trim(),
                       monospace: true,
                     ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 3),
-              Text(
-                [
-                  description,
-                  if (serverNames.isNotEmpty)
-                    '${isZh ? "匹配服务" : "Matched"}: $serverNames',
-                  if (latestState?.message?.trim().isNotEmpty ?? false)
-                    latestState!.message!.trim(),
-                ].join(' · '),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            FilledButton.tonalIcon(
+              onPressed: canRegister ? onRegister : null,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(
+                canRegister
+                    ? _localizedText(context, zh: '注册服务', en: 'Register')
+                    : _localizedText(context, zh: '需配置', en: 'Configure'),
+              ),
+              style: FilledButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

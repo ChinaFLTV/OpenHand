@@ -9,6 +9,10 @@ class TemplateRuntimeMcpCapabilitySpec {
     required this.descriptionEn,
     required this.keywords,
     this.packageName,
+    this.suggestedServerName,
+    this.suggestedCommand,
+    this.suggestedArgs = const <String>[],
+    this.suggestedUrl,
     this.openHandManaged = false,
     this.optional = true,
   });
@@ -20,8 +24,17 @@ class TemplateRuntimeMcpCapabilitySpec {
   final String descriptionEn;
   final List<String> keywords;
   final String? packageName;
+  final String? suggestedServerName;
+  final String? suggestedCommand;
+  final List<String> suggestedArgs;
+  final String? suggestedUrl;
   final bool openHandManaged;
   final bool optional;
+
+  bool get hasSuggestedServer =>
+      (suggestedServerName?.trim().isNotEmpty ?? false) &&
+      ((suggestedCommand?.trim().isNotEmpty ?? false) ||
+          (suggestedUrl?.trim().isNotEmpty ?? false));
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
@@ -31,6 +44,11 @@ class TemplateRuntimeMcpCapabilitySpec {
     'description_en': descriptionEn,
     'keywords': keywords,
     if (packageName != null) 'package_name': packageName,
+    if (suggestedServerName != null)
+      'suggested_server_name': suggestedServerName,
+    if (suggestedCommand != null) 'suggested_command': suggestedCommand,
+    if (suggestedArgs.isNotEmpty) 'suggested_args': suggestedArgs,
+    if (suggestedUrl != null) 'suggested_url': suggestedUrl,
     'openhand_managed': openHandManaged,
     'optional': optional,
   };
@@ -97,13 +115,19 @@ class TemplateRuntimeDependencyRegistry {
   static const List<String> webReversePluginIds = <String>[
     'nodejs',
     'playwright',
+    'mitmproxy',
   ];
 
   static const List<String> androidReversePluginIds = <String>[
+    'java',
     'nodejs',
     'python',
     'pip',
     'playwright',
+    'frida',
+    'mitmproxy',
+    'apktool',
+    'jadx',
   ];
 
   static const List<String> webReverseMcpKeywords = <String>[
@@ -178,6 +202,9 @@ class TemplateRuntimeDependencyRegistry {
           'js-reverse',
         ],
         packageName: 'chrome-devtools-mcp@latest',
+        suggestedServerName: 'Web Reverse CDP MCP',
+        suggestedCommand: 'npx',
+        suggestedArgs: <String>['--yes', 'chrome-devtools-mcp@latest'],
         openHandManaged: true,
       ),
       TemplateRuntimeMcpCapabilitySpec(
@@ -195,6 +222,30 @@ class TemplateRuntimeDependencyRegistry {
           'webkit',
         ],
         packageName: '@playwright/mcp',
+        suggestedServerName: 'Playwright MCP',
+        suggestedCommand: 'npx',
+        suggestedArgs: <String>['--yes', '@playwright/mcp'],
+      ),
+      TemplateRuntimeMcpCapabilitySpec(
+        id: 'js_reverse_mcp',
+        labelZh: 'JS Reverse MCP',
+        labelEn: 'JS Reverse MCP',
+        descriptionZh: 'JavaScript 反混淆、AST 分析、sourcemap 与打包产物定位能力。',
+        descriptionEn:
+            'JavaScript deobfuscation, AST analysis, sourcemap, and bundled asset inspection.',
+        keywords: <String>[
+          'js-reverse',
+          'javascript',
+          'deobfuscate',
+          'ast',
+          'sourcemap',
+          'source-map',
+          'webpack',
+          'vite',
+        ],
+        suggestedServerName: 'JS Reverse MCP',
+        suggestedCommand: 'npx',
+        suggestedArgs: <String>['--yes', '<js-reverse-mcp-package>'],
       ),
     ],
   );
@@ -216,6 +267,9 @@ class TemplateRuntimeDependencyRegistry {
         descriptionEn:
             'Device listing, adb shell, logcat, port forwarding, and APK actions.',
         keywords: <String>['adb', 'android', 'device', 'logcat', 'shell'],
+        suggestedServerName: 'Android ADB MCP',
+        suggestedCommand: 'npx',
+        suggestedArgs: <String>['--yes', '<adb-mcp-package>'],
       ),
       TemplateRuntimeMcpCapabilitySpec(
         id: 'android_frida_mcp',
@@ -224,6 +278,9 @@ class TemplateRuntimeDependencyRegistry {
         descriptionZh: 'Frida 注入、Hook 与运行时动态验证。',
         descriptionEn: 'Frida injection, hooks, and runtime verification.',
         keywords: <String>['frida', 'objection', 'hook', 'spawn'],
+        suggestedServerName: 'Android Frida MCP',
+        suggestedCommand: 'npx',
+        suggestedArgs: <String>['--yes', '<frida-mcp-package>'],
       ),
       TemplateRuntimeMcpCapabilitySpec(
         id: 'android_static_mcp',
@@ -248,6 +305,9 @@ class TemplateRuntimeDependencyRegistry {
           'anything',
           'analyzer',
         ],
+        suggestedServerName: 'Anything Analyzer MCP',
+        suggestedCommand: 'npx',
+        suggestedArgs: <String>['--yes', '<anything-analyzer-package>'],
       ),
       TemplateRuntimeMcpCapabilitySpec(
         id: 'android_network_mcp',

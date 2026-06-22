@@ -650,6 +650,222 @@ fi
     );
   }
 
+  Future<PluginOperationResult> _installBrewFormula({
+    required String formula,
+    required String label,
+    required String verifyCommand,
+    void Function(String line)? onProgress,
+  }) async {
+    if (!await _isExecutableAvailable('brew')) {
+      return PluginOperationResult(
+        success: false,
+        message: '未找到 Homebrew，无法自动安装 $label。',
+      );
+    }
+    onProgress?.call('使用 Homebrew 安装 $label…');
+    final result = await _runWithProgress(
+      'brew',
+      ['install', formula],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+    );
+    if (result.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'Homebrew 安装 $label 失败: ${_processErrorMessage(result)}',
+      );
+    }
+    final verify = await runTrackedProcessOrFailed(
+      _pickShell(),
+      ['-c', '${_pythonShellPrefix()}command -v $verifyCommand'],
+      timeout: _pluginLifecycleVerifyTimeout,
+      tag: 'plugin_lifecycle.verify.$verifyCommand',
+    );
+    onProgress?.call('$label 安装完成');
+    return PluginOperationResult(
+      success: true,
+      message: verify.exitCode == 0
+          ? '$label 已安装：${verify.stdout.toString().trim()}'
+          : '$label 已通过 Homebrew 安装；如命令不可见，请检查 shell PATH。',
+    );
+  }
+
+  Future<PluginOperationResult> _updateBrewFormula({
+    required String formula,
+    required String label,
+    void Function(String line)? onProgress,
+  }) async {
+    if (!await _isExecutableAvailable('brew')) {
+      return PluginOperationResult(
+        success: false,
+        message: '未找到 Homebrew，无法自动更新 $label。',
+      );
+    }
+    onProgress?.call('使用 Homebrew 更新 $label…');
+    final result = await _runWithProgress(
+      'brew',
+      ['upgrade', formula],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+    );
+    if (result.exitCode == 0 ||
+        _processErrorMessage(result).contains('already installed') ||
+        _processErrorMessage(result).contains('not outdated')) {
+      onProgress?.call('$label 更新完成');
+      return PluginOperationResult(success: true, message: '$label 已更新');
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'Homebrew 更新 $label 失败: ${_processErrorMessage(result)}',
+    );
+  }
+
+  Future<PluginOperationResult> _uninstallBrewFormula({
+    required String formula,
+    required String label,
+    void Function(String line)? onProgress,
+  }) async {
+    if (!await _isExecutableAvailable('brew')) {
+      return PluginOperationResult(
+        success: false,
+        message: '未找到 Homebrew，无法自动卸载 $label。',
+      );
+    }
+    onProgress?.call('使用 Homebrew 卸载 $label…');
+    final result = await _runWithProgress(
+      'brew',
+      ['uninstall', formula],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+    );
+    if (result.exitCode == 0) {
+      onProgress?.call('$label 已卸载');
+      return PluginOperationResult(success: true, message: '$label 已卸载');
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'Homebrew 卸载 $label 失败: ${_processErrorMessage(result)}',
+    );
+  }
+
+  Future<PluginOperationResult> _installOrUpdatePythonPackage({
+    required String packageName,
+    required String label,
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('正在检测 Python / pip 环境…');
+    final context = await _detectPythonRuntimeContext();
+    if (context == null) {
+      return PluginOperationResult(
+        success: false,
+        message: '$label 需要 Python，请先安装 Python。',
+      );
+    }
+    final pipVersion = await _readPipVersion(context.executablePath);
+    if (pipVersion == null) {
+      return PluginOperationResult(
+        success: false,
+        message: '$label 需要 pip，请先安装 pip。',
+      );
+    }
+    onProgress?.call('通过 pip 安装/更新 $label…');
+    final result = await _runBoundPythonCommand(
+      context.executablePath,
+      ['-m', 'pip', 'install', '--upgrade', packageName],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+    );
+    if (result.exitCode != 0) {
+      final message = _processErrorMessage(result);
+      if (_isExternallyManagedPipError(message)) {
+        return PluginOperationResult(
+          success: false,
+          message: _pipManagedEnvironmentMessage(context),
+        );
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'pip 安装 $label 失败: $message',
+      );
+    }
+    onProgress?.call('$label 已就绪');
+    return PluginOperationResult(success: true, message: '$label 已安装或更新');
+  }
+
+  Future<PluginOperationResult> _uninstallPythonPackage({
+    required String packageName,
+    required String label,
+    void Function(String line)? onProgress,
+  }) async {
+    final context = await _detectPythonRuntimeContext();
+    if (context == null) {
+      return PluginOperationResult(
+        success: false,
+        message: '未检测到 Python，无法卸载 $label。',
+      );
+    }
+    onProgress?.call('通过 pip 卸载 $label…');
+    final result = await _runBoundPythonCommand(context.executablePath, [
+      '-m',
+      'pip',
+      'uninstall',
+      '-y',
+      packageName,
+    ], onProgress: onProgress);
+    if (result.exitCode == 0) {
+      onProgress?.call('$label 已卸载');
+      return PluginOperationResult(success: true, message: '$label 已卸载');
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'pip 卸载 $label 失败: ${_processErrorMessage(result)}',
+    );
+  }
+
+  Future<PluginOperationResult> installJava({
+    void Function(String line)? onProgress,
+  }) => _installBrewFormula(
+    formula: 'openjdk',
+    label: 'Java',
+    verifyCommand: 'java',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> installFrida({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdatePythonPackage(
+    packageName: 'frida-tools',
+    label: 'Frida',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> installMitmproxy({
+    void Function(String line)? onProgress,
+  }) => _installBrewFormula(
+    formula: 'mitmproxy',
+    label: 'mitmproxy',
+    verifyCommand: 'mitmdump',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> installApktool({
+    void Function(String line)? onProgress,
+  }) => _installBrewFormula(
+    formula: 'apktool',
+    label: 'apktool',
+    verifyCommand: 'apktool',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> installJadx({
+    void Function(String line)? onProgress,
+  }) => _installBrewFormula(
+    formula: 'jadx',
+    label: 'jadx',
+    verifyCommand: 'jadx',
+    onProgress: onProgress,
+  );
+
   Future<PluginOperationResult> updateNodeJs({
     void Function(String line)? onProgress,
   }) async {
@@ -1035,6 +1251,46 @@ fi
     );
   }
 
+  Future<PluginOperationResult> updateJava({
+    void Function(String line)? onProgress,
+  }) => _updateBrewFormula(
+    formula: 'openjdk',
+    label: 'Java',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> updateFrida({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdatePythonPackage(
+    packageName: 'frida-tools',
+    label: 'Frida',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> updateMitmproxy({
+    void Function(String line)? onProgress,
+  }) => _updateBrewFormula(
+    formula: 'mitmproxy',
+    label: 'mitmproxy',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> updateApktool({
+    void Function(String line)? onProgress,
+  }) => _updateBrewFormula(
+    formula: 'apktool',
+    label: 'apktool',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> updateJadx({
+    void Function(String line)? onProgress,
+  }) => _updateBrewFormula(
+    formula: 'jadx',
+    label: 'jadx',
+    onProgress: onProgress,
+  );
+
   Future<PluginOperationResult> uninstallNodeJs({
     required bool playwrightInstalled,
     void Function(String line)? onProgress,
@@ -1179,6 +1435,46 @@ fi
       message: '卸载失败: ${result.stderr}',
     );
   }
+
+  Future<PluginOperationResult> uninstallJava({
+    void Function(String line)? onProgress,
+  }) => _uninstallBrewFormula(
+    formula: 'openjdk',
+    label: 'Java',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> uninstallFrida({
+    void Function(String line)? onProgress,
+  }) => _uninstallPythonPackage(
+    packageName: 'frida-tools',
+    label: 'Frida',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> uninstallMitmproxy({
+    void Function(String line)? onProgress,
+  }) => _uninstallBrewFormula(
+    formula: 'mitmproxy',
+    label: 'mitmproxy',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> uninstallApktool({
+    void Function(String line)? onProgress,
+  }) => _uninstallBrewFormula(
+    formula: 'apktool',
+    label: 'apktool',
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> uninstallJadx({
+    void Function(String line)? onProgress,
+  }) => _uninstallBrewFormula(
+    formula: 'jadx',
+    label: 'jadx',
+    onProgress: onProgress,
+  );
 
   Future<List<String>> _remainingPyenvVersions({
     required String excluding,

@@ -22,6 +22,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_dialog_motion_surface.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -159,10 +160,12 @@ Future<void> showWebReverseDashboardDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _WebReverseDashboardDialog(
-      controller: controller,
-      sessionId: sessionId,
-      onCdpMcpEnabledChanged: onCdpMcpEnabledChanged,
+    builder: (_) => OpenHandDialogMotionSurface(
+      child: _WebReverseDashboardDialog(
+        controller: controller,
+        sessionId: sessionId,
+        onCdpMcpEnabledChanged: onCdpMcpEnabledChanged,
+      ),
     ),
   );
 }

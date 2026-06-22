@@ -95,7 +95,17 @@ class PluginServiceController extends ManagedChangeNotifier {
     };
     final result = <PluginInfo>[];
     final seen = <String>{};
-    for (final id in const <String>['nodejs', 'playwright', 'python', 'pip']) {
+    for (final id in const <String>[
+      'nodejs',
+      'playwright',
+      'python',
+      'pip',
+      'java',
+      'frida',
+      'mitmproxy',
+      'apktool',
+      'jadx',
+    ]) {
       final plugin = byId[id];
       if (plugin == null) continue;
       seen.add(id);
@@ -128,6 +138,11 @@ class PluginServiceController extends ManagedChangeNotifier {
         'playwright' => _scanner.scanPlaywright(),
         'python' => _scanner.scanPython(),
         'pip' => _scanner.scanPip(),
+        'java' => _scanner.scanJava(),
+        'frida' => _scanner.scanFrida(),
+        'mitmproxy' => _scanner.scanMitmproxy(),
+        'apktool' => _scanner.scanApktool(),
+        'jadx' => _scanner.scanJadx(),
         _ => Future<PluginInfo?>.value(),
       };
       if (refreshed == null) return null;
@@ -194,6 +209,11 @@ class PluginServiceController extends ManagedChangeNotifier {
         'playwright' => await _lifecycle.installPlaywright(onProgress: _addLog),
         'python' => await _lifecycle.installPython(onProgress: _addLog),
         'pip' => await _lifecycle.installPip(onProgress: _addLog),
+        'java' => await _lifecycle.installJava(onProgress: _addLog),
+        'frida' => await _lifecycle.installFrida(onProgress: _addLog),
+        'mitmproxy' => await _lifecycle.installMitmproxy(onProgress: _addLog),
+        'apktool' => await _lifecycle.installApktool(onProgress: _addLog),
+        'jadx' => await _lifecycle.installJadx(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
@@ -234,6 +254,11 @@ class PluginServiceController extends ManagedChangeNotifier {
         'playwright' => await _lifecycle.updatePlaywright(onProgress: _addLog),
         'python' => await _lifecycle.updatePython(onProgress: _addLog),
         'pip' => await _lifecycle.updatePip(onProgress: _addLog),
+        'java' => await _lifecycle.updateJava(onProgress: _addLog),
+        'frida' => await _lifecycle.updateFrida(onProgress: _addLog),
+        'mitmproxy' => await _lifecycle.updateMitmproxy(onProgress: _addLog),
+        'apktool' => await _lifecycle.updateApktool(onProgress: _addLog),
+        'jadx' => await _lifecycle.updateJadx(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
@@ -297,6 +322,11 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         'python' => await _lifecycle.uninstallPython(onProgress: _addLog),
         'pip' => await _lifecycle.uninstallPip(onProgress: _addLog),
+        'java' => await _lifecycle.uninstallJava(onProgress: _addLog),
+        'frida' => await _lifecycle.uninstallFrida(onProgress: _addLog),
+        'mitmproxy' => await _lifecycle.uninstallMitmproxy(onProgress: _addLog),
+        'apktool' => await _lifecycle.uninstallApktool(onProgress: _addLog),
+        'jadx' => await _lifecycle.uninstallJadx(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {

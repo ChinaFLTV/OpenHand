@@ -343,6 +343,30 @@ class PluginScannerService {
     return version is String && version.isNotEmpty ? version : null;
   }
 
+  Future<String?> _queryLatestPypiVersion(String packageName) async {
+    final normalized = packageName.trim();
+    if (normalized.isEmpty) return null;
+    final result = await _shellRun(
+      'curl -fsSL https://pypi.org/pypi/$normalized/json',
+    );
+    if (result.exitCode != 0) return null;
+    final decoded = _decodeOptionalJson(result.stdout.toString());
+    if (decoded is! Map<String, Object?>) return null;
+    final info = decoded['info'];
+    if (info is! Map<String, Object?>) return null;
+    final version = info['version'];
+    return version is String && version.isNotEmpty ? version : null;
+  }
+
+  Future<String?> _queryLatestNpmVersion(String packageName) async {
+    final normalized = packageName.trim();
+    if (normalized.isEmpty) return null;
+    final result = await _shellRun('npm view $normalized version');
+    if (result.exitCode != 0) return null;
+    final version = _extractFirstSemver(result.stdout.toString());
+    return version;
+  }
+
   static String? _extractFirstSemver(String output, {String? prefix}) {
     final matches = RegExp(r'(\d+\.\d+\.\d+)').allMatches(output);
     for (final match in matches) {
@@ -365,6 +389,93 @@ class PluginScannerService {
       versions.add(value);
     }
     return versions.toList(growable: false);
+  }
+
+  static String? _extractLooseVersion(String output) {
+    final match = RegExp(
+      r'(\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?)',
+    ).firstMatch(output);
+    return match?.group(1);
+  }
+
+  static String _shellQuote(String value) {
+    if (value.isEmpty) return "''";
+    return "'${value.replaceAll("'", "'\"'\"'")}'";
+  }
+
+  static String? _extractJavaVersion(String output) {
+    final quoted = RegExp(r'version\s+"([^"]+)"').firstMatch(output);
+    if (quoted != null) return quoted.group(1);
+    return _extractLooseVersion(output);
+  }
+
+  Future<PluginInfo> _scanCommandPlugin({
+    required String id,
+    required String name,
+    required String description,
+    required List<String> commands,
+    required List<String> versionArgs,
+    required String? Function(String output) versionParser,
+    String? latestBrewFormula,
+    String? latestPypiPackage,
+    String? latestNpmPackage,
+    List<String> dependencies = const <String>[],
+    List<String> dependents = const <String>[],
+    bool supportsUninstall = true,
+  }) async {
+    for (final command in commands) {
+      final pathResult = await _shellRun('command -v $command');
+      if (pathResult.exitCode != 0) continue;
+      final installPath = _extractAbsolutePath(pathResult.stdout.toString());
+      if (installPath == null || installPath.isEmpty) continue;
+      final versionResult = await _shellRun(
+        [command, ...versionArgs.map(_shellQuote)].join(' '),
+      );
+      final output = '${versionResult.stdout}\n${versionResult.stderr}'.trim();
+      final version = versionResult.exitCode == 0
+          ? versionParser(output)
+          : null;
+      final latestVersion = latestBrewFormula != null
+          ? await _queryBrewLatestVersion(latestBrewFormula)
+          : latestPypiPackage != null
+          ? await _queryLatestPypiVersion(latestPypiPackage)
+          : latestNpmPackage != null
+          ? await _queryLatestNpmVersion(latestNpmPackage)
+          : null;
+      return PluginInfo(
+        id: id,
+        name: name,
+        description: description,
+        status: PluginStatus.installed,
+        installedVersion: version,
+        latestVersion: latestVersion,
+        installPath: installPath,
+        dependencies: dependencies,
+        dependents: dependents,
+        supportsUninstall: supportsUninstall,
+      );
+    }
+    return _placeholderById(id);
+  }
+
+  static PluginInfo _placeholderById(String id) {
+    return switch (id) {
+      'nodejs' => _nodeNotInstalled,
+      'playwright' => _playwrightNotInstalled,
+      'python' => _pythonNotInstalled,
+      'pip' => _pipNotInstalled,
+      'java' => _javaNotInstalled,
+      'frida' => _fridaNotInstalled,
+      'mitmproxy' => _mitmproxyNotInstalled,
+      'apktool' => _apktoolNotInstalled,
+      'jadx' => _jadxNotInstalled,
+      _ => PluginInfo(
+        id: id,
+        name: id,
+        description: '未检测到该插件',
+        status: PluginStatus.notInstalled,
+      ),
+    };
   }
 
   Future<_PythonRuntimeScan?> _resolvePyenvPython() async {
@@ -654,6 +765,95 @@ class PluginScannerService {
     return _playwrightNotInstalled;
   }
 
+  Future<PluginInfo> scanJava() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'java',
+        name: 'Java',
+        description: 'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具',
+        commands: const <String>['java'],
+        versionArgs: const <String>['-version'],
+        versionParser: _extractJavaVersion,
+        latestBrewFormula: 'openjdk',
+        dependents: const <String>['apktool', 'jadx'],
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanJava', e);
+    }
+    return _javaNotInstalled;
+  }
+
+  Future<PluginInfo> scanFrida() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'frida',
+        name: 'Frida',
+        description: '动态插桩与 Hook 工具链，用于 Android 运行时验证',
+        commands: const <String>['frida'],
+        versionArgs: const <String>['--version'],
+        versionParser: _extractLooseVersion,
+        latestPypiPackage: 'frida-tools',
+        dependencies: const <String>['python', 'pip'],
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanFrida', e);
+    }
+    return _fridaNotInstalled;
+  }
+
+  Future<PluginInfo> scanMitmproxy() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'mitmproxy',
+        name: 'mitmproxy',
+        description: 'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证',
+        commands: const <String>['mitmdump', 'mitmproxy'],
+        versionArgs: const <String>['--version'],
+        versionParser: _extractLooseVersion,
+        latestBrewFormula: 'mitmproxy',
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanMitmproxy', e);
+    }
+    return _mitmproxyNotInstalled;
+  }
+
+  Future<PluginInfo> scanApktool() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'apktool',
+        name: 'apktool',
+        description: 'APK 解包与 smali 分析工具',
+        commands: const <String>['apktool'],
+        versionArgs: const <String>['--version'],
+        versionParser: _extractLooseVersion,
+        latestBrewFormula: 'apktool',
+        dependencies: const <String>['java'],
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanApktool', e);
+    }
+    return _apktoolNotInstalled;
+  }
+
+  Future<PluginInfo> scanJadx() async {
+    try {
+      return _scanCommandPlugin(
+        id: 'jadx',
+        name: 'jadx',
+        description: 'DEX / APK Java 反编译工具',
+        commands: const <String>['jadx'],
+        versionArgs: const <String>['--version'],
+        versionParser: _extractLooseVersion,
+        latestBrewFormula: 'jadx',
+        dependencies: const <String>['java'],
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanJadx', e);
+    }
+    return _jadxNotInstalled;
+  }
+
   static const _nodeNotInstalled = PluginInfo(
     id: 'nodejs',
     name: 'Node.js',
@@ -686,19 +886,73 @@ class PluginScannerService {
     supportsUninstall: false,
   );
 
+  static const _javaNotInstalled = PluginInfo(
+    id: 'java',
+    name: 'Java',
+    description: 'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具',
+    status: PluginStatus.notInstalled,
+    dependents: ['apktool', 'jadx'],
+  );
+
+  static const _fridaNotInstalled = PluginInfo(
+    id: 'frida',
+    name: 'Frida',
+    description: '动态插桩与 Hook 工具链，用于 Android 运行时验证',
+    status: PluginStatus.notInstalled,
+    dependencies: ['python', 'pip'],
+  );
+
+  static const _mitmproxyNotInstalled = PluginInfo(
+    id: 'mitmproxy',
+    name: 'mitmproxy',
+    description: 'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证',
+    status: PluginStatus.notInstalled,
+  );
+
+  static const _apktoolNotInstalled = PluginInfo(
+    id: 'apktool',
+    name: 'apktool',
+    description: 'APK 解包与 smali 分析工具',
+    status: PluginStatus.notInstalled,
+    dependencies: ['java'],
+  );
+
+  static const _jadxNotInstalled = PluginInfo(
+    id: 'jadx',
+    name: 'jadx',
+    description: 'DEX / APK Java 反编译工具',
+    status: PluginStatus.notInstalled,
+    dependencies: ['java'],
+  );
+
   static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
     _nodeNotInstalled,
     _playwrightNotInstalled,
     _pythonNotInstalled,
     _pipNotInstalled,
+    _javaNotInstalled,
+    _fridaNotInstalled,
+    _mitmproxyNotInstalled,
+    _apktoolNotInstalled,
+    _jadxNotInstalled,
   ];
 
   Future<List<PluginInfo>> scanAll() async {
     final nodeFuture = scanNodeJs();
     final playwrightFuture = scanPlaywright();
+    final javaFuture = scanJava();
+    final fridaFuture = scanFrida();
+    final mitmproxyFuture = scanMitmproxy();
+    final apktoolFuture = scanApktool();
+    final jadxFuture = scanJadx();
     final pythonRuntimeFuture = _resolvePythonRuntime();
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
+    final java = await javaFuture;
+    final frida = await fridaFuture;
+    final mitmproxy = await mitmproxyFuture;
+    final apktool = await apktoolFuture;
+    final jadx = await jadxFuture;
     _PythonRuntimeScan? pythonRuntime;
     try {
       pythonRuntime = await pythonRuntimeFuture;
@@ -716,7 +970,23 @@ class PluginScannerService {
     final updatedNodeJs = nodeJs.copyWith(
       dependents: playwright.isInstalled ? const ['playwright'] : const [],
     );
-    return [updatedNodeJs, playwright, python, pip];
+    final updatedJava = java.copyWith(
+      dependents: <String>[
+        if (apktool.isInstalled) 'apktool',
+        if (jadx.isInstalled) 'jadx',
+      ],
+    );
+    return [
+      updatedNodeJs,
+      playwright,
+      python,
+      pip,
+      updatedJava,
+      frida,
+      mitmproxy,
+      apktool,
+      jadx,
+    ];
   }
 }
 

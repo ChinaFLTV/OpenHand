@@ -102,8 +102,6 @@ class _PluginServiceViewState extends State<PluginServiceView> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
       children: [
-        _TemplatePluginSummaryCard(controller: controller),
-        const SizedBox(height: 12),
         for (final plugin in controller.plugins) ...[
           _PluginCard(plugin: plugin, controller: controller),
           const SizedBox(height: 12),
@@ -165,162 +163,6 @@ class _ErrorBanner extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _TemplatePluginSummaryCard extends StatelessWidget {
-  const _TemplatePluginSummaryCard({required this.controller});
-
-  final PluginServiceController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
-    const specs = TemplateRuntimeDependencyRegistry.reverseEngineeringSpecs;
-    return Card(
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.account_tree_rounded, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    isZh ? '线程模板关联插件' : 'Thread template plugins',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            for (final spec in specs) ...[
-              _TemplatePluginRow(spec: spec, controller: controller),
-              if (!identical(spec, specs.last)) const SizedBox(height: 8),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TemplatePluginRow extends StatelessWidget {
-  const _TemplatePluginRow({required this.spec, required this.controller});
-
-  final TemplateRuntimeDependencySpec spec;
-  final PluginServiceController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 128,
-          child: Text(
-            isZh ? spec.labelZh : spec.labelEn,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final pluginId in spec.pluginIds)
-                _TemplatePluginStateChip(
-                  pluginId: pluginId,
-                  plugin: controller.pluginById(pluginId),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Icon(
-          spec.pluginIds.every(
-                (id) => controller.pluginById(id)?.isInstalled == true,
-              )
-              ? Icons.verified_rounded
-              : Icons.pending_actions_rounded,
-          size: 18,
-          color:
-              spec.pluginIds.every(
-                (id) => controller.pluginById(id)?.isInstalled == true,
-              )
-              ? OpenHandStatusColors.success
-              : cs.onSurfaceVariant,
-        ),
-      ],
-    );
-  }
-}
-
-class _TemplatePluginStateChip extends StatelessWidget {
-  const _TemplatePluginStateChip({
-    required this.pluginId,
-    required this.plugin,
-  });
-
-  final String pluginId;
-  final PluginInfo? plugin;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
-    final installed = plugin?.isInstalled == true;
-    final enabled = plugin?.enabled == true;
-    final color = installed
-        ? enabled
-              ? OpenHandStatusColors.success
-              : OpenHandStatusColors.warning
-        : cs.error;
-    final label = [
-      plugin?.name ?? pluginId,
-      installed
-          ? enabled
-                ? (isZh ? '可用' : 'ready')
-                : (isZh ? '已禁用' : 'disabled')
-          : (isZh ? '未安装' : 'missing'),
-    ].join(' · ');
-    return Chip(
-      avatar: Icon(
-        installed
-            ? enabled
-                  ? Icons.check_circle_rounded
-                  : Icons.pause_circle_outline_rounded
-            : Icons.download_for_offline_outlined,
-        size: 15,
-        color: color,
-      ),
-      label: Text(label),
-      backgroundColor: color.withValues(alpha: 0.10),
-      side: BorderSide(color: color.withValues(alpha: 0.24)),
-      labelStyle: theme.textTheme.labelSmall?.copyWith(
-        color: color,
-        fontWeight: FontWeight.w700,
-      ),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -411,6 +253,11 @@ class _PluginCard extends StatelessWidget {
       'python' => Icons.code_rounded,
       'pip' => Icons.inventory_2_rounded,
       'playwright' => Icons.theaters_rounded,
+      'java' => Icons.coffee_rounded,
+      'frida' => Icons.bug_report_rounded,
+      'mitmproxy' => Icons.lan_rounded,
+      'apktool' => Icons.archive_rounded,
+      'jadx' => Icons.data_object_rounded,
       _ => Icons.extension_rounded,
     };
 

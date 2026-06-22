@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
+import '../../shared/ui/openhand_dialog_motion_surface.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
@@ -97,9 +98,11 @@ Future<void> showAndroidReverseDashboardDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _AndroidReverseDashboardDialog(
-      controller: controller,
-      sessionId: sessionId,
+    builder: (_) => OpenHandDialogMotionSurface(
+      child: _AndroidReverseDashboardDialog(
+        controller: controller,
+        sessionId: sessionId,
+      ),
     ),
   );
 }
@@ -108,7 +111,8 @@ enum _Tab {
   devices,
   overview,
   toolchain,
-  mcpPlugins,
+  mcp,
+  plugins,
   packages,
   processes,
   logcat,
@@ -250,7 +254,8 @@ extension _TabLabel on _Tab {
       _Tab.devices => isZh ? '设备管理' : 'Devices',
       _Tab.overview => isZh ? '概览' : 'Overview',
       _Tab.toolchain => isZh ? '工具链' : 'Toolchain',
-      _Tab.mcpPlugins => isZh ? 'MCP/插件' : 'MCP',
+      _Tab.mcp => 'MCP',
+      _Tab.plugins => isZh ? '插件' : 'Plugins',
       _Tab.packages => isZh ? 'APP 信息' : 'APP Info',
       _Tab.processes => isZh ? '进程' : 'Processes',
       _Tab.logcat => 'Logcat',
@@ -266,7 +271,8 @@ extension _TabLabel on _Tab {
     _Tab.devices => Icons.phone_android_rounded,
     _Tab.overview => Icons.dashboard_rounded,
     _Tab.toolchain => Icons.construction_rounded,
-    _Tab.mcpPlugins => Icons.extension_rounded,
+    _Tab.mcp => Icons.extension_rounded,
+    _Tab.plugins => Icons.extension_outlined,
     _Tab.packages => Icons.apps_rounded,
     _Tab.processes => Icons.memory_rounded,
     _Tab.logcat => Icons.receipt_long_rounded,
@@ -1474,7 +1480,7 @@ class _AndroidReverseDashboardDialogState
                       if (tab == _Tab.toolchain && _toolchainRows.isEmpty) {
                         _refreshToolchain();
                       }
-                      if (tab == _Tab.mcpPlugins && _toolchainRows.isEmpty) {
+                      if (tab == _Tab.plugins && _toolchainRows.isEmpty) {
                         _refreshToolchain();
                       }
                     },
@@ -1529,7 +1535,8 @@ class _AndroidReverseDashboardDialogState
       _Tab.devices => _buildDevicesTab(cs, theme, isZh),
       _Tab.overview => _buildOverviewTab(cs, theme, isZh),
       _Tab.toolchain => _buildToolchainTab(cs, theme, isZh),
-      _Tab.mcpPlugins => _buildMcpPluginsTab(cs, theme, isZh),
+      _Tab.mcp => _buildMcpTab(cs, theme, isZh),
+      _Tab.plugins => _buildPluginsTab(cs, theme, isZh),
       _Tab.packages => _buildPackagesTab(cs, theme, isZh),
       _Tab.processes => _buildProcessesTab(cs, theme, isZh),
       _Tab.logcat => _buildLogcatTab(cs, theme, isZh),
@@ -3171,23 +3178,15 @@ class _AndroidReverseDashboardDialogState
     );
   }
 
-  // ── MCP / plugins tab ───────────────────────────────────────────────────
+  // ── MCP tab ─────────────────────────────────────────────────────────────
 
-  Widget _buildMcpPluginsTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildMcpTab(ColorScheme cs, ThemeData theme, bool isZh) {
     final mcpController = context.watch<McpController>();
-    final pluginController = context.watch<PluginServiceController>();
     final serverRows = _androidMcpServerViews(mcpController);
     final toolSearchNames = _androidMcpToolSearchNames(serverRows);
     final toolSearchQuery = toolSearchNames.isEmpty
         ? _kAndroidMcpToolSearchFallbackQuery
         : 'select:${toolSearchNames.take(_kMcpToolSearchLimit).join(',')}';
-    final runtimePlugins = _kAndroidRuntimePluginIds
-        .map(pluginController.pluginById)
-        .whereType<PluginInfo>()
-        .toList(growable: false);
-    final installedRuntimeCount = runtimePlugins
-        .where((plugin) => plugin.isInstalled)
-        .length;
     final totalAndroidTools = serverRows.fold<int>(
       0,
       (sum, row) => sum + row.matchedTools.length,
@@ -3205,7 +3204,7 @@ class _AndroidReverseDashboardDialogState
               ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 220),
                 child: Text(
-                  isZh ? 'MCP / 插件联动' : 'MCP / plugin linkage',
+                  isZh ? 'Android 相关 MCP' : 'Android-related MCP',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -3238,20 +3237,6 @@ class _AndroidReverseDashboardDialogState
                     : const Icon(Icons.sync_rounded),
                 label: isZh ? '刷新 MCP' : 'Refresh MCP',
               ),
-              _DashboardActionButton(
-                onPressed:
-                    pluginController.isLoading || pluginController.isOperating
-                    ? null
-                    : () => unawaited(pluginController.rescan()),
-                icon: pluginController.isLoading
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.refresh_rounded),
-                label: isZh ? '扫描插件' : 'Scan plugins',
-              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -3260,8 +3245,8 @@ class _AndroidReverseDashboardDialogState
             theme: theme,
             icon: Icons.info_outline_rounded,
             text: isZh
-                ? '此页展示 OpenHand 已配置的 MCP server、工具目录和相邻运行时状态。Node / Python / pip / Playwright 可在本页菜单中经确认后安装、更新、卸载；Android 专用 MCP / Frida / IDA / anything-analyzer 仍需在全局 MCP 面板按服务自身说明安装或启用。'
-                : 'This page shows configured MCP servers, discovered tools, and adjacent runtime prerequisites. Node / Python / pip / Playwright can be installed, updated, or removed from the row menu after confirmation; Android-specific MCP, Frida, IDA, and anything-analyzer servers still need to be installed or enabled from the global MCP panel.',
+                ? '此页只展示 OpenHand 已配置的 MCP server、工具目录和会话级 MCP 工件。插件与本机 CLI 前置条件已拆到“插件”页。'
+                : 'This page only shows configured MCP servers, tool catalogs, and session MCP artifacts. Plugins and local CLI prerequisites are split into the Plugins tab.',
           ),
           const SizedBox(height: 10),
           _monospaceCard(
@@ -3269,7 +3254,6 @@ class _AndroidReverseDashboardDialogState
             [
               '${isZh ? "MCP 配置" : "MCP config"}: ${mcpController.serversFilePath}',
               '${isZh ? "MCP 存储" : "MCP storage"}: ${mcpController.storageDirectoryPath}',
-              '${isZh ? "插件运行时" : "Plugin runtimes"}: $installedRuntimeCount/${runtimePlugins.length}',
             ].join('\n'),
           ),
           const SizedBox(height: 10),
@@ -3359,6 +3343,126 @@ class _AndroidReverseDashboardDialogState
               const SizedBox(height: 8),
             ],
           const SizedBox(height: 14),
+          _sectionTitle(theme, cs, isZh ? '配置模板' : 'Config templates'),
+          const SizedBox(height: 8),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? 'stdio MCP 模板（替换包名）' : 'stdio MCP template',
+            command: _kAndroidStdioMcpConfigTemplate,
+          ),
+          const SizedBox(height: 8),
+          _commandCard(
+            cs,
+            theme,
+            isZh,
+            title: isZh ? '本地 HTTP/SSE MCP 模板' : 'Local HTTP/SSE MCP template',
+            command: _kAndroidHttpMcpConfigTemplate,
+          ),
+          const SizedBox(height: 14),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.rule_rounded,
+            text: isZh
+                ? '线程内只调用工具目录真实列出的 mcp__* 名称。若这里只能看到模板而没有工具，请先在 MCP 面板补齐 server 并刷新工具目录。'
+                : 'Thread tools must use real mcp__* names from the catalog. If only templates are shown here, add the server in the MCP panel and refresh its tool catalog first.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Plugins tab ────────────────────────────────────────────────────────
+
+  Widget _buildPluginsTab(ColorScheme cs, ThemeData theme, bool isZh) {
+    final pluginController = context.watch<PluginServiceController>();
+    final runtimePlugins = _kAndroidRuntimePluginIds
+        .map(pluginController.pluginById)
+        .whereType<PluginInfo>()
+        .toList(growable: false);
+    final installedRuntimeCount = runtimePlugins
+        .where((plugin) => plugin.isInstalled)
+        .length;
+
+    return OpenHandSafeScrollbar(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 220),
+                child: Text(
+                  isZh ? 'Android 逆向插件' : 'Android reverse plugins',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: Text(
+                  isZh
+                      ? '$installedRuntimeCount/${runtimePlugins.length} 个前置条件可用'
+                      : '$installedRuntimeCount/${runtimePlugins.length} prerequisites ready',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _DashboardActionButton(
+                onPressed:
+                    pluginController.isLoading || pluginController.isOperating
+                    ? null
+                    : () => unawaited(pluginController.rescan()),
+                icon: pluginController.isLoading
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                label: isZh ? '扫描插件' : 'Scan plugins',
+              ),
+              _DashboardActionButton(
+                onPressed: _loadingToolchain ? null : _refreshToolchain,
+                icon: _loadingToolchain
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      )
+                    : const Icon(Icons.construction_rounded),
+                label: isZh ? '刷新工具链' : 'Refresh tools',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _InfoCard(
+            cs: cs,
+            theme: theme,
+            icon: Icons.info_outline_rounded,
+            text: isZh
+                ? '此页只展示 Android 逆向线程模板依赖的本机插件与 CLI 前置条件。MCP server、工具目录和配置模板已拆到“MCP”页。'
+                : 'This page only shows local plugins and CLI prerequisites used by Android Reverse sessions. MCP servers, tool catalogs, and config templates are split into the MCP tab.',
+          ),
+          const SizedBox(height: 10),
+          _monospaceCard(
+            cs,
+            [
+              '${isZh ? "插件运行时" : "Plugin runtimes"}: $installedRuntimeCount/${runtimePlugins.length}',
+              '${isZh ? "关联插件" : "Related plugins"}: ${_kAndroidRuntimePluginIds.join(', ')}',
+            ].join('\n'),
+          ),
+          const SizedBox(height: 14),
           _sectionTitle(
             theme,
             cs,
@@ -3383,8 +3487,8 @@ class _AndroidReverseDashboardDialogState
               text: pluginController.isLoading
                   ? (isZh ? '正在扫描插件运行时...' : 'Scanning plugin runtimes...')
                   : (isZh
-                        ? '插件服务暂未返回 Node.js / Python / pip / Playwright 状态。'
-                        : 'Plugin service has not reported Node.js / Python / pip / Playwright status.'),
+                        ? '插件服务暂未返回 Android 逆向关联插件状态。'
+                        : 'Plugin service has not reported Android reverse plugin status.'),
             )
           else
             for (final plugin in runtimePlugins) ...[
@@ -3412,41 +3516,14 @@ class _AndroidReverseDashboardDialogState
               theme: theme,
               icon: Icons.construction_rounded,
               text: isZh
-                  ? '尚未扫描 Android 逆向工具链。点击上方刷新 MCP 或进入工具链面板刷新。'
-                  : 'Android reverse toolchain has not been scanned yet. Refresh above or open the Toolchain tab.',
+                  ? '尚未扫描 Android 逆向工具链。点击上方刷新工具链。'
+                  : 'Android reverse toolchain has not been scanned yet. Refresh toolchain above.',
             )
           else
             for (final row in _toolchainRows) ...[
               _buildToolchainCommandTile(row, cs, theme, isZh),
               const SizedBox(height: 8),
             ],
-          const SizedBox(height: 14),
-          _sectionTitle(theme, cs, isZh ? '配置模板' : 'Config templates'),
-          const SizedBox(height: 8),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? 'stdio MCP 模板（替换包名）' : 'stdio MCP template',
-            command: _kAndroidStdioMcpConfigTemplate,
-          ),
-          const SizedBox(height: 8),
-          _commandCard(
-            cs,
-            theme,
-            isZh,
-            title: isZh ? '本地 HTTP/SSE MCP 模板' : 'Local HTTP/SSE MCP template',
-            command: _kAndroidHttpMcpConfigTemplate,
-          ),
-          const SizedBox(height: 14),
-          _InfoCard(
-            cs: cs,
-            theme: theme,
-            icon: Icons.rule_rounded,
-            text: isZh
-                ? '线程内只调用工具目录真实列出的 mcp__* 名称。若这里只能看到模板而没有工具，请先在 MCP 面板补齐 server 并刷新工具目录。'
-                : 'Thread tools must use real mcp__* names from the catalog. If only templates are shown here, add the server in the MCP panel and refresh its tool catalog first.',
-          ),
         ],
       ),
     );
