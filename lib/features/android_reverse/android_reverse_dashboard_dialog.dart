@@ -6490,84 +6490,88 @@ fi
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 10),
-          _dashboardActionWrap([
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _setCryptoOutput(
-                      isZh ? 'Base64 编码' : 'Base64 encode',
-                      base64Encode(utf8.encode(_base64Ctrl.text)),
-                    ),
-              icon: const Icon(Icons.upload_rounded),
-              label: isZh ? 'Base64 编码' : 'B64 encode',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _decodeBase64Input(isZh),
-              icon: const Icon(Icons.download_rounded),
-              label: isZh ? 'Base64 解码' : 'B64 decode',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _setCryptoOutput(
-                      isZh ? 'URL 编码' : 'URL encode',
-                      Uri.encodeComponent(_base64Ctrl.text),
-                    ),
-              icon: const Icon(Icons.link_rounded),
-              label: isZh ? 'URL 编码' : 'URL encode',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _decodeUrlInput(isZh),
-              icon: const Icon(Icons.link_off_rounded),
-              label: isZh ? 'URL 解码' : 'URL decode',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _hashCryptoInput('MD5', crypto.md5),
-              icon: const Icon(Icons.tag_rounded),
-              label: 'MD5',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _hashCryptoInput('SHA1', crypto.sha1),
-              icon: const Icon(Icons.tag_rounded),
-              label: 'SHA1',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _hashCryptoInput('SHA256', crypto.sha256),
-              icon: const Icon(Icons.tag_rounded),
-              label: 'SHA256',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _hashCryptoInput('SHA512', crypto.sha512),
-              icon: const Icon(Icons.tag_rounded),
-              label: 'SHA512',
-            ),
-            _DashboardActionButton(
-              onPressed: _base64Ctrl.text.isEmpty
-                  ? null
-                  : () => _decodeJwtInput(isZh),
-              icon: const Icon(Icons.token_rounded),
-              label: isZh ? 'JWT 解析' : 'JWT decode',
-            ),
-            _DashboardActionButton(
-              onPressed: _cryptoCopyValue.isEmpty
-                  ? null
-                  : () => _copyText(_cryptoCopyValue),
-              icon: const Icon(Icons.copy_rounded),
-              label: isZh ? '复制结果' : 'Copy result',
-            ),
-          ]),
+          _dashboardActionWrap(
+            [
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _setCryptoOutput(
+                        isZh ? 'Base64 编码' : 'Base64 encode',
+                        base64Encode(utf8.encode(_base64Ctrl.text)),
+                      ),
+                icon: const Icon(Icons.upload_rounded),
+                label: isZh ? 'Base64 编码' : 'B64 encode',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _decodeBase64Input(isZh),
+                icon: const Icon(Icons.download_rounded),
+                label: isZh ? 'Base64 解码' : 'B64 decode',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _setCryptoOutput(
+                        isZh ? 'URL 编码' : 'URL encode',
+                        Uri.encodeComponent(_base64Ctrl.text),
+                      ),
+                icon: const Icon(Icons.link_rounded),
+                label: isZh ? 'URL 编码' : 'URL encode',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _decodeUrlInput(isZh),
+                icon: const Icon(Icons.link_off_rounded),
+                label: isZh ? 'URL 解码' : 'URL decode',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('MD5', crypto.md5),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'MD5',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('SHA1', crypto.sha1),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'SHA1',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('SHA256', crypto.sha256),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'SHA256',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _hashCryptoInput('SHA512', crypto.sha512),
+                icon: const Icon(Icons.tag_rounded),
+                label: 'SHA512',
+              ),
+              _DashboardActionButton(
+                onPressed: _base64Ctrl.text.isEmpty
+                    ? null
+                    : () => _decodeJwtInput(isZh),
+                icon: const Icon(Icons.token_rounded),
+                label: isZh ? 'JWT 解析' : 'JWT decode',
+              ),
+              _DashboardActionButton(
+                onPressed: _cryptoCopyValue.isEmpty
+                    ? null
+                    : () => _copyText(_cryptoCopyValue),
+                icon: const Icon(Icons.copy_rounded),
+                label: isZh ? '复制结果' : 'Copy result',
+              ),
+            ],
+            alignment: Alignment.centerLeft,
+            wrapAlignment: WrapAlignment.start,
+          ),
           const SizedBox(height: 12),
           if (cryptoOutput.isNotEmpty) _monospaceCard(cs, _base64OutCtrl.text),
         ],
@@ -6641,15 +6645,19 @@ fi
     );
   }
 
-  Widget _dashboardActionWrap(List<Widget> actions) {
+  Widget _dashboardActionWrap(
+    List<Widget> actions, {
+    AlignmentGeometry alignment = Alignment.centerRight,
+    WrapAlignment wrapAlignment = WrapAlignment.end,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: Align(
-        alignment: Alignment.centerRight,
+        alignment: alignment,
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
-          alignment: WrapAlignment.end,
+          alignment: wrapAlignment,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: actions,
         ),
