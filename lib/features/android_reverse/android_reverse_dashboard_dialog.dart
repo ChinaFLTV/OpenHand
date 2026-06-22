@@ -6591,59 +6591,68 @@ fi
     required List<Widget> leading,
     required List<Widget> actions,
   }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final leadingWrap = Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: leading,
-        );
-        final actionWrap = Wrap(
+    return SizedBox(
+      width: double.infinity,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final leadingWrap = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: leading,
+          );
+          final actionWrap = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: actions,
+          );
+          if (leading.isEmpty) {
+            return Align(alignment: Alignment.centerRight, child: actionWrap);
+          }
+          if (actions.isEmpty) {
+            return Align(alignment: Alignment.centerLeft, child: leadingWrap);
+          }
+          if (constraints.maxWidth < 720) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                leadingWrap,
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: actionWrap),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Flexible(child: leadingWrap),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: actionWrap,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _dashboardActionWrap(List<Widget> actions) {
+    return SizedBox(
+      width: double.infinity,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
           spacing: 8,
           runSpacing: 8,
           alignment: WrapAlignment.end,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: actions,
-        );
-        if (leading.isEmpty) {
-          return Align(alignment: Alignment.centerRight, child: actionWrap);
-        }
-        if (actions.isEmpty) {
-          return Align(alignment: Alignment.centerLeft, child: leadingWrap);
-        }
-        if (constraints.maxWidth < 720) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              leadingWrap,
-              const SizedBox(height: 8),
-              Align(alignment: Alignment.centerRight, child: actionWrap),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Flexible(child: leadingWrap),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Align(alignment: Alignment.centerRight, child: actionWrap),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _dashboardActionWrap(List<Widget> actions) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.end,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: actions,
+        ),
       ),
     );
   }
