@@ -2431,6 +2431,7 @@ fi
                         : const Icon(Icons.play_arrow_rounded, size: 16),
                     label: isZh ? '执行' : 'Run',
                     filled: true,
+                    height: _kAdbInlineControlHeight,
                   ),
                 ],
               ),
@@ -7562,12 +7563,14 @@ class _DashboardActionButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.filled = false,
+    this.height = _kDashboardActionButtonHeight,
   });
 
   final Widget icon;
   final String label;
   final VoidCallback? onPressed;
   final bool filled;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -7593,7 +7596,7 @@ class _DashboardActionButton extends StatelessWidget {
       softWrap: false,
     );
     return SizedBox(
-      height: _kDashboardActionButtonHeight,
+      height: height,
       child: filled
           ? FilledButton.icon(
               onPressed: onPressed,
