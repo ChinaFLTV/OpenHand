@@ -34,6 +34,9 @@ const double _kDashboardActionIconSize = 14;
 const double _kDashboardIconActionButtonSize = 36;
 const double _kDashboardIconActionIconSize = 17;
 const double _kDashboardTrailingActionGap = 8;
+const double _kDashboardHeaderCompactBreakpoint = 720;
+const double _kDashboardHeaderLeadingMaxWidth = 320;
+const double _kDashboardHeaderLeadingMaxWidthRatio = 0.34;
 const double _kDeviceTrailingActionWidth = 88;
 const double _kDashboardDialogMaxWidth = 960;
 const double _kDashboardDialogMaxHeight = 720;
@@ -5666,149 +5669,137 @@ fi
                 ],
               ),
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.end,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      height: _kDashboardFilterControlHeight,
-                      child: TextField(
-                        controller: _logcatFilterCtrl,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: isZh ? 'Tag 过滤' : 'Tag filter',
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          suffixIcon: _clearFieldSuffix(
-                            cs: cs,
-                            visible: _logcatFilterCtrl.text.trim().isNotEmpty,
-                            tooltip: isZh ? '清空过滤' : 'Clear filter',
-                            onPressed: () {
-                              setState(() => _logcatFilterCtrl.clear());
-                              _fetchLogcat();
-                            },
-                          ),
-                          suffixIconConstraints: const BoxConstraints(
-                            minWidth: 30,
-                            minHeight: 30,
-                          ),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                        onSubmitted: (_) => _fetchLogcat(),
+              _dashboardActionWrap([
+                SizedBox(
+                  width: 220,
+                  height: _kDashboardFilterControlHeight,
+                  child: TextField(
+                    controller: _logcatFilterCtrl,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: isZh ? 'Tag 过滤' : 'Tag filter',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                    ),
-                    SizedBox(
-                      width: isZh ? 118 : 126,
-                      height: _kDashboardFilterControlHeight,
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _logcatLevel,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          labelText: isZh ? '等级' : 'Level',
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                        ),
-                        items: [
-                          for (final level in _kLogcatLevels)
-                            DropdownMenuItem<String>(
-                              value: level,
-                              child: Text(_logcatLevelOptionLabel(level, isZh)),
-                            ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _logcatLevel = value);
+                      suffixIcon: _clearFieldSuffix(
+                        cs: cs,
+                        visible: _logcatFilterCtrl.text.trim().isNotEmpty,
+                        tooltip: isZh ? '清空过滤' : 'Clear filter',
+                        onPressed: () {
+                          setState(() => _logcatFilterCtrl.clear());
+                          _fetchLogcat();
                         },
                       ),
-                    ),
-                    SizedBox(
-                      width: isZh ? 112 : 126,
-                      height: _kDashboardFilterControlHeight,
-                      child: DropdownButtonFormField<int>(
-                        initialValue: _logcatCacheLimit,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          labelText: isZh ? '缓存' : 'Cache',
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                        ),
-                        items: const <int>[100, 200, 500, 1000, 2000]
-                            .map(
-                              (value) => DropdownMenuItem<int>(
-                                value: value,
-                                child: Text('$value'),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _logcatCacheLimit = value
-                                .clamp(
-                                  _kMinLogcatCacheLimit,
-                                  _kMaxLogcatCacheLimit,
-                                )
-                                .toInt();
-                            final retained = _trimLogcatBuffer(
-                              List<String>.from(_logcatLines),
-                            );
-                            _logcatLines
-                              ..clear()
-                              ..addAll(retained);
-                            _compactLogcatParseCache();
-                          });
-                        },
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 30,
+                        minHeight: 30,
                       ),
                     ),
-                    SizedBox(
-                      width: 132,
-                      height: _kDashboardFilterControlHeight,
-                      child: TextField(
-                        controller: _logcatPidCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: 'PID',
-                          border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          suffixIcon: _clearFieldSuffix(
-                            cs: cs,
-                            visible: _logcatPidCtrl.text.trim().isNotEmpty,
-                            tooltip: isZh ? '清空 PID' : 'Clear PID',
-                            onPressed: () {
-                              setState(() => _logcatPidCtrl.clear());
-                              _fetchLogcat();
-                            },
-                          ),
-                          suffixIconConstraints: const BoxConstraints(
-                            minWidth: 30,
-                            minHeight: 30,
-                          ),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                        onSubmitted: (_) => _fetchLogcat(),
-                      ),
-                    ),
-                  ],
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _fetchLogcat(),
+                  ),
                 ),
-              ),
+                SizedBox(
+                  width: isZh ? 118 : 126,
+                  height: _kDashboardFilterControlHeight,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _logcatLevel,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      labelText: isZh ? '等级' : 'Level',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                    ),
+                    items: [
+                      for (final level in _kLogcatLevels)
+                        DropdownMenuItem<String>(
+                          value: level,
+                          child: Text(_logcatLevelOptionLabel(level, isZh)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _logcatLevel = value);
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: isZh ? 112 : 126,
+                  height: _kDashboardFilterControlHeight,
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _logcatCacheLimit,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      labelText: isZh ? '缓存' : 'Cache',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                    ),
+                    items: const <int>[100, 200, 500, 1000, 2000]
+                        .map(
+                          (value) => DropdownMenuItem<int>(
+                            value: value,
+                            child: Text('$value'),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _logcatCacheLimit = value
+                            .clamp(_kMinLogcatCacheLimit, _kMaxLogcatCacheLimit)
+                            .toInt();
+                        final retained = _trimLogcatBuffer(
+                          List<String>.from(_logcatLines),
+                        );
+                        _logcatLines
+                          ..clear()
+                          ..addAll(retained);
+                        _compactLogcatParseCache();
+                      });
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 132,
+                  height: _kDashboardFilterControlHeight,
+                  child: TextField(
+                    controller: _logcatPidCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'PID',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      suffixIcon: _clearFieldSuffix(
+                        cs: cs,
+                        visible: _logcatPidCtrl.text.trim().isNotEmpty,
+                        tooltip: isZh ? '清空 PID' : 'Clear PID',
+                        onPressed: () {
+                          setState(() => _logcatPidCtrl.clear());
+                          _fetchLogcat();
+                        },
+                      ),
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 30,
+                        minHeight: 30,
+                      ),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _fetchLogcat(),
+                  ),
+                ),
+              ]),
               if (_logcatError != null && _logcatLines.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 _InfoCard(
@@ -6605,39 +6596,37 @@ fi
             crossAxisAlignment: WrapCrossAlignment.center,
             children: leading,
           );
-          final actionWrap = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.end,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: actions,
-          );
+          final actionWrap = _dashboardActionWrap(actions);
           if (leading.isEmpty) {
-            return Align(alignment: Alignment.centerRight, child: actionWrap);
+            return actionWrap;
           }
           if (actions.isEmpty) {
             return Align(alignment: Alignment.centerLeft, child: leadingWrap);
           }
-          if (constraints.maxWidth < 720) {
+          final maxWidth = constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : _kDashboardDialogMaxWidth;
+          if (maxWidth < _kDashboardHeaderCompactBreakpoint) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                leadingWrap,
-                const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: actionWrap),
-              ],
+              children: [leadingWrap, const SizedBox(height: 8), actionWrap],
             );
           }
+          final leadingMaxWidth =
+              maxWidth * _kDashboardHeaderLeadingMaxWidthRatio;
           return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Flexible(child: leadingWrap),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: actionWrap,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: leadingMaxWidth > _kDashboardHeaderLeadingMaxWidth
+                      ? _kDashboardHeaderLeadingMaxWidth
+                      : leadingMaxWidth,
                 ),
+                child: leadingWrap,
               ),
+              const SizedBox(width: 12),
+              Expanded(child: actionWrap),
             ],
           );
         },
@@ -6654,12 +6643,15 @@ fi
       width: double.infinity,
       child: Align(
         alignment: alignment,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: wrapAlignment,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: actions,
+        child: SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: wrapAlignment,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: actions,
+          ),
         ),
       ),
     );
