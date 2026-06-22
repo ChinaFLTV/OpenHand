@@ -6785,19 +6785,26 @@ fi
           _ToolchainCommandAction.install,
         if (plugin.isInstalled && plugin.supportsUninstall)
           _ToolchainCommandAction.uninstall,
-        if (probe.referenceUrl?.trim().isNotEmpty ?? false)
-          _ToolchainCommandAction.reference,
+        _ToolchainCommandAction.reference,
       ];
     }
+    final installed = _toolchainResultForProbe(probe)?.ok;
     return <_ToolchainCommandAction>[
-      _ToolchainCommandAction.install,
-      if (probe.updateCommand?.trim().isNotEmpty ?? false)
+      if (installed != true) _ToolchainCommandAction.install,
+      if (installed == true &&
+          (probe.updateCommand?.trim().isNotEmpty ?? false))
         _ToolchainCommandAction.update,
-      if (probe.uninstallCommand?.trim().isNotEmpty ?? false)
+      if (installed == true &&
+          (probe.uninstallCommand?.trim().isNotEmpty ?? false))
         _ToolchainCommandAction.uninstall,
-      if (probe.referenceUrl?.trim().isNotEmpty ?? false)
-        _ToolchainCommandAction.reference,
+      _ToolchainCommandAction.reference,
     ];
+  }
+
+  AndroidReverseToolchainProbeResult? _toolchainResultForProbe(
+    AndroidReverseToolchainProbe probe,
+  ) {
+    return _toolchainRows.where((row) => row.probe.id == probe.id).firstOrNull;
   }
 
   bool _isToolchainCommandRunning(
@@ -6833,7 +6840,7 @@ fi
   ) async {
     if (_isToolchainCommandRunning(probe, action)) return;
     if (action == _ToolchainCommandAction.reference) {
-      await _copyToolchainCommand(probe, action, isZh);
+      _showToolchainInfoDialog(probe, isZh);
       return;
     }
     final plugin = _toolchainPluginForProbe(probe);
@@ -6909,6 +6916,21 @@ fi
         setState(() => _runningToolchainCommandIds.remove(key));
       }
     }
+  }
+
+  void _showToolchainInfoDialog(AndroidReverseToolchainProbe probe, bool isZh) {
+    final row = _toolchainResultForProbe(probe);
+    final plugin = _toolchainPluginForProbe(probe);
+    showAnimatedDialog<void>(
+      context: context,
+      transitionProfile: _kAndroidDashboardMotionProfile,
+      builder: (_) => _ToolchainInfoDialog(
+        probe: probe,
+        result: row,
+        plugin: plugin,
+        isZh: isZh,
+      ),
+    );
   }
 
   Future<void> _handleToolchainPluginAction(
@@ -7029,47 +7051,12 @@ fi
     };
   }
 
-  Future<void> _copyToolchainCommand(
-    AndroidReverseToolchainProbe probe,
-    _ToolchainCommandAction action,
-    bool isZh,
-  ) async {
-    final text = _toolchainCommandText(probe, action, isZh);
-    if (text.trim().isEmpty) return;
-    await _copyText(text);
-  }
-
-  String _toolchainCommandText(
-    AndroidReverseToolchainProbe probe,
-    _ToolchainCommandAction action,
-    bool isZh,
-  ) {
-    return switch (action) {
-      _ToolchainCommandAction.install =>
-        probe.installCommand?.trim().isNotEmpty == true
-            ? probe.installCommand!.trim()
-            : (isZh ? probe.installHintZh : probe.installHintEn).trim(),
-      _ToolchainCommandAction.update =>
-        probe.updateCommand?.trim().isNotEmpty == true
-            ? probe.updateCommand!.trim()
-            : '',
-      _ToolchainCommandAction.uninstall =>
-        probe.uninstallCommand?.trim().isNotEmpty == true
-            ? probe.uninstallCommand!.trim()
-            : '',
-      _ToolchainCommandAction.reference =>
-        probe.referenceUrl?.trim().isNotEmpty == true
-            ? probe.referenceUrl!.trim()
-            : (isZh ? probe.installHintZh : probe.installHintEn),
-    };
-  }
-
   IconData _toolchainCommandIcon(_ToolchainCommandAction action) {
     return switch (action) {
       _ToolchainCommandAction.install => Icons.download_rounded,
       _ToolchainCommandAction.update => Icons.upgrade_rounded,
       _ToolchainCommandAction.uninstall => Icons.delete_outline_rounded,
-      _ToolchainCommandAction.reference => Icons.open_in_new_rounded,
+      _ToolchainCommandAction.reference => Icons.info_outline_rounded,
     };
   }
 
@@ -7957,6 +7944,211 @@ class _SmallActionButton extends StatelessWidget {
   }
 }
 
+String _runtimePluginStatusLabel(PluginInfo plugin, bool isZh) {
+  return switch (plugin.status) {
+    PluginStatus.notInstalled => isZh ? '未安装' : 'Not installed',
+    PluginStatus.installed =>
+      plugin.enabled
+          ? (isZh ? '已安装并启用' : 'Installed and enabled')
+          : (isZh ? '已安装但禁用' : 'Installed but disabled'),
+    PluginStatus.installing => isZh ? '安装中' : 'Installing',
+    PluginStatus.updating => isZh ? '更新中' : 'Updating',
+    PluginStatus.uninstalling => isZh ? '卸载中' : 'Uninstalling',
+    PluginStatus.error => isZh ? '异常' : 'Error',
+  };
+}
+
+class _ToolchainInfoDialog extends StatelessWidget {
+  const _ToolchainInfoDialog({
+    required this.probe,
+    required this.result,
+    required this.plugin,
+    required this.isZh,
+  });
+
+  final AndroidReverseToolchainProbe probe;
+  final AndroidReverseToolchainProbeResult? result;
+  final PluginInfo? plugin;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final installed = result?.ok ?? plugin?.isInstalled;
+    final statusColor = installed == true
+        ? cs.primary
+        : installed == false
+        ? cs.error
+        : cs.outline;
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 560,
+      maxHeight: 640,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.info_outline_rounded,
+            title: '${probe.label} ${isZh ? "详情" : "Details"}',
+            subtitle: probe.id,
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Flexible(
+            child: OpenHandSafeScrollbar(
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [
+                  _DashboardDetailSection(
+                    title: isZh ? '基本信息' : 'Basic info',
+                    icon: Icons.construction_rounded,
+                    children: [
+                      _DashboardDetailRow(
+                        label: isZh ? '名称' : 'Name',
+                        value: probe.label,
+                      ),
+                      _DashboardDetailRow(label: 'ID', value: probe.id),
+                      _DashboardDetailRow(
+                        label: isZh ? '类型' : 'Type',
+                        value: plugin == null
+                            ? (isZh ? '系统工具链' : 'System toolchain')
+                            : (isZh ? '插件托管工具' : 'Plugin-managed tool'),
+                      ),
+                      _DashboardDetailRow(
+                        label: isZh ? '必要' : 'Required',
+                        value: probe.required
+                            ? (isZh ? '是' : 'Yes')
+                            : (isZh ? '否' : 'No'),
+                      ),
+                      _DashboardDetailRow(
+                        label: isZh ? '状态' : 'Status',
+                        value: installed == true
+                            ? (isZh ? '已安装' : 'Installed')
+                            : installed == false
+                            ? (isZh ? '未安装' : 'Not installed')
+                            : (isZh ? '未检测' : 'Not checked'),
+                        valueColor: statusColor,
+                      ),
+                    ],
+                  ),
+                  if (result != null) ...[
+                    const SizedBox(height: 14),
+                    _DashboardDetailSection(
+                      title: isZh ? '诊断结果' : 'Diagnostic',
+                      icon: Icons.fact_check_rounded,
+                      accentColor: statusColor,
+                      children: [
+                        _DashboardDetailRow(
+                          label: isZh ? '输出' : 'Output',
+                          value: result!.displayValue,
+                          monospace: true,
+                          valueColor: result!.ok ? null : cs.error,
+                        ),
+                        _DashboardDetailRow(
+                          label: isZh ? '退出码' : 'Exit code',
+                          value: '${result!.exitCode}',
+                          monospace: true,
+                        ),
+                        _DashboardDetailRow(
+                          label: isZh ? '耗时' : 'Duration',
+                          value: '${result!.durationMs}ms',
+                          monospace: true,
+                        ),
+                        if (result!.stderr.trim().isNotEmpty)
+                          _DashboardDetailRow(
+                            label: isZh ? '错误' : 'Error',
+                            value: result!.stderr.trim(),
+                            valueColor: cs.error,
+                            monospace: true,
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  _DashboardDetailSection(
+                    title: isZh ? '可用操作' : 'Available actions',
+                    icon: Icons.terminal_rounded,
+                    children: [
+                      _DashboardDetailRow(
+                        label: isZh ? '安装' : 'Install',
+                        value:
+                            _commandText(probe.installCommand) ??
+                            (isZh ? probe.installHintZh : probe.installHintEn),
+                        monospace:
+                            probe.installCommand?.trim().isNotEmpty ?? false,
+                      ),
+                      _DashboardDetailRow(
+                        label: isZh ? '更新' : 'Update',
+                        value: _commandText(probe.updateCommand),
+                        monospace: true,
+                      ),
+                      _DashboardDetailRow(
+                        label: isZh ? '卸载' : 'Uninstall',
+                        value: _commandText(probe.uninstallCommand),
+                        monospace: true,
+                      ),
+                      _DashboardDetailRow(
+                        label: isZh ? '参考' : 'Reference',
+                        value: _commandText(probe.referenceUrl),
+                        monospace: true,
+                      ),
+                    ],
+                  ),
+                  if (plugin != null) ...[
+                    const SizedBox(height: 14),
+                    _DashboardDetailSection(
+                      title: isZh ? '关联插件' : 'Linked plugin',
+                      icon: Icons.extension_rounded,
+                      children: [
+                        _DashboardDetailRow(
+                          label: isZh ? '名称' : 'Name',
+                          value: plugin!.name,
+                        ),
+                        _DashboardDetailRow(label: 'ID', value: plugin!.id),
+                        _DashboardDetailRow(
+                          label: isZh ? '描述' : 'Description',
+                          value: plugin!.description,
+                        ),
+                        _DashboardDetailRow(
+                          label: isZh ? '状态' : 'Status',
+                          value: _runtimePluginStatusLabel(plugin!, isZh),
+                          valueColor: plugin!.isInstalled
+                              ? plugin!.enabled
+                                    ? cs.primary
+                                    : cs.outline
+                              : plugin!.status == PluginStatus.error
+                              ? cs.error
+                              : cs.tertiary,
+                        ),
+                        _DashboardDetailRow(
+                          label: isZh ? '版本' : 'Version',
+                          value: plugin!.installedVersion,
+                        ),
+                        _DashboardDetailRow(
+                          label: isZh ? '路径' : 'Path',
+                          value: plugin!.installPath,
+                          monospace: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _commandText(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+}
+
 class _RuntimePluginInfoDialog extends StatelessWidget {
   const _RuntimePluginInfoDialog({required this.plugin, required this.isZh});
 
@@ -7995,25 +8187,25 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(18),
                 children: [
-                  _RuntimePluginDetailSection(
+                  _DashboardDetailSection(
                     title: isZh ? '基本信息' : 'Basic info',
                     icon: Icons.info_outline_rounded,
                     children: [
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '名称' : 'Name',
                         value: plugin.name,
                       ),
-                      _RuntimePluginDetailRow(label: 'ID', value: plugin.id),
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(label: 'ID', value: plugin.id),
+                      _DashboardDetailRow(
                         label: isZh ? '描述' : 'Description',
                         value: plugin.description,
                       ),
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '状态' : 'Status',
-                        value: _pluginStatusLabel(plugin, isZh),
+                        value: _runtimePluginStatusLabel(plugin, isZh),
                         valueColor: statusColor,
                       ),
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '启用' : 'Enabled',
                         value: plugin.enabled
                             ? (isZh ? '是' : 'Yes')
@@ -8022,24 +8214,24 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _RuntimePluginDetailSection(
+                  _DashboardDetailSection(
                     title: isZh ? '版本与路径' : 'Version and path',
                     icon: Icons.inventory_2_rounded,
                     children: [
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '已安装版本' : 'Installed',
                         value: plugin.installedVersion,
                       ),
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '最新版本' : 'Latest',
                         value: plugin.latestVersion,
                       ),
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '安装路径' : 'Install path',
                         value: plugin.installPath,
                         monospace: true,
                       ),
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '支持卸载' : 'Uninstallable',
                         value: plugin.supportsUninstall
                             ? (isZh ? '是' : 'Yes')
@@ -8048,18 +8240,18 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _RuntimePluginDetailSection(
+                  _DashboardDetailSection(
                     title: isZh ? '依赖关系' : 'Dependencies',
                     icon: Icons.account_tree_rounded,
                     children: [
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '依赖' : 'Depends on',
                         value: plugin.dependencies.isEmpty
                             ? (isZh ? '无' : 'None')
                             : plugin.dependencies.join(', '),
                         monospace: plugin.dependencies.isNotEmpty,
                       ),
-                      _RuntimePluginDetailRow(
+                      _DashboardDetailRow(
                         label: isZh ? '被依赖' : 'Required by',
                         value: plugin.dependents.isEmpty
                             ? (isZh ? '无' : 'None')
@@ -8070,11 +8262,11 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   ),
                   if (specs.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _RuntimePluginDetailSection(
+                    _DashboardDetailSection(
                       title: isZh ? '逆向模板关联' : 'Reverse templates',
                       icon: Icons.dashboard_customize_rounded,
                       children: [
-                        _RuntimePluginDetailRow(
+                        _DashboardDetailRow(
                           label: isZh ? '关联模板' : 'Templates',
                           value: specs
                               .map((spec) => isZh ? spec.labelZh : spec.labelEn)
@@ -8085,12 +8277,12 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   ],
                   if (plugin.errorMessage?.trim().isNotEmpty ?? false) ...[
                     const SizedBox(height: 14),
-                    _RuntimePluginDetailSection(
+                    _DashboardDetailSection(
                       title: isZh ? '异常信息' : 'Error',
                       icon: Icons.error_outline_rounded,
                       accentColor: cs.error,
                       children: [
-                        _RuntimePluginDetailRow(
+                        _DashboardDetailRow(
                           label: isZh ? '错误' : 'Error',
                           value: plugin.errorMessage!.trim(),
                           valueColor: cs.error,
@@ -8106,24 +8298,10 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
       ),
     );
   }
-
-  String _pluginStatusLabel(PluginInfo plugin, bool isZh) {
-    return switch (plugin.status) {
-      PluginStatus.notInstalled => isZh ? '未安装' : 'Not installed',
-      PluginStatus.installed =>
-        plugin.enabled
-            ? (isZh ? '已安装并启用' : 'Installed and enabled')
-            : (isZh ? '已安装但禁用' : 'Installed but disabled'),
-      PluginStatus.installing => isZh ? '安装中' : 'Installing',
-      PluginStatus.updating => isZh ? '更新中' : 'Updating',
-      PluginStatus.uninstalling => isZh ? '卸载中' : 'Uninstalling',
-      PluginStatus.error => isZh ? '异常' : 'Error',
-    };
-  }
 }
 
-class _RuntimePluginDetailSection extends StatelessWidget {
-  const _RuntimePluginDetailSection({
+class _DashboardDetailSection extends StatelessWidget {
+  const _DashboardDetailSection({
     required this.title,
     required this.icon,
     required this.children,
@@ -8175,8 +8353,8 @@ class _RuntimePluginDetailSection extends StatelessWidget {
   }
 }
 
-class _RuntimePluginDetailRow extends StatelessWidget {
-  const _RuntimePluginDetailRow({
+class _DashboardDetailRow extends StatelessWidget {
+  const _DashboardDetailRow({
     required this.label,
     required this.value,
     this.valueColor,
