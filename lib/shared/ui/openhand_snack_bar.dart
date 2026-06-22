@@ -238,9 +238,9 @@ class OpenHandSnackBar {
     ScaffoldMessengerState messenger, {
     SnackBarClosedReason reason = SnackBarClosedReason.hide,
   }) {
-    if (identical(messenger, rootMessengerKey.currentState)) {
+    if (OpenHandGlobalSnackBarHost.isMounted ||
+        identical(messenger, rootMessengerKey.currentState)) {
       OpenHandGlobalSnackBarHost.hideCurrent();
-      return;
     }
     messenger.hideCurrentSnackBar(reason: reason);
   }
@@ -262,7 +262,8 @@ class OpenHandSnackBar {
     ScaffoldMessengerState messenger,
     SnackBar snackBar,
   ) {
-    if (identical(messenger, rootMessengerKey.currentState)) {
+    if (OpenHandGlobalSnackBarHost.isMounted ||
+        identical(messenger, rootMessengerKey.currentState)) {
       OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
       return;
     }

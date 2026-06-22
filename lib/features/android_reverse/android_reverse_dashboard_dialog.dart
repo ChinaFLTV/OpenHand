@@ -631,13 +631,10 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() => _packageAnalysisOutput = _formatAdbResult(result));
       if (result.ok || result.partialOk) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isZh ? '已生成 APP 信息报告工件。' : 'APP report artifacts saved.',
-            ),
-            duration: const Duration(seconds: 3),
-          ),
+        _showSnack(
+          isZh ? '已生成 APP 信息报告工件。' : 'APP report artifacts saved.',
+          kind: OpenHandSnackKind.success,
+          duration: const Duration(seconds: 3),
         );
       }
     } catch (error) {
@@ -1141,13 +1138,10 @@ class _AndroidReverseDashboardDialogState
         }
       });
       if (result.ok || result.partialOk) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isZh ? '已生成 Logcat 快照工件。' : 'Logcat snapshot artifacts saved.',
-            ),
-            duration: const Duration(seconds: 3),
-          ),
+        _showSnack(
+          isZh ? '已生成 Logcat 快照工件。' : 'Logcat snapshot artifacts saved.',
+          kind: OpenHandSnackKind.success,
+          duration: const Duration(seconds: 3),
         );
       }
     } catch (error) {
@@ -1234,15 +1228,12 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() => _staticQuickScanOutput = _formatAdbResult(result));
       if (!result.ok && !result.hasUsableStdout) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isZh
-                  ? '静态扫描失败，已展示错误输出。'
-                  : 'Static scan failed. Error output is shown.',
-            ),
-            duration: const Duration(seconds: 3),
-          ),
+        _showSnack(
+          isZh
+              ? '静态扫描失败，已展示错误输出。'
+              : 'Static scan failed. Error output is shown.',
+          kind: OpenHandSnackKind.error,
+          duration: const Duration(seconds: 3),
         );
       }
     } catch (error) {
@@ -1286,15 +1277,10 @@ class _AndroidReverseDashboardDialogState
         _networkAddonOutput =
             '${isZh ? "生成 mitmproxy addon 失败" : "Failed to generate mitmproxy addon"}: $error';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isZh
-                ? '生成 mitmproxy addon 失败。'
-                : 'Failed to generate mitmproxy addon.',
-          ),
-          duration: const Duration(seconds: 3),
-        ),
+      _showSnack(
+        isZh ? '生成 mitmproxy addon 失败。' : 'Failed to generate mitmproxy addon.',
+        kind: OpenHandSnackKind.error,
+        duration: const Duration(seconds: 3),
       );
     } finally {
       if (mounted) setState(() => _writingNetworkAddon = false);
@@ -1317,13 +1303,10 @@ class _AndroidReverseDashboardDialogState
         _certificateArtifactOutput =
             '${isZh ? "生成证书工件失败" : "Failed to generate certificate artifacts"}: $error';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isZh ? '生成证书工件失败。' : 'Failed to generate certificate artifacts.',
-          ),
-          duration: const Duration(seconds: 3),
-        ),
+      _showSnack(
+        isZh ? '生成证书工件失败。' : 'Failed to generate certificate artifacts.',
+        kind: OpenHandSnackKind.error,
+        duration: const Duration(seconds: 3),
       );
     } finally {
       if (mounted) setState(() => _writingCertificateArtifacts = false);
@@ -1344,15 +1327,10 @@ class _AndroidReverseDashboardDialogState
         _mcpArtifactOutput =
             '${isZh ? "生成 MCP 联动工件失败" : "Failed to generate MCP linkage artifacts"}: $error';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isZh
-                ? '生成 MCP 联动工件失败。'
-                : 'Failed to generate MCP linkage artifacts.',
-          ),
-          duration: const Duration(seconds: 3),
-        ),
+      _showSnack(
+        isZh ? '生成 MCP 联动工件失败。' : 'Failed to generate MCP linkage artifacts.',
+        kind: OpenHandSnackKind.error,
+        duration: const Duration(seconds: 3),
       );
     } finally {
       if (mounted) setState(() => _writingMcpArtifacts = false);
@@ -1391,15 +1369,12 @@ class _AndroidReverseDashboardDialogState
     } catch (error) {
       if (!mounted) return;
       final isZh = openHandIsChineseLocale(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isZh
-                ? '加载 Frida snippet 失败：$error'
-                : 'Failed to load Frida snippet: $error',
-          ),
-          duration: const Duration(seconds: 3),
-        ),
+      _showSnack(
+        isZh
+            ? '加载 Frida snippet 失败：$error'
+            : 'Failed to load Frida snippet: $error',
+        kind: OpenHandSnackKind.error,
+        duration: const Duration(seconds: 3),
       );
     }
   }
@@ -1422,13 +1397,10 @@ class _AndroidReverseDashboardDialogState
         _fridaArtifactOutput = _formatAdbResult(result);
       });
       if (result.ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isZh ? '已保存 Frida 脚本工件。' : 'Frida script artifact saved.',
-            ),
-            duration: const Duration(seconds: 3),
-          ),
+        _showSnack(
+          isZh ? '已保存 Frida 脚本工件。' : 'Frida script artifact saved.',
+          kind: OpenHandSnackKind.success,
+          duration: const Duration(seconds: 3),
         );
       }
     } catch (error) {
@@ -5037,11 +5009,13 @@ fi
     );
   }
 
-  void _showSnack(String message) {
+  void _showSnack(
+    String message, {
+    OpenHandSnackKind kind = OpenHandSnackKind.info,
+    Duration duration = const Duration(seconds: 2),
+  }) {
     if (!mounted || message.trim().isEmpty) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+    OpenHandSnackBar.flash(context, message, kind: kind, duration: duration);
   }
 
   Future<String?> _saveTextWithPicker({
@@ -5253,19 +5227,11 @@ fi
                                           ),
                                         );
                                         if (!mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              isZh
-                                                  ? '已发送强制停止：$pkg'
-                                                  : 'Force-stop sent: $pkg',
-                                            ),
-                                            duration: const Duration(
-                                              seconds: 2,
-                                            ),
-                                          ),
+                                        _showSnack(
+                                          isZh
+                                              ? '已发送强制停止：$pkg'
+                                              : 'Force-stop sent: $pkg',
+                                          kind: OpenHandSnackKind.success,
                                         );
                                       },
                                 visualDensity: VisualDensity.compact,
