@@ -28,6 +28,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
+import '../../thread_template_runtime/index.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
 import '../model/mcp_server.dart';
@@ -239,70 +240,86 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       );
     }
     if (servers.isEmpty) {
-      return FeatureStateCard.centered(
-        key: const ValueKey<String>('mcp-empty'),
-        icon: Icons.hub_outlined,
-        title: l10n.mcpEmptyTitle,
-        body: l10n.mcpEmptyBody,
+      return ListView(
+        key: const ValueKey<String>('mcp-empty-with-template-bindings'),
+        padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
+        children: [
+          _TemplateMcpAssociationPanel(
+            controller: context.read<McpController>(),
+            linkageController: context
+                .watch<TemplateRuntimeLinkageController>(),
+          ),
+          const SizedBox(height: 14),
+          FeatureStateCard.inline(
+            icon: Icons.hub_outlined,
+            title: l10n.mcpEmptyTitle,
+            body: l10n.mcpEmptyBody,
+          ),
+        ],
       );
     }
 
-    return ListView.separated(
+    return ListView(
       key: const ValueKey<String>('mcp-list'),
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      itemCount: servers.length,
       cacheExtent: 600,
-      separatorBuilder: (context, index) => const SizedBox(height: 14),
-      itemBuilder: (context, index) {
-        final server = servers[index];
-        return SettingsAwareAppearOnce(
-          key: ValueKey<String>('mcp-server-appear-${server.name}'),
-          child: RepaintBoundary(
-            child:
-                Selector<
-                  McpController,
-                  ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
-                >(
-                  key: ValueKey<String>('mcp-server-${server.name}'),
-                  selector: (context, controller) => (
-                    healthStatus: controller.healthStatusFor(server.name),
-                    toolCatalog: controller.toolCatalogFor(server.name),
+      children: [
+        _TemplateMcpAssociationPanel(
+          controller: context.read<McpController>(),
+          linkageController: context.watch<TemplateRuntimeLinkageController>(),
+        ),
+        const SizedBox(height: 14),
+        for (final server in servers) ...[
+          SettingsAwareAppearOnce(
+            key: ValueKey<String>('mcp-server-appear-${server.name}'),
+            child: RepaintBoundary(
+              child:
+                  Selector<
+                    McpController,
+                    ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
+                  >(
+                    key: ValueKey<String>('mcp-server-${server.name}'),
+                    selector: (context, controller) => (
+                      healthStatus: controller.healthStatusFor(server.name),
+                      toolCatalog: controller.toolCatalogFor(server.name),
+                    ),
+                    builder: (context, cardState, child) {
+                      final controller = context.read<McpController>();
+                      return _McpServerCard(
+                        key: ValueKey<String>('mcp-server-card-${server.name}'),
+                        server: server,
+                        healthStatus: cardState.healthStatus,
+                        toolCatalog: cardState.toolCatalog,
+                        onTap: () =>
+                            _showServerDialog(context, initialServer: server),
+                        onToggleEnabled: (enabled) =>
+                            _updateServerEnabled(context, server.name, enabled),
+                        onCheckHealth: () =>
+                            controller.checkServerHealth(server.name),
+                        onRefreshTools: () =>
+                            controller.refreshServerTools(server.name),
+                        onReconnect: () =>
+                            controller.reconnectServer(server.name),
+                        onActionSelected: (action) {
+                          switch (action) {
+                            case _McpCardAction.edit:
+                              _showServerDialog(context, initialServer: server);
+                            case _McpCardAction.delete:
+                              _confirmDeleteServer(context, server);
+                            case _McpCardAction.viewHistory:
+                              _showHealthHistorySheet(context, server.name);
+                            case _McpCardAction.viewDetails:
+                              _showServerDetailsSheet(context, server);
+                          }
+                        },
+                      );
+                    },
                   ),
-                  builder: (context, cardState, child) {
-                    final controller = context.read<McpController>();
-                    return _McpServerCard(
-                      key: ValueKey<String>('mcp-server-card-${server.name}'),
-                      server: server,
-                      healthStatus: cardState.healthStatus,
-                      toolCatalog: cardState.toolCatalog,
-                      onTap: () =>
-                          _showServerDialog(context, initialServer: server),
-                      onToggleEnabled: (enabled) =>
-                          _updateServerEnabled(context, server.name, enabled),
-                      onCheckHealth: () =>
-                          controller.checkServerHealth(server.name),
-                      onRefreshTools: () =>
-                          controller.refreshServerTools(server.name),
-                      onReconnect: () =>
-                          controller.reconnectServer(server.name),
-                      onActionSelected: (action) {
-                        switch (action) {
-                          case _McpCardAction.edit:
-                            _showServerDialog(context, initialServer: server);
-                          case _McpCardAction.delete:
-                            _confirmDeleteServer(context, server);
-                          case _McpCardAction.viewHistory:
-                            _showHealthHistorySheet(context, server.name);
-                          case _McpCardAction.viewDetails:
-                            _showServerDetailsSheet(context, server);
-                        }
-                      },
-                    );
-                  },
-                ),
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 14),
+        ],
+      ],
     );
   }
 
@@ -758,6 +775,399 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   }) {
     OpenHandSnackBar.flash(context, message, kind: kind, postFrame: true);
   }
+}
+
+class _TemplateMcpAssociationPanel extends StatelessWidget {
+  const _TemplateMcpAssociationPanel({
+    required this.controller,
+    required this.linkageController,
+  });
+
+  final McpController controller;
+  final TemplateRuntimeLinkageController linkageController;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Card(
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.account_tree_rounded, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _localizedText(
+                      context,
+                      zh: '线程模板关联 MCP',
+                      en: 'Thread template MCP bindings',
+                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '${controller.servers.length} 个全局服务',
+                    en: '${controller.servers.length} global servers',
+                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (final spec
+                in TemplateRuntimeDependencyRegistry
+                    .reverseEngineeringSpecs) ...[
+              _TemplateMcpSpecBlock(
+                spec: spec,
+                controller: controller,
+                linkageController: linkageController,
+              ),
+              if (!identical(
+                spec,
+                TemplateRuntimeDependencyRegistry.reverseEngineeringSpecs.last,
+              ))
+                const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TemplateMcpSpecBlock extends StatelessWidget {
+  const _TemplateMcpSpecBlock({
+    required this.spec,
+    required this.controller,
+    required this.linkageController,
+  });
+
+  final TemplateRuntimeDependencySpec spec;
+  final McpController controller;
+  final TemplateRuntimeLinkageController linkageController;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    final sessions = linkageController.sessionsForTemplate(spec.templateId);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                isZh ? spec.labelZh : spec.labelEn,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              _TemplateMcpTinyChip(
+                icon: Icons.forum_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '活跃快照 ${sessions.length}',
+                  en: '${sessions.length} runtime snapshots',
+                ),
+              ),
+              _TemplateMcpTinyChip(
+                icon: Icons.manage_search_rounded,
+                label: spec.toolSearchFallbackQuery,
+                monospace: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final capability in spec.mcpCapabilities) ...[
+            _TemplateMcpCapabilityRow(
+              spec: spec,
+              capability: capability,
+              controller: controller,
+              linkageController: linkageController,
+            ),
+            if (!identical(capability, spec.mcpCapabilities.last))
+              const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateMcpCapabilityRow extends StatelessWidget {
+  const _TemplateMcpCapabilityRow({
+    required this.spec,
+    required this.capability,
+    required this.controller,
+    required this.linkageController,
+  });
+
+  final TemplateRuntimeDependencySpec spec;
+  final TemplateRuntimeMcpCapabilitySpec capability;
+  final McpController controller;
+  final TemplateRuntimeLinkageController linkageController;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    final matchedServers = _matchingServersForCapability(
+      controller,
+      capability,
+    );
+    final enabledServerCount = matchedServers
+        .where((server) => server.enabled)
+        .length;
+    final latestState = linkageController.latestCapabilityState(
+      spec.templateId,
+      capability.id,
+    );
+    final runtimeEnabledCount = linkageController.enabledSessionCount(
+      spec.templateId,
+      capability.id,
+    );
+    final effectiveReady = capability.openHandManaged
+        ? latestState?.enabled == true && latestState?.status == 'ready'
+        : enabledServerCount > 0;
+    final color = effectiveReady
+        ? OpenHandStatusColors.success
+        : matchedServers.isNotEmpty || capability.openHandManaged
+        ? OpenHandStatusColors.warning
+        : cs.error;
+    final statusText = capability.openHandManaged
+        ? latestState == null
+              ? (isZh ? '会话内托管' : 'session-managed')
+              : latestState.enabled
+              ? _localizedText(
+                  context,
+                  zh: '会话启用 · ${latestState.status}',
+                  en: 'session on · ${latestState.status}',
+                )
+              : _localizedText(
+                  context,
+                  zh: '会话关闭 · ${latestState.status}',
+                  en: 'session off · ${latestState.status}',
+                )
+        : matchedServers.isEmpty
+        ? (isZh ? '未注册' : 'not registered')
+        : enabledServerCount > 0
+        ? (isZh
+              ? '已启用 $enabledServerCount/${matchedServers.length}'
+              : '$enabledServerCount/${matchedServers.length} enabled')
+        : (isZh ? '已注册但未启用' : 'registered but disabled');
+    final description = isZh
+        ? capability.descriptionZh
+        : capability.descriptionEn;
+    final serverNames = matchedServers
+        .map((server) => server.name)
+        .take(3)
+        .join(', ');
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          effectiveReady
+              ? Icons.check_circle_rounded
+              : capability.openHandManaged
+              ? Icons.motion_photos_auto_rounded
+              : matchedServers.isEmpty
+              ? Icons.add_circle_outline_rounded
+              : Icons.pause_circle_outline_rounded,
+          size: 18,
+          color: color,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    isZh ? capability.labelZh : capability.labelEn,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  _TemplateMcpStateChip(label: statusText, color: color),
+                  if (runtimeEnabledCount > 0)
+                    _TemplateMcpTinyChip(
+                      icon: Icons.toggle_on_rounded,
+                      label: _localizedText(
+                        context,
+                        zh: '会话启用 $runtimeEnabledCount',
+                        en: '$runtimeEnabledCount sessions on',
+                      ),
+                    ),
+                  if (capability.packageName != null)
+                    _TemplateMcpTinyChip(
+                      icon: Icons.inventory_2_outlined,
+                      label: capability.packageName!,
+                      monospace: true,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                [
+                  description,
+                  if (serverNames.isNotEmpty)
+                    '${isZh ? "匹配服务" : "Matched"}: $serverNames',
+                  if (latestState?.message?.trim().isNotEmpty ?? false)
+                    latestState!.message!.trim(),
+                ].join(' · '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TemplateMcpTinyChip extends StatelessWidget {
+  const _TemplateMcpTinyChip({
+    required this.icon,
+    required this.label,
+    this.monospace = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.44)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: cs.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              fontFamily: monospace ? 'monospace' : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateMcpStateChip extends StatelessWidget {
+  const _TemplateMcpStateChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+List<McpServer> _matchingServersForCapability(
+  McpController controller,
+  TemplateRuntimeMcpCapabilitySpec capability,
+) {
+  return controller.servers
+      .where(
+        (server) => TemplateRuntimeDependencyRegistry.containsAnyKeyword(
+          _mcpServerSearchText(controller, server),
+          capability.keywords,
+        ),
+      )
+      .toList(growable: false);
+}
+
+String _mcpServerSearchText(McpController controller, McpServer server) {
+  return _mcpServerSearchTextForCatalog(
+    server,
+    controller.toolCatalogFor(server.name),
+  );
+}
+
+String _mcpServerSearchTextForCatalog(
+  McpServer server,
+  McpToolCatalog catalog,
+) {
+  final buffer = StringBuffer()
+    ..write(server.name)
+    ..write(' ')
+    ..write(server.summary)
+    ..write(' ')
+    ..write(server.type.transportValue);
+  for (final tool in catalog.tools) {
+    buffer
+      ..write(' ')
+      ..write(tool.id)
+      ..write(' ')
+      ..write(tool.name)
+      ..write(' ')
+      ..write(tool.description);
+  }
+  return buffer.toString();
 }
 
 class _McpServerEditorDialog extends StatefulWidget {
@@ -1391,6 +1801,9 @@ class _McpServerCardState extends State<_McpServerCard> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final templateSpecs = TemplateRuntimeDependencyRegistry.specsForMcpText(
+      _mcpServerSearchTextForCatalog(server, toolCatalog),
+    );
 
     return HoverLift(
       child: AnimatedSize(
@@ -1638,6 +2051,13 @@ class _McpServerCardState extends State<_McpServerCard> {
                           enabled: server.enabled,
                           onPressed: () => onToggleEnabled(!server.enabled),
                         ),
+                        for (final spec in templateSpecs)
+                          _McpStatusChip(
+                            icon: Icons.account_tree_rounded,
+                            label: openHandIsChineseLocale(context)
+                                ? spec.labelZh
+                                : spec.labelEn,
+                          ),
                         // STDIO 进程运行状态 chip
                         if (server.type == McpServerType.stdio)
                           AnimatedBuilder(

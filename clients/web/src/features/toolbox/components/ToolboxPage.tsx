@@ -47,6 +47,10 @@ function statusBadge(status: string): { color: string; bg: string; label: string
   }
 }
 
+function associationLabel(item: { template_id: string; label_zh?: string; label_en?: string }): string {
+  return item.label_zh || item.label_en || item.template_id;
+}
+
 export function ToolboxPage() {
   const [active, setActive] = useState<TabKey>('mcp');
 
@@ -175,12 +179,23 @@ function McpList(props: { items: McpServerSummary[] }) {
                 <h3 class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
                   {srv.name}
                 </h3>
-                <span
-                  class="oh-toolbox-badge"
-                  style={{ color: badge.color, background: badge.bg }}
-                >
-                  {srv.enabled ? t('toolbox.mcp.enabled', '已启用') : t('toolbox.mcp.disabled', '未启用')}
-                </span>
+                <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                  {(srv.template_associations ?? []).map((association) => (
+                    <span
+                      key={association.template_id}
+                      class="oh-toolbox-badge"
+                      style={{ color: 'var(--m3-primary)', background: 'rgba(99,102,241,0.10)' }}
+                    >
+                      {associationLabel(association)}
+                    </span>
+                  ))}
+                  <span
+                    class="oh-toolbox-badge"
+                    style={{ color: badge.color, background: badge.bg }}
+                  >
+                    {srv.enabled ? t('toolbox.mcp.enabled', '已启用') : t('toolbox.mcp.disabled', '未启用')}
+                  </span>
+                </div>
               </div>
               <div class="oh-toolbox-meta-grid">
                 <div>{t('toolbox.mcp.type', '类型')}: <code>{srv.type}</code></div>
@@ -192,6 +207,21 @@ function McpList(props: { items: McpServerSummary[] }) {
                   </div>
                 ) : null}
                 {srv.summary ? <div class="col-span-2 mt-1" style={{ color: 'var(--m3-on-surface)' }}>{srv.summary}</div> : null}
+                {(srv.template_associations ?? []).some((association) => (association.capabilities ?? []).length > 0) ? (
+                  <div class="col-span-2 flex flex-wrap gap-1.5 mt-1">
+                    {(srv.template_associations ?? []).flatMap((association) =>
+                      (association.capabilities ?? []).map((capability) => (
+                        <span
+                          key={`${association.template_id}:${capability.id}`}
+                          class="oh-toolbox-badge"
+                          style={{ color: 'var(--m3-on-surface-variant)', background: 'rgba(120,120,120,0.10)' }}
+                        >
+                          {capability.label_zh || capability.label_en || capability.id}
+                        </span>
+                      )),
+                    )}
+                  </div>
+                ) : null}
               </div>
             </li>
           </Appear>

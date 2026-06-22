@@ -29,6 +29,7 @@ import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
+import '../../thread_template_runtime/index.dart';
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
@@ -1616,6 +1617,62 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, (await runtimeSnapshotAsync()).toJson());
   }
 
+  List<Map<String, Object?>> _templateAssociationsForMcpServer(
+    McpServer server,
+  ) {
+    final catalog = _mcpController.toolCatalogFor(server.name);
+    final text = StringBuffer()
+      ..write(server.name)
+      ..write(' ')
+      ..write(server.summary)
+      ..write(' ')
+      ..write(server.type.transportValue);
+    for (final tool in catalog.tools) {
+      text
+        ..write(' ')
+        ..write(tool.id)
+        ..write(' ')
+        ..write(tool.name)
+        ..write(' ')
+        ..write(tool.description);
+    }
+    final raw = text.toString();
+    return TemplateRuntimeDependencyRegistry.specsForMcpText(raw)
+        .map(
+          (spec) => <String, Object?>{
+            'template_id': spec.templateId,
+            'label_zh': spec.labelZh,
+            'label_en': spec.labelEn,
+            'capabilities': spec
+                .matchingCapabilities(raw)
+                .map(
+                  (capability) => <String, Object?>{
+                    'id': capability.id,
+                    'label_zh': capability.labelZh,
+                    'label_en': capability.labelEn,
+                    if (capability.packageName != null)
+                      'package_name': capability.packageName,
+                    'openhand_managed': capability.openHandManaged,
+                  },
+                )
+                .toList(growable: false),
+          },
+        )
+        .toList(growable: false);
+  }
+
+  List<Map<String, Object?>> _templateAssociationsForPlugin(String pluginId) {
+    return TemplateRuntimeDependencyRegistry.specsForPlugin(pluginId)
+        .map(
+          (spec) => <String, Object?>{
+            'template_id': spec.templateId,
+            'label_zh': spec.labelZh,
+            'label_en': spec.labelEn,
+          },
+        )
+        .toList(growable: false);
+  }
+
   /// Toolbox: 列出当前已加载 MCP 服务器（含 enabled / type / 摘要）。
   Future<shelf.Response> _listMcpServersHandler() async {
     final items = _mcpController.servers
@@ -1632,6 +1689,7 @@ class WebMessagePlatformService {
                 .toolCatalogFor(server.name)
                 .tools
                 .length,
+            'template_associations': _templateAssociationsForMcpServer(server),
           },
         )
         .toList(growable: false);
@@ -1801,6 +1859,7 @@ class WebMessagePlatformService {
       'name': p.name,
       'description': p.description,
       'status': p.status.name,
+      'enabled': p.enabled,
       'installed_version': p.installedVersion,
       'latest_version': p.latestVersion,
       'install_path': p.installPath,
@@ -1809,6 +1868,7 @@ class WebMessagePlatformService {
       'supports_uninstall': p.supportsUninstall,
       'error_message': p.errorMessage,
       'has_update': p.hasUpdate,
+      'template_associations': _templateAssociationsForPlugin(p.id),
     };
   }
 

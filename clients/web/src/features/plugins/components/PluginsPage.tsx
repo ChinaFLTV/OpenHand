@@ -53,6 +53,53 @@ function pluginIcon(id: string): string {
   }
 }
 
+function associationLabel(item: { template_id: string; label_zh?: string; label_en?: string }): string {
+  return item.label_zh || item.label_en || item.template_id;
+}
+
+function TemplatePluginSummary(props: { plugins: PluginSummary[] }) {
+  const groups = new Map<string, { label: string; total: number; ready: number; disabled: number }>();
+  for (const plugin of props.plugins) {
+    for (const association of plugin.template_associations ?? []) {
+      const key = association.template_id || associationLabel(association);
+      const current = groups.get(key) ?? {
+        label: associationLabel(association),
+        total: 0,
+        ready: 0,
+        disabled: 0,
+      };
+      current.total += 1;
+      if (plugin.status === 'installed' && plugin.enabled !== false) {
+        current.ready += 1;
+      } else if (plugin.status === 'installed') {
+        current.disabled += 1;
+      }
+      groups.set(key, current);
+    }
+  }
+  const rows = Array.from(groups.values());
+  if (rows.length === 0) return null;
+  return (
+    <div class="oh-toolbox-card mb-4">
+      <div class="text-sm font-semibold mb-2" style={{ color: 'var(--m3-on-surface)' }}>
+        {t('plugins.templateBindings', '线程模板关联插件')}
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {rows.map((row) => (
+          <span
+            key={row.label}
+            class="oh-toolbox-badge"
+            style={{ color: 'var(--m3-primary)', background: 'rgba(99,102,241,0.10)' }}
+          >
+            {row.label} · {row.ready}/{row.total}
+            {row.disabled > 0 ? ` · ${t('plugins.disabledCount', '禁用')} ${row.disabled}` : ''}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function PluginsPage() {
   const [plugins, setPlugins] = useState<PluginSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,18 +259,20 @@ export function PluginsPage() {
         ) : null}
 
         {plugins ? (
-          <ul class="space-y-3">
-            {plugins.map((plugin, idx) => {
-              const badge = statusBadge(plugin.status);
-              const isChecking = checkingUpdate === plugin.id;
-              const isBusy = operating === plugin.id ||
-                isChecking ||
-                plugin.status === 'installing' ||
-                plugin.status === 'updating' ||
-                plugin.status === 'uninstalling';
-              return (
-                <Appear key={plugin.id} variant="up" index={idx}>
-                  <li class="oh-toolbox-card">
+          <>
+            <TemplatePluginSummary plugins={plugins} />
+            <ul class="space-y-3">
+              {plugins.map((plugin, idx) => {
+                const badge = statusBadge(plugin.status);
+                const isChecking = checkingUpdate === plugin.id;
+                const isBusy = operating === plugin.id ||
+                  isChecking ||
+                  plugin.status === 'installing' ||
+                  plugin.status === 'updating' ||
+                  plugin.status === 'uninstalling';
+                return (
+                  <Appear key={plugin.id} variant="up" index={idx}>
+                    <li class="oh-toolbox-card">
                     <div class="flex items-start justify-between gap-3">
                       <div class="flex items-start gap-3 flex-1 min-w-0">
                         <span style={{ fontSize: 24 }}>{pluginIcon(plugin.id)}</span>
@@ -238,6 +287,26 @@ export function PluginsPage() {
                             >
                               {badge.label}
                             </span>
+                            {plugin.status === 'installed' ? (
+                              <span
+                                class="oh-toolbox-badge"
+                                style={{
+                                  color: plugin.enabled === false ? '#f59e0b' : '#16a34a',
+                                  background: plugin.enabled === false ? 'rgba(245,158,11,0.10)' : 'rgba(22,163,74,0.10)',
+                                }}
+                              >
+                                {plugin.enabled === false ? t('plugins.disabled', '已禁用') : t('plugins.enabled', '可用')}
+                              </span>
+                            ) : null}
+                            {(plugin.template_associations ?? []).map((association) => (
+                              <span
+                                key={association.template_id}
+                                class="oh-toolbox-badge"
+                                style={{ color: 'var(--m3-primary)', background: 'rgba(99,102,241,0.10)' }}
+                              >
+                                {associationLabel(association)}
+                              </span>
+                            ))}
                           </div>
                           <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
                             {plugin.description}
@@ -368,11 +437,12 @@ export function PluginsPage() {
                         ) : null}
                       </div>
                     </div>
-                  </li>
-                </Appear>
-              );
-            })}
-          </ul>
+                    </li>
+                  </Appear>
+                );
+              })}
+            </ul>
+          </>
         ) : null}
       </div>
 

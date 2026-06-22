@@ -12,6 +12,7 @@ import '../../shared/util/localized_text.dart';
 import '../ai/index.dart';
 import '../mcp/index.dart';
 import '../plugin_service/index.dart';
+import '../thread_template_runtime/index.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
 import 'android_reverse_session_controller.dart';
@@ -53,39 +54,12 @@ getprop ro.product.cpu.abi
 getprop ro.product.cpu.abilist
 ''';
 const List<String> _kLogcatLevels = <String>['V', 'D', 'I', 'W', 'E', 'F'];
-const List<String> _kAndroidMcpKeywords = <String>[
-  'adb',
-  'android',
-  'apk',
-  'aapt',
-  'apksigner',
-  'apktool',
-  'jadx',
-  'frida',
-  'objection',
-  'ida',
-  'radare',
-  'r2',
-  'mitm',
-  'proxy',
-  'flutter',
-  'dart',
-  'blutter',
-  'doldrums',
-  'anything',
-  'analyzer',
-  'logcat',
-  'device',
-  'shell',
-];
-const List<String> _kAndroidRuntimePluginIds = <String>[
-  'nodejs',
-  'python',
-  'pip',
-  'playwright',
-];
+const List<String> _kAndroidMcpKeywords =
+    TemplateRuntimeDependencyRegistry.androidReverseMcpKeywords;
+const List<String> _kAndroidRuntimePluginIds =
+    TemplateRuntimeDependencyRegistry.androidReversePluginIds;
 const String _kAndroidMcpToolSearchFallbackQuery =
-    'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter';
+    TemplateRuntimeDependencyRegistry.androidReverseToolSearchFallbackQuery;
 const String _kAndroidStdioMcpConfigTemplate = '''
 {
   "mcpServers": {

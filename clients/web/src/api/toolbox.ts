@@ -12,6 +12,22 @@ export interface McpServerSummary {
   command?: string;
   args?: string[];
   tool_count: number;
+  template_associations?: TemplateMcpAssociation[];
+}
+
+export interface TemplateMcpAssociation {
+  template_id: string;
+  label_zh?: string;
+  label_en?: string;
+  capabilities?: TemplateMcpCapability[];
+}
+
+export interface TemplateMcpCapability {
+  id: string;
+  label_zh?: string;
+  label_en?: string;
+  package_name?: string;
+  openhand_managed?: boolean;
 }
 
 export interface SkillSummary {

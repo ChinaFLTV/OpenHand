@@ -20,6 +20,7 @@ export interface PluginSummary {
   name: string;
   description: string;
   status: PluginStatus;
+  enabled: boolean;
   installed_version: string | null;
   latest_version: string | null;
   install_path: string | null;
@@ -28,6 +29,13 @@ export interface PluginSummary {
   supports_uninstall: boolean;
   error_message: string | null;
   has_update: boolean;
+  template_associations?: TemplateAssociation[];
+}
+
+export interface TemplateAssociation {
+  template_id: string;
+  label_zh?: string;
+  label_en?: string;
 }
 
 export interface PluginActionResult {

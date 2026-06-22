@@ -686,6 +686,13 @@ class PluginScannerService {
     supportsUninstall: false,
   );
 
+  static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
+    _nodeNotInstalled,
+    _playwrightNotInstalled,
+    _pythonNotInstalled,
+    _pipNotInstalled,
+  ];
+
   Future<List<PluginInfo>> scanAll() async {
     final nodeFuture = scanNodeJs();
     final playwrightFuture = scanPlaywright();

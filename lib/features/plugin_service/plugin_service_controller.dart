@@ -72,13 +72,47 @@ class PluginServiceController extends ManagedChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      _plugins = await _scanner.scanAll();
+      _plugins = _mergeScannedPlugins(await _scanner.scanAll());
     } catch (e) {
       _errorMessage = '$e';
+      _plugins = _mergeScannedPlugins(
+        PluginScannerService.knownPluginPlaceholders(),
+      );
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  List<PluginInfo> _mergeScannedPlugins(List<PluginInfo> scanned) {
+    final previousById = <String, PluginInfo>{
+      for (final plugin in _plugins) plugin.id: plugin,
+    };
+    final byId = <String, PluginInfo>{
+      for (final plugin in PluginScannerService.knownPluginPlaceholders())
+        plugin.id: plugin,
+      for (final plugin in scanned) plugin.id: plugin,
+    };
+    final result = <PluginInfo>[];
+    final seen = <String>{};
+    for (final id in const <String>['nodejs', 'playwright', 'python', 'pip']) {
+      final plugin = byId[id];
+      if (plugin == null) continue;
+      seen.add(id);
+      result.add(_restoreRuntimeState(plugin, previousById[id]));
+    }
+    for (final plugin in byId.values) {
+      if (seen.contains(plugin.id)) continue;
+      result.add(_restoreRuntimeState(plugin, previousById[plugin.id]));
+    }
+    return List<PluginInfo>.unmodifiable(result);
+  }
+
+  PluginInfo _restoreRuntimeState(PluginInfo next, PluginInfo? previous) {
+    if (previous == null || !next.isInstalled) {
+      return next.isInstalled ? next : next.copyWith(enabled: true);
+    }
+    return next.copyWith(enabled: previous.enabled);
   }
 
   /// 检查单个插件的最新状态与可更新版本。

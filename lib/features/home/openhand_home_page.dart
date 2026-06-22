@@ -91,6 +91,7 @@ import '../message_gateway/index.dart';
 import '../plugin_service/index.dart';
 import '../settings/index.dart';
 import '../skills/index.dart';
+import '../thread_template_runtime/index.dart';
 import '../web_reverse/index.dart';
 import 'model/cache_hit_ratio.dart';
 import 'model/session_cache_hit_trend.dart';
@@ -160,32 +161,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const int _androidReverseMcpRuntimeToolNameLimit = 64;
   static const int _androidReverseMcpToolSearchLimit = 8;
   static const List<String> _androidReverseMcpKeywords = <String>[
-    'adb',
-    'android',
-    'apk',
-    'aapt',
-    'apksigner',
-    'apktool',
-    'jadx',
-    'frida',
-    'objection',
-    'ida',
-    'radare',
-    'r2',
-    'mitm',
-    'proxy',
-    'flutter',
-    'dart',
-    'blutter',
-    'doldrums',
-    'anything',
-    'analyzer',
-    'logcat',
-    'device',
-    'shell',
+    ...TemplateRuntimeDependencyRegistry.androidReverseMcpKeywords,
   ];
   static const String _androidReverseMcpFallbackToolSearchQuery =
-      'select:adb,android,frida,ida,apktool,jadx,anything-analyzer,flutter';
+      TemplateRuntimeDependencyRegistry.androidReverseToolSearchFallbackQuery;
   static const List<String> _androidReverseToolchainRecommendationIds =
       <String>[
         'adb',
@@ -311,6 +290,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AiRuntimeToolPreview? _runtimeToolPreviewCacheValue;
   AiSessionController? _observedSessionController;
   MessageGatewayController? _observedMessageGatewayController;
+  TemplateRuntimeLinkageController? _templateRuntimeLinkageController;
   StreamSubscription<List<WebWriteApprovalRequest>>? _writeApprovalSubscription;
   final Set<String> _handledWriteApprovalDialogIds = <String>{};
   String? _scheduledWriteApprovalDialogId;
@@ -756,6 +736,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final sessionController = context.read<AiSessionController>();
+    _templateRuntimeLinkageController = context
+        .read<TemplateRuntimeLinkageController>();
     if (identical(_observedSessionController, sessionController)) {
       return;
     }
@@ -3235,6 +3217,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     WebReverseSessionController controller,
   ) {
     controller.removeListener(_onWebReverseControllerChanged);
+    _removeTemplateRuntimeLinkage(sessionId);
     unawaited(
       (() async {
         try {
@@ -3439,6 +3422,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AndroidReverseSessionController controller,
   ) {
     controller.removeListener(_onAndroidReverseControllerChanged);
+    _removeTemplateRuntimeLinkage(sessionId);
     unawaited(
       (() async {
         try {
@@ -3464,6 +3448,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   ) async {
     if (!mounted) return false;
     final metadata = _androidReverseRuntimeMetadata(controller);
+    _syncAndroidReverseTemplateRuntimeLinkage(sessionId, controller);
     final signature = jsonEncode(metadata);
     if (_androidReverseRuntimeMetadataSignatures[sessionId] == signature) {
       return true;
@@ -3485,6 +3470,56 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       return false;
+    }
+  }
+
+  void _syncAndroidReverseTemplateRuntimeLinkage(
+    String sessionId,
+    AndroidReverseSessionController controller,
+  ) {
+    try {
+      _templateRuntimeLinkageController?.upsertSession(
+        sessionId: sessionId,
+        templateId: TemplateRuntimeDependencyRegistry.androidReverse.templateId,
+        capabilities: <TemplateRuntimeCapabilityState>[
+          TemplateRuntimeCapabilityState(
+            capabilityId: 'android_adb_mcp',
+            enabled: controller.config.adbMcpEnabled,
+            status: controller.config.adbMcpEnabled ? 'enabled' : 'disabled',
+            message: controller.config.adbMcpEnabled
+                ? 'ADB MCP is enabled for this Android Reverse session.'
+                : 'ADB MCP is disabled for this Android Reverse session.',
+          ),
+          TemplateRuntimeCapabilityState(
+            capabilityId: 'android_frida_mcp',
+            enabled: controller.config.fridaMcpEnabled,
+            status: controller.config.fridaMcpEnabled ? 'enabled' : 'disabled',
+            message: controller.config.fridaMcpEnabled
+                ? 'Frida MCP is enabled for this Android Reverse session.'
+                : 'Frida MCP is disabled for this Android Reverse session.',
+          ),
+        ],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'sync android reverse template runtime linkage',
+        error,
+        stack,
+      );
+    }
+  }
+
+  void _removeTemplateRuntimeLinkage(String sessionId) {
+    try {
+      _templateRuntimeLinkageController?.removeSession(sessionId);
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'remove template runtime linkage $sessionId',
+        error,
+        stack,
+      );
     }
   }
 
@@ -3689,11 +3724,161 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Map<String, Object?> _androidReverseMcpPluginLinkageMetadata() {
     return <String, Object?>{
+      'template_dependency': TemplateRuntimeDependencyRegistry.androidReverse
+          .toJson(),
       'mcp': _androidReverseMcpLinkageMetadata(),
       'plugin_runtime_prerequisites':
-          _androidReversePluginRuntimePrerequisitesMetadata(),
+          _threadTemplatePluginRuntimePrerequisitesMetadata(
+            TemplateRuntimeDependencyRegistry.androidReverse,
+          ),
       'toolchain_recommendations': _androidReverseToolchainRecommendationIds,
     };
+  }
+
+  Map<String, Object?> _threadTemplateMcpPluginLinkageMetadata(
+    TemplateRuntimeDependencySpec spec,
+  ) {
+    return <String, Object?>{
+      'template_dependency': spec.toJson(),
+      'mcp': _threadTemplateMcpLinkageMetadata(spec),
+      'plugin_runtime_prerequisites':
+          _threadTemplatePluginRuntimePrerequisitesMetadata(spec),
+    };
+  }
+
+  Map<String, Object?> _threadTemplateMcpLinkageMetadata(
+    TemplateRuntimeDependencySpec spec,
+  ) {
+    try {
+      final mcpController = context.read<McpController>();
+      final capabilityRows = <Map<String, Object?>>[];
+      for (final capability in spec.mcpCapabilities) {
+        final matchedServers = <Map<String, Object?>>[];
+        for (final server in mcpController.servers) {
+          final catalog = mcpController.toolCatalogFor(server.name);
+          final text = StringBuffer()
+            ..write(server.name)
+            ..write(' ')
+            ..write(server.summary)
+            ..write(' ')
+            ..write(server.type.transportValue);
+          for (final tool in catalog.tools) {
+            text
+              ..write(' ')
+              ..write(tool.id)
+              ..write(' ')
+              ..write(tool.name)
+              ..write(' ')
+              ..write(tool.description);
+          }
+          if (!TemplateRuntimeDependencyRegistry.containsAnyKeyword(
+            text.toString(),
+            capability.keywords,
+          )) {
+            continue;
+          }
+          matchedServers.add(<String, Object?>{
+            'name': server.name,
+            'enabled': server.enabled,
+            'transport': server.type.transportValue,
+            if (server.summary.trim().isNotEmpty) 'summary': server.summary,
+            'tool_count': catalog.tools.length,
+          });
+        }
+        capabilityRows.add(<String, Object?>{
+          'id': capability.id,
+          'label_zh': capability.labelZh,
+          'label_en': capability.labelEn,
+          if (capability.packageName != null)
+            'package_name': capability.packageName,
+          'openhand_managed': capability.openHandManaged,
+          'matched_server_count': matchedServers.length,
+          'enabled_server_count': matchedServers
+              .where((server) => server['enabled'] == true)
+              .length,
+          if (matchedServers.isNotEmpty)
+            'matched_servers': matchedServers.take(8).toList(growable: false),
+        });
+      }
+      return <String, Object?>{
+        'servers_file_path': mcpController.serversFilePath,
+        'storage_dir': mcpController.storageDirectoryPath,
+        'server_count': mcpController.servers.length,
+        'tool_search_recommended_query': spec.toolSearchFallbackQuery,
+        'capabilities': capabilityRows,
+        if (mcpController.errorMessage?.trim().isNotEmpty ?? false)
+          'error': mcpController.errorMessage!.trim(),
+      };
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'build template mcp linkage metadata ${spec.templateId}',
+        error,
+        stack,
+      );
+      return <String, Object?>{
+        'error': '$error',
+        'tool_search_recommended_query': spec.toolSearchFallbackQuery,
+      };
+    }
+  }
+
+  Map<String, Object?> _threadTemplatePluginRuntimePrerequisitesMetadata(
+    TemplateRuntimeDependencySpec spec,
+  ) {
+    try {
+      final pluginController = context.read<PluginServiceController>();
+      final plugins = <Map<String, Object?>>[];
+      for (final id in spec.pluginIds) {
+        final plugin = pluginController.pluginById(id);
+        if (plugin == null) {
+          plugins.add(<String, Object?>{'id': id, 'status': 'unknown'});
+          continue;
+        }
+        plugins.add(<String, Object?>{
+          'id': plugin.id,
+          'name': plugin.name,
+          'status': plugin.status.name,
+          'enabled': plugin.enabled,
+          'installed': plugin.isInstalled,
+          'available_actions': <String>[
+            if (!plugin.isInstalled) 'install',
+            if (plugin.isInstalled) 'check_update',
+            if (plugin.isInstalled && plugin.hasUpdate) 'update',
+            if (plugin.isInstalled) plugin.enabled ? 'disable' : 'enable',
+            if (plugin.isInstalled && plugin.supportsUninstall) 'uninstall',
+          ],
+          if (plugin.installedVersion?.trim().isNotEmpty ?? false)
+            'installed_version': plugin.installedVersion!.trim(),
+          if (plugin.latestVersion?.trim().isNotEmpty ?? false)
+            'latest_version': plugin.latestVersion!.trim(),
+          if (plugin.installPath?.trim().isNotEmpty ?? false)
+            'install_path': plugin.installPath!.trim(),
+          if (plugin.errorMessage?.trim().isNotEmpty ?? false)
+            'error': plugin.errorMessage!.trim(),
+        });
+      }
+      return <String, Object?>{
+        'operation_source': 'OpenHand PluginServiceController',
+        'template_id': spec.templateId,
+        'is_loading': pluginController.isLoading,
+        'is_operating': pluginController.isOperating,
+        'installed_count': plugins
+            .where((plugin) => plugin['installed'] == true)
+            .length,
+        'plugins': plugins,
+        if (pluginController.errorMessage?.trim().isNotEmpty ?? false)
+          'error': pluginController.errorMessage!.trim(),
+      };
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'build template plugin metadata ${spec.templateId}',
+        error,
+        stack,
+      );
+      return <String, Object?>{'error': '$error'};
+    }
   }
 
   List<Map<String, Object?>> _androidReverseToolchainSetupCommandsMetadata() {
@@ -3809,62 +3994,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  Map<String, Object?> _androidReversePluginRuntimePrerequisitesMetadata() {
-    try {
-      final pluginController = context.read<PluginServiceController>();
-      const ids = <String>['nodejs', 'python', 'pip', 'playwright'];
-      final plugins = <Map<String, Object?>>[];
-      for (final id in ids) {
-        final plugin = pluginController.pluginById(id);
-        if (plugin == null) {
-          plugins.add(<String, Object?>{'id': id, 'status': 'unknown'});
-          continue;
-        }
-        plugins.add(<String, Object?>{
-          'id': plugin.id,
-          'name': plugin.name,
-          'status': plugin.status.name,
-          'enabled': plugin.enabled,
-          'installed': plugin.isInstalled,
-          'available_actions': <String>[
-            if (!plugin.isInstalled) 'install',
-            if (plugin.isInstalled) 'check_update',
-            if (plugin.isInstalled && plugin.hasUpdate) 'update',
-            if (plugin.isInstalled) plugin.enabled ? 'disable' : 'enable',
-            if (plugin.isInstalled && plugin.supportsUninstall) 'uninstall',
-          ],
-          if (plugin.installedVersion?.trim().isNotEmpty ?? false)
-            'installed_version': plugin.installedVersion!.trim(),
-          if (plugin.latestVersion?.trim().isNotEmpty ?? false)
-            'latest_version': plugin.latestVersion!.trim(),
-          if (plugin.installPath?.trim().isNotEmpty ?? false)
-            'install_path': plugin.installPath!.trim(),
-          if (plugin.errorMessage?.trim().isNotEmpty ?? false)
-            'error': plugin.errorMessage!.trim(),
-        });
-      }
-      return <String, Object?>{
-        'operation_source': 'OpenHand PluginServiceController',
-        'is_loading': pluginController.isLoading,
-        'is_operating': pluginController.isOperating,
-        'installed_count': plugins
-            .where((plugin) => plugin['installed'] == true)
-            .length,
-        'plugins': plugins,
-        if (pluginController.errorMessage?.trim().isNotEmpty ?? false)
-          'error': pluginController.errorMessage!.trim(),
-      };
-    } catch (error, stack) {
-      silentLog(
-        'openhand_home_page',
-        'build android reverse plugin runtime metadata',
-        error,
-        stack,
-      );
-      return <String, Object?>{'error': '$error'};
-    }
-  }
-
   bool _androidReverseContainsMcpKeyword(String raw) {
     final text = raw.toLowerCase();
     return _androidReverseMcpKeywords.any(text.contains);
@@ -3939,17 +4068,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final session = sessionController.sessions
         .where((item) => item.id == sessionId)
         .firstOrNull;
+    final diagnostic =
+        cdpMcpBridgeDiagnostic ??
+        _webReverseCdpMcpBridge.cachedDiagnostic(
+          enabled: _webReverseCdpMcpEnabledForSession(session),
+          sessionId: sessionId,
+          sessionTemplateId: session?.templateId,
+          controller: controller,
+          existingServers: context.read<McpController>().servers,
+        );
     final metadata = _webReverseRuntimeMetadata(
       controller,
-      cdpMcpBridgeDiagnostic:
-          cdpMcpBridgeDiagnostic ??
-          _webReverseCdpMcpBridge.cachedDiagnostic(
-            enabled: _webReverseCdpMcpEnabledForSession(session),
-            sessionId: sessionId,
-            sessionTemplateId: session?.templateId,
-            controller: controller,
-            existingServers: context.read<McpController>().servers,
-          ),
+      cdpMcpBridgeDiagnostic: diagnostic,
+    );
+    _syncWebReverseTemplateRuntimeLinkage(
+      sessionId,
+      diagnostic,
+      enabled: _webReverseCdpMcpEnabledForSession(session),
     );
     final signature = jsonEncode(metadata);
     if (_webReverseRuntimeMetadataSignatures[sessionId] == signature) {
@@ -4023,7 +4158,40 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         },
       if (cdpMcpBridgeDiagnostic != null)
         'cdp_mcp_bridge': cdpMcpBridgeDiagnostic.toJson(),
+      'mcp_plugin_linkage': _threadTemplateMcpPluginLinkageMetadata(
+        TemplateRuntimeDependencyRegistry.webReverse,
+      ),
     };
+  }
+
+  void _syncWebReverseTemplateRuntimeLinkage(
+    String sessionId,
+    WebReverseCdpMcpBridgeDiagnostic diagnostic, {
+    required bool enabled,
+  }) {
+    try {
+      _templateRuntimeLinkageController?.upsertSession(
+        sessionId: sessionId,
+        templateId: TemplateRuntimeDependencyRegistry.webReverse.templateId,
+        capabilities: <TemplateRuntimeCapabilityState>[
+          TemplateRuntimeCapabilityState(
+            capabilityId: 'web_reverse_cdp_mcp',
+            enabled: enabled,
+            status: enabled ? diagnostic.status.name : 'disabled',
+            serverName: diagnostic.serverName,
+            toolCount: diagnostic.toolCount,
+            message: diagnostic.message,
+          ),
+        ],
+      );
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        'sync web reverse template runtime linkage',
+        error,
+        stack,
+      );
+    }
   }
 
   /// 把 [WebReverseLaunchException] 转成"标题 + 详情"两段式文案，
@@ -7274,6 +7442,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (ar != null) {
           _disposeAndroidReverseController(session.id, ar);
         }
+        _removeTemplateRuntimeLinkage(session.id);
       }
       return;
     }

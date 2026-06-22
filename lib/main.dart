@@ -30,6 +30,7 @@ import 'features/message_gateway/index.dart';
 import 'features/plugin_service/index.dart';
 import 'features/settings/service/throttle_auto_sync_service.dart';
 import 'features/skills/index.dart';
+import 'features/thread_template_runtime/index.dart';
 import 'shared/db/database_service.dart';
 import 'shared/fps/openhand_fps_monitor.dart';
 import 'shared/ui/structured_error_text.dart';
@@ -386,6 +387,7 @@ Future<void> _bootstrap() async {
   // 全部失败 silentLog；不阻塞 UI 启动。
   unawaited(WebSearchCacheStore.instance.prewarm());
   unawaited(WebFetchCacheStore.instance.prewarm());
+  final templateRuntimeLinkageController = TemplateRuntimeLinkageController();
 
   runApp(
     MultiProvider(
@@ -402,6 +404,9 @@ Future<void> _bootstrap() async {
         ...MessageGatewayModule.providers(messageGateway),
         ...PluginServiceModule.providers(pluginService),
         ...AiModule.providers(ai),
+        ChangeNotifierProvider<TemplateRuntimeLinkageController>.value(
+          value: templateRuntimeLinkageController,
+        ),
         Provider<AppInfo>.value(value: appInfo),
       ],
       child: const OpenHandApp(),
