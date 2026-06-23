@@ -3386,9 +3386,13 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
         _buildVideoCard(theme, source, title, textColor, backgroundColor),
       );
     }
-    const icon = Icons.graphic_eq;
     final label = _localizedText(context, zh: '音频', en: 'Audio');
     final detail = _generatedMediaSourceDetail(source);
+    final meta = _GeneratedAudioVisualMeta.fromSource(
+      source: source,
+      title: title,
+      detail: detail,
+    );
     final cardColor = Color.alphaBlend(
       textColor.withValues(alpha: 0.08),
       backgroundColor,
@@ -3402,32 +3406,63 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(18),
               onTap: _openPreview,
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 420, minWidth: 240),
-                padding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(maxWidth: 460, minWidth: 280),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: cardColor,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: textColor.withValues(alpha: 0.16)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: textColor.withValues(alpha: 0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      icon,
-                      size: 26,
-                      color: textColor.withValues(alpha: 0.9),
+                    _GeneratedAudioAlbumCover(
+                      meta: meta,
+                      size: 62,
+                      foregroundColor: textColor,
+                      compact: true,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Flexible(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.album_outlined,
+                                size: 14,
+                                color: textColor.withValues(alpha: 0.68),
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  meta.album,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: textColor.withValues(alpha: 0.68),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
                           Text(
-                            title,
+                            meta.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelLarge?.copyWith(
@@ -3435,7 +3470,12 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 7),
+                          _GeneratedAudioMiniWaveform(
+                            color: textColor,
+                            seed: meta.seed,
+                          ),
+                          const SizedBox(height: 6),
                           Text(
                             '$label · $detail',
                             maxLines: 1,
@@ -3448,10 +3488,21 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(
-                      Icons.open_in_full_rounded,
-                      size: 18,
-                      color: textColor.withValues(alpha: 0.78),
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: textColor.withValues(alpha: 0.10),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: textColor.withValues(alpha: 0.16),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        size: 23,
+                        color: textColor.withValues(alpha: 0.86),
+                      ),
                     ),
                   ],
                 ),
@@ -3678,6 +3729,261 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   }
 }
 
+class _GeneratedAudioVisualMeta {
+  const _GeneratedAudioVisualMeta({
+    required this.title,
+    required this.artist,
+    required this.album,
+    required this.detail,
+    required this.seed,
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.accentColor,
+    required this.coverGlyph,
+    required this.lyricLines,
+  });
+
+  factory _GeneratedAudioVisualMeta.fromSource({
+    required _GeneratedMediaSource source,
+    required String title,
+    required String detail,
+  }) {
+    final cleanTitle = _normalizeAudioDisplayText(
+      title,
+      fallback: _generatedMediaFallbackTitle(source),
+    );
+    final cleanDetail = _normalizeAudioDisplayText(
+      detail,
+      fallback: 'OpenHand',
+    );
+    final seedText = '$cleanTitle|$cleanDetail|${source.displayUri}';
+    final seed = seedText.hashCode & 0x7fffffff;
+    final palette =
+        _kGeneratedAudioPalettes[seed % _kGeneratedAudioPalettes.length];
+    final glyph = _audioCoverGlyph(cleanTitle);
+    return _GeneratedAudioVisualMeta(
+      title: cleanTitle,
+      artist: _deriveGeneratedAudioArtist(cleanDetail),
+      album: _deriveGeneratedAudioAlbum(cleanDetail),
+      detail: cleanDetail,
+      seed: seed,
+      primaryColor: palette.$1,
+      secondaryColor: palette.$2,
+      accentColor: palette.$3,
+      coverGlyph: glyph,
+      lyricLines: _deriveGeneratedAudioLyricLines(cleanTitle, cleanDetail),
+    );
+  }
+
+  final String title;
+  final String artist;
+  final String album;
+  final String detail;
+  final int seed;
+  final Color primaryColor;
+  final Color secondaryColor;
+  final Color accentColor;
+  final String coverGlyph;
+  final List<String> lyricLines;
+}
+
+const List<(Color, Color, Color)> _kGeneratedAudioPalettes =
+    <(Color, Color, Color)>[
+      (Color(0xFF76815E), Color(0xFFBFC79A), Color(0xFFF4F0D7)),
+      (Color(0xFF5C6E75), Color(0xFFA9C3BD), Color(0xFFE8F0E9)),
+      (Color(0xFF765F73), Color(0xFFD2A9B8), Color(0xFFF4E5EA)),
+      (Color(0xFF6F6B55), Color(0xFFD1C394), Color(0xFFF1E8C8)),
+      (Color(0xFF59705C), Color(0xFFAEC8A8), Color(0xFFE8F3DF)),
+    ];
+
+String _normalizeAudioDisplayText(String value, {required String fallback}) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return fallback;
+  return trimmed
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(
+        RegExp(r'\.(mp3|wav|m4a|aac|ogg|opus|flac)$', caseSensitive: false),
+        '',
+      )
+      .trim();
+}
+
+String _deriveGeneratedAudioArtist(String detail) {
+  final basename = p.basename(detail).trim();
+  if (basename.isEmpty || basename == '/' || basename == '.') return 'OpenHand';
+  final withoutExt = _normalizeAudioDisplayText(basename, fallback: basename);
+  final segments = withoutExt
+      .split(RegExp(r'[-_]+'))
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+  if (segments.length >= 2 && segments.first.length <= 28) {
+    return segments.first;
+  }
+  return 'AI Audio';
+}
+
+String _deriveGeneratedAudioAlbum(String detail) {
+  final basename = p.basename(detail).trim();
+  final normalized = _normalizeAudioDisplayText(
+    basename.isEmpty ? detail : basename,
+    fallback: 'Generated Album',
+  );
+  if (normalized.length <= 32) return normalized;
+  return 'Generated Album';
+}
+
+String _audioCoverGlyph(String title) {
+  final withoutEmoji = title
+      .replaceAll(
+        RegExp(r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]', unicode: true),
+        '',
+      )
+      .trim();
+  if (withoutEmoji.isEmpty) return '♪';
+  return withoutEmoji.characters.first.toUpperCase();
+}
+
+List<String> _deriveGeneratedAudioLyricLines(String title, String detail) {
+  final normalizedTitle = _normalizeAudioDisplayText(title, fallback: 'Audio');
+  final normalizedDetail = _normalizeAudioDisplayText(
+    detail,
+    fallback: 'OpenHand',
+  );
+  final basename = _normalizeAudioDisplayText(
+    p.basename(normalizedDetail),
+    fallback: normalizedDetail,
+  );
+  final parts = <String>{
+    normalizedTitle,
+    basename,
+    'OpenHand AI Audio',
+    'Waveform in motion',
+    'Generated for this conversation',
+    'Replay the moment clearly',
+  }.where((line) => line.trim().isNotEmpty).toList(growable: false);
+  return parts.take(6).toList(growable: false);
+}
+
+String _hexColor(Color color) {
+  final value = color.toARGB32() & 0x00ffffff;
+  return '#${value.toRadixString(16).padLeft(6, '0')}';
+}
+
+Color _mixColors(Color color, Color other, double colorWeight) {
+  return Color.lerp(other, color, colorWeight.clamp(0.0, 1.0)) ?? color;
+}
+
+String _jsStringLiteral(String value) => jsonEncode(value);
+
+String _jsStringArrayLiteral(Iterable<String> values) =>
+    '[${values.map(_jsStringLiteral).join(',')}]';
+
+class _GeneratedAudioAlbumCover extends StatelessWidget {
+  const _GeneratedAudioAlbumCover({
+    required this.meta,
+    required this.size,
+    required this.foregroundColor,
+    this.compact = false,
+  });
+
+  final _GeneratedAudioVisualMeta meta;
+  final double size;
+  final Color foregroundColor;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(compact ? 16 : 22),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              meta.accentColor.withValues(alpha: compact ? 0.95 : 1),
+              meta.secondaryColor.withValues(alpha: 0.92),
+              meta.primaryColor.withValues(alpha: 0.96),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: meta.primaryColor.withValues(alpha: 0.28),
+              blurRadius: compact ? 18 : 32,
+              offset: Offset(0, compact ? 8 : 16),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -size * 0.16,
+              bottom: -size * 0.22,
+              child: Icon(
+                Icons.album_rounded,
+                size: size * 0.86,
+                color: foregroundColor.withValues(alpha: 0.10),
+              ),
+            ),
+            Center(
+              child: Text(
+                meta.coverGlyph,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.94),
+                  fontWeight: FontWeight.w900,
+                  fontSize: size * (compact ? 0.38 : 0.32),
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GeneratedAudioMiniWaveform extends StatelessWidget {
+  const _GeneratedAudioMiniWaveform({required this.color, required this.seed});
+
+  final Color color;
+  final int seed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bars = List<Widget>.generate(18, (index) {
+      final value = ((seed >> (index % 16)) + index * 17) & 0x0f;
+      final height = 5.0 + (value / 15.0) * 18.0;
+      return Expanded(
+        child: Align(
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.20 + (value / 15.0) * 0.38),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+      );
+    });
+    return SizedBox(
+      height: 24,
+      child: Row(
+        children: [
+          for (var i = 0; i < bars.length; i++) ...[
+            bars[i],
+            if (i != bars.length - 1) const SizedBox(width: 3),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _MediaPreviewDialog extends StatefulWidget {
   const _MediaPreviewDialog({required this.source, required this.title});
 
@@ -3699,7 +4005,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   static const double _kDividerH = 1.0;
   static const double _kMinDialogW = 360.0;
   static const double _kFallbackVideoAspectRatio = 16 / 9;
-  static const Size _kAudioContentSize = Size(640, 126);
+  static const Size _kAudioContentSize = Size(980, 560);
 
   late final WebViewController _controller;
   Timer? _loadTimeoutTimer;
@@ -3950,10 +4256,20 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     final rawSource = localOverride != null
         ? Uri.file(localOverride).toString()
         : widget.source.uri.toString();
+    const htmlEscape = HtmlEscape();
+    const attributeEscape = HtmlEscape(HtmlEscapeMode.attribute);
     final source = const HtmlEscape(
       HtmlEscapeMode.attribute,
     ).convert(rawSource);
     final isVideo = widget.source.kind == _GeneratedMessageMediaKind.video;
+    final detail = _generatedMediaSourceDetail(widget.source);
+    final audioMeta = _GeneratedAudioVisualMeta.fromSource(
+      source: widget.source,
+      title: widget.title,
+      detail: detail,
+    );
+    final audioGraphEnabled =
+        !isVideo && (localOverride != null || widget.source.filePath != null);
     final mimeType = _mimeTypeForGeneratedMedia(widget.source);
     final escapedMime = const HtmlEscape(
       HtmlEscapeMode.attribute,
@@ -3966,26 +4282,153 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     final modeClass = isVideo ? ' video-mode' : ' audio-mode';
     final mediaTag = isVideo
         ? '<video id="media" playsinline preload="metadata" disableRemotePlayback><source src="$source" type="$escapedMime"></video>'
-        : '<audio id="media" preload="metadata"><source src="$source" type="$escapedMime"></audio>';
+        : '<audio id="media" preload="metadata" crossorigin="anonymous"><source src="$source" type="$escapedMime"></audio>';
     final fullscreenButton = isVideo
         ? '<button id="fullscreen" class="control-button" type="button" aria-label="Fullscreen" title="Fullscreen"></button>'
         : '';
+    final escapedAudioTitle = htmlEscape.convert(audioMeta.title);
+    final escapedAudioArtist = htmlEscape.convert(audioMeta.artist);
+    final escapedAudioAlbum = htmlEscape.convert(audioMeta.album);
+    final escapedAudioDetail = htmlEscape.convert(audioMeta.detail);
+    final escapedAudioGlyph = htmlEscape.convert(audioMeta.coverGlyph);
+    final escapedAudioTitleAttr = attributeEscape.convert(audioMeta.title);
+    final lyricItems = audioMeta.lyricLines
+        .map(
+          (line) => '<div class="lyric-line">${htmlEscape.convert(line)}</div>',
+        )
+        .join();
+    final audioPlayer = isVideo
+        ? ''
+        : '''
+  <div class="audio-player" aria-label="$escapedAudioTitleAttr">
+    <div class="audio-backdrop"></div>
+    <div class="audio-volume-capsule">
+      <div class="volume-group" id="volumeGroup">
+        <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
+        <div class="volume-popover">
+          <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
+        </div>
+      </div>
+    </div>
+    <section class="album-column">
+      <div class="album-cover" aria-hidden="true">
+        <div class="album-disc"></div>
+        <div class="album-glyph">$escapedAudioGlyph</div>
+      </div>
+      <div class="track-meta">
+        <div class="track-kicker">$escapedAudioAlbum</div>
+        <div class="track-title">$escapedAudioTitle</div>
+        <div class="track-artist">$escapedAudioArtist · $escapedAudioDetail</div>
+      </div>
+      <div class="audio-progress">
+        <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
+        <div class="time-row">
+          <span id="current" class="time">00:00</span>
+          <span id="duration" class="time">00:00</span>
+        </div>
+      </div>
+      <div class="transport-row">
+        <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
+        <button id="play" class="control-button play-main" type="button" aria-label="Play" title="Play"></button>
+        <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
+        <button id="playMode" class="control-button mode-button" type="button" aria-label="Playback mode" title="Playback mode"></button>
+        <span id="modeLabel" class="mode-label">顺序</span>
+      </div>
+      <div class="effect-strip" id="effectStrip" aria-label="Sound effects">
+        <button class="effect-chip is-active" type="button" data-effect="standard">标准</button>
+        <button class="effect-chip" type="button" data-effect="spatial">3D</button>
+        <button class="effect-chip" type="button" data-effect="vocal">人声</button>
+        <button class="effect-chip" type="button" data-effect="warm">暖声</button>
+      </div>
+    </section>
+    <section class="lyrics-column">
+      <div class="lyrics-kicker">LYRICS</div>
+      <div id="lyrics" class="lyrics-list">$lyricItems</div>
+    </section>
+  </div>
+''';
+    final videoControls = isVideo
+        ? '''
+  <div class="scrim"></div>
+  <div class="control-bar" id="controls">
+    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
+    <button id="play" class="control-button" type="button" aria-label="Play" title="Play"></button>
+    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
+    <span id="current" class="time">00:00</span>
+    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
+    <span id="duration" class="time">00:00</span>
+    <div class="volume-group" id="volumeGroup">
+      <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
+      <div class="volume-popover">
+        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
+      </div>
+    </div>
+    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback" title="Stop after playback"></button>
+    $fullscreenButton
+  </div>
+'''
+        : '';
+    final primaryHex = _hexColor(audioMeta.primaryColor);
+    final secondaryHex = _hexColor(audioMeta.secondaryColor);
+    final accentHex = _hexColor(audioMeta.accentColor);
+    final audioBgStartHex = _hexColor(
+      _mixColors(audioMeta.primaryColor, const Color(0xFF111111), 0.76),
+    );
+    final audioBgEndHex = _hexColor(
+      _mixColors(audioMeta.secondaryColor, const Color(0xFF1C1D18), 0.44),
+    );
+    final audioGlowHex = _hexColor(
+      _mixColors(audioMeta.accentColor, Colors.transparent, 0.56),
+    );
+    final lyricArray = _jsStringArrayLiteral(audioMeta.lyricLines);
     return '''
 <!doctype html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$motionCurve;--oh-control-bg:rgba(26,22,20,.76);--oh-control-border:rgba(255,255,255,.12);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.18);--oh-track-fill:#fff}
+:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$motionCurve;--oh-control-bg:rgba(26,22,20,.76);--oh-control-border:rgba(255,255,255,.16);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.20);--oh-track-fill:#fff;--oh-audio-primary:$primaryHex;--oh-audio-secondary:$secondaryHex;--oh-audio-accent:$accentHex;--oh-audio-bg-start:$audioBgStartHex;--oh-audio-bg-end:$audioBgEndHex;--oh-audio-glow:$audioGlowHex}
 html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 button,input{font:inherit}
 .media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;user-select:none;overflow:hidden;isolation:isolate}
 .media-shell video{width:100%;height:100%;max-height:100vh;background:#000;object-fit:contain;border-radius:0}
 .media-shell audio{display:none}
-.audio-art{display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;width:100%;height:100%;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.14),transparent 32%),linear-gradient(135deg,#16181c,#050506)}
-.audio-mode .audio-art{display:flex}
-.audio-icon{width:76px;height:76px;border-radius:28px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.10);box-shadow:0 22px 48px rgba(0,0,0,.30);font-size:34px}
-.audio-label{max-width:min(520px,80%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.74)}
+.audio-player{display:none}
+.audio-mode{display:block;background:linear-gradient(135deg,var(--oh-audio-bg-start),var(--oh-audio-bg-end))}
+.audio-mode video{display:none}
+.audio-mode .audio-player{position:absolute;inset:0;display:grid;grid-template-columns:minmax(260px,.92fr) minmax(300px,1.08fr);gap:44px;padding:34px 44px 30px;box-sizing:border-box;overflow:hidden}
+.audio-backdrop{position:absolute;inset:-20%;z-index:-1;background:radial-gradient(circle at 24% 25%,var(--oh-audio-glow),transparent 26%),radial-gradient(circle at 82% 22%,rgba(255,255,255,.18),transparent 20%),radial-gradient(circle at 54% 82%,rgba(0,0,0,.24),transparent 32%);filter:blur(22px) saturate(1.14);transform:scale(1.04);animation:audioBackdropFloat 10s var(--oh-motion-curve) infinite alternate}
+.audio-volume-capsule{position:absolute;right:18px;top:18px;z-index:6;display:flex;align-items:center;gap:10px;min-width:230px;height:46px;padding:0 14px;border:1px solid rgba(255,255,255,.32);border-radius:999px;background:rgba(255,255,255,.13);box-shadow:0 16px 34px rgba(0,0,0,.18);backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px) saturate(1.2)}
+.audio-volume-capsule:before{content:"";width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.84);box-sizing:border-box;box-shadow:inset 0 0 0 4px rgba(255,255,255,.20)}
+.audio-volume-capsule .volume-group{flex:1;justify-content:flex-start;gap:10px}
+.audio-volume-capsule .volume-popover{position:static;flex:1;width:auto;height:auto;border:0;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;transform:none;opacity:1;pointer-events:auto;filter:none}
+.audio-volume-capsule .volume.vertical{position:static;width:100%;transform:none}
+.album-column{min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding-top:58px}
+.album-cover{position:relative;width:min(100%,330px);aspect-ratio:1;margin:0 auto 22px;border-radius:22px;overflow:hidden;background:linear-gradient(135deg,var(--oh-audio-accent),var(--oh-audio-secondary) 48%,var(--oh-audio-primary));box-shadow:0 34px 64px rgba(0,0,0,.30),0 0 0 1px rgba(255,255,255,.20);transform-origin:center;animation:albumFloat 5.8s var(--oh-motion-curve) infinite alternate}
+.album-cover:before{content:"";position:absolute;inset:13%;border-radius:50%;background:radial-gradient(circle at 34% 35%,rgba(255,255,255,.44),rgba(255,255,255,.10) 28%,rgba(0,0,0,.12) 29%,transparent 58%);box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+.album-cover:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.18),transparent 36%,rgba(0,0,0,.18));mix-blend-mode:screen}
+.album-disc{position:absolute;right:-16%;bottom:-18%;width:70%;height:70%;border-radius:50%;background:repeating-radial-gradient(circle,rgba(255,255,255,.18) 0 2px,rgba(255,255,255,.04) 3px 7px);opacity:.42}
+.album-glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;color:rgba(255,255,255,.94);font-size:clamp(58px,10vw,96px);font-weight:900;line-height:1;text-shadow:0 12px 34px rgba(0,0,0,.26)}
+.track-meta{min-width:0;text-align:left;color:#fff;text-shadow:0 8px 30px rgba(0,0,0,.22)}
+.track-kicker{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.58);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.track-title{margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(22px,3.1vw,32px);font-weight:900;letter-spacing:0}
+.track-artist{margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.70);font-size:14px;font-weight:700}
+.audio-progress{margin-top:24px}
+.time-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;color:rgba(255,255,255,.70)}
+.transport-row{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:14px}
+.play-main{width:58px!important;height:58px!important;min-width:58px!important;background:rgba(255,255,255,.22)!important;box-shadow:0 14px 30px rgba(0,0,0,.20)}
+.play-main svg{width:32px!important;height:32px!important}
+.mode-button{background:rgba(255,255,255,.14)}
+.mode-label{min-width:40px;color:rgba(255,255,255,.68);font-weight:800;font-size:12px;white-space:nowrap}
+.effect-strip{display:flex;align-items:center;gap:8px;margin-top:14px;min-width:0;overflow:hidden}
+.effect-chip{height:30px;padding:0 12px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.09);color:rgba(255,255,255,.76);font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,transform 160ms var(--oh-motion-curve),border-color 160ms ease-out}
+.effect-chip:hover,.effect-chip:focus-visible{outline:none;transform:translateY(-1px) scale(1.03);background:rgba(255,255,255,.16)}
+.effect-chip.is-active{color:#1f241c;background:rgba(255,255,255,.86);border-color:rgba(255,255,255,.92)}
+.lyrics-column{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:72px 12px 34px}
+.lyrics-kicker{margin-bottom:22px;color:rgba(255,255,255,.44);font-size:12px;font-weight:900;letter-spacing:.12em}
+.lyrics-list{position:relative;max-height:380px;overflow:hidden;padding:28px 0;mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 82%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 82%,transparent)}
+.lyric-line{padding:14px 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.34);font-size:clamp(22px,3vw,38px);font-weight:900;letter-spacing:0;filter:blur(2px);transform:translateX(0) scale(.98);transition:color var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve)}
+.lyric-line.is-active{color:rgba(255,255,255,.96);filter:blur(0);transform:translateX(6px) scale(1)}
 .scrim{position:absolute;inset:auto 0 0;height:40%;background:linear-gradient(to top,rgba(0,0,0,.48),rgba(0,0,0,.18),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
 .media-shell:not(.controls-visible) .scrim{opacity:0}
 .control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 42px);max-width:830px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
@@ -4007,37 +4450,30 @@ input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
 input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
 input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
+.audio-mode input[type=range]::-webkit-slider-runnable-track{height:8px;background:linear-gradient(to right,rgba(255,255,255,.90) 0%,rgba(255,255,255,.90) var(--value,0%),rgba(255,255,255,.24) var(--value,0%),rgba(255,255,255,.24) 100%)}
+.audio-mode input[type=range]::-webkit-slider-thumb{width:20px;height:20px;margin-top:-6px}
+.audio-mode .control-button:hover,.audio-mode .control-button:focus-visible{background:rgba(255,255,255,.18)}
+@keyframes albumFloat{from{transform:translateY(0) scale(1)}to{transform:translateY(-7px) scale(1.015)}}
+@keyframes audioBackdropFloat{from{transform:scale(1.04) translate3d(0,0,0)}to{transform:scale(1.08) translate3d(-1.4%,1.2%,0)}}
 .no-motion *{transition-duration:0ms!important;animation:none!important}
-@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}}
-@media (max-width:460px){.seek-button{display:none}.control-bar{width:calc(100% - 18px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}}
+@media (max-width:820px){.audio-mode .audio-player{grid-template-columns:1fr;gap:18px;padding:24px 26px 22px}.audio-volume-capsule{right:14px;top:14px;min-width:184px}.album-column{padding-top:44px}.album-cover{width:min(58vw,220px);margin-bottom:14px}.lyrics-column{padding:0 2px 0}.lyrics-list{max-height:150px;padding:10px 0}.lyric-line{padding:8px 0;font-size:22px}.effect-strip{overflow-x:auto;padding-bottom:2px}}
+@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}.audio-volume-capsule .volume-popover{height:auto}.audio-volume-capsule .volume.vertical{width:100%}}
+@media (max-width:460px){.seek-button{display:none}.control-bar{width:calc(100% - 18px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}.audio-mode .audio-player{padding:20px 18px}.audio-volume-capsule{left:18px;right:18px;min-width:0}.track-title{font-size:22px}.effect-chip{padding:0 10px}.audio-volume-capsule .volume-popover{height:auto}.audio-volume-capsule .volume.vertical{width:100%}}
 </style>
 </head>
 <body>
 <div id="shell" class="media-shell controls-visible$modeClass$motionClass" tabindex="0">
-  <div class="audio-art"><div class="audio-icon">♪</div><div class="audio-label">Media preview</div></div>
   $mediaTag
-  <div class="scrim"></div>
-  <div class="control-bar" id="controls">
-    <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds" title="Back 15 seconds"></button>
-    <button id="play" class="control-button" type="button" aria-label="Play" title="Play"></button>
-    <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds" title="Forward 15 seconds"></button>
-    <span id="current" class="time">00:00</span>
-    <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
-    <span id="duration" class="time">00:00</span>
-    <div class="volume-group" id="volumeGroup">
-      <button id="mute" class="control-button" type="button" aria-label="Mute" title="Mute"></button>
-      <div class="volume-popover">
-        <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
-      </div>
-    </div>
-    <button id="playMode" class="control-button" type="button" aria-label="Stop after playback" title="Stop after playback"></button>
-    $fullscreenButton
-  </div>
+  $audioPlayer
+  $videoControls
 </div>
 <script>
 (function() {
   const AUTO_HIDE_MS = $_kMediaPreviewControlAutoHideMs;
   const POINTER_LEAVE_HIDE_MS = $_kMediaPreviewPointerLeaveHideMs;
+  const IS_AUDIO = ${isVideo ? 'false' : 'true'};
+  const AUDIO_GRAPH_ENABLED = ${audioGraphEnabled ? 'true' : 'false'};
+  const lyricLines = $lyricArray;
   const media = document.getElementById('media');
   const shell = document.getElementById('shell');
   const play = document.getElementById('play');
@@ -4050,7 +4486,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   const mute = document.getElementById('mute');
   const volumeGroup = document.getElementById('volumeGroup');
   const playMode = document.getElementById('playMode');
+  const modeLabel = document.getElementById('modeLabel');
   const fullscreen = document.getElementById('fullscreen');
+  const lyrics = Array.from(document.querySelectorAll('.lyric-line'));
+  const effectButtons = Array.from(document.querySelectorAll('[data-effect]'));
   window.media = media;
   const post = (value) => {
     if (window.OpenHandMedia && window.OpenHandMedia.postMessage) {
@@ -4065,7 +4504,13 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   let dragging = false;
   let volumeActive = false;
   let pointerInsideShell = true;
-  let playbackMode = 'stop';
+  let playbackMode = IS_AUDIO ? 'sequence' : 'stop';
+  let activeLyricIndex = -1;
+  let activeEffect = 'standard';
+  let audioCtx = null;
+  let sourceNode = null;
+  let effectNodes = [];
+  let spatialFrame = 0;
 
   const icon = {
     play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
@@ -4076,9 +4521,16 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     forward: '<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
     loop: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
     stopAfter: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    sequence: '<svg viewBox="0 0 24 24"><path d="M5 7h9M5 12h13M5 17h9" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M16 6l3 3-3 3" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    repeatOne: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="15" text-anchor="middle" font-size="8" font-weight="800" fill="currentColor">1</text></svg>',
+    shuffle: '<svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 7h3c5 0 6 10 11 10h3M4 17h3c2.2 0 3.5-1.7 4.7-3.8M15.8 6.5C17 5.5 18.3 5 21 5M16 21h5v-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     fullscreen: '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
+  if (!play || !rewind || !forward || !progress || !current || !duration || !volume || !mute || !volumeGroup || !playMode) {
+    post('error:missing_controls');
+    return;
+  }
   rewind.innerHTML = icon.rewind;
   forward.innerHTML = icon.forward;
   if (fullscreen) fullscreen.innerHTML = icon.fullscreen;
@@ -4107,6 +4559,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
 
   function scheduleHide() {
     clearHideTimer();
+    if (IS_AUDIO) return;
     if (media.paused || dragging || volumeActive) return;
     hideTimer = window.setTimeout(() => {
       if (!media.paused && !dragging && !volumeActive) {
@@ -4118,6 +4571,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
 
   function hideControlsAfterPointerLeave() {
     clearHideTimer();
+    if (IS_AUDIO) return;
     if (dragging || volumeActive) return;
     hideTimer = window.setTimeout(() => {
       if (!dragging && !volumeActive) {
@@ -4155,6 +4609,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     const ratio = dur > 0 ? cur / dur : 0;
     progress.value = String(Math.round(ratio * 1000));
     setRangeFill(progress, ratio);
+    updateLyrics(cur, dur);
   }
 
   function updateVolume() {
@@ -4167,12 +4622,135 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   }
 
   function updatePlayMode() {
+    if (IS_AUDIO) {
+      const labels = { sequence: '顺序', repeat: '单曲', shuffle: '随机' };
+      const aria = { sequence: 'Sequential playback', repeat: 'Repeat one', shuffle: 'Shuffle playback' };
+      media.loop = playbackMode === 'repeat';
+      playMode.innerHTML = playbackMode === 'repeat'
+        ? icon.repeatOne
+        : playbackMode === 'shuffle'
+          ? icon.shuffle
+          : icon.sequence;
+      playMode.classList.toggle('is-active', playbackMode !== 'sequence');
+      playMode.setAttribute('aria-label', aria[playbackMode] || aria.sequence);
+      playMode.setAttribute('title', aria[playbackMode] || aria.sequence);
+      if (modeLabel) modeLabel.textContent = labels[playbackMode] || labels.sequence;
+      return;
+    }
     const looping = playbackMode === 'loop';
     media.loop = looping;
     playMode.innerHTML = looping ? icon.loop : icon.stopAfter;
     playMode.classList.toggle('is-active', looping);
     playMode.setAttribute('aria-label', looping ? 'Loop playback' : 'Stop after playback');
     playMode.setAttribute('title', looping ? 'Loop playback' : 'Stop after playback');
+  }
+
+  function updateLyrics(cur, dur) {
+    if (!lyrics.length) return;
+    const fallbackSpan = Math.max(1, lyrics.length * 6);
+    const ratio = dur > 0 ? cur / dur : (cur % fallbackSpan) / fallbackSpan;
+    const nextIndex = Math.max(0, Math.min(lyrics.length - 1, Math.floor(ratio * lyrics.length)));
+    if (nextIndex === activeLyricIndex) return;
+    activeLyricIndex = nextIndex;
+    lyrics.forEach((line, index) => line.classList.toggle('is-active', index === nextIndex));
+    const active = lyrics[nextIndex];
+    if (active) {
+      active.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+        behavior: shell.classList.contains('no-motion') ? 'auto' : 'smooth'
+      });
+    }
+  }
+
+  function stopSpatialMotion() {
+    if (spatialFrame) window.cancelAnimationFrame(spatialFrame);
+    spatialFrame = 0;
+  }
+
+  function clearEffectGraph() {
+    stopSpatialMotion();
+    effectNodes.forEach((node) => {
+      try { node.disconnect(); } catch (_) {}
+    });
+    effectNodes = [];
+  }
+
+  function ensureAudioGraph() {
+    if (!IS_AUDIO || !AUDIO_GRAPH_ENABLED) return false;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return false;
+    try {
+      if (!audioCtx) audioCtx = new Ctx();
+      if (!sourceNode) sourceNode = audioCtx.createMediaElementSource(media);
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function connectEffectNodes(nodes, animatePanner) {
+    if (!sourceNode || !audioCtx) return;
+    try { sourceNode.disconnect(); } catch (_) {}
+    let tail = sourceNode;
+    nodes.forEach((node) => {
+      tail.connect(node);
+      tail = node;
+    });
+    tail.connect(audioCtx.destination);
+    if (animatePanner && nodes.length) {
+      const panner = nodes[nodes.length - 1];
+      const tick = () => {
+        if (activeEffect !== 'spatial' || !panner) return;
+        try { panner.pan.value = Math.sin((media.currentTime || 0) * 1.6) * 0.34; } catch (_) {}
+        spatialFrame = window.requestAnimationFrame(tick);
+      };
+      tick();
+    }
+  }
+
+  function applyEffect(mode) {
+    activeEffect = mode || 'standard';
+    effectButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.effect === activeEffect);
+    });
+    clearEffectGraph();
+    if (!ensureAudioGraph()) return;
+    try {
+      const nodes = [];
+      let animatePanner = false;
+      if (activeEffect === 'spatial' && audioCtx.createStereoPanner) {
+        const panner = audioCtx.createStereoPanner();
+        panner.pan.value = 0.16;
+        nodes.push(panner);
+        animatePanner = true;
+      } else if (activeEffect === 'vocal') {
+        const highpass = audioCtx.createBiquadFilter();
+        highpass.type = 'highpass';
+        highpass.frequency.value = 90;
+        const presence = audioCtx.createBiquadFilter();
+        presence.type = 'peaking';
+        presence.frequency.value = 2800;
+        presence.Q.value = 0.9;
+        presence.gain.value = 4.2;
+        nodes.push(highpass, presence);
+      } else if (activeEffect === 'warm') {
+        const lowShelf = audioCtx.createBiquadFilter();
+        lowShelf.type = 'lowshelf';
+        lowShelf.frequency.value = 180;
+        lowShelf.gain.value = 4.5;
+        const softHigh = audioCtx.createBiquadFilter();
+        softHigh.type = 'highshelf';
+        softHigh.frequency.value = 5200;
+        softHigh.gain.value = -1.8;
+        nodes.push(lowShelf, softHigh);
+      }
+      effectNodes = nodes;
+      connectEffectNodes(nodes, animatePanner);
+    } catch (_) {
+      clearEffectGraph();
+    }
   }
 
   function setVolumeActive(active) {
@@ -4240,6 +4818,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   }
   play.addEventListener('click', () => {
     if (media.paused) {
+      if (IS_AUDIO) {
+        ensureAudioGraph();
+        if (activeEffect !== 'standard') applyEffect(activeEffect);
+      }
       media.play().catch(() => showControls(true));
     } else {
       media.pause();
@@ -4282,9 +4864,23 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     setVolumeActive(true);
   });
   playMode.addEventListener('click', () => {
-    playbackMode = playbackMode === 'loop' ? 'stop' : 'loop';
+    if (IS_AUDIO) {
+      playbackMode = playbackMode === 'sequence'
+        ? 'repeat'
+        : playbackMode === 'repeat'
+          ? 'shuffle'
+          : 'sequence';
+    } else {
+      playbackMode = playbackMode === 'loop' ? 'stop' : 'loop';
+    }
     updatePlayMode();
     showControls(true);
+  });
+  effectButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      applyEffect(button.dataset.effect || 'standard');
+      showControls(true);
+    });
   });
   if (fullscreen) {
     fullscreen.addEventListener('click', () => {
@@ -4329,13 +4925,26 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   media.addEventListener('play', updatePlayState);
   media.addEventListener('seeked', sendTime);
   media.addEventListener('seeked', updateTime);
-  media.addEventListener('ended', () => { sendTime(); updatePlayState(); showControls(true); });
+  media.addEventListener('ended', () => {
+    sendTime();
+    if (IS_AUDIO && playbackMode === 'shuffle') {
+      const dur = Number.isFinite(media.duration) ? media.duration : 0;
+      try { media.currentTime = dur > 3 ? Math.random() * Math.max(1, dur - 1) : 0; } catch (_) {}
+      media.play().catch(() => showControls(true));
+    }
+    updatePlayState();
+    showControls(true);
+  });
   media.addEventListener('volumechange', updateVolume);
-  window.addEventListener('beforeunload', clearHideTimer);
+  window.addEventListener('beforeunload', () => {
+    clearHideTimer();
+    clearEffectGraph();
+  });
   updatePlayMode();
   updatePlayState();
   updateTime();
   updateVolume();
+  applyEffect('standard');
   setTimeout(() => {
     if (!media || media.readyState === 0) post('error:timeout');
   }, ${_mediaLoadTimeout.inMilliseconds});
