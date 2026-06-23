@@ -1684,17 +1684,17 @@ String deriveNativeAudioArtist(String detail) {
     return segments.first;
   }
   if (_looksLikeGeneratedAudioName(leaf)) {
-    return 'AI Audio';
+    return 'AI 音频';
   }
-  return 'OpenHand Audio';
+  return 'OpenHand 音频';
 }
 
 String deriveNativeAudioAlbum(String detail) {
   final leaf = _prettyNativeAudioLeaf(detail);
   if (_looksLikeGeneratedAudioName(leaf)) {
-    return 'Generated Audio';
+    return '生成音频';
   }
-  return leaf.length <= 32 ? leaf : 'Preview Album';
+  return leaf.length <= 32 ? leaf : '音频预览';
 }
 
 String lastNativeAudioPathOrUrlSegment(String value) {
@@ -1727,7 +1727,7 @@ String _prettyNativeAudioLeaf(String detail) {
     fallback: detail,
   );
   if (_looksLikeGeneratedAudioName(leaf)) {
-    return 'Generated Audio';
+    return '生成音频';
   }
   return leaf;
 }

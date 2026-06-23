@@ -3708,7 +3708,9 @@ String _normalizeAudioDisplayText(String value, {required String fallback}) {
 
 String _deriveGeneratedAudioArtist(String detail) {
   final basename = p.basename(detail).trim();
-  if (basename.isEmpty || basename == '/' || basename == '.') return 'OpenHand';
+  if (basename.isEmpty || basename == '/' || basename == '.') {
+    return 'OpenHand 音频';
+  }
   final leaf = _prettyGeneratedAudioLeaf(basename);
   final segments = leaf
       .split(RegExp(r'[-_]+'))
@@ -3718,7 +3720,7 @@ String _deriveGeneratedAudioArtist(String detail) {
   if (segments.length >= 2 && segments.first.length <= 28) {
     return segments.first;
   }
-  return _looksLikeGeneratedAudioName(leaf) ? 'AI Audio' : 'OpenHand Audio';
+  return _looksLikeGeneratedAudioName(leaf) ? 'AI 音频' : 'OpenHand 音频';
 }
 
 String _deriveGeneratedAudioAlbum(String detail) {
@@ -3726,9 +3728,9 @@ String _deriveGeneratedAudioAlbum(String detail) {
   final leaf = _prettyGeneratedAudioLeaf(
     basename.isEmpty ? detail : basename,
   );
-  if (_looksLikeGeneratedAudioName(leaf)) return 'Generated Audio';
+  if (_looksLikeGeneratedAudioName(leaf)) return '生成音频';
   if (leaf.length <= 32) return leaf;
-  return 'Generated Album';
+  return '音频专辑';
 }
 
 List<String> _deriveGeneratedAudioLyricLines(String title, String detail) {
@@ -3748,7 +3750,7 @@ List<String> _deriveGeneratedAudioLyricLines(String title, String detail) {
 String _prettyGeneratedAudioLeaf(String detail) {
   final normalized = _normalizeAudioDisplayText(detail, fallback: detail);
   if (_looksLikeGeneratedAudioName(normalized)) {
-    return 'Generated Audio';
+    return '生成音频';
   }
   return normalized;
 }
