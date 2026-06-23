@@ -188,8 +188,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   bool _disposed = false;
   bool _operationInFlight = false;
   bool _seeking = false;
+  bool _manualProgressActive = false;
   String? _loadError;
   String? _tempAudioPath;
+  Timer? _progressPollTimer;
   int _bootstrapSerial = 0;
 
   bool get _isPlaying => _playerState == PlayerState.playing;
@@ -219,13 +221,20 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       ..add(
         _player.onDurationChanged.listen((duration) {
           if (!mounted || duration < Duration.zero) return;
-          setState(() => _duration = duration);
+          if (duration > _duration) {
+            setState(() => _duration = duration);
+          }
         }),
       )
       ..add(
         _player.onPositionChanged.listen((position) {
-          if (!mounted || _seeking || position < Duration.zero) return;
-          setState(() => _position = _clampDuration(position, _duration));
+          if (!mounted || _seeking || _manualProgressActive || position < Duration.zero) {
+            return;
+          }
+          setState(() {
+            _position = _clampDuration(position, _duration);
+            if (_position > _duration) _duration = _position;
+          });
         }),
       )
       ..add(
@@ -253,6 +262,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   @override
   void dispose() {
     _disposed = true;
+    _progressPollTimer?.cancel();
     if (widget.controller?._state == this) widget.controller?._state = null;
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
@@ -290,6 +300,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       final source = await _buildAudioSource();
       await _player.setSource(source).timeout(kNativeAudioLoadTimeout);
       final duration = await _resolveDuration();
+      _restartProgressPolling();
       if (_disposed || !mounted || serial != _bootstrapSerial) return;
       setState(() {
         _duration = duration;
@@ -313,7 +324,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       onTimeout: () => null,
     );
     if (initial != null && initial > Duration.zero) return initial;
-    for (var attempt = 0; attempt < 12; attempt++) {
+    for (var attempt = 0; attempt < 20; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 250));
       final next = await _player.getDuration().timeout(
         kNativeAudioControlTimeout,
@@ -322,6 +333,39 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       if (next != null && next > Duration.zero) return next;
     }
     return Duration.zero;
+  }
+
+  void _restartProgressPolling() {
+    _progressPollTimer?.cancel();
+    _progressPollTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      unawaited(_pollPlaybackState());
+    });
+  }
+
+  Future<void> _pollPlaybackState() async {
+    if (_disposed || !mounted || _seeking || _manualProgressActive) return;
+    try {
+      final polledDuration = await _player.getDuration().timeout(
+        kNativeAudioControlTimeout,
+        onTimeout: () => null,
+      );
+      final polledPosition = await _player.getCurrentPosition().timeout(
+        kNativeAudioControlTimeout,
+        onTimeout: () => null,
+      );
+      if (!mounted || _disposed) return;
+      setState(() {
+        if (polledDuration != null && polledDuration > _duration) {
+          _duration = polledDuration;
+        }
+        if (polledPosition != null && polledPosition >= Duration.zero) {
+          _position = _clampDuration(polledPosition, _duration);
+          if (_position > _duration) _duration = _position;
+        }
+      });
+    } catch (error, stack) {
+      silentLog('native_audio_preview', 'poll playback state failed', error, stack);
+    }
   }
 
   Future<Source> _buildAudioSource() async {
@@ -432,6 +476,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     }
     await _applyEffectToPlayer();
     await _player.resume();
+    _restartProgressPolling();
   }
 
   Future<void> _seekBy(Duration delta) async {
@@ -440,13 +485,37 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<void> _seekTo(Duration target) async {
     if (!_sourceReady) return;
-    final clamped = _clampDuration(target, _duration);
+    final upperBound = _duration > Duration.zero
+        ? _duration
+        : Duration(
+            milliseconds: math.max(target.inMilliseconds, _position.inMilliseconds),
+          );
+    final clamped = _clampDuration(target, upperBound);
     setState(() {
       _seeking = true;
       _position = clamped;
+      if (clamped > _duration) _duration = clamped;
     });
     try {
       await _player.seek(clamped).timeout(kNativeAudioControlTimeout);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      final actualPosition = await _player.getCurrentPosition().timeout(
+        kNativeAudioControlTimeout,
+        onTimeout: () => null,
+      );
+      final actualDuration = await _player.getDuration().timeout(
+        kNativeAudioControlTimeout,
+        onTimeout: () => null,
+      );
+      if (!mounted || _disposed) return;
+      setState(() {
+        if (actualDuration != null && actualDuration > _duration) {
+          _duration = actualDuration;
+        }
+        if (actualPosition != null && actualPosition >= Duration.zero) {
+          _position = _clampDuration(actualPosition, _duration);
+        }
+      });
     } catch (error, stack) {
       silentLog('native_audio_preview', 'seek failed', error, stack);
     } finally {
@@ -753,21 +822,44 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           ),
           child: Slider(
             value: progress,
+            onChangeStart: _sourceReady
+                ? (_) => setState(() => _manualProgressActive = true)
+                : null,
             onChanged: _sourceReady
                 ? (value) {
+                    final effectiveDuration = _duration > Duration.zero
+                        ? _duration
+                        : Duration(
+                            milliseconds: math.max(
+                              1,
+                              _position.inMilliseconds + 1000,
+                            ),
+                          );
                     final target = Duration(
                       milliseconds:
-                          (_duration.inMilliseconds * value).round(),
+                          (effectiveDuration.inMilliseconds * value).round(),
                     );
-                    setState(() => _position = target);
+                    setState(() {
+                      _position = target;
+                      if (target > _duration) _duration = target;
+                    });
                   }
                 : null,
             onChangeEnd: _sourceReady
                 ? (value) {
+                    final effectiveDuration = _duration > Duration.zero
+                        ? _duration
+                        : Duration(
+                            milliseconds: math.max(
+                              1,
+                              _position.inMilliseconds + 1000,
+                            ),
+                          );
                     final target = Duration(
                       milliseconds:
-                          (_duration.inMilliseconds * value).round(),
+                          (effectiveDuration.inMilliseconds * value).round(),
                     );
+                    setState(() => _manualProgressActive = false);
                     unawaited(_seekTo(target));
                   }
                 : null,
