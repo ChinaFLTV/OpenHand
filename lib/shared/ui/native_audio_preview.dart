@@ -1674,8 +1674,8 @@ String normalizeNativeAudioText(String value, {required String fallback}) {
 }
 
 String deriveNativeAudioArtist(String detail) {
-  final leaf = lastNativeAudioPathOrUrlSegment(detail);
-  final segments = normalizeNativeAudioText(leaf, fallback: detail)
+  final leaf = _prettyNativeAudioLeaf(detail);
+  final segments = leaf
       .split(RegExp(r'[-_]+'))
       .map((part) => part.trim())
       .where((part) => part.isNotEmpty)
@@ -1683,13 +1683,18 @@ String deriveNativeAudioArtist(String detail) {
   if (segments.length >= 2 && segments.first.length <= 28) {
     return segments.first;
   }
+  if (_looksLikeGeneratedAudioName(leaf)) {
+    return 'AI Audio';
+  }
   return 'OpenHand Audio';
 }
 
 String deriveNativeAudioAlbum(String detail) {
-  final leaf = lastNativeAudioPathOrUrlSegment(detail);
-  final normalized = normalizeNativeAudioText(leaf, fallback: 'Preview Album');
-  return normalized.length <= 32 ? normalized : 'Preview Album';
+  final leaf = _prettyNativeAudioLeaf(detail);
+  if (_looksLikeGeneratedAudioName(leaf)) {
+    return 'Generated Audio';
+  }
+  return leaf.length <= 32 ? leaf : 'Preview Album';
 }
 
 String lastNativeAudioPathOrUrlSegment(String value) {
@@ -1705,18 +1710,32 @@ String lastNativeAudioPathOrUrlSegment(String value) {
 }
 
 List<String> deriveNativeAudioLyrics(String title, String detail) {
-  final leaf = normalizeNativeAudioText(
-    lastNativeAudioPathOrUrlSegment(detail),
-    fallback: detail,
-  );
+  final leaf = _prettyNativeAudioLeaf(detail);
   final titleNormalized = normalizeNativeAudioText(title, fallback: 'Audio');
-  if (leaf == titleNormalized || leaf.startsWith('audio_')) {
+  if (_looksLikeGeneratedAudioName(leaf) || leaf == titleNormalized) {
     return const <String>[];
   }
   return <String>{
     titleNormalized,
     leaf,
   }.where((line) => line.trim().isNotEmpty).take(4).toList(growable: false);
+}
+
+String _prettyNativeAudioLeaf(String detail) {
+  final leaf = normalizeNativeAudioText(
+    lastNativeAudioPathOrUrlSegment(detail),
+    fallback: detail,
+  );
+  if (_looksLikeGeneratedAudioName(leaf)) {
+    return 'Generated Audio';
+  }
+  return leaf;
+}
+
+bool _looksLikeGeneratedAudioName(String value) {
+  final normalized = value.trim().toLowerCase();
+  return RegExp(r'^audio[_-]?\d+$').hasMatch(normalized) ||
+      RegExp(r'^audio[_-]').hasMatch(normalized);
 }
 
 String _formatNativeAudioTime(Duration value) {

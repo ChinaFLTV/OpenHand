@@ -3709,8 +3709,8 @@ String _normalizeAudioDisplayText(String value, {required String fallback}) {
 String _deriveGeneratedAudioArtist(String detail) {
   final basename = p.basename(detail).trim();
   if (basename.isEmpty || basename == '/' || basename == '.') return 'OpenHand';
-  final withoutExt = _normalizeAudioDisplayText(basename, fallback: basename);
-  final segments = withoutExt
+  final leaf = _prettyGeneratedAudioLeaf(basename);
+  final segments = leaf
       .split(RegExp(r'[-_]+'))
       .map((part) => part.trim())
       .where((part) => part.isNotEmpty)
@@ -3718,38 +3718,45 @@ String _deriveGeneratedAudioArtist(String detail) {
   if (segments.length >= 2 && segments.first.length <= 28) {
     return segments.first;
   }
-  return 'AI Audio';
+  return _looksLikeGeneratedAudioName(leaf) ? 'AI Audio' : 'OpenHand Audio';
 }
 
 String _deriveGeneratedAudioAlbum(String detail) {
   final basename = p.basename(detail).trim();
-  final normalized = _normalizeAudioDisplayText(
+  final leaf = _prettyGeneratedAudioLeaf(
     basename.isEmpty ? detail : basename,
-    fallback: 'Generated Album',
   );
-  if (normalized.length <= 32) return normalized;
+  if (_looksLikeGeneratedAudioName(leaf)) return 'Generated Audio';
+  if (leaf.length <= 32) return leaf;
   return 'Generated Album';
 }
 
 List<String> _deriveGeneratedAudioLyricLines(String title, String detail) {
   final normalizedTitle = _normalizeAudioDisplayText(title, fallback: 'Audio');
-  final normalizedDetail = _normalizeAudioDisplayText(
-    detail,
-    fallback: 'OpenHand',
+  final basename = _prettyGeneratedAudioLeaf(
+    p.basename(_normalizeAudioDisplayText(detail, fallback: 'OpenHand')),
   );
-  final basename = _normalizeAudioDisplayText(
-    p.basename(normalizedDetail),
-    fallback: normalizedDetail,
-  );
-  final parts = <String>{
+  if (_looksLikeGeneratedAudioName(basename) || basename == normalizedTitle) {
+    return const <String>[];
+  }
+  return <String>{
     normalizedTitle,
     basename,
-    'AI 生成音频',
-    '正在播放当前会话音频',
-    '可调节音量、进度与音效',
-    'OpenHand 音频预览',
-  }.where((line) => line.trim().isNotEmpty).toList(growable: false);
-  return parts.take(6).toList(growable: false);
+  }.where((line) => line.trim().isNotEmpty).take(4).toList(growable: false);
+}
+
+String _prettyGeneratedAudioLeaf(String detail) {
+  final normalized = _normalizeAudioDisplayText(detail, fallback: detail);
+  if (_looksLikeGeneratedAudioName(normalized)) {
+    return 'Generated Audio';
+  }
+  return normalized;
+}
+
+bool _looksLikeGeneratedAudioName(String value) {
+  final normalized = value.trim().toLowerCase();
+  return RegExp(r'^audio[_-]?\d+$').hasMatch(normalized) ||
+      RegExp(r'^audio[_-]').hasMatch(normalized);
 }
 
 NativeAudioPreviewSource _nativeAudioPreviewSourceFor(
