@@ -1437,21 +1437,47 @@ class AiSessionController extends ChangeNotifier {
     }
     _currentSessionId = sessionId;
     _editingMessageId = null;
+    final selectedSession = _primeSelectedSessionMessageWindow(sessionId);
+    notifyListeners();
+    if (selectedSession == null) {
+      return;
+    }
+    _scheduleSelectedSessionMessageWindowHydration(
+      sessionId,
+      fallbackSession: selectedSession,
+    );
+  }
+
+  AiSession? _primeSelectedSessionMessageWindow(String sessionId) {
     final selectedSession = _sessionById(sessionId);
     if (selectedSession != null &&
         _sessionNeedsInitialMessageWindow(selectedSession)) {
       _hydratingSessionMessageIds.add(sessionId);
     }
-    notifyListeners();
-    if (selectedSession == null) {
-      return;
-    }
+    return selectedSession;
+  }
+
+  void _scheduleSelectedSessionMessageWindowHydration(
+    String sessionId, {
+    required AiSession fallbackSession,
+  }) {
     unawaited(
       ensureSessionMessageWindowHydrated(sessionId).then((hydratedSession) {
-        final sessionForSideEffects = hydratedSession ?? selectedSession;
-        // 标题重试补偿：如果标题未成功获取且重试次数未超限，则尝试重新生成。
+        final sessionForSideEffects = hydratedSession ?? fallbackSession;
         if (sessionForSideEffects.hasCompleteMessages) {
-          unawaited(_retryAutoTitleIfNeeded(sessionForSideEffects));
+          unawaited(
+            _retryAutoTitleIfNeeded(sessionForSideEffects).catchError((
+              Object error,
+              StackTrace stackTrace,
+            ) {
+              silentLog(
+                'ai_session_controller',
+                'retry auto title after session hydration',
+                error,
+                stackTrace,
+              );
+            }),
+          );
           unawaited(
             _emitSessionStartHook(
               session: sessionForSideEffects,
@@ -3246,12 +3272,17 @@ class AiSessionController extends ChangeNotifier {
       if (updatedSessions.length == _sessions.length) {
         return false;
       }
+      AiSession? nextSelectedSession;
       _deletedSessionIds.add(sessionId);
       _setSessions(updatedSessions);
       if (_currentSessionId == sessionId) {
-        _currentSessionId = updatedSessions.isEmpty
-            ? null
-            : updatedSessions.first.id;
+        nextSelectedSession = updatedSessions.firstOrNull;
+        _currentSessionId = nextSelectedSession?.id;
+        if (nextSelectedSession != null) {
+          nextSelectedSession = _primeSelectedSessionMessageWindow(
+            nextSelectedSession.id,
+          );
+        }
       }
       final currentEditingMessageId = _editingMessageId;
       final deletedSessionContainsEditingMessage =
@@ -3267,6 +3298,12 @@ class AiSessionController extends ChangeNotifier {
         _editingMessageId = null;
       }
       notifyListeners();
+      if (nextSelectedSession != null) {
+        _scheduleSelectedSessionMessageWindowHydration(
+          nextSelectedSession.id,
+          fallbackSession: nextSelectedSession,
+        );
+      }
       try {
         await _store.delete(sessionId);
         await _finalizeDeletedSession(

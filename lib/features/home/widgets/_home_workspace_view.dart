@@ -168,11 +168,7 @@ class _WorkspaceView extends StatelessWidget {
         final session = currentSession;
         final hasLoadedMessages = session?.messages.isNotEmpty == true;
         final shouldShowTranscriptHydrating =
-            session != null &&
-            !hasLoadedMessages &&
-            (transcriptHydrating ||
-                session.hasMoreHistoricalMessages ||
-                (session.hasPartialMessages && session.messageTotalCount > 0));
+            session != null && !hasLoadedMessages && transcriptHydrating;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
