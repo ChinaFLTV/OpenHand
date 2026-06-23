@@ -42,6 +42,7 @@ dependencies:
   web_socket_channel: ^3.0.1
 
   intl: any
+  audioplayers: ^6.7.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

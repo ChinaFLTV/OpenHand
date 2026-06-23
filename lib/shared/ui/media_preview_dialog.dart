@@ -16,11 +16,12 @@ import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'interactive_image_preview.dart';
 import 'motion_preference.dart';
+import 'native_audio_preview.dart';
 import 'openhand_snack_bar.dart';
 
 /// 通用图片 / 音频 / 视频预览弹窗。覆盖三种来源：
 ///   - `bytes`：内存 Uint8List（CDP 拉回的 base64 解码后的二进制）
-///   - `network`：URL 直接交给 [Image.network] 或 webview 内嵌 `<audio>` / `<video>`
+///   - `network`：图片交给 [Image.network]，音频走原生播放器，视频走 webview
 ///   - `file`：本地文件路径
 ///
 /// 与 home page 的 `_ImagePreviewDialog` 视觉一致：
@@ -28,7 +29,7 @@ import 'openhand_snack_bar.dart';
 ///   - 头部标题 + 关闭按钮 + 复制按钮
 ///   - 图片体积按真实宽高比动态贴合，四周 12px 统一留白；
 ///     不再因 `BoxFit.contain` 在固定容器内产生不均匀的上下 / 左右白边
-///   - 音视频走 webview_flutter 沙箱，避免引入新依赖
+///   - 音频走 Flutter 原生 UI 与跨平台音频插件，视频保留 webview_flutter 沙箱
 enum MediaPreviewKind { image, audio, video }
 
 class MediaPreviewDialog extends StatefulWidget {
@@ -314,6 +315,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                             motionCurveCss: _dialogCurveToCss(
                               motionSettings.curve,
                             ),
+                            motionCurve: motionSettings.curve.curve,
                           ),
                   ),
                 ),
@@ -611,6 +613,7 @@ class _MediaPlayerSurface extends StatefulWidget {
     required this.kind,
     required this.motionDurationMs,
     required this.motionCurveCss,
+    required this.motionCurve,
   });
 
   final String title;
@@ -621,6 +624,7 @@ class _MediaPlayerSurface extends StatefulWidget {
   final MediaPreviewKind kind;
   final int motionDurationMs;
   final String motionCurveCss;
+  final Curve motionCurve;
 
   @override
   State<_MediaPlayerSurface> createState() => _MediaPlayerSurfaceState();
@@ -637,40 +641,29 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
   String? _tempMediaPath;
   String? _error;
 
-  _AudioPreviewMeta get _audioMeta => _AudioPreviewMeta.fromText(
-    title: widget.title,
-    detail:
-        widget.filePath ?? widget.networkUrl ?? widget.mimeType ?? 'OpenHand',
-  );
-
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    if (widget.kind == MediaPreviewKind.video) {
+      _bootstrapVideo();
+    }
   }
 
-  Future<void> _bootstrap() async {
+  Future<void> _bootstrapVideo() async {
     try {
-      final mime =
-          (widget.mimeType ??
-                  (widget.kind == MediaPreviewKind.video
-                      ? 'video/mp4'
-                      : 'audio/mpeg'))
-              .toLowerCase();
+      final mime = (widget.mimeType ?? 'video/mp4').toLowerCase();
       String src;
       if (widget.networkUrl != null) {
         src = widget.networkUrl!;
       } else if (widget.filePath != null) {
         src = Uri.file(widget.filePath!).toString();
       } else if (widget.bytes != null) {
-        // 大文件走 temp 文件，小文件直接 data:
         if (widget.bytes!.lengthInBytes <= _kInlineDataUrlMaxBytes) {
           src = 'data:$mime;base64,${base64Encode(widget.bytes!)}';
         } else {
           final dir = Directory.systemTemp;
-          final ext = widget.kind == MediaPreviewKind.video ? 'mp4' : 'mp3';
           final f = File(
-            '${dir.path}/oh-media-${DateTime.now().microsecondsSinceEpoch}.$ext',
+            '${dir.path}/oh-media-${DateTime.now().microsecondsSinceEpoch}.mp4',
           );
           await f.writeAsBytes(widget.bytes!, flush: true);
           _tempMediaPath = f.path;
@@ -680,7 +673,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         setState(() => _error = 'no source');
         return;
       }
-      final html = _buildPlayerHtml(src: src);
+      final html = _buildVideoPlayerHtml(src: src);
       final dir = Directory.systemTemp;
       final f = File(
         '${dir.path}/oh-media-host-${DateTime.now().microsecondsSinceEpoch}.html',
@@ -698,7 +691,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       if (!mounted) return;
       setState(() => _controller = controller);
     } catch (error, stack) {
-      silentLog('media_preview', 'bootstrap webview host', error, stack);
+      silentLog('media_preview', 'bootstrap video webview host', error, stack);
       if (!mounted) return;
       setState(() => _error = '$error');
     }
@@ -710,11 +703,6 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');
 
-  String _htmlEscape(String value) => value
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;');
-
   void _requestDialogClose() {
     if (!mounted) return;
     final route = ModalRoute.of(context);
@@ -722,91 +710,48 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
     unawaited(Navigator.of(context).maybePop());
   }
 
-  String _buildPlayerHtml({required String src}) {
-    final isAudio = widget.kind == MediaPreviewKind.audio;
+  String _buildVideoPlayerHtml({required String src}) {
     final durationMs = widget.motionDurationMs
         .clamp(0, DialogAnimationSettings.maxDurationMs)
         .toInt();
-    final controlsClass = isAudio ? ' audio-mode' : '';
     final safeCurve = widget.motionCurveCss.trim().isEmpty
         ? _kDefaultControlMotionCurveCss
         : widget.motionCurveCss.trim();
     final escapedSrc = _htmlAttributeEscape(src);
-    final meta = _audioMeta;
-    final primaryHex = _hexColor(meta.primaryColor);
-    final secondaryHex = _hexColor(meta.secondaryColor);
-    final accentHex = _hexColor(meta.accentColor);
-    final bgStartHex = _hexColor(
-      _mixColors(meta.primaryColor, const Color(0xFF111111), 0.76),
-    );
-    final bgEndHex = _hexColor(
-      _mixColors(meta.secondaryColor, const Color(0xFF1C1D18), 0.44),
-    );
-    final glowHex = _hexColor(
-      _mixColors(meta.accentColor, Colors.transparent, 0.56),
-    );
-    final lyricItems = meta.lyricLines
-        .map((line) => '<div class="lyric-line">${_htmlEscape(line)}</div>')
-        .join();
-    final lyricArray = _jsStringArrayLiteral(meta.lyricLines);
-    final audioGraphEnabled =
-        isAudio && widget.networkUrl == null && src.trim().isNotEmpty;
-    final mediaTag = widget.kind == MediaPreviewKind.video
-        ? '<video id="media" preload="metadata" autoplay playsinline src="$escapedSrc"></video>'
-        : '<audio id="media" preload="metadata" autoplay playsinline crossorigin="anonymous" src="$escapedSrc"></audio>';
-    final audioPlayer = isAudio
-        ? '''
-  <div class="audio-player" aria-label="${_htmlAttributeEscape(meta.title)}">
-    <div class="audio-backdrop"></div>
-    <div class="audio-volume-capsule">
-      <div class="volume-group" id="volumeGroup">
-        <button id="mute" class="control-button" type="button" aria-label="Mute"></button>
-        <div class="volume-popover" id="volumePopover">
-          <input id="volume" class="volume vertical" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" aria-orientation="vertical">
-        </div>
-      </div>
-    </div>
-    <section class="album-column">
-      <div class="album-cover" aria-hidden="true">
-        <div class="album-disc"></div>
-        <div class="album-glyph">${_htmlEscape(meta.coverGlyph)}</div>
-      </div>
-      <div class="track-meta">
-        <div class="track-kicker">${_htmlEscape(meta.album)}</div>
-        <div class="track-title">${_htmlEscape(meta.title)}</div>
-        <div class="track-artist">${_htmlEscape(meta.artist)} · ${_htmlEscape(meta.detail)}</div>
-      </div>
-      <div class="audio-progress">
-        <input id="progress" class="progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Progress">
-        <div class="time-row">
-          <span id="current" class="time">00:00</span>
-          <span id="duration" class="time">00:00</span>
-        </div>
-      </div>
-      <div class="transport-row">
-        <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds"></button>
-        <button id="play" class="control-button play-main" type="button" aria-label="Play"></button>
-        <button id="forward" class="control-button seek-button" type="button" aria-label="Forward 15 seconds"></button>
-        <button id="playMode" class="control-button mode-button" type="button" aria-label="Playback mode"></button>
-        <span id="modeLabel" class="mode-label">顺序</span>
-      </div>
-      <div class="effect-strip" id="effectStrip" aria-label="Sound effects">
-        <button class="effect-chip is-active" type="button" data-effect="standard">标准</button>
-        <button class="effect-chip" type="button" data-effect="spatial">3D</button>
-        <button class="effect-chip" type="button" data-effect="vocal">人声</button>
-        <button class="effect-chip" type="button" data-effect="warm">暖声</button>
-      </div>
-    </section>
-    <section class="lyrics-column">
-      <div class="lyrics-kicker">LYRICS</div>
-      <div id="lyrics" class="lyrics-list">$lyricItems</div>
-    </section>
-  </div>
-'''
-        : '';
-    final videoControls = isAudio
-        ? ''
-        : '''
+    return '''
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--oh-motion-duration:__DURATION__ms;--oh-motion-curve:__CURVE__;--oh-control-bg:rgba(18,18,20,.72);--oh-control-border:rgba(255,255,255,.16);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.22);--oh-track-fill:#fff}
+html,body{margin:0;padding:0;background:#0f0f10;height:100%;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Segoe UI",Roboto,sans-serif}
+button,input{font:inherit}
+.media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#0f0f10;user-select:none;overflow:hidden;isolation:isolate}
+.media-shell video{width:100%;height:100%;object-fit:contain;background:#000;border-radius:10px}
+.scrim{position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to top,rgba(0,0,0,.48),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
+.media-shell:not(.controls-visible) .scrim{opacity:0}
+.control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 40px);max-width:820px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(24px) scale(.94);filter:blur(4px)}
+.control-button{width:28px;height:28px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fff;cursor:pointer;transition:transform 160ms var(--oh-motion-curve),background-color 160ms ease-out,opacity 160ms ease-out}
+.control-button:hover,.control-button:focus-visible{background:rgba(255,255,255,.14);transform:translateY(-1px) scale(1.06);outline:none}
+.control-button.is-active{background:rgba(255,255,255,.20)}
+.control-button:active{transform:scale(.92)}
+.control-button svg{width:18px;height:18px;display:block;fill:currentColor}
+.seek-button svg{width:21px;height:21px}
+.time{min-width:48px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.92);white-space:nowrap}
+.progress{flex:1 1 180px;min-width:96px}
+.volume-group{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.volume-popover{position:absolute;left:50%;bottom:38px;width:46px;height:136px;display:flex;align-items:center;justify-content:center;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(10px) scale(.88);opacity:0;pointer-events:none;filter:blur(3px);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
+.volume-open .volume-popover,.volume-group:focus-within .volume-popover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1);filter:blur(0)}
+.volume.vertical{position:absolute;left:50%;top:50%;width:112px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center}
+input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
+input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
+.no-motion *{transition-duration:0ms!important;animation:none!important}
+@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}}
+@media (max-width:420px){.seek-button{display:none}.control-bar{width:calc(100% - 20px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}}
+</style></head><body>
+<div id="shell" class="media-shell controls-visible__NO_MOTION__" tabindex="0">
+  <video id="media" preload="metadata" autoplay playsinline src="__SRC__"></video>
   <div class="scrim"></div>
   <div class="control-bar" id="controls">
     <button id="rewind" class="control-button seek-button" type="button" aria-label="Back 15 seconds"></button>
@@ -824,94 +769,10 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
     <button id="playMode" class="control-button" type="button" aria-label="Stop after playback"></button>
     <button id="fullscreen" class="control-button" type="button" aria-label="Fullscreen"></button>
   </div>
-''';
-    return '''
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-:root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$safeCurve;--oh-control-bg:rgba(18,18,20,.72);--oh-control-border:rgba(255,255,255,.16);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.22);--oh-track-fill:#fff;--oh-audio-primary:$primaryHex;--oh-audio-secondary:$secondaryHex;--oh-audio-accent:$accentHex;--oh-audio-bg-start:$bgStartHex;--oh-audio-bg-end:$bgEndHex;--oh-audio-glow:$glowHex}
-html,body{margin:0;padding:0;background:#0f0f10;height:100%;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Segoe UI",Roboto,sans-serif}
-button,input{font:inherit}
-.media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#0f0f10;user-select:none;overflow:hidden;isolation:isolate}
-.media-shell video{width:100%;height:100%;object-fit:contain;background:#000;border-radius:10px}
-.media-shell audio{display:none}
-.audio-player{display:none}
-.audio-mode{display:block;background:linear-gradient(135deg,var(--oh-audio-bg-start),var(--oh-audio-bg-end))}
-.audio-mode video{display:none}
-.audio-mode .audio-player{position:absolute;inset:0;display:grid;grid-template-columns:minmax(250px,.92fr) minmax(280px,1.08fr);gap:40px;padding:32px 42px 28px;box-sizing:border-box;overflow:hidden}
-.audio-backdrop{position:absolute;inset:-20%;z-index:-1;background:radial-gradient(circle at 24% 25%,var(--oh-audio-glow),transparent 26%),radial-gradient(circle at 82% 22%,rgba(255,255,255,.18),transparent 20%),radial-gradient(circle at 54% 82%,rgba(0,0,0,.24),transparent 32%);filter:blur(22px) saturate(1.14);transform:scale(1.04);animation:audioBackdropFloat 10s var(--oh-motion-curve) infinite alternate}
-.audio-volume-capsule{position:absolute;right:18px;top:18px;z-index:6;display:flex;align-items:center;gap:10px;min-width:224px;height:46px;padding:0 14px;border:1px solid rgba(255,255,255,.32);border-radius:999px;background:rgba(255,255,255,.13);box-shadow:0 16px 34px rgba(0,0,0,.18);backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px) saturate(1.2)}
-.audio-volume-capsule:before{content:"";width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.84);box-sizing:border-box;box-shadow:inset 0 0 0 4px rgba(255,255,255,.20)}
-.audio-volume-capsule .volume-group{flex:1;justify-content:flex-start;gap:10px}
-.audio-volume-capsule .volume-popover{position:static;flex:1;width:auto;height:auto;border:0;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;transform:none;opacity:1;pointer-events:auto;filter:none}
-.audio-volume-capsule .volume.vertical{position:static;width:100%;transform:none}
-.album-column{min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding-top:56px}
-.album-cover{position:relative;width:min(100%,320px);aspect-ratio:1;margin:0 auto 20px;border-radius:22px;overflow:hidden;background:linear-gradient(135deg,var(--oh-audio-accent),var(--oh-audio-secondary) 48%,var(--oh-audio-primary));box-shadow:0 34px 64px rgba(0,0,0,.30),0 0 0 1px rgba(255,255,255,.20);transform-origin:center;animation:albumFloat 5.8s var(--oh-motion-curve) infinite alternate}
-.album-cover:before{content:"";position:absolute;inset:13%;border-radius:50%;background:radial-gradient(circle at 34% 35%,rgba(255,255,255,.44),rgba(255,255,255,.10) 28%,rgba(0,0,0,.12) 29%,transparent 58%);box-shadow:0 0 0 1px rgba(255,255,255,.18)}
-.album-cover:after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.18),transparent 36%,rgba(0,0,0,.18));mix-blend-mode:screen}
-.album-disc{position:absolute;right:-16%;bottom:-18%;width:70%;height:70%;border-radius:50%;background:repeating-radial-gradient(circle,rgba(255,255,255,.18) 0 2px,rgba(255,255,255,.04) 3px 7px);opacity:.42}
-.album-glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;color:rgba(255,255,255,.94);font-size:clamp(58px,10vw,94px);font-weight:900;line-height:1;text-shadow:0 12px 34px rgba(0,0,0,.26)}
-.track-meta{min-width:0;text-align:left;color:#fff;text-shadow:0 8px 30px rgba(0,0,0,.22)}
-.track-kicker{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.58);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-.track-title{margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(22px,3.1vw,31px);font-weight:800;letter-spacing:0}
-.track-artist{margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.70);font-size:14px;font-weight:700}
-.audio-progress{margin-top:22px}
-.time-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;color:rgba(255,255,255,.70)}
-.transport-row{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:14px}
-.play-main{width:58px!important;height:58px!important;min-width:58px!important;background:rgba(255,255,255,.22)!important;box-shadow:0 14px 30px rgba(0,0,0,.20)}
-.play-main svg{width:32px!important;height:32px!important}
-.mode-button{background:rgba(255,255,255,.14)}
-.mode-label{min-width:40px;color:rgba(255,255,255,.68);font-weight:800;font-size:12px;white-space:nowrap}
-.effect-strip{display:flex;align-items:center;gap:8px;margin-top:14px;min-width:0;overflow:hidden}
-.effect-chip{height:30px;padding:0 12px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.09);color:rgba(255,255,255,.76);font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease-out,color 160ms ease-out,transform 160ms var(--oh-motion-curve),border-color 160ms ease-out}
-.effect-chip:hover,.effect-chip:focus-visible{outline:none;transform:translateY(-1px) scale(1.03);background:rgba(255,255,255,.16)}
-.effect-chip.is-active{color:#1f241c;background:rgba(255,255,255,.86);border-color:rgba(255,255,255,.92)}
-.lyrics-column{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:70px 12px 34px}
-.lyrics-kicker{margin-bottom:22px;color:rgba(255,255,255,.44);font-size:12px;font-weight:900;letter-spacing:.12em}
-.lyrics-list{position:relative;max-height:360px;overflow:hidden;padding:28px 0;mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 82%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 82%,transparent)}
-.lyric-line{padding:13px 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.52);font-size:clamp(20px,2.5vw,31px);font-weight:760;letter-spacing:0;transform:translateX(0) scale(.98);transition:color var(--oh-motion-duration) var(--oh-motion-curve),opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve)}
-.lyric-line.is-active{color:rgba(255,255,255,.96);opacity:1;transform:translateX(6px) scale(1)}
-.scrim{position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to top,rgba(0,0,0,.48),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
-.media-shell:not(.controls-visible) .scrim{opacity:0}
-.control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 40px);max-width:820px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
-.media-shell:not(.controls-visible) .control-bar{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(24px) scale(.94);filter:blur(4px)}
-.control-button{width:28px;height:28px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:#fff;cursor:pointer;transition:transform 160ms var(--oh-motion-curve),background-color 160ms ease-out,opacity 160ms ease-out}
-.control-button:hover,.control-button:focus-visible{background:rgba(255,255,255,.14);transform:translateY(-1px) scale(1.06);outline:none}
-.control-button.is-active{background:rgba(255,255,255,.20)}
-.control-button:active{transform:scale(.92)}
-.control-button svg{width:18px;height:18px;display:block;fill:currentColor}
-.seek-button svg{width:21px;height:21px}
-.time{min-width:48px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.92);white-space:nowrap}
-.progress{flex:1 1 180px;min-width:96px}
-.volume-group{position:relative;display:inline-flex;align-items:center;justify-content:center}
-.volume-popover{position:absolute;left:50%;bottom:38px;width:46px;height:136px;display:flex;align-items:center;justify-content:center;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(10px) scale(.88);opacity:0;pointer-events:none;filter:blur(3px);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
-.volume-open .volume-popover,.volume-group:focus-within .volume-popover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0) scale(1);filter:blur(0)}
-.volume{width:118px}
-.volume.vertical{position:absolute;left:50%;top:50%;width:112px;transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center}
-input[type=range]{height:22px;margin:0;accent-color:#fff;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:999px;background:linear-gradient(to right,var(--oh-track-fill) 0%,var(--oh-track-fill) var(--value,0%),var(--oh-track) var(--value,0%),var(--oh-track) 100%)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5.5px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform 160ms var(--oh-motion-curve)}
-input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.12)}
-.audio-mode input[type=range]::-webkit-slider-runnable-track{height:8px;background:linear-gradient(to right,rgba(255,255,255,.90) 0%,rgba(255,255,255,.90) var(--value,0%),rgba(255,255,255,.24) var(--value,0%),rgba(255,255,255,.24) 100%)}
-.audio-mode input[type=range]::-webkit-slider-thumb{width:20px;height:20px;margin-top:-6px}
-.audio-mode .control-button:hover,.audio-mode .control-button:focus-visible{background:rgba(255,255,255,.18)}
-@keyframes albumFloat{from{transform:translateY(0) scale(1)}to{transform:translateY(-7px) scale(1.015)}}
-@keyframes audioBackdropFloat{from{transform:scale(1.04) translate3d(0,0,0)}to{transform:scale(1.08) translate3d(-1.4%,1.2%,0)}}
-.no-motion *{transition-duration:0ms!important;animation:none!important}
-@media (max-width:820px){.audio-mode .audio-player{grid-template-columns:1fr;gap:18px;padding:24px 26px 22px}.audio-volume-capsule{right:14px;top:14px;min-width:184px}.album-column{padding-top:44px}.album-cover{width:min(58vw,210px);margin-bottom:14px}.lyrics-column{padding:0 2px 0}.lyrics-list{max-height:150px;padding:10px 0}.lyric-line{padding:8px 0;font-size:22px}.effect-strip{overflow-x:auto;padding-bottom:2px}}
-@media (max-width:720px){.control-bar{gap:6px;padding:7px 10px;width:calc(100% - 28px)}.progress{min-width:72px}.time{min-width:42px}.volume-popover{height:116px}.volume.vertical{width:94px}.audio-volume-capsule .volume-popover{height:auto}.audio-volume-capsule .volume.vertical{width:100%}}
-@media (max-width:420px){.seek-button{display:none}.control-bar{width:calc(100% - 20px)}.time{min-width:40px}.progress{min-width:64px}.volume-popover{height:104px}.volume.vertical{width:84px}.audio-mode .audio-player{padding:20px 18px}.audio-volume-capsule{left:18px;right:18px;min-width:0}.track-title{font-size:22px}.effect-chip{padding:0 10px}.audio-volume-capsule .volume-popover{height:auto}.audio-volume-capsule .volume.vertical{width:100%}}
-</style></head><body>
-<div id="shell" class="media-shell controls-visible$controlsClass${durationMs == 0 ? ' no-motion' : ''}" tabindex="0">
-  $mediaTag
-  $audioPlayer
-  $videoControls
 </div>
 <script>
 (() => {
-  const AUTO_HIDE_MS = $_kControlsAutoHideMs;
-  const IS_AUDIO = ${isAudio ? 'true' : 'false'};
-  const AUDIO_GRAPH_ENABLED = ${audioGraphEnabled ? 'true' : 'false'};
-  const lyricLines = $lyricArray;
+  const AUTO_HIDE_MS = __AUTO_HIDE__;
   const shell = document.getElementById('shell');
   const media = document.getElementById('media');
   const play = document.getElementById('play');
@@ -924,10 +785,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   const mute = document.getElementById('mute');
   const volumeGroup = document.getElementById('volumeGroup');
   const playMode = document.getElementById('playMode');
-  const modeLabel = document.getElementById('modeLabel');
   const fullscreen = document.getElementById('fullscreen');
-  const lyrics = Array.from(document.querySelectorAll('.lyric-line'));
-  const effectButtons = Array.from(document.querySelectorAll('[data-effect]'));
   if (!media || !play || !rewind || !forward || !progress || !current || !duration || !volume || !mute || !volumeGroup || !playMode) {
     requestClose();
     return;
@@ -935,14 +793,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   let hideTimer = 0;
   let dragging = false;
   let volumeActive = false;
-  let playbackMode = IS_AUDIO ? 'sequence' : 'stop';
-  let activeLyricIndex = -1;
-  let activeEffect = 'standard';
-  let audioCtx = null;
-  let sourceNode = null;
-  let effectNodes = [];
-  let spatialFrame = 0;
-
+  let looping = false;
   const icon = {
     play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
     pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
@@ -952,20 +803,12 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     forward: '<svg viewBox="0 0 24 24"><path d="M13 7l6 5-6 5V7zM5 7l6 5-6 5V7z"/><text x="12" y="21" text-anchor="middle" font-size="7" fill="currentColor">15</text></svg>',
     loop: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11V9a3 3 0 013-3h15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M7 22l-4-4 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
     stopAfter: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M4 12h1.5M18.5 12H20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    sequence: '<svg viewBox="0 0 24 24"><path d="M5 7h9M5 12h13M5 17h9" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M16 6l3 3-3 3" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    repeatOne: '<svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="15" text-anchor="middle" font-size="8" font-weight="800" fill="currentColor">1</text></svg>',
-    shuffle: '<svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 7h3c5 0 6 10 11 10h3M4 17h3c2.2 0 3.5-1.7 4.7-3.8M15.8 6.5C17 5.5 18.3 5 21 5M16 21h5v-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     fullscreen: '<svg viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
-
   rewind.innerHTML = icon.rewind;
   forward.innerHTML = icon.forward;
   if (fullscreen) fullscreen.innerHTML = icon.fullscreen;
-
-  function requestClose() {
-    try { window.OpenHandMediaPreview?.postMessage('close'); } catch (_) {}
-  }
-
+  function requestClose() { try { window.OpenHandMediaPreview?.postMessage('close'); } catch (_) {} }
   function formatTime(value) {
     if (!Number.isFinite(value) || value < 0) return '00:00';
     const total = Math.floor(value);
@@ -973,86 +816,14 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     const minutes = Math.floor((total % 3600) / 60);
     const seconds = total % 60;
     const pad = (n) => String(n).padStart(2, '0');
-    return hours > 0
-      ? hours + ':' + pad(minutes) + ':' + pad(seconds)
-      : pad(minutes) + ':' + pad(seconds);
+    return hours > 0 ? hours + ':' + pad(minutes) + ':' + pad(seconds) : pad(minutes) + ':' + pad(seconds);
   }
-
   function setRangeFill(input, ratio) {
-    const value = Math.max(0, Math.min(100, ratio * 100));
-    input.style.setProperty('--value', value + '%');
+    input.style.setProperty('--value', Math.max(0, Math.min(100, ratio * 100)) + '%');
   }
-
-  function updatePlayState() {
-    play.innerHTML = media.paused ? icon.play : icon.pause;
-    play.setAttribute('aria-label', media.paused ? 'Play' : 'Pause');
-    if (media.paused || media.ended) {
-      showControls(true);
-    } else {
-      scheduleHide();
-    }
-  }
-
-  function updateTime() {
-    const dur = Number.isFinite(media.duration) ? media.duration : 0;
-    const cur = Number.isFinite(media.currentTime) ? media.currentTime : 0;
-    current.textContent = formatTime(cur);
-    duration.textContent = formatTime(dur);
-    const ratio = dur > 0 ? cur / dur : 0;
-    progress.value = String(Math.round(ratio * 1000));
-    setRangeFill(progress, ratio);
-    updateLyrics(cur, dur);
-  }
-
-  function updateVolume() {
-    const muted = media.muted || media.volume <= 0;
-    mute.innerHTML = muted ? icon.mute : icon.volume;
-    mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
-    volume.value = String(media.muted ? 0 : media.volume);
-    setRangeFill(volume, media.muted ? 0 : media.volume);
-  }
-
-  function updatePlayMode() {
-    if (IS_AUDIO) {
-      const labels = { sequence: '顺序', repeat: '单曲', shuffle: '随机' };
-      const aria = { sequence: 'Sequential playback', repeat: 'Repeat one', shuffle: 'Shuffle playback' };
-      media.loop = playbackMode === 'repeat';
-      playMode.innerHTML = playbackMode === 'repeat'
-        ? icon.repeatOne
-        : playbackMode === 'shuffle'
-          ? icon.shuffle
-          : icon.sequence;
-      playMode.classList.toggle('is-active', playbackMode !== 'sequence');
-      playMode.setAttribute('aria-label', aria[playbackMode] || aria.sequence);
-      playMode.setAttribute('title', aria[playbackMode] || aria.sequence);
-      if (modeLabel) modeLabel.textContent = labels[playbackMode] || labels.sequence;
-      return;
-    }
-    const looping = playbackMode === 'loop';
-    media.loop = looping;
-    playMode.innerHTML = looping ? icon.loop : icon.stopAfter;
-    playMode.classList.toggle('is-active', looping);
-    playMode.setAttribute('aria-label', looping ? 'Loop playback' : 'Stop after playback');
-    playMode.setAttribute('title', looping ? 'Loop playback' : 'Stop after playback');
-  }
-
-  function clearHideTimer() {
-    if (hideTimer) window.clearTimeout(hideTimer);
-    hideTimer = 0;
-  }
-
-  function showControls(sticky = false) {
-    shell.classList.add('controls-visible');
-    if (sticky) {
-      clearHideTimer();
-      return;
-    }
-    scheduleHide();
-  }
-
+  function clearHideTimer() { if (hideTimer) window.clearTimeout(hideTimer); hideTimer = 0; }
   function scheduleHide() {
     clearHideTimer();
-    if (IS_AUDIO) return;
     if (media.paused || dragging || volumeActive) return;
     hideTimer = window.setTimeout(() => {
       if (!media.paused && !dragging && !volumeActive) {
@@ -1061,163 +832,56 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       }
     }, AUTO_HIDE_MS);
   }
-
-  function beginProgressDrag(event) {
-    dragging = true;
-    progress.setPointerCapture?.(event.pointerId);
-    showControls(true);
+  function showControls(sticky = false) {
+    shell.classList.add('controls-visible');
+    if (sticky) clearHideTimer(); else scheduleHide();
   }
-
-  function endProgressDrag(event) {
-    if (!dragging) return;
-    dragging = false;
-    progress.releasePointerCapture?.(event.pointerId);
-    scheduleHide();
+  function updatePlayState() {
+    play.innerHTML = media.paused ? icon.play : icon.pause;
+    play.setAttribute('aria-label', media.paused ? 'Play' : 'Pause');
+    if (media.paused || media.ended) showControls(true); else scheduleHide();
   }
-
-  function setVolumeActive(active) {
-    volumeActive = active;
-    shell.classList.toggle('volume-open', active);
-    if (active) {
-      showControls(true);
-    } else {
-      scheduleHide();
-    }
+  function updateTime() {
+    const dur = Number.isFinite(media.duration) ? media.duration : 0;
+    const cur = Number.isFinite(media.currentTime) ? media.currentTime : 0;
+    current.textContent = formatTime(cur);
+    duration.textContent = formatTime(dur);
+    const ratio = dur > 0 ? cur / dur : 0;
+    progress.value = String(Math.round(ratio * 1000));
+    setRangeFill(progress, ratio);
   }
-
-  function updateLyrics(cur, dur) {
-    if (!lyrics.length) return;
-    const fallbackSpan = Math.max(1, lyrics.length * 6);
-    const ratio = dur > 0 ? cur / dur : (cur % fallbackSpan) / fallbackSpan;
-    const nextIndex = Math.max(0, Math.min(lyrics.length - 1, Math.floor(ratio * lyrics.length)));
-    if (nextIndex === activeLyricIndex) return;
-    activeLyricIndex = nextIndex;
-    lyrics.forEach((line, index) => line.classList.toggle('is-active', index === nextIndex));
-    const active = lyrics[nextIndex];
-    if (active) {
-      active.scrollIntoView({
-        block: 'center',
-        inline: 'nearest',
-        behavior: shell.classList.contains('no-motion') ? 'auto' : 'smooth'
-      });
-    }
+  function updateVolume() {
+    const muted = media.muted || media.volume <= 0;
+    mute.innerHTML = muted ? icon.mute : icon.volume;
+    mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+    volume.value = String(media.muted ? 0 : media.volume);
+    setRangeFill(volume, media.muted ? 0 : media.volume);
   }
-
-  function stopSpatialMotion() {
-    if (spatialFrame) window.cancelAnimationFrame(spatialFrame);
-    spatialFrame = 0;
+  function updatePlayMode() {
+    media.loop = looping;
+    playMode.innerHTML = looping ? icon.loop : icon.stopAfter;
+    playMode.classList.toggle('is-active', looping);
   }
-
-  function clearEffectGraph() {
-    stopSpatialMotion();
-    effectNodes.forEach((node) => {
-      try { node.disconnect(); } catch (_) {}
-    });
-    effectNodes = [];
-  }
-
-  function ensureAudioGraph() {
-    if (!IS_AUDIO || !AUDIO_GRAPH_ENABLED) return false;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return false;
-    try {
-      if (!audioCtx) audioCtx = new Ctx();
-      if (!sourceNode) sourceNode = audioCtx.createMediaElementSource(media);
-      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function connectEffectNodes(nodes, animatePanner) {
-    if (!sourceNode || !audioCtx) return;
-    try { sourceNode.disconnect(); } catch (_) {}
-    let tail = sourceNode;
-    nodes.forEach((node) => {
-      tail.connect(node);
-      tail = node;
-    });
-    tail.connect(audioCtx.destination);
-    if (animatePanner && nodes.length) {
-      const panner = nodes[nodes.length - 1];
-      const tick = () => {
-        if (activeEffect !== 'spatial' || !panner) return;
-        try { panner.pan.value = Math.sin((media.currentTime || 0) * 1.6) * 0.34; } catch (_) {}
-        spatialFrame = window.requestAnimationFrame(tick);
-      };
-      tick();
-    }
-  }
-
-  function applyEffect(mode) {
-    activeEffect = mode || 'standard';
-    effectButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.effect === activeEffect);
-    });
-    clearEffectGraph();
-    if (!ensureAudioGraph()) return;
-    try {
-      const nodes = [];
-      let animatePanner = false;
-      if (activeEffect === 'spatial' && audioCtx.createStereoPanner) {
-        const panner = audioCtx.createStereoPanner();
-        panner.pan.value = 0.16;
-        nodes.push(panner);
-        animatePanner = true;
-      } else if (activeEffect === 'vocal') {
-        const highpass = audioCtx.createBiquadFilter();
-        highpass.type = 'highpass';
-        highpass.frequency.value = 90;
-        const presence = audioCtx.createBiquadFilter();
-        presence.type = 'peaking';
-        presence.frequency.value = 2800;
-        presence.Q.value = 0.9;
-        presence.gain.value = 4.2;
-        nodes.push(highpass, presence);
-      } else if (activeEffect === 'warm') {
-        const lowShelf = audioCtx.createBiquadFilter();
-        lowShelf.type = 'lowshelf';
-        lowShelf.frequency.value = 180;
-        lowShelf.gain.value = 4.5;
-        const softHigh = audioCtx.createBiquadFilter();
-        softHigh.type = 'highshelf';
-        softHigh.frequency.value = 5200;
-        softHigh.gain.value = -1.8;
-        nodes.push(lowShelf, softHigh);
-      }
-      effectNodes = nodes;
-      connectEffectNodes(nodes, animatePanner);
-    } catch (_) {
-      clearEffectGraph();
-    }
-  }
-
   function seekBy(delta) {
     const dur = Number.isFinite(media.duration) ? media.duration : 0;
-    const next = Math.max(0, Math.min(dur || Number.MAX_SAFE_INTEGER, media.currentTime + delta));
-    media.currentTime = next;
+    media.currentTime = Math.max(0, Math.min(dur || Number.MAX_SAFE_INTEGER, media.currentTime + delta));
     updateTime();
     showControls();
   }
-
+  function setVolumeActive(active) {
+    volumeActive = active;
+    shell.classList.toggle('volume-open', active);
+    if (active) showControls(true); else scheduleHide();
+  }
   play.addEventListener('click', () => {
-    if (media.paused) {
-      if (IS_AUDIO) {
-        ensureAudioGraph();
-        if (activeEffect !== 'standard') applyEffect(activeEffect);
-      }
-      media.play().catch(() => showControls(true));
-    } else {
-      media.pause();
-    }
+    if (media.paused) media.play().catch(() => showControls(true)); else media.pause();
     showControls(true);
   });
   rewind.addEventListener('click', () => seekBy(-15));
   forward.addEventListener('click', () => seekBy(15));
-  progress.addEventListener('pointerdown', beginProgressDrag);
-  progress.addEventListener('pointerup', endProgressDrag);
-  progress.addEventListener('pointercancel', endProgressDrag);
+  progress.addEventListener('pointerdown', (event) => { dragging = true; progress.setPointerCapture?.(event.pointerId); showControls(true); });
+  progress.addEventListener('pointerup', (event) => { dragging = false; progress.releasePointerCapture?.(event.pointerId); scheduleHide(); });
+  progress.addEventListener('pointercancel', () => { dragging = false; scheduleHide(); });
   progress.addEventListener('input', () => {
     const dur = Number.isFinite(media.duration) ? media.duration : 0;
     if (dur > 0) media.currentTime = (Number(progress.value) / 1000) * dur;
@@ -1226,15 +890,6 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   });
   volumeGroup.addEventListener('pointerenter', () => setVolumeActive(true));
   volumeGroup.addEventListener('pointerleave', () => setVolumeActive(false));
-  volumeGroup.addEventListener('pointerdown', () => setVolumeActive(true));
-  volumeGroup.addEventListener('pointerup', () => setVolumeActive(false));
-  volumeGroup.addEventListener('pointercancel', () => setVolumeActive(false));
-  volumeGroup.addEventListener('focusin', () => setVolumeActive(true));
-  volumeGroup.addEventListener('focusout', (event) => {
-    if (!event.relatedTarget || !volumeGroup.contains(event.relatedTarget)) {
-      setVolumeActive(false);
-    }
-  });
   volume.addEventListener('input', () => {
     const next = Math.max(0, Math.min(1, Number(volume.value)));
     media.volume = Number.isFinite(next) ? next : 1;
@@ -1247,36 +902,12 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     media.muted = !media.muted;
     if (!media.muted && media.volume <= 0) media.volume = 0.6;
     updateVolume();
-    shell.classList.add('volume-open');
     setVolumeActive(true);
   });
-  playMode.addEventListener('click', () => {
-    if (IS_AUDIO) {
-      playbackMode = playbackMode === 'sequence'
-        ? 'repeat'
-        : playbackMode === 'repeat'
-          ? 'shuffle'
-          : 'sequence';
-    } else {
-      playbackMode = playbackMode === 'loop' ? 'stop' : 'loop';
-    }
-    updatePlayMode();
-    showControls(true);
-  });
-  effectButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      applyEffect(button.dataset.effect || 'standard');
-      showControls(true);
-    });
-  });
+  playMode.addEventListener('click', () => { looping = !looping; updatePlayMode(); showControls(true); });
   if (fullscreen) {
     fullscreen.addEventListener('click', () => {
-      const target = shell;
-      if (document.fullscreenElement) {
-        document.exitFullscreen?.();
-      } else {
-        target.requestFullscreen?.().catch(() => {});
-      }
+      if (document.fullscreenElement) document.exitFullscreen?.(); else shell.requestFullscreen?.().catch(() => {});
       showControls();
     });
   }
@@ -1287,22 +918,11 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   shell.addEventListener('focusout', () => scheduleHide());
   shell.addEventListener('keydown', (event) => {
     if (event.defaultPrevented) return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      requestClose();
-    } else if (event.key === ' ' || event.key === 'Enter') {
-      event.preventDefault();
-      play.click();
-    } else if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      seekBy(-5);
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      seekBy(5);
-    } else if (event.key.toLowerCase() === 'm') {
-      event.preventDefault();
-      mute.click();
-    }
+    if (event.key === 'Escape') { event.preventDefault(); requestClose(); }
+    else if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); play.click(); }
+    else if (event.key === 'ArrowLeft') { event.preventDefault(); seekBy(-5); }
+    else if (event.key === 'ArrowRight') { event.preventDefault(); seekBy(5); }
+    else if (event.key.toLowerCase() === 'm') { event.preventDefault(); mute.click(); }
   });
   document.addEventListener('keydown', (event) => {
     if (event.defaultPrevented || event.key !== 'Escape') return;
@@ -1314,30 +934,23 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   media.addEventListener('timeupdate', updateTime);
   media.addEventListener('play', updatePlayState);
   media.addEventListener('pause', updatePlayState);
-  media.addEventListener('ended', () => {
-    if (IS_AUDIO && playbackMode === 'shuffle') {
-      const dur = Number.isFinite(media.duration) ? media.duration : 0;
-      try { media.currentTime = dur > 3 ? Math.random() * Math.max(1, dur - 1) : 0; } catch (_) {}
-      media.play().catch(() => showControls(true));
-    }
-    updatePlayState();
-    showControls(true);
-  });
+  media.addEventListener('ended', () => { updatePlayState(); showControls(true); });
   media.addEventListener('volumechange', updateVolume);
-  window.addEventListener('beforeunload', () => {
-    clearHideTimer();
-    clearEffectGraph();
-  });
+  window.addEventListener('beforeunload', () => clearHideTimer());
   updatePlayMode();
   updatePlayState();
   updateTime();
   updateVolume();
-  applyEffect('standard');
   media.play?.().catch(() => updatePlayState());
 })();
 </script>
 </body></html>
-''';
+'''
+        .replaceAll('__DURATION__', '$durationMs')
+        .replaceAll('__CURVE__', safeCurve)
+        .replaceAll('__NO_MOTION__', durationMs == 0 ? ' no-motion' : '')
+        .replaceAll('__SRC__', escapedSrc)
+        .replaceAll('__AUTO_HIDE__', '$_kControlsAutoHideMs');
   }
 
   @override
@@ -1356,6 +969,21 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    if (widget.kind == MediaPreviewKind.audio) {
+      return NativeAudioPreview(
+        title: widget.title,
+        source: _nativeAudioSource,
+        meta: _nativeAudioMeta,
+        autoplay: true,
+        motionDuration: Duration(
+          milliseconds: widget.motionDurationMs.clamp(
+            0,
+            DialogAnimationSettings.maxDurationMs,
+          ),
+        ),
+        motionCurve: widget.motionCurve,
+      );
+    }
     if (_error != null) {
       return DecoratedBox(
         decoration: BoxDecoration(
@@ -1382,142 +1010,46 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
       child: WebViewWidget(controller: _controller!),
     );
   }
-}
 
-class _AudioPreviewMeta {
-  const _AudioPreviewMeta({
-    required this.title,
-    required this.artist,
-    required this.album,
-    required this.detail,
-    required this.primaryColor,
-    required this.secondaryColor,
-    required this.accentColor,
-    required this.coverGlyph,
-    required this.lyricLines,
-  });
-
-  factory _AudioPreviewMeta.fromText({
-    required String title,
-    required String detail,
-  }) {
-    final cleanTitle = _normalizeAudioPreviewText(title, fallback: 'Audio');
-    final cleanDetail = _normalizeAudioPreviewText(
-      detail,
-      fallback: 'OpenHand',
-    );
-    final seed = '$cleanTitle|$cleanDetail'.hashCode & 0x7fffffff;
-    final palette =
-        _kAudioPreviewPalettes[seed % _kAudioPreviewPalettes.length];
-    return _AudioPreviewMeta(
-      title: cleanTitle,
-      artist: _deriveAudioPreviewArtist(cleanDetail),
-      album: _deriveAudioPreviewAlbum(cleanDetail),
-      detail: cleanDetail,
-      primaryColor: palette.$1,
-      secondaryColor: palette.$2,
-      accentColor: palette.$3,
-      coverGlyph: '♪',
-      lyricLines: _deriveAudioPreviewLyrics(cleanTitle, cleanDetail),
+  NativeAudioPreviewSource get _nativeAudioSource {
+    final mimeType = widget.mimeType ?? 'audio/mpeg';
+    final bytes = widget.bytes;
+    if (bytes != null) {
+      return NativeAudioPreviewSource.bytes(
+        bytes: bytes,
+        mimeType: mimeType,
+        detail: widget.networkUrl ?? widget.filePath ?? widget.title,
+      );
+    }
+    final filePath = widget.filePath;
+    if (filePath != null) {
+      return NativeAudioPreviewSource.file(
+        filePath: filePath,
+        mimeType: mimeType,
+        detail: filePath,
+      );
+    }
+    final networkUrl = widget.networkUrl;
+    if (networkUrl != null) {
+      return NativeAudioPreviewSource.network(
+        url: networkUrl,
+        mimeType: mimeType,
+        detail: networkUrl,
+      );
+    }
+    return NativeAudioPreviewSource.network(
+      url: '',
+      mimeType: mimeType,
+      detail: widget.title,
     );
   }
 
-  final String title;
-  final String artist;
-  final String album;
-  final String detail;
-  final Color primaryColor;
-  final Color secondaryColor;
-  final Color accentColor;
-  final String coverGlyph;
-  final List<String> lyricLines;
-}
-
-const List<(Color, Color, Color)> _kAudioPreviewPalettes =
-    <(Color, Color, Color)>[
-      (Color(0xFF76815E), Color(0xFFBFC79A), Color(0xFFF4F0D7)),
-      (Color(0xFF5C6E75), Color(0xFFA9C3BD), Color(0xFFE8F0E9)),
-      (Color(0xFF765F73), Color(0xFFD2A9B8), Color(0xFFF4E5EA)),
-      (Color(0xFF6F6B55), Color(0xFFD1C394), Color(0xFFF1E8C8)),
-      (Color(0xFF59705C), Color(0xFFAEC8A8), Color(0xFFE8F3DF)),
-    ];
-
-String _normalizeAudioPreviewText(String value, {required String fallback}) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return fallback;
-  return trimmed
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .replaceAll(
-        RegExp(r'\.(mp3|wav|m4a|aac|ogg|opus|flac)$', caseSensitive: false),
-        '',
-      )
-      .trim();
-}
-
-String _deriveAudioPreviewArtist(String detail) {
-  final leaf = _lastPathOrUrlSegment(detail);
-  final segments = _normalizeAudioPreviewText(leaf, fallback: detail)
-      .split(RegExp(r'[-_]+'))
-      .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .toList(growable: false);
-  if (segments.length >= 2 && segments.first.length <= 28) {
-    return segments.first;
-  }
-  return 'OpenHand Audio';
-}
-
-String _deriveAudioPreviewAlbum(String detail) {
-  final leaf = _lastPathOrUrlSegment(detail);
-  final normalized = _normalizeAudioPreviewText(
-    leaf,
-    fallback: 'Preview Album',
+  NativeAudioVisualMeta get _nativeAudioMeta => NativeAudioVisualMeta.fromText(
+    title: widget.title,
+    detail:
+        widget.filePath ?? widget.networkUrl ?? widget.mimeType ?? 'OpenHand',
   );
-  return normalized.length <= 32 ? normalized : 'Preview Album';
 }
-
-String _lastPathOrUrlSegment(String value) {
-  final parsed = Uri.tryParse(value);
-  final segments = parsed?.pathSegments.where((segment) => segment.isNotEmpty);
-  final lastSegment = segments == null || segments.isEmpty
-      ? null
-      : segments.last;
-  if (lastSegment != null && lastSegment.trim().isNotEmpty) {
-    return Uri.decodeComponent(lastSegment);
-  }
-  final normalized = value.replaceAll('\\', '/');
-  final index = normalized.lastIndexOf('/');
-  return index >= 0 ? normalized.substring(index + 1) : normalized;
-}
-
-List<String> _deriveAudioPreviewLyrics(String title, String detail) {
-  final leaf = _normalizeAudioPreviewText(
-    _lastPathOrUrlSegment(detail),
-    fallback: detail,
-  );
-  return <String>{
-    title,
-    leaf,
-    'AI 生成音频',
-    '正在播放当前媒体',
-    '可调节音量、进度与音效',
-    'OpenHand 音频预览',
-  }.where((line) => line.trim().isNotEmpty).take(6).toList(growable: false);
-}
-
-String _hexColor(Color color) {
-  final value = color.toARGB32() & 0x00ffffff;
-  return '#${value.toRadixString(16).padLeft(6, '0')}';
-}
-
-Color _mixColors(Color color, Color other, double colorWeight) {
-  return Color.lerp(other, color, colorWeight.clamp(0.0, 1.0)) ?? color;
-}
-
-String _jsStringLiteral(String value) => jsonEncode(value);
-
-String _jsStringArrayLiteral(Iterable<String> values) =>
-    '[${values.map(_jsStringLiteral).join(',')}]';
 
 /// 顶层入口：弹出预览弹窗。复用应用统一的 [showAnimatedDialog] 动画。
 Future<void> showMediaPreviewDialog(
