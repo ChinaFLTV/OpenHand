@@ -76,13 +76,20 @@ class AiEndpointRouter {
           .replace(queryParameters: mergedQuery.isEmpty ? null : mergedQuery)
           .toString();
     }
+    final overridePath = override?.path?.trim();
+    final usesExplicitOverridePath = overridePath?.isNotEmpty == true;
     final rawPath =
-        (override?.path?.trim().isNotEmpty == true
-                ? override!.path!.trim()
-                : (fallbackPath ?? _defaultPathFor(family)))
+        (usesExplicitOverridePath
+                ? overridePath!
+                : fallbackPath ?? _defaultPathFor(family))
             .trim();
     final pathParts = rawPath.split('?');
-    final path = pathParts.first;
+    final path = usesExplicitOverridePath
+        ? pathParts.first
+        : _normalizeDefaultPathForCompletionMode(
+            pathParts.first,
+            autoCompleteBaseUrl: config.autoCompleteBaseUrl,
+          );
     final pathQuery = pathParts.length > 1
         ? pathParts.sublist(1).join('&')
         : '';
@@ -101,6 +108,7 @@ class AiEndpointRouter {
         .toList(growable: false);
     if (baseSegments.isNotEmpty &&
         pathSegments.isNotEmpty &&
+        baseSegments.last.toLowerCase() == pathSegments.first.toLowerCase() &&
         _isApiVersionSegment(baseSegments.last.toLowerCase()) &&
         _isApiVersionSegment(pathSegments.first.toLowerCase())) {
       pathSegments = pathSegments.skip(1).toList(growable: false);
@@ -142,6 +150,22 @@ class AiEndpointRouter {
       AiApiFamily.files => 'v1/files',
       AiApiFamily.fineTunes => 'v1/fine-tunes',
     };
+  }
+
+  String _normalizeDefaultPathForCompletionMode(
+    String path, {
+    required bool autoCompleteBaseUrl,
+  }) {
+    if (autoCompleteBaseUrl) return path;
+    final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+    final segments = normalizedPath
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .toList(growable: false);
+    if (segments.isEmpty || !_isApiVersionSegment(segments.first)) {
+      return path;
+    }
+    return segments.skip(1).join('/');
   }
 
   List<String> _baseSegmentsForEndpoint(List<String> segments) {

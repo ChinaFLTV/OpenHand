@@ -24,6 +24,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late AiApiDialect _apiDialect;
   late AiProviderKind _providerKind;
   late String _requestMethod;
+  late bool _autoCompleteBaseUrl;
   late bool _streamEnabled;
   late bool _explicitPromptCacheEnabled;
   late final TextEditingController _responsesModelIdController;
@@ -55,6 +56,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late Map<String, AiModelProfile> _modelProfiles;
   late List<_HeaderEntry> _customHeaderEntries;
   final ScrollController _chipScrollController = ScrollController();
+  static const AiEndpointRouter _endpointPreviewRouter = AiEndpointRouter();
 
   List<String> get _visibleModelIds => AiModelConfig.normalizeModelIds(<String>[
     ..._availableModelIds,
@@ -93,6 +95,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _providerKind =
         widget.initialModel?.providerKind ?? inferAiProviderKind(_protocolType);
     _requestMethod = widget.initialModel?.requestMethod ?? 'POST';
+    _autoCompleteBaseUrl = widget.initialModel?.autoCompleteBaseUrl ?? true;
     _streamEnabled = widget.initialModel?.streamEnabled ?? true;
     _explicitPromptCacheEnabled =
         widget.initialModel?.explicitPromptCacheEnabled ??
@@ -234,6 +237,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       final config = AiModelConfig(
         id: '',
         baseUrl: baseUrl,
+        autoCompleteBaseUrl: _autoCompleteBaseUrl,
         authScheme: _authScheme,
         token: _tokenController.text.trim(),
         modelId: '',
@@ -348,6 +352,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       id: widget.initialModel?.id ?? '',
       name: _nameController.text.trim(),
       baseUrl: _baseUrlController.text.trim(),
+      autoCompleteBaseUrl: _autoCompleteBaseUrl,
       authScheme: _authScheme,
       token: _tokenController.text.trim(),
       modelId: modelId,
@@ -409,6 +414,137 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
 
   bool get _showsExplicitPromptCacheControl =>
       _protocolType == AiProtocolType.claude;
+
+  Map<String, Object?> _tryDecodeJsonObject(String rawValue) {
+    try {
+      return _decodeJsonObject(rawValue);
+    } catch (_) {
+      return const <String, Object?>{};
+    }
+  }
+
+  String _previewChatEndpoint() {
+    final baseUrl = _baseUrlController.text.trim();
+    if (baseUrl.isEmpty || !isValidHttpUrl(baseUrl)) {
+      return '';
+    }
+    try {
+      final adapter = AiProtocolRegistry.adapterFor(_protocolType);
+      final config = AiModelConfig(
+        id: widget.initialModel?.id ?? '',
+        name: _nameController.text.trim(),
+        baseUrl: baseUrl,
+        autoCompleteBaseUrl: _autoCompleteBaseUrl,
+        authScheme: _authScheme,
+        token: _tokenController.text.trim(),
+        modelId: _modelIdController.text.trim(),
+        protocolType: _protocolType,
+        apiDialect: _apiDialect,
+        providerKind: _providerKind,
+        customHeaders: _collectCustomHeaders(),
+        requestMethod: _requestMethod,
+        endpointOverrides: parseAiEndpointOverrides(
+          _tryDecodeJsonObject(_endpointOverridesController.text),
+        ),
+      );
+      return _endpointPreviewRouter
+          .resolve(
+            config,
+            adapter.operationFamily,
+            fallbackPath: adapter.endpointPath,
+            method: _requestMethod,
+          )
+          .url;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Widget _buildAutoCompleteBaseUrlControl() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final previewUrl = _previewChatEndpoint();
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0, 0, 0, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '自动补全 Base URL',
+                    en: 'Auto-complete Base URL',
+                  ),
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _autoCompleteBaseUrl
+                      ? _localizedText(
+                          context,
+                          zh: '开启时按协议补默认版本路径，例如 OpenAI 兼容接口会追加 v1。',
+                          en: 'Adds the protocol default version path, such as v1 for OpenAI-compatible endpoints.',
+                        )
+                      : _localizedText(
+                          context,
+                          zh: '关闭时严格使用你填写的 Base URL，只继续拼接资源路径。',
+                          en: 'Uses the Base URL exactly, then appends only the resource path.',
+                        ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                AnimatedSwitcher(
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: previewUrl.isEmpty
+                      ? const SizedBox.shrink(
+                          key: ValueKey<String>('endpoint-preview-empty'),
+                        )
+                      : Padding(
+                          key: ValueKey<String>(previewUrl),
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            _localizedText(
+                              context,
+                              zh: '预览：$previewUrl',
+                              en: 'Preview: $previewUrl',
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Switch(
+            value: _autoCompleteBaseUrl,
+            onChanged: _isSaving
+                ? null
+                : (value) {
+                    setState(() {
+                      _autoCompleteBaseUrl = value;
+                    });
+                  },
+          ),
+        ],
+      ),
+    );
+  }
 
   bool _defaultExplicitPromptCacheEnabledFor(AiProtocolType protocolType) {
     return protocolType == AiProtocolType.claude;
@@ -564,6 +700,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 decoration: InputDecoration(
                                   labelText: l10n.aiModelBaseUrl,
                                 ),
+                                onChanged: (_) {
+                                  setState(() {});
+                                },
                                 validator: (value) {
                                   final rawValue = value?.trim() ?? '';
                                   if (rawValue.isEmpty) {
@@ -575,6 +714,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   return null;
                                 },
                               ),
+                              const SizedBox(height: 16),
+                              _buildAutoCompleteBaseUrlControl(),
                               const SizedBox(height: 16),
                               LayoutBuilder(
                                 builder: (context, constraints) {
@@ -1690,6 +1831,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           context.read<SettingsController>().createAiModelId(),
       name: _nameController.text.trim(),
       baseUrl: _baseUrlController.text.trim(),
+      autoCompleteBaseUrl: _autoCompleteBaseUrl,
       authScheme: _authScheme,
       token: _tokenController.text.trim(),
       modelId: _modelIdController.text.trim(),

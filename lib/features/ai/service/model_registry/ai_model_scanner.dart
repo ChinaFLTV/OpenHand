@@ -157,23 +157,9 @@ class AiModelScanner {
     final headers = _buildHeaders(config);
     final transport = _effectiveTransport;
     AiModelScanResult? lastFailure;
-    final primary = _router.resolve(config, AiApiFamily.models, method: 'GET');
-    final candidates = <String>[primary.url];
-    if (!config.normalizedBaseUrl.endsWith('/v1')) {
-      final fallback = Uri.parse(config.normalizedBaseUrl)
-          .replace(
-            pathSegments: <String>[
-              ...Uri.parse(
-                config.normalizedBaseUrl,
-              ).pathSegments.where((segment) => segment.isNotEmpty),
-              'models',
-            ],
-          )
-          .toString();
-      if (!candidates.contains(fallback)) {
-        candidates.add(fallback);
-      }
-    }
+    final candidates = <String>[
+      _router.resolve(config, AiApiFamily.models, method: 'GET').url,
+    ];
 
     for (final modelsUrl in candidates) {
       final response = await transport.get(
@@ -193,7 +179,15 @@ class AiModelScanner {
         );
       }
       if (response.statusCode == 200) {
-        return _parseOpenAiModelsResponse(response.body);
+        final parsed = _parseOpenAiModelsResponse(
+          response.body,
+          url: modelsUrl,
+        );
+        if (parsed.isSuccess) {
+          return parsed;
+        }
+        lastFailure = parsed;
+        continue;
       }
       lastFailure = AiModelScanResult(
         modelIds: const <String>[],
@@ -265,13 +259,29 @@ class AiModelScanner {
     final token = config.token.trim();
     // Gemini REST: GET /v1beta/models?key=API_KEY
     // Or: /v1/models with bearer token
-    String baseModelsUrl;
-    if (baseUrl.contains('/v1beta')) {
+    late final String baseModelsUrl;
+    if (!config.autoCompleteBaseUrl) {
+      baseModelsUrl = _router
+          .resolve(
+            config,
+            AiApiFamily.models,
+            method: 'GET',
+            fallbackPath: 'v1beta/models',
+          )
+          .url;
+    } else if (baseUrl.contains('/v1beta')) {
       baseModelsUrl = '$baseUrl/models';
     } else if (baseUrl.endsWith('/v1')) {
       baseModelsUrl = '$baseUrl/models';
     } else {
-      baseModelsUrl = '$baseUrl/v1beta/models';
+      baseModelsUrl = _router
+          .resolve(
+            config,
+            AiApiFamily.models,
+            method: 'GET',
+            fallbackPath: 'v1beta/models',
+          )
+          .url;
     }
 
     final headers = <String, String>{};
@@ -367,13 +377,14 @@ class AiModelScanner {
     AiModelConfig config, {
     required Duration timeout,
   }) async {
-    final baseUrl = config.normalizedBaseUrl;
-    String modelsUrl;
-    if (baseUrl.endsWith('/v1')) {
-      modelsUrl = '$baseUrl/models';
-    } else {
-      modelsUrl = '$baseUrl/v1/models';
-    }
+    final modelsUrl = _router
+        .resolve(
+          config,
+          AiApiFamily.models,
+          method: 'GET',
+          fallbackPath: 'v1/models',
+        )
+        .url;
 
     final headers = _buildHeaders(config);
     headers['anthropic-version'] = '2023-06-01';
@@ -427,7 +438,8 @@ class AiModelScanner {
           return AiModelScanResult(
             modelIds: const <String>[],
             error: _ScanErrorMessages.formatError(
-              'expected a JSON object at /v1/models',
+              'expected a JSON object at $modelsUrl',
+              url: modelsUrl,
             ),
           );
         }
@@ -523,7 +535,7 @@ class AiModelScanner {
       );
     }
 
-    return _parseOpenAiModelsResponse(response.body);
+    return _parseOpenAiModelsResponse(response.body, url: modelsUrl);
   }
 
   Map<String, String> _buildHeaders(AiModelConfig config) {
@@ -537,19 +549,33 @@ class AiModelScanner {
   }
 
   /// Parses OpenAI-style `{ "data": [ { "id": "model-name" }, ... ] }`.
-  AiModelScanResult _parseOpenAiModelsResponse(String body) {
-    final json = jsonDecode(body);
+  AiModelScanResult _parseOpenAiModelsResponse(String body, {String? url}) {
+    final Object? json;
+    try {
+      json = jsonDecode(body);
+    } on FormatException catch (error) {
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error: _ScanErrorMessages.formatError(error.message, url: url),
+      );
+    }
     if (json is! Map<String, dynamic>) {
-      return const AiModelScanResult(
-        modelIds: <String>[],
-        error: 'Unexpected response format.',
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error: _ScanErrorMessages.formatError(
+          'expected a JSON object',
+          url: url,
+        ),
       );
     }
     final data = json['data'];
     if (data is! List) {
-      return const AiModelScanResult(
-        modelIds: <String>[],
-        error: 'Response does not contain a "data" array.',
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error: _ScanErrorMessages.formatError(
+          'response does not contain a "data" array',
+          url: url,
+        ),
       );
     }
     final ids = <String>[];
@@ -936,8 +962,9 @@ class _ScanErrorMessages {
   }
 
   static String formatError(
-    String detail,
-  ) => AiTransportDiagnosticMessages.format(
+    String detail, {
+    String? url,
+  }) => AiTransportDiagnosticMessages.format(
     title: StructuredErrorText.pick(
       zh: '响应格式异常',
       en: 'Unexpected response format',
@@ -949,9 +976,11 @@ class _ScanErrorMessages {
           'This usually means the relay returned an HTML error page, a Cloudflare challenge page, or a plain-text error message.',
     ),
     try_: StructuredErrorText.pick(
-      zh: '· 在浏览器直接打开该 URL 查看真实响应\n· 联系中转方确认 /models 是否真正提供 JSON 输出',
+      zh:
+          '· 在浏览器直接打开${url == null ? '该 URL' : ' $url '}查看真实响应\n'
+          '· 联系中转方确认 /models 是否真正提供 JSON 输出',
       en:
-          '· Open the URL directly in a browser to inspect the real response\n'
+          '· Open ${url ?? 'the URL'} directly in a browser to inspect the real response\n'
           '· Ask the relay provider to confirm that /models really returns JSON',
     ),
   );

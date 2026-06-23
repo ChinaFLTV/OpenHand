@@ -4244,6 +4244,27 @@ class _AiModelTileState extends State<_AiModelTile> {
                       label: Text(widget.model.normalizedBaseUrl),
                     ),
                     Chip(
+                      avatar: Icon(
+                        widget.model.autoCompleteBaseUrl
+                            ? Icons.auto_fix_high_rounded
+                            : Icons.rule_rounded,
+                        size: 18,
+                      ),
+                      label: Text(
+                        widget.model.autoCompleteBaseUrl
+                            ? _localizedText(
+                                context,
+                                zh: '自动补全',
+                                en: 'Auto-complete',
+                              )
+                            : _localizedText(
+                                context,
+                                zh: '精确 Base URL',
+                                en: 'Exact Base URL',
+                              ),
+                      ),
+                    ),
+                    Chip(
                       avatar: const Icon(Icons.vpn_key_outlined, size: 18),
                       label: Text(
                         widget.model.maskedToken.isEmpty

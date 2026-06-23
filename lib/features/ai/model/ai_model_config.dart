@@ -636,6 +636,7 @@ class AiModelConfig {
       id: '${json['id'] ?? ''}'.trim(),
       name: '${json['name'] ?? ''}'.trim(),
       baseUrl: _normalizeBaseUrl('${json['base_url'] ?? ''}'),
+      autoCompleteBaseUrl: _readBool(json[_autoCompleteBaseUrlJsonKey]) ?? true,
       authScheme: AiAuthScheme.fromStorage('${json['auth_scheme'] ?? ''}'),
       token: '${json['token'] ?? ''}',
       modelId: '${json['model_id'] ?? ''}'.trim(),
@@ -671,6 +672,7 @@ class AiModelConfig {
     required this.id,
     this.name = '',
     required this.baseUrl,
+    this.autoCompleteBaseUrl = true,
     required this.authScheme,
     required this.token,
     required this.modelId,
@@ -704,6 +706,7 @@ class AiModelConfig {
 
   static const String _explicitPromptCacheEnabledJsonKey =
       'explicit_prompt_cache_enabled';
+  static const String _autoCompleteBaseUrlJsonKey = 'auto_complete_base_url';
 
   static List<String> normalizeModelIds(Iterable<String> values) {
     final normalized = <String>{};
@@ -724,6 +727,7 @@ class AiModelConfig {
   final String name;
 
   final String baseUrl;
+  final bool autoCompleteBaseUrl;
   final AiAuthScheme authScheme;
   final String token;
 
@@ -991,6 +995,7 @@ class AiModelConfig {
     String? id,
     String? name,
     String? baseUrl,
+    bool? autoCompleteBaseUrl,
     AiAuthScheme? authScheme,
     String? token,
     String? modelId,
@@ -1019,6 +1024,7 @@ class AiModelConfig {
       id: id ?? this.id,
       name: name ?? this.name,
       baseUrl: _normalizeBaseUrl(baseUrl ?? this.baseUrl),
+      autoCompleteBaseUrl: autoCompleteBaseUrl ?? this.autoCompleteBaseUrl,
       authScheme: authScheme ?? this.authScheme,
       token: token ?? this.token,
       modelId: modelId ?? this.modelId,
@@ -1066,6 +1072,7 @@ class AiModelConfig {
       'id': id,
       'name': name,
       'base_url': normalizedBaseUrl,
+      _autoCompleteBaseUrlJsonKey: autoCompleteBaseUrl,
       'auth_scheme': authScheme.storageValue,
       'token': token,
       'model_id': modelId.trim(),
@@ -1101,6 +1108,24 @@ class AiModelConfig {
     return trimmedValue.endsWith('/')
         ? trimmedValue.substring(0, trimmedValue.length - 1)
         : trimmedValue;
+  }
+
+  static bool? _readBool(Object? value) {
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    if (value is num) {
+      if (value == 1) return true;
+      if (value == 0) return false;
+    }
+    return null;
   }
 
   static int? _readNullablePositiveInt(Object? value) {
