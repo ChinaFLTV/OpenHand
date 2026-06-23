@@ -4055,11 +4055,12 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(compact ? 16 : 22);
     return SizedBox.square(
       dimension: size,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(compact ? 16 : 22),
+          borderRadius: radius,
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -4077,31 +4078,34 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -size * 0.16,
-              bottom: -size * 0.22,
-              child: Icon(
-                Icons.album_rounded,
-                size: size * 0.86,
-                color: foregroundColor.withValues(alpha: 0.10),
-              ),
-            ),
-            Center(
-              child: Text(
-                meta.coverGlyph,
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.94),
-                  fontWeight: FontWeight.w900,
-                  fontSize: size * (compact ? 0.38 : 0.32),
-                  height: 1,
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Stack(
+            children: [
+              Positioned(
+                right: -size * 0.16,
+                bottom: -size * 0.22,
+                child: Icon(
+                  Icons.album_rounded,
+                  size: size * 0.86,
+                  color: foregroundColor.withValues(alpha: 0.10),
                 ),
               ),
-            ),
-          ],
+              Center(
+                child: Text(
+                  meta.coverGlyph,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    fontWeight: FontWeight.w900,
+                    fontSize: size * (compact ? 0.38 : 0.32),
+                    height: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
