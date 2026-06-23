@@ -4015,12 +4015,6 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 8),
-          _GeneratedAudioMiniWaveform(
-            color: textColor,
-            accentColor: meta.accentColor,
-            seed: meta.seed,
-          ),
         ],
       ),
     );
@@ -4090,86 +4084,6 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _GeneratedAudioMiniWaveform extends StatelessWidget {
-  const _GeneratedAudioMiniWaveform({
-    required this.color,
-    required this.accentColor,
-    required this.seed,
-  });
-
-  final Color color;
-  final Color accentColor;
-  final int seed;
-
-  @override
-  Widget build(BuildContext context) {
-    final pulses = List<Widget>.generate(10, (index) {
-      final value = ((seed >> (index % 14)) + index * 19) & 0x0f;
-      final width = 10.0 + (value / 15.0) * 18.0;
-      return Flexible(
-        fit: FlexFit.tight,
-        child: FractionallySizedBox(
-          widthFactor: 0.78,
-          alignment: Alignment.centerLeft,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              height: index.isEven ? 5 : 4,
-              width: width,
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  accentColor.withValues(alpha: 0.16 + (value / 15.0) * 0.18),
-                  color.withValues(alpha: 0.22),
-                ),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-        ),
-      );
-    });
-    return SizedBox(
-      height: 18,
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          Positioned.fill(
-            top: 8,
-            bottom: 7,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              for (var i = 0; i < pulses.length; i++) ...[
-                pulses[i],
-                if (i != pulses.length - 1) const SizedBox(width: 3),
-              ],
-            ],
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: 0.34,
-              child: Container(
-                height: 3,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.62),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -5011,40 +4925,36 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xBB000000), Colors.transparent],
+          colors: [Color(0xA6000000), Colors.transparent],
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 24),
+      padding: const EdgeInsets.fromLTRB(18, 16, 12, 28),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              widget.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
+          const Spacer(),
           _AudioOverlayIconButton(
             icon: Icons.open_in_new_rounded,
-            tooltip: _localizedText(context, zh: '使用系统播放器打开', en: 'Open with System Player'),
+            tooltip: _localizedText(
+              context,
+              zh: '使用系统播放器打开',
+              en: 'Open with System Player',
+            ),
             onPressed: () => _openInSystemPlayer(context),
           ),
+          const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.content_copy_outlined,
             tooltip: _localizedText(context, zh: '复制媒体', en: 'Copy Media'),
-            onPressed: _isCopyingMedia ? null : () => _copyMediaToClipboard(context),
+            onPressed:
+                _isCopyingMedia ? null : () => _copyMediaToClipboard(context),
           ),
+          const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.download_rounded,
             tooltip: _localizedText(context, zh: '保存到本地', en: 'Save to disk'),
             onPressed: () => _saveMediaAs(context),
           ),
+          const SizedBox(width: 10),
           _AudioOverlayIconButton(
             icon: Icons.close_rounded,
             tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
