@@ -3243,6 +3243,10 @@ class _GeneratedMediaLinkCard extends StatefulWidget {
 
 class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     with SingleTickerProviderStateMixin {
+  static final Expando<bool> _revealPlayed = Expando<bool>(
+    '_generatedMediaRevealPlayed',
+  );
+
   late final AnimationController _revealController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 420),
@@ -3268,13 +3272,16 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   @override
   void initState() {
     super.initState();
-    if (WidgetsBinding
+    final disableAnimations = WidgetsBinding
         .instance
         .platformDispatcher
         .accessibilityFeatures
-        .disableAnimations) {
+        .disableAnimations;
+    final hasPlayedReveal = _revealPlayed[widget.source] == true;
+    if (disableAnimations || hasPlayedReveal) {
       _revealController.value = 1;
     } else {
+      _revealPlayed[widget.source] = true;
       _revealController.forward();
     }
     _syncCachedSource();
@@ -3405,7 +3412,9 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   }
 
   Widget _buildResultReveal(Widget child) {
-    if (MediaQuery.disableAnimationsOf(context)) return child;
+    if (MediaQuery.disableAnimationsOf(context) || _revealController.isCompleted) {
+      return child;
+    }
     return AnimatedBuilder(
       animation: _revealAnimation,
       child: child,
@@ -3822,6 +3831,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
   }
 
   void _onHoverChanged(bool hovered) {
+    if (_hovered == hovered) return;
     setState(() => _hovered = hovered);
     if (hovered) {
       _hoverController.forward();
@@ -3835,57 +3845,66 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
     final meta = widget.meta;
     final textColor = widget.textColor;
     final bg = widget.backgroundColor;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
     final surfaceColor = Color.alphaBlend(
       meta.primaryColor.withValues(alpha: 0.12),
       Color.alphaBlend(textColor.withValues(alpha: 0.04), bg),
     );
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => _onHoverChanged(true),
-      onExit: (_) => _onHoverChanged(false),
-      child: Semantics(
-        button: true,
-        label: widget.title,
-        child: AnimatedBuilder(
-          animation: _hoverController,
-          builder: (context, child) {
-            final t = _hoverController.value;
-            return Transform.scale(
-              scale: 1.0 + t * 0.012,
-              child: child,
-            );
-          },
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 320, minWidth: 240),
-              decoration: BoxDecoration(
-                color: surfaceColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Color.alphaBlend(
-                    meta.primaryColor.withValues(alpha: _hovered ? 0.30 : 0.14),
-                    textColor.withValues(alpha: 0.08),
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: meta.primaryColor.withValues(
-                      alpha: _hovered ? 0.18 : 0.08,
+    return RepaintBoundary(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: disableAnimations ? null : (_) => _onHoverChanged(true),
+        onExit: disableAnimations ? null : (_) => _onHoverChanged(false),
+        child: Semantics(
+          button: true,
+          label: widget.title,
+          child: AnimatedBuilder(
+            animation: _hoverController,
+            builder: (context, child) {
+              final t = disableAnimations ? 0.0 : _hoverController.value;
+              return Transform.scale(
+                scale: 1.0 + t * 0.012,
+                child: child,
+              );
+            },
+            child: GestureDetector(
+              onTap: widget.onTap,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 320, minWidth: 240),
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Color.alphaBlend(
+                      meta.primaryColor.withValues(
+                        alpha: disableAnimations
+                            ? 0.14
+                            : (_hovered ? 0.30 : 0.14),
+                      ),
+                      textColor.withValues(alpha: 0.08),
                     ),
-                    blurRadius: _hovered ? 32 : 20,
-                    offset: const Offset(0, 10),
                   ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildCoverBanner(meta, textColor),
-                  _buildInfoRow(context, meta, textColor),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: meta.primaryColor.withValues(
+                        alpha: disableAnimations
+                            ? 0.08
+                            : (_hovered ? 0.18 : 0.08),
+                      ),
+                      blurRadius: disableAnimations ? 20 : (_hovered ? 32 : 20),
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildCoverBanner(meta, textColor),
+                    _buildInfoRow(context, meta, textColor),
+                  ],
+                ),
               ),
             ),
           ),
