@@ -14,6 +14,8 @@ import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
+import '../operations/ai_operation_http.dart';
+import '../runtime/ai_endpoint_router.dart';
 
 enum _GeneratedMediaKind {
   image('image', 'Image'),
@@ -85,10 +87,12 @@ class AiMediaGenerationException implements Exception {
 /// quirks (Qwen's `qwen-image` aliasing, Grok's `grok-image-1.0`,
 /// DALL·E 3's quality/style flags, …) without destabilising the chat path.
 class AiImageGenerationService {
-  AiImageGenerationService({http.Client? client})
-    : _client = client ?? SystemProxyResolver.instance.createHttpClient();
+  AiImageGenerationService({http.Client? client, AiEndpointRouter? router})
+    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+      _router = router ?? const AiEndpointRouter();
 
   final http.Client _client;
+  final AiEndpointRouter _router;
 
   /// Returns `true` when [protocol] is known to speak the OpenAI-compatible
   /// images/generations HTTP contract. Gemini returns images inline through
@@ -270,8 +274,19 @@ class AiImageGenerationService {
       );
     }
     final imageModelId = resolveImageModelId(model, AiCreationMode.image);
-    final url = _resolveImagesEndpoint(model.normalizedBaseUrl);
-    final headers = _buildHeaders(model);
+    const family = AiApiFamily.imageGeneration;
+    final endpoint = _resolveMediaEndpoint(
+      model,
+      _GeneratedMediaKind.image,
+      model.protocolType,
+      modelId: imageModelId,
+    );
+    final uri = AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family);
+    final headers = _buildHeaders(
+      model,
+      family: family,
+      endpointHeaders: endpoint.headers,
+    );
     final referenceImageDataUrls =
         _usesAgnesMediaApi(model.protocolType, imageModelId)
         ? await _referenceImageDataUrls(
@@ -279,18 +294,22 @@ class AiImageGenerationService {
             _GeneratedMediaKind.image,
           )
         : const <String>[];
-    final body = _buildImageBody(
-      modelId: imageModelId,
-      prompt: trimmedPrompt,
-      options: options,
-      protocol: model.protocolType,
-      referenceImageDataUrls: referenceImageDataUrls,
+    final body = AiOperationHttp.mergeBodyExtras(
+      model,
+      family,
+      _buildImageBody(
+        modelId: imageModelId,
+        prompt: trimmedPrompt,
+        options: options,
+        protocol: model.protocolType,
+        referenceImageDataUrls: referenceImageDataUrls,
+      ),
     );
     final startedAt = DateTime.now().toUtc();
     final http.Response response;
     try {
       response = await _client
-          .post(Uri.parse(url), headers: headers, body: jsonEncode(body))
+          .post(uri, headers: headers, body: jsonEncode(body))
           .timeout(timeout);
     } on TimeoutException {
       throw AiMediaGenerationException(
@@ -338,7 +357,7 @@ class AiImageGenerationService {
     return AiMediaGenerationResult(
       markdown: markdown,
       rawResponseBody: response.body,
-      requestUrl: url,
+      requestUrl: uri.toString(),
       requestBody: body,
       requestHeaders: Map<String, String>.unmodifiable(headers),
       startedAt: startedAt,
@@ -411,13 +430,19 @@ class AiImageGenerationService {
       _GeneratedMediaKind.video => resolveVideoModelId(model),
       _GeneratedMediaKind.audio => resolveAudioModelId(model),
     };
-    final url = _resolveMediaEndpoint(
-      model.normalizedBaseUrl,
+    final family = _familyForKind(kind);
+    final endpoint = _resolveMediaEndpoint(
+      model,
       kind,
       model.protocolType,
       modelId: modelId,
     );
-    final headers = _buildHeaders(model);
+    final uri = AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family);
+    final headers = _buildHeaders(
+      model,
+      family: family,
+      endpointHeaders: endpoint.headers,
+    );
     if (!model.customHeaders.keys.any(
       (key) => key.trim().toLowerCase() == 'accept',
     )) {
@@ -439,13 +464,17 @@ class AiImageGenerationService {
         _usesAgnesMediaApi(model.protocolType, modelId)
         ? await _referenceImageDataUrls(referenceImages, kind)
         : const <String>[];
-    final body = _buildMediaBody(
-      kind: kind,
-      modelId: modelId,
-      prompt: trimmedPrompt,
-      options: options,
-      protocol: model.protocolType,
-      referenceImageDataUrls: referenceImageDataUrls,
+    final body = AiOperationHttp.mergeBodyExtras(
+      model,
+      family,
+      _buildMediaBody(
+        kind: kind,
+        modelId: modelId,
+        prompt: trimmedPrompt,
+        options: options,
+        protocol: model.protocolType,
+        referenceImageDataUrls: referenceImageDataUrls,
+      ),
     );
     final useMultipart = _videoEndpointWantsMultipart(
       kind: kind,
@@ -461,14 +490,14 @@ class AiImageGenerationService {
         // JSON body causes the server to see all fields as missing because
         // the FastAPI form parser cannot decode JSON.
         response = await _postMultipartMediaRequest(
-          uri: Uri.parse(url),
+          uri: uri,
           headers: headers,
           body: body,
           timeout: timeout,
         );
       } else {
         response = await _client
-            .post(Uri.parse(url), headers: headers, body: jsonEncode(body))
+            .post(uri, headers: headers, body: jsonEncode(body))
             .timeout(timeout);
       }
     } on TimeoutException {
@@ -517,7 +546,7 @@ class AiImageGenerationService {
       return AiMediaGenerationResult(
         markdown: markdown,
         rawResponseBody: response.body,
-        requestUrl: url,
+        requestUrl: uri.toString(),
         requestBody: body,
         requestHeaders: Map<String, String>.unmodifiable(headers),
         startedAt: startedAt,
@@ -535,7 +564,7 @@ class AiImageGenerationService {
       return AiMediaGenerationResult(
         markdown: initialMarkdown,
         rawResponseBody: response.body,
-        requestUrl: url,
+        requestUrl: uri.toString(),
         requestBody: body,
         requestHeaders: Map<String, String>.unmodifiable(headers),
         startedAt: startedAt,
@@ -544,7 +573,7 @@ class AiImageGenerationService {
     }
 
     final polled = await _pollMediaOperation(
-      initialUrl: url,
+      initialUrl: uri.toString(),
       initialPayload: decoded,
       kind: kind,
       label: trimmedPrompt,
@@ -563,7 +592,7 @@ class AiImageGenerationService {
     return AiMediaGenerationResult(
       markdown: polled.markdown,
       rawResponseBody: polled.rawResponseBody,
-      requestUrl: url,
+      requestUrl: uri.toString(),
       requestBody: body,
       requestHeaders: Map<String, String>.unmodifiable(headers),
       startedAt: startedAt,
@@ -571,123 +600,38 @@ class AiImageGenerationService {
     );
   }
 
-  String _resolveImagesEndpoint(String baseUrl) {
-    if (baseUrl.trim().isEmpty) {
-      throw const AiMediaGenerationException('Missing base URL.');
-    }
-    // The chat base URL often ends in `.../v1/chat/completions`.  We want
-    // `.../v1/images/generations` — trim trailing chat-style suffixes and
-    // append the images path.
-    var uri = Uri.parse(baseUrl);
-    final segments = uri.pathSegments
-        .where((segment) => segment.isNotEmpty)
-        .toList(growable: true);
-    while (segments.isNotEmpty) {
-      final last = segments.last.toLowerCase();
-      if (last == 'completions' ||
-          last == 'chat' ||
-          last == 'chat/completions' ||
-          last == 'responses') {
-        segments.removeLast();
-        continue;
-      }
-      break;
-    }
-    // If a `v1` (or equivalent) prefix is missing entirely, add one so the
-    // path is `/v1/images/generations`.
-    if (segments.isEmpty ||
-        !_isApiVersionSegment(segments.last.toLowerCase())) {
-      // Walk back to find an existing version segment; otherwise append v1.
-      final idx = segments.lastIndexWhere(
-        (segment) => _isApiVersionSegment(segment.toLowerCase()),
-      );
-      if (idx < 0) {
-        segments.add('v1');
-      }
-    }
-    segments
-      ..add('images')
-      ..add('generations');
-    return Uri(
-      scheme: uri.scheme,
-      userInfo: uri.userInfo.isEmpty ? null : uri.userInfo,
-      host: uri.host,
-      port: uri.hasPort ? uri.port : null,
-      pathSegments: segments,
-      query: uri.query.isEmpty ? null : uri.query,
-    ).toString();
+  AiApiFamily _familyForKind(_GeneratedMediaKind kind) {
+    return switch (kind) {
+      _GeneratedMediaKind.image => AiApiFamily.imageGeneration,
+      _GeneratedMediaKind.video => AiApiFamily.videoGeneration,
+      _GeneratedMediaKind.audio => AiApiFamily.audioSpeech,
+    };
   }
 
-  String _resolveMediaEndpoint(
-    String baseUrl,
+  AiResolvedEndpoint _resolveMediaEndpoint(
+    AiModelConfig model,
     _GeneratedMediaKind kind,
     AiProtocolType protocol, {
     required String modelId,
   }) {
-    if (kind.isImage) return _resolveImagesEndpoint(baseUrl);
-    if (baseUrl.trim().isEmpty) {
+    if (model.normalizedBaseUrl.trim().isEmpty) {
       throw const AiMediaGenerationException('Missing base URL.');
     }
-    final uri = Uri.parse(baseUrl);
-    final segments = uri.pathSegments
-        .where((segment) => segment.isNotEmpty)
-        .toList(growable: true);
-    if (_looksLikeMediaEndpoint(segments, kind)) {
-      return baseUrl;
-    }
-    while (segments.isNotEmpty) {
-      final last = segments.last.toLowerCase();
-      if (last == 'completions' ||
-          last == 'chat' ||
-          last == 'responses' ||
-          last == 'generations' ||
-          last == 'speech') {
-        segments.removeLast();
-        continue;
-      }
-      break;
-    }
-    if (segments.isEmpty ||
-        !_isApiVersionSegment(segments.last.toLowerCase())) {
-      final idx = segments.lastIndexWhere(
-        (segment) => _isApiVersionSegment(segment.toLowerCase()),
-      );
-      if (idx < 0) {
-        segments.add('v1');
-      }
-    }
-    segments.addAll(_mediaEndpointSuffix(kind, protocol, modelId));
-    return Uri(
-      scheme: uri.scheme,
-      userInfo: uri.userInfo.isEmpty ? null : uri.userInfo,
-      host: uri.host,
-      port: uri.hasPort ? uri.port : null,
-      pathSegments: segments,
-      query: uri.query.isEmpty ? null : uri.query,
-    ).toString();
+    final family = _familyForKind(kind);
+    return _router.resolve(
+      model,
+      family,
+      method: model.requestMethod,
+      fallbackPath: _fallbackMediaPath(kind, protocol, modelId),
+    );
   }
 
-  bool _looksLikeMediaEndpoint(
-    List<String> segments,
+  String _fallbackMediaPath(
     _GeneratedMediaKind kind,
+    AiProtocolType protocol,
+    String modelId,
   ) {
-    final lowered = segments.map((segment) => segment.toLowerCase()).toList();
-    if (lowered.isEmpty) return false;
-    if (kind.isVideo) {
-      return lowered.any(
-        (segment) => segment.contains('video') || segment.contains('veo'),
-      );
-    }
-    if (kind.isAudio) {
-      return lowered.any(
-        (segment) =>
-            segment.contains('audio') ||
-            segment.contains('speech') ||
-            segment.contains('tts') ||
-            segment.contains('voice'),
-      );
-    }
-    return false;
+    return 'v1/${_mediaEndpointSuffix(kind, protocol, modelId).join('/')}';
   }
 
   List<String> _mediaEndpointSuffix(
@@ -725,35 +669,17 @@ class AiImageGenerationService {
     return const <String>['images', 'generations'];
   }
 
-  bool _isApiVersionSegment(String segment) {
-    return segment == 'v1' ||
-        segment == 'v2' ||
-        segment == 'v3' ||
-        segment == 'v4' ||
-        RegExp(r'^v[0-9]+(beta|alpha)?$').hasMatch(segment);
-  }
-
-  Map<String, String> _buildHeaders(AiModelConfig model) {
-    final headers = <String, String>{
-      'content-type': 'application/json',
-      'accept': 'application/json',
-    };
-    final rawToken = model.token.trim();
-    if (rawToken.isNotEmpty && model.authScheme != AiAuthScheme.none) {
-      if (model.authScheme == AiAuthScheme.apiKey) {
-        headers['x-api-key'] = model.authScheme.apply(rawToken);
-      } else {
-        headers['authorization'] = model.authScheme.apply(rawToken);
-      }
-    }
-    // Merge user-defined custom headers last so they can override defaults.
-    for (final entry in model.customHeaders.entries) {
-      final key = entry.key.trim();
-      if (key.isNotEmpty) {
-        headers[key] = entry.value;
-      }
-    }
-    return headers;
+  Map<String, String> _buildHeaders(
+    AiModelConfig model, {
+    required AiApiFamily family,
+    required Map<String, String> endpointHeaders,
+  }) {
+    return AiOperationHttp.buildHeaders(
+      model: model,
+      endpointHeaders: endpointHeaders,
+      family: family,
+      acceptJson: true,
+    );
   }
 
   String _acceptHeaderFor(_GeneratedMediaKind kind) {

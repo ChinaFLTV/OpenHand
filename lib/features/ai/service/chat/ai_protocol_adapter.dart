@@ -4,9 +4,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
+import '../../model/ai_api_family.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
+import '../operations/ai_operation_http.dart';
+import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
 
 enum AiChatRole { system, user, assistant, tool }
@@ -171,11 +174,15 @@ class AiRequestBlueprint {
 abstract class AiProtocolAdapter {
   const AiProtocolAdapter();
 
+  static const AiEndpointRouter _endpointRouter = AiEndpointRouter();
+
   AiProtocolType get protocolType;
 
   String get endpointPath;
 
   String get streamEndpointPath => endpointPath;
+
+  AiApiFamily get operationFamily => AiApiFamily.chatCompletions;
 
   bool get supportsServerStreaming => false;
 
@@ -193,53 +200,41 @@ abstract class AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
+    final family = operationFamily;
+    final endpoint = _endpointRouter.resolve(
+      model,
+      family,
+      fallbackPath: stream ? streamEndpointPath : endpointPath,
+      method: model.requestMethod,
+    );
+    final body = await buildBody(
+      model,
+      messages,
+      tools: tools,
+      responseModalities: responseModalities,
+      stream: stream,
+      inputCacheConfig: inputCacheConfig,
+    );
     return AiRequestBlueprint(
-      url: _buildUrl(
-        model.normalizedBaseUrl,
-        stream ? streamEndpointPath : endpointPath,
-        model.modelId,
-      ),
-      headers: buildHeaders(model),
-      body: await buildBody(
+      url: AiOperationHttp.uriWithExtraQuery(
+        endpoint.url,
         model,
-        messages,
-        tools: tools,
-        responseModalities: responseModalities,
-        stream: stream,
-        inputCacheConfig: inputCacheConfig,
-      ),
+        family,
+      ).toString(),
+      headers: buildHeaders(model, endpointHeaders: endpoint.headers),
+      body: AiOperationHttp.mergeBodyExtras(model, family, body),
     );
   }
 
-  Map<String, String> buildHeaders(AiModelConfig model) {
-    final headers = <String, String>{'content-type': 'application/json'};
-    final rawToken = model.token.trim();
-    if (rawToken.isEmpty || model.authScheme == AiAuthScheme.none) {
-      // Apply custom headers from provider config.
-      _mergeCustomHeaders(headers, model);
-      return headers;
-    }
-    if (model.authScheme == AiAuthScheme.apiKey) {
-      headers['x-api-key'] = model.authScheme.apply(rawToken);
-      _mergeCustomHeaders(headers, model);
-      return headers;
-    }
-    headers['authorization'] = model.authScheme.apply(rawToken);
-    _mergeCustomHeaders(headers, model);
-    return headers;
-  }
-
-  /// Merges user-defined custom headers from [model.customHeaders] into the
-  /// [headers] map. Custom headers are applied last so they can override
-  /// previously set values (e.g. content-type, authorization).
-  void _mergeCustomHeaders(Map<String, String> headers, AiModelConfig model) {
-    if (model.customHeaders.isEmpty) return;
-    for (final entry in model.customHeaders.entries) {
-      final key = entry.key.trim();
-      if (key.isNotEmpty) {
-        headers[key] = entry.value;
-      }
-    }
+  Map<String, String> buildHeaders(
+    AiModelConfig model, {
+    Map<String, String> endpointHeaders = const <String, String>{},
+  }) {
+    return AiOperationHttp.buildHeaders(
+      model: model,
+      endpointHeaders: endpointHeaders,
+      family: operationFamily,
+    );
   }
 
   Future<Map<String, Object?>> buildBody(
@@ -310,80 +305,6 @@ abstract class AiProtocolAdapter {
       return stripped.isEmpty ? trimmed : stripped;
     }
     return trimmed;
-  }
-
-  String _buildUrl(String baseUrl, String path, String modelId) {
-    final pathParts = path.split('?');
-    final normalizedPath = pathParts.first.startsWith('/')
-        ? pathParts.first.substring(1)
-        : pathParts.first;
-    // Endpoint paths conventionally contain at most one `?`. If a caller
-    // accidentally embeds multiple `?` segments, treat the trailing ones
-    // as additional query pairs (the HTTP spec only honours the first
-    // `?` as the query delimiter; subsequent `?` are literal characters
-    // inside the query string), and stitch them with `&`.
-    final endpointQuery = pathParts.length > 1
-        ? pathParts.sublist(1).join('&')
-        : '';
-    final baseUri = Uri.parse(baseUrl);
-    final baseSegments = baseUri.pathSegments
-        .where((segment) => segment.isNotEmpty)
-        .toList(growable: false);
-    final pathSegments = normalizedPath
-        .split('/')
-        .where((segment) => segment.isNotEmpty)
-        .map((segment) => segment.replaceAll('{model_id}', modelId))
-        .toList(growable: false);
-    final overlapLength = _leadingPathOverlap(baseSegments, pathSegments);
-    final mergedPathSegments = <String>[
-      ...baseSegments,
-      ...pathSegments.skip(overlapLength),
-    ];
-    final mergedQuery = _mergeQueryStrings(baseUri.query, endpointQuery);
-    return Uri(
-      scheme: baseUri.scheme,
-      userInfo: baseUri.userInfo.isEmpty ? null : baseUri.userInfo,
-      host: baseUri.host,
-      port: baseUri.hasPort ? baseUri.port : null,
-      pathSegments: mergedPathSegments,
-      query: mergedQuery.isEmpty ? null : mergedQuery,
-    ).toString();
-  }
-
-  String _mergeQueryStrings(String baseQuery, String endpointQuery) {
-    if (baseQuery.isEmpty) {
-      return endpointQuery;
-    }
-    if (endpointQuery.isEmpty) {
-      return baseQuery;
-    }
-    return '$baseQuery&$endpointQuery';
-  }
-
-  int _leadingPathOverlap(
-    List<String> baseSegments,
-    List<String> pathSegments,
-  ) {
-    final maxOverlap = baseSegments.length < pathSegments.length
-        ? baseSegments.length
-        : pathSegments.length;
-    for (var length = maxOverlap; length > 0; length--) {
-      final baseSuffix = baseSegments.skip(baseSegments.length - length);
-      final pathPrefix = pathSegments.take(length);
-      var matches = true;
-      final baseIterator = baseSuffix.iterator;
-      final pathIterator = pathPrefix.iterator;
-      while (baseIterator.moveNext() && pathIterator.moveNext()) {
-        if (baseIterator.current != pathIterator.current) {
-          matches = false;
-          break;
-        }
-      }
-      if (matches) {
-        return length;
-      }
-    }
-    return 0;
   }
 }
 
@@ -465,7 +386,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       _mergeConsecutiveSystemMessages(requestMessages),
     );
     return <String, Object?>{
-      'model': model.modelId,
+      'model': model.resolveOperationModelId(operationFamily),
       if (model.maxTokens != null) 'max_tokens': model.maxTokens,
       if (model.temperature != null) 'temperature': model.temperature,
       if (stream) 'stream': true,
@@ -1030,8 +951,11 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   bool get supportsToolCalls => true;
 
   @override
-  Map<String, String> buildHeaders(AiModelConfig model) {
-    final headers = super.buildHeaders(model);
+  Map<String, String> buildHeaders(
+    AiModelConfig model, {
+    Map<String, String> endpointHeaders = const <String, String>{},
+  }) {
+    final headers = super.buildHeaders(model, endpointHeaders: endpointHeaders);
     headers.putIfAbsent('anthropic-version', () => '2023-06-01');
     return headers;
   }
@@ -1149,7 +1073,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     }
 
     return <String, Object?>{
-      'model': model.modelId,
+      'model': model.resolveOperationModelId(operationFamily),
       if (systemPayload != null) 'system': systemPayload,
       'max_tokens': effectiveMaxTokens,
       if (model.temperature != null) 'temperature': model.temperature,
@@ -1562,8 +1486,11 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   bool get supportsToolCalls => true;
 
   @override
-  Map<String, String> buildHeaders(AiModelConfig model) {
-    final headers = super.buildHeaders(model);
+  Map<String, String> buildHeaders(
+    AiModelConfig model, {
+    Map<String, String> endpointHeaders = const <String, String>{},
+  }) {
+    final headers = super.buildHeaders(model, endpointHeaders: endpointHeaders);
     headers.remove('authorization');
     headers.remove('x-api-key');
     if (model.token.trim().isNotEmpty &&
@@ -1927,21 +1854,14 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
   }) : super(AiProtocolType.ollama, visionModelPatterns: visionModelPatterns);
 
   @override
-  Map<String, String> buildHeaders(AiModelConfig model) {
+  Map<String, String> buildHeaders(
+    AiModelConfig model, {
+    Map<String, String> endpointHeaders = const <String, String>{},
+  }) {
     // Ollama is commonly deployed locally without authentication.
     // When the user has not set a token we can skip the auth header
     // entirely to avoid confusing the server with an empty value.
-    final headers = <String, String>{'content-type': 'application/json'};
-    final rawToken = model.token.trim();
-    if (rawToken.isEmpty || model.authScheme == AiAuthScheme.none) {
-      return headers;
-    }
-    if (model.authScheme == AiAuthScheme.apiKey) {
-      headers['x-api-key'] = model.authScheme.apply(rawToken);
-      return headers;
-    }
-    headers['authorization'] = model.authScheme.apply(rawToken);
-    return headers;
+    return super.buildHeaders(model, endpointHeaders: endpointHeaders);
   }
 
   @override

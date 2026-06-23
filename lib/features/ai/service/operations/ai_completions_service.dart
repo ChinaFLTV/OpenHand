@@ -7,10 +7,15 @@ import '../runtime/ai_transport_client.dart';
 import 'ai_operation_http.dart';
 
 class AiCompletionResult {
-  const AiCompletionResult({required this.text, required this.rawResponse});
+  const AiCompletionResult({
+    required this.text,
+    required this.rawResponse,
+    this.payload = const <String, Object?>{},
+  });
 
   final String text;
   final String rawResponse;
+  final Map<String, Object?> payload;
 }
 
 class AiCompletionsService {
@@ -23,27 +28,60 @@ class AiCompletionsService {
 
   Future<AiCompletionResult> complete({
     required AiModelConfig model,
-    required String prompt,
+    required Object prompt,
     Duration timeout = const Duration(seconds: 60),
+    String? suffix,
+    int? maxTokens,
+    double? temperature,
+    double? topP,
+    int? n,
+    Object? stop,
+    bool? stream,
+    int? logprobs,
+    bool? echo,
+    double? presencePenalty,
+    double? frequencyPenalty,
+    String? user,
   }) async {
+    const family = AiApiFamily.completions;
     final endpoint = _router.resolve(
       model,
-      AiApiFamily.completions,
+      family,
       method: model.requestMethod,
     );
+    final body =
+        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
+          'model': model.resolveOperationModelId(family),
+          'prompt': prompt,
+          if (suffix?.trim().isNotEmpty == true) 'suffix': suffix!.trim(),
+          if (maxTokens != null && maxTokens > 0) 'max_tokens': maxTokens,
+          if (maxTokens == null && model.maxTokens != null)
+            'max_tokens': model.maxTokens,
+          if (temperature != null && temperature.isFinite)
+            'temperature': temperature,
+          if (temperature == null && model.temperature != null)
+            'temperature': model.temperature,
+          if (topP != null && topP.isFinite) 'top_p': topP,
+          if (n != null && n > 0) 'n': n,
+          if (stop != null) 'stop': stop,
+          if (stream != null) 'stream': stream,
+          if (logprobs != null && logprobs >= 0) 'logprobs': logprobs,
+          if (echo != null) 'echo': echo,
+          if (presencePenalty != null && presencePenalty.isFinite)
+            'presence_penalty': presencePenalty,
+          if (frequencyPenalty != null && frequencyPenalty.isFinite)
+            'frequency_penalty': frequencyPenalty,
+          if (user?.trim().isNotEmpty == true) 'user': user!.trim(),
+        });
     final response = await _transport.sendJson(
-      uri: Uri.parse(endpoint.url),
+      uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
       method: endpoint.method,
       headers: AiOperationHttp.buildHeaders(
         model: model,
         endpointHeaders: endpoint.headers,
+        family: family,
       ),
-      body: <String, Object?>{
-        'model': model.resolveOperationModelId(AiApiFamily.completions),
-        'prompt': prompt,
-        if (model.maxTokens != null) 'max_tokens': model.maxTokens,
-        if (model.temperature != null) 'temperature': model.temperature,
-      },
+      body: body,
       timeout: timeout,
     );
     AiOperationHttp.throwIfFailed(
@@ -55,12 +93,22 @@ class AiCompletionsService {
       response.body,
       contextHint: 'completions',
     );
-    final choices = decoded is Map<String, Object?> ? decoded['choices'] : null;
+    final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
+    final choices = payload['choices'];
     String text = '';
     if (choices is List && choices.isNotEmpty && choices.first is Map) {
-      text = '${(choices.first as Map)['text'] ?? ''}'.trim();
+      final choice = Map<String, Object?>.from(choices.first as Map);
+      text = '${choice['text'] ?? ''}'.trim();
+      if (text.isEmpty && choice['message'] is Map) {
+        final message = Map<String, Object?>.from(choice['message'] as Map);
+        text = '${message['content'] ?? ''}'.trim();
+      }
     }
-    return AiCompletionResult(text: text, rawResponse: response.body);
+    return AiCompletionResult(
+      text: text,
+      rawResponse: response.body,
+      payload: payload,
+    );
   }
 
   void dispose() {

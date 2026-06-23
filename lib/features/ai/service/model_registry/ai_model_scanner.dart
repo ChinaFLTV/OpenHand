@@ -9,6 +9,7 @@ import '../../../../shared/ui/structured_error_text.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
+import '../operations/ai_operation_http.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 
@@ -526,30 +527,13 @@ class AiModelScanner {
   }
 
   Map<String, String> _buildHeaders(AiModelConfig config) {
-    final headers = <String, String>{'accept': 'application/json'};
-    final rawToken = config.token.trim();
-    if (rawToken.isEmpty || config.authScheme == AiAuthScheme.none) {
-      _mergeCustomHeaders(headers, config);
-      return headers;
-    }
-    if (config.authScheme == AiAuthScheme.apiKey) {
-      headers['x-api-key'] = config.authScheme.apply(rawToken);
-      _mergeCustomHeaders(headers, config);
-      return headers;
-    }
-    headers['authorization'] = config.authScheme.apply(rawToken);
-    _mergeCustomHeaders(headers, config);
-    return headers;
-  }
-
-  void _mergeCustomHeaders(Map<String, String> headers, AiModelConfig config) {
-    if (config.customHeaders.isEmpty) return;
-    for (final entry in config.customHeaders.entries) {
-      final key = entry.key.trim();
-      if (key.isNotEmpty) {
-        headers[key] = entry.value;
-      }
-    }
+    return AiOperationHttp.buildHeaders(
+      model: config,
+      endpointHeaders: const <String, String>{},
+      family: AiApiFamily.models,
+      includeJsonContentType: false,
+      acceptJson: true,
+    );
   }
 
   /// Parses OpenAI-style `{ "data": [ { "id": "model-name" }, ... ] }`.

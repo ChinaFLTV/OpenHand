@@ -23,25 +23,32 @@ class AiModerationsService {
 
   Future<AiModerationResult> moderate({
     required AiModelConfig model,
-    required String input,
+    required Object input,
     Duration timeout = const Duration(seconds: 60),
   }) async {
+    const family = AiApiFamily.moderations;
     final endpoint = _router.resolve(
       model,
-      AiApiFamily.moderations,
+      family,
       method: model.requestMethod,
     );
+    final body = AiOperationHttp.mergeBodyExtras(
+      model,
+      family,
+      <String, Object?>{
+        'model': model.resolveOperationModelId(family),
+        'input': input,
+      },
+    );
     final response = await _transport.sendJson(
-      uri: Uri.parse(endpoint.url),
+      uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
       method: endpoint.method,
       headers: AiOperationHttp.buildHeaders(
         model: model,
         endpointHeaders: endpoint.headers,
+        family: family,
       ),
-      body: <String, Object?>{
-        'model': model.resolveOperationModelId(AiApiFamily.moderations),
-        'input': input,
-      },
+      body: body,
       timeout: timeout,
     );
     AiOperationHttp.throwIfFailed(

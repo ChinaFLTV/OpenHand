@@ -55,25 +55,64 @@ class AiResponsesService {
 
   AiResponsesRequestBlueprint buildRequest({
     required AiModelConfig model,
-    required String input,
+    required Object input,
     bool stream = false,
+    String? instructions,
+    String? previousResponseId,
+    bool? store,
+    Map<String, Object?>? metadata,
+    double? temperature,
+    int? maxOutputTokens,
+    double? topP,
+    Object? reasoning,
+    Object? text,
+    Object? tools,
+    Object? toolChoice,
+    String? user,
   }) {
+    const family = AiApiFamily.responses;
     final endpoint = _router.resolve(
       model,
-      AiApiFamily.responses,
+      family,
       method: model.requestMethod,
     );
-    final body = <String, Object?>{
-      'model': model.resolveOperationModelId(AiApiFamily.responses),
-      'input': input,
-      if (stream) 'stream': true,
-    };
+    final body =
+        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
+          'model': model.resolveOperationModelId(family),
+          'input': input,
+          if (instructions?.trim().isNotEmpty == true)
+            'instructions': instructions!.trim(),
+          if (previousResponseId?.trim().isNotEmpty == true)
+            'previous_response_id': previousResponseId!.trim(),
+          if (store != null) 'store': store,
+          if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+          if (temperature != null && temperature.isFinite)
+            'temperature': temperature,
+          if (temperature == null && model.temperature != null)
+            'temperature': model.temperature,
+          if (maxOutputTokens != null && maxOutputTokens > 0)
+            'max_output_tokens': maxOutputTokens,
+          if (maxOutputTokens == null && model.maxTokens != null)
+            'max_output_tokens': model.maxTokens,
+          if (topP != null && topP.isFinite) 'top_p': topP,
+          if (reasoning != null) 'reasoning': reasoning,
+          if (text != null) 'text': text,
+          if (tools != null) 'tools': tools,
+          if (toolChoice != null) 'tool_choice': toolChoice,
+          if (user?.trim().isNotEmpty == true) 'user': user!.trim(),
+          if (stream) 'stream': true,
+        });
     return AiResponsesRequestBlueprint(
-      url: endpoint.url,
+      url: AiOperationHttp.uriWithExtraQuery(
+        endpoint.url,
+        model,
+        family,
+      ).toString(),
       method: endpoint.method,
       headers: AiOperationHttp.buildHeaders(
         model: model,
         endpointHeaders: endpoint.headers,
+        family: family,
       ),
       body: body,
     );
@@ -81,10 +120,37 @@ class AiResponsesService {
 
   Future<AiResponsesResult> createResponse({
     required AiModelConfig model,
-    required String input,
+    required Object input,
     Duration timeout = const Duration(seconds: 60),
+    String? instructions,
+    String? previousResponseId,
+    bool? store,
+    Map<String, Object?>? metadata,
+    double? temperature,
+    int? maxOutputTokens,
+    double? topP,
+    Object? reasoning,
+    Object? text,
+    Object? tools,
+    Object? toolChoice,
+    String? user,
   }) async {
-    final request = buildRequest(model: model, input: input);
+    final request = buildRequest(
+      model: model,
+      input: input,
+      instructions: instructions,
+      previousResponseId: previousResponseId,
+      store: store,
+      metadata: metadata,
+      temperature: temperature,
+      maxOutputTokens: maxOutputTokens,
+      topP: topP,
+      reasoning: reasoning,
+      text: text,
+      tools: tools,
+      toolChoice: toolChoice,
+      user: user,
+    );
     final response = await _transport.sendJson(
       uri: Uri.parse(request.url),
       method: request.method,
@@ -119,6 +185,11 @@ class AiResponsesService {
     String? reasoning;
     AiTokenUsage? usage;
     if (decoded is Map<String, Object?>) {
+      final directText = '${decoded['output_text'] ?? decoded['text'] ?? ''}'
+          .trim();
+      if (directText.isNotEmpty) {
+        text = directText;
+      }
       final output = decoded['output'];
       if (output is List) {
         final buffer = StringBuffer();
@@ -137,6 +208,13 @@ class AiResponsesService {
                 buffer.write(partText);
               }
             }
+            if (type == 'text') {
+              final partText = '${part['text'] ?? ''}'.trim();
+              if (partText.isNotEmpty) {
+                if (buffer.isNotEmpty) buffer.writeln();
+                buffer.write(partText);
+              }
+            }
             if (type == 'reasoning') {
               final partText = '${part['summary'] ?? part['text'] ?? ''}'
                   .trim();
@@ -147,9 +225,15 @@ class AiResponsesService {
             }
           }
         }
-        text = buffer.toString().trim();
+        final parsedText = buffer.toString().trim();
+        if (parsedText.isNotEmpty) {
+          text = parsedText;
+        }
         final normalizedReasoning = reasoningBuffer.toString().trim();
         reasoning = normalizedReasoning.isEmpty ? null : normalizedReasoning;
+      }
+      if (text.isEmpty) {
+        text = _parseChatChoiceText(decoded);
       }
       final usageMap = decoded['usage'];
       if (usageMap is Map<String, Object?>) {
@@ -165,6 +249,28 @@ class AiResponsesService {
       reasoning: reasoning,
       usage: usage,
     );
+  }
+
+  String _parseChatChoiceText(Map<String, Object?> decoded) {
+    final choices = decoded['choices'];
+    if (choices is! List || choices.isEmpty || choices.first is! Map) {
+      return '';
+    }
+    final choice = Map<String, Object?>.from(choices.first as Map);
+    final message = choice['message'];
+    if (message is Map) {
+      final content = message['content'];
+      if (content is String) return content.trim();
+      if (content is List) {
+        return content
+            .whereType<Map>()
+            .map((item) => '${item['text'] ?? ''}'.trim())
+            .where((item) => item.isNotEmpty)
+            .join('\n')
+            .trim();
+      }
+    }
+    return '${choice['text'] ?? ''}'.trim();
   }
 
   void parseSseEvent(
