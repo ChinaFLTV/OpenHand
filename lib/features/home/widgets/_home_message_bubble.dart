@@ -4920,12 +4920,17 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
   }
 
   Widget _buildAudioOverlayBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xA6000000), Colors.transparent],
+          colors: [
+            colorScheme.surface.withValues(alpha: 0.14),
+            colorScheme.surface.withValues(alpha: 0.04),
+            Colors.transparent,
+          ],
         ),
       ),
       padding: const EdgeInsets.fromLTRB(18, 16, 12, 28),

@@ -278,13 +278,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           .timeout(kNativeAudioControlTimeout);
       final source = await _buildAudioSource();
       await _player.setSource(source).timeout(kNativeAudioLoadTimeout);
-      final duration = await _player.getDuration().timeout(
-        kNativeAudioControlTimeout,
-        onTimeout: () => null,
-      );
+      final duration = await _resolveDuration();
       if (_disposed || !mounted || serial != _bootstrapSerial) return;
       setState(() {
-        _duration = duration ?? Duration.zero;
+        _duration = duration;
         _loading = false;
         _sourceReady = true;
         _loadError = null;
@@ -297,6 +294,23 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     } catch (error, stack) {
       _handleLoadFailure(error, stack, serial);
     }
+  }
+
+  Future<Duration> _resolveDuration() async {
+    final initial = await _player.getDuration().timeout(
+      kNativeAudioControlTimeout,
+      onTimeout: () => null,
+    );
+    if (initial != null && initial > Duration.zero) return initial;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      final next = await _player.getDuration().timeout(
+        kNativeAudioControlTimeout,
+        onTimeout: () => null,
+      );
+      if (next != null && next > Duration.zero) return next;
+    }
+    return Duration.zero;
   }
 
   Future<Source> _buildAudioSource() async {
@@ -589,23 +603,30 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Widget _buildWide(BuildContext context) {
+    final hasLyrics = widget.meta.lyricLines.isNotEmpty;
     return Row(
       children: [
-        Expanded(flex: 90, child: _buildAlbumColumn(context, compact: false)),
-        const SizedBox(width: 32),
-        Expanded(flex: 110, child: _buildLyricsColumn(context)),
+        Expanded(
+          flex: hasLyrics ? 90 : 1,
+          child: _buildAlbumColumn(context, compact: false),
+        ),
+        if (hasLyrics) ...[
+          const SizedBox(width: 32),
+          Expanded(flex: 110, child: _buildLyricsColumn(context)),
+        ],
       ],
     );
   }
 
   Widget _buildCompact(BuildContext context) {
+    final hasLyrics = widget.meta.lyricLines.isNotEmpty;
     return LayoutBuilder(
       builder: (context, constraints) {
         final short = constraints.maxHeight < 420;
         return Column(
           children: [
             Expanded(child: _buildAlbumColumn(context, compact: true)),
-            if (!short) ...[
+            if (hasLyrics && !short) ...[
               const SizedBox(height: 10),
               SizedBox(
                 height: math.min(110, constraints.maxHeight * 0.26),
@@ -630,14 +651,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             : fallback.height;
         final short = height < 500;
         final coverLimit = compact ? 144.0 : (short ? 210.0 : 240.0);
+        final squareSize = math.min(width, height * 0.54);
         final coverSize = math
-            .min(
-              coverLimit,
-              math.min(
-                width * (compact ? 0.34 : 0.52),
-                height * (short ? 0.34 : 0.38),
-              ),
-            )
+            .min(coverLimit, squareSize)
             .clamp(compact ? 80.0 : 148.0, coverLimit)
             .toDouble();
         final gap = compact || short ? 10.0 : 14.0;
@@ -1693,14 +1709,14 @@ List<String> deriveNativeAudioLyrics(String title, String detail) {
     lastNativeAudioPathOrUrlSegment(detail),
     fallback: detail,
   );
+  final titleNormalized = normalizeNativeAudioText(title, fallback: 'Audio');
+  if (leaf == titleNormalized || leaf.startsWith('audio_')) {
+    return const <String>[];
+  }
   return <String>{
-    title,
+    titleNormalized,
     leaf,
-    'AI 生成音频',
-    '正在播放当前媒体',
-    '可调节音量、进度与音效',
-    'OpenHand 音频预览',
-  }.where((line) => line.trim().isNotEmpty).take(6).toList(growable: false);
+  }.where((line) => line.trim().isNotEmpty).take(4).toList(growable: false);
 }
 
 String _formatNativeAudioTime(Duration value) {
