@@ -683,13 +683,19 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Widget _buildWide(BuildContext context) {
+    if (!_hasLyrics) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: _buildAlbumColumn(context, compact: false),
+        ),
+      );
+    }
     return Row(
       children: [
-        Expanded(child: _buildAlbumColumn(context, compact: false)),
-        if (_hasLyrics) ...[
-          const SizedBox(width: 32),
-          Expanded(flex: 110, child: _buildLyricsColumn(context)),
-        ],
+        Expanded(flex: 96, child: _buildAlbumColumn(context, compact: false)),
+        const SizedBox(width: 32),
+        Expanded(flex: 104, child: _buildLyricsColumn(context)),
       ],
     );
   }
@@ -699,8 +705,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       builder: (context, constraints) {
         final short = constraints.maxHeight < 420;
         return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(child: _buildAlbumColumn(context, compact: true)),
+            Flexible(child: _buildAlbumColumn(context, compact: true)),
             if (_hasLyrics && !short) ...[
               const SizedBox(height: 10),
               SizedBox(
@@ -719,17 +726,20 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final fallback = MediaQuery.sizeOf(context);
-        final width =
-            constraints.maxWidth.isFinite ? constraints.maxWidth : fallback.width;
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : fallback.width;
         final height = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : fallback.height;
         final short = height < 500;
         final coverLimit = compact ? 144.0 : (short ? 210.0 : 240.0);
-        final squareSize = math.min(width * 0.72, height * 0.50);
+        final coverBase = compact
+            ? math.min(width * 0.42, height * 0.34)
+            : math.min(width * 0.50, height * 0.42);
         final coverSize = math
-            .min(coverLimit, squareSize)
-            .clamp(compact ? 88.0 : 168.0, coverLimit)
+            .min(coverLimit, coverBase)
+            .clamp(compact ? 92.0 : 180.0, coverLimit)
             .toDouble();
         final gap = compact || short ? 10.0 : 14.0;
         final content = Column(
@@ -756,14 +766,13 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             _buildControlsBar(context),
           ],
         );
-        return ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: height),
-              child: Center(child: content),
+        return Align(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: compact ? 420 : 560,
+              minWidth: compact ? 280 : 420,
             ),
+            child: content,
           ),
         );
       },
@@ -924,58 +933,62 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   // 底部控制栏：播放模式 | 音量 | 音效
   Widget _buildControlsBar(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        // 播放模式按钮
-        _NativeAudioIconButton(
-          tooltip: _playModeTooltip(context),
-          icon: _playModeIcon,
-          active: _playMode != _NativeAudioPlayMode.sequence,
-          compact: true,
-          onPressed: _cyclePlayMode,
-        ),
-        const SizedBox(width: 2),
-        // 音量静音按钮
-        _NativeAudioIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: _muted ? '取消静音' : '静音',
-            en: _muted ? 'Unmute' : 'Mute',
-          ),
-          icon: _muted || _volume <= 0
-              ? Icons.volume_off_rounded
-              : (_volume < 0.5
-                  ? Icons.volume_down_rounded
-                  : Icons.volume_up_rounded),
-          compact: true,
-          onPressed: () => unawaited(_toggleMuted()),
-        ),
-        // 音量滑条
-        Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 3,
-              activeTrackColor: cs.primary,
-              inactiveTrackColor: cs.outlineVariant,
-              thumbColor: cs.primary,
-              overlayColor: cs.primary.withValues(alpha: 0.12),
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 11),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 360;
+        return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 10,
+          children: [
+            _NativeAudioIconButton(
+              tooltip: _playModeTooltip(context),
+              icon: _playModeIcon,
+              active: _playMode != _NativeAudioPlayMode.sequence,
+              compact: true,
+              onPressed: _cyclePlayMode,
             ),
-            child: Slider(
-              value: _muted ? 0.0 : _volume,
-              onChanged: (value) => unawaited(_setVolume(value)),
+            _NativeAudioIconButton(
+              tooltip: openHandLocalizedText(
+                context,
+                zh: _muted ? '取消静音' : '静音',
+                en: _muted ? 'Unmute' : 'Mute',
+              ),
+              icon: _muted || _volume <= 0
+                  ? Icons.volume_off_rounded
+                  : (_volume < 0.5
+                        ? Icons.volume_down_rounded
+                        : Icons.volume_up_rounded),
+              compact: true,
+              onPressed: () => unawaited(_toggleMuted()),
             ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        // 音效按钮（单按钮弹出菜单）
-        _NativeAudioEffectMenuButton(
-          effect: _effect,
-          onSelect: (effect) => unawaited(_setEffect(effect)),
-          context: context,
-        ),
-      ],
+            SizedBox(
+              width: narrow ? 136 : 180,
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 3,
+                  activeTrackColor: cs.primary,
+                  inactiveTrackColor: cs.outlineVariant,
+                  thumbColor: cs.primary,
+                  overlayColor: cs.primary.withValues(alpha: 0.12),
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 11),
+                ),
+                child: Slider(
+                  value: _muted ? 0.0 : _volume,
+                  onChanged: (value) => unawaited(_setVolume(value)),
+                ),
+              ),
+            ),
+            _NativeAudioEffectMenuButton(
+              effect: _effect,
+              onSelect: (effect) => unawaited(_setEffect(effect)),
+              context: context,
+            ),
+          ],
+        );
+      },
     );
   }
 
