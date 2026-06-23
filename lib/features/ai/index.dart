@@ -73,6 +73,7 @@ export 'service/operations/ai_moderations_service.dart';
 export 'service/operations/ai_realtime_service.dart';
 export 'service/operations/ai_rerank_service.dart';
 export 'service/operations/ai_responses_service.dart';
+export 'service/operations/ai_stepfun_operations_service.dart';
 export 'service/operations/ai_translation_service.dart';
 export 'service/operations/ai_tts_playback_service.dart';
 export 'service/operations/ai_video_generation_service.dart';

@@ -196,32 +196,33 @@ class AiResponsesService {
         final reasoningBuffer = StringBuffer();
         for (final item in output) {
           if (item is! Map) continue;
+          final itemType = '${item['type'] ?? ''}'.trim();
+          if (itemType == 'reasoning') {
+            _appendResponseText(reasoningBuffer, item['summary']);
+            _appendResponseText(reasoningBuffer, item['content']);
+            continue;
+          }
           final content = item['content'];
-          if (content is! List) continue;
+          if (content is! List) {
+            if (itemType == 'message') {
+              _appendResponseText(buffer, content);
+            }
+            continue;
+          }
           for (final part in content) {
             if (part is! Map) continue;
             final type = '${part['type'] ?? ''}'.trim();
             if (type == 'output_text') {
-              final partText = '${part['text'] ?? ''}'.trim();
-              if (partText.isNotEmpty) {
-                if (buffer.isNotEmpty) buffer.writeln();
-                buffer.write(partText);
-              }
+              _appendResponseText(buffer, part['text']);
             }
             if (type == 'text') {
-              final partText = '${part['text'] ?? ''}'.trim();
-              if (partText.isNotEmpty) {
-                if (buffer.isNotEmpty) buffer.writeln();
-                buffer.write(partText);
-              }
+              _appendResponseText(buffer, part['text']);
             }
             if (type == 'reasoning') {
-              final partText = '${part['summary'] ?? part['text'] ?? ''}'
-                  .trim();
-              if (partText.isNotEmpty) {
-                if (reasoningBuffer.isNotEmpty) reasoningBuffer.writeln();
-                reasoningBuffer.write(partText);
-              }
+              _appendResponseText(
+                reasoningBuffer,
+                part['summary'] ?? part['text'],
+              );
             }
           }
         }
@@ -271,6 +272,31 @@ class AiResponsesService {
       }
     }
     return '${choice['text'] ?? ''}'.trim();
+  }
+
+  void _appendResponseText(StringBuffer buffer, Object? value) {
+    final text = _responseTextValue(value);
+    if (text.isEmpty) return;
+    if (buffer.isNotEmpty) buffer.writeln();
+    buffer.write(text);
+  }
+
+  String _responseTextValue(Object? value) {
+    if (value == null) return '';
+    if (value is String) return value.trim();
+    if (value is List) {
+      return value
+          .map(_responseTextValue)
+          .where((item) => item.isNotEmpty)
+          .join('\n')
+          .trim();
+    }
+    if (value is Map) {
+      final direct = value['text'] ?? value['summary'] ?? value['content'];
+      final text = _responseTextValue(direct);
+      if (text.isNotEmpty) return text;
+    }
+    return '';
   }
 
   void parseSseEvent(

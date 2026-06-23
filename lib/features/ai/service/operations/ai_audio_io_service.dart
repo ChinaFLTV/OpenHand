@@ -55,6 +55,9 @@ class AiAudioIoService {
       family,
       method: model.requestMethod,
     );
+    final instructionKey = model.protocolType == AiProtocolType.stepfun
+        ? 'instruction'
+        : 'instructions';
     final body = AiOperationHttp.mergeBodyExtras(
       model,
       family,
@@ -68,7 +71,7 @@ class AiAudioIoService {
         if (responseFormat?.trim().isNotEmpty == true)
           'response_format': responseFormat!.trim(),
         if (speed?.trim().isNotEmpty == true) 'speed': speed!.trim(),
-        if (instructions != null) 'instructions': instructions,
+        if (instructions != null) instructionKey: instructions,
       },
     );
     final response = await _transport.sendJson(

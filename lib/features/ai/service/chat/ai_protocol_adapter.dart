@@ -2044,6 +2044,8 @@ abstract final class AiProtocolRegistry {
 
   /// StepFun: Step vision model IDs.
   static const _stepfunVisionPatterns = <String>[
+    'step-3.7',
+    'step-3-7',
     'step-2v',
     'step-1.5v',
     'step-1v',

@@ -640,7 +640,7 @@ class AiChatService implements AiChatClient {
       if (choices is! List || choices.isEmpty) return null;
       final message = (choices.first as Map<String, Object?>?)?['message'];
       if (message is! Map<String, Object?>) return null;
-      final reasoning = message['reasoning_content'];
+      final reasoning = message['reasoning_content'] ?? message['reasoning'];
       if (reasoning is String && reasoning.trim().isNotEmpty) {
         return reasoning.trim();
       }

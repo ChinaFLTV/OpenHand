@@ -67,7 +67,19 @@ class AiOperationRouting {
       AiApiFamily.audioTranslation => translationModelId,
       AiApiFamily.videoGeneration => videoModelId,
       AiApiFamily.realtime => realtimeModelId,
-      AiApiFamily.models || AiApiFamily.files || AiApiFamily.fineTunes => null,
+      AiApiFamily.models ||
+      AiApiFamily.files ||
+      AiApiFamily.fineTunes ||
+      AiApiFamily.vectorStores ||
+      AiApiFamily.vectorStoreFiles ||
+      AiApiFamily.tokenCount ||
+      AiApiFamily.search ||
+      AiApiFamily.audioVoices ||
+      AiApiFamily.audioSystemVoices ||
+      AiApiFamily.audioVoicePreview ||
+      AiApiFamily.audioAsr ||
+      AiApiFamily.audioAsrSse ||
+      AiApiFamily.messages => null,
     };
     final trimmed = resolved?.trim() ?? '';
     return trimmed.isEmpty ? fallbackModelId.trim() : trimmed;
@@ -158,8 +170,7 @@ class AiOperationRouting {
         'moderation_model_id': moderationModelId,
       if (!_isBlank(rerankModelId)) 'rerank_model_id': rerankModelId,
       if (!_isBlank(imageModelId)) 'image_model_id': imageModelId,
-      if (!_isBlank(imageEditModelId))
-        'image_edit_model_id': imageEditModelId,
+      if (!_isBlank(imageEditModelId)) 'image_edit_model_id': imageEditModelId,
       if (!_isBlank(videoModelId)) 'video_model_id': videoModelId,
       if (!_isBlank(speechModelId)) 'speech_model_id': speechModelId,
       if (!_isBlank(transcriptionModelId))

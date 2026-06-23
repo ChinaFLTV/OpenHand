@@ -149,6 +149,17 @@ class AiEndpointRouter {
       AiApiFamily.realtime => 'v1/realtime',
       AiApiFamily.files => 'v1/files',
       AiApiFamily.fineTunes => 'v1/fine-tunes',
+      AiApiFamily.vectorStores => 'v1/vector_stores',
+      AiApiFamily.vectorStoreFiles =>
+        'v1/vector_stores/{vector_store_id}/files',
+      AiApiFamily.tokenCount => 'v1/token/count',
+      AiApiFamily.search => 'v1/search',
+      AiApiFamily.audioVoices => 'v1/audio/voices',
+      AiApiFamily.audioSystemVoices => 'v1/audio/system_voices',
+      AiApiFamily.audioVoicePreview => 'v1/audio/voices/preview',
+      AiApiFamily.audioAsr => 'v1/audio/asr/file/submit',
+      AiApiFamily.audioAsrSse => 'v1/audio/asr/sse',
+      AiApiFamily.messages => 'v1/messages',
     };
   }
 
@@ -273,6 +284,17 @@ class AiEndpointRouter {
     <String>['files'],
     <String>['fine-tunes'],
     <String>['fine_tuning', 'jobs'],
+    <String>['vector_stores'],
+    <String>['token', 'count'],
+    <String>['search'],
+    <String>['audio', 'voices'],
+    <String>['audio', 'system_voices'],
+    <String>['audio', 'voices', 'preview'],
+    <String>['audio', 'asr', 'file', 'submit'],
+    <String>['audio', 'asr', 'file', 'query'],
+    <String>['audio', 'asr', 'sse'],
+    <String>['messages', 'count_tokens'],
+    <String>['messages'],
   ];
 
   int _leadingPathOverlap(

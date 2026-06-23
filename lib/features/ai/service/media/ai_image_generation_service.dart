@@ -208,12 +208,11 @@ class AiImageGenerationService {
       case AiProtocolType.qwen:
       case AiProtocolType.glm:
       case AiProtocolType.minimax:
-        return true;
-      // StepFun, Wenxin, Hunyuan, Seed (Volcengine TTS) all use bespoke
-      // signed-RPC APIs rather than `/v1/audio/speech`. Re-enable when a
-      // dedicated adapter lands.
-      case AiProtocolType.seed:
       case AiProtocolType.stepfun:
+        return true;
+      // Wenxin, Hunyuan, Seed (Volcengine TTS) use bespoke signed-RPC APIs
+      // rather than `/v1/audio/speech`. Re-enable when dedicated adapters land.
+      case AiProtocolType.seed:
       case AiProtocolType.wenxin:
       case AiProtocolType.hunyuan:
       case AiProtocolType.gemini:
@@ -275,11 +274,15 @@ class AiImageGenerationService {
     }
     final imageModelId = resolveImageModelId(model, AiCreationMode.image);
     const family = AiApiFamily.imageGeneration;
+    final useStepFunImageToImage =
+        model.protocolType == AiProtocolType.stepfun &&
+        referenceImages.isNotEmpty;
     final endpoint = _resolveMediaEndpoint(
       model,
       _GeneratedMediaKind.image,
       model.protocolType,
       modelId: imageModelId,
+      fallbackPath: useStepFunImageToImage ? 'v1/images/image2image' : null,
     );
     final uri = AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family);
     final headers = _buildHeaders(
@@ -288,7 +291,8 @@ class AiImageGenerationService {
       endpointHeaders: endpoint.headers,
     );
     final referenceImageDataUrls =
-        _usesAgnesMediaApi(model.protocolType, imageModelId)
+        (_usesAgnesMediaApi(model.protocolType, imageModelId) ||
+            useStepFunImageToImage)
         ? await _referenceImageDataUrls(
             referenceImages,
             _GeneratedMediaKind.image,
@@ -613,6 +617,7 @@ class AiImageGenerationService {
     _GeneratedMediaKind kind,
     AiProtocolType protocol, {
     required String modelId,
+    String? fallbackPath,
   }) {
     if (model.normalizedBaseUrl.trim().isEmpty) {
       throw const AiMediaGenerationException('Missing base URL.');
@@ -622,7 +627,7 @@ class AiImageGenerationService {
       model,
       family,
       method: model.requestMethod,
-      fallbackPath: _fallbackMediaPath(kind, protocol, modelId),
+      fallbackPath: fallbackPath ?? _fallbackMediaPath(kind, protocol, modelId),
     );
   }
 
@@ -828,7 +833,9 @@ class AiImageGenerationService {
     final body = <String, Object?>{
       'model': modelId,
       'prompt': prompt,
-      'n': options.count > 0 ? options.count : 1,
+      'n': protocol == AiProtocolType.stepfun
+          ? 1
+          : (options.count > 0 ? options.count : 1),
       'response_format': 'b64_json',
     };
     // Size: canonical OpenAI format (`1024x1024`). When the user specifies an
@@ -842,7 +849,20 @@ class AiImageGenerationService {
     }
     if (options.quality != null) body['quality'] = options.quality;
     if (options.style != null) body['style'] = options.style;
-    if (protocol == AiProtocolType.openai) {
+    if (protocol == AiProtocolType.stepfun) {
+      if (referenceImageDataUrls.isNotEmpty) {
+        body['source_url'] = referenceImageDataUrls.first;
+        body['source_weight'] = _sourceWeightFromOptions(options);
+      }
+      _putPositiveInt(body, 'seed', options.seed);
+      _putPositiveInt(body, 'steps', _stepsFromQuality(options.quality));
+      _putPositiveDouble(body, 'cfg_scale', _doubleFromStyle(options.style));
+      _putString(body, 'negative_prompt', options.negativePrompt);
+      _putBool(body, 'text_mode', options.promptEnhance);
+      body.remove('aspect_ratio');
+      body.remove('quality');
+      body.remove('style');
+    } else if (protocol == AiProtocolType.openai) {
       final lowerModel = modelId.trim().toLowerCase();
       if (lowerModel.startsWith('gpt-image')) {
         _putString(body, 'output_format', options.outputFormat);
@@ -1254,15 +1274,20 @@ class AiImageGenerationService {
     switch (protocol) {
       case AiProtocolType.openai:
       case AiProtocolType.glm:
+      case AiProtocolType.stepfun:
         // OpenAI TTS / GLM CogTTS share `/v1/audio/speech` body:
         //   `{model, input, voice, response_format}`.
         final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
-          'voice': voice ?? 'alloy',
+          'voice': voice ?? _defaultVoiceForAudioProtocol(protocol),
           'response_format': format,
         };
         _putPositiveDouble(body, 'speed', options.speed);
+        if (protocol == AiProtocolType.stepfun) {
+          _putPositiveDouble(body, 'volume', options.volume);
+          _putPositiveInt(body, 'sample_rate', options.sampleRate);
+        }
         return body;
       case AiProtocolType.qwen:
         // Qwen Qwen3-TTS / cosyvoice via DashScope native shape:
@@ -1298,7 +1323,6 @@ class AiImageGenerationService {
           },
         };
       case AiProtocolType.seed:
-      case AiProtocolType.stepfun:
       case AiProtocolType.wenxin:
       case AiProtocolType.hunyuan:
       case AiProtocolType.gemini:
@@ -1351,6 +1375,31 @@ class AiImageGenerationService {
         return '832x1216';
     }
     return null;
+  }
+
+  int? _stepsFromQuality(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return int.tryParse(trimmed);
+  }
+
+  double? _doubleFromStyle(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return double.tryParse(trimmed);
+  }
+
+  double _sourceWeightFromOptions(AiCreationOptions options) {
+    final parsed = _doubleFromStyle(options.style);
+    if (parsed == null || parsed <= 0) return 0.5;
+    return parsed > 1 ? 1 : parsed;
+  }
+
+  String _defaultVoiceForAudioProtocol(AiProtocolType protocol) {
+    return switch (protocol) {
+      AiProtocolType.stepfun => 'cixingnansheng',
+      _ => 'alloy',
+    };
   }
 
   Map<String, Object?> _decodeJson(String body) {

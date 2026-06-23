@@ -1577,7 +1577,77 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _stepfun(String id) {
+    const imageParameters = <String>[
+      'prompt',
+      'size',
+      'n',
+      'response_format',
+      'seed',
+      'steps',
+      'cfg_scale',
+      'negative_prompt',
+      'text_mode',
+      'style_reference',
+    ];
+    const audioParameters = <String>[
+      'input',
+      'voice',
+      'response_format',
+      'speed',
+      'volume',
+      'sample_rate',
+      'voice_label',
+      'instruction',
+      'pronunciation_map',
+      'stream_format',
+      'return_url',
+    ];
+
+    if (id.startsWith('step-image') ||
+        id.startsWith('step-2x') ||
+        id.startsWith('step-1x')) {
+      return _p(
+        name: 'Step Image',
+        desc: '阶跃星辰图片生成/编辑模型。',
+        capabilities: _imageGen,
+        supportedParameters: imageParameters,
+      );
+    }
+    if (id.contains('tts') || id.startsWith('stepaudio-2.5-tts')) {
+      return _p(
+        name: 'StepAudio TTS',
+        desc: '阶跃星辰语音合成模型。',
+        capabilities: _audioGen,
+        supportedParameters: audioParameters,
+      );
+    }
     // ── Vision models (check before text) ────────────────────────────────
+    if (id.startsWith('step-3.7') || id.startsWith('step-3-7')) {
+      return _p(
+        name: 'Step 3.7 Flash',
+        desc: '阶跃星辰旗舰多模态推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: _parseStepContext(id) ?? 256000,
+        output: 32768,
+        thinking: 32768,
+      );
+    }
+    if (id.startsWith('stepaudio-2.5-chat')) {
+      return _p(
+        name: 'StepAudio 2.5 Chat',
+        desc: '阶跃星辰音频对话模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.audio,
+        },
+        context: _parseStepContext(id) ?? 128000,
+        output: 8192,
+      );
+    }
     if (id.startsWith('step-2v') || id.startsWith('step-1.5v')) {
       return _p(
         name: 'Step Vision',

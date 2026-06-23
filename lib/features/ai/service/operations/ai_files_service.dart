@@ -13,6 +13,18 @@ class AiFileRecord {
   final Map<String, Object?> payload;
 }
 
+class AiFileContentResult {
+  const AiFileContentResult({
+    required this.content,
+    required this.rawResponse,
+    this.contentType = '',
+  });
+
+  final String content;
+  final String rawResponse;
+  final String contentType;
+}
+
 class AiFilesService {
   AiFilesService({AiEndpointRouter? router, AiTransportClient? transport})
     : _router = router ?? const AiEndpointRouter(),
@@ -126,6 +138,30 @@ class AiFilesService {
       timeout: timeout,
     );
     _throwIfFailed(response.statusCode, response.body, 'files/delete');
+  }
+
+  Future<AiFileContentResult> retrieveFileContent({
+    required AiModelConfig model,
+    required String fileId,
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    final endpoint = _router.resolve(
+      model,
+      AiApiFamily.files,
+      method: 'GET',
+      fallbackPath: 'v1/files/${Uri.encodeComponent(fileId.trim())}/content',
+    );
+    final response = await _transport.get(
+      uri: Uri.parse(endpoint.url),
+      headers: _buildHeaders(model, endpoint.headers, jsonContent: false),
+      timeout: timeout,
+    );
+    _throwIfFailed(response.statusCode, response.body, 'files/content');
+    return AiFileContentResult(
+      content: response.body,
+      rawResponse: response.body,
+      contentType: (response.headers['content-type'] ?? '').trim(),
+    );
   }
 
   Map<String, String> _buildHeaders(

@@ -14,7 +14,17 @@ enum AiApiFamily {
   videoGeneration('video_generation'),
   realtime('realtime'),
   files('files'),
-  fineTunes('fine_tunes');
+  fineTunes('fine_tunes'),
+  vectorStores('vector_stores'),
+  vectorStoreFiles('vector_store_files'),
+  tokenCount('token_count'),
+  search('search'),
+  audioVoices('audio_voices'),
+  audioSystemVoices('audio_system_voices'),
+  audioVoicePreview('audio_voice_preview'),
+  audioAsr('audio_asr'),
+  audioAsrSse('audio_asr_sse'),
+  messages('messages');
 
   const AiApiFamily(this.storageValue);
 

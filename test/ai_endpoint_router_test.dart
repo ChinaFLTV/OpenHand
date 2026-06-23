@@ -87,5 +87,41 @@ void main() {
 
       expect(restored.autoCompleteBaseUrl, isFalse);
     });
+
+    test('routes StepFun operation endpoints to documented paths', () {
+      final model = config(baseUrl: 'https://api.stepfun.com/v1');
+
+      expect(
+        router.resolve(model, AiApiFamily.vectorStores).url,
+        'https://api.stepfun.com/v1/vector_stores',
+      );
+      expect(
+        router.resolve(model, AiApiFamily.tokenCount).url,
+        'https://api.stepfun.com/v1/token/count',
+      );
+      expect(
+        router.resolve(model, AiApiFamily.audioSystemVoices).url,
+        'https://api.stepfun.com/v1/audio/system_voices',
+      );
+      expect(
+        router.resolve(model, AiApiFamily.messages).url,
+        'https://api.stepfun.com/v1/messages',
+      );
+    });
+
+    test('keeps Step Plan base URL exact when completion is disabled', () {
+      final endpoint = router.resolve(
+        config(
+          baseUrl: 'https://api.stepfun.com/step_plan/v1',
+          autoCompleteBaseUrl: false,
+        ),
+        AiApiFamily.chatCompletions,
+      );
+
+      expect(
+        endpoint.url,
+        'https://api.stepfun.com/step_plan/v1/chat/completions',
+      );
+    });
   });
 }
