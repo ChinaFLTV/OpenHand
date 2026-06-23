@@ -3760,7 +3760,6 @@ class _GeneratedAudioVisualMeta {
     final seed = seedText.hashCode & 0x7fffffff;
     final palette =
         _kGeneratedAudioPalettes[seed % _kGeneratedAudioPalettes.length];
-    final glyph = _audioCoverGlyph(cleanTitle);
     return _GeneratedAudioVisualMeta(
       title: cleanTitle,
       artist: _deriveGeneratedAudioArtist(cleanDetail),
@@ -3770,7 +3769,7 @@ class _GeneratedAudioVisualMeta {
       primaryColor: palette.$1,
       secondaryColor: palette.$2,
       accentColor: palette.$3,
-      coverGlyph: glyph,
+      coverGlyph: '♪',
       lyricLines: _deriveGeneratedAudioLyricLines(cleanTitle, cleanDetail),
     );
   }
@@ -3833,17 +3832,6 @@ String _deriveGeneratedAudioAlbum(String detail) {
   return 'Generated Album';
 }
 
-String _audioCoverGlyph(String title) {
-  final withoutEmoji = title
-      .replaceAll(
-        RegExp(r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]', unicode: true),
-        '',
-      )
-      .trim();
-  if (withoutEmoji.isEmpty) return '♪';
-  return withoutEmoji.characters.first.toUpperCase();
-}
-
 List<String> _deriveGeneratedAudioLyricLines(String title, String detail) {
   final normalizedTitle = _normalizeAudioDisplayText(title, fallback: 'Audio');
   final normalizedDetail = _normalizeAudioDisplayText(
@@ -3857,10 +3845,10 @@ List<String> _deriveGeneratedAudioLyricLines(String title, String detail) {
   final parts = <String>{
     normalizedTitle,
     basename,
-    'OpenHand AI Audio',
-    'Waveform in motion',
-    'Generated for this conversation',
-    'Replay the moment clearly',
+    'AI 生成音频',
+    '正在播放当前会话音频',
+    '可调节音量、进度与音效',
+    'OpenHand 音频预览',
   }.where((line) => line.trim().isNotEmpty).toList(growable: false);
   return parts.take(6).toList(growable: false);
 }
@@ -4385,10 +4373,11 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
 <!doctype html>
 <html>
 <head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 :root{--oh-motion-duration:${durationMs}ms;--oh-motion-curve:$motionCurve;--oh-control-bg:rgba(26,22,20,.76);--oh-control-border:rgba(255,255,255,.16);--oh-control-text:#fff;--oh-track:rgba(255,255,255,.20);--oh-track-fill:#fff;--oh-audio-primary:$primaryHex;--oh-audio-secondary:$secondaryHex;--oh-audio-accent:$accentHex;--oh-audio-bg-start:$audioBgStartHex;--oh-audio-bg-end:$audioBgEndHex;--oh-audio-glow:$audioGlowHex}
-html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;overflow:hidden;color:#fff;font:13px/1.4 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Segoe UI",Roboto,sans-serif}
 button,input{font:inherit}
 .media-shell{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;user-select:none;overflow:hidden;isolation:isolate}
 .media-shell video{width:100%;height:100%;max-height:100vh;background:#000;object-fit:contain;border-radius:0}
@@ -4411,7 +4400,7 @@ button,input{font:inherit}
 .album-glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;color:rgba(255,255,255,.94);font-size:clamp(58px,10vw,96px);font-weight:900;line-height:1;text-shadow:0 12px 34px rgba(0,0,0,.26)}
 .track-meta{min-width:0;text-align:left;color:#fff;text-shadow:0 8px 30px rgba(0,0,0,.22)}
 .track-kicker{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.58);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-.track-title{margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(22px,3.1vw,32px);font-weight:900;letter-spacing:0}
+.track-title{margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(22px,3.1vw,32px);font-weight:800;letter-spacing:0}
 .track-artist{margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.70);font-size:14px;font-weight:700}
 .audio-progress{margin-top:24px}
 .time-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px;color:rgba(255,255,255,.70)}
@@ -4427,8 +4416,8 @@ button,input{font:inherit}
 .lyrics-column{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:72px 12px 34px}
 .lyrics-kicker{margin-bottom:22px;color:rgba(255,255,255,.44);font-size:12px;font-weight:900;letter-spacing:.12em}
 .lyrics-list{position:relative;max-height:380px;overflow:hidden;padding:28px 0;mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 82%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 82%,transparent)}
-.lyric-line{padding:14px 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.34);font-size:clamp(22px,3vw,38px);font-weight:900;letter-spacing:0;filter:blur(2px);transform:translateX(0) scale(.98);transition:color var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve)}
-.lyric-line.is-active{color:rgba(255,255,255,.96);filter:blur(0);transform:translateX(6px) scale(1)}
+.lyric-line{padding:13px 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.52);font-size:clamp(20px,2.5vw,32px);font-weight:760;letter-spacing:0;transform:translateX(0) scale(.98);transition:color var(--oh-motion-duration) var(--oh-motion-curve),opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve)}
+.lyric-line.is-active{color:rgba(255,255,255,.96);opacity:1;transform:translateX(6px) scale(1)}
 .scrim{position:absolute;inset:auto 0 0;height:40%;background:linear-gradient(to top,rgba(0,0,0,.48),rgba(0,0,0,.18),transparent);opacity:1;transition:opacity var(--oh-motion-duration) var(--oh-motion-curve);pointer-events:none}
 .media-shell:not(.controls-visible) .scrim{opacity:0}
 .control-bar{position:absolute;left:50%;bottom:12px;z-index:5;display:flex;align-items:center;gap:10px;width:calc(100% - 42px);max-width:830px;min-height:48px;padding:8px 14px;box-sizing:border-box;border:1px solid var(--oh-control-border);border-radius:999px;background:var(--oh-control-bg);color:var(--oh-control-text);box-shadow:0 18px 42px rgba(0,0,0,.36);backdrop-filter:blur(22px) saturate(1.24);-webkit-backdrop-filter:blur(22px) saturate(1.24);transform-origin:bottom center;transform:translateX(-50%) translateY(0) scale(1);opacity:1;filter:blur(0);transition:opacity var(--oh-motion-duration) var(--oh-motion-curve),transform var(--oh-motion-duration) var(--oh-motion-curve),filter var(--oh-motion-duration) var(--oh-motion-curve)}
