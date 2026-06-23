@@ -14,6 +14,8 @@ const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
 const Duration kNativeAudioControlTimeout = Duration(seconds: 8);
 const Duration kNativeAudioSeekStep = Duration(seconds: 15);
 const Curve kNativeAudioMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
+const double _kNativeAudioWideBreakpoint = 760;
+const double _kNativeAudioShortBreakpoint = 430;
 
 class NativeAudioPreviewController {
   _NativeAudioPreviewState? _state;
@@ -151,25 +153,21 @@ class NativeAudioPreview extends StatefulWidget {
 enum _NativeAudioPlayMode { sequence, repeatOne, shuffle }
 
 enum _NativeAudioEffect {
-  standard('标准', 'Standard', Icons.tune_rounded, 1.0, 0.0, 1.0),
-  spatial('3D', '3D', Icons.view_in_ar_rounded, 1.0, 0.18, 1.0),
-  vocal('人声', 'Vocal', Icons.record_voice_over_rounded, 1.04, 0.0, 1.0),
-  warm('暖声', 'Warm', Icons.graphic_eq_rounded, 0.96, 0.0, 0.96);
+  standard('标准', 'Standard', Icons.tune_rounded, 1.0),
+  spatial('3D', '3D', Icons.view_in_ar_rounded, 1.0),
+  vocal('人声', 'Vocal', Icons.record_voice_over_rounded, 1.0),
+  warm('暖声', 'Warm', Icons.graphic_eq_rounded, 0.96);
 
   const _NativeAudioEffect(
     this.zhLabel,
     this.enLabel,
     this.icon,
-    this.rate,
-    this.balance,
     this.volumeScale,
   );
 
   final String zhLabel;
   final String enLabel;
   final IconData icon;
-  final double rate;
-  final double balance;
   final double volumeScale;
 }
 
@@ -407,9 +405,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     if (_playerState == PlayerState.completed) {
       await _seekTo(Duration.zero);
     }
-    await _applyEffectToPlayer(includePlaybackRate: false);
-    await _player.resume();
     await _applyEffectToPlayer();
+    await _player.resume();
   }
 
   Future<void> _seekBy(Duration delta) async {
@@ -470,32 +467,19 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     }
   }
 
-  Future<void> _applyEffectToPlayer({bool includePlaybackRate = true}) async {
-    Future<void> runBestEffort(
-      Future<void> Function() operation,
-      String label,
-    ) async {
-      try {
-        await operation().timeout(kNativeAudioControlTimeout);
-      } catch (error, stack) {
-        silentLog('native_audio_preview', label, error, stack);
-      }
-    }
-
-    if (includePlaybackRate) {
-      await runBestEffort(
-        () => _player.setPlaybackRate(_effect.rate),
-        'set playback rate failed',
+  Future<void> _applyEffectToPlayer() async {
+    try {
+      await _player
+          .setVolume(_effectiveVolume)
+          .timeout(kNativeAudioControlTimeout);
+    } catch (error, stack) {
+      silentLog(
+        'native_audio_preview',
+        'set effect volume failed',
+        error,
+        stack,
       );
     }
-    await runBestEffort(
-      () => _player.setBalance(_effect.balance),
-      'set balance failed',
-    );
-    await runBestEffort(
-      () => _player.setVolume(_effectiveVolume),
-      'set effect volume failed',
-    );
   }
 
   double get _effectiveVolume =>
@@ -514,130 +498,185 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   @override
   Widget build(BuildContext context) {
     final meta = widget.meta;
-    final isCompact = MediaQuery.sizeOf(context).width < 720;
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : widget.motionDuration;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _mixNativeAudioColors(
-              meta.primaryColor,
-              const Color(0xFF111111),
-              0.76,
-            ),
-            _mixNativeAudioColors(
-              meta.secondaryColor,
-              const Color(0xFF1C1D18),
-              0.44,
-            ),
-          ],
-        ),
-      ),
-      child: ClipRect(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: _NativeAudioAnimatedBackdrop(
-                meta: meta,
-                duration: duration,
-                curve: widget.motionCurve,
-              ),
-            ),
-            Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: duration,
-                switchInCurve: widget.motionCurve,
-                switchOutCurve: Curves.easeOutCubic,
-                child: Padding(
-                  key: ValueKey<bool>(isCompact),
-                  padding: EdgeInsets.fromLTRB(
-                    isCompact ? 18 : 42,
-                    isCompact ? 18 : 28,
-                    isCompact ? 18 : 42,
-                    isCompact ? 18 : 28,
-                  ),
-                  child: isCompact
-                      ? _buildCompact(context)
-                      : _buildWide(context),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fallbackSize = MediaQuery.sizeOf(context);
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : fallbackSize.width;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : fallbackSize.height;
+        final useWide =
+            width >= _kNativeAudioWideBreakpoint &&
+            height >= _kNativeAudioShortBreakpoint;
+        final horizontalPadding = useWide ? 36.0 : 16.0;
+        final verticalPadding = useWide ? 24.0 : 16.0;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF101316),
+                _mixNativeAudioColors(
+                  meta.primaryColor,
+                  const Color(0xFF151A1F),
+                  0.28,
                 ),
-              ),
+                _mixNativeAudioColors(
+                  meta.secondaryColor,
+                  const Color(0xFF201821),
+                  0.22,
+                ),
+              ],
             ),
-            if (_loading)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Color(0x55000000),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.6,
+          ),
+          child: ClipRect(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: _NativeAudioAnimatedBackdrop(
+                    meta: meta,
+                    duration: duration,
+                    curve: widget.motionCurve,
+                  ),
+                ),
+                Positioned.fill(
+                  child: AnimatedSwitcher(
+                    duration: duration,
+                    switchInCurve: widget.motionCurve,
+                    switchOutCurve: Curves.easeOutCubic,
+                    child: Padding(
+                      key: ValueKey<bool>(useWide),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: verticalPadding,
+                      ),
+                      child: useWide
+                          ? _buildWide(context)
+                          : _buildCompact(context),
                     ),
                   ),
                 ),
-              ),
-            if (_loadError != null)
-              Positioned.fill(child: _buildError(context)),
-          ],
-        ),
-      ),
+                if (_loading)
+                  const Positioned.fill(
+                    child: ColoredBox(
+                      color: Color(0x55000000),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.6,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_loadError != null)
+                  Positioned.fill(child: _buildError(context)),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildWide(BuildContext context) {
     return Row(
       children: [
-        Expanded(flex: 94, child: _buildAlbumColumn(context, compact: false)),
-        const SizedBox(width: 40),
-        Expanded(flex: 106, child: _buildLyricsColumn(context)),
+        Expanded(flex: 90, child: _buildAlbumColumn(context, compact: false)),
+        const SizedBox(width: 34),
+        Expanded(flex: 110, child: _buildLyricsColumn(context)),
       ],
     );
   }
 
   Widget _buildCompact(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(child: _buildAlbumColumn(context, compact: true)),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 128,
-          child: _buildLyricsColumn(context, compact: true),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final short = constraints.maxHeight < 420;
+        return Column(
+          children: [
+            Expanded(child: _buildAlbumColumn(context, compact: true)),
+            if (!short) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                height: math.min(112, constraints.maxHeight * 0.28),
+                child: _buildLyricsColumn(context, compact: true),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
   Widget _buildAlbumColumn(BuildContext context, {required bool compact}) {
     final meta = widget.meta;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Align(
-          child: _NativeAudioAlbumCover(
-            meta: meta,
-            size: compact ? 174 : 318,
-            foregroundColor: Colors.white,
-            isPlaying: _isPlaying,
-            motionDuration: widget.motionDuration,
-            motionCurve: widget.motionCurve,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fallback = MediaQuery.sizeOf(context);
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : fallback.width;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : fallback.height;
+        final short = height < 500;
+        final coverLimit = compact ? 148.0 : (short ? 218.0 : 246.0);
+        final coverSize = math
+            .min(
+              coverLimit,
+              math.min(
+                width * (compact ? 0.34 : 0.54),
+                height * (short ? 0.34 : 0.40),
+              ),
+            )
+            .clamp(compact ? 82.0 : 154.0, coverLimit)
+            .toDouble();
+        final gap = compact || short ? 8.0 : 12.0;
+        final content = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              child: _NativeAudioAlbumCover(
+                meta: meta,
+                size: coverSize,
+                foregroundColor: Colors.white,
+                isPlaying: _isPlaying,
+                motionDuration: widget.motionDuration,
+                motionCurve: widget.motionCurve,
+              ),
+            ),
+            SizedBox(height: gap),
+            _buildTrackMeta(context, compact: compact || short),
+            SizedBox(height: gap),
+            _buildProgress(context),
+            SizedBox(height: gap),
+            _buildTransport(context),
+            SizedBox(height: gap),
+            _buildEffectStrip(context),
+          ],
+        );
+        return ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: height),
+              child: Center(child: content),
+            ),
           ),
-        ),
-        SizedBox(height: compact ? 12 : 20),
-        _buildTrackMeta(context),
-        SizedBox(height: compact ? 12 : 22),
-        _buildProgress(context),
-        SizedBox(height: compact ? 12 : 16),
-        _buildTransport(context),
-        SizedBox(height: compact ? 10 : 14),
-        _buildEffectStrip(context),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildTrackMeta(BuildContext context) {
+  Widget _buildTrackMeta(BuildContext context, {required bool compact}) {
     final theme = Theme.of(context);
     final meta = widget.meta;
     return Column(
@@ -658,10 +697,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           meta.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.headlineSmall?.copyWith(
+          style: theme.textTheme.titleLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w800,
             letterSpacing: 0,
+            fontSize: compact ? 18 : 22,
           ),
         ),
         const SizedBox(height: 4),
@@ -669,7 +709,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           '${meta.artist} · ${meta.detail}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyMedium?.copyWith(
+          style: theme.textTheme.bodySmall?.copyWith(
             color: Colors.white.withValues(alpha: 0.70),
             fontWeight: FontWeight.w700,
             letterSpacing: 0,
@@ -729,122 +769,148 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Widget _buildTransport(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _NativeAudioIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '后退 15 秒',
-            en: 'Back 15 seconds',
-          ),
-          icon: Icons.replay_10_rounded,
-          onPressed: _sourceReady
-              ? () => unawaited(_seekBy(-kNativeAudioSeekStep))
-              : null,
-        ),
-        const SizedBox(width: 12),
-        _NativeAudioIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: _isPlaying ? '暂停' : '播放',
-            en: _isPlaying ? 'Pause' : 'Play',
-          ),
-          icon: _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          prominent: true,
-          onPressed: _sourceReady ? () => unawaited(_togglePlayPause()) : null,
-        ),
-        const SizedBox(width: 12),
-        _NativeAudioIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '快进 15 秒',
-            en: 'Forward 15 seconds',
-          ),
-          icon: Icons.forward_10_rounded,
-          onPressed: _sourceReady
-              ? () => unawaited(_seekBy(kNativeAudioSeekStep))
-              : null,
-        ),
-        const SizedBox(width: 14),
-        _NativeAudioIconButton(
-          tooltip: _playModeTooltip(context),
-          icon: _playModeIcon,
-          active: _playMode != _NativeAudioPlayMode.sequence,
-          onPressed: _cyclePlayMode,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          _playModeLabel(context),
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: Colors.white.withValues(alpha: 0.70),
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
-          ),
-        ),
-        const SizedBox(width: 14),
-        _buildVolumeControl(context),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _NativeAudioIconButton(
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '后退 15 秒',
+                    en: 'Back 15 seconds',
+                  ),
+                  icon: Icons.replay_10_rounded,
+                  onPressed: _sourceReady
+                      ? () => unawaited(_seekBy(-kNativeAudioSeekStep))
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                _NativeAudioIconButton(
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: _isPlaying ? '暂停' : '播放',
+                    en: _isPlaying ? 'Pause' : 'Play',
+                  ),
+                  icon: _isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  prominent: true,
+                  onPressed: _sourceReady
+                      ? () => unawaited(_togglePlayPause())
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                _NativeAudioIconButton(
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '快进 15 秒',
+                    en: 'Forward 15 seconds',
+                  ),
+                  icon: Icons.forward_10_rounded,
+                  onPressed: _sourceReady
+                      ? () => unawaited(_seekBy(kNativeAudioSeekStep))
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _NativeAudioIconButton(
+                  tooltip: _playModeTooltip(context),
+                  icon: _playModeIcon,
+                  active: _playMode != _NativeAudioPlayMode.sequence,
+                  compact: true,
+                  onPressed: _cyclePlayMode,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    _playModeLabel(context),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.70),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: constraints.maxWidth < 260 ? 2 : 3,
+                  child: _buildVolumeControl(context),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildVolumeControl(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 170),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _NativeAudioIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: _muted ? '取消静音' : '静音',
-              en: _muted ? 'Unmute' : 'Mute',
-            ),
-            icon: _muted || _volume <= 0
-                ? Icons.volume_off_rounded
-                : Icons.volume_up_rounded,
-            compact: true,
-            onPressed: () => unawaited(_toggleMuted()),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _NativeAudioIconButton(
+          tooltip: openHandLocalizedText(
+            context,
+            zh: _muted ? '取消静音' : '静音',
+            en: _muted ? 'Unmute' : 'Mute',
           ),
-          Flexible(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 5,
-                activeTrackColor: Colors.white.withValues(alpha: 0.88),
-                inactiveTrackColor: Colors.white.withValues(alpha: 0.22),
-                thumbColor: Colors.white,
-                overlayColor: Colors.white.withValues(alpha: 0.14),
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              ),
-              child: Slider(
-                value: _muted ? 0 : _volume,
-                onChanged: (value) => unawaited(_setVolume(value)),
-              ),
+          icon: _muted || _volume <= 0
+              ? Icons.volume_off_rounded
+              : Icons.volume_up_rounded,
+          compact: true,
+          onPressed: () => unawaited(_toggleMuted()),
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 4,
+              activeTrackColor: Colors.white.withValues(alpha: 0.88),
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.22),
+              thumbColor: Colors.white,
+              overlayColor: Colors.white.withValues(alpha: 0.14),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+            ),
+            child: Slider(
+              value: _muted ? 0 : _volume,
+              onChanged: (value) => unawaited(_setVolume(value)),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildEffectStrip(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final effect in _NativeAudioEffect.values) ...[
-            _NativeAudioEffectChip(
-              label: isZh ? effect.zhLabel : effect.enLabel,
-              icon: effect.icon,
-              selected: _effect == effect,
-              onPressed: () => unawaited(_setEffect(effect)),
-            ),
-            if (effect != _NativeAudioEffect.values.last)
-              const SizedBox(width: 8),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final effect in _NativeAudioEffect.values) ...[
+              _NativeAudioEffectChip(
+                label: isZh ? effect.zhLabel : effect.enLabel,
+                icon: effect.icon,
+                selected: _effect == effect,
+                onPressed: () => unawaited(_setEffect(effect)),
+              ),
+              if (effect != _NativeAudioEffect.values.last)
+                const SizedBox(width: 6),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -852,19 +918,20 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   Widget _buildLyricsColumn(BuildContext context, {bool compact = false}) {
     final lines = widget.meta.lyricLines;
     final active = _activeLyricIndex(lines.length);
+    final title = openHandLocalizedText(context, zh: '歌词', en: 'Lyrics');
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'LYRICS',
+          title,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.46),
+            color: Colors.white.withValues(alpha: 0.52),
             fontWeight: FontWeight.w900,
             letterSpacing: 0,
           ),
         ),
-        SizedBox(height: compact ? 8 : 18),
+        SizedBox(height: compact ? 6 : 14),
         Expanded(
           child: ShaderMask(
             shaderCallback: (rect) => const LinearGradient(
@@ -881,7 +948,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             blendMode: BlendMode.dstIn,
             child: ListView.builder(
               physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(vertical: compact ? 8 : 20),
+              padding: EdgeInsets.symmetric(vertical: compact ? 4 : 12),
               itemCount: lines.length,
               itemBuilder: (context, index) {
                 final selected = index == active;
@@ -895,15 +962,15 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                     curve: widget.motionCurve,
                     style: Theme.of(context).textTheme.headlineSmall!.copyWith(
                       color: Colors.white.withValues(
-                        alpha: selected ? 0.96 : 0.52,
+                        alpha: selected ? 0.95 : 0.50,
                       ),
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0,
-                      fontSize: compact ? 19 : 28,
-                      height: 1.18,
+                      fontSize: compact ? 15 : 20,
+                      height: 1.22,
                     ),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: compact ? 5 : 10),
+                      padding: EdgeInsets.symmetric(vertical: compact ? 3 : 7),
                       child: Text(
                         lines[index],
                         maxLines: 1,
@@ -1157,95 +1224,144 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
   @override
   Widget build(BuildContext context) {
     final meta = widget.meta;
+    final radius = math.min(20.0, widget.size * 0.09);
     return AnimatedScale(
       duration: widget.motionDuration,
       curve: widget.motionCurve,
       scale: widget.isPlaying ? 1.015 : 1.0,
       child: SizedBox.square(
         dimension: widget.size,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                meta.accentColor,
-                meta.secondaryColor.withValues(alpha: 0.92),
-                meta.primaryColor.withValues(alpha: 0.96),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: meta.primaryColor.withValues(alpha: 0.34),
-                blurRadius: 42,
-                offset: const Offset(0, 22),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 52,
-                offset: const Offset(0, 28),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -widget.size * 0.16,
-                  bottom: -widget.size * 0.18,
-                  width: widget.size * 0.7,
-                  height: widget.size * 0.7,
-                  child: RotationTransition(
-                    turns: _controller,
-                    child: DecoratedBox(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              left: widget.size * 0.14,
+              child: RotationTransition(
+                turns: _controller,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFF07090B),
+                        _mixNativeAudioColors(
+                          meta.primaryColor,
+                          const Color(0xFF11151A),
+                          0.30,
+                        ),
+                        const Color(0xFF050607),
+                      ],
+                      stops: const [0.18, 0.55, 1],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.30),
+                        blurRadius: 26,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: widget.size * 0.26,
+                      height: widget.size * 0.26,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withValues(alpha: 0.24),
-                            Colors.white.withValues(alpha: 0.06),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.08, 0.48, 1],
+                        color: meta.accentColor.withValues(alpha: 0.86),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.34),
                         ),
                       ),
                     ),
                   ),
                 ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.18),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.18),
-                        ],
-                        stops: const [0, 0.48, 1],
-                      ),
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Text(
-                    meta.coverGlyph,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: widget.foregroundColor.withValues(alpha: 0.94),
-                      fontWeight: FontWeight.w900,
-                      fontSize: widget.size * 0.32,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Positioned.fill(
+              right: widget.size * 0.12,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(radius),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _mixNativeAudioColors(
+                        meta.accentColor,
+                        Colors.white,
+                        0.72,
+                      ),
+                      meta.secondaryColor.withValues(alpha: 0.92),
+                      _mixNativeAudioColors(
+                        meta.primaryColor,
+                        const Color(0xFF101316),
+                        0.64,
+                      ),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: meta.primaryColor.withValues(alpha: 0.26),
+                      blurRadius: 34,
+                      offset: const Offset(0, 18),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 40,
+                      offset: const Offset(0, 22),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(radius),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.24),
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.22),
+                              ],
+                              stops: const [0, 0.48, 1],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: widget.size * 0.10,
+                        bottom: widget.size * 0.10,
+                        child: Icon(
+                          Icons.graphic_eq_rounded,
+                          size: widget.size * 0.16,
+                          color: Colors.white.withValues(alpha: 0.54),
+                        ),
+                      ),
+                      Center(
+                        child: Text(
+                          meta.coverGlyph,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          style: TextStyle(
+                            color: widget.foregroundColor.withValues(
+                              alpha: 0.94,
+                            ),
+                            fontWeight: FontWeight.w900,
+                            fontSize: widget.size * 0.28,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1362,7 +1478,7 @@ class _NativeAudioIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = prominent ? 58.0 : (compact ? 30.0 : 36.0);
+    final size = prominent ? 54.0 : (compact ? 30.0 : 36.0);
     return Tooltip(
       message: tooltip,
       child: AnimatedScale(
@@ -1384,7 +1500,7 @@ class _NativeAudioIconButton extends StatelessWidget {
               shape: const CircleBorder(),
             ),
             onPressed: onPressed,
-            icon: Icon(icon, size: prominent ? 34 : (compact ? 18 : 22)),
+            icon: Icon(icon, size: prominent ? 31 : (compact ? 18 : 22)),
           ),
         ),
       ),
@@ -1412,9 +1528,11 @@ class _NativeAudioEffectChip extends StatelessWidget {
       curve: kNativeAudioMotionCurve,
       scale: selected ? 1.02 : 1.0,
       child: ChoiceChip(
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
         selected: selected,
         onSelected: (_) => onPressed(),
-        avatar: Icon(icon, size: 16),
+        avatar: Icon(icon, size: 15),
         label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         labelStyle: TextStyle(
           color: selected
@@ -1422,6 +1540,7 @@ class _NativeAudioEffectChip extends StatelessWidget {
               : Colors.white.withValues(alpha: 0.78),
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
+          fontSize: 12,
         ),
         selectedColor: Colors.white.withValues(alpha: 0.86),
         backgroundColor: Colors.white.withValues(alpha: 0.10),

@@ -218,11 +218,11 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         bodyH = math.max(0.0, side);
       }
     } else if (widget.kind == MediaPreviewKind.audio) {
-      bodyW = maxBodyW.clamp(360.0, 980.0);
-      bodyH = maxBodyH.clamp(360.0, 560.0);
+      bodyW = math.min(980.0, maxBodyW);
+      bodyH = math.min(560.0, maxBodyH);
     } else {
-      bodyW = maxBodyW.clamp(320.0, 960.0);
-      bodyH = maxBodyH.clamp(240.0, 640.0);
+      bodyW = math.min(960.0, maxBodyW);
+      bodyH = math.min(640.0, maxBodyH);
     }
 
     final dialogW = (bodyW + padding * 2).clamp(_kMinDialogW, maxDialogW);

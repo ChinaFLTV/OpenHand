@@ -3394,8 +3394,8 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
       detail: detail,
     );
     final cardColor = Color.alphaBlend(
-      textColor.withValues(alpha: 0.08),
-      backgroundColor,
+      meta.primaryColor.withValues(alpha: 0.08),
+      Color.alphaBlend(textColor.withValues(alpha: 0.04), backgroundColor),
     );
     return _buildResultReveal(
       MouseRegion(
@@ -3410,101 +3410,123 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
               onTap: _openPreview,
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 460, minWidth: 280),
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: textColor.withValues(alpha: 0.16)),
+                  border: Border.all(color: textColor.withValues(alpha: 0.12)),
                   boxShadow: [
                     BoxShadow(
-                      color: textColor.withValues(alpha: 0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
+                      color: meta.primaryColor.withValues(alpha: 0.10),
+                      blurRadius: 26,
+                      offset: const Offset(0, 14),
                     ),
                   ],
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _GeneratedAudioAlbumCover(
-                      meta: meta,
-                      size: 62,
-                      foregroundColor: textColor,
-                      compact: true,
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final narrow = constraints.maxWidth < 360;
+                    final coverSize = narrow ? 58.0 : 72.0;
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _GeneratedAudioAlbumCover(
+                          meta: meta,
+                          size: coverSize,
+                          foregroundColor: textColor,
+                          compact: true,
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.album_outlined,
-                                size: 14,
-                                color: textColor.withValues(alpha: 0.68),
-                              ),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  meta.album,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: textColor.withValues(alpha: 0.68),
-                                    fontWeight: FontWeight.w700,
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.album_outlined,
+                                    size: 14,
+                                    color: textColor.withValues(alpha: 0.58),
                                   ),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      meta.album,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: textColor.withValues(
+                                              alpha: 0.62,
+                                            ),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                meta.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
                                 ),
+                              ),
+                              const SizedBox(height: 8),
+                              _GeneratedAudioMiniWaveform(
+                                color: textColor,
+                                accentColor: meta.accentColor,
+                                seed: meta.seed,
+                              ),
+                              const SizedBox(height: 7),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '$label · $detail',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: textColor.withValues(
+                                              alpha: 0.70,
+                                            ),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      color: textColor.withValues(alpha: 0.10),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: textColor.withValues(
+                                          alpha: 0.16,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.play_arrow_rounded,
+                                      size: 21,
+                                      color: textColor.withValues(alpha: 0.86),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            meta.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: textColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          _GeneratedAudioMiniWaveform(
-                            color: textColor,
-                            seed: meta.seed,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '$label · $detail',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: textColor.withValues(alpha: 0.76),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: textColor.withValues(alpha: 0.10),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: textColor.withValues(alpha: 0.16),
                         ),
-                      ),
-                      child: Icon(
-                        Icons.play_arrow_rounded,
-                        size: 23,
-                        color: textColor.withValues(alpha: 0.86),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -3964,36 +3986,79 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
 }
 
 class _GeneratedAudioMiniWaveform extends StatelessWidget {
-  const _GeneratedAudioMiniWaveform({required this.color, required this.seed});
+  const _GeneratedAudioMiniWaveform({
+    required this.color,
+    required this.accentColor,
+    required this.seed,
+  });
 
   final Color color;
+  final Color accentColor;
   final int seed;
 
   @override
   Widget build(BuildContext context) {
-    final bars = List<Widget>.generate(18, (index) {
-      final value = ((seed >> (index % 16)) + index * 17) & 0x0f;
-      final height = 5.0 + (value / 15.0) * 18.0;
-      return Expanded(
-        child: Align(
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.20 + (value / 15.0) * 0.38),
-              borderRadius: BorderRadius.circular(999),
+    final pulses = List<Widget>.generate(10, (index) {
+      final value = ((seed >> (index % 14)) + index * 19) & 0x0f;
+      final width = 10.0 + (value / 15.0) * 18.0;
+      return Flexible(
+        fit: FlexFit.tight,
+        child: FractionallySizedBox(
+          widthFactor: 0.78,
+          alignment: Alignment.centerLeft,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: index.isEven ? 5 : 4,
+              width: width,
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  accentColor.withValues(alpha: 0.16 + (value / 15.0) * 0.18),
+                  color.withValues(alpha: 0.22),
+                ),
+                borderRadius: BorderRadius.circular(999),
+              ),
             ),
           ),
         ),
       );
     });
     return SizedBox(
-      height: 24,
-      child: Row(
+      height: 18,
+      child: Stack(
+        alignment: Alignment.centerLeft,
         children: [
-          for (var i = 0; i < bars.length; i++) ...[
-            bars[i],
-            if (i != bars.length - 1) const SizedBox(width: 3),
-          ],
+          Positioned.fill(
+            top: 8,
+            bottom: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              for (var i = 0; i < pulses.length; i++) ...[
+                pulses[i],
+                if (i != pulses.length - 1) const SizedBox(width: 3),
+              ],
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: 0.34,
+              child: Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.62),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
