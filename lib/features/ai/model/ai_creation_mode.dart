@@ -282,6 +282,26 @@ class AiCreationRequest {
 
   bool get isActive => mode.isActive;
 
+  /// Modalities expected by chat endpoints that return generated media inline.
+  ///
+  /// OpenAI-compatible media models are diverted to dedicated endpoints before
+  /// this is used, but Gemini-style adapters need the same intent preserved
+  /// when a turn is queued, edited, or regenerated.
+  List<String> get responseModalities {
+    return switch (mode) {
+      AiCreationMode.image => const <String>['Text', 'Image'],
+      AiCreationMode.video => const <String>['Text', 'Video'],
+      AiCreationMode.audio => const <String>['Text', 'Audio'],
+      AiCreationMode.none || AiCreationMode.deepResearch => const <String>[],
+    };
+  }
+
+  bool get isGeneratedMediaRequest {
+    return mode == AiCreationMode.image ||
+        mode == AiCreationMode.video ||
+        mode == AiCreationMode.audio;
+  }
+
   static const AiCreationRequest none = AiCreationRequest(
     mode: AiCreationMode.none,
   );

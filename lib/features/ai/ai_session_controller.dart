@@ -2666,9 +2666,13 @@ class AiSessionController extends ChangeNotifier {
       newVariant,
     ];
     final nextIndex = nextVariants.length - 1;
-    final targetMetadata = Map<String, Object?>.from(targetMessage.metadata)
-      ..remove(_responseRegenerationHiddenMessageKey)
-      ..remove(aiSessionMessageMetadataStreamingKey);
+    final targetMetadata =
+        <String, Object?>{...targetMessage.metadata, ...finalAssistant.metadata}
+          ..remove(_responseRegenerationHiddenMessageKey)
+          ..remove(_responseRegenerationArchivedMessageKey)
+          ..remove(_responseRegenerationFailedGeneratedMessageKey)
+          ..remove(_responseVariantHiddenMessageKey)
+          ..remove(aiSessionMessageMetadataStreamingKey);
     final contentFormatKey =
         '${finalAssistant.metadata[aiSessionMessageContentFormatKey] ?? runtimeContext.messageContentFormat.storageKey}'
             .trim();
@@ -2765,6 +2769,28 @@ class AiSessionController extends ChangeNotifier {
       metadata[aiSessionMessageContentFormatKey] = normalizedContentFormat;
     }
     return metadata;
+  }
+
+  AiCreationRequest _resolveCreationRequestForRound({
+    required AiSession session,
+    required String? latestUserMessageId,
+    required AiCreationRequest requested,
+  }) {
+    if (requested.isActive || latestUserMessageId == null) {
+      return requested;
+    }
+    final userIndex = session.messages.indexWhere(
+      (message) =>
+          message.id == latestUserMessageId &&
+          message.kind == AiSessionMessageKind.user,
+    );
+    if (userIndex < 0) {
+      return requested;
+    }
+    final recovered = AiCreationRequest.fromMetadata(
+      session.messages[userIndex].metadata[AiCreationRequest.metadataKey],
+    );
+    return recovered.isActive ? recovered : requested;
   }
 
   Future<bool> selectMessageResponseVariant({
@@ -2896,6 +2922,9 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       final latestUserMessage = session.messages[userIndex];
+      final regenerationCreationRequest = AiCreationRequest.fromMetadata(
+        latestUserMessage.metadata[AiCreationRequest.metadataKey],
+      );
 
       final baseVariants = _normalizeResponseVariantIntermediateMessageIds(
         variants: targetMessage.responseVariants,
@@ -3033,6 +3062,8 @@ class AiSessionController extends ChangeNotifier {
           session: session,
           model: model,
           runtimeContext: runtimeContext,
+          responseModalities: regenerationCreationRequest.responseModalities,
+          creationRequest: regenerationCreationRequest,
           latestUserMessageId: latestUserMessage.id,
           denyCommandRules: denyCommandRules,
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
@@ -5028,6 +5059,14 @@ class AiSessionController extends ChangeNotifier {
     required WriteCommandConfirmationCallback? confirmWriteCommand,
   }) async {
     _truncationContinuationCount = 0;
+    final effectiveCreationRequest = _resolveCreationRequestForRound(
+      session: session,
+      latestUserMessageId: latestUserMessageId,
+      requested: creationRequest,
+    );
+    final effectiveResponseModalities = responseModalities.isNotEmpty
+        ? responseModalities
+        : effectiveCreationRequest.responseModalities;
     final assistantBootstrapStopwatch = Stopwatch()..start();
     final preRequestTimingsMs = <String, int>{};
     final templateBundleFuture = _templateRepository.loadBundle(
@@ -5262,8 +5301,9 @@ class AiSessionController extends ChangeNotifier {
           runtimeContext.connectTimeoutSeconds,
           runtimeContext.responseTimeoutSeconds,
         );
-        final Duration effectiveRequestTimeout = creationRequest.isActive
-            ? _mediaGenerationTimeoutFor(creationRequest)
+        final Duration effectiveRequestTimeout =
+            effectiveCreationRequest.isActive
+            ? _mediaGenerationTimeoutFor(effectiveCreationRequest)
             : Duration(seconds: streamOpenTimeoutSeconds);
         streamResponse = await _chatClient.sendMessageStream(
           model: model,
@@ -5274,8 +5314,8 @@ class AiSessionController extends ChangeNotifier {
           tools: supportsNativeToolCalls
               ? toolsForRound
               : const <AiToolDefinition>[],
-          responseModalities: responseModalities,
-          creationRequest: creationRequest,
+          responseModalities: effectiveResponseModalities,
+          creationRequest: effectiveCreationRequest,
           timeout: effectiveRequestTimeout,
           streamIdleTimeout: Duration(
             seconds: runtimeContext.streamIdleTimeoutSeconds,
@@ -5680,7 +5720,7 @@ class AiSessionController extends ChangeNotifier {
       // 这些请求走专用 media endpoint，输出是文件/URL 而非真正的文本流，
       // 把它们丢进 charThrottle/cardThrottle 会导致进度/结果以人造节奏
       // 慢慢出现，与"特殊非文本输出"的语义不符。
-      final isMediaCreation = creationRequest.isActive;
+      final isMediaCreation = effectiveCreationRequest.isGeneratedMediaRequest;
       final effChars0 = isMediaCreation ? 0 : effChars;
       final effCards0 = isMediaCreation ? 0 : effCards;
       // 节流时长：>0 表示限定时长后剩余响应直接按真实节奏追加；

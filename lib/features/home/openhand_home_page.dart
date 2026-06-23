@@ -1498,6 +1498,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 sessionId,
                 nextMessage.text,
                 nextMessage.attachments,
+                responseModalities:
+                    nextMessage.creationRequest.responseModalities,
                 creationRequest: nextMessage.creationRequest,
                 additionalSystemReminders: nextMessage.systemReminders,
                 selectedSkillMetadata: nextMessage.skillMetadata,
@@ -5673,12 +5675,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _replaceComposerText('');
     // Capture the creation mode and reset it before sending.
     final creationMode = _creationMode;
-    final responseModalities = switch (creationMode) {
-      _CreationMode.image => const <String>['Text', 'Image'],
-      _CreationMode.video => const <String>['Text', 'Video'],
-      _CreationMode.audio => const <String>['Text', 'Audio'],
-      _CreationMode.none || _CreationMode.deepResearch => const <String>[],
-    };
     final creationRequest = _creationRequestFromComposer(creationMode);
     setState(() {
       _pendingAttachments = const <_ComposerAttachmentDraft>[];
@@ -5691,7 +5687,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       prompt,
       pendingAttachments,
       runtimeContext: runtimeContext,
-      responseModalities: responseModalities,
+      responseModalities: creationRequest.responseModalities,
       creationRequest: creationRequest,
       callerPreflightTimingsMs: submitPreflightTimingsMs,
       additionalSystemReminders: additionalSystemReminders,
