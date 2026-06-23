@@ -3386,152 +3386,20 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
         _buildVideoCard(theme, source, title, textColor, backgroundColor),
       );
     }
-    final label = _localizedText(context, zh: '音频', en: 'Audio');
     final detail = _generatedMediaSourceDetail(source);
     final meta = _GeneratedAudioVisualMeta.fromSource(
       source: source,
       title: title,
       detail: detail,
     );
-    final cardColor = Color.alphaBlend(
-      meta.primaryColor.withValues(alpha: 0.08),
-      Color.alphaBlend(textColor.withValues(alpha: 0.04), backgroundColor),
-    );
     return _buildResultReveal(
-      MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Semantics(
-          button: true,
-          label: title,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: _openPreview,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 460, minWidth: 280),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: textColor.withValues(alpha: 0.12)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: meta.primaryColor.withValues(alpha: 0.10),
-                      blurRadius: 26,
-                      offset: const Offset(0, 14),
-                    ),
-                  ],
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final narrow = constraints.maxWidth < 360;
-                    final coverSize = narrow ? 58.0 : 72.0;
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _GeneratedAudioAlbumCover(
-                          meta: meta,
-                          size: coverSize,
-                          foregroundColor: textColor,
-                          compact: true,
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.album_outlined,
-                                    size: 14,
-                                    color: textColor.withValues(alpha: 0.58),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Expanded(
-                                    child: Text(
-                                      meta.album,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: textColor.withValues(
-                                              alpha: 0.62,
-                                            ),
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                meta.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: textColor,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _GeneratedAudioMiniWaveform(
-                                color: textColor,
-                                accentColor: meta.accentColor,
-                                seed: meta.seed,
-                              ),
-                              const SizedBox(height: 7),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '$label · $detail',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: textColor.withValues(
-                                              alpha: 0.70,
-                                            ),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      color: textColor.withValues(alpha: 0.10),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: textColor.withValues(
-                                          alpha: 0.16,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Icons.play_arrow_rounded,
-                                      size: 21,
-                                      color: textColor.withValues(alpha: 0.86),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
+      _GeneratedAudioCard(
+        meta: meta,
+        title: title,
+        detail: detail,
+        textColor: textColor,
+        backgroundColor: backgroundColor,
+        onTap: _openPreview,
       ),
     );
   }
@@ -3915,6 +3783,248 @@ NativeAudioVisualMeta _nativeAudioVisualMetaForGenerated(
     lyricLines: meta.lyricLines,
     seed: meta.seed,
   );
+}
+
+class _GeneratedAudioCard extends StatefulWidget {
+  const _GeneratedAudioCard({
+    required this.meta,
+    required this.title,
+    required this.detail,
+    required this.textColor,
+    required this.backgroundColor,
+    required this.onTap,
+  });
+
+  final _GeneratedAudioVisualMeta meta;
+  final String title;
+  final String detail;
+  final Color textColor;
+  final Color backgroundColor;
+  final VoidCallback onTap;
+
+  @override
+  State<_GeneratedAudioCard> createState() => _GeneratedAudioCardState();
+}
+
+class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _hoverController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
+
+  bool _hovered = false;
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    super.dispose();
+  }
+
+  void _onHoverChanged(bool hovered) {
+    setState(() => _hovered = hovered);
+    if (hovered) {
+      _hoverController.forward();
+    } else {
+      _hoverController.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = widget.meta;
+    final textColor = widget.textColor;
+    final bg = widget.backgroundColor;
+    final surfaceColor = Color.alphaBlend(
+      meta.primaryColor.withValues(alpha: 0.12),
+      Color.alphaBlend(textColor.withValues(alpha: 0.04), bg),
+    );
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _onHoverChanged(true),
+      onExit: (_) => _onHoverChanged(false),
+      child: Semantics(
+        button: true,
+        label: widget.title,
+        child: AnimatedBuilder(
+          animation: _hoverController,
+          builder: (context, child) {
+            final t = _hoverController.value;
+            return Transform.scale(
+              scale: 1.0 + t * 0.012,
+              child: child,
+            );
+          },
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 320, minWidth: 240),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Color.alphaBlend(
+                    meta.primaryColor.withValues(alpha: _hovered ? 0.30 : 0.14),
+                    textColor.withValues(alpha: 0.08),
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: meta.primaryColor.withValues(
+                      alpha: _hovered ? 0.18 : 0.08,
+                    ),
+                    blurRadius: _hovered ? 32 : 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildCoverBanner(meta, textColor),
+                  _buildInfoRow(context, meta, textColor),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoverBanner(
+    _GeneratedAudioVisualMeta meta,
+    Color textColor,
+  ) {
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.alphaBlend(
+                    meta.accentColor.withValues(alpha: 0.78),
+                    const Color(0xFF1A1A1A),
+                  ),
+                  Color.alphaBlend(
+                    meta.primaryColor.withValues(alpha: 0.70),
+                    const Color(0xFF111111),
+                  ),
+                  Color.alphaBlend(
+                    meta.secondaryColor.withValues(alpha: 0.55),
+                    const Color(0xFF0D0D0D),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            right: -28,
+            bottom: -28,
+            child: Icon(
+              Icons.album_rounded,
+              size: 120,
+              color: Colors.white.withValues(alpha: 0.07),
+            ),
+          ),
+          Center(
+            child: _GeneratedAudioAlbumCover(
+              meta: meta,
+              size: 72,
+              foregroundColor: Colors.white,
+              compact: true,
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 40,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0x66000000)],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.22),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.34),
+                ),
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+    BuildContext context,
+    _GeneratedAudioVisualMeta meta,
+    Color textColor,
+  ) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            meta.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${meta.artist} · ${meta.album}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: textColor.withValues(alpha: 0.60),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _GeneratedAudioMiniWaveform(
+            color: textColor,
+            accentColor: meta.accentColor,
+            seed: meta.seed,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _GeneratedAudioAlbumCover extends StatelessWidget {
@@ -4706,14 +4816,12 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         : _AdaptivePreviewDialogMetrics.fixedContent(
             viewport: viewport,
             insetPadding: _kInsetPadding,
-            chromeHeight:
-                math.max(_kHeaderEstimate, _measuredHeaderHeight ?? 0) +
-                _kDividerH,
-            contentPadding: _kContentPadding,
+            chromeHeight: 0,
+            contentPadding: 0,
             minDialogWidth: _kMinDialogW,
             contentSize: _kAudioContentSize,
           );
-    _scheduleHeaderHeightSync();
+    if (isVideo) _scheduleHeaderHeightSync();
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
@@ -4744,181 +4852,205 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
               maxWidth: metrics.dialogWidth,
               maxHeight: metrics.maxDialogHeight,
             ),
-            backgroundColor: colorScheme.surface,
+            backgroundColor: isVideo ? colorScheme.surface : Colors.transparent,
+            elevation: isVideo ? null : 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
             ),
             clipBehavior: Clip.antiAlias,
-            child: AnimatedSize(
-              duration: cardMotionDurationFor(context, expanding: true),
-              curve: kCardMotionCurve,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: metrics.maxDialogWidth,
-                  maxHeight: metrics.maxDialogHeight,
+            child: isVideo ? _buildVideoDialogBody(context, theme, colorScheme, metrics) : _buildAudioDialogBody(context, metrics),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoDialogBody(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    _AdaptivePreviewDialogMetrics metrics,
+  ) {
+    return AnimatedSize(
+      duration: cardMotionDurationFor(context, expanding: true),
+      curve: kCardMotionCurve,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: metrics.maxDialogWidth,
+          maxHeight: metrics.maxDialogHeight,
+        ),
+        child: SizedBox(
+          width: metrics.dialogWidth,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                key: _headerKey,
+                padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.videocam_outlined, color: colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(Icons.open_in_new_rounded, color: colorScheme.onSurfaceVariant),
+                        tooltip: _localizedText(context, zh: '使用系统播放器打开', en: 'Open with System Player'),
+                        onPressed: () => _openInSystemPlayer(context),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(Icons.content_copy_outlined, color: colorScheme.onSurfaceVariant),
+                        tooltip: _localizedText(context, zh: '复制媒体', en: 'Copy Media'),
+                        onPressed: _isCopyingMedia ? null : () => _copyMediaToClipboard(context),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(Icons.fullscreen_rounded, color: colorScheme.onSurfaceVariant),
+                        tooltip: _localizedText(context, zh: '全屏沉浸播放', en: 'Fullscreen playback'),
+                        onPressed: () => _enterFullscreen(context),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(Icons.download_rounded, color: colorScheme.onSurfaceVariant),
+                        tooltip: _localizedText(context, zh: '保存到本地', en: 'Save to disk'),
+                        onPressed: () => _saveMediaAs(context),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                  ],
                 ),
-                child: SizedBox(
-                  width: metrics.dialogWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        key: _headerKey,
-                        padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isVideo
-                                  ? Icons.videocam_outlined
-                                  : Icons.audiotrack,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                widget.title,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium,
-                              ),
-                            ),
-                            MicroPressFeedback(
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.open_in_new_rounded,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                tooltip: _localizedText(
-                                  context,
-                                  zh: '使用系统播放器打开',
-                                  en: 'Open with System Player',
-                                ),
-                                onPressed: () => _openInSystemPlayer(context),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            MicroPressFeedback(
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.content_copy_outlined,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                tooltip: _localizedText(
-                                  context,
-                                  zh: '复制媒体',
-                                  en: 'Copy Media',
-                                ),
-                                onPressed: _isCopyingMedia
-                                    ? null
-                                    : () => _copyMediaToClipboard(context),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            if (isVideo) ...[
-                              MicroPressFeedback(
-                                child: IconButton(
-                                  icon: Icon(
-                                    Icons.fullscreen_rounded,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  tooltip: _localizedText(
-                                    context,
-                                    zh: '全屏沉浸播放',
-                                    en: 'Fullscreen playback',
-                                  ),
-                                  onPressed: () => _enterFullscreen(context),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                            MicroPressFeedback(
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.download_rounded,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                tooltip: _localizedText(
-                                  context,
-                                  zh: '保存到本地',
-                                  en: 'Save to disk',
-                                ),
-                                onPressed: () => _saveMediaAs(context),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            MicroPressFeedback(
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                onPressed: () => Navigator.of(context).pop(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.all(_kContentPadding),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: SizedBox(
-                            width: metrics.contentWidth,
-                            height: metrics.contentHeight,
-                            child: isVideo
-                                ? Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      if (_controller != null)
-                                        Positioned.fill(
-                                          child: WebViewWidget(
-                                            controller: _controller!,
-                                          ),
-                                        ),
-                                      if (!_pageLoaded ||
-                                          (!_mediaReady && _loadError == null))
-                                        const Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.6,
-                                          ),
-                                        ),
-                                      if (_loadError != null)
-                                        _MediaLoadFallback(
-                                          message: _loadError!,
-                                          onOpenExternal: () =>
-                                              _openInSystemPlayer(context),
-                                        ),
-                                    ],
-                                  )
-                                : NativeAudioPreview(
-                                    title: widget.title,
-                                    source: _nativeAudioPreviewSourceFor(
-                                      widget.source,
-                                    ),
-                                    meta: _nativeAudioVisualMetaForGenerated(
-                                      widget.source,
-                                      widget.title,
-                                    ),
-                                    controller: _audioController,
-                                    onOpenExternal: () =>
-                                        _openInSystemPlayer(context),
-                                    motionDuration:
-                                        MediaQuery.disableAnimationsOf(context)
-                                        ? Duration.zero
-                                        : _playerMotionSettings.duration,
-                                    motionCurve:
-                                        _playerMotionSettings.curve.curve,
-                                  ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(_kContentPadding),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: metrics.contentWidth,
+                    height: metrics.contentHeight,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (_controller != null)
+                          Positioned.fill(child: WebViewWidget(controller: _controller!)),
+                        if (!_pageLoaded || (!_mediaReady && _loadError == null))
+                          const Center(child: CircularProgressIndicator(strokeWidth: 2.6)),
+                        if (_loadError != null)
+                          _MediaLoadFallback(
+                            message: _loadError!,
+                            onOpenExternal: () => _openInSystemPlayer(context),
                           ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAudioDialogBody(
+    BuildContext context,
+    _AdaptivePreviewDialogMetrics metrics,
+  ) {
+    final audioMotionDuration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : _playerMotionSettings.duration;
+    return SizedBox(
+      width: metrics.dialogWidth,
+      height: metrics.contentHeight > 0 ? metrics.contentHeight : 560,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: NativeAudioPreview(
+              title: widget.title,
+              source: _nativeAudioPreviewSourceFor(widget.source),
+              meta: _nativeAudioVisualMetaForGenerated(widget.source, widget.title),
+              controller: _audioController,
+              onOpenExternal: () => _openInSystemPlayer(context),
+              motionDuration: audioMotionDuration,
+              motionCurve: _playerMotionSettings.curve.curve,
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildAudioOverlayBar(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAudioOverlayBar(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xBB000000), Colors.transparent],
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              widget.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+          _AudioOverlayIconButton(
+            icon: Icons.open_in_new_rounded,
+            tooltip: _localizedText(context, zh: '使用系统播放器打开', en: 'Open with System Player'),
+            onPressed: () => _openInSystemPlayer(context),
+          ),
+          _AudioOverlayIconButton(
+            icon: Icons.content_copy_outlined,
+            tooltip: _localizedText(context, zh: '复制媒体', en: 'Copy Media'),
+            onPressed: _isCopyingMedia ? null : () => _copyMediaToClipboard(context),
+          ),
+          _AudioOverlayIconButton(
+            icon: Icons.download_rounded,
+            tooltip: _localizedText(context, zh: '保存到本地', en: 'Save to disk'),
+            onPressed: () => _saveMediaAs(context),
+          ),
+          _AudioOverlayIconButton(
+            icon: Icons.close_rounded,
+            tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
       ),
     );
   }
@@ -5248,6 +5380,39 @@ class _MediaLoadFallback extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AudioOverlayIconButton extends StatelessWidget {
+  const _AudioOverlayIconButton({
+    required this.icon,
+    required this.tooltip,
+    this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox.square(
+        dimension: 38,
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          icon: Icon(icon, size: 20),
+          style: IconButton.styleFrom(
+            foregroundColor: Colors.white,
+            disabledForegroundColor: Colors.white.withValues(alpha: 0.34),
+            backgroundColor: Colors.white.withValues(alpha: 0.10),
+            shape: const CircleBorder(),
+          ),
+          onPressed: onPressed,
         ),
       ),
     );

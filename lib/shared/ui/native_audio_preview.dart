@@ -1181,27 +1181,34 @@ class _NativeAudioAlbumCover extends StatefulWidget {
 }
 
 class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
+    with TickerProviderStateMixin {
+  late final AnimationController _rotateController = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 18),
+  );
+  late final AnimationController _glowController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
   );
 
   @override
   void initState() {
     super.initState();
     if (widget.isPlaying) {
-      _controller.repeat();
+      _rotateController.repeat();
+      _glowController.repeat(reverse: true);
     }
   }
 
   @override
   void didUpdateWidget(covariant _NativeAudioAlbumCover oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isPlaying && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.isPlaying && _controller.isAnimating) {
-      _controller.stop();
+    if (widget.isPlaying && !_rotateController.isAnimating) {
+      _rotateController.repeat();
+      _glowController.repeat(reverse: true);
+    } else if (!widget.isPlaying && _rotateController.isAnimating) {
+      _rotateController.stop();
+      _glowController.stop();
     }
   }
 
@@ -1209,15 +1216,18 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.stop();
-    } else if (widget.isPlaying && !_controller.isAnimating) {
-      _controller.repeat();
+      _rotateController.stop();
+      _glowController.stop();
+    } else if (widget.isPlaying && !_rotateController.isAnimating) {
+      _rotateController.repeat();
+      _glowController.repeat(reverse: true);
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _rotateController.dispose();
+    _glowController.dispose();
     super.dispose();
   }
 
@@ -1228,16 +1238,42 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
     return AnimatedScale(
       duration: widget.motionDuration,
       curve: widget.motionCurve,
-      scale: widget.isPlaying ? 1.015 : 1.0,
+      scale: widget.isPlaying ? 1.018 : 1.0,
       child: SizedBox.square(
         dimension: widget.size,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
+            if (widget.isPlaying)
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _glowController,
+                  builder: (context, _) {
+                    final t = CurvedAnimation(
+                      parent: _glowController,
+                      curve: Curves.easeInOut,
+                    ).value;
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: meta.accentColor.withValues(
+                              alpha: 0.22 + t * 0.18,
+                            ),
+                            blurRadius: 28 + t * 20,
+                            spreadRadius: 2 + t * 4,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
             Positioned.fill(
               left: widget.size * 0.14,
               child: RotationTransition(
-                turns: _controller,
+                turns: _rotateController,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
