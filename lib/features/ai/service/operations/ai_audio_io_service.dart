@@ -5,6 +5,7 @@ import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 import 'ai_operation_http.dart';
+import 'ai_stepfun_audio_policy.dart';
 
 class AiAudioIoResult {
   const AiAudioIoResult({
@@ -55,24 +56,39 @@ class AiAudioIoService {
       family,
       method: model.requestMethod,
     );
-    final instructionKey = model.protocolType == AiProtocolType.stepfun
-        ? 'instruction'
-        : 'instructions';
-    final body = AiOperationHttp.mergeBodyExtras(
-      model,
-      family,
-      <String, Object?>{
-        'model': model.resolveOperationModelId(family),
-        'input': input,
-        if (voice?.trim().isNotEmpty == true)
-          'voice': voice!.trim()
-        else if (model.operationRouting.defaultVoice?.trim().isNotEmpty == true)
-          'voice': model.operationRouting.defaultVoice!.trim(),
-        if (responseFormat?.trim().isNotEmpty == true)
-          'response_format': responseFormat!.trim(),
-        if (speed?.trim().isNotEmpty == true) 'speed': speed!.trim(),
-        if (instructions != null) instructionKey: instructions,
-      },
+    final modelId = model.resolveOperationModelId(family);
+    final stepFunSpeech = AiStepFunAudioPolicy.isStepFunSpeech(
+      protocol: model.protocolType,
+      modelId: modelId,
+    );
+    final validationError = AiStepFunAudioPolicy.inputValidationError(
+      protocol: model.protocolType,
+      modelId: modelId,
+      input: input,
+    );
+    if (validationError != null) {
+      throw ArgumentError.value(input, 'input', validationError);
+    }
+    final instructionKey = stepFunSpeech ? 'instruction' : 'instructions';
+    final baseBody = <String, Object?>{
+      'model': modelId,
+      'input': input,
+      if (voice?.trim().isNotEmpty == true)
+        'voice': voice!.trim()
+      else if (model.operationRouting.defaultVoice?.trim().isNotEmpty == true)
+        'voice': model.operationRouting.defaultVoice!.trim()
+      else if (stepFunSpeech)
+        'voice': AiStepFunAudioPolicy.defaultVoice,
+      if (responseFormat?.trim().isNotEmpty == true)
+        'response_format': responseFormat!.trim(),
+      if (speed?.trim().isNotEmpty == true) 'speed': speed!.trim(),
+      if (instructions != null) instructionKey: instructions,
+    };
+    final mergedBody = AiOperationHttp.mergeBodyExtras(model, family, baseBody);
+    final body = AiStepFunAudioPolicy.normalizeSpeechBody(
+      body: mergedBody,
+      protocol: model.protocolType,
+      modelId: modelId,
     );
     final response = await _transport.sendJson(
       uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),

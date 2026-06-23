@@ -15,6 +15,7 @@ import '../../model/ai_token_usage.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
 import '../operations/ai_operation_http.dart';
+import '../operations/ai_stepfun_audio_policy.dart';
 import '../runtime/ai_endpoint_router.dart';
 
 enum _GeneratedMediaKind {
@@ -179,6 +180,25 @@ class AiImageGenerationService {
   }
 
   static bool supportsAudioGenerationForModel(AiModelConfig model) {
+    final speechModelId = model.resolveOperationModelId(
+      AiApiFamily.audioSpeech,
+    );
+    final speechProfile = model.profileFor(speechModelId);
+    if (speechProfile.capabilities.isNotEmpty) {
+      return speechProfile.capabilities.contains(
+        AiModelCapability.audioGeneration,
+      );
+    }
+    final speechCatalog = AiModelCatalog.lookup(
+      speechModelId,
+      model.protocolType,
+    );
+    if (speechCatalog != null &&
+        speechCatalog.capabilities.contains(
+          AiModelCapability.audioGeneration,
+        )) {
+      return true;
+    }
     return _supportsGenerationCapabilityForModel(
       model,
       AiModelCapability.audioGeneration,
@@ -434,6 +454,16 @@ class AiImageGenerationService {
       _GeneratedMediaKind.video => resolveVideoModelId(model),
       _GeneratedMediaKind.audio => resolveAudioModelId(model),
     };
+    final inputError = kind.isAudio
+        ? AiStepFunAudioPolicy.inputValidationError(
+            protocol: model.protocolType,
+            modelId: modelId,
+            input: trimmedPrompt,
+          )
+        : null;
+    if (inputError != null) {
+      throw AiMediaGenerationException(inputError);
+    }
     final family = _familyForKind(kind);
     final endpoint = _resolveMediaEndpoint(
       model,
@@ -1280,13 +1310,26 @@ class AiImageGenerationService {
         final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
-          'voice': voice ?? _defaultVoiceForAudioProtocol(protocol),
+          'voice':
+              voice ??
+              _defaultVoiceForAudioProtocol(
+                protocol: protocol,
+                modelId: modelId,
+              ),
           'response_format': format,
         };
         _putPositiveDouble(body, 'speed', options.speed);
-        if (protocol == AiProtocolType.stepfun) {
+        if (AiStepFunAudioPolicy.isStepFunSpeech(
+          protocol: protocol,
+          modelId: modelId,
+        )) {
           _putPositiveDouble(body, 'volume', options.volume);
           _putPositiveInt(body, 'sample_rate', options.sampleRate);
+          return AiStepFunAudioPolicy.normalizeSpeechBody(
+            body: body,
+            protocol: protocol,
+            modelId: modelId,
+          );
         }
         return body;
       case AiProtocolType.qwen:
@@ -1342,10 +1385,15 @@ class AiImageGenerationService {
         // protocols are already gated off in `supportsAudioGeneration` and
         // will fail-fast at the chat layer; this body is only reached for
         // user-overridden compatible models.
-        return <String, Object?>{
+        final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
-          'voice': voice ?? 'alloy',
+          'voice':
+              voice ??
+              _defaultVoiceForAudioProtocol(
+                protocol: protocol,
+                modelId: modelId,
+              ),
           'response_format': format,
           if (options.speed != null) 'speed': options.speed,
           if (options.sampleRate != null) 'sample_rate': options.sampleRate,
@@ -1353,6 +1401,11 @@ class AiImageGenerationService {
           if (options.volume != null) 'volume': options.volume,
           if (options.pitch != null) 'pitch': options.pitch,
         };
+        return AiStepFunAudioPolicy.normalizeSpeechBody(
+          body: body,
+          protocol: protocol,
+          modelId: modelId,
+        );
     }
   }
 
@@ -1395,9 +1448,14 @@ class AiImageGenerationService {
     return parsed > 1 ? 1 : parsed;
   }
 
-  String _defaultVoiceForAudioProtocol(AiProtocolType protocol) {
+  String _defaultVoiceForAudioProtocol({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
     return switch (protocol) {
-      AiProtocolType.stepfun => 'cixingnansheng',
+      AiProtocolType.stepfun => AiStepFunAudioPolicy.defaultVoice,
+      _ when AiStepFunAudioPolicy.isStepFunTtsModel(modelId) =>
+        AiStepFunAudioPolicy.defaultVoice,
       _ => 'alloy',
     };
   }
