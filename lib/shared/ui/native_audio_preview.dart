@@ -193,6 +193,17 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   int _bootstrapSerial = 0;
 
   bool get _isPlaying => _playerState == PlayerState.playing;
+  bool get _hasLyrics => widget.meta.lyricLines.isNotEmpty;
+  bool get _hasMeaningfulAlbumLabel {
+    final album = widget.meta.album.trim();
+    if (album.isEmpty) return false;
+    final normalizedAlbum = album.toLowerCase();
+    return normalizedAlbum != widget.meta.title.trim().toLowerCase() &&
+        normalizedAlbum != '生成音频' &&
+        normalizedAlbum != '音频预览' &&
+        normalizedAlbum != 'generated audio' &&
+        normalizedAlbum != 'preview album';
+  }
 
   @override
   void initState() {
@@ -302,8 +313,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       onTimeout: () => null,
     );
     if (initial != null && initial > Duration.zero) return initial;
-    for (var attempt = 0; attempt < 6; attempt++) {
-      await Future<void>.delayed(const Duration(milliseconds: 180));
+    for (var attempt = 0; attempt < 12; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
       final next = await _player.getDuration().timeout(
         kNativeAudioControlTimeout,
         onTimeout: () => null,
@@ -603,14 +614,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Widget _buildWide(BuildContext context) {
-    final hasLyrics = widget.meta.lyricLines.isNotEmpty;
     return Row(
       children: [
-        Expanded(
-          flex: hasLyrics ? 90 : 1,
-          child: _buildAlbumColumn(context, compact: false),
-        ),
-        if (hasLyrics) ...[
+        Expanded(child: _buildAlbumColumn(context, compact: false)),
+        if (_hasLyrics) ...[
           const SizedBox(width: 32),
           Expanded(flex: 110, child: _buildLyricsColumn(context)),
         ],
@@ -619,14 +626,13 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Widget _buildCompact(BuildContext context) {
-    final hasLyrics = widget.meta.lyricLines.isNotEmpty;
     return LayoutBuilder(
       builder: (context, constraints) {
         final short = constraints.maxHeight < 420;
         return Column(
           children: [
             Expanded(child: _buildAlbumColumn(context, compact: true)),
-            if (hasLyrics && !short) ...[
+            if (_hasLyrics && !short) ...[
               const SizedBox(height: 10),
               SizedBox(
                 height: math.min(110, constraints.maxHeight * 0.26),
@@ -651,10 +657,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             : fallback.height;
         final short = height < 500;
         final coverLimit = compact ? 144.0 : (short ? 210.0 : 240.0);
-        final squareSize = math.min(width, height * 0.54);
+        final squareSize = math.min(width * 0.72, height * 0.50);
         final coverSize = math
             .min(coverLimit, squareSize)
-            .clamp(compact ? 80.0 : 148.0, coverLimit)
+            .clamp(compact ? 88.0 : 168.0, coverLimit)
             .toDouble();
         final gap = compact || short ? 10.0 : 14.0;
         final content = Column(
@@ -699,24 +705,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final meta = widget.meta;
-    final showAlbum = meta.album.trim().isNotEmpty &&
-        meta.album.trim().toLowerCase() != meta.title.trim().toLowerCase();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showAlbum) ...[
-          Text(
-            meta.album,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: cs.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 3),
-        ],
         Text(
           meta.title,
           maxLines: 1,
@@ -730,7 +721,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         ),
         const SizedBox(height: 3),
         Text(
-          meta.artist,
+          _hasMeaningfulAlbumLabel ? '${meta.artist} · ${meta.album}' : meta.artist,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
