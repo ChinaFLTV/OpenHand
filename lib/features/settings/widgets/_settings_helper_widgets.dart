@@ -829,9 +829,10 @@ class _AiTranslationProviderCardState
     AiTranslationProviderSettings providerSettings,
   ) {
     final theme = Theme.of(context);
-    final selectedLabel = _translationSelectedModelLabel(
-      providerSettings,
-      widget.availableModels,
+    final selectedLabel = _selectedProviderModelLabel(
+      configId: providerSettings.modelConfigId,
+      modelId: providerSettings.modelId,
+      models: widget.availableModels,
     );
     return _AiTtsProviderSection(
       title: _localizedText(context, zh: 'AI 模型', en: 'AI Model'),
@@ -1480,9 +1481,10 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   ) {
     final theme = Theme.of(context);
     final catalog = AiTtsProviderCatalogs.of(AiTtsProvider.ai);
-    final selectedLabel = _ttsSelectedModelLabel(
-      providerSettings,
-      widget.availableModels,
+    final selectedLabel = _selectedProviderModelLabel(
+      configId: providerSettings.modelConfigId,
+      modelId: providerSettings.modelId,
+      models: widget.availableModels,
     );
     final hasAudioModels = _ttsAudioGenerationModels(
       widget.availableModels,
@@ -1529,7 +1531,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   return current.copyWith(voice: value);
                 }),
               ),
-              _AiTtsExtraDropdown(
+              _AiTtsDropdown(
                 label: _localizedText(context, zh: '音频格式', en: 'Format'),
                 value: '${providerSettings.extra['format'] ?? 'mp3'}',
                 options: catalog.formatOptions,
@@ -1640,10 +1642,10 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 if (_providerNeedsCredentials(provider))
                   _AiTtsProviderTextField(
                     label: _primaryCredentialLabel(provider),
-                    value: _primaryCredentialValue(providerSettings),
+                    value: providerSettings.apiKey,
                     obscure: true,
                     onSubmitted: (value) => _updateCurrent((current) {
-                      return _primaryCredentialUpdated(current, value);
+                      return current.copyWith(apiKey: value);
                     }),
                   ),
                 if (_needsSecondaryCredential(provider))
@@ -1686,21 +1688,21 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             title: _localizedText(context, zh: '豆包参数', en: 'Doubao'),
             child: _AiTtsProviderFieldGrid(
               children: [
-                _AiTtsExtraDropdown(
+                _AiTtsDropdown(
                   label: 'Resource ID',
                   value:
                       '${providerSettings.extra['resource_id'] ?? 'seed-tts-2.0'}',
                   options: catalog.resourceIdOptions,
                   onChanged: (value) => _updateExtra('resource_id', value),
                 ),
-                _AiTtsExtraDropdown(
+                _AiTtsDropdown(
                   label: _localizedText(context, zh: '模型', en: 'Model'),
                   value:
                       '${providerSettings.extra['model'] ?? 'seed-tts-2.0-standard'}',
                   options: catalog.modelOptions,
                   onChanged: (value) => _updateExtra('model', value),
                 ),
-                _AiTtsExtraDropdown(
+                _AiTtsDropdown(
                   label: _localizedText(context, zh: '音频格式', en: 'Format'),
                   value: '${providerSettings.extra['format'] ?? 'mp3'}',
                   options: catalog.formatOptions,
@@ -1715,14 +1717,14 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             title: 'Mimo TTS',
             child: _AiTtsProviderFieldGrid(
               children: [
-                _AiTtsExtraDropdown(
+                _AiTtsDropdown(
                   label: _localizedText(context, zh: '模型', en: 'Model'),
                   value:
                       '${providerSettings.extra['model'] ?? 'mimo-v2.5-tts'}',
                   options: catalog.modelOptions,
                   onChanged: (value) => _updateExtra('model', value),
                 ),
-                _AiTtsExtraDropdown(
+                _AiTtsDropdown(
                   label: _localizedText(context, zh: '音频格式', en: 'Format'),
                   value: '${providerSettings.extra['format'] ?? 'wav'}',
                   options: catalog.formatOptions,
@@ -1769,7 +1771,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             title: _localizedText(context, zh: '音频编码', en: 'Audio'),
             child: _AiTtsProviderFieldGrid(
               children: [
-                _AiTtsExtraDropdown(
+                _AiTtsDropdown(
                   label: _localizedText(context, zh: '音频格式', en: 'Format'),
                   value: '${providerSettings.extra['aue'] ?? 'lame'}',
                   options: catalog.formatOptions,
@@ -1785,7 +1787,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             title: _localizedText(context, zh: '音频编码', en: 'Audio'),
             child: _AiTtsProviderFieldGrid(
               children: [
-                _AiTtsExtraDropdown(
+                _AiTtsDropdown(
                   label: _localizedText(context, zh: '音频格式', en: 'Format'),
                   value:
                       '${providerSettings.extra[_audioEncodingExtraKey(provider)] ?? _defaultAudioEncoding(provider)}',
@@ -2328,30 +2330,6 @@ class _AiTtsDropdown extends StatelessWidget {
   }
 }
 
-class _AiTtsExtraDropdown extends StatelessWidget {
-  const _AiTtsExtraDropdown({
-    required this.label,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final List<AiTtsCatalogOption> options;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return _AiTtsDropdown(
-      label: label,
-      value: value,
-      options: options,
-      onChanged: onChanged,
-    );
-  }
-}
-
 class _SettingsStringDropdownOption {
   const _SettingsStringDropdownOption(this.value, this.label);
 
@@ -2880,17 +2858,6 @@ String _translationSecondaryCredentialLabel(AiTranslationProvider provider) {
   return provider == AiTranslationProvider.baidu ? 'Secret Key' : 'API Secret';
 }
 
-String? _translationSelectedModelLabel(
-  AiTranslationProviderSettings settings,
-  List<AiModelConfig> models,
-) {
-  return _selectedProviderModelLabel(
-    configId: settings.modelConfigId,
-    modelId: settings.modelId,
-    models: models,
-  );
-}
-
 String? _translationProviderReadinessError(
   BuildContext context,
   AiTranslationProviderSettings settings, {
@@ -3036,17 +3003,6 @@ String _ttsProviderHint(BuildContext context, AiTtsProvider provider) {
   }
 }
 
-String? _ttsSelectedModelLabel(
-  AiTtsProviderSettings settings,
-  List<AiModelConfig> models,
-) {
-  return _selectedProviderModelLabel(
-    configId: settings.modelConfigId,
-    modelId: settings.modelId,
-    models: models,
-  );
-}
-
 String? _selectedProviderModelLabel({
   required String configId,
   required String modelId,
@@ -3172,24 +3128,6 @@ String _primaryCredentialLabel(AiTtsProvider provider) {
     default:
       return 'API Key';
   }
-}
-
-String _primaryCredentialValue(AiTtsProviderSettings settings) {
-  switch (settings.provider) {
-    case AiTtsProvider.baidu:
-    case AiTtsProvider.bing:
-    case AiTtsProvider.google:
-      return settings.apiKey;
-    default:
-      return settings.apiKey;
-  }
-}
-
-AiTtsProviderSettings _primaryCredentialUpdated(
-  AiTtsProviderSettings settings,
-  String value,
-) {
-  return settings.copyWith(apiKey: value);
 }
 
 String _secondaryCredentialLabel(AiTtsProvider provider) {
