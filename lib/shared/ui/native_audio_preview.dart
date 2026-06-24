@@ -25,6 +25,7 @@ const Duration _kNativeAudioSeekEchoMinTarget = Duration(milliseconds: 900);
 const Duration _kNativeAudioSeekEchoTolerance = Duration(milliseconds: 1800);
 const Duration _kNativeAudioUnexpectedRewindFloor = Duration(seconds: 12);
 const Duration _kNativeAudioUnexpectedRewindTolerance = Duration(seconds: 4);
+const Duration _kNativeAudioCompletionTolerance = Duration(seconds: 2);
 const int _kNativeAudioDurationProbeAttempts = 8;
 const int _kNativeAudioSeekProbeAttempts = 10;
 const int _kNativeAudioSeekRepairAttempts = 2;
@@ -234,6 +235,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       ..add(
         _player.onPlayerStateChanged.listen((state) {
           if (!mounted) return;
+          if (state == PlayerState.completed && !_shouldAcceptCompleteEvent()) {
+            return;
+          }
           setState(() => _playerState = state);
         }),
       )
@@ -257,6 +261,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       ..add(
         _player.onPlayerComplete.listen((_) {
           if (!mounted) return;
+          if (!_shouldAcceptCompleteEvent()) return;
           unawaited(_handleComplete());
         }),
       );
@@ -371,7 +376,14 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     if (localDuration != null && localDuration > Duration.zero) {
       return localDuration;
     }
+    if (!_canProbePlayerDuration) return _duration;
     return _resolveDuration();
+  }
+
+  bool get _canProbePlayerDuration {
+    if (kIsWeb) return true;
+    return defaultTargetPlatform != TargetPlatform.macOS &&
+        defaultTargetPlatform != TargetPlatform.iOS;
   }
 
   Future<void> _refreshDurationWhenAvailable(int serial) async {
@@ -421,15 +433,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,
       );
-      final polledDuration = await _player.getDuration().timeout(
-        _kNativeAudioMetadataPollTimeout,
-        onTimeout: () => null,
-      );
       if (!mounted || _disposed) return;
-      final nextDuration =
-          polledDuration != null && polledDuration > Duration.zero
-          ? polledDuration
-          : _duration;
+      final nextDuration = _duration;
       final acceptedPosition =
           polledPosition != null && polledPosition >= Duration.zero
           ? _acceptedReportedPosition(polledPosition, nextDuration)
@@ -535,6 +540,20 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     return candidate + _kNativeAudioUnexpectedRewindTolerance < _position;
   }
 
+  bool _shouldAcceptCompleteEvent() {
+    if (_seeking || _manualProgressActive) return false;
+    final target = _seekEchoTarget;
+    if (target != null && _hasActiveSeekEchoGuard && !_isNearAudioEnd(target)) {
+      return false;
+    }
+    return _isNearAudioEnd(_position);
+  }
+
+  bool _isNearAudioEnd(Duration value) {
+    if (_duration <= Duration.zero) return true;
+    return value + _kNativeAudioCompletionTolerance >= _duration;
+  }
+
   Future<Source> _buildAudioSource() async {
     final mimeType = widget.source.mimeType;
     final filePath = widget.source.filePath;
@@ -638,7 +657,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<void> _play() async {
     if (!_sourceReady) return;
-    if (_playerState == PlayerState.completed) {
+    if (_playerState == PlayerState.completed && _isNearAudioEnd(_position)) {
       await _seekTo(Duration.zero);
     }
     await _applyEffectToPlayer();
@@ -653,6 +672,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   Future<void> _seekTo(Duration target) async {
     if (!_sourceReady) return;
     final seekSerial = ++_seekSerial;
+    _seekRebuildAttempts = 0;
     final upperBound = _duration > Duration.zero
         ? _duration
         : Duration(
@@ -666,6 +686,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       _seeking = true;
       _position = clamped;
       _markSeekEchoGuard(clamped);
+      if (_playerState == PlayerState.completed && !_isNearAudioEnd(clamped)) {
+        _playerState = PlayerState.paused;
+      }
     });
     try {
       await _player.seek(clamped).timeout(kNativeAudioControlTimeout);
@@ -695,15 +718,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,
       );
-      final actualDuration = await _player.getDuration().timeout(
-        _kNativeAudioMetadataPollTimeout,
-        onTimeout: () => null,
-      );
       if (!_isCurrentSeek(seekSerial)) return false;
-      final nextDuration =
-          actualDuration != null && actualDuration > Duration.zero
-          ? actualDuration
-          : _duration;
+      final nextDuration = _duration;
       final candidate =
           actualPosition != null && actualPosition >= Duration.zero
           ? _clampDuration(actualPosition, nextDuration)
@@ -762,6 +778,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       await _player
           .setVolume(_effectiveVolume)
           .timeout(kNativeAudioControlTimeout);
+      await _deleteTempAudioFile();
       final source = await _buildAudioSource();
       await _player.setSource(source).timeout(kNativeAudioLoadTimeout);
       if (!_isCurrentSeek(seekSerial)) return;
