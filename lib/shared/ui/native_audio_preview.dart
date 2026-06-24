@@ -2,10 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart' as ja;
+import 'package:media_kit/media_kit.dart' as mk;
 import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
@@ -20,7 +19,11 @@ const Duration _kNativeAudioPollInterval = Duration(milliseconds: 250);
 const Duration _kNativeAudioMetadataPollTimeout = Duration(milliseconds: 450);
 const Duration _kNativeAudioDurationProbeInterval = Duration(milliseconds: 180);
 const Duration _kNativeAudioCompletionTolerance = Duration(seconds: 2);
+const Duration _kNativeAudioSeekSettleDelay = Duration(milliseconds: 90);
+const Duration _kNativeAudioSeekTolerance = Duration(milliseconds: 900);
+const Duration _kNativeAudioPostSeekReportGuard = Duration(milliseconds: 1400);
 const int _kNativeAudioDurationProbeAttempts = 8;
+const int _kNativeAudioSeekConfirmAttempts = 2;
 const int _kNativeAudioHeaderProbeBytes = 256 * 1024;
 const double _kNativeAudioWideBreakpoint = 540;
 const double _kNativeAudioShortBreakpoint = 430;
@@ -177,19 +180,27 @@ enum _NativeAudioEffect {
 }
 
 @visibleForTesting
-enum NativeAudioPlaybackBackendKind { justAudio, audioplayers }
+enum NativeAudioPlaybackBackendKind { mediaKit }
 
 @visibleForTesting
 NativeAudioPlaybackBackendKind selectNativeAudioPlaybackBackend({
   required bool isWeb,
   required TargetPlatform targetPlatform,
 }) {
-  if (!isWeb &&
-      (targetPlatform == TargetPlatform.macOS ||
-          targetPlatform == TargetPlatform.iOS)) {
-    return NativeAudioPlaybackBackendKind.justAudio;
+  return NativeAudioPlaybackBackendKind.mediaKit;
+}
+
+@visibleForTesting
+bool nativeAudioPreviewSourcesReferToSameMedia(
+  NativeAudioPreviewSource a,
+  NativeAudioPreviewSource b,
+) {
+  if (a.filePath != b.filePath ||
+      a.networkUrl != b.networkUrl ||
+      a.mimeType != b.mimeType) {
+    return false;
   }
-  return NativeAudioPlaybackBackendKind.audioplayers;
+  return _sameNativeAudioBytes(a.bytes, b.bytes);
 }
 
 enum _NativeAudioPlaybackState { stopped, paused, playing, completed }
@@ -240,161 +251,126 @@ _NativeAudioPlaybackEngine _createNativeAudioPlaybackEngine() {
     targetPlatform: defaultTargetPlatform,
   );
   return switch (backend) {
-    NativeAudioPlaybackBackendKind.justAudio => _JustAudioPlaybackEngine(),
-    NativeAudioPlaybackBackendKind.audioplayers =>
-      _AudioplayersPlaybackEngine(),
+    NativeAudioPlaybackBackendKind.mediaKit => _MediaKitPlaybackEngine(),
   };
 }
 
-class _JustAudioPlaybackEngine implements _NativeAudioPlaybackEngine {
-  _JustAudioPlaybackEngine()
-    : _player = ja.AudioPlayer(useProxyForRequestHeaders: false) {
+class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
+  _MediaKitPlaybackEngine() {
+    mk.MediaKit.ensureInitialized();
+    _player = mk.Player();
     _subscriptions
       ..add(
-        _player.playerStateStream.listen((state) {
-          _stateController.add(_mapPlayerState(state));
+        _player.stream.playing.listen((playing) {
+          _playing = playing;
+          if (!_completed) _emitState();
         }),
       )
       ..add(
-        _player.durationStream.listen((duration) {
-          if (duration != null && duration > Duration.zero) {
-            _durationController.add(duration);
-          }
+        _player.stream.completed.listen((completed) {
+          _completed = completed;
+          _emitState();
+        }),
+      )
+      ..add(
+        _player.stream.error.listen((message) {
+          silentLog(
+            'native_audio_preview',
+            'media_kit playback error',
+            message,
+          );
         }),
       );
   }
 
-  final ja.AudioPlayer _player;
+  late final mk.Player _player;
   final StreamController<_NativeAudioPlaybackState> _stateController =
       StreamController<_NativeAudioPlaybackState>.broadcast();
-  final StreamController<Duration> _durationController =
-      StreamController<Duration>.broadcast();
   final List<StreamSubscription<dynamic>> _subscriptions =
       <StreamSubscription<dynamic>>[];
+  bool _playing = false;
+  bool _completed = false;
 
   @override
   Stream<_NativeAudioPlaybackState> get stateStream => _stateController.stream;
 
   @override
-  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration> get positionStream => _player.stream.position;
 
   @override
-  Stream<Duration> get durationStream => _durationController.stream;
-
-  @override
-  Future<Duration?> setSource(_NativeAudioResolvedSource source) {
-    final filePath = source.filePath;
-    if (filePath != null && filePath.trim().isNotEmpty) {
-      return _player.setFilePath(filePath);
-    }
-    final networkUrl = source.networkUrl;
-    if (networkUrl != null && networkUrl.trim().isNotEmpty) {
-      return _player.setUrl(networkUrl.trim());
-    }
-    final bytes = source.bytes;
-    if (bytes != null && bytes.isNotEmpty) {
-      throw const FileSystemException(
-        'In-memory audio source must be resolved before native playback.',
-      );
-    }
-    throw const FileSystemException('Audio source is unavailable.');
-  }
-
-  @override
-  Future<Duration?> getDuration() async => _player.duration;
-
-  @override
-  Future<Duration?> getCurrentPosition() async => _player.position;
-
-  @override
-  Future<void> play() => _player.play();
-
-  @override
-  Future<void> pause() => _player.pause();
-
-  @override
-  Future<void> stop() => _player.stop();
-
-  @override
-  Future<void> seek(Duration position) => _player.seek(position);
-
-  @override
-  Future<void> setVolume(double volume) => _player.setVolume(volume);
-
-  @override
-  Future<void> dispose() async {
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
-    }
-    await _stateController.close();
-    await _durationController.close();
-    await _player.dispose();
-  }
-
-  _NativeAudioPlaybackState _mapPlayerState(ja.PlayerState state) {
-    return switch (state.processingState) {
-      ja.ProcessingState.idle => _NativeAudioPlaybackState.stopped,
-      ja.ProcessingState.completed => _NativeAudioPlaybackState.completed,
-      _ =>
-        state.playing
-            ? _NativeAudioPlaybackState.playing
-            : _NativeAudioPlaybackState.paused,
-    };
-  }
-}
-
-class _AudioplayersPlaybackEngine implements _NativeAudioPlaybackEngine {
-  _AudioplayersPlaybackEngine() {
-    _subscriptions.add(
-      _player.onPlayerStateChanged.listen((state) {
-        _stateController.add(_mapPlayerState(state));
-      }),
-    );
-  }
-
-  final ap.AudioPlayer _player = ap.AudioPlayer();
-  final StreamController<_NativeAudioPlaybackState> _stateController =
-      StreamController<_NativeAudioPlaybackState>.broadcast();
-  final List<StreamSubscription<dynamic>> _subscriptions =
-      <StreamSubscription<dynamic>>[];
-
-  @override
-  Stream<_NativeAudioPlaybackState> get stateStream => _stateController.stream;
-
-  @override
-  Stream<Duration> get positionStream => _player.onPositionChanged;
-
-  @override
-  Stream<Duration> get durationStream => _player.onDurationChanged;
+  Stream<Duration> get durationStream => _player.stream.duration;
 
   @override
   Future<Duration?> setSource(_NativeAudioResolvedSource source) async {
-    await _player.setReleaseMode(ap.ReleaseMode.stop);
-    await _player.setPlayerMode(ap.PlayerMode.mediaPlayer);
-    await _player.setSource(_toAudioplayersSource(source));
-    return _player.getDuration();
+    _completed = false;
+    _playing = false;
+    final media = await _toMedia(source);
+    await _player.open(media, play: false);
+    _emitState();
+    return _player.state.duration > Duration.zero
+        ? _player.state.duration
+        : null;
+  }
+
+  Future<mk.Media> _toMedia(_NativeAudioResolvedSource source) async {
+    final bytes = source.bytes;
+    if (bytes != null && bytes.isNotEmpty) {
+      return mk.Media.memory(bytes, type: source.mimeType);
+    }
+    final filePath = source.filePath;
+    if (filePath != null && filePath.trim().isNotEmpty) {
+      return mk.Media(filePath);
+    }
+    final networkUrl = source.networkUrl;
+    if (networkUrl != null && networkUrl.trim().isNotEmpty) {
+      return mk.Media(networkUrl.trim());
+    }
+    throw const FileSystemException('Audio source is unavailable.');
   }
 
   @override
-  Future<Duration?> getDuration() => _player.getDuration();
+  Future<Duration?> getDuration() async {
+    final duration = _player.state.duration;
+    return duration > Duration.zero ? duration : null;
+  }
 
   @override
-  Future<Duration?> getCurrentPosition() => _player.getCurrentPosition();
+  Future<Duration?> getCurrentPosition() async => _player.state.position;
 
   @override
-  Future<void> play() => _player.resume();
+  Future<void> play() async {
+    _completed = false;
+    await _player.play();
+    _playing = true;
+    _emitState();
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    await _player.pause();
+    _playing = false;
+    _emitState();
+  }
 
   @override
-  Future<void> stop() => _player.stop();
+  Future<void> stop() async {
+    await _player.stop();
+    _playing = false;
+    _completed = false;
+    _emitState();
+  }
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) async {
+    _completed = false;
+    await _player.seek(position);
+    _emitState();
+  }
 
   @override
-  Future<void> setVolume(double volume) => _player.setVolume(volume);
+  Future<void> setVolume(double volume) {
+    return _player.setVolume((volume * 100).clamp(0.0, 100.0));
+  }
 
   @override
   Future<void> dispose() async {
@@ -405,31 +381,14 @@ class _AudioplayersPlaybackEngine implements _NativeAudioPlaybackEngine {
     await _player.dispose();
   }
 
-  ap.Source _toAudioplayersSource(_NativeAudioResolvedSource source) {
-    final mimeType = source.mimeType;
-    final filePath = source.filePath;
-    if (filePath != null && filePath.trim().isNotEmpty) {
-      return ap.DeviceFileSource(filePath, mimeType: mimeType);
-    }
-    final networkUrl = source.networkUrl;
-    if (networkUrl != null && networkUrl.trim().isNotEmpty) {
-      return ap.UrlSource(networkUrl.trim(), mimeType: mimeType);
-    }
-    final bytes = source.bytes;
-    if (bytes != null && bytes.isNotEmpty) {
-      return ap.BytesSource(bytes, mimeType: mimeType);
-    }
-    throw const FileSystemException('Audio source is unavailable.');
-  }
-
-  _NativeAudioPlaybackState _mapPlayerState(ap.PlayerState state) {
-    return switch (state) {
-      ap.PlayerState.playing => _NativeAudioPlaybackState.playing,
-      ap.PlayerState.paused => _NativeAudioPlaybackState.paused,
-      ap.PlayerState.completed => _NativeAudioPlaybackState.completed,
-      ap.PlayerState.disposed ||
-      ap.PlayerState.stopped => _NativeAudioPlaybackState.stopped,
-    };
+  void _emitState() {
+    if (_stateController.isClosed) return;
+    final state = _completed
+        ? _NativeAudioPlaybackState.completed
+        : _playing
+        ? _NativeAudioPlaybackState.playing
+        : _NativeAudioPlaybackState.paused;
+    _stateController.add(state);
   }
 }
 
@@ -459,6 +418,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   int _seekSerial = 0;
   bool _handlingComplete = false;
   Future<void> _seekCommandChain = Future<void>.value();
+  Duration? _recentSeekTarget;
+  DateTime? _recentSeekAt;
 
   bool get _isPlaying => _playerState == _NativeAudioPlaybackState.playing;
   bool get _canScrub => _sourceReady && _duration > Duration.zero;
@@ -526,7 +487,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       if (oldController?._state == this) oldController!._state = null;
       widget.controller?._state = this;
     }
-    if (!_sameSource(oldWidget.source, widget.source)) {
+    if (!nativeAudioPreviewSourcesReferToSameMedia(
+      oldWidget.source,
+      widget.source,
+    )) {
       unawaited(_bootstrap());
     }
   }
@@ -543,13 +507,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     super.dispose();
   }
 
-  bool _sameSource(NativeAudioPreviewSource a, NativeAudioPreviewSource b) {
-    return identical(a.bytes, b.bytes) &&
-        a.networkUrl == b.networkUrl &&
-        a.filePath == b.filePath &&
-        a.mimeType == b.mimeType;
-  }
-
   Future<void> _bootstrap() async {
     if (_disposed) return;
     final serial = ++_bootstrapSerial;
@@ -563,6 +520,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       _seeking = false;
       _manualProgressActive = false;
       _handlingComplete = false;
+      _recentSeekTarget = null;
+      _recentSeekAt = null;
     });
     try {
       await _stopForSourceReset();
@@ -724,7 +683,23 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Duration? _acceptedReportedPosition(Duration reported, Duration duration) {
-    return _clampDuration(reported, duration);
+    final clamped = _clampDuration(reported, duration);
+    if (_isStalePostSeekReport(clamped)) return null;
+    return clamped;
+  }
+
+  bool _isStalePostSeekReport(Duration reported) {
+    final target = _recentSeekTarget;
+    final committedAt = _recentSeekAt;
+    if (target == null || committedAt == null) return false;
+    final elapsed = DateTime.now().difference(committedAt);
+    if (elapsed > _kNativeAudioPostSeekReportGuard) {
+      _recentSeekTarget = null;
+      _recentSeekAt = null;
+      return false;
+    }
+    final allowedDrift = _kNativeAudioSeekTolerance + elapsed;
+    return _durationDistance(reported, target) > allowedDrift;
   }
 
   bool _isNearAudioEnd(Duration value) {
@@ -902,12 +877,15 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     try {
       await _player.seek(clamped).timeout(kNativeAudioControlTimeout);
       if (!_isCurrentSeek(seekSerial)) return;
+      await _confirmSeekPosition(seekSerial, clamped);
+      if (!_isCurrentSeek(seekSerial)) return;
       if (shouldResumeAfterSeek && _isCurrentSeek(seekSerial)) {
         await _applyEffectToPlayer();
         await _player.play().timeout(kNativeAudioControlTimeout);
       }
       seekCommandCompleted = true;
       if (_isCurrentSeek(seekSerial)) {
+        _rememberRecentSeek(clamped);
         setState(() {
           _seeking = false;
           _position = _clampDuration(clamped, _duration);
@@ -929,6 +907,38 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _restartProgressPolling();
       }
     }
+  }
+
+  Future<void> _confirmSeekPosition(int seekSerial, Duration target) async {
+    if (target <= Duration.zero) return;
+    for (
+      var attempt = 0;
+      attempt < _kNativeAudioSeekConfirmAttempts;
+      attempt++
+    ) {
+      await Future<void>.delayed(_kNativeAudioSeekSettleDelay);
+      if (!_isCurrentSeek(seekSerial)) return;
+      final actual = await _player.getCurrentPosition().timeout(
+        _kNativeAudioMetadataPollTimeout,
+        onTimeout: () => null,
+      );
+      if (actual == null || _isCloseToSeekTarget(actual, target)) return;
+      await _player.seek(target).timeout(kNativeAudioControlTimeout);
+    }
+  }
+
+  bool _isCloseToSeekTarget(Duration actual, Duration target) {
+    if (_duration > Duration.zero &&
+        _isNearAudioEnd(actual) &&
+        _isNearAudioEnd(target)) {
+      return true;
+    }
+    return _durationDistance(actual, target) <= _kNativeAudioSeekTolerance;
+  }
+
+  void _rememberRecentSeek(Duration target) {
+    _recentSeekTarget = target;
+    _recentSeekAt = DateTime.now();
   }
 
   bool _isCurrentSeek(int seekSerial) {
@@ -2067,6 +2077,14 @@ bool _looksLikeGeneratedAudioName(String value) {
       RegExp(r'^audio[_-]').hasMatch(normalized);
 }
 
+bool _sameNativeAudioBytes(Uint8List? a, Uint8List? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null || a.lengthInBytes != b.lengthInBytes) {
+    return false;
+  }
+  return listEquals<int>(a, b);
+}
+
 String _formatNativeAudioTime(Duration value) {
   if (value <= Duration.zero) return '00:00';
   final total = value.inSeconds;
@@ -2587,6 +2605,10 @@ Duration _clampDuration(Duration value, Duration max) {
   if (value < Duration.zero) return Duration.zero;
   if (max > Duration.zero && value > max) return max;
   return value;
+}
+
+Duration _durationDistance(Duration a, Duration b) {
+  return a >= b ? a - b : b - a;
 }
 
 String _extensionForAudioMime(String? mimeType) {

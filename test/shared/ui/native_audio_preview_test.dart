@@ -4,38 +4,66 @@ import 'package:openhand/shared/ui/native_audio_preview.dart';
 
 void main() {
   group('native audio playback backend selection', () {
-    test('uses just_audio on Apple app targets', () {
+    test('uses media_kit on Apple app targets', () {
       expect(
         selectNativeAudioPlaybackBackend(
           isWeb: false,
           targetPlatform: TargetPlatform.macOS,
         ),
-        NativeAudioPlaybackBackendKind.justAudio,
+        NativeAudioPlaybackBackendKind.mediaKit,
       );
       expect(
         selectNativeAudioPlaybackBackend(
           isWeb: false,
           targetPlatform: TargetPlatform.iOS,
         ),
-        NativeAudioPlaybackBackendKind.justAudio,
+        NativeAudioPlaybackBackendKind.mediaKit,
       );
     });
 
-    test('keeps audioplayers for web and non-Apple desktop targets', () {
+    test('keeps media_kit for web and non-Apple desktop targets', () {
       expect(
         selectNativeAudioPlaybackBackend(
           isWeb: true,
           targetPlatform: TargetPlatform.macOS,
         ),
-        NativeAudioPlaybackBackendKind.audioplayers,
+        NativeAudioPlaybackBackendKind.mediaKit,
       );
       expect(
         selectNativeAudioPlaybackBackend(
           isWeb: false,
           targetPlatform: TargetPlatform.windows,
         ),
-        NativeAudioPlaybackBackendKind.audioplayers,
+        NativeAudioPlaybackBackendKind.mediaKit,
       );
+    });
+  });
+
+  group('native audio source identity', () {
+    test('treats equal byte content as the same media source', () {
+      final first = NativeAudioPreviewSource.bytes(
+        bytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+        mimeType: 'audio/mpeg',
+      );
+      final second = NativeAudioPreviewSource.bytes(
+        bytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+        mimeType: 'audio/mpeg',
+      );
+
+      expect(nativeAudioPreviewSourcesReferToSameMedia(first, second), isTrue);
+    });
+
+    test('keeps different media sources distinct', () {
+      final first = NativeAudioPreviewSource.bytes(
+        bytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+        mimeType: 'audio/mpeg',
+      );
+      final second = NativeAudioPreviewSource.bytes(
+        bytes: Uint8List.fromList(<int>[1, 2, 3, 5]),
+        mimeType: 'audio/mpeg',
+      );
+
+      expect(nativeAudioPreviewSourcesReferToSameMedia(first, second), isFalse);
     });
   });
 }

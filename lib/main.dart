@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as iaw;
+import 'package:media_kit/media_kit.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -64,6 +65,7 @@ Future<void> main() async {
 
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
   iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   // 节流自动模式与 UI 卡顿降级会读取 recentFps。
   OpenHandFpsMonitor.instance.start();
