@@ -3243,9 +3243,9 @@ class _GeneratedMediaLinkCard extends StatefulWidget {
 
 class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     with SingleTickerProviderStateMixin {
-  static final Expando<bool> _revealPlayed = Expando<bool>(
-    '_generatedMediaRevealPlayed',
-  );
+  static const int _revealCacheLimit = 600;
+  static final LinkedHashSet<String> _revealedMediaKeys =
+      LinkedHashSet<String>();
 
   late final AnimationController _revealController = AnimationController(
     vsync: this,
@@ -3272,18 +3272,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   @override
   void initState() {
     super.initState();
-    final disableAnimations = WidgetsBinding
-        .instance
-        .platformDispatcher
-        .accessibilityFeatures
-        .disableAnimations;
-    final hasPlayedReveal = _revealPlayed[widget.source] == true;
-    if (disableAnimations || hasPlayedReveal) {
-      _revealController.value = 1;
-    } else {
-      _revealPlayed[widget.source] = true;
-      _revealController.forward();
-    }
+    _syncRevealAnimation();
     _syncCachedSource();
     _initVideoThumbnail();
   }
@@ -3299,6 +3288,12 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.source.filePath != widget.source.filePath ||
         oldWidget.source.uri != widget.source.uri ||
+        oldWidget.source.kind != widget.source.kind ||
+        oldWidget.title != widget.title) {
+      _syncRevealAnimation();
+    }
+    if (oldWidget.source.filePath != widget.source.filePath ||
+        oldWidget.source.uri != widget.source.uri ||
         oldWidget.source.kind != widget.source.kind) {
       _cacheRequestSerial++;
       _cachedSource = null;
@@ -3306,6 +3301,31 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
       _videoCaptureRequested = false;
       _syncCachedSource();
       _initVideoThumbnail();
+    }
+  }
+
+  void _syncRevealAnimation() {
+    final disableAnimations = WidgetsBinding
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
+    final revealKey = _generatedMediaRevealKey(widget.source, widget.title);
+    final hasPlayedReveal = _revealedMediaKeys.contains(revealKey);
+    _rememberRevealedMediaKey(revealKey);
+    if (disableAnimations || hasPlayedReveal) {
+      _revealController.value = 1;
+      return;
+    }
+    _revealController.forward(from: 0);
+  }
+
+  static void _rememberRevealedMediaKey(String key) {
+    if (key.isEmpty) return;
+    _revealedMediaKeys.remove(key);
+    _revealedMediaKeys.add(key);
+    while (_revealedMediaKeys.length > _revealCacheLimit) {
+      _revealedMediaKeys.remove(_revealedMediaKeys.first);
     }
   }
 
@@ -3652,6 +3672,14 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
       ),
     );
   }
+}
+
+String _generatedMediaRevealKey(_GeneratedMediaSource source, String title) {
+  final path = source.filePath?.trim();
+  final sourceId = path != null && path.isNotEmpty
+      ? path
+      : source.displayUri.toString();
+  return '${source.kind.name}|$sourceId|${title.trim()}';
 }
 
 class _GeneratedAudioVisualMeta {

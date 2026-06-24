@@ -68,6 +68,7 @@ const IMAGE_PREVIEW_MIN_SCALE = 1;
 const IMAGE_PREVIEW_MAX_SCALE = 6;
 const IMAGE_PREVIEW_WHEEL_SENSITIVITY = 0.0025;
 const IMAGE_PREVIEW_TRANSITION = 'transform 120ms cubic-bezier(0.2, 0, 0, 1)';
+const AUDIO_SEEK_STEP_SECONDS = 15;
 const MARKDOWN_MEDIA_REF = /(!?)\[([^\]\n]{0,240})\]\(([^)\r\n]+)\)/g;
 const HTML_MEDIA_SRC = /<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const INLINE_MEDIA_DIR = /(^|[\\/])openhand_media([\\/]|$)/i;
@@ -480,6 +481,7 @@ function mediaKindLabel(kind: MediaKind): string {
 
 function canCacheRemoteMedia(item: MediaItem, url: string): boolean {
   if (!item.isDirectUrl || item.kind === 'file') return false;
+  if (item.kind === 'audio') return false;
   if (!/^https?:\/\//i.test(url)) return false;
   return typeof window !== 'undefined' && typeof window.caches !== 'undefined';
 }
@@ -878,6 +880,257 @@ function InteractiveImagePreview({
 
 function attachmentLabel(item: MediaItem): string {
   return `${t('message.context.kind.attachment', '附件')} · ${mediaKindLabel(item.kind)}`;
+}
+
+function formatAudioTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const rest = total % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(rest)}`
+    : `${pad(minutes)}:${pad(rest)}`;
+}
+
+function audioTimeFromElement(audio: HTMLAudioElement): number {
+  return Number.isFinite(audio.currentTime) && audio.currentTime >= 0
+    ? audio.currentTime
+    : 0;
+}
+
+function audioDurationFromElement(audio: HTMLAudioElement): number {
+  return Number.isFinite(audio.duration) && audio.duration > 0
+    ? audio.duration
+    : 0;
+}
+
+function AudioControlIcon({ name }: { name: 'play' | 'pause' | 'rewind' | 'forward' }) {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2.2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  switch (name) {
+    case 'pause':
+      return <svg {...common}><path d="M9 5v14M15 5v14" /></svg>;
+    case 'rewind':
+      return <svg {...common}><path d="m11 7-5 5 5 5V7Z" fill="currentColor" stroke="none" /><path d="m18 7-5 5 5 5V7Z" fill="currentColor" stroke="none" /></svg>;
+    case 'forward':
+      return <svg {...common}><path d="m6 7 5 5-5 5V7Z" fill="currentColor" stroke="none" /><path d="m13 7 5 5-5 5V7Z" fill="currentColor" stroke="none" /></svg>;
+    case 'play':
+    default:
+      return <svg {...common}><path d="M8 5v14l11-7-11-7Z" fill="currentColor" stroke="none" /></svg>;
+  }
+}
+
+interface MessageAudioResultCardProps {
+  item: MediaItem;
+  url: string;
+  onPreview: () => void;
+}
+
+function MessageAudioResultCard({ item, url, onPreview }: MessageAudioResultCardProps) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [ready, setReady] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [error, setError] = useState(false);
+
+  const syncFromElement = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setDuration(audioDurationFromElement(audio));
+    setPosition(audioTimeFromElement(audio));
+    setReady(audio.readyState > 0 || audioDurationFromElement(audio) > 0);
+    setPlaying(!audio.paused && !audio.ended);
+    setError(false);
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+    let frame = 0;
+    const scheduleSync = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        syncFromElement();
+      });
+    };
+    const handleEnded = () => {
+      setPlaying(false);
+      scheduleSync();
+    };
+    const handleError = () => {
+      setError(true);
+      setPlaying(false);
+    };
+    audio.addEventListener('loadedmetadata', scheduleSync);
+    audio.addEventListener('canplay', scheduleSync);
+    audio.addEventListener('durationchange', scheduleSync);
+    audio.addEventListener('timeupdate', scheduleSync);
+    audio.addEventListener('play', scheduleSync);
+    audio.addEventListener('pause', scheduleSync);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+    scheduleSync();
+    return () => {
+      audio.removeEventListener('loadedmetadata', scheduleSync);
+      audio.removeEventListener('canplay', scheduleSync);
+      audio.removeEventListener('durationchange', scheduleSync);
+      audio.removeEventListener('timeupdate', scheduleSync);
+      audio.removeEventListener('play', scheduleSync);
+      audio.removeEventListener('pause', scheduleSync);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [syncFromElement, url]);
+
+  useEffect(() => {
+    setReady(false);
+    setPlaying(false);
+    setPosition(0);
+    setDuration(0);
+    setError(false);
+  }, [url]);
+
+  const seekTo = useCallback((seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio || duration <= 0) return;
+    const next = clampNumber(seconds, 0, duration);
+    audio.currentTime = next;
+    setPosition(next);
+  }, [duration]);
+
+  const seekBy = useCallback((delta: number) => {
+    seekTo(position + delta);
+  }, [position, seekTo]);
+
+  const togglePlayback = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || error) return;
+    if (!audio.paused && !audio.ended) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+    audio.play()
+      .then(syncFromElement)
+      .catch(() => {
+        setPlaying(false);
+        setError(true);
+      });
+  }, [error, syncFromElement]);
+
+  const handleProgressInput = useCallback((event: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    const value = Number(event.currentTarget.value);
+    if (!Number.isFinite(value)) return;
+    seekTo(value);
+  }, [seekTo]);
+
+  const progress = duration > 0 ? clampNumber(position / duration, 0, 1) : 0;
+  const canSeek = duration > 0 && !error;
+  const playerLabel = error
+    ? t('detail.media.audioError', '音频载入失败')
+    : ready
+      ? mediaKindLabel(item.kind)
+      : t('detail.media.loading', '载入中');
+  const progressStyle = {
+    '--oh-audio-progress': `${Math.round(progress * 100)}%`,
+  } as JSX.CSSProperties;
+
+  return (
+    <div
+      data-message-media-interactive="true"
+      onPointerDown={(ev) => { ev.stopPropagation(); }}
+      onClick={(ev) => { ev.stopPropagation(); }}
+      class="oh-media-card oh-media-result-card oh-audio-result-card"
+      title={item.name}
+    >
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        aria-label={item.name}
+        class="oh-audio-native-engine"
+      />
+      <div class="oh-audio-result-cover" aria-hidden>
+        <MediaKindIcon kind="audio" size={22} />
+      </div>
+      <div class="oh-audio-result-main">
+        <div class="oh-audio-result-header">
+          <div class="oh-audio-result-title-block">
+            <p class="oh-audio-result-title">{item.name}</p>
+            <p class="oh-audio-result-subtitle">{playerLabel}</p>
+          </div>
+          <button
+            type="button"
+            onClick={(ev) => { ev.stopPropagation(); onPreview(); }}
+            class="oh-tap-press oh-audio-preview-button"
+          >
+            {t('detail.media.preview', '预览')}
+          </button>
+        </div>
+        <div class="oh-audio-result-controls">
+          <button
+            type="button"
+            onClick={(ev) => { ev.stopPropagation(); seekBy(-AUDIO_SEEK_STEP_SECONDS); }}
+            disabled={!canSeek}
+            class="oh-tap-press oh-audio-icon-button"
+            aria-label={t('detail.media.audioRewind', '后退')}
+            title={t('detail.media.audioRewind', '后退')}
+          >
+            <AudioControlIcon name="rewind" />
+          </button>
+          <button
+            type="button"
+            onClick={(ev) => { ev.stopPropagation(); togglePlayback(); }}
+            disabled={error}
+            class="oh-tap-press oh-audio-icon-button is-primary"
+            aria-label={playing ? t('detail.media.pause', '暂停') : t('detail.media.play', '播放')}
+            title={playing ? t('detail.media.pause', '暂停') : t('detail.media.play', '播放')}
+          >
+            <AudioControlIcon name={playing ? 'pause' : 'play'} />
+          </button>
+          <button
+            type="button"
+            onClick={(ev) => { ev.stopPropagation(); seekBy(AUDIO_SEEK_STEP_SECONDS); }}
+            disabled={!canSeek}
+            class="oh-tap-press oh-audio-icon-button"
+            aria-label={t('detail.media.audioForward', '前进')}
+            title={t('detail.media.audioForward', '前进')}
+          >
+            <AudioControlIcon name="forward" />
+          </button>
+          <span class="oh-audio-time">{formatAudioTime(position)}</span>
+          <input
+            type="range"
+            min="0"
+            max={duration > 0 ? String(duration) : '0'}
+            step="0.01"
+            value={duration > 0 ? String(position) : '0'}
+            disabled={!canSeek}
+            onInput={handleProgressInput}
+            class="oh-audio-progress"
+            style={progressStyle}
+            aria-label={t('detail.media.audioProgress', '音频进度')}
+          />
+          <span class="oh-audio-time">{formatAudioTime(duration)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export interface MessageMediaProps {
@@ -1402,41 +1655,12 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
         }
         if (item.kind === 'audio') {
           return (
-            <div
+            <MessageAudioResultCard
               key={key}
-              data-message-media-interactive="true"
-              onPointerDown={(ev) => { ev.stopPropagation(); }}
-              onClick={(ev) => { ev.stopPropagation(); }}
-              class="oh-media-card oh-media-result-card rounded-md px-3 py-2 flex flex-col gap-2"
-              style={{
-                border: '1px solid var(--m3-outline)',
-                background: 'var(--m3-surface)',
-                maxWidth: '480px',
-              }}
-            >
-              <div class="flex items-center gap-2">
-                <p
-                  class="text-xs truncate flex-1 min-w-0"
-                  style={{ color: 'var(--m3-on-surface)' }}
-                >
-                  {item.name}
-                </p>
-                <button
-                  type="button"
-                  onClick={(ev) => { ev.stopPropagation(); openPreview(item, url); }}
-                  class="oh-tap-press text-xs px-2 py-1 rounded-m3-sm"
-                  style={{ color: 'var(--m3-primary)', border: '1px solid var(--m3-outline-variant)' }}
-                >
-                  {t('detail.media.preview', '预览')}
-                </button>
-              </div>
-              <audio
-                src={url}
-                controls
-                preload="none"
-                style={{ width: '100%' }}
+              item={item}
+              url={url}
+              onPreview={() => openPreview(item, url)}
               />
-            </div>
           );
         }
         // 通用文件 pill

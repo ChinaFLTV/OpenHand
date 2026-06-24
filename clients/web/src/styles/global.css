@@ -354,6 +354,228 @@ html, body, #root {
   will-change: transform, opacity;
 }
 
+.oh-audio-result-card {
+  width: min(100%, 520px);
+  max-width: 520px;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline) 62%, transparent);
+  border-radius: var(--m3-radius-md);
+  color: var(--m3-on-surface);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--m3-primary) 10%, transparent),
+      color-mix(in srgb, var(--m3-surface-container-high) 88%, transparent)),
+    var(--m3-surface-container-high);
+  box-shadow: var(--m3-elev-1);
+  contain: layout paint;
+  isolation: isolate;
+  transition:
+    transform 240ms var(--oh-motion-spring),
+    border-color 220ms var(--oh-motion-emphasized),
+    box-shadow 260ms var(--oh-motion-emphasized),
+    background-color 220ms var(--oh-motion-emphasized);
+}
+.oh-audio-result-card:hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline));
+  box-shadow: var(--m3-elev-2);
+}
+.oh-audio-result-card:focus-within {
+  border-color: var(--m3-primary);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--m3-primary) 18%, transparent),
+    var(--m3-elev-2);
+}
+.oh-audio-native-engine {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.oh-audio-result-cover {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  color: var(--m3-on-primary);
+  background:
+    radial-gradient(circle at 34% 28%,
+      color-mix(in srgb, var(--m3-on-primary) 28%, transparent),
+      transparent 42%),
+    var(--m3-primary);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--m3-primary) 22%, transparent);
+}
+.oh-audio-result-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.oh-audio-result-header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.oh-audio-result-title-block {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.oh-audio-result-title,
+.oh-audio-result-subtitle {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-audio-result-title {
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 800;
+  color: var(--m3-on-surface);
+}
+.oh-audio-result-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--m3-on-surface-variant);
+}
+.oh-audio-preview-button {
+  flex: none;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  border-radius: var(--m3-radius-sm);
+  color: var(--m3-primary);
+  background: color-mix(in srgb, var(--m3-surface) 72%, transparent);
+  font-size: 12px;
+  font-weight: 800;
+}
+.oh-audio-result-controls {
+  display: grid;
+  grid-template-columns: 28px 34px 28px auto minmax(80px, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+}
+.oh-audio-icon-button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 70%, transparent);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--m3-on-surface-variant);
+  background: color-mix(in srgb, var(--m3-surface) 68%, transparent);
+}
+.oh-audio-icon-button.is-primary {
+  width: 34px;
+  height: 34px;
+  color: var(--m3-on-primary);
+  background: var(--m3-primary);
+  border-color: transparent;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--m3-primary) 24%, transparent);
+}
+.oh-audio-icon-button:disabled {
+  opacity: 0.42;
+  cursor: default;
+  transform: none;
+}
+.oh-audio-time {
+  min-width: 42px;
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.oh-audio-progress {
+  width: 100%;
+  min-width: 80px;
+  height: 18px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  accent-color: var(--m3-primary);
+}
+.oh-audio-progress:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.oh-audio-progress::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--m3-primary) 0%,
+    var(--m3-primary) var(--oh-audio-progress, 0%),
+    color-mix(in srgb, var(--m3-outline-variant) 72%, transparent) var(--oh-audio-progress, 0%),
+    color-mix(in srgb, var(--m3-outline-variant) 72%, transparent) 100%
+  );
+}
+.oh-audio-progress::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--m3-primary);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--m3-primary) 34%, transparent);
+  -webkit-appearance: none;
+  transition: transform 160ms var(--oh-motion-spring);
+}
+.oh-audio-progress:hover::-webkit-slider-thumb,
+.oh-audio-progress:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+.oh-audio-progress::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+}
+.oh-audio-progress::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--m3-primary);
+}
+.oh-audio-progress::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--m3-primary);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--m3-primary) 34%, transparent);
+}
+@media (max-width: 520px) {
+  .oh-audio-result-card {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+  .oh-audio-result-cover {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+  .oh-audio-result-controls {
+    grid-template-columns: 30px 34px 30px minmax(86px, 1fr);
+  }
+  .oh-audio-time {
+    display: none;
+  }
+}
+
 @keyframes oh-media-generating-sweep {
   0% { transform: translate3d(-3%, -2%, 0) scale(1); opacity: 0.56; }
   50% { transform: translate3d(3%, 2%, 0) scale(1.04); opacity: 0.72; }
