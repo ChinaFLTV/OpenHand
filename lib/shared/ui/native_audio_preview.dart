@@ -18,6 +18,10 @@ const Size kNativeAudioPreviewPreferredSize = Size(640, 560);
 const Duration _kNativeAudioPollInterval = Duration(milliseconds: 250);
 const Duration _kNativeAudioMetadataPollTimeout = Duration(milliseconds: 450);
 const Duration _kNativeAudioDurationProbeInterval = Duration(milliseconds: 180);
+const Duration _kNativeAudioSeekSettleDelay = Duration(milliseconds: 140);
+const Duration _kNativeAudioSeekEchoGuard = Duration(milliseconds: 900);
+const Duration _kNativeAudioSeekEchoMinTarget = Duration(milliseconds: 900);
+const Duration _kNativeAudioSeekEchoTolerance = Duration(milliseconds: 1800);
 const int _kNativeAudioDurationProbeAttempts = 8;
 const int _kNativeAudioHeaderProbeBytes = 256 * 1024;
 const double _kNativeAudioWideBreakpoint = 540;
@@ -197,6 +201,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   Timer? _progressPollTimer;
   int _bootstrapSerial = 0;
   bool _pollInFlight = false;
+  Duration? _seekEchoTarget;
+  DateTime? _seekEchoGuardUntil;
 
   bool get _isPlaying => _playerState == PlayerState.playing;
   bool get _canScrub => _sourceReady && _duration > Duration.zero;
@@ -289,6 +295,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       _loadError = null;
       _position = Duration.zero;
       _duration = Duration.zero;
+      _clearSeekEchoGuard();
     });
     try {
       await _stopForSourceReset();
@@ -412,10 +419,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           polledDuration != null && polledDuration > Duration.zero
           ? polledDuration
           : _duration;
-      final nextPosition =
+      final acceptedPosition =
           polledPosition != null && polledPosition >= Duration.zero
-          ? _clampDuration(polledPosition, nextDuration)
-          : _position;
+          ? _acceptedReportedPosition(polledPosition, nextDuration)
+          : null;
+      final nextPosition = acceptedPosition ?? _position;
       if (nextDuration == _duration && nextPosition == _position) return;
       setState(() {
         _duration = nextDuration;
@@ -444,9 +452,52 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   void _setKnownPosition(Duration position) {
     if (position < Duration.zero || !mounted) return;
-    final nextPosition = _clampDuration(position, _duration);
+    final nextPosition = _acceptedReportedPosition(position, _duration);
+    if (nextPosition == null) return;
     if (nextPosition == _position) return;
     setState(() => _position = nextPosition);
+  }
+
+  Duration? _acceptedReportedPosition(Duration reported, Duration duration) {
+    final candidate = _clampDuration(reported, duration);
+    if (_shouldIgnoreSeekEcho(candidate)) return null;
+    _clearSeekEchoGuardIfSettled(candidate);
+    return candidate;
+  }
+
+  bool _shouldIgnoreSeekEcho(Duration candidate) {
+    final target = _seekEchoTarget;
+    if (target == null || !_hasActiveSeekEchoGuard) return false;
+    if (target <= _kNativeAudioSeekEchoMinTarget) return false;
+    return _durationDistance(candidate, target) >
+        _kNativeAudioSeekEchoTolerance;
+  }
+
+  void _clearSeekEchoGuardIfSettled(Duration candidate) {
+    final target = _seekEchoTarget;
+    if (target == null) return;
+    if (_durationDistance(candidate, target) <=
+        _kNativeAudioSeekEchoTolerance) {
+      _clearSeekEchoGuard();
+    }
+  }
+
+  bool get _hasActiveSeekEchoGuard {
+    final guardUntil = _seekEchoGuardUntil;
+    if (guardUntil == null) return false;
+    if (DateTime.now().isBefore(guardUntil)) return true;
+    _clearSeekEchoGuard();
+    return false;
+  }
+
+  void _markSeekEchoGuard(Duration target) {
+    _seekEchoTarget = target;
+    _seekEchoGuardUntil = DateTime.now().add(_kNativeAudioSeekEchoGuard);
+  }
+
+  void _clearSeekEchoGuard() {
+    _seekEchoTarget = null;
+    _seekEchoGuardUntil = null;
   }
 
   Future<Source> _buildAudioSource() async {
@@ -578,10 +629,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     setState(() {
       _seeking = true;
       _position = clamped;
+      _markSeekEchoGuard(clamped);
     });
     try {
       await _player.seek(clamped).timeout(kNativeAudioControlTimeout);
-      await Future<void>.delayed(const Duration(milliseconds: 120));
+      await Future<void>.delayed(_kNativeAudioSeekSettleDelay);
       final actualPosition = await _player.getCurrentPosition().timeout(
         kNativeAudioControlTimeout,
         onTimeout: () => null,
@@ -592,11 +644,19 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       );
       if (!mounted || _disposed) return;
       setState(() {
+        var nextDuration = _duration;
         if (actualDuration != null && actualDuration > Duration.zero) {
-          _duration = actualDuration;
+          nextDuration = actualDuration;
         }
+        _duration = nextDuration;
         if (actualPosition != null && actualPosition >= Duration.zero) {
-          _position = _clampDuration(actualPosition, _duration);
+          final accepted = _acceptedReportedPosition(
+            actualPosition,
+            nextDuration,
+          );
+          _position = accepted ?? _clampDuration(clamped, nextDuration);
+        } else {
+          _position = _clampDuration(clamped, nextDuration);
         }
       });
     } catch (error, stack) {
@@ -1184,11 +1244,11 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
     with TickerProviderStateMixin {
   late final AnimationController _rotateController = AnimationController(
     vsync: this,
-    duration: const Duration(seconds: 18),
+    duration: const Duration(seconds: 24),
   );
   late final AnimationController _glowController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1600),
+    duration: const Duration(milliseconds: 2200),
   );
 
   @override
@@ -1248,133 +1308,139 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
       meta.secondaryColor.withValues(alpha: 0.08),
       colorScheme.surfaceContainerHigh,
     );
-    return AnimatedScale(
-      duration: widget.motionDuration,
-      curve: widget.motionCurve,
-      scale: widget.isPlaying ? 1.018 : 1.0,
-      child: AnimatedBuilder(
-        animation: _glowController,
-        builder: (context, child) {
-          final t = widget.isPlaying
-              ? CurvedAnimation(
-                  parent: _glowController,
-                  curve: Curves.easeInOut,
-                ).value
-              : 0.0;
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(radius),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.primary.withValues(alpha: 0.16 + t * 0.08),
-                  blurRadius: 28 + t * 10,
-                  offset: const Offset(0, 14),
-                ),
-                BoxShadow(
-                  color: colorScheme.shadow.withValues(alpha: 0.12),
-                  blurRadius: 34,
-                  offset: const Offset(0, 18),
-                ),
-              ],
-            ),
-            child: child,
-          );
-        },
-        child: SizedBox.square(
-          dimension: widget.size,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(radius),
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: Listenable.merge([_rotateController, _glowController]),
+      builder: (context, child) {
+        final breath = widget.isPlaying && !reduceMotion
+            ? Curves.easeInOutCubic.transform(_glowController.value)
+            : 0.0;
+        final playLift = widget.isPlaying && !reduceMotion ? 1.0 : 0.0;
+        final scale = 1.0 + playLift * 0.012 + breath * 0.010;
+        final lift = -playLift * (1.0 + breath * 2.2);
+        return Transform.translate(
+          offset: Offset(0, lift),
+          child: Transform.scale(
+            scale: scale,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [coverBase, coverMid, coverEnd],
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: RotationTransition(
-                      turns: _rotateController,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: SweepGradient(
-                            colors: [
-                              colorScheme.onPrimaryContainer.withValues(
-                                alpha: 0.14,
-                              ),
-                              Colors.transparent,
-                              colorScheme.shadow.withValues(alpha: 0.08),
-                              colorScheme.onPrimaryContainer.withValues(
-                                alpha: 0.14,
-                              ),
-                            ],
-                            stops: const [0, 0.36, 0.68, 1],
-                          ),
-                        ),
-                      ),
+                borderRadius: BorderRadius.circular(radius),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(
+                      alpha: 0.13 + breath * 0.07,
                     ),
+                    blurRadius: 24 + breath * 16,
+                    spreadRadius: breath * 1.2,
+                    offset: Offset(0, 12 + breath * 4),
                   ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            colorScheme.onPrimaryContainer.withValues(
-                              alpha: 0.18,
-                            ),
-                            Colors.transparent,
-                            colorScheme.shadow.withValues(alpha: 0.14),
-                          ],
-                          stops: const [0, 0.48, 1],
-                        ),
-                      ),
+                  BoxShadow(
+                    color: colorScheme.shadow.withValues(
+                      alpha: 0.10 + breath * 0.03,
                     ),
-                  ),
-                  Center(
-                    child: Container(
-                      width: widget.size * 0.30,
-                      height: widget.size * 0.30,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colorScheme.surface.withValues(alpha: 0.42),
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.72,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: widget.size * 0.10,
-                    bottom: widget.size * 0.10,
-                    child: Icon(
-                      Icons.graphic_eq_rounded,
-                      size: widget.size * 0.16,
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.40,
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: Text(
-                      meta.coverGlyph,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      style: TextStyle(
-                        color: widget.foregroundColor.withValues(alpha: 0.94),
-                        fontWeight: FontWeight.w900,
-                        fontSize: widget.size * 0.28,
-                        height: 1,
-                      ),
-                    ),
+                    blurRadius: 30 + breath * 8,
+                    offset: const Offset(0, 18),
                   ),
                 ],
               ),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: SizedBox.square(
+        dimension: widget.size,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [coverBase, coverMid, coverEnd],
+              ),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: RotationTransition(
+                    turns: _rotateController,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: SweepGradient(
+                          colors: [
+                            colorScheme.onPrimaryContainer.withValues(
+                              alpha: 0.10,
+                            ),
+                            Colors.transparent,
+                            colorScheme.primary.withValues(alpha: 0.08),
+                            colorScheme.shadow.withValues(alpha: 0.06),
+                            colorScheme.onPrimaryContainer.withValues(
+                              alpha: 0.10,
+                            ),
+                          ],
+                          stops: const [0, 0.28, 0.50, 0.74, 1],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          colorScheme.onPrimaryContainer.withValues(
+                            alpha: 0.16,
+                          ),
+                          Colors.transparent,
+                          colorScheme.shadow.withValues(alpha: 0.13),
+                        ],
+                        stops: const [0, 0.50, 1],
+                      ),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Container(
+                    width: widget.size * 0.30,
+                    height: widget.size * 0.30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.surface.withValues(alpha: 0.42),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.72,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: widget.size * 0.10,
+                  bottom: widget.size * 0.10,
+                  child: Icon(
+                    Icons.graphic_eq_rounded,
+                    size: widget.size * 0.16,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.40),
+                  ),
+                ),
+                Center(
+                  child: Text(
+                    meta.coverGlyph,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: widget.foregroundColor.withValues(alpha: 0.94),
+                      fontWeight: FontWeight.w900,
+                      fontSize: widget.size * 0.28,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2262,6 +2328,11 @@ Duration _clampDuration(Duration value, Duration max) {
   if (value < Duration.zero) return Duration.zero;
   if (max > Duration.zero && value > max) return max;
   return value;
+}
+
+Duration _durationDistance(Duration a, Duration b) {
+  final delta = a - b;
+  return delta.isNegative ? -delta : delta;
 }
 
 String _extensionForAudioMime(String? mimeType) {
