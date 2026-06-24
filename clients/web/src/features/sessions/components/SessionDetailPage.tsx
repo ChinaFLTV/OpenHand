@@ -88,6 +88,24 @@ const INITIAL_PAGE_SIZE = 12;
 const INITIAL_RENDERED_MESSAGE_COUNT = 4;
 const MESSAGE_RENDER_BATCH_SIZE = 2;
 const MESSAGE_RENDER_STEADY_WINDOW_LIMIT = 96;
+
+function supportsTitleGeneration(model: ApiMetaModel | undefined): boolean {
+  return !!model && model.supports_text_title_generation !== false;
+}
+
+function resolveDefaultTitleModelKey(models: ApiMetaModel[], currentKey: string): string {
+  const current = currentKey ? models.find((model) => model.key === currentKey) : undefined;
+  if (supportsTitleGeneration(current)) return current!.key;
+  const providerDefaultKey = current?.provider_default_title_model_key ?? '';
+  if (providerDefaultKey) {
+    const providerDefault = models.find((model) => model.key === providerDefaultKey);
+    if (supportsTitleGeneration(providerDefault)) return providerDefault!.key;
+  }
+  const globalDefault = models.find((model) => model.is_global_default_title_model);
+  if (supportsTitleGeneration(globalDefault)) return globalDefault!.key;
+  if (current) return '';
+  return models.find((model) => supportsTitleGeneration(model))?.key ?? '';
+}
 const MESSAGE_RENDER_REVEAL_INCREMENT = 24;
 const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 180;
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
@@ -2655,6 +2673,13 @@ export function SessionDetailPage() {
   const selectedModel = useMemo(() => allowedModels.find((model) => model.key === composerModelKey), [allowedModels, composerModelKey]);
   const selectedModelName = selectedModel?.model_id || selectedModel?.label || '';
   const selectedModelProvider = selectedModel ? (selectedModel.protocol ? `${selectedModel.provider} · ${selectedModel.protocol}` : selectedModel.provider) : '';
+  const titleSummaryDefaultModelKey = useMemo(() => {
+    const sessionModelKey = detail?.session.last_model_key ?? '';
+    return resolveDefaultTitleModelKey(
+      allowedModels,
+      sessionModelKey || composerModelKey || meta?.active_model_key || '',
+    );
+  }, [allowedModels, composerModelKey, detail?.session.last_model_key, meta?.active_model_key]);
   const modelAllowedModes = useMemo(() => {
     const filtered = allowedModes.filter((mode) => modelSupportsMode(selectedModel, mode));
     return filtered.length > 0 ? filtered : ['normal'];
@@ -4612,12 +4637,17 @@ export function SessionDetailPage() {
         <TitleSummaryDialog
           initialMessages={sortedMessages}
           loadMessages={loadTitleSourceMessages}
+          models={allowedModels}
+          initialModelKey={titleSummaryDefaultModelKey}
           onGenerate={async (startIdx, endIdx, userMsgs, options) => {
             const selectedContent = userMsgs
               .slice(startIdx, endIdx + 1)
               .map((m) => m.content.trim())
               .join('\n\n');
-            const res = await generateSessionTitle(sessionId, selectedContent, { signal: options.signal });
+            const res = await generateSessionTitle(sessionId, selectedContent, {
+              signal: options.signal,
+              modelKey: options.modelKey,
+            });
             // 刷新会话详情以获取新标题
             loadDetail();
             return res.title;

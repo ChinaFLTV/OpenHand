@@ -649,6 +649,9 @@ class AiModelConfig {
       ),
       maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
       availableModelIds: availableModelIds,
+      defaultTitleModelId: '${json['default_title_model_id'] ?? ''}'.trim(),
+      isGlobalDefaultTitleModel:
+          _readBool(json['is_global_default_title_model']) ?? false,
       customHeaders: _parseCustomHeaders(json['custom_headers']),
       requestMethod: _parseRequestMethod(json['request_method']),
       maxTokens: _readNullablePositiveInt(json['max_tokens']),
@@ -682,6 +685,8 @@ class AiModelConfig {
     bool? explicitPromptCacheEnabled,
     this.maxContextTokens,
     this.availableModelIds = const <String>[],
+    this.defaultTitleModelId = '',
+    this.isGlobalDefaultTitleModel = false,
     this.customHeaders = const <String, String>{},
     this.requestMethod = 'POST',
     this.maxTokens,
@@ -745,6 +750,18 @@ class AiModelConfig {
 
   /// All known model IDs for this provider (auto-scanned + manually added).
   final List<String> availableModelIds;
+
+  /// Provider-level fallback model used only for session title generation.
+  ///
+  /// This lets non-text generation models (image / video / audio) keep using
+  /// their own provider credentials while delegating title synthesis to a
+  /// text-capable sibling model from the same provider.
+  final String defaultTitleModelId;
+
+  /// Whether this provider contributes the app-wide title-generation fallback.
+  /// At most one provider should have this true; SettingsController enforces
+  /// uniqueness on save and settings load sanitizes older duplicated values.
+  final bool isGlobalDefaultTitleModel;
 
   /// User-defined custom HTTP headers to include in API requests.
   final Map<String, String> customHeaders;
@@ -988,6 +1005,7 @@ class AiModelConfig {
     return normalizeModelIds(<String>[
       ...availableModelIds,
       if (trimmedModelId.isNotEmpty) trimmedModelId,
+      if (defaultTitleModelId.trim().isNotEmpty) defaultTitleModelId.trim(),
     ]);
   }
 
@@ -1006,6 +1024,8 @@ class AiModelConfig {
     int? maxContextTokens,
     bool clearMaxContextTokens = false,
     List<String>? availableModelIds,
+    String? defaultTitleModelId,
+    bool? isGlobalDefaultTitleModel,
     Map<String, String>? customHeaders,
     String? requestMethod,
     int? maxTokens,
@@ -1039,6 +1059,9 @@ class AiModelConfig {
       availableModelIds: normalizeModelIds(
         availableModelIds ?? this.availableModelIds,
       ),
+      defaultTitleModelId: defaultTitleModelId ?? this.defaultTitleModelId,
+      isGlobalDefaultTitleModel:
+          isGlobalDefaultTitleModel ?? this.isGlobalDefaultTitleModel,
       customHeaders: customHeaders ?? this.customHeaders,
       requestMethod: requestMethod ?? this.requestMethod,
       maxTokens: clearMaxTokens ? null : maxTokens ?? this.maxTokens,
@@ -1083,6 +1106,9 @@ class AiModelConfig {
         _explicitPromptCacheEnabledJsonKey: effectiveExplicitPromptCacheEnabled,
       'max_context_tokens': maxContextTokens,
       'available_model_ids': normalizeModelIds(availableModelIds),
+      if (defaultTitleModelId.trim().isNotEmpty)
+        'default_title_model_id': defaultTitleModelId.trim(),
+      if (isGlobalDefaultTitleModel) 'is_global_default_title_model': true,
       'custom_headers': customHeaders,
       'request_method': requestMethod,
       'max_tokens': maxTokens,

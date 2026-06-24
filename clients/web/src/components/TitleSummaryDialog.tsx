@@ -1,5 +1,6 @@
-// 获取AI摘要标题弹窗：范围滑块选择消息区间 + pending 状态展示。
+// 获取AI摘要标题弹窗：范围滑块选择消息区间 + 标题模型选择 + pending 状态展示。
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { ApiMetaModel } from '../api/meta';
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
@@ -9,6 +10,7 @@ import {
   DialogFrame,
   createDialogFrameAppearance,
 } from './DialogFrame';
+import { ModelPickerDialog } from './ModelPickerDialog';
 
 type Phase = 'loading' | 'config' | 'pending' | 'success' | 'error';
 type ErrorMode = 'load' | 'generate';
@@ -20,8 +22,10 @@ interface TitleSummaryDialogProps {
     startIndex: number,
     endIndex: number,
     userMessages: SessionMessage[],
-    options: { signal: AbortSignal },
+    options: { signal: AbortSignal; modelKey?: string },
   ) => Promise<string>;
+  models?: ApiMetaModel[];
+  initialModelKey?: string;
   onClose: () => void;
   onTitleUpdated?: (title: string) => void;
 }
@@ -35,6 +39,8 @@ export function TitleSummaryDialog({
   initialMessages = [],
   loadMessages,
   onGenerate,
+  models = [],
+  initialModelKey = '',
   onClose,
   onTitleUpdated,
 }: TitleSummaryDialogProps) {
@@ -54,6 +60,8 @@ export function TitleSummaryDialog({
   const [errorMessage, setErrorMessage] = useState('');
   const [errorMode, setErrorMode] = useState<ErrorMode>('generate');
   const [tooltipInfo, setTooltipInfo] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [modelKey, setModelKey] = useState(initialModelKey);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const sliderContainerRef = useRef<HTMLDivElement | null>(null);
   const loadControllerRef = useRef<AbortController | null>(null);
   const activeControllerRef = useRef<AbortController | null>(null);
@@ -129,7 +137,10 @@ export function TitleSummaryDialog({
     setErrorMode('generate');
     setPhase('pending');
     try {
-      const title = await onGenerate(startIdx, endIdx, userMessages, { signal: controller.signal });
+      const title = await onGenerate(startIdx, endIdx, userMessages, {
+        signal: controller.signal,
+        modelKey,
+      });
       if (generationIdRef.current !== generationId || controller.signal.aborted) {
         return;
       }
@@ -146,7 +157,7 @@ export function TitleSummaryDialog({
       setErrorMode('generate');
       setPhase('error');
     }
-  }, [startIdx, endIdx, onGenerate, onTitleUpdated, totalMessages, userMessages]);
+  }, [startIdx, endIdx, modelKey, onGenerate, onTitleUpdated, totalMessages, userMessages]);
 
   const handleCancelGenerate = useCallback(() => {
     generationIdRef.current += 1;
@@ -195,6 +206,18 @@ export function TitleSummaryDialog({
   const hideTooltip = () => setTooltipInfo(null);
 
   const selectedCount = endIdx - startIdx + 1;
+  const selectedModel = useMemo(
+    () => models.find((model) => model.key === modelKey),
+    [models, modelKey],
+  );
+
+  useEffect(() => {
+    if (!initialModelKey) return;
+    setModelKey((current) => {
+      if (current && models.some((model) => model.key === current)) return current;
+      return models.some((model) => model.key === initialModelKey) ? initialModelKey : '';
+    });
+  }, [initialModelKey, models]);
 
   return (
     <DialogFrame
@@ -240,6 +263,32 @@ export function TitleSummaryDialog({
               <p class="text-xs mb-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
                 {t('titleSummary.hint', '选择参与标题总结的用户消息区间')}
               </p>
+
+              <div class="mb-4">
+                <label class="block text-xs font-medium mb-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                  {t('titleSummary.model', '标题生成模型')}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => models.length > 0 && setModelPickerOpen(true)}
+                  disabled={models.length === 0}
+                  class="oh-tap-press w-full rounded-2xl px-3 py-2 text-left disabled:opacity-50"
+                  style={{
+                    border: '1px solid var(--m3-outline-variant)',
+                    background: 'var(--m3-surface-container-low)',
+                    color: 'var(--m3-on-surface)',
+                  }}
+                >
+                  <span class="block text-sm font-semibold truncate">
+                    {selectedModel?.label ?? t('titleSummary.noModel', '无可用模型，将使用文本兜底')}
+                  </span>
+                  <span class="block text-xs truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                    {selectedModel
+                      ? `${selectedModel.provider}${selectedModel.protocol ? ` (${selectedModel.protocol})` : ''}`
+                      : t('titleSummary.modelHint', '默认按当前线程模型、同提供商默认标题模型、全局默认标题模型依次选择')}
+                  </span>
+                </button>
+              </div>
 
               {totalMessages === 0 ? (
                 <p class="text-sm py-4 text-center" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -405,6 +454,17 @@ export function TitleSummaryDialog({
               </div>
             </div>
           )}
+      {modelPickerOpen ? (
+        <ModelPickerDialog
+          models={models}
+          selectedKey={modelKey}
+          onSelect={(key) => {
+            setModelKey(key);
+            setModelPickerOpen(false);
+          }}
+          onClose={() => setModelPickerOpen(false)}
+        />
+      ) : null}
     </DialogFrame>
   );
 }

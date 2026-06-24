@@ -66,11 +66,31 @@ AppSection _sectionFromDrawerIndex(int index) {
   };
 }
 
-/// 标题摘要消息区间选择弹窗。返回 (startIndex, endIndex) 或 null。
+class _TitleSummaryDialogResult {
+  const _TitleSummaryDialogResult({
+    required this.startIndex,
+    required this.endIndex,
+    required this.model,
+  });
+
+  final int startIndex;
+  final int endIndex;
+  final AiModelConfig? model;
+}
+
+/// 标题摘要消息区间与模型选择弹窗。
 class _TitleSummaryRangeDialog extends StatefulWidget {
-  const _TitleSummaryRangeDialog({required this.userMessages});
+  const _TitleSummaryRangeDialog({
+    required this.userMessages,
+    required this.availableModels,
+    required this.recentModelSelections,
+    required this.initialModel,
+  });
 
   final List<AiSessionMessage> userMessages;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+  final AiModelConfig? initialModel;
 
   @override
   State<_TitleSummaryRangeDialog> createState() =>
@@ -80,6 +100,27 @@ class _TitleSummaryRangeDialog extends StatefulWidget {
 class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
   late int _startIdx = 0;
   late int _endIdx = (widget.userMessages.length - 1).clamp(0, 2);
+  late String? _selectedConfigId = widget.initialModel?.id;
+  late String? _selectedModelId = widget.initialModel?.modelId;
+
+  AiModelConfig? get _selectedModel {
+    final configId = _selectedConfigId?.trim();
+    final modelId = _selectedModelId?.trim();
+    if (configId == null ||
+        configId.isEmpty ||
+        modelId == null ||
+        modelId.isEmpty) {
+      return null;
+    }
+    for (final config in widget.availableModels) {
+      if (config.id != configId) continue;
+      if (!config.allModelIds.contains(modelId)) return null;
+      return config.modelId == modelId
+          ? config
+          : config.copyWith(modelId: modelId);
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +144,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
     return buildOpenHandAlertDialog(
       title: Text(isZh ? '获取 AI 摘要标题' : 'Generate AI Title'),
       content: SizedBox(
-        width: 320,
+        width: 360,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,6 +156,24 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
+            ),
+            const SizedBox(height: 16),
+            OpenHandModelSelectorField(
+              models: widget.availableModels,
+              recentSelections: widget.recentModelSelections,
+              selectedConfigId: _selectedConfigId,
+              selectedModelId: _selectedModelId,
+              labelZh: '标题生成模型',
+              labelEn: 'Title Model',
+              helperZh: '默认按当前线程模型、同提供商默认标题模型、全局默认标题模型依次选择。',
+              helperEn:
+                  'Defaults to the thread model, provider title fallback, then the global title model.',
+              onSelected: (selection) {
+                setState(() {
+                  _selectedConfigId = selection.$1;
+                  _selectedModelId = selection.$2;
+                });
+              },
             ),
             const SizedBox(height: 16),
             Row(
@@ -163,7 +222,13 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           label: AppLocalizations.of(context)!.commonCancel,
         ),
         OpenHandDialogActionButton.primary(
-          onPressed: () => Navigator.of(context).pop((_startIdx, _endIdx)),
+          onPressed: () => Navigator.of(context).pop(
+            _TitleSummaryDialogResult(
+              startIndex: _startIdx,
+              endIndex: _endIdx,
+              model: _selectedModel,
+            ),
+          ),
           label: isZh ? '生成标题' : 'Generate',
         ),
       ],

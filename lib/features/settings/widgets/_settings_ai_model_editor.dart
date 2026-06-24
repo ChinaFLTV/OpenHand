@@ -53,6 +53,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
   List<String> _availableModelIds = const <String>[];
   String? _activeModelId;
+  String? _defaultTitleModelId;
+  late bool _isGlobalDefaultTitleModel;
   late Map<String, AiModelProfile> _modelProfiles;
   late List<_HeaderEntry> _customHeaderEntries;
   final ScrollController _chipScrollController = ScrollController();
@@ -61,6 +63,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   List<String> get _visibleModelIds => AiModelConfig.normalizeModelIds(<String>[
     ..._availableModelIds,
     if ((_activeModelId ?? '').trim().isNotEmpty) _activeModelId!.trim(),
+    if ((_defaultTitleModelId ?? '').trim().isNotEmpty)
+      _defaultTitleModelId!.trim(),
   ]);
 
   @override
@@ -167,6 +171,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _activeModelId = widget.initialModel?.modelId.trim().isNotEmpty == true
         ? widget.initialModel!.modelId.trim()
         : null;
+    _defaultTitleModelId =
+        widget.initialModel?.defaultTitleModelId.trim().isNotEmpty == true
+        ? widget.initialModel!.defaultTitleModelId.trim()
+        : null;
+    _isGlobalDefaultTitleModel =
+        widget.initialModel?.isGlobalDefaultTitleModel ?? false;
     _modelProfiles = Map<String, AiModelProfile>.of(
       widget.initialModel?.modelProfiles ?? const <String, AiModelProfile>{},
     );
@@ -275,6 +285,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
             _activeModelId = null;
             _modelIdController.text = '';
           }
+          if (_defaultTitleModelId != null &&
+              !sorted.contains(_defaultTitleModelId)) {
+            _defaultTitleModelId = null;
+          }
         });
       } else {
         setState(() {
@@ -328,6 +342,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
             : null;
         _modelIdController.text = _activeModelId ?? '';
       }
+      if (_defaultTitleModelId == modelId) {
+        _defaultTitleModelId = null;
+      }
     });
   }
 
@@ -343,6 +360,19 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         ..._availableModelIds,
         trimmedModelId,
       ]);
+    });
+  }
+
+  void _selectDefaultTitleModelId(String? modelId) {
+    final trimmedModelId = modelId?.trim() ?? '';
+    setState(() {
+      _defaultTitleModelId = trimmedModelId.isEmpty ? null : trimmedModelId;
+      if (trimmedModelId.isNotEmpty) {
+        _availableModelIds = AiModelConfig.normalizeModelIds(<String>[
+          ..._availableModelIds,
+          trimmedModelId,
+        ]);
+      }
     });
   }
 
@@ -641,13 +671,133 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     );
   }
 
+  Widget _buildModelIdDropdown({
+    required String label,
+    required String helperText,
+    required String? selectedModelId,
+    required ValueChanged<String?> onChanged,
+    bool allowUnset = false,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final modelIds = _visibleModelIds;
+    if (modelIds.isEmpty) {
+      return InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: _localizedText(
+            context,
+            zh: '请先扫描模型或手动添加模型 ID。',
+            en: 'Scan models or add a model ID first.',
+          ),
+        ),
+        child: Text(
+          _localizedText(context, zh: '暂无可选模型', en: 'No models available'),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    final normalizedSelection = selectedModelId?.trim() ?? '';
+    final initialValue = allowUnset && normalizedSelection.isEmpty
+        ? ''
+        : modelIds.contains(normalizedSelection)
+        ? normalizedSelection
+        : allowUnset
+        ? ''
+        : modelIds.first;
+    return DropdownButtonFormField<String>(
+      key: ValueKey<String>(
+        '$label::$initialValue::${modelIds.join('\u0001')}',
+      ),
+      initialValue: initialValue,
+      isExpanded: true,
+      menuMaxHeight: 320,
+      decoration: InputDecoration(labelText: label, helperText: helperText),
+      items: <DropdownMenuItem<String>>[
+        if (allowUnset)
+          DropdownMenuItem<String>(
+            value: '',
+            child: Text(
+              _localizedText(context, zh: '不设置', en: 'Not set'),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ...modelIds.map(
+          (id) => DropdownMenuItem<String>(
+            value: id,
+            child: Text(id, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: _isSaving
+          ? null
+          : (value) {
+              if (!allowUnset && (value == null || value.trim().isEmpty)) {
+                return;
+              }
+              onChanged(value);
+            },
+    );
+  }
+
+  Widget _buildGlobalDefaultTitleModelControl() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0, 2, 0, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '全局默认标题生成模型',
+                    en: 'Global Default Title Model',
+                  ),
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '开启后，本提供商会作为所有线程标题生成的全局兜底；保存时其他提供商的同名开关会自动关闭。',
+                    en: 'When enabled, this provider becomes the app-wide fallback for title generation; saving turns off the same switch on other providers.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Switch(
+            value: _isGlobalDefaultTitleModel,
+            onChanged: _isSaving
+                ? null
+                : (value) {
+                    setState(() {
+                      _isGlobalDefaultTitleModel = value;
+                    });
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
-    final globalInputCacheEnabled = context
-        .watch<SettingsController>()
-        .aiInputCacheEnabled;
+    final settingsController = context.watch<SettingsController>();
+    final globalInputCacheEnabled = settingsController.aiInputCacheEnabled;
 
     return PopScope(
       canPop: !_isSaving,
@@ -994,26 +1144,35 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              // Current active model (legacy field, auto-synced)
-                              TextFormField(
-                                controller: _modelIdController,
-                                enabled: !_isSaving,
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdActiveModelId,
-                                  helperText: AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdTheModelUsedForConversationsSelect,
-                                ),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _activeModelId = value.trim().isEmpty
-                                        ? null
-                                        : value.trim();
-                                  });
-                                },
+                              _buildModelIdDropdown(
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.mdlEdActiveModelId,
+                                helperText: AppLocalizations.of(
+                                  context,
+                                )!.mdlEdTheModelUsedForConversationsSelect,
+                                selectedModelId: _activeModelId,
+                                onChanged: (value) =>
+                                    _selectModelId(value ?? ''),
                               ),
+                              const SizedBox(height: 16),
+                              _buildModelIdDropdown(
+                                label: _localizedText(
+                                  context,
+                                  zh: '默认标题生成模型 ID',
+                                  en: 'Default Title Model ID',
+                                ),
+                                helperText: _localizedText(
+                                  context,
+                                  zh: '当前线程模型不适合生成文本标题时，会优先回退到这里选择的同提供商模型。',
+                                  en: 'When the thread model is not suitable for text titles, title generation falls back to this sibling provider model first.',
+                                ),
+                                selectedModelId: _defaultTitleModelId,
+                                allowUnset: true,
+                                onChanged: _selectDefaultTitleModelId,
+                              ),
+                              const SizedBox(height: 16),
+                              _buildGlobalDefaultTitleModelControl(),
                               const SizedBox(height: 16),
                               TextFormField(
                                 controller: _maxContextTokensController,
@@ -1845,6 +2004,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         _maxContextTokensController.text,
       ),
       availableModelIds: _availableModelIds,
+      defaultTitleModelId: _defaultTitleModelId?.trim() ?? '',
+      isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
       customHeaders: _collectCustomHeaders(),
       requestMethod: _requestMethod,
       maxTokens: _parseOptionalPositiveInt(_maxTokensController.text),

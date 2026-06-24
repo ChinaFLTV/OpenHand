@@ -2109,6 +2109,11 @@ class WebMessagePlatformService {
               'supports_image_generation': item.supportsImageGeneration,
               'supports_video_generation': item.supportsVideoGeneration,
               'supports_audio_generation': item.supportsAudioGeneration,
+              'supports_text_title_generation':
+                  item.supportsTextTitleGeneration,
+              'provider_default_title_model_key':
+                  item.providerDefaultTitleModelKey,
+              'is_global_default_title_model': item.isGlobalDefaultTitleModel,
             },
           )
           .toList(growable: false),
@@ -2974,61 +2979,27 @@ class WebMessagePlatformService {
         'error': 'content_required',
       });
     }
-    // 使用目标会话当前所使用的模型（通过 provider config ID 直接查找）
-    final providerConfigId =
-        session.lastUsedModelId ?? _settingsController.selectedAiModelId ?? '';
-    AiModelConfig? model;
-    if (providerConfigId.isNotEmpty) {
-      model = _settingsController.aiModels
-          .where((m) => m.id == providerConfigId)
-          .firstOrNull;
-    }
-    model ??= _settingsController.selectedAiModel;
-    if (model == null) {
+    final requestedModelKey = _string(body['model_key'], '').trim();
+    final requestedModel = requestedModelKey.isEmpty
+        ? null
+        : _resolveModel(requestedModelKey);
+    if (requestedModelKey.isNotEmpty && requestedModel == null) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_not_configured',
       });
     }
+    final model =
+        requestedModel ?? _resolveTitleGenerationModelForSession(session);
     try {
-      final autoTitleSystemPrompt = await _sessionController
-          .resolveAutoTitleSystemPromptForWeb(
-            maxTitleCharacters:
-                _settingsController.aiGeneratedTitleMaxCharacters,
-          );
-      final promptMessages = <AiChatTurn>[
-        AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),
-        AiChatTurn(
-          role: AiChatRole.user,
-          content: '<description>\n$content\n</description>',
-        ),
-      ];
-      final chatClient = _sessionController.backgroundChatClientForWeb;
-      final completion = await chatClient.sendMessage(
+      final title = await _sessionController.generateTitleManually(
+        sessionId: sessionId,
+        content: content,
         model: model,
-        messages: promptMessages,
-        timeout: const Duration(seconds: 30),
+        maxTitleCharacters: _settingsController.aiGeneratedTitleMaxCharacters,
       );
-      final rawTitle = completion.reply.trim();
-      // Strip all HTML tags so models that disregard the plain-text-only
-      // instruction and still emit HTML wrappers produce a clean title.
-      var title = rawTitle
-          .replaceAll(RegExp(r'<[^>]*>'), '')
-          .replaceAll(RegExp(r'[\n]+'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-      // 如果 AI 返回空标题，从用户内容中截取作为回退
-      if (title.isEmpty) {
-        title = content.replaceAll(RegExp(r'\s+'), ' ').trim();
-        if (title.length > 80) title = '${title.substring(0, 77)}…';
-      }
-      if (title.isEmpty) {
+      if (title == null || title.isEmpty) {
         return _json(HttpStatus.ok, <String, Object?>{'title': session.title});
       }
-      // 更新会话标题
-      await _sessionController.updateSessionTitleFromWeb(
-        sessionId: sessionId,
-        title: title,
-      );
       return _json(HttpStatus.ok, <String, Object?>{'title': title});
     } catch (error) {
       return _json(HttpStatus.internalServerError, <String, Object?>{
@@ -5111,6 +5082,17 @@ class WebMessagePlatformService {
     }
     final result = <_AllowedWebModel>[];
     for (final provider in _settingsController.aiModels) {
+      final providerDefaultTitleModelId = provider.defaultTitleModelId.trim();
+      final providerDefaultTitleModelKey =
+          providerDefaultTitleModelId.isNotEmpty &&
+              provider.allModelIds.contains(providerDefaultTitleModelId)
+          ? _modelKey(provider.id, providerDefaultTitleModelId)
+          : null;
+      final globalDefaultTitleModelId = provider.isGlobalDefaultTitleModel
+          ? (providerDefaultTitleModelId.isNotEmpty
+                ? providerDefaultTitleModelId
+                : provider.modelId.trim())
+          : '';
       for (final modelId in provider.allModelIds) {
         final key = _modelKey(provider.id, modelId);
         if (_config.allowedModelKeys.isNotEmpty &&
@@ -5139,6 +5121,12 @@ class WebMessagePlatformService {
                 AiImageGenerationService.supportsAudioGenerationForModel(
                   resolved,
                 ),
+            supportsTextTitleGeneration:
+                AiTitleModelResolver.supportsTextTitleGeneration(resolved),
+            providerDefaultTitleModelKey: providerDefaultTitleModelKey,
+            isGlobalDefaultTitleModel:
+                globalDefaultTitleModelId.isNotEmpty &&
+                modelId == globalDefaultTitleModelId,
           ),
         );
       }
@@ -5180,6 +5168,19 @@ class WebMessagePlatformService {
       }
     }
     return null;
+  }
+
+  AiModelConfig? _resolveTitleGenerationModelForSession(AiSession session) {
+    AiModelConfig? currentModel;
+    final lastModelKey = _lastModelKeyForSession(session);
+    if (lastModelKey != null && lastModelKey.trim().isNotEmpty) {
+      currentModel = _resolveModel(lastModelKey);
+    }
+    currentModel ??= _settingsController.selectedAiModel;
+    return AiTitleModelResolver.resolveDefault(
+      models: _settingsController.aiModels,
+      currentModel: currentModel,
+    );
   }
 
   AiCreationRequest _creationRequestFor(
@@ -5890,6 +5891,9 @@ class _AllowedWebModel {
     required this.supportsImageGeneration,
     required this.supportsVideoGeneration,
     required this.supportsAudioGeneration,
+    required this.supportsTextTitleGeneration,
+    required this.providerDefaultTitleModelKey,
+    required this.isGlobalDefaultTitleModel,
   });
 
   final String key;
@@ -5902,6 +5906,9 @@ class _AllowedWebModel {
   final bool supportsImageGeneration;
   final bool supportsVideoGeneration;
   final bool supportsAudioGeneration;
+  final bool supportsTextTitleGeneration;
+  final String? providerDefaultTitleModelKey;
+  final bool isGlobalDefaultTitleModel;
 }
 
 class _ParsedModelKey {

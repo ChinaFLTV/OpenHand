@@ -16,6 +16,7 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
 import '../../features/ai/model/ai_tts_settings.dart';
+import '../../features/ai/service/model_registry/ai_title_model_resolver.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
@@ -188,7 +189,7 @@ class SettingsController extends ChangeNotifier {
        _aiAutoTitleFetchMode = snapshot.aiAutoTitleFetchMode,
        _aiDefaultSessionMode = snapshot.aiDefaultSessionMode,
        _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission,
-       _aiModels = List<AiModelConfig>.from(snapshot.aiModels),
+       _aiModels = AiTitleModelResolver.normalizeProviders(snapshot.aiModels),
        _selectedAiModelId = snapshot.selectedAiModelId,
        _recentModelSelections = List<RecentModelSelection>.from(
          snapshot.recentModelSelections,
@@ -1964,13 +1965,16 @@ class SettingsController extends ChangeNotifier {
           : (normalizedAvailableModelIds.isNotEmpty
                 ? normalizedAvailableModelIds.first
                 : '');
-      final normalizedValue = value.copyWith(
-        modelId: normalizedModelId,
-        availableModelIds: AiModelConfig.normalizeModelIds(<String>[
-          ...normalizedAvailableModelIds,
-          if (normalizedModelId.isNotEmpty) normalizedModelId,
-        ]),
-      );
+      final normalizedValue =
+          AiTitleModelResolver.normalizeProviderTitleDefaults(
+            value.copyWith(
+              modelId: normalizedModelId,
+              availableModelIds: AiModelConfig.normalizeModelIds(<String>[
+                ...normalizedAvailableModelIds,
+                if (normalizedModelId.isNotEmpty) normalizedModelId,
+              ]),
+            ),
+          );
       final updatedModels = List<AiModelConfig>.from(_aiModels);
       final index = updatedModels.indexWhere(
         (item) => item.id == normalizedValue.id,
@@ -1980,8 +1984,16 @@ class SettingsController extends ChangeNotifier {
       } else {
         updatedModels[index] = normalizedValue;
       }
+      if (normalizedValue.isGlobalDefaultTitleModel) {
+        for (var i = 0; i < updatedModels.length; i++) {
+          final item = updatedModels[i];
+          if (item.id != normalizedValue.id && item.isGlobalDefaultTitleModel) {
+            updatedModels[i] = item.copyWith(isGlobalDefaultTitleModel: false);
+          }
+        }
+      }
       final nextSelectedModelId = _selectedAiModelId ?? normalizedValue.id;
-      _aiModels = updatedModels;
+      _aiModels = AiTitleModelResolver.normalizeProviders(updatedModels);
       _cachedAiModelsView = null;
       _recentModelSelections = _sanitizeRecentModelSelections(
         _recentModelSelections,
@@ -2859,7 +2871,7 @@ class SettingsController extends ChangeNotifier {
     _aiAutoTitleFetchMode = snapshot.aiAutoTitleFetchMode;
     _aiDefaultSessionMode = snapshot.aiDefaultSessionMode;
     _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission;
-    _aiModels = List<AiModelConfig>.from(snapshot.aiModels);
+    _aiModels = AiTitleModelResolver.normalizeProviders(snapshot.aiModels);
     _cachedAiModelsView = null;
     _selectedAiModelId = snapshot.selectedAiModelId;
     _recentModelSelections = _sanitizeRecentModelSelections(

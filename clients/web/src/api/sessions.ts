@@ -421,13 +421,13 @@ export interface GenerateSessionTitleResponse {
 export function generateSessionTitle(
   sessionId: string,
   content: string,
-  options: ApiRequestSignalOptions = {},
+  options: ApiRequestSignalOptions & { modelKey?: string } = {},
 ): Promise<GenerateSessionTitleResponse> {
   return apiRequest<GenerateSessionTitleResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/generate-title`,
     {
       method: 'POST',
-      body: { content },
+      body: { content, model_key: options.modelKey ?? '' },
       signal: options.signal,
       timeoutMs: options.timeoutMs,
     },

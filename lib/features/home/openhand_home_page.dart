@@ -68,6 +68,7 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/native_audio_preview.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
+import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/rolling_text.dart';
@@ -7319,35 +7320,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return;
     }
-    final model = _effectiveModelForSession(settingsController, sourceSession);
-    if (model == null) {
-      showFriendlyErrorDetailsDialog(
-        context,
-        title: _localizedText(
-          context,
-          zh: '标题生成失败',
-          en: 'Title Generation Failed',
-        ),
-        fullText: _localizedText(
-          context,
-          zh: '未配置可用于标题生成的模型。',
-          en: 'No model is configured for title generation.',
-        ),
-      );
-      return;
-    }
-    // 单条消息直接生成
-    if (userMessages.length == 1) {
-      _executeGenerateTitle(
-        session: sourceSession,
-        content: userMessages.first.content,
-        model: model,
-        sessionController: sessionController,
-        settingsController: settingsController,
-      );
-      return;
-    }
-    // 多条消息时弹出选择弹窗
+    final model = AiTitleModelResolver.resolveDefault(
+      models: settingsController.aiModels,
+      currentModel: _effectiveModelForSession(
+        settingsController,
+        sourceSession,
+      ),
+    );
     _showTitleSummaryRangeDialog(
       session: sourceSession,
       userMessages: userMessages,
@@ -7360,17 +7339,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _showTitleSummaryRangeDialog({
     required AiSession session,
     required List<AiSessionMessage> userMessages,
-    required AiModelConfig model,
+    required AiModelConfig? model,
     required AiSessionController sessionController,
     required SettingsController settingsController,
   }) async {
-    final result = await showAnimatedDialog<(int, int)>(
+    final result = await showAnimatedDialog<_TitleSummaryDialogResult>(
       context: context,
-      builder: (dialogContext) =>
-          _TitleSummaryRangeDialog(userMessages: userMessages),
+      builder: (dialogContext) => _TitleSummaryRangeDialog(
+        userMessages: userMessages,
+        availableModels: settingsController.aiModels,
+        recentModelSelections: settingsController.recentModelSelections,
+        initialModel: model,
+      ),
     );
     if (!mounted || result == null) return;
-    final (startIdx, endIdx) = result;
+    final startIdx = result.startIndex;
+    final endIdx = result.endIndex;
     final selectedContent = userMessages
         .sublist(startIdx, endIdx + 1)
         .map((m) => m.content.trim())
@@ -7378,7 +7362,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _executeGenerateTitle(
       session: session,
       content: selectedContent,
-      model: model,
+      model: result.model,
       sessionController: sessionController,
       settingsController: settingsController,
     );
@@ -7387,7 +7371,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _executeGenerateTitle({
     required AiSession session,
     required String content,
-    required AiModelConfig model,
+    required AiModelConfig? model,
     required AiSessionController sessionController,
     required SettingsController settingsController,
   }) async {

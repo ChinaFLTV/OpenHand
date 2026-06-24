@@ -92,6 +92,9 @@ export interface ApiMetaModel {
   supports_image_generation?: boolean;
   supports_video_generation?: boolean;
   supports_audio_generation?: boolean;
+  supports_text_title_generation?: boolean;
+  provider_default_title_model_key?: string | null;
+  is_global_default_title_model?: boolean;
 }
 
 export interface ApiMetaInstruction {

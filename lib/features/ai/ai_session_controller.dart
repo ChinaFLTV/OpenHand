@@ -52,6 +52,7 @@ import 'service/mcp_bridge/android_reverse_mcp_tool_policy.dart';
 import 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 import 'service/mcp_bridge/web_reverse_mcp_tool_policy.dart';
 import 'service/media/ai_image_summary_extractor.dart';
+import 'service/model_registry/ai_title_model_resolver.dart';
 import 'service/prompt/ai_prompt_builder.dart';
 import 'service/prompt/ai_prompt_sections.dart';
 import 'service/prompt/ai_prompt_template_assembly.dart';
@@ -606,10 +607,10 @@ class AiSessionController extends ChangeNotifier {
   }
 
   /// APP 端用：手动触发标题生成。
-  Future<void> generateTitleManually({
+  Future<String?> generateTitleManually({
     required String sessionId,
     required String content,
-    required AiModelConfig model,
+    required AiModelConfig? model,
     required int maxTitleCharacters,
     Future<void>? cancelSignal,
   }) async {
@@ -628,22 +629,49 @@ class AiSessionController extends ChangeNotifier {
         content: '<description>\n$content\n</description>',
       ),
     ];
-    final completion = await _backgroundChatClient.sendMessage(
-      model: model,
-      messages: promptMessages,
-      timeout: _autoTitleRequestTimeout,
-      cancelSignal: cancelSignal,
-    );
-    final rawTitle = _sanitizeGeneratedTitle(completion.reply);
-    final title = rawTitle.isNotEmpty
-        ? rawTitle
-        : content.trim().substring(
-            0,
-            content.trim().length.clamp(0, maxTitleCharacters),
-          );
-    if (title.isEmpty) return;
+    final requestModels = model == null
+        ? const <AiModelConfig>[]
+        : _autoTitleRequestModels(model);
+    String title = '';
+    for (
+      var attemptIndex = 0;
+      attemptIndex < requestModels.length;
+      attemptIndex++
+    ) {
+      final requestModel = requestModels[attemptIndex];
+      final isLastAttempt = attemptIndex == requestModels.length - 1;
+      try {
+        final completion = await _backgroundChatClient.sendMessage(
+          model: requestModel,
+          messages: promptMessages,
+          timeout: _autoTitleRequestTimeout,
+          cancelSignal: cancelSignal,
+        );
+        final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
+        if (_isMeaningfulAutoTitle(generatedTitle)) {
+          title = generatedTitle;
+          break;
+        }
+        if (isLastAttempt && generatedTitle.isNotEmpty) {
+          title = generatedTitle;
+        }
+      } on AiChatCancelledException {
+        rethrow;
+      } catch (error) {
+        if (isLastAttempt) {
+          break;
+        }
+      }
+    }
+    if (title.isEmpty) {
+      title = _deriveReadableTitleFromContent(
+        content,
+        maxCharacters: maxTitleCharacters,
+      );
+    }
+    if (title.isEmpty) return null;
     final session = _sessionById(sessionId);
-    if (session == null) return;
+    if (session == null) return null;
     final now = _clock().toUtc();
     final updatedSession = session.copyWith(
       title: title,
@@ -652,6 +680,7 @@ class AiSessionController extends ChangeNotifier {
       autoTitleGeneratedAt: now,
     );
     await _commitSessionLocked(updatedSession);
+    return title;
   }
 
   int get _effectiveMaxRecentErrors =>
@@ -9502,7 +9531,9 @@ $tail''';
       ),
     ];
     final requestModels = _autoTitleRequestModels(model);
-    Object? lastError;
+    Object? lastError = requestModels.isEmpty
+        ? 'No text-capable title generation model is configured.'
+        : null;
     for (
       var attemptIndex = 0;
       attemptIndex < requestModels.length;
@@ -9713,10 +9744,13 @@ $tail''';
   }
 
   List<AiModelConfig> _autoTitleRequestModels(AiModelConfig model) {
-    final preferredModel = _preferredAutoTitleModel(model);
-    final base = preferredModel.modelId == model.modelId
-        ? <AiModelConfig>[model]
-        : <AiModelConfig>[preferredModel, model];
+    final base = AiTitleModelResolver.buildFallbackChain(
+      models: _cachedAvailableModels,
+      currentModel: model,
+    );
+    if (base.isEmpty) {
+      return const <AiModelConfig>[];
+    }
     // Pad to _autoTitleMaxAttempts by repeating the last entry so the caller
     // always performs at least 3 explicit network attempts before falling
     // back to deriving the title from the user's content.
@@ -9725,14 +9759,6 @@ $tail''';
       result.add(result.last);
     }
     return result;
-  }
-
-  AiModelConfig _preferredAutoTitleModel(AiModelConfig model) {
-    final normalizedModelId = model.modelId.trim().toLowerCase();
-    if (normalizedModelId == 'deepseek-reasoner') {
-      return model.copyWith(modelId: 'deepseek-chat');
-    }
-    return model;
   }
 
   Future<bool> _waitForSessionIdleForAutoTitleRetry({
