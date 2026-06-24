@@ -10,13 +10,16 @@ import {
   createDialogFrameAppearance,
 } from './DialogFrame';
 
-type Phase = 'config' | 'pending' | 'success' | 'error';
+type Phase = 'loading' | 'config' | 'pending' | 'success' | 'error';
+type ErrorMode = 'load' | 'generate';
 
 interface TitleSummaryDialogProps {
-  messages: SessionMessage[];
+  initialMessages?: SessionMessage[];
+  loadMessages: (options: { signal: AbortSignal }) => Promise<SessionMessage[]>;
   onGenerate: (
     startIndex: number,
     endIndex: number,
+    userMessages: SessionMessage[],
     options: { signal: AbortSignal },
   ) => Promise<string>;
   onClose: () => void;
@@ -29,12 +32,14 @@ function truncateContent(content: string, maxLen = 60): string {
 }
 
 export function TitleSummaryDialog({
-  messages,
+  initialMessages = [],
+  loadMessages,
   onGenerate,
   onClose,
   onTitleUpdated,
 }: TitleSummaryDialogProps) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
+  const [messages, setMessages] = useState<SessionMessage[]>(initialMessages);
 
   // 仅用户消息参与选择
   const userMessages = useMemo(
@@ -44,13 +49,16 @@ export function TitleSummaryDialog({
   const totalMessages = userMessages.length;
   const [startIdx, setStartIdx] = useState(0);
   const [endIdx, setEndIdx] = useState(Math.min(totalMessages - 1, 2));
-  const [phase, setPhase] = useState<Phase>('config');
+  const [phase, setPhase] = useState<Phase>('loading');
   const [generatedTitle, setGeneratedTitle] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorMode, setErrorMode] = useState<ErrorMode>('generate');
   const [tooltipInfo, setTooltipInfo] = useState<{ text: string; x: number; y: number } | null>(null);
   const sliderContainerRef = useRef<HTMLDivElement | null>(null);
+  const loadControllerRef = useRef<AbortController | null>(null);
   const activeControllerRef = useRef<AbortController | null>(null);
   const generationIdRef = useRef(0);
+  const loadIdRef = useRef(0);
 
   useEffect(() => {
     if (totalMessages > 0 && endIdx >= totalMessages) {
@@ -58,24 +66,70 @@ export function TitleSummaryDialog({
     }
   }, [totalMessages, endIdx]);
 
+  const startLoadingMessages = useCallback(async () => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    const loadId = loadIdRef.current + 1;
+    loadIdRef.current = loadId;
+    loadControllerRef.current = controller;
+    setTooltipInfo(null);
+    setErrorMessage('');
+    setErrorMode('load');
+    setPhase('loading');
+    try {
+      const loaded = await loadMessages({ signal: controller.signal });
+      if (loadIdRef.current !== loadId || controller.signal.aborted) {
+        return;
+      }
+      loadControllerRef.current = null;
+      const loadedUserCount = loaded.filter((m) => m.role === 'user' && m.content.trim().length > 0).length;
+      setMessages(loaded);
+      setStartIdx(0);
+      setEndIdx(Math.min(Math.max(loadedUserCount - 1, 0), 2));
+      setPhase('config');
+    } catch (err) {
+      if (loadIdRef.current !== loadId || controller.signal.aborted || isAbortError(err)) {
+        return;
+      }
+      loadControllerRef.current = null;
+      setErrorMessage(describeApiError(err));
+      setErrorMode('load');
+      setPhase('error');
+    }
+  }, [loadMessages]);
+
+  useEffect(() => {
+    void startLoadingMessages();
+    return () => {
+      loadIdRef.current += 1;
+      loadControllerRef.current?.abort();
+      loadControllerRef.current = null;
+    };
+  }, [startLoadingMessages]);
+
   useEffect(() => {
     return () => {
       generationIdRef.current += 1;
+      loadIdRef.current += 1;
+      loadControllerRef.current?.abort();
+      loadControllerRef.current = null;
       activeControllerRef.current?.abort();
       activeControllerRef.current = null;
     };
   }, []);
 
   const handleGenerate = useCallback(async () => {
+    if (totalMessages === 0) return;
     activeControllerRef.current?.abort();
     const controller = new AbortController();
     const generationId = generationIdRef.current + 1;
     generationIdRef.current = generationId;
     activeControllerRef.current = controller;
     setErrorMessage('');
+    setErrorMode('generate');
     setPhase('pending');
     try {
-      const title = await onGenerate(startIdx, endIdx, { signal: controller.signal });
+      const title = await onGenerate(startIdx, endIdx, userMessages, { signal: controller.signal });
       if (generationIdRef.current !== generationId || controller.signal.aborted) {
         return;
       }
@@ -89,14 +143,22 @@ export function TitleSummaryDialog({
       }
       activeControllerRef.current = null;
       setErrorMessage(describeApiError(err));
+      setErrorMode('generate');
       setPhase('error');
     }
-  }, [startIdx, endIdx, onGenerate, onTitleUpdated]);
+  }, [startIdx, endIdx, onGenerate, onTitleUpdated, totalMessages, userMessages]);
 
   const handleCancelGenerate = useCallback(() => {
     generationIdRef.current += 1;
     activeControllerRef.current?.abort();
     activeControllerRef.current = null;
+    requestClose();
+  }, [requestClose]);
+
+  const handleCancelLoad = useCallback(() => {
+    loadIdRef.current += 1;
+    loadControllerRef.current?.abort();
+    loadControllerRef.current = null;
     requestClose();
   }, [requestClose]);
 
@@ -153,7 +215,24 @@ export function TitleSummaryDialog({
       })}
       ariaLabel={t('titleSummary.title', '获取 AI 摘要标题')}
     >
-      {phase === 'config' ? (
+      {phase === 'loading' ? (
+            <div class="flex flex-col items-center py-6 gap-4">
+              <div class="oh-spin" style={{ color: 'var(--m3-primary)' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              </div>
+              <p class="text-sm font-medium">{t('titleSummary.loadingMessages', '正在读取线程消息…')}</p>
+              <button
+                type="button"
+                onClick={handleCancelLoad}
+                class="oh-tap-press px-5 py-2 rounded-full text-sm font-medium mt-1"
+                style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
+              >
+                {t('common.cancel', '取消')}
+              </button>
+            </div>
+          ) : phase === 'config' ? (
             <>
               <h3 class="text-base font-semibold mb-1">
                 {t('titleSummary.title', '获取 AI 摘要标题')}
@@ -292,7 +371,11 @@ export function TitleSummaryDialog({
                   <line x1="9" y1="9" x2="15" y2="15" />
                 </svg>
               </div>
-              <p class="text-sm font-medium">{t('titleSummary.failed', '标题生成失败')}</p>
+              <p class="text-sm font-medium">
+                {errorMode === 'load'
+                  ? t('titleSummary.loadFailed', '线程消息读取失败')
+                  : t('titleSummary.failed', '标题生成失败')}
+              </p>
               <p class="text-xs text-center px-4" style={{ color: 'var(--m3-on-surface-variant)' }}>
                 {errorMessage}
               </p>
@@ -307,7 +390,13 @@ export function TitleSummaryDialog({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPhase('config')}
+                  onClick={() => {
+                    if (errorMode === 'load') {
+                      void startLoadingMessages();
+                    } else {
+                      setPhase('config');
+                    }
+                  }}
                   class="oh-tap-press px-4 py-2 rounded-full text-sm font-medium"
                   style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}
                 >

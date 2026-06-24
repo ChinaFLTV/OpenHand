@@ -12,6 +12,7 @@ const int _messageMarkdownCollapseLineThreshold = 45;
 const double _messageResponsePreviewMaxHeight = 240;
 const double _toolResultPreviewMaxHeight = 176;
 const double _collapsedMessageFadeHeight = 40;
+const int _collapsedBodyScrollOffsetCacheLimit = 500;
 
 /// Maximum message body size (in characters) at which we still attempt
 /// markdown parsing. Above this we render the raw text directly to keep
@@ -20,6 +21,53 @@ const double _collapsedMessageFadeHeight = 40;
 /// size both passes start to dominate frame budgets and trigger ANR.
 const int _markdownPlainTextSkipThresholdChars = 120 * 1024;
 const int _toolResultMarkdownCollapseLineThreshold = 32;
+
+abstract final class _CollapsedBodyScrollOffsetCache {
+  static final Map<String, double> _offsets = <String, double>{};
+
+  static double? read(String? key) {
+    if (key == null || key.isEmpty) return null;
+    final value = _offsets.remove(key);
+    if (value == null) return null;
+    _offsets[key] = value;
+    return value;
+  }
+
+  static void save(String? key, double value) {
+    if (key == null || key.isEmpty) return;
+    _offsets.remove(key);
+    _offsets[key] = math.max(0, value);
+    while (_offsets.length > _collapsedBodyScrollOffsetCacheLimit) {
+      _offsets.remove(_offsets.keys.first);
+    }
+  }
+
+  static void reset(String? key) {
+    if (key == null || key.isEmpty) return;
+    save(key, 0);
+  }
+}
+
+void _restoreCollapsedBodyScrollOffset({
+  required State<StatefulWidget> state,
+  required ScrollController controller,
+  required String? key,
+  VoidCallback? onRestored,
+}) {
+  final savedOffset = _CollapsedBodyScrollOffsetCache.read(key);
+  if (savedOffset == null) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!state.mounted || !controller.hasClients) return;
+    final position = controller.position;
+    final target = savedOffset
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if ((position.pixels - target).abs() > 0.5) {
+      controller.jumpTo(target);
+    }
+    onRestored?.call();
+  });
+}
 
 class _CompressionCheckpointBody extends StatelessWidget {
   const _CompressionCheckpointBody({
@@ -34,6 +82,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
     required this.inlineSyntaxes,
     required this.pathRoots,
     required this.parseKey,
+    this.scrollStateKey,
   });
 
   final String content;
@@ -47,6 +96,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
   final String parseKey;
+  final String? scrollStateKey;
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +168,9 @@ class _CompressionCheckpointBody extends StatelessWidget {
                           inlineSyntaxes: inlineSyntaxes,
                           pathRoots: pathRoots,
                           parseKey: '$parseKey|compression-preview',
+                          scrollStateKey: scrollStateKey == null
+                              ? '$parseKey|compression-preview'
+                              : '$scrollStateKey|preview',
                           fadeColor: fadeColor,
                         ),
                       ),
@@ -143,6 +196,7 @@ class _ReasoningBody extends StatelessWidget {
     required this.inlineSyntaxes,
     required this.pathRoots,
     required this.parseKey,
+    this.scrollStateKey,
   });
 
   final String content;
@@ -156,6 +210,7 @@ class _ReasoningBody extends StatelessWidget {
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
   final String parseKey;
+  final String? scrollStateKey;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +221,9 @@ class _ReasoningBody extends StatelessWidget {
         fadeColor: fadeColor,
         textColor: textColor,
         styleSheet: styleSheet,
+        scrollStateKey: scrollStateKey == null
+            ? '$parseKey|streaming-reasoning-preview'
+            : '$scrollStateKey|streaming-preview',
       );
     }
     // 折叠态：展示前 5-6 行预览（maxHeight ≈ 142）并在底部叠渐隐遮罩，
@@ -197,6 +255,9 @@ class _ReasoningBody extends StatelessWidget {
               inlineSyntaxes: inlineSyntaxes,
               pathRoots: pathRoots,
               parseKey: '$parseKey|reasoning-preview',
+              scrollStateKey: scrollStateKey == null
+                  ? '$parseKey|reasoning-preview'
+                  : '$scrollStateKey|preview',
               fadeColor: fadeColor,
             ),
           );
@@ -210,6 +271,7 @@ class _StreamingReasoningBody extends StatelessWidget {
     required this.fadeColor,
     required this.textColor,
     required this.styleSheet,
+    this.scrollStateKey,
   });
 
   final String content;
@@ -217,6 +279,7 @@ class _StreamingReasoningBody extends StatelessWidget {
   final Color fadeColor;
   final Color textColor;
   final MarkdownStyleSheet styleSheet;
+  final String? scrollStateKey;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +311,7 @@ class _StreamingReasoningBody extends StatelessWidget {
               style: textStyle,
               textColor: textColor,
               fadeColor: fadeColor,
+              scrollStateKey: scrollStateKey,
             ),
           );
   }
@@ -264,6 +328,7 @@ class _PlainTextPreviewBody extends StatefulWidget {
     required this.textColor,
     required this.fadeColor,
     this.style,
+    this.scrollStateKey,
   });
 
   final String data;
@@ -271,6 +336,7 @@ class _PlainTextPreviewBody extends StatefulWidget {
   final Color textColor;
   final Color fadeColor;
   final TextStyle? style;
+  final String? scrollStateKey;
 
   @override
   State<_PlainTextPreviewBody> createState() => _PlainTextPreviewBodyState();
@@ -279,9 +345,13 @@ class _PlainTextPreviewBody extends StatefulWidget {
 class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
   static const int _previewCharCap = 1600;
 
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
   double? _contentHeight;
   bool _atBottom = false;
+
+  String get _scrollStateKey =>
+      widget.scrollStateKey ??
+      'plain-preview|${widget.maxHeight}|${widget.data.length}|${widget.data.hashCode}';
 
   String get _effectiveData {
     final data = widget.data.isEmpty ? ' ' : widget.data;
@@ -292,7 +362,12 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(
+      initialScrollOffset:
+          _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
+    );
     _scrollController.addListener(_onScroll);
+    _restoreScrollOffset();
   }
 
   @override
@@ -312,16 +387,41 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
         oldWidget.maxHeight != widget.maxHeight ||
         oldWidget.style != widget.style ||
         oldWidget.textColor != widget.textColor;
-    if (layoutInputsChanged || !appendOnlyDataUpdate) {
+    final scrollStateChanged =
+        (oldWidget.scrollStateKey ??
+            'plain-preview|${oldWidget.maxHeight}|${oldWidget.data.length}|${oldWidget.data.hashCode}') !=
+        _scrollStateKey;
+    if (scrollStateChanged || layoutInputsChanged || !appendOnlyDataUpdate) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
       _contentHeight = null;
       _atBottom = false;
     } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
     }
+    _restoreScrollOffset();
   }
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) {
+      setState(() => _atBottom = atBottom);
+    }
+  }
+
+  void _restoreScrollOffset() {
+    _restoreCollapsedBodyScrollOffset(
+      state: this,
+      controller: _scrollController,
+      key: _scrollStateKey,
+      onRestored: _syncAtBottom,
+    );
+  }
+
+  void _syncAtBottom() {
+    if (!mounted || !_scrollController.hasClients) return;
     final pos = _scrollController.position;
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
     if (atBottom != _atBottom) {
@@ -361,6 +461,7 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
                       onNotification: _consumeNestedMessageScrollNotification,
                       child: SingleChildScrollView(
                         controller: _scrollController,
+                        primary: false,
                         physics: hasOverflow
                             ? openHandDialogAwareScrollPhysics(context)
                             : const NeverScrollableScrollPhysics(),
@@ -434,6 +535,7 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
     this.collapsedOverride,
     this.onCollapsedChanged,
     this.showCollapseToggle = true,
+    this.scrollStateKey,
   });
 
   final String data;
@@ -450,6 +552,7 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   final bool? collapsedOverride;
   final ValueChanged<bool>? onCollapsedChanged;
   final bool showCollapseToggle;
+  final String? scrollStateKey;
 
   @override
   State<_CollapsibleMessageMarkdownBody> createState() =>
@@ -464,6 +567,12 @@ class _CollapsibleMessageMarkdownBodyState
   @override
   void didUpdateWidget(covariant _CollapsibleMessageMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final recollapsedByParent =
+        oldWidget.collapsedOverride == false &&
+        widget.collapsedOverride == true;
+    if (recollapsedByParent) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+    }
     if (oldWidget.parseKey != widget.parseKey) {
       _collapsed = _shouldCollapse(widget.data);
       _userToggled = false;
@@ -484,7 +593,13 @@ class _CollapsibleMessageMarkdownBodyState
 
   bool get _effectiveCollapsed => widget.collapsedOverride ?? _collapsed;
 
+  String get _scrollStateKey =>
+      widget.scrollStateKey ?? '${widget.parseKey}|message-collapsed-full';
+
   void _setCollapsed(bool value) {
+    if (value) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+    }
     if (widget.collapsedOverride != null) {
       widget.onCollapsedChanged?.call(value);
       return;
@@ -545,6 +660,7 @@ class _CollapsibleMessageMarkdownBodyState
                     inlineSyntaxes: widget.inlineSyntaxes,
                     pathRoots: widget.pathRoots,
                     parseKey: '${widget.parseKey}|message-collapsed-full',
+                    scrollStateKey: _scrollStateKey,
                     fadeColor: widget.fadeColor,
                   ),
                 )
@@ -723,6 +839,7 @@ class _CollapsedFullMarkdownBody extends StatefulWidget {
     required this.pathRoots,
     required this.parseKey,
     required this.fadeColor,
+    this.scrollStateKey,
   });
 
   final String data;
@@ -734,6 +851,7 @@ class _CollapsedFullMarkdownBody extends StatefulWidget {
   final List<String> pathRoots;
   final String parseKey;
   final Color fadeColor;
+  final String? scrollStateKey;
 
   @override
   State<_CollapsedFullMarkdownBody> createState() =>
@@ -743,13 +861,20 @@ class _CollapsedFullMarkdownBody extends StatefulWidget {
 class _CollapsedFullMarkdownBodyState
     extends State<_CollapsedFullMarkdownBody> {
   double? _contentHeight;
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
   bool _atBottom = false;
+
+  String get _scrollStateKey => widget.scrollStateKey ?? widget.parseKey;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(
+      initialScrollOffset:
+          _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
+    );
     _scrollController.addListener(_onScroll);
+    _restoreScrollOffset();
   }
 
   @override
@@ -762,19 +887,43 @@ class _CollapsedFullMarkdownBodyState
   @override
   void didUpdateWidget(covariant _CollapsedFullMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.parseKey != widget.parseKey ||
+    final scrollStateChanged =
+        (oldWidget.scrollStateKey ?? oldWidget.parseKey) != _scrollStateKey;
+    if (scrollStateChanged ||
+        oldWidget.parseKey != widget.parseKey ||
         oldWidget.data != widget.data ||
         oldWidget.maxHeight != widget.maxHeight) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
       _contentHeight = null;
       _atBottom = false;
     }
+    _restoreScrollOffset();
   }
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
+    _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
+  }
+
+  void _restoreScrollOffset() {
+    _restoreCollapsedBodyScrollOffset(
+      state: this,
+      controller: _scrollController,
+      key: _scrollStateKey,
+      onRestored: _syncAtBottom,
+    );
+  }
+
+  void _syncAtBottom() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) {
+      setState(() => _atBottom = atBottom);
+    }
   }
 
   @override
@@ -806,6 +955,7 @@ class _CollapsedFullMarkdownBodyState
                       onNotification: _consumeNestedMessageScrollNotification,
                       child: SingleChildScrollView(
                         controller: _scrollController,
+                        primary: false,
                         physics: hasOverflow
                             ? openHandDialogAwareScrollPhysics(context)
                             : const NeverScrollableScrollPhysics(),
@@ -881,6 +1031,7 @@ class _MarkdownPreviewBody extends StatefulWidget {
     required this.pathRoots,
     required this.parseKey,
     required this.fadeColor,
+    this.scrollStateKey,
   });
 
   final String data;
@@ -891,6 +1042,7 @@ class _MarkdownPreviewBody extends StatefulWidget {
   final List<String> pathRoots;
   final String parseKey;
   final Color fadeColor;
+  final String? scrollStateKey;
 
   @override
   State<_MarkdownPreviewBody> createState() => _MarkdownPreviewBodyState();
@@ -903,10 +1055,12 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   static const int _previewCharCap = 1200;
 
   double? _contentHeight;
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
   bool _atBottom = false;
   // 用户滚动 Markdown 预览区期间跳过高度变化通知，防止外层视口被拽回底部。
   bool _userScrollingPreview = false;
+
+  String get _scrollStateKey => widget.scrollStateKey ?? widget.parseKey;
 
   String get _effectiveData {
     final data = widget.data;
@@ -919,7 +1073,12 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(
+      initialScrollOffset:
+          _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
+    );
     _scrollController.addListener(_onScroll);
+    _restoreScrollOffset();
   }
 
   @override
@@ -932,6 +1091,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
+    _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
     if (!_userScrollingPreview && pos.isScrollingNotifier.value) {
       _userScrollingPreview = true;
@@ -942,15 +1102,32 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   @override
   void didUpdateWidget(covariant _MarkdownPreviewBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.parseKey != widget.parseKey) {
+    final scrollStateChanged =
+        (oldWidget.scrollStateKey ?? oldWidget.parseKey) != _scrollStateKey;
+    if (scrollStateChanged || oldWidget.parseKey != widget.parseKey) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
       _contentHeight = null;
       _atBottom = false;
       _userScrollingPreview = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollController.jumpTo(0);
-        }
-      });
+    }
+    _restoreScrollOffset();
+  }
+
+  void _restoreScrollOffset() {
+    _restoreCollapsedBodyScrollOffset(
+      state: this,
+      controller: _scrollController,
+      key: _scrollStateKey,
+      onRestored: _syncAtBottom,
+    );
+  }
+
+  void _syncAtBottom() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) {
+      setState(() => _atBottom = atBottom);
     }
   }
 
@@ -988,6 +1165,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                       onNotification: _consumeNestedMessageScrollNotification,
                       child: SingleChildScrollView(
                         controller: _scrollController,
+                        primary: false,
                         // 内容未溢出时禁用滚动，避免与父级 ListView 争抢手势。
                         physics: hasOverflow
                             ? openHandDialogAwareScrollPhysics(context)
@@ -2773,12 +2951,14 @@ class _StreamingAssistantTextBody extends StatelessWidget {
     required this.textColor,
     required this.backgroundColor,
     this.style,
+    this.scrollStateKey,
   });
 
   final String data;
   final Color textColor;
   final Color backgroundColor;
   final TextStyle? style;
+  final String? scrollStateKey;
 
   @override
   Widget build(BuildContext context) {
@@ -2787,6 +2967,7 @@ class _StreamingAssistantTextBody extends StatelessWidget {
       textColor: textColor,
       backgroundColor: backgroundColor,
       style: style,
+      scrollStateKey: scrollStateKey,
     );
   }
 }
@@ -2801,6 +2982,7 @@ class _PlainTextMessageBody extends StatefulWidget {
     this.collapsedOverride,
     this.onCollapsedChanged,
     this.showCollapseToggle = true,
+    this.scrollStateKey,
   });
 
   final String data;
@@ -2811,6 +2993,7 @@ class _PlainTextMessageBody extends StatefulWidget {
   final bool? collapsedOverride;
   final ValueChanged<bool>? onCollapsedChanged;
   final bool showCollapseToggle;
+  final String? scrollStateKey;
 
   @override
   State<_PlainTextMessageBody> createState() => _PlainTextMessageBodyState();
@@ -2819,13 +3002,22 @@ class _PlainTextMessageBody extends StatefulWidget {
 class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   late bool _collapsed = _shouldCollapse(widget.data);
   bool _userToggled = false;
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
   bool _atBottom = false;
+
+  String get _scrollStateKey =>
+      widget.scrollStateKey ??
+      'plain-message|${widget.data.length}|${widget.data.hashCode}';
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(
+      initialScrollOffset:
+          _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
+    );
     _scrollController.addListener(_onScroll);
+    _restoreScrollOffset();
   }
 
   @override
@@ -2838,6 +3030,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
+    _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
     final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
   }
@@ -2845,9 +3038,23 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   @override
   void didUpdateWidget(covariant _PlainTextMessageBody oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final recollapsedByParent =
+        oldWidget.collapsedOverride == false &&
+        widget.collapsedOverride == true;
+    if (recollapsedByParent) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+    }
+    final oldScrollStateKey =
+        oldWidget.scrollStateKey ??
+        'plain-message|${oldWidget.data.length}|${oldWidget.data.hashCode}';
+    if (oldScrollStateKey != _scrollStateKey) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+      _atBottom = false;
+    }
     if (!_userToggled && oldWidget.data != widget.data) {
       _collapsed = _shouldCollapse(widget.data);
     }
+    _restoreScrollOffset();
   }
 
   bool _shouldCollapse(String value) {
@@ -2865,6 +3072,9 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   bool get _effectiveCollapsed => widget.collapsedOverride ?? _collapsed;
 
   void _setCollapsed(bool value) {
+    if (value) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+    }
     if (widget.collapsedOverride != null) {
       widget.onCollapsedChanged?.call(value);
       if (value) _scrollPreviewToTop();
@@ -2884,6 +3094,24 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
         _scrollController.jumpTo(0);
       }
     });
+  }
+
+  void _restoreScrollOffset() {
+    _restoreCollapsedBodyScrollOffset(
+      state: this,
+      controller: _scrollController,
+      key: _scrollStateKey,
+      onRestored: _syncAtBottom,
+    );
+  }
+
+  void _syncAtBottom() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) {
+      setState(() => _atBottom = atBottom);
+    }
   }
 
   @override
@@ -2937,6 +3165,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                                   _consumeNestedMessageScrollNotification,
                               child: SingleChildScrollView(
                                 controller: _scrollController,
+                                primary: false,
                                 physics: openHandDialogAwareScrollPhysics(
                                   context,
                                 ),
@@ -5543,6 +5772,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     this.showCollapseToggle = true,
     this.contentMotionKey,
     this.forceMotionWhenScrolling = false,
+    this.scrollStateKey,
   });
 
   final String data;
@@ -5565,6 +5795,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   final bool showCollapseToggle;
   final Object? contentMotionKey;
   final bool forceMotionWhenScrolling;
+  final String? scrollStateKey;
 
   Widget _wrapSelection(Widget child) {
     if (!wrapInSelectionArea) return child;
@@ -5616,6 +5847,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       collapsedOverride: collapsedOverride,
       onCollapsedChanged: onCollapsedChanged,
       showCollapseToggle: showCollapseToggle,
+      scrollStateKey: scrollStateKey == null
+          ? null
+          : '$scrollStateKey|markdown',
     );
   }
 
@@ -5629,6 +5863,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       collapsedOverride: collapsedOverride,
       onCollapsedChanged: onCollapsedChanged,
       showCollapseToggle: showCollapseToggle,
+      scrollStateKey: scrollStateKey == null ? null : '$scrollStateKey|plain',
     );
   }
 

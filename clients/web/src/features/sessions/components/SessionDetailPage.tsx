@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
+import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, listSessionTitleSourceMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
@@ -3839,6 +3839,11 @@ export function SessionDetailPage() {
     return () => window.clearTimeout(handle);
   }, [responseRunning]);
   const latestStreamingTextMessageId = messageWindowView.latestStreamingTextMessageId;
+  const loadTitleSourceMessages = useCallback(async (options: { signal: AbortSignal }) => {
+    if (!sessionId) return [];
+    const res = await listSessionTitleSourceMessages(sessionId, { signal: options.signal });
+    return res.items;
+  }, [sessionId]);
 
   if (!sessionId) {
     return (
@@ -4605,9 +4610,9 @@ export function SessionDetailPage() {
       ) : null}
       {showTitleSummary && session ? (
         <TitleSummaryDialog
-          messages={sortedMessages}
-          onGenerate={async (startIdx, endIdx, options) => {
-            const userMsgs = sortedMessages.filter((m) => m.role === 'user' && m.content.trim().length > 0);
+          initialMessages={sortedMessages}
+          loadMessages={loadTitleSourceMessages}
+          onGenerate={async (startIdx, endIdx, userMsgs, options) => {
             const selectedContent = userMsgs
               .slice(startIdx, endIdx + 1)
               .map((m) => m.content.trim())

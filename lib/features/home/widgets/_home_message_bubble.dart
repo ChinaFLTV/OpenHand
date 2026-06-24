@@ -571,8 +571,26 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final showAssistantResponseMetaRow =
         isAssistantResponse &&
         (isStreamingAssistant || canCollapseAssistantResponse);
+    final bodyContentSignature =
+        '${effectiveContent.length}:${effectiveContent.hashCode}';
+    final assistantBodyScrollStateKey =
+        '${message.id}|assistant|variant:${message.responseVariantIndex}|fmt:${resolvedMessageContentFormat.storageKey}|translated:${showingTranslation ? 1 : 0}|raw:${_showRawContent ? 1 : 0}|content:$bodyContentSignature';
+    final reasoningBodyScrollStateKey =
+        '${message.id}|reasoning|raw:${_showRawContent ? 1 : 0}|stream:${isStreamingReasoning ? 1 : 0}|content:$bodyContentSignature';
+    final compressionBodyScrollStateKey =
+        '${message.id}|compression|content:${message.content.length}:${message.content.hashCode}';
+    final userBodyScrollStateKey =
+        '${message.id}|user|translated:${showingTranslation ? 1 : 0}|content:$bodyContentSignature';
     void toggleAssistantResponseExpansion() {
       if (!canCollapseAssistantResponse) return;
+      if (assistantResponseExpanded) {
+        _CollapsedBodyScrollOffsetCache.reset(
+          '$assistantBodyScrollStateKey|markdown',
+        );
+        _CollapsedBodyScrollOffsetCache.reset(
+          '$assistantBodyScrollStateKey|plain',
+        );
+      }
       _setAssistantResponseExpandedOverride(!assistantResponseExpanded);
     }
 
@@ -585,6 +603,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       bool showCollapseToggle = true,
       Object? contentMotionKey,
       bool forceMotionWhenScrolling = false,
+      String? scrollStateKey,
     }) {
       return _AssistantMessageBodyDispatcher(
         data: data.isEmpty ? ' ' : data,
@@ -613,6 +632,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         showCollapseToggle: showCollapseToggle,
         contentMotionKey: contentMotionKey,
         forceMotionWhenScrolling: forceMotionWhenScrolling,
+        scrollStateKey: scrollStateKey,
       );
     }
 
@@ -704,6 +724,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     showSweep: widget.showReasoningSweep,
                     expanded: reasoningExpanded,
                     onTap: () {
+                      if (reasoningExpanded) {
+                        _CollapsedBodyScrollOffsetCache.reset(
+                          '$reasoningBodyScrollStateKey|preview',
+                        );
+                        _CollapsedBodyScrollOffsetCache.reset(
+                          '$reasoningBodyScrollStateKey|streaming-preview',
+                        );
+                      }
                       _setReasoningExpandedOverride(!reasoningExpanded);
                     },
                   )
@@ -746,6 +774,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     content: message.content,
                     expanded: _compressionExpanded,
                     onToggle: () {
+                      if (_compressionExpanded) {
+                        _CollapsedBodyScrollOffsetCache.reset(
+                          '$compressionBodyScrollStateKey|preview',
+                        );
+                      }
                       setState(() {
                         _compressionExpanded = !_compressionExpanded;
                       });
@@ -758,6 +791,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     inlineSyntaxes: inlineSyntaxes,
                     pathRoots: filePathRoots,
                     parseKey: filePathParseKey,
+                    scrollStateKey: compressionBodyScrollStateKey,
                   )
                 else if (isReasoning)
                   _showRawContent
@@ -779,6 +813,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           inlineSyntaxes: inlineSyntaxes,
                           pathRoots: filePathRoots,
                           parseKey: filePathParseKey,
+                          scrollStateKey: reasoningBodyScrollStateKey,
                         )
                 else if (isToolCall)
                   _ToolCallBody(message: message, selectable: true)
@@ -790,6 +825,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     textColor: textColor,
                     backgroundColor: backgroundColor,
                     style: markdownStyleSheet.styleSheet.p,
+                    scrollStateKey: userBodyScrollStateKey,
                   )
                 else
                   Column(
@@ -823,6 +859,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           data: effectiveContent,
                           format: resolvedMessageContentFormat,
                           isStreaming: true,
+                          scrollStateKey: assistantBodyScrollStateKey,
                         )
                       else if (isStreamingAssistant)
                         TweenAnimationBuilder<double>(
@@ -860,6 +897,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                         textColor: textColor,
                                         backgroundColor: backgroundColor,
                                         style: markdownStyleSheet.styleSheet.p,
+                                        scrollStateKey:
+                                            assistantBodyScrollStateKey,
                                       ),
                                 ),
                           builder: (context, value, child) {
@@ -888,6 +927,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           contentMotionKey: responseVariantBodyMotionKey,
                           forceMotionWhenScrolling:
                               _responseVariantSizeMotionActive,
+                          scrollStateKey: assistantBodyScrollStateKey,
                         ),
                       if (isStreamingAssistant &&
                           resolvedMessageContentFormat !=

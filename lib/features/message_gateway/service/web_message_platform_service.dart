@@ -1257,6 +1257,13 @@ class WebMessagePlatformService {
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _compactSession(req, auth, sessionId)),
     );
+    router.get(
+      '/api/sessions/<sessionId>/title-source-messages',
+      (shelf.Request r, String sessionId) => _withAuth(
+        r,
+        (req, auth) => _listTitleSourceMessages(req, auth, sessionId),
+      ),
+    );
     router.post(
       '/api/sessions/<sessionId>/generate-title',
       (shelf.Request r, String sessionId) =>
@@ -2539,6 +2546,63 @@ class WebMessagePlatformService {
       'last_error': _sessionController.lastErrorMessageForSession(session.id),
       'pending_write_approval': _pendingWriteApprovalJson(session.id),
     });
+  }
+
+  Future<shelf.Response> _listTitleSourceMessages(
+    shelf.Request _,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    try {
+      final sourceMessages = await _loadTitleSourceMessages(session);
+      final userMessages = sourceMessages
+          .where(
+            (message) =>
+                !message.isDeleted &&
+                message.kind == AiSessionMessageKind.user &&
+                message.content.trim().isNotEmpty,
+          )
+          .toList(growable: false);
+      return _json(HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'items': userMessages.map(_messageJson).toList(growable: false),
+        'total': userMessages.length,
+      });
+    } catch (error, stackTrace) {
+      _log(
+        WebGatewayLogLevel.warn,
+        'SESSION',
+        'Web 获取标题摘要消息源失败',
+        <String, Object?>{
+          'session_id': session.id,
+          'error': '$error',
+          'stack': '$stackTrace',
+        },
+      );
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'error': 'title_source_messages_failed',
+        'message': '$error',
+      });
+    }
+  }
+
+  Future<List<AiSessionMessage>> _loadTitleSourceMessages(
+    AiSession session,
+  ) async {
+    if (session.hasCompleteMessages) {
+      return session.messages;
+    }
+    final stored = await _sessionController.store.loadSession(session.id);
+    if (stored == null) {
+      return session.messages;
+    }
+    return _mergeStoredAndLiveMessages(stored.messages, session.messages);
   }
 
   /// 导出整会话为 JSONL 附件下载。复用 APP 端同一编码语义，确保下载后缀、

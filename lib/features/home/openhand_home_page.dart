@@ -7243,9 +7243,58 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _generateTitleForSession(AiSession session) {
+    unawaited(_generateTitleForSessionAsync(session));
+  }
+
+  Future<void> _generateTitleForSessionAsync(AiSession session) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
-    final userMessages = session.messages
+    AiSession sourceSession;
+    try {
+      final hydrated = await sessionController.ensureSessionMessagesHydrated(
+        session.id,
+      );
+      if (!mounted) return;
+      sourceSession =
+          hydrated ?? sessionController.sessionById(session.id) ?? session;
+    } catch (error) {
+      if (!mounted) return;
+      showFriendlyErrorDetailsDialog(
+        context,
+        title: _localizedText(
+          context,
+          zh: '标题生成失败',
+          en: 'Title Generation Failed',
+        ),
+        fullText: _localizedText(
+          context,
+          zh: '读取线程消息失败。\n\n原因：$error',
+          en: 'Failed to load thread messages.\n\nReason: $error',
+        ),
+      );
+      return;
+    }
+    if (sourceSession.hasPartialMessages) {
+      final errorMessage =
+          sessionController.lastErrorMessageForSession(session.id) ??
+          sessionController.lastErrorMessage ??
+          _localizedText(
+            context,
+            zh: '线程消息尚未完整加载，请稍后重试。',
+            en: 'Thread messages are not fully loaded. Please try again later.',
+          );
+      showFriendlyErrorDetailsDialog(
+        context,
+        title: _localizedText(
+          context,
+          zh: '标题生成失败',
+          en: 'Title Generation Failed',
+        ),
+        fullText: errorMessage,
+      );
+      return;
+    }
+    final userMessages = sourceSession.messages
         .where(
           (m) =>
               !m.isDeleted &&
@@ -7254,25 +7303,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         )
         .toList(growable: false);
     if (userMessages.isEmpty) {
-      unawaited(
-        showOpenHandInfoDialog(
-          context: context,
-          title: _localizedText(
-            context,
-            zh: '无法生成标题',
-            en: 'Unable to Generate Title',
-          ),
-          message: _localizedText(
-            context,
-            zh: '暂无用户消息可供总结。',
-            en: 'No user messages to summarize.',
-          ),
-          closeLabel: AppLocalizations.of(context)!.commonClose,
+      await showOpenHandInfoDialog(
+        context: context,
+        title: _localizedText(
+          context,
+          zh: '无法生成标题',
+          en: 'Unable to Generate Title',
         ),
+        message: _localizedText(
+          context,
+          zh: '暂无用户消息可供总结。',
+          en: 'No user messages to summarize.',
+        ),
+        closeLabel: AppLocalizations.of(context)!.commonClose,
       );
       return;
     }
-    final model = _effectiveModelForSession(settingsController, session);
+    final model = _effectiveModelForSession(settingsController, sourceSession);
     if (model == null) {
       showFriendlyErrorDetailsDialog(
         context,
@@ -7292,7 +7339,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 单条消息直接生成
     if (userMessages.length == 1) {
       _executeGenerateTitle(
-        session: session,
+        session: sourceSession,
         content: userMessages.first.content,
         model: model,
         sessionController: sessionController,
@@ -7302,7 +7349,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     // 多条消息时弹出选择弹窗
     _showTitleSummaryRangeDialog(
-      session: session,
+      session: sourceSession,
       userMessages: userMessages,
       model: model,
       sessionController: sessionController,

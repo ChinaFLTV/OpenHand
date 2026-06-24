@@ -328,6 +328,22 @@ export function listMessages(
   );
 }
 
+export interface SessionTitleSourceMessagesResponse {
+  ok: boolean;
+  items: SessionMessage[];
+  total: number;
+}
+
+export function listSessionTitleSourceMessages(
+  sessionId: string,
+  options: ApiRequestSignalOptions = {},
+): Promise<SessionTitleSourceMessagesResponse> {
+  return apiRequest<SessionTitleSourceMessagesResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/title-source-messages`,
+    { signal: options.signal, timeoutMs: options.timeoutMs },
+  );
+}
+
 /// 与 service `_sendMessage` 协议一一对齐：
 /// - mode: 与 meta.conversation_modes 之一对齐（normal/plan/image/video/audio）；
 /// - model_key: 必须命中 meta.models[*].key；

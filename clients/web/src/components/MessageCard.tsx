@@ -615,6 +615,7 @@ const MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR = [
 const appearedMessageIds = new Set<string>();
 const responseExpandedOverridesByMessageId = new Map<string, boolean>();
 const badgeCollapsedOverridesByMessageId = new Map<string, boolean>();
+const collapsedBodyScrollTopByKey = new Map<string, number>();
 let messageAppearBatchStartedAt = 0;
 let messageAppearBatchOrdinal = 0;
 
@@ -654,6 +655,22 @@ function rememberMessageUiState(
     if (typeof first !== 'string') break;
     cache.delete(first);
   }
+}
+
+function rememberCollapsedBodyScrollTop(key: string | undefined, value: number): void {
+  if (!key) return;
+  if (collapsedBodyScrollTopByKey.has(key)) collapsedBodyScrollTopByKey.delete(key);
+  collapsedBodyScrollTopByKey.set(key, Math.max(0, value));
+  while (collapsedBodyScrollTopByKey.size > MESSAGE_UI_STATE_CACHE_LIMIT) {
+    const first = collapsedBodyScrollTopByKey.keys().next().value;
+    if (typeof first !== 'string') break;
+    collapsedBodyScrollTopByKey.delete(first);
+  }
+}
+
+function resetCollapsedBodyScrollTop(key: string | undefined): void {
+  if (!key) return;
+  rememberCollapsedBodyScrollTop(key, 0);
 }
 
 function stopNestedMessageScrollPropagation(event: Event): void {
@@ -763,6 +780,29 @@ function textLayoutMotionSignal(
     if (value.charCodeAt(index) === 10) lineBreaks += 1;
   }
   return `${lineBreaks}:${Math.floor(value.length / bucketChars)}`;
+}
+
+function boundedTextHash(value: string): string {
+  let hash = 0x811c9dc5;
+  const headEnd = Math.min(value.length, 4096);
+  const tailStart = value.length > 8192 ? value.length - 4096 : headEnd;
+  for (let index = 0; index < headEnd; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  if (tailStart < value.length) {
+    hash ^= 0x9e3779b9;
+    hash = Math.imul(hash, 0x01000193);
+    for (let index = tailStart; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+  }
+  if (value.length > headEnd) {
+    hash ^= value.length;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function numberLayoutMotionSignal(value: number | undefined): string {
@@ -1205,6 +1245,21 @@ function MessageCardImpl({
     message.metadata?.['content_format'],
     contentFormat,
   );
+  const responseVariantIndex =
+    finiteNumberOrNullFromUnknown(metadata['response_variant_index']) ??
+    finiteNumberOrNullFromUnknown(metadata['responseVariantIndex']) ??
+    0;
+  const collapsedBodyScrollStateKey = isAssistantResponseBadgeMessage
+    ? [
+        message.id,
+        'response',
+        responseVariantIndex,
+        effectiveFormat,
+        showRawContent ? 'raw' : 'rendered',
+        visibleContent.length,
+        boundedTextHash(visibleContent),
+      ].join('|')
+    : undefined;
   const supportsTextActions = effectiveFormat !== 'html';
   const supportsRenderedSourceToggle =
     effectiveFormat === 'html' || effectiveFormat === 'markdown';
@@ -1334,13 +1389,16 @@ function MessageCardImpl({
 
   const toggleResponseExpanded = useCallback(() => {
     const next = !expanded;
+    if (!next) {
+      resetCollapsedBodyScrollTop(collapsedBodyScrollStateKey);
+    }
     rememberMessageUiState(
       responseExpandedOverridesByMessageId,
       message.id,
       next,
     );
     setExpandedOverride(next);
-  }, [expanded, message.id]);
+  }, [collapsedBodyScrollStateKey, expanded, message.id]);
 
   return (
     <>
@@ -1548,6 +1606,7 @@ function MessageCardImpl({
       <ReasoningCollapsibleBody
         collapsed={badgeBodyCollapsed}
         scrollableCollapsed={isAssistantResponseBadgeMessage}
+        scrollStateKey={collapsedBodyScrollStateKey}
         previewMaxHeight={
           isCollapsibleByBadge && badgeCollapsed
             ? REASONING_PREVIEW_MAX_HEIGHT_PX
@@ -1802,30 +1861,61 @@ export const MessageCard = memo(MessageCardImpl);
 function ReasoningCollapsibleBody({
   collapsed,
   scrollableCollapsed = false,
+  scrollStateKey,
   previewMaxHeight,
   fadeBackground,
   children,
 }: {
   collapsed: boolean;
   scrollableCollapsed?: boolean;
+  scrollStateKey?: string;
   previewMaxHeight: number;
   fadeBackground: string;
   children: ComponentChildren;
 }) {
   const useCollapsedScroll = collapsed && scrollableCollapsed;
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const expandedMaxHeight = scrollableCollapsed ? 'none' : '4000px';
+
+  useLayoutEffect(() => {
+    if (!useCollapsedScroll || !scrollStateKey) return;
+    const element = bodyRef.current;
+    if (!element) return;
+    const restore = () => {
+      const saved = collapsedBodyScrollTopByKey.get(scrollStateKey);
+      if (saved == null) return;
+      const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+      const next = Math.min(saved, maxScrollTop);
+      if (Math.abs(element.scrollTop - next) > 1) {
+        element.scrollTop = next;
+      }
+    };
+    restore();
+    const raf = window.requestAnimationFrame(restore);
+    return () => window.cancelAnimationFrame(raf);
+  }, [children, previewMaxHeight, scrollStateKey, useCollapsedScroll]);
+
+  const handleScroll = useCallback((event: Event) => {
+    stopNestedMessageScrollPropagation(event);
+    if (!useCollapsedScroll || !scrollStateKey) return;
+    const target = event.currentTarget as HTMLDivElement | null;
+    if (!target) return;
+    rememberCollapsedBodyScrollTop(scrollStateKey, target.scrollTop);
+  }, [scrollStateKey, useCollapsedScroll]);
+
   // 折叠态设置 max-height；正式响应展开态不设人为上限，避免极长正文被裁剪。
   // 底部渐隐用 overlay 而不是 mask-image，避免和流式文本 reveal 的 inline
   // mask 叠加后让已稳定文本在折叠态反复明暗闪动。
   return (
     <div
+      ref={bodyRef}
       class={`oh-reasoning-collapsible-body${useCollapsedScroll ? ' is-scrollable-collapsed' : ''}`}
       data-collapsed={collapsed ? 'true' : 'false'}
       data-message-scrollable-body={useCollapsedScroll ? 'true' : undefined}
       aria-expanded={collapsed ? 'false' : 'true'}
       onWheel={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
       onTouchMove={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
-      onScroll={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
+      onScroll={useCollapsedScroll ? handleScroll : undefined}
       style={{
         maxHeight: collapsed ? `${previewMaxHeight}px` : expandedMaxHeight,
         overflowX: 'hidden',
