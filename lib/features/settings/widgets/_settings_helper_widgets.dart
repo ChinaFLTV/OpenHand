@@ -259,11 +259,15 @@ class _AiTtsSettingsPanel extends StatelessWidget {
     required this.settings,
     required this.onChanged,
     required this.playbackService,
+    required this.availableModels,
+    required this.recentModelSelections,
   });
 
   final AiTtsSettings settings;
   final Future<bool> Function(AiTtsSettings settings) onChanged;
   final AiTtsPlaybackService playbackService;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
 
   @override
   Widget build(BuildContext context) {
@@ -335,6 +339,8 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                   settings: settings,
                   onChanged: onChanged,
                   playbackService: playbackService,
+                  availableModels: availableModels,
+                  recentModelSelections: recentModelSelections,
                 ),
               ],
             ),
@@ -1141,11 +1147,15 @@ class _AiTtsProviderDeck extends StatefulWidget {
     required this.settings,
     required this.onChanged,
     required this.playbackService,
+    required this.availableModels,
+    required this.recentModelSelections,
   });
 
   final AiTtsSettings settings;
   final Future<bool> Function(AiTtsSettings settings) onChanged;
   final AiTtsPlaybackService playbackService;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
 
   @override
   State<_AiTtsProviderDeck> createState() => _AiTtsProviderDeckState();
@@ -1217,6 +1227,8 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
                     },
                     onChanged: widget.onChanged,
                     playbackService: widget.playbackService,
+                    availableModels: widget.availableModels,
+                    recentModelSelections: widget.recentModelSelections,
                   ),
                 ),
               ),
@@ -1308,6 +1320,8 @@ class _AiTtsProviderCard extends StatefulWidget {
     required this.onDragEnded,
     required this.onChanged,
     required this.playbackService,
+    required this.availableModels,
+    required this.recentModelSelections,
   });
 
   final AiTtsSettings settings;
@@ -1318,6 +1332,8 @@ class _AiTtsProviderCard extends StatefulWidget {
   final VoidCallback onDragEnded;
   final Future<bool> Function(AiTtsSettings settings) onChanged;
   final AiTtsPlaybackService playbackService;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
 
   @override
   State<_AiTtsProviderCard> createState() => _AiTtsProviderCardState();
@@ -1437,275 +1453,14 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           const SizedBox(height: 10),
           _AnimatedSettingReveal(
             visible: providerSettings.enabled,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _AiTtsProviderSection(
-                  title: _localizedText(context, zh: '声音参数', en: 'Voice'),
-                  child: _AiTtsProviderFieldGrid(
-                    children: [
-                      _AiTtsDropdown(
-                        label: _localizedText(
-                          context,
-                          zh: '音色/发音人',
-                          en: 'Voice',
-                        ),
-                        value: providerSettings.voice,
-                        options: catalog.voiceOptions,
-                        onChanged: (value) => _updateCurrent((current) {
-                          return current.copyWith(voice: value);
-                        }),
-                      ),
-                      _AiTtsDropdown(
-                        label: _localizedText(
-                          context,
-                          zh: '语言',
-                          en: 'Language',
-                        ),
-                        value: providerSettings.language,
-                        options: catalog.languageOptions,
-                        onChanged: (value) => _updateCurrent((current) {
-                          return current.copyWith(language: value);
-                        }),
-                      ),
-                      _AiTtsProviderNumberField(
-                        label: _localizedText(context, zh: '语速', en: 'Speed'),
-                        value: providerSettings.speed,
-                        range: _ttsNumberRange(provider, _TtsNumberKind.speed),
-                        onChanged: (value) => _updateCurrent((current) {
-                          return current.copyWith(speed: value);
-                        }),
-                      ),
-                      _AiTtsProviderNumberField(
-                        label: _localizedText(context, zh: '音量', en: 'Volume'),
-                        value: providerSettings.volume,
-                        range: _ttsNumberRange(provider, _TtsNumberKind.volume),
-                        onChanged: (value) => _updateCurrent((current) {
-                          return current.copyWith(volume: value);
-                        }),
-                      ),
-                      _AiTtsProviderNumberField(
-                        label: _localizedText(context, zh: '音调', en: 'Pitch'),
-                        value: providerSettings.pitch,
-                        range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
-                        onChanged: (value) => _updateCurrent((current) {
-                          return current.copyWith(pitch: value);
-                        }),
-                      ),
-                    ],
+            child: provider == AiTtsProvider.ai
+                ? _buildAiModelSection(context, providerSettings)
+                : _buildNativeProviderSections(
+                    context,
+                    provider,
+                    providerSettings,
+                    catalog,
                   ),
-                ),
-                if (_providerNeedsEndpoint(provider) ||
-                    _providerNeedsCredentials(provider)) ...[
-                  const SizedBox(height: 12),
-                  _AiTtsProviderSection(
-                    title: _localizedText(context, zh: '连接与凭据', en: 'Access'),
-                    child: _AiTtsProviderFieldGrid(
-                      children: [
-                        if (_providerNeedsEndpoint(provider))
-                          _AiTtsProviderTextField(
-                            label: _localizedText(
-                              context,
-                              zh: '接口地址',
-                              en: 'Endpoint',
-                            ),
-                            value: providerSettings.endpoint,
-                            onSubmitted: (value) => _updateCurrent((current) {
-                              return current.copyWith(endpoint: value);
-                            }),
-                          ),
-                        if (_needsAppIdCredential(provider))
-                          _AiTtsProviderTextField(
-                            label: 'App ID',
-                            value: providerSettings.appId,
-                            onSubmitted: (value) => _updateCurrent((current) {
-                              return current.copyWith(appId: value);
-                            }),
-                          ),
-                        if (_providerNeedsCredentials(provider))
-                          _AiTtsProviderTextField(
-                            label: _primaryCredentialLabel(provider),
-                            value: _primaryCredentialValue(providerSettings),
-                            obscure: true,
-                            onSubmitted: (value) => _updateCurrent((current) {
-                              return _primaryCredentialUpdated(current, value);
-                            }),
-                          ),
-                        if (_needsSecondaryCredential(provider))
-                          _AiTtsProviderTextField(
-                            label: _secondaryCredentialLabel(provider),
-                            value: providerSettings.apiSecret,
-                            obscure: true,
-                            onSubmitted: (value) => _updateCurrent((current) {
-                              return current.copyWith(apiSecret: value);
-                            }),
-                          ),
-                        if (provider == AiTtsProvider.baidu)
-                          _AiTtsProviderTextField(
-                            label: 'Access Token',
-                            value: providerSettings.accessToken,
-                            obscure: true,
-                            onSubmitted: (value) => _updateCurrent((current) {
-                              return current.copyWith(accessToken: value);
-                            }),
-                          ),
-                        if (provider == AiTtsProvider.bing)
-                          _AiTtsProviderTextField(
-                            label: _localizedText(
-                              context,
-                              zh: '区域 Region',
-                              en: 'Region',
-                            ),
-                            value: providerSettings.region,
-                            onSubmitted: (value) => _updateCurrent((current) {
-                              return current.copyWith(region: value);
-                            }),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-                if (provider == AiTtsProvider.doubao) ...[
-                  const SizedBox(height: 12),
-                  _AiTtsProviderSection(
-                    title: _localizedText(context, zh: '豆包参数', en: 'Doubao'),
-                    child: _AiTtsProviderFieldGrid(
-                      children: [
-                        _AiTtsExtraDropdown(
-                          label: 'Resource ID',
-                          value:
-                              '${providerSettings.extra['resource_id'] ?? 'seed-tts-2.0'}',
-                          options: catalog.resourceIdOptions,
-                          onChanged: (value) =>
-                              _updateExtra('resource_id', value),
-                        ),
-                        _AiTtsExtraDropdown(
-                          label: _localizedText(context, zh: '模型', en: 'Model'),
-                          value:
-                              '${providerSettings.extra['model'] ?? 'seed-tts-2.0-standard'}',
-                          options: catalog.modelOptions,
-                          onChanged: (value) => _updateExtra('model', value),
-                        ),
-                        _AiTtsExtraDropdown(
-                          label: _localizedText(
-                            context,
-                            zh: '音频格式',
-                            en: 'Format',
-                          ),
-                          value: '${providerSettings.extra['format'] ?? 'mp3'}',
-                          options: catalog.formatOptions,
-                          onChanged: (value) => _updateExtra('format', value),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (provider == AiTtsProvider.mimo) ...[
-                  const SizedBox(height: 12),
-                  _AiTtsProviderSection(
-                    title: 'Mimo TTS',
-                    child: _AiTtsProviderFieldGrid(
-                      children: [
-                        _AiTtsExtraDropdown(
-                          label: _localizedText(context, zh: '模型', en: 'Model'),
-                          value:
-                              '${providerSettings.extra['model'] ?? 'mimo-v2.5-tts'}',
-                          options: catalog.modelOptions,
-                          onChanged: (value) => _updateExtra('model', value),
-                        ),
-                        _AiTtsExtraDropdown(
-                          label: _localizedText(
-                            context,
-                            zh: '音频格式',
-                            en: 'Format',
-                          ),
-                          value: '${providerSettings.extra['format'] ?? 'wav'}',
-                          options: catalog.formatOptions,
-                          onChanged: (value) => _updateExtra('format', value),
-                        ),
-                        _AiTtsProviderTextField(
-                          label: _localizedText(
-                            context,
-                            zh: '风格提示',
-                            en: 'Style Prompt',
-                          ),
-                          value:
-                              '${providerSettings.extra['style_prompt'] ?? '自然清晰，语速适中，语气友好。'}',
-                          onSubmitted: (value) =>
-                              _updateExtra('style_prompt', value),
-                        ),
-                        _AiTtsProviderTextField(
-                          label: _localizedText(
-                            context,
-                            zh: '克隆样本路径',
-                            en: 'Clone Sample Path',
-                          ),
-                          value:
-                              '${providerSettings.extra['voice_sample_path'] ?? ''}',
-                          onSubmitted: (value) =>
-                              _updateExtra('voice_sample_path', value),
-                        ),
-                        _AiTtsProviderTextField(
-                          label: _localizedText(
-                            context,
-                            zh: 'PCM 采样率',
-                            en: 'PCM Sample Rate',
-                          ),
-                          value:
-                              '${providerSettings.extra['sample_rate'] ?? 24000}',
-                          onSubmitted: (value) => _updateExtra(
-                            'sample_rate',
-                            int.tryParse(value.trim()) ?? 24000,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (provider == AiTtsProvider.xfyun) ...[
-                  const SizedBox(height: 12),
-                  _AiTtsProviderSection(
-                    title: _localizedText(context, zh: '音频编码', en: 'Audio'),
-                    child: _AiTtsProviderFieldGrid(
-                      children: [
-                        _AiTtsExtraDropdown(
-                          label: _localizedText(
-                            context,
-                            zh: '音频格式',
-                            en: 'Format',
-                          ),
-                          value: '${providerSettings.extra['aue'] ?? 'lame'}',
-                          options: catalog.formatOptions,
-                          onChanged: (value) => _updateExtra('aue', value),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (provider == AiTtsProvider.google ||
-                    provider == AiTtsProvider.bing) ...[
-                  const SizedBox(height: 12),
-                  _AiTtsProviderSection(
-                    title: _localizedText(context, zh: '音频编码', en: 'Audio'),
-                    child: _AiTtsProviderFieldGrid(
-                      children: [
-                        _AiTtsExtraDropdown(
-                          label: _localizedText(
-                            context,
-                            zh: '音频格式',
-                            en: 'Format',
-                          ),
-                          value:
-                              '${providerSettings.extra[_audioEncodingExtraKey(provider)] ?? _defaultAudioEncoding(provider)}',
-                          options: catalog.formatOptions,
-                          onChanged: (value) => _updateExtra(
-                            _audioEncodingExtraKey(provider),
-                            value,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
           ),
         ],
       ),
@@ -1719,14 +1474,345 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     );
   }
 
+  Widget _buildAiModelSection(
+    BuildContext context,
+    AiTtsProviderSettings providerSettings,
+  ) {
+    final theme = Theme.of(context);
+    final catalog = AiTtsProviderCatalogs.of(AiTtsProvider.ai);
+    final selectedLabel = _ttsSelectedModelLabel(
+      providerSettings,
+      widget.availableModels,
+    );
+    final hasAudioModels = _ttsAudioGenerationModels(
+      widget.availableModels,
+    ).isNotEmpty;
+    return _AiTtsProviderSection(
+      title: _localizedText(context, zh: 'AI 模型', en: 'AI Model'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: hasAudioModels ? _pickAiModel : null,
+            icon: const Icon(Icons.manage_search_rounded),
+            label: Text(
+              selectedLabel ??
+                  _localizedText(context, zh: '选择语音模型', en: 'Select model'),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            selectedLabel == null
+                ? _localizedText(
+                    context,
+                    zh: '仅展示已标记为多模态且支持音频生成的模型。',
+                    en: 'Only multimodal audio-generation models are listed.',
+                  )
+                : _localizedText(
+                    context,
+                    zh: 'AI 语音会复用该模型供应商的鉴权与接口配置。',
+                    en: 'AI speech reuses this provider configuration.',
+                  ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _AiTtsProviderFieldGrid(
+            children: [
+              _AiTtsDropdown(
+                label: _localizedText(context, zh: '音色/发音人', en: 'Voice'),
+                value: providerSettings.voice,
+                options: catalog.voiceOptions,
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(voice: value);
+                }),
+              ),
+              _AiTtsExtraDropdown(
+                label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                value: '${providerSettings.extra['format'] ?? 'mp3'}',
+                options: catalog.formatOptions,
+                onChanged: (value) => _updateExtra('format', value),
+              ),
+              _AiTtsProviderNumberField(
+                label: _localizedText(context, zh: '语速', en: 'Speed'),
+                value: providerSettings.speed,
+                range: _ttsNumberRange(AiTtsProvider.ai, _TtsNumberKind.speed),
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(speed: value);
+                }),
+              ),
+              _AiTtsProviderNumberField(
+                label: _localizedText(context, zh: '音量', en: 'Volume'),
+                value: providerSettings.volume,
+                range: _ttsNumberRange(AiTtsProvider.ai, _TtsNumberKind.volume),
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(volume: value);
+                }),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNativeProviderSections(
+    BuildContext context,
+    AiTtsProvider provider,
+    AiTtsProviderSettings providerSettings,
+    AiTtsProviderCatalog catalog,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AiTtsProviderSection(
+          title: _localizedText(context, zh: '声音参数', en: 'Voice'),
+          child: _AiTtsProviderFieldGrid(
+            children: [
+              _AiTtsDropdown(
+                label: _localizedText(context, zh: '音色/发音人', en: 'Voice'),
+                value: providerSettings.voice,
+                options: catalog.voiceOptions,
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(voice: value);
+                }),
+              ),
+              _AiTtsDropdown(
+                label: _localizedText(context, zh: '语言', en: 'Language'),
+                value: providerSettings.language,
+                options: catalog.languageOptions,
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(language: value);
+                }),
+              ),
+              _AiTtsProviderNumberField(
+                label: _localizedText(context, zh: '语速', en: 'Speed'),
+                value: providerSettings.speed,
+                range: _ttsNumberRange(provider, _TtsNumberKind.speed),
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(speed: value);
+                }),
+              ),
+              _AiTtsProviderNumberField(
+                label: _localizedText(context, zh: '音量', en: 'Volume'),
+                value: providerSettings.volume,
+                range: _ttsNumberRange(provider, _TtsNumberKind.volume),
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(volume: value);
+                }),
+              ),
+              _AiTtsProviderNumberField(
+                label: _localizedText(context, zh: '音调', en: 'Pitch'),
+                value: providerSettings.pitch,
+                range: _ttsNumberRange(provider, _TtsNumberKind.pitch),
+                onChanged: (value) => _updateCurrent((current) {
+                  return current.copyWith(pitch: value);
+                }),
+              ),
+            ],
+          ),
+        ),
+        if (_providerNeedsEndpoint(provider) ||
+            _providerNeedsCredentials(provider)) ...[
+          const SizedBox(height: 12),
+          _AiTtsProviderSection(
+            title: _localizedText(context, zh: '连接与凭据', en: 'Access'),
+            child: _AiTtsProviderFieldGrid(
+              children: [
+                if (_providerNeedsEndpoint(provider))
+                  _AiTtsProviderTextField(
+                    label: _localizedText(context, zh: '接口地址', en: 'Endpoint'),
+                    value: providerSettings.endpoint,
+                    onSubmitted: (value) => _updateCurrent((current) {
+                      return current.copyWith(endpoint: value);
+                    }),
+                  ),
+                if (_needsAppIdCredential(provider))
+                  _AiTtsProviderTextField(
+                    label: 'App ID',
+                    value: providerSettings.appId,
+                    onSubmitted: (value) => _updateCurrent((current) {
+                      return current.copyWith(appId: value);
+                    }),
+                  ),
+                if (_providerNeedsCredentials(provider))
+                  _AiTtsProviderTextField(
+                    label: _primaryCredentialLabel(provider),
+                    value: _primaryCredentialValue(providerSettings),
+                    obscure: true,
+                    onSubmitted: (value) => _updateCurrent((current) {
+                      return _primaryCredentialUpdated(current, value);
+                    }),
+                  ),
+                if (_needsSecondaryCredential(provider))
+                  _AiTtsProviderTextField(
+                    label: _secondaryCredentialLabel(provider),
+                    value: providerSettings.apiSecret,
+                    obscure: true,
+                    onSubmitted: (value) => _updateCurrent((current) {
+                      return current.copyWith(apiSecret: value);
+                    }),
+                  ),
+                if (provider == AiTtsProvider.baidu)
+                  _AiTtsProviderTextField(
+                    label: 'Access Token',
+                    value: providerSettings.accessToken,
+                    obscure: true,
+                    onSubmitted: (value) => _updateCurrent((current) {
+                      return current.copyWith(accessToken: value);
+                    }),
+                  ),
+                if (provider == AiTtsProvider.bing)
+                  _AiTtsProviderTextField(
+                    label: _localizedText(
+                      context,
+                      zh: '区域 Region',
+                      en: 'Region',
+                    ),
+                    value: providerSettings.region,
+                    onSubmitted: (value) => _updateCurrent((current) {
+                      return current.copyWith(region: value);
+                    }),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        if (provider == AiTtsProvider.doubao) ...[
+          const SizedBox(height: 12),
+          _AiTtsProviderSection(
+            title: _localizedText(context, zh: '豆包参数', en: 'Doubao'),
+            child: _AiTtsProviderFieldGrid(
+              children: [
+                _AiTtsExtraDropdown(
+                  label: 'Resource ID',
+                  value:
+                      '${providerSettings.extra['resource_id'] ?? 'seed-tts-2.0'}',
+                  options: catalog.resourceIdOptions,
+                  onChanged: (value) => _updateExtra('resource_id', value),
+                ),
+                _AiTtsExtraDropdown(
+                  label: _localizedText(context, zh: '模型', en: 'Model'),
+                  value:
+                      '${providerSettings.extra['model'] ?? 'seed-tts-2.0-standard'}',
+                  options: catalog.modelOptions,
+                  onChanged: (value) => _updateExtra('model', value),
+                ),
+                _AiTtsExtraDropdown(
+                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  value: '${providerSettings.extra['format'] ?? 'mp3'}',
+                  options: catalog.formatOptions,
+                  onChanged: (value) => _updateExtra('format', value),
+                ),
+              ],
+            ),
+          ),
+        ] else if (provider == AiTtsProvider.mimo) ...[
+          const SizedBox(height: 12),
+          _AiTtsProviderSection(
+            title: 'Mimo TTS',
+            child: _AiTtsProviderFieldGrid(
+              children: [
+                _AiTtsExtraDropdown(
+                  label: _localizedText(context, zh: '模型', en: 'Model'),
+                  value:
+                      '${providerSettings.extra['model'] ?? 'mimo-v2.5-tts'}',
+                  options: catalog.modelOptions,
+                  onChanged: (value) => _updateExtra('model', value),
+                ),
+                _AiTtsExtraDropdown(
+                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  value: '${providerSettings.extra['format'] ?? 'wav'}',
+                  options: catalog.formatOptions,
+                  onChanged: (value) => _updateExtra('format', value),
+                ),
+                _AiTtsProviderTextField(
+                  label: _localizedText(
+                    context,
+                    zh: '风格提示',
+                    en: 'Style Prompt',
+                  ),
+                  value:
+                      '${providerSettings.extra['style_prompt'] ?? '自然清晰，语速适中，语气友好。'}',
+                  onSubmitted: (value) => _updateExtra('style_prompt', value),
+                ),
+                _AiTtsProviderTextField(
+                  label: _localizedText(
+                    context,
+                    zh: '克隆样本路径',
+                    en: 'Clone Sample Path',
+                  ),
+                  value: '${providerSettings.extra['voice_sample_path'] ?? ''}',
+                  onSubmitted: (value) =>
+                      _updateExtra('voice_sample_path', value),
+                ),
+                _AiTtsProviderTextField(
+                  label: _localizedText(
+                    context,
+                    zh: 'PCM 采样率',
+                    en: 'PCM Sample Rate',
+                  ),
+                  value: '${providerSettings.extra['sample_rate'] ?? 24000}',
+                  onSubmitted: (value) => _updateExtra(
+                    'sample_rate',
+                    int.tryParse(value.trim()) ?? 24000,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (provider == AiTtsProvider.xfyun) ...[
+          const SizedBox(height: 12),
+          _AiTtsProviderSection(
+            title: _localizedText(context, zh: '音频编码', en: 'Audio'),
+            child: _AiTtsProviderFieldGrid(
+              children: [
+                _AiTtsExtraDropdown(
+                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  value: '${providerSettings.extra['aue'] ?? 'lame'}',
+                  options: catalog.formatOptions,
+                  onChanged: (value) => _updateExtra('aue', value),
+                ),
+              ],
+            ),
+          ),
+        ] else if (provider == AiTtsProvider.google ||
+            provider == AiTtsProvider.bing) ...[
+          const SizedBox(height: 12),
+          _AiTtsProviderSection(
+            title: _localizedText(context, zh: '音频编码', en: 'Audio'),
+            child: _AiTtsProviderFieldGrid(
+              children: [
+                _AiTtsExtraDropdown(
+                  label: _localizedText(context, zh: '音频格式', en: 'Format'),
+                  value:
+                      '${providerSettings.extra[_audioEncodingExtraKey(provider)] ?? _defaultAudioEncoding(provider)}',
+                  options: catalog.formatOptions,
+                  onChanged: (value) =>
+                      _updateExtra(_audioEncodingExtraKey(provider), value),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Future<void> _testProvider() async {
     if (_testing) return;
     FocusManager.instance.primaryFocus?.unfocus();
     await Future<void>.delayed(const Duration(milliseconds: 80));
     if (!mounted) return;
+    final settingsController = context.read<SettingsController>();
+    final fallbackModel = _ttsFallbackAudioModel(settingsController);
     final readinessError = _ttsProviderReadinessError(
       context,
       _effectiveProviderSettings,
+      widget.availableModels,
+      fallbackModel: fallbackModel,
     );
     if (readinessError != null) {
       OpenHandSnackBar.show(
@@ -1743,6 +1829,8 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           _effectiveProviderSettings,
         ).copyWith(enabled: true),
         provider: widget.provider,
+        availableModels: widget.availableModels,
+        fallbackModel: fallbackModel,
       );
       if (!mounted) return;
       OpenHandSnackBar.show(
@@ -1806,6 +1894,27 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     final extra = Map<String, Object?>.from(current.extra);
     extra[key] = value;
     await _update(current.copyWith(extra: extra));
+  }
+
+  Future<void> _pickAiModel() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final settingsController = context.read<SettingsController>();
+    final latestModels = settingsController.aiModels;
+    final current = _effectiveProviderSettings;
+    final picked = await showModelSearchSelector(
+      context: context,
+      models: latestModels,
+      selectedConfigId: current.modelConfigId,
+      selectedModelId: current.modelId,
+      recentSelections: widget.recentModelSelections,
+      modelFilter: _isTtsAudioGenerationModel,
+    );
+    if (!mounted || picked == null) return;
+    await settingsController.addRecentModelSelection(picked.$1, picked.$2);
+    await _updateCurrent(
+      (current) =>
+          current.copyWith(modelConfigId: picked.$1, modelId: picked.$2),
+    );
   }
 }
 
@@ -2846,6 +2955,8 @@ String? _translationProviderReadinessError(
 
 String _ttsProviderLabel(BuildContext context, AiTtsProvider provider) {
   switch (provider) {
+    case AiTtsProvider.ai:
+      return _localizedText(context, zh: 'AI 语音', en: 'AI Speech');
     case AiTtsProvider.system:
       return _localizedText(context, zh: '系统 TTS', en: 'System TTS');
     case AiTtsProvider.xfyun:
@@ -2869,6 +2980,12 @@ String _ttsProviderLabel(BuildContext context, AiTtsProvider provider) {
 
 String _ttsProviderHint(BuildContext context, AiTtsProvider provider) {
   switch (provider) {
+    case AiTtsProvider.ai:
+      return _localizedText(
+        context,
+        zh: '复用全局模型供应商生成语音，仅支持多模态音频生成模型。',
+        en: 'Uses configured multimodal audio-generation model providers.',
+      );
     case AiTtsProvider.system:
       return _localizedText(
         context,
@@ -2926,6 +3043,47 @@ String _ttsProviderHint(BuildContext context, AiTtsProvider provider) {
   }
 }
 
+String? _ttsSelectedModelLabel(
+  AiTtsProviderSettings settings,
+  List<AiModelConfig> models,
+) {
+  final configId = settings.modelConfigId.trim();
+  final modelId = settings.modelId.trim();
+  if (configId.isEmpty || modelId.isEmpty) return null;
+  for (final model in models) {
+    if (model.id == configId) {
+      final providerLabel = model.providerLabel.trim().isEmpty
+          ? model.name
+          : model.providerLabel;
+      return '$providerLabel · $modelId';
+    }
+  }
+  return modelId;
+}
+
+List<AiModelConfig> _ttsAudioGenerationModels(List<AiModelConfig> models) {
+  return models
+      .where(
+        (config) => config.allModelIds.any(
+          (modelId) => _isTtsAudioGenerationModel(config, modelId),
+        ),
+      )
+      .toList(growable: false);
+}
+
+bool _isTtsAudioGenerationModel(AiModelConfig config, String modelId) {
+  return AiTtsPlaybackService.supportsAudioGenerationModel(config, modelId);
+}
+
+AiModelConfig? _ttsFallbackAudioModel(SettingsController settingsController) {
+  final selected = settingsController.selectedAiModel;
+  if (selected == null ||
+      !_isTtsAudioGenerationModel(selected, selected.modelId)) {
+    return null;
+  }
+  return selected;
+}
+
 enum _TtsNumberKind { speed, volume, pitch }
 
 class _TtsNumberRange {
@@ -2975,6 +3133,12 @@ _TtsNumberRange _ttsNumberRange(AiTtsProvider provider, _TtsNumberKind kind) {
       return switch (kind) {
         _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2, step: 0.05),
         _TtsNumberKind.volume => const _TtsNumberRange(0, 100),
+        _TtsNumberKind.pitch => const _TtsNumberRange(-20, 20),
+      };
+    case AiTtsProvider.ai:
+      return switch (kind) {
+        _TtsNumberKind.speed => const _TtsNumberRange(0.25, 4, step: 0.05),
+        _TtsNumberKind.volume => const _TtsNumberRange(0, 1, step: 0.05),
         _TtsNumberKind.pitch => const _TtsNumberRange(-20, 20),
       };
     case AiTtsProvider.system:
@@ -3046,13 +3210,36 @@ bool _mimoUsesVoiceClone(AiTtsProviderSettings settings) {
 String? _ttsProviderReadinessError(
   BuildContext context,
   AiTtsProviderSettings settings,
-) {
+  List<AiModelConfig> availableModels, {
+  AiModelConfig? fallbackModel,
+}) {
   final missing = <String>[];
   void requireField(String value, String label) {
     if (value.trim().isEmpty) missing.add(label);
   }
 
   switch (settings.provider) {
+    case AiTtsProvider.ai:
+      final hasFallbackModel =
+          fallbackModel != null &&
+          _isTtsAudioGenerationModel(fallbackModel, fallbackModel.modelId);
+      if (settings.modelConfigId.trim().isEmpty ||
+          settings.modelId.trim().isEmpty) {
+        if (!hasFallbackModel &&
+            _ttsAudioGenerationModels(availableModels).isEmpty) {
+          missing.add(_localizedText(context, zh: '可用语音模型', en: 'models'));
+        } else if (!hasFallbackModel) {
+          missing.add(_localizedText(context, zh: '语音模型', en: 'model'));
+        }
+      } else if (!availableModels.any(
+        (config) =>
+            config.id == settings.modelConfigId &&
+            config.allModelIds.contains(settings.modelId) &&
+            _isTtsAudioGenerationModel(config, settings.modelId),
+      )) {
+        missing.add(_localizedText(context, zh: '有效语音模型', en: 'valid model'));
+      }
+      break;
     case AiTtsProvider.system:
     case AiTtsProvider.apple:
       break;
@@ -3138,7 +3325,8 @@ bool _isTtsConfigurationError(Object error) {
       message.contains('speaker is empty') ||
       message.contains('voice is empty') ||
       message.contains('voice sample') ||
-      message.contains('API key or secret is empty');
+      message.contains('API key or secret is empty') ||
+      message.contains('AI TTS model');
 }
 
 bool _providerNeedsEndpoint(AiTtsProvider provider) {
@@ -3149,7 +3337,9 @@ bool _providerNeedsEndpoint(AiTtsProvider provider) {
 }
 
 bool _providerNeedsCredentials(AiTtsProvider provider) {
-  return provider != AiTtsProvider.system && provider != AiTtsProvider.apple;
+  return provider != AiTtsProvider.system &&
+      provider != AiTtsProvider.ai &&
+      provider != AiTtsProvider.apple;
 }
 
 class _SettingsIntField extends StatefulWidget {

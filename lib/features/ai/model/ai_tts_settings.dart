@@ -1,4 +1,5 @@
 enum AiTtsProvider {
+  ai('ai'),
   system('system'),
   xfyun('xfyun'),
   youdao('youdao'),
@@ -37,11 +38,36 @@ class AiTtsProviderSettings {
     required this.apiSecret,
     required this.accessToken,
     required this.region,
+    required this.modelConfigId,
+    required this.modelId,
     required this.extra,
   });
 
   factory AiTtsProviderSettings.defaults(AiTtsProvider provider) {
     switch (provider) {
+      case AiTtsProvider.ai:
+        return const AiTtsProviderSettings(
+          provider: AiTtsProvider.ai,
+          enabled: false,
+          voice: 'alloy',
+          language: 'zh-CN',
+          speed: 1.0,
+          volume: 1.0,
+          pitch: 0.0,
+          endpoint: '',
+          appId: '',
+          apiKey: '',
+          apiSecret: '',
+          accessToken: '',
+          region: '',
+          modelConfigId: '',
+          modelId: '',
+          extra: <String, Object?>{
+            'format': 'mp3',
+            'sample_rate': 24000,
+            'bit_rate': 128000,
+          },
+        );
       case AiTtsProvider.system:
         return const AiTtsProviderSettings(
           provider: AiTtsProvider.system,
@@ -57,6 +83,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{},
         );
       case AiTtsProvider.xfyun:
@@ -74,6 +102,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{
             'aue': 'lame',
             'auf': 'audio/L16;rate=16000',
@@ -94,6 +124,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{},
         );
       case AiTtsProvider.bing:
@@ -111,6 +143,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{},
         );
       case AiTtsProvider.google:
@@ -128,6 +162,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{'audioEncoding': 'MP3'},
         );
       case AiTtsProvider.baidu:
@@ -145,6 +181,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{},
         );
       case AiTtsProvider.doubao:
@@ -163,6 +201,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{
             'resource_id': 'seed-tts-2.0',
             'model': 'seed-tts-2.0-standard',
@@ -186,6 +226,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{
             'model': 'mimo-v2.5-tts',
             'format': 'wav',
@@ -209,6 +251,8 @@ class AiTtsProviderSettings {
           apiSecret: '',
           accessToken: '',
           region: '',
+          modelConfigId: '',
+          modelId: '',
           extra: <String, Object?>{},
         );
     }
@@ -235,6 +279,8 @@ class AiTtsProviderSettings {
           apiSecret: _stringOrNull(json['api_secret']),
           accessToken: _stringOrNull(json['access_token']),
           region: _stringOrNull(json['region']),
+          modelConfigId: _stringOrNull(json['model_config_id']),
+          modelId: _stringOrNull(json['model_id']),
           extra: json['extra'] is Map
               ? Map<String, Object?>.from(json['extra'] as Map)
               : null,
@@ -255,6 +301,8 @@ class AiTtsProviderSettings {
   final String apiSecret;
   final String accessToken;
   final String region;
+  final String modelConfigId;
+  final String modelId;
   final Map<String, Object?> extra;
 
   AiTtsProviderSettings copyWith({
@@ -270,6 +318,8 @@ class AiTtsProviderSettings {
     String? apiSecret,
     String? accessToken,
     String? region,
+    String? modelConfigId,
+    String? modelId,
     Map<String, Object?>? extra,
   }) {
     return AiTtsProviderSettings(
@@ -286,6 +336,8 @@ class AiTtsProviderSettings {
       apiSecret: apiSecret ?? this.apiSecret,
       accessToken: accessToken ?? this.accessToken,
       region: region ?? this.region,
+      modelConfigId: modelConfigId ?? this.modelConfigId,
+      modelId: modelId ?? this.modelId,
       extra: extra ?? this.extra,
     );
   }
@@ -308,6 +360,8 @@ class AiTtsProviderSettings {
       apiSecret: apiSecret.trim(),
       accessToken: accessToken.trim(),
       region: region.trim(),
+      modelConfigId: modelConfigId.trim(),
+      modelId: modelId.trim(),
       extra: Map<String, Object?>.unmodifiable(extra),
     );
   }
@@ -326,6 +380,8 @@ class AiTtsProviderSettings {
       'api_secret': apiSecret,
       'access_token': accessToken,
       'region': region,
+      'model_config_id': modelConfigId,
+      'model_id': modelId,
       'extra': extra,
     };
   }
@@ -388,6 +444,7 @@ class AiTtsSettings {
   static const int maxMaxTextCharacters = 20000;
   static const List<AiTtsProvider> defaultProviderPriority = <AiTtsProvider>[
     AiTtsProvider.system,
+    AiTtsProvider.ai,
     AiTtsProvider.apple,
     AiTtsProvider.xfyun,
     AiTtsProvider.bing,

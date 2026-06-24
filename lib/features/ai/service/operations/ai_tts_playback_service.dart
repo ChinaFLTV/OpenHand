@@ -12,7 +12,10 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../model/ai_creation_mode.dart';
+import '../../model/ai_model_config.dart';
 import '../../model/ai_tts_settings.dart';
+import '../media/ai_image_generation_service.dart';
 
 class AiTtsPlaybackSnapshot {
   const AiTtsPlaybackSnapshot({
@@ -27,12 +30,17 @@ class AiTtsPlaybackSnapshot {
 }
 
 class AiTtsPlaybackService {
-  AiTtsPlaybackService();
+  AiTtsPlaybackService({AiImageGenerationService? mediaGenerationService})
+    : _mediaGenerationService =
+          mediaGenerationService ?? AiImageGenerationService(),
+      _ownsMediaGenerationService = mediaGenerationService == null;
 
   static const String settingsTestMessageId = '__settings_tts_test__';
   static const String settingsTestText = '这是一段文本转语音测试。';
   static const int _doubaoTtsSuccessCode = 20000000;
 
+  final AiImageGenerationService _mediaGenerationService;
+  final bool _ownsMediaGenerationService;
   final ValueNotifier<AiTtsPlaybackSnapshot> state =
       ValueNotifier<AiTtsPlaybackSnapshot>(const AiTtsPlaybackSnapshot());
   int _generation = 0;
@@ -50,18 +58,28 @@ class AiTtsPlaybackService {
     required String messageId,
     required String text,
     required AiTtsSettings settings,
+    List<AiModelConfig> availableModels = const <AiModelConfig>[],
+    AiModelConfig? fallbackModel,
   }) async {
     if (isPlayingMessage(messageId)) {
       await stop();
       return;
     }
-    await speak(messageId: messageId, text: text, settings: settings);
+    await speak(
+      messageId: messageId,
+      text: text,
+      settings: settings,
+      availableModels: availableModels,
+      fallbackModel: fallbackModel,
+    );
   }
 
   Future<void> speak({
     required String messageId,
     required String text,
     required AiTtsSettings settings,
+    List<AiModelConfig> availableModels = const <AiModelConfig>[],
+    AiModelConfig? fallbackModel,
   }) async {
     await stop();
     final normalized = settings.normalized();
@@ -83,6 +101,8 @@ class AiTtsPlaybackService {
           providerSettings,
           content,
           timeout: Duration(seconds: normalized.timeoutSeconds),
+          availableModels: availableModels,
+          fallbackModel: fallbackModel,
         );
         if (generation == _generation) await stop();
         return;
@@ -104,6 +124,8 @@ class AiTtsPlaybackService {
     required AiTtsSettings settings,
     required AiTtsProvider provider,
     String text = settingsTestText,
+    List<AiModelConfig> availableModels = const <AiModelConfig>[],
+    AiModelConfig? fallbackModel,
   }) async {
     await stop();
     final normalized = settings.normalized();
@@ -123,6 +145,8 @@ class AiTtsPlaybackService {
         providerSettings,
         content,
         timeout: Duration(seconds: normalized.timeoutSeconds),
+        availableModels: availableModels,
+        fallbackModel: fallbackModel,
       );
     } on _AiTtsPlaybackCancelled {
       return;
@@ -140,15 +164,47 @@ class AiTtsPlaybackService {
 
   Future<void> dispose() async {
     await stop();
+    if (_ownsMediaGenerationService) {
+      _mediaGenerationService.dispose();
+    }
     state.dispose();
+  }
+
+  static bool supportsAudioGenerationModel(
+    AiModelConfig config,
+    String modelId,
+  ) {
+    final normalizedModelId = modelId.trim();
+    if (normalizedModelId.isEmpty) return false;
+    final candidate = config.copyWith(modelId: normalizedModelId);
+    final profile = candidate.profileFor(normalizedModelId);
+    final modalities = profile.supportedModalities;
+    final multimodal =
+        profile.isMultimodal == true ||
+        modalities.length > 1 ||
+        (modalities.contains(AiModelModality.text) &&
+            modalities.contains(AiModelModality.audio));
+    return multimodal &&
+        profile.capabilities.contains(AiModelCapability.audioGeneration) &&
+        AiImageGenerationService.supportsAudioGenerationForModel(candidate);
   }
 
   Future<void> _speakWithProvider(
     AiTtsProviderSettings provider,
     String text, {
     required Duration timeout,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
   }) {
     switch (provider.provider) {
+      case AiTtsProvider.ai:
+        return _speakWithAiModel(
+          provider,
+          text,
+          timeout: timeout,
+          availableModels: availableModels,
+          fallbackModel: fallbackModel,
+        );
       case AiTtsProvider.system:
       case AiTtsProvider.apple:
         return _speakWithSystem(provider, text, timeout: timeout);
@@ -167,6 +223,68 @@ class AiTtsPlaybackService {
       case AiTtsProvider.google:
         return _speakWithGoogle(provider, text, timeout: timeout);
     }
+  }
+
+  Future<void> _speakWithAiModel(
+    AiTtsProviderSettings settings,
+    String text, {
+    required Duration timeout,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
+  }) async {
+    final model = _resolveAiModel(
+      settings: settings,
+      availableModels: availableModels,
+      fallbackModel: fallbackModel,
+    );
+    if (model == null) {
+      throw StateError('AI TTS model is empty.');
+    }
+    if (!supportsAudioGenerationModel(model, model.modelId)) {
+      throw StateError('AI TTS model does not support audio generation.');
+    }
+    final result = await _mediaGenerationService.generateAudio(
+      model: model,
+      prompt: text,
+      options: AiCreationOptions(
+        voice: settings.voice.trim().isEmpty ? null : settings.voice.trim(),
+        speed: settings.speed,
+        volume: settings.volume,
+        pitch: settings.pitch,
+        outputFormat: _extraString(settings, 'format', fallback: 'mp3'),
+        sampleRate: _extraInt(settings, 'sample_rate', fallback: 24000),
+        bitrate: _extraInt(settings, 'bit_rate', fallback: 128000),
+      ),
+      timeout: timeout,
+    );
+    final audioPath = _firstLocalMediaPath(result.markdown);
+    if (audioPath.isEmpty) {
+      throw StateError('AI TTS returned no playable audio.');
+    }
+    await _playAudioFile(audioPath, volume: settings.volume, timeout: timeout);
+  }
+
+  AiModelConfig? _resolveAiModel({
+    required AiTtsProviderSettings settings,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
+  }) {
+    final configId = settings.modelConfigId.trim();
+    final modelId = settings.modelId.trim();
+    if (configId.isNotEmpty && modelId.isNotEmpty) {
+      for (final config in availableModels) {
+        if (config.id == configId &&
+            config.allModelIds.contains(modelId) &&
+            supportsAudioGenerationModel(config, modelId)) {
+          return config.copyWith(modelId: modelId);
+        }
+      }
+    }
+    if (fallbackModel != null &&
+        supportsAudioGenerationModel(fallbackModel, fallbackModel.modelId)) {
+      return fallbackModel;
+    }
+    return null;
   }
 
   Future<void> _speakWithMimo(
@@ -748,14 +866,29 @@ class AiTtsPlaybackService {
     );
     await file.writeAsBytes(bytes, flush: true);
     try {
-      await _runSpeechProcess('afplay', <String>[
-        '-v',
-        '${_afplayVolume(volume)}',
-        file.path,
-      ], timeout: timeout);
+      await _playAudioFile(file.path, volume: volume, timeout: timeout);
     } finally {
       unawaited(file.delete().catchError((_) => file));
     }
+  }
+
+  Future<void> _playAudioFile(
+    String path, {
+    required double volume,
+    required Duration timeout,
+  }) async {
+    if (!Platform.isMacOS) {
+      throw UnsupportedError('Audio playback is only wired for macOS now.');
+    }
+    final file = File(path);
+    if (!await file.exists().timeout(timeout)) {
+      throw StateError('TTS audio file is missing.');
+    }
+    await _runSpeechProcess('afplay', <String>[
+      '-v',
+      '${_afplayVolume(volume)}',
+      file.path,
+    ], timeout: timeout);
   }
 
   Future<void> _runSpeechProcess(
@@ -937,6 +1070,15 @@ class AiTtsPlaybackService {
         .trim();
     if (trimmed.length <= maxCharacters) return trimmed;
     return trimmed.substring(0, maxCharacters);
+  }
+
+  static String _firstLocalMediaPath(String markdown) {
+    final match = RegExp(r'\]\(([^)]+)\)').firstMatch(markdown);
+    final raw = match?.group(1)?.trim() ?? '';
+    if (raw.isEmpty) return '';
+    final uri = Uri.tryParse(raw);
+    if (uri != null && uri.scheme == 'file') return uri.toFilePath();
+    return raw;
   }
 
   static int _systemRate(double speed) {
@@ -1353,7 +1495,8 @@ class AiTtsPlaybackService {
         message.contains('speaker is empty') ||
         message.contains('voice is empty') ||
         message.contains('voice sample') ||
-        message.contains('API key or secret is empty');
+        message.contains('API key or secret is empty') ||
+        message.contains('AI TTS model');
   }
 }
 

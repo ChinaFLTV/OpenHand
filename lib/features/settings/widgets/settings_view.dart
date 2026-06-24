@@ -2588,6 +2588,9 @@ class _SettingsViewState extends State<SettingsView> {
                     settings: ttsSettings,
                     onChanged: settingsController.updateAiTtsSettings,
                     playbackService: _ttsSettingsPlaybackService,
+                    availableModels: settingsController.aiModels,
+                    recentModelSelections:
+                        settingsController.recentModelSelections,
                   ),
                 ),
               ),

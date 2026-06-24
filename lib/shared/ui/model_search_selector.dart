@@ -42,6 +42,7 @@ Future<(String, String)?> showModelSearchSelector({
   String? selectedConfigId,
   String? selectedModelId,
   List<RecentModelSelection> recentSelections = const <RecentModelSelection>[],
+  bool Function(AiModelConfig config, String modelId)? modelFilter,
 }) async {
   // Build flat list of entries grouped by provider.
   // Skip providers that have no models at all (empty allModelIds).
@@ -62,6 +63,9 @@ Future<(String, String)?> showModelSearchSelector({
     for (final modelId in allIds) {
       final normalizedModelId = modelId.trim();
       if (normalizedModelId.isEmpty) continue;
+      if (modelFilter != null && !modelFilter(config, normalizedModelId)) {
+        continue;
+      }
       final entry = ModelEntry(
         configId: configId,
         modelId: normalizedModelId,

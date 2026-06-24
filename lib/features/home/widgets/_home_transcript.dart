@@ -2713,6 +2713,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 messageId: message.id,
                                 text: message.content,
                                 settings: ttsSettings,
+                                availableModels: settingsController.aiModels,
+                                fallbackModel: _translationFallbackModel(
+                                  settingsController,
+                                ),
                               )
                             : null,
                         translationEnabled: translationEnabled,

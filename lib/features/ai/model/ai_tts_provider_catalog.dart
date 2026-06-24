@@ -62,6 +62,29 @@ class AiTtsProviderCatalogs {
     AiTtsCatalogOption('Google 普通话', 'Chrome 普通话'),
   ];
 
+  static const List<AiTtsCatalogOption> _aiVoices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('alloy', 'Alloy'),
+    AiTtsCatalogOption('ash', 'Ash'),
+    AiTtsCatalogOption('ballad', 'Ballad'),
+    AiTtsCatalogOption('coral', 'Coral'),
+    AiTtsCatalogOption('echo', 'Echo'),
+    AiTtsCatalogOption('fable', 'Fable'),
+    AiTtsCatalogOption('nova', 'Nova'),
+    AiTtsCatalogOption('onyx', 'Onyx'),
+    AiTtsCatalogOption('sage', 'Sage'),
+    AiTtsCatalogOption('shimmer', 'Shimmer'),
+    AiTtsCatalogOption('verse', 'Verse'),
+  ];
+
+  static const List<AiTtsCatalogOption> _aiFormats = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('mp3', 'MP3'),
+    AiTtsCatalogOption('wav', 'WAV'),
+    AiTtsCatalogOption('opus', 'Opus'),
+    AiTtsCatalogOption('aac', 'AAC'),
+    AiTtsCatalogOption('flac', 'FLAC'),
+    AiTtsCatalogOption('pcm', 'PCM'),
+  ];
+
   static const List<AiTtsCatalogOption> _xfyunVoices = <AiTtsCatalogOption>[
     AiTtsCatalogOption('xiaoyan', '讯飞小燕 - 女声'),
     AiTtsCatalogOption('aisjiuxu', '讯飞许久 - 男声'),
@@ -151,6 +174,12 @@ class AiTtsProviderCatalogs {
 
   static const Map<AiTtsProvider, AiTtsProviderCatalog> _catalogs =
       <AiTtsProvider, AiTtsProviderCatalog>{
+        AiTtsProvider.ai: AiTtsProviderCatalog(
+          provider: AiTtsProvider.ai,
+          voiceOptions: _aiVoices,
+          languageOptions: _commonLanguages,
+          formatOptions: _aiFormats,
+        ),
         AiTtsProvider.system: AiTtsProviderCatalog(
           provider: AiTtsProvider.system,
           voiceOptions: _browserVoices,
