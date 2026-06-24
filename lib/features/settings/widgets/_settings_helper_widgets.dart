@@ -695,6 +695,7 @@ class _AiTranslationProviderCard extends StatefulWidget {
 class _AiTranslationProviderCardState
     extends State<_AiTranslationProviderCard> {
   bool _testing = false;
+  bool _expanded = true;
   AiTranslationProviderSettings? _latestProviderSettings;
 
   AiTranslationProviderSettings get _effectiveProviderSettings =>
@@ -796,6 +797,10 @@ class _AiTranslationProviderCardState
                 crossAxisAlignment: WrapCrossAlignment.center,
                 alignment: WrapAlignment.end,
                 children: [
+                  _AiProviderCardExpandButton(
+                    expanded: _expanded,
+                    onPressed: _toggleExpanded,
+                  ),
                   _AiTtsTestButton(
                     testing: _testing,
                     tooltip: _localizedText(
@@ -815,21 +820,26 @@ class _AiTranslationProviderCardState
               ),
             ],
           ),
-          if (readiness != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              readiness,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
           _AnimatedSettingReveal(
-            visible: providerSettings.enabled,
-            child: provider == AiTranslationProvider.ai
-                ? _buildAiModelSection(context, providerSettings)
-                : _buildProviderAccessSection(context, providerSettings),
+            visible: providerSettings.enabled && _expanded,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (readiness != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    readiness,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                provider == AiTranslationProvider.ai
+                    ? _buildAiModelSection(context, providerSettings)
+                    : _buildProviderAccessSection(context, providerSettings),
+              ],
+            ),
           ),
         ],
       ),
@@ -841,6 +851,11 @@ class _AiTranslationProviderCardState
       opacity: widget.dragging ? 0.58 : 1,
       child: card,
     );
+  }
+
+  void _toggleExpanded() {
+    setState(() => _expanded = !_expanded);
+    HapticFeedback.selectionClick();
   }
 
   Future<void> _testProvider() async {
@@ -1454,6 +1469,7 @@ class _AiTtsProviderCard extends StatefulWidget {
 
 class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   bool _testing = false;
+  bool _expanded = true;
   AiTtsProviderSettings? _latestProviderSettings;
 
   AiTtsProviderSettings get _effectiveProviderSettings =>
@@ -1581,6 +1597,10 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 alignment: WrapAlignment.end,
                 children: [
+                  _AiProviderCardExpandButton(
+                    expanded: _expanded,
+                    onPressed: _toggleExpanded,
+                  ),
                   _AiTtsTestButton(
                     testing: _testing,
                     onPressed: _testing ? null : _testProvider,
@@ -1595,17 +1615,19 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
           _AnimatedSettingReveal(
-            visible: providerSettings.enabled,
-            child: provider == AiTtsProvider.ai
-                ? _buildAiModelSection(context, providerSettings)
-                : _buildNativeProviderSections(
-                    context,
-                    provider,
-                    providerSettings,
-                    catalog,
-                  ),
+            visible: providerSettings.enabled && _expanded,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: provider == AiTtsProvider.ai
+                  ? _buildAiModelSection(context, providerSettings)
+                  : _buildNativeProviderSections(
+                      context,
+                      provider,
+                      providerSettings,
+                      catalog,
+                    ),
+            ),
           ),
         ],
       ),
@@ -1617,6 +1639,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       opacity: widget.dragging ? 0.58 : 1,
       child: card,
     );
+  }
+
+  void _toggleExpanded() {
+    setState(() => _expanded = !_expanded);
+    HapticFeedback.selectionClick();
   }
 
   Widget _buildAiModelSection(
@@ -2362,6 +2389,51 @@ class _AiTtsStatusBadge extends StatelessWidget {
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _AiProviderCardExpandButton extends StatelessWidget {
+  const _AiProviderCardExpandButton({
+    required this.expanded,
+    required this.onPressed,
+  });
+
+  final bool expanded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 260);
+    return Tooltip(
+      message: expanded
+          ? _localizedText(context, zh: '折叠服务卡片', en: 'Collapse provider')
+          : _localizedText(context, zh: '展开服务卡片', en: 'Expand provider'),
+      child: SizedBox.square(
+        dimension: _aiTtsCardActionSize,
+        child: IconButton.filledTonal(
+          onPressed: onPressed,
+          style: IconButton.styleFrom(
+            shape: const CircleBorder(),
+            padding: EdgeInsets.zero,
+            minimumSize: const Size.square(_aiTtsCardActionSize),
+            fixedSize: const Size.square(_aiTtsCardActionSize),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor: theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.74),
+            foregroundColor: theme.colorScheme.onSurfaceVariant,
+          ),
+          icon: AnimatedRotation(
+            turns: expanded ? 0 : 0.5,
+            duration: duration,
+            curve: Curves.easeOutBack,
+            child: const Icon(Icons.expand_less_rounded, size: 22),
+          ),
         ),
       ),
     );
