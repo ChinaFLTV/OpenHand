@@ -3448,7 +3448,6 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
       _GeneratedAudioCard(
         meta: meta,
         title: title,
-        detail: detail,
         textColor: textColor,
         backgroundColor: backgroundColor,
         onTap: _openPreview,
@@ -3837,11 +3836,115 @@ NativeAudioVisualMeta _nativeAudioVisualMetaForGenerated(
   );
 }
 
+const double _kGeneratedAudioCardMinWidth = 260;
+const double _kGeneratedAudioCardMaxWidth = 360;
+const double _kGeneratedAudioCardRadius = 18;
+const double _kGeneratedAudioBannerAspectRatio = 16 / 9;
+const double _kGeneratedAudioCoverSize = 74;
+const double _kGeneratedAudioPlayButtonSize = 38;
+
+class _GeneratedAudioCardStyle {
+  const _GeneratedAudioCardStyle({
+    required this.surface,
+    required this.border,
+    required this.borderHover,
+    required this.shadow,
+    required this.shadowHover,
+    required this.bannerStart,
+    required this.bannerMid,
+    required this.bannerEnd,
+    required this.bannerStroke,
+    required this.bannerPattern,
+    required this.coverForeground,
+    required this.playBackground,
+    required this.playBorder,
+    required this.playIcon,
+    required this.titleColor,
+    required this.subtitleColor,
+    required this.metaIconColor,
+  });
+
+  factory _GeneratedAudioCardStyle.resolve({
+    required ThemeData theme,
+    required _GeneratedAudioVisualMeta meta,
+    required Color bubbleBackground,
+    required Color bubbleTextColor,
+  }) {
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final quietSurface = Color.alphaBlend(
+      cs.primary.withValues(alpha: isDark ? 0.10 : 0.045),
+      cs.surfaceContainerHighest,
+    );
+    final surface = Color.alphaBlend(
+      bubbleTextColor.withValues(alpha: isDark ? 0.04 : 0.025),
+      Color.alphaBlend(
+        bubbleBackground.withValues(alpha: isDark ? 0.10 : 0.16),
+        quietSurface,
+      ),
+    );
+    final bannerStart = Color.alphaBlend(
+      meta.primaryColor.withValues(alpha: isDark ? 0.15 : 0.08),
+      cs.primaryContainer,
+    );
+    final bannerMid = Color.alphaBlend(
+      cs.secondary.withValues(alpha: isDark ? 0.22 : 0.16),
+      cs.surfaceContainerHighest,
+    );
+    final bannerEnd = Color.alphaBlend(
+      meta.secondaryColor.withValues(alpha: isDark ? 0.13 : 0.08),
+      cs.surfaceContainerHigh,
+    );
+    return _GeneratedAudioCardStyle(
+      surface: surface,
+      border: cs.outlineVariant.withValues(alpha: isDark ? 0.36 : 0.62),
+      borderHover: cs.primary.withValues(alpha: isDark ? 0.54 : 0.42),
+      shadow: cs.shadow.withValues(alpha: isDark ? 0.16 : 0.08),
+      shadowHover: cs.primary.withValues(alpha: isDark ? 0.20 : 0.13),
+      bannerStart: bannerStart,
+      bannerMid: bannerMid,
+      bannerEnd: bannerEnd,
+      bannerStroke: cs.outlineVariant.withValues(alpha: isDark ? 0.38 : 0.55),
+      bannerPattern: cs.onSurfaceVariant.withValues(
+        alpha: isDark ? 0.16 : 0.20,
+      ),
+      coverForeground: cs.onSurface.withValues(alpha: 0.94),
+      playBackground: cs.surface.withValues(alpha: isDark ? 0.56 : 0.62),
+      playBorder: cs.outlineVariant.withValues(alpha: isDark ? 0.58 : 0.72),
+      playIcon: cs.primary,
+      titleColor: cs.onSurface,
+      subtitleColor: cs.onSurfaceVariant,
+      metaIconColor: cs.primary.withValues(alpha: isDark ? 0.86 : 0.78),
+    );
+  }
+
+  final Color surface;
+  final Color border;
+  final Color borderHover;
+  final Color shadow;
+  final Color shadowHover;
+  final Color bannerStart;
+  final Color bannerMid;
+  final Color bannerEnd;
+  final Color bannerStroke;
+  final Color bannerPattern;
+  final Color coverForeground;
+  final Color playBackground;
+  final Color playBorder;
+  final Color playIcon;
+  final Color titleColor;
+  final Color subtitleColor;
+  final Color metaIconColor;
+
+  Color borderFor(double t) => Color.lerp(border, borderHover, t) ?? border;
+
+  Color shadowFor(double t) => Color.lerp(shadow, shadowHover, t) ?? shadow;
+}
+
 class _GeneratedAudioCard extends StatefulWidget {
   const _GeneratedAudioCard({
     required this.meta,
     required this.title,
-    required this.detail,
     required this.textColor,
     required this.backgroundColor,
     required this.onTap,
@@ -3849,7 +3952,6 @@ class _GeneratedAudioCard extends StatefulWidget {
 
   final _GeneratedAudioVisualMeta meta;
   final String title;
-  final String detail;
   final Color textColor;
   final Color backgroundColor;
   final VoidCallback onTap;
@@ -3875,7 +3977,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
 
   void _onHoverChanged(bool hovered) {
     if (_hovered == hovered) return;
-    setState(() => _hovered = hovered);
+    _hovered = hovered;
     if (hovered) {
       _hoverController.forward();
     } else {
@@ -3886,12 +3988,12 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
   @override
   Widget build(BuildContext context) {
     final meta = widget.meta;
-    final textColor = widget.textColor;
-    final bg = widget.backgroundColor;
     final disableAnimations = MediaQuery.disableAnimationsOf(context);
-    final surfaceColor = Color.alphaBlend(
-      meta.primaryColor.withValues(alpha: 0.12),
-      Color.alphaBlend(textColor.withValues(alpha: 0.04), bg),
+    final style = _GeneratedAudioCardStyle.resolve(
+      theme: Theme.of(context),
+      meta: meta,
+      bubbleBackground: widget.backgroundColor,
+      bubbleTextColor: widget.textColor,
     );
     return RepaintBoundary(
       child: MouseRegion(
@@ -3900,62 +4002,72 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
         onExit: disableAnimations ? null : (_) => _onHoverChanged(false),
         child: Semantics(
           button: true,
-          label: widget.title,
+          label: openHandLocalizedText(
+            context,
+            zh: '打开音频预览：${widget.title}',
+            en: 'Open audio preview: ${widget.title}',
+          ),
           child: AnimatedBuilder(
             animation: _hoverController,
-            builder: (context, child) {
+            builder: (context, _) {
               final t = disableAnimations ? 0.0 : _hoverController.value;
-              return Transform.scale(scale: 1.0 + t * 0.012, child: child);
-            },
-            child: GestureDetector(
-              onTap: widget.onTap,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 320, minWidth: 240),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Color.alphaBlend(
-                      meta.primaryColor.withValues(
-                        alpha: disableAnimations
-                            ? 0.14
-                            : (_hovered ? 0.30 : 0.14),
+              final scale = 1.0 + t * 0.010;
+              final lift = -2.0 * t;
+              return Transform.translate(
+                offset: Offset(0, lift),
+                child: Transform.scale(
+                  scale: scale,
+                  child: MicroPressFeedback(
+                    scale: 0.985,
+                    child: GestureDetector(
+                      onTap: widget.onTap,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          maxWidth: _kGeneratedAudioCardMaxWidth,
+                          minWidth: _kGeneratedAudioCardMinWidth,
+                        ),
+                        decoration: BoxDecoration(
+                          color: style.surface,
+                          borderRadius: BorderRadius.circular(
+                            _kGeneratedAudioCardRadius,
+                          ),
+                          border: Border.all(color: style.borderFor(t)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: style.shadowFor(t),
+                              blurRadius: 18 + t * 12,
+                              spreadRadius: t * 0.6,
+                              offset: Offset(0, 8 + t * 2),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildCoverBanner(meta, style),
+                            _buildInfoRow(context, meta, style),
+                          ],
+                        ),
                       ),
-                      textColor.withValues(alpha: 0.08),
                     ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: meta.primaryColor.withValues(
-                        alpha: disableAnimations
-                            ? 0.08
-                            : (_hovered ? 0.18 : 0.08),
-                      ),
-                      blurRadius: disableAnimations ? 20 : (_hovered ? 32 : 20),
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildCoverBanner(meta, textColor),
-                    _buildInfoRow(context, meta, textColor),
-                  ],
-                ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCoverBanner(_GeneratedAudioVisualMeta meta, Color textColor) {
+  Widget _buildCoverBanner(
+    _GeneratedAudioVisualMeta meta,
+    _GeneratedAudioCardStyle style,
+  ) {
     return AspectRatio(
-      aspectRatio: 16 / 9,
+      aspectRatio: _kGeneratedAudioBannerAspectRatio,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -3964,70 +4076,58 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color.alphaBlend(
-                    meta.accentColor.withValues(alpha: 0.78),
-                    const Color(0xFF1A1A1A),
-                  ),
-                  Color.alphaBlend(
-                    meta.primaryColor.withValues(alpha: 0.70),
-                    const Color(0xFF111111),
-                  ),
-                  Color.alphaBlend(
-                    meta.secondaryColor.withValues(alpha: 0.55),
-                    const Color(0xFF0D0D0D),
-                  ),
-                ],
+                colors: [style.bannerStart, style.bannerMid, style.bannerEnd],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: style.bannerStroke)),
               ),
             ),
           ),
           Positioned(
-            right: -28,
-            bottom: -28,
+            left: 18,
+            bottom: 16,
+            child: Icon(
+              Icons.graphic_eq_rounded,
+              size: 34,
+              color: style.bannerPattern,
+            ),
+          ),
+          Positioned(
+            right: -18,
+            bottom: -24,
             child: Icon(
               Icons.album_rounded,
-              size: 120,
-              color: Colors.white.withValues(alpha: 0.07),
+              size: 108,
+              color: style.bannerPattern.withValues(alpha: 0.70),
             ),
           ),
           Center(
             child: _GeneratedAudioAlbumCover(
               meta: meta,
-              size: 72,
-              foregroundColor: Colors.white,
+              size: _kGeneratedAudioCoverSize,
+              foregroundColor: style.coverForeground,
               compact: true,
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 40,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0x66000000)],
-                ),
-              ),
             ),
           ),
           Positioned(
             top: 10,
             right: 10,
             child: Container(
-              width: 34,
-              height: 34,
+              width: _kGeneratedAudioPlayButtonSize,
+              height: _kGeneratedAudioPlayButtonSize,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.22),
+                color: style.playBackground,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.34)),
+                border: Border.all(color: style.playBorder),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 22,
+                color: style.playIcon,
+                size: 24,
               ),
             ),
           ),
@@ -4039,11 +4139,11 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
   Widget _buildInfoRow(
     BuildContext context,
     _GeneratedAudioVisualMeta meta,
-    Color textColor,
+    _GeneratedAudioCardStyle style,
   ) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 11, 14, 13),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4053,21 +4153,33 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleSmall?.copyWith(
-              color: textColor,
+              color: style.titleColor,
               fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            '${meta.artist} · ${meta.album}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: textColor.withValues(alpha: 0.60),
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                Icons.graphic_eq_rounded,
+                size: 14,
+                color: style.metaIconColor,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  '${meta.artist} · ${meta.album}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: style.subtitleColor,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -4090,7 +4202,20 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(compact ? 16 : 22);
+    final coverBase = Color.alphaBlend(
+      meta.primaryColor.withValues(alpha: 0.08),
+      colorScheme.primaryContainer,
+    );
+    final coverMid = Color.alphaBlend(
+      colorScheme.secondary.withValues(alpha: 0.16),
+      colorScheme.surfaceContainerHighest,
+    );
+    final coverEnd = Color.alphaBlend(
+      meta.secondaryColor.withValues(alpha: 0.08),
+      colorScheme.surfaceContainerHigh,
+    );
     return SizedBox.square(
       dimension: size,
       child: DecoratedBox(
@@ -4099,17 +4224,18 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              meta.accentColor.withValues(alpha: compact ? 0.95 : 1),
-              meta.secondaryColor.withValues(alpha: 0.92),
-              meta.primaryColor.withValues(alpha: 0.96),
-            ],
+            colors: [coverBase, coverMid, coverEnd],
           ),
           boxShadow: [
             BoxShadow(
-              color: meta.primaryColor.withValues(alpha: 0.28),
+              color: colorScheme.primary.withValues(alpha: 0.14),
               blurRadius: compact ? 18 : 32,
               offset: Offset(0, compact ? 8 : 16),
+            ),
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.10),
+              blurRadius: compact ? 22 : 34,
+              offset: Offset(0, compact ? 10 : 18),
             ),
           ],
         ),
@@ -4123,7 +4249,29 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
                 child: Icon(
                   Icons.album_rounded,
                   size: size * 0.86,
-                  color: foregroundColor.withValues(alpha: 0.10),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.16),
+                ),
+              ),
+              Positioned(
+                left: size * 0.10,
+                bottom: size * 0.10,
+                child: Icon(
+                  Icons.graphic_eq_rounded,
+                  size: size * 0.18,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
+                ),
+              ),
+              Center(
+                child: Container(
+                  width: size * 0.30,
+                  height: size * 0.30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.surface.withValues(alpha: 0.40),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.68),
+                    ),
+                  ),
                 ),
               ),
               Center(
@@ -4132,7 +4280,7 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.94),
+                    color: foregroundColor,
                     fontWeight: FontWeight.w900,
                     fontSize: size * (compact ? 0.38 : 0.32),
                     height: 1,
