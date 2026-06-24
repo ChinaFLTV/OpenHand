@@ -4,10 +4,13 @@ import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
+import 'openhand_safe_scrollbar.dart';
 
 const double _kModelSearchDialogMaxWidth = 420;
 const double _kModelSearchDialogMaxHeight = 520;
 const double _kModelSearchDialogRadius = 16;
+const double _kModelSearchScrollbarThickness = 6;
+const Radius _kModelSearchScrollbarRadius = Radius.circular(999);
 
 /// Entry representing a single selectable model inside a provider group.
 class ModelEntry {
@@ -114,6 +117,7 @@ class _ModelSearchDialog extends StatefulWidget {
 class _ModelSearchDialogState extends State<_ModelSearchDialog> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
+  final _scrollController = ScrollController();
   List<ModelEntry> _filtered = const [];
 
   @override
@@ -130,6 +134,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -146,6 +151,9 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
         }).toList();
       }
     });
+    if (_scrollController.hasClients && _scrollController.offset > 0) {
+      _scrollController.jumpTo(0);
+    }
   }
 
   @override
@@ -265,52 +273,44 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                       ),
                     ),
                   )
-                : ListView(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    children: [
-                      if (recentFiltered.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-                          child: Text(
-                            isZh ? '最近使用' : 'Recent',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+                : OpenHandSafeScrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    thickness: _kModelSearchScrollbarThickness,
+                    radius: _kModelSearchScrollbarRadius,
+                    interactive: true,
+                    notificationPredicate: (notification) =>
+                        notification.metrics.axis == Axis.vertical,
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(
+                        context,
+                      ).copyWith(scrollbars: false),
+                      child: ListView(
+                        controller: _scrollController,
+                        primary: false,
+                        padding: const EdgeInsets.only(bottom: 8),
+                        children: [
+                          if (recentFiltered.isNotEmpty) ...[
+                            _ModelSectionHeader(
+                              label: isZh ? '最近使用' : 'Recent',
                             ),
-                          ),
-                        ),
-                        for (final entry in recentFiltered)
-                          _ModelTile(
-                            entry: entry,
-                            isActive:
-                                entry.configId == widget.selectedConfigId &&
-                                entry.modelId == widget.selectedModelId,
-                            showProviderSubtitle: true,
-                            onTap: () {
-                              Navigator.of(
-                                context,
-                              ).pop((entry.configId, entry.modelId));
-                            },
-                          ),
-                        const SizedBox(height: 4),
-                      ],
-                      for (final group in grouped.entries) ...[
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Provider header.
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-                              child: Text(
-                                group.key,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            for (final entry in recentFiltered)
+                              _ModelTile(
+                                entry: entry,
+                                isActive:
+                                    entry.configId == widget.selectedConfigId &&
+                                    entry.modelId == widget.selectedModelId,
+                                showProviderSubtitle: true,
+                                onTap: () {
+                                  Navigator.of(
+                                    context,
+                                  ).pop((entry.configId, entry.modelId));
+                                },
                               ),
-                            ),
-                            // Model items.
+                            const SizedBox(height: 4),
+                          ],
+                          for (final group in grouped.entries) ...[
+                            _ModelSectionHeader(label: group.key),
                             for (final entry in group.value)
                               _ModelTile(
                                 entry: entry,
@@ -324,12 +324,33 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                                 },
                               ),
                           ],
-                        ),
-                      ],
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ModelSectionHeader extends StatelessWidget {
+  const _ModelSectionHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
