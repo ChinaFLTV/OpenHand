@@ -1252,20 +1252,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       )
       ..writeln()
       ..writeln(
-        '<skill-manifest name="${_escapeXmlAttribute(skill.name)}" path="${_escapeXmlAttribute(skill.manifestPath)}">',
+        '<skill-manifest name="${escapeXmlAttribute(skill.name)}" path="${escapeXmlAttribute(skill.manifestPath)}">',
       )
       ..writeln(manifestBody)
       ..write('</skill-manifest>');
     _clearSelectedSkill();
     return buffer.toString();
-  }
-
-  static String _escapeXmlAttribute(String input) {
-    return input
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
   }
 
   bool get hasPendingProjectFileReferences => _projectFileReferences.isNotEmpty;

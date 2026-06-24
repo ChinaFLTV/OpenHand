@@ -86,6 +86,10 @@ part '_settings_active_tool_calls.dart';
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
 
+const int _kSettingsToolResultCompressionWindowMaxChars = 8192;
+const int _kSettingsToolResultCompressionMaxPathHits = 200;
+const int _kSettingsWriteToolSummaryMaxChars = 8192;
+
 void _syncControllerText(TextEditingController controller, String text) {
   if (controller.text == text) return;
   controller.value = controller.value.copyWith(
@@ -4243,38 +4247,60 @@ class _SettingsViewState extends State<SettingsView> {
     return skillsController.reloadFromPath(previousPath);
   }
 
+  Future<void> _saveBoundedIntegerSetting({
+    required BuildContext context,
+    required String rawValue,
+    required int min,
+    required int max,
+    required TextEditingController fieldController,
+    required int Function(SettingsController controller) currentValue,
+    required Future<bool> Function(SettingsController controller, int value)
+    saveValue,
+    required String successMessage,
+    String? invalidMessage,
+    OpenHandSnackKind invalidKind = OpenHandSnackKind.info,
+    OpenHandSnackKind successKind = OpenHandSnackKind.info,
+  }) async {
+    final parsedValue = optionalIntFromValue(rawValue);
+    if (parsedValue == null || parsedValue < min || parsedValue > max) {
+      _showSnackBar(
+        context,
+        invalidMessage ??
+            AppLocalizations.of(
+              context,
+            )!.settingsEnterAValueBetweenMinAnd(min, max),
+        kind: invalidKind,
+      );
+      return;
+    }
+
+    final settingsController = context.read<SettingsController>();
+    final saved = await saveValue(settingsController, parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    fieldController.text = '${currentValue(settingsController)}';
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(context, successMessage, kind: successKind);
+  }
+
   Future<void> _saveConnectTimeout(
     BuildContext context,
     String rawValue,
   ) async {
-    final parsedValue = int.tryParse(rawValue.trim());
-    const min = AppSettingsSnapshot.minAiConnectTimeoutSeconds;
-    const max = AppSettingsSnapshot.maxAiConnectTimeoutSeconds;
-    if (parsedValue == null || parsedValue < min || parsedValue > max) {
-      _showSnackBar(
-        context,
-        AppLocalizations.of(
-          context,
-        )!.settingsEnterAValueBetweenMinAnd(min, max),
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiConnectTimeoutSeconds(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _connectTimeoutController.text =
-          '${context.read<SettingsController>().aiConnectTimeoutSeconds}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _connectTimeoutController.text = '$parsedValue';
-    _showSnackBar(
-      context,
-      AppLocalizations.of(context)!.settingsSendTimeoutSaved,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiConnectTimeoutSeconds,
+      max: AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
+      fieldController: _connectTimeoutController,
+      currentValue: (controller) => controller.aiConnectTimeoutSeconds,
+      saveValue: (controller, value) =>
+          controller.updateAiConnectTimeoutSeconds(value),
+      successMessage: AppLocalizations.of(context)!.settingsSendTimeoutSaved,
     );
   }
 
@@ -4282,34 +4308,18 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final parsedValue = int.tryParse(rawValue.trim());
-    const min = AppSettingsSnapshot.minAiResponseTimeoutSeconds;
-    const max = AppSettingsSnapshot.maxAiResponseTimeoutSeconds;
-    if (parsedValue == null || parsedValue < min || parsedValue > max) {
-      _showSnackBar(
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiResponseTimeoutSeconds,
+      max: AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
+      fieldController: _responseTimeoutController,
+      currentValue: (controller) => controller.aiResponseTimeoutSeconds,
+      saveValue: (controller, value) =>
+          controller.updateAiResponseTimeoutSeconds(value),
+      successMessage: AppLocalizations.of(
         context,
-        AppLocalizations.of(
-          context,
-        )!.settingsEnterAValueBetweenMinAnd(min, max),
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiResponseTimeoutSeconds(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _responseTimeoutController.text =
-          '${context.read<SettingsController>().aiResponseTimeoutSeconds}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _responseTimeoutController.text = '$parsedValue';
-    _showSnackBar(
-      context,
-      AppLocalizations.of(context)!.settingsResponseTimeoutSaved,
+      )!.settingsResponseTimeoutSaved,
     );
   }
 
@@ -4317,34 +4327,18 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final parsedValue = int.tryParse(rawValue.trim());
-    const min = AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds;
-    const max = AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds;
-    if (parsedValue == null || parsedValue < min || parsedValue > max) {
-      _showSnackBar(
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
+      max: AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
+      fieldController: _streamIdleTimeoutController,
+      currentValue: (controller) => controller.aiStreamIdleTimeoutSeconds,
+      saveValue: (controller, value) =>
+          controller.updateAiStreamIdleTimeoutSeconds(value),
+      successMessage: AppLocalizations.of(
         context,
-        AppLocalizations.of(
-          context,
-        )!.settingsEnterAValueBetweenMinAnd(min, max),
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiStreamIdleTimeoutSeconds(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _streamIdleTimeoutController.text =
-          '${context.read<SettingsController>().aiStreamIdleTimeoutSeconds}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _streamIdleTimeoutController.text = '$parsedValue';
-    _showSnackBar(
-      context,
-      AppLocalizations.of(context)!.settingsStreamIdleTimeoutSaved,
+      )!.settingsStreamIdleTimeoutSaved,
     );
   }
 
@@ -4352,31 +4346,17 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    const min = AppSettingsSnapshot.minAiStreamMaxCharsPerSecond;
-    const max = AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond;
-    if (parsedValue == null || parsedValue < min || parsedValue > max) {
-      _showSnackBar(context, l10n.settingsEnterAValueBetweenMinAnd(min, max));
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiStreamMaxCharsPerSecond(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _streamMaxCharsPerSecondController.text =
-          '${context.read<SettingsController>().aiStreamMaxCharsPerSecond}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _streamMaxCharsPerSecondController.text = '$parsedValue';
     final isZh = openHandIsChineseLocale(context);
-    _showSnackBar(
-      context,
-      isZh ? '每秒最大输出渲染字符已保存。' : 'Max render chars / sec saved.',
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
+      max: AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
+      fieldController: _streamMaxCharsPerSecondController,
+      currentValue: (controller) => controller.aiStreamMaxCharsPerSecond,
+      saveValue: (controller, value) =>
+          controller.updateAiStreamMaxCharsPerSecond(value),
+      successMessage: isZh ? '每秒最大输出渲染字符已保存。' : 'Max render chars / sec saved.',
     );
   }
 
@@ -4384,31 +4364,19 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    const min = AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond;
-    const max = AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond;
-    if (parsedValue == null || parsedValue < min || parsedValue > max) {
-      _showSnackBar(context, l10n.settingsEnterAValueBetweenMinAnd(min, max));
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiStreamMaxMessageCardsPerSecond(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _streamMaxMessageCardsPerSecondController.text =
-          '${context.read<SettingsController>().aiStreamMaxMessageCardsPerSecond}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _streamMaxMessageCardsPerSecondController.text = '$parsedValue';
     final isZh = openHandIsChineseLocale(context);
-    _showSnackBar(
-      context,
-      isZh ? '每秒最大输出消息卡片数已保存。' : 'Max render cards / sec saved.',
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
+      max: AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+      fieldController: _streamMaxMessageCardsPerSecondController,
+      currentValue: (controller) => controller.aiStreamMaxMessageCardsPerSecond,
+      saveValue: (controller, value) =>
+          controller.updateAiStreamMaxMessageCardsPerSecond(value),
+      successMessage: isZh
+          ? '每秒最大输出消息卡片数已保存。'
+          : 'Max render cards / sec saved.',
     );
   }
 
@@ -4417,29 +4385,18 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    const min = AppSettingsSnapshot.minAiStreamThrottleDurationSeconds;
-    const max = AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds;
-    if (parsedValue == null || parsedValue < min || parsedValue > max) {
-      _showSnackBar(context, l10n.settingsEnterAValueBetweenMinAnd(min, max));
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiStreamThrottleDurationSeconds(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _streamThrottleDurationController.text =
-          '${context.read<SettingsController>().aiStreamThrottleDurationSeconds}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _streamThrottleDurationController.text = '$parsedValue';
     final isZh = openHandIsChineseLocale(context);
-    _showSnackBar(context, isZh ? '节流持续时长已保存。' : 'Throttle duration saved.');
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
+      max: AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
+      fieldController: _streamThrottleDurationController,
+      currentValue: (controller) => controller.aiStreamThrottleDurationSeconds,
+      saveValue: (controller, value) =>
+          controller.updateAiStreamThrottleDurationSeconds(value),
+      successMessage: isZh ? '节流持续时长已保存。' : 'Throttle duration saved.',
+    );
   }
 
   /// 2026-05-18 — 把当前节流配置序列化为 JSON 文件。
@@ -4728,29 +4685,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null || parsedValue < 0 || parsedValue > 8192) {
-      _showSnackBar(context, l10n.aiToolResultCompressionHeadTailWindowInvalid);
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiToolResultCompressionHeadTailWindowChars(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _toolResultCompressionHeadTailWindowController.text =
-          '${context.read<SettingsController>().aiToolResultCompressionHeadTailWindowChars}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _toolResultCompressionHeadTailWindowController.text =
-        '${context.read<SettingsController>().aiToolResultCompressionHeadTailWindowChars}';
-    _showSnackBar(
-      context,
-      l10n.aiToolResultCompressionHeadTailWindowSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: 0,
+      max: _kSettingsToolResultCompressionWindowMaxChars,
+      fieldController: _toolResultCompressionHeadTailWindowController,
+      currentValue: (controller) =>
+          controller.aiToolResultCompressionHeadTailWindowChars,
+      saveValue: (controller, value) =>
+          controller.updateAiToolResultCompressionHeadTailWindowChars(value),
+      invalidMessage: l10n.aiToolResultCompressionHeadTailWindowInvalid,
+      successMessage: l10n.aiToolResultCompressionHeadTailWindowSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -4759,33 +4706,20 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null || parsedValue < 0 || parsedValue > 200) {
-      _showSnackBar(
-        context,
-        l10n.aiToolResultCompressionMaxPathHitsInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiToolResultCompressionMaxPathHits(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _toolResultCompressionMaxPathHitsController.text =
-          '${context.read<SettingsController>().aiToolResultCompressionMaxPathHits}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _toolResultCompressionMaxPathHitsController.text =
-        '${context.read<SettingsController>().aiToolResultCompressionMaxPathHits}';
-    _showSnackBar(
-      context,
-      l10n.aiToolResultCompressionMaxPathHitsSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: 0,
+      max: _kSettingsToolResultCompressionMaxPathHits,
+      fieldController: _toolResultCompressionMaxPathHitsController,
+      currentValue: (controller) =>
+          controller.aiToolResultCompressionMaxPathHits,
+      saveValue: (controller, value) =>
+          controller.updateAiToolResultCompressionMaxPathHits(value),
+      invalidMessage: l10n.aiToolResultCompressionMaxPathHitsInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.aiToolResultCompressionMaxPathHitsSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -4793,36 +4727,23 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null ||
-        parsedValue < AppSettingsSnapshot.minAiInputCacheUpdateInterval ||
-        parsedValue > AppSettingsSnapshot.maxAiInputCacheUpdateInterval) {
-      _showSnackBar(
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiInputCacheUpdateInterval,
+      max: AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
+      fieldController: _aiInputCacheUpdateIntervalController,
+      currentValue: (controller) => controller.aiInputCacheUpdateInterval,
+      saveValue: (controller, value) =>
+          controller.updateAiInputCacheUpdateInterval(value),
+      invalidMessage: AppLocalizations.of(context)!
+          .settingsPleaseEnterAnIntegerBetweenAppsettingssn(
+            AppSettingsSnapshot.minAiInputCacheUpdateInterval,
+            AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
+          ),
+      successMessage: AppLocalizations.of(
         context,
-        AppLocalizations.of(
-          context,
-        )!.settingsPleaseEnterAnIntegerBetweenAppsettingssn(
-          AppSettingsSnapshot.minAiInputCacheUpdateInterval,
-          AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
-        ),
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiInputCacheUpdateInterval(parsedValue);
-    if (!context.mounted) return;
-    if (!saved) {
-      _aiInputCacheUpdateIntervalController.text =
-          '${context.read<SettingsController>().aiInputCacheUpdateInterval}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _aiInputCacheUpdateIntervalController.text =
-        '${context.read<SettingsController>().aiInputCacheUpdateInterval}';
-    _showSnackBar(
-      context,
-      AppLocalizations.of(context)!.settingsCacheBreakpointUpdateIntervalSaved,
+      )!.settingsCacheBreakpointUpdateIntervalSaved,
     );
   }
 
@@ -4830,36 +4751,23 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null ||
-        parsedValue < AppSettingsSnapshot.minAiInputCacheBreakpointCount ||
-        parsedValue > AppSettingsSnapshot.maxAiInputCacheBreakpointCount) {
-      _showSnackBar(
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiInputCacheBreakpointCount,
+      max: AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
+      fieldController: _aiInputCacheBreakpointCountController,
+      currentValue: (controller) => controller.aiInputCacheBreakpointCount,
+      saveValue: (controller, value) =>
+          controller.updateAiInputCacheBreakpointCount(value),
+      invalidMessage: AppLocalizations.of(context)!
+          .settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
+            AppSettingsSnapshot.minAiInputCacheBreakpointCount,
+            AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
+          ),
+      successMessage: AppLocalizations.of(
         context,
-        AppLocalizations.of(
-          context,
-        )!.settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
-          AppSettingsSnapshot.minAiInputCacheBreakpointCount,
-          AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
-        ),
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiInputCacheBreakpointCount(parsedValue);
-    if (!context.mounted) return;
-    if (!saved) {
-      _aiInputCacheBreakpointCountController.text =
-          '${context.read<SettingsController>().aiInputCacheBreakpointCount}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _aiInputCacheBreakpointCountController.text =
-        '${context.read<SettingsController>().aiInputCacheBreakpointCount}';
-    _showSnackBar(
-      context,
-      AppLocalizations.of(context)!.settingsCacheBreakpointCountSaved,
+      )!.settingsCacheBreakpointCountSaved,
     );
   }
 
@@ -4962,33 +4870,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null || parsedValue < 0 || parsedValue > 8192) {
-      _showSnackBar(
-        context,
-        l10n.aiWriteToolSummaryMaxCharsInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiWriteToolSummaryMaxChars(parsedValue);
-    if (!context.mounted) {
-      return;
-    }
-    if (!saved) {
-      _writeToolSummaryMaxCharsController.text =
-          '${context.read<SettingsController>().aiWriteToolSummaryMaxChars}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _writeToolSummaryMaxCharsController.text =
-        '${context.read<SettingsController>().aiWriteToolSummaryMaxChars}';
-    _showSnackBar(
-      context,
-      l10n.aiWriteToolSummaryMaxCharsSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: 0,
+      max: _kSettingsWriteToolSummaryMaxChars,
+      fieldController: _writeToolSummaryMaxCharsController,
+      currentValue: (controller) => controller.aiWriteToolSummaryMaxChars,
+      saveValue: (controller, value) =>
+          controller.updateAiWriteToolSummaryMaxChars(value),
+      invalidMessage: l10n.aiWriteToolSummaryMaxCharsInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.aiWriteToolSummaryMaxCharsSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -5056,33 +4950,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsed = int.tryParse(rawValue.trim());
-    if (parsed == null ||
-        parsed < AppSettingsSnapshot.minAiMaxRecentErrors ||
-        parsed > AppSettingsSnapshot.maxAiMaxRecentErrors) {
-      _showSnackBar(
-        context,
-        l10n.aiMaxRecentErrorsInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiMaxRecentErrors(parsed);
-    if (!context.mounted) return;
-    if (!saved) {
-      _maxRecentErrorsController.text =
-          '${context.read<SettingsController>().aiMaxRecentErrors}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _maxRecentErrorsController.text =
-        '${context.read<SettingsController>().aiMaxRecentErrors}';
-    _showSnackBar(
-      context,
-      l10n.aiMaxRecentErrorsSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiMaxRecentErrors,
+      max: AppSettingsSnapshot.maxAiMaxRecentErrors,
+      fieldController: _maxRecentErrorsController,
+      currentValue: (controller) => controller.aiMaxRecentErrors,
+      saveValue: (controller, value) =>
+          controller.updateAiMaxRecentErrors(value),
+      invalidMessage: l10n.aiMaxRecentErrorsInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.aiMaxRecentErrorsSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -5091,33 +4971,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsed = int.tryParse(rawValue.trim());
-    if (parsed == null ||
-        parsed < AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens ||
-        parsed > AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens) {
-      _showSnackBar(
-        context,
-        l10n.mcpLazyLoadingThresholdInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateMcpLazyLoadingThresholdTokens(parsed);
-    if (!context.mounted) return;
-    if (!saved) {
-      _mcpLazyLoadingThresholdController.text =
-          '${context.read<SettingsController>().mcpLazyLoadingThresholdTokens}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _mcpLazyLoadingThresholdController.text =
-        '${context.read<SettingsController>().mcpLazyLoadingThresholdTokens}';
-    _showSnackBar(
-      context,
-      l10n.mcpLazyLoadingThresholdSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minMcpLazyLoadingThresholdTokens,
+      max: AppSettingsSnapshot.maxMcpLazyLoadingThresholdTokens,
+      fieldController: _mcpLazyLoadingThresholdController,
+      currentValue: (controller) => controller.mcpLazyLoadingThresholdTokens,
+      saveValue: (controller, value) =>
+          controller.updateMcpLazyLoadingThresholdTokens(value),
+      invalidMessage: l10n.mcpLazyLoadingThresholdInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.mcpLazyLoadingThresholdSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -5126,33 +4992,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsed = int.tryParse(rawValue.trim());
-    if (parsed == null ||
-        parsed < AppSettingsSnapshot.minMcpAutoProbeConcurrency ||
-        parsed > AppSettingsSnapshot.maxMcpAutoProbeConcurrency) {
-      _showSnackBar(
-        context,
-        l10n.mcpAutoProbeConcurrencyInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateMcpAutoProbeConcurrency(parsed);
-    if (!context.mounted) return;
-    if (!saved) {
-      _mcpAutoProbeConcurrencyController.text =
-          '${context.read<SettingsController>().mcpAutoProbeConcurrency}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _mcpAutoProbeConcurrencyController.text =
-        '${context.read<SettingsController>().mcpAutoProbeConcurrency}';
-    _showSnackBar(
-      context,
-      l10n.mcpAutoProbeConcurrencySaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minMcpAutoProbeConcurrency,
+      max: AppSettingsSnapshot.maxMcpAutoProbeConcurrency,
+      fieldController: _mcpAutoProbeConcurrencyController,
+      currentValue: (controller) => controller.mcpAutoProbeConcurrency,
+      saveValue: (controller, value) =>
+          controller.updateMcpAutoProbeConcurrency(value),
+      invalidMessage: l10n.mcpAutoProbeConcurrencyInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.mcpAutoProbeConcurrencySaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -5161,33 +5013,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsed = int.tryParse(rawValue.trim());
-    if (parsed == null ||
-        parsed < AppSettingsSnapshot.minAiMaxPlanHistoryEntries ||
-        parsed > AppSettingsSnapshot.maxAiMaxPlanHistoryEntries) {
-      _showSnackBar(
-        context,
-        l10n.aiMaxPlanHistoryEntriesInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiMaxPlanHistoryEntries(parsed);
-    if (!context.mounted) return;
-    if (!saved) {
-      _maxPlanHistoryEntriesController.text =
-          '${context.read<SettingsController>().aiMaxPlanHistoryEntries}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _maxPlanHistoryEntriesController.text =
-        '${context.read<SettingsController>().aiMaxPlanHistoryEntries}';
-    _showSnackBar(
-      context,
-      l10n.aiMaxPlanHistoryEntriesSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiMaxPlanHistoryEntries,
+      max: AppSettingsSnapshot.maxAiMaxPlanHistoryEntries,
+      fieldController: _maxPlanHistoryEntriesController,
+      currentValue: (controller) => controller.aiMaxPlanHistoryEntries,
+      saveValue: (controller, value) =>
+          controller.updateAiMaxPlanHistoryEntries(value),
+      invalidMessage: l10n.aiMaxPlanHistoryEntriesInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.aiMaxPlanHistoryEntriesSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -5196,33 +5034,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsed = int.tryParse(rawValue.trim());
-    if (parsed == null ||
-        parsed < AppSettingsSnapshot.minAiMaxTruncationContinuations ||
-        parsed > AppSettingsSnapshot.maxAiMaxTruncationContinuations) {
-      _showSnackBar(
-        context,
-        l10n.aiMaxTruncationContinuationsInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiMaxTruncationContinuations(parsed);
-    if (!context.mounted) return;
-    if (!saved) {
-      _maxTruncationContinuationsController.text =
-          '${context.read<SettingsController>().aiMaxTruncationContinuations}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _maxTruncationContinuationsController.text =
-        '${context.read<SettingsController>().aiMaxTruncationContinuations}';
-    _showSnackBar(
-      context,
-      l10n.aiMaxTruncationContinuationsSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiMaxTruncationContinuations,
+      max: AppSettingsSnapshot.maxAiMaxTruncationContinuations,
+      fieldController: _maxTruncationContinuationsController,
+      currentValue: (controller) => controller.aiMaxTruncationContinuations,
+      saveValue: (controller, value) =>
+          controller.updateAiMaxTruncationContinuations(value),
+      invalidMessage: l10n.aiMaxTruncationContinuationsInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.aiMaxTruncationContinuationsSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 
@@ -5231,33 +5055,19 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsed = int.tryParse(rawValue.trim());
-    if (parsed == null ||
-        parsed < AppSettingsSnapshot.minAiEstimatedCharactersPerToken ||
-        parsed > AppSettingsSnapshot.maxAiEstimatedCharactersPerToken) {
-      _showSnackBar(
-        context,
-        l10n.aiEstimatedCharactersPerTokenInvalid,
-        kind: OpenHandSnackKind.error,
-      );
-      return;
-    }
-    final saved = await context
-        .read<SettingsController>()
-        .updateAiEstimatedCharactersPerToken(parsed);
-    if (!context.mounted) return;
-    if (!saved) {
-      _estimatedCharactersPerTokenController.text =
-          '${context.read<SettingsController>().aiEstimatedCharactersPerToken}';
-      _showPersistenceFailureSnackBar(context);
-      return;
-    }
-    _estimatedCharactersPerTokenController.text =
-        '${context.read<SettingsController>().aiEstimatedCharactersPerToken}';
-    _showSnackBar(
-      context,
-      l10n.aiEstimatedCharactersPerTokenSaved,
-      kind: OpenHandSnackKind.success,
+    await _saveBoundedIntegerSetting(
+      context: context,
+      rawValue: rawValue,
+      min: AppSettingsSnapshot.minAiEstimatedCharactersPerToken,
+      max: AppSettingsSnapshot.maxAiEstimatedCharactersPerToken,
+      fieldController: _estimatedCharactersPerTokenController,
+      currentValue: (controller) => controller.aiEstimatedCharactersPerToken,
+      saveValue: (controller, value) =>
+          controller.updateAiEstimatedCharactersPerToken(value),
+      invalidMessage: l10n.aiEstimatedCharactersPerTokenInvalid,
+      invalidKind: OpenHandSnackKind.error,
+      successMessage: l10n.aiEstimatedCharactersPerTokenSaved,
+      successKind: OpenHandSnackKind.success,
     );
   }
 

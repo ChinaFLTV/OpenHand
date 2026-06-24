@@ -16,6 +16,7 @@ import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/structured_text_format.dart';
+import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../mcp/index.dart';
 import '../plugin_service/index.dart';
@@ -478,7 +479,7 @@ class _AndroidReverseDashboardDialogState
     if (!enabled) return;
     _logcatStickToBottom = true;
     unawaited(_fetchLogcat(append: _logcatLines.isNotEmpty, silent: true));
-    _logcatTimer = Timer.periodic(_kLogcatAutoRefreshInterval, (_) {
+    _logcatTimer = startSafePeriodicTimer(_kLogcatAutoRefreshInterval, (_) {
       if (!mounted || !_logcatAutoRefresh || _loadingLogcat) return;
       unawaited(_fetchLogcat(append: true, silent: true));
     });

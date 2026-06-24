@@ -19,6 +19,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../../../shared/util/xml_escape.dart';
 import '../../ai/index.dart';
 import '../../crons/index.dart';
 import '../../hardness/index.dart';
@@ -2630,7 +2631,7 @@ class WebMessagePlatformService {
       )
       ..writeln()
       ..writeln(
-        '<skill-manifest name="${_escapeXmlAttribute(selected.name)}" path="${_escapeXmlAttribute(selected.manifestPath)}">',
+        '<skill-manifest name="${escapeXmlAttribute(selected.name)}" path="${escapeXmlAttribute(selected.manifestPath)}">',
       )
       ..writeln(manifestBody)
       ..write('</skill-manifest>');
@@ -2649,15 +2650,6 @@ class WebMessagePlatformService {
       },
       error: null,
     );
-  }
-
-  String _escapeXmlAttribute(String input) {
-    return input
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&apos;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
   }
 
   Future<shelf.Response> _sendMessage(

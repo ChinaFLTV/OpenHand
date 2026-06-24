@@ -4589,7 +4589,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
       HtmlEscapeMode.attribute,
     ).convert(mimeType);
     final durationMs = _playerMotionSettings.duration.inMilliseconds;
-    final motionCurve = _mediaPreviewDialogCurveToCss(
+    final motionCurve = openHandDialogAnimationCurveCss(
       _playerMotionSettings.curve,
     );
     final motionClass = durationMs == 0 ? ' no-motion' : '';
@@ -5576,18 +5576,6 @@ class _AudioOverlayIconButton extends StatelessWidget {
     );
   }
 }
-
-String _mediaPreviewDialogCurveToCss(
-  DialogAnimationCurve curve,
-) => switch (curve) {
-  DialogAnimationCurve.easeInOut => 'ease-in-out',
-  DialogAnimationCurve.easeOut => 'ease-out',
-  DialogAnimationCurve.easeOutCubic => 'cubic-bezier(0.215, 0.61, 0.355, 1)',
-  DialogAnimationCurve.easeInOutCubicEmphasized => 'cubic-bezier(0.2, 0, 0, 1)',
-  DialogAnimationCurve.elasticOut => 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-  DialogAnimationCurve.bounceOut => 'cubic-bezier(0.22, 1.45, 0.36, 1)',
-  DialogAnimationCurve.decelerate => 'cubic-bezier(0, 0, 0.2, 1)',
-};
 
 _GeneratedMediaSource? _resolveGeneratedMediaSource(
   String href,
@@ -6791,7 +6779,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
         ? widget.initialTime.toStringAsFixed(3)
         : '0';
     final durationMs = widget.motionSettings.duration.inMilliseconds;
-    final motionCurve = _mediaPreviewDialogCurveToCss(
+    final motionCurve = openHandDialogAnimationCurveCss(
       widget.motionSettings.curve,
     );
     final motionClass = durationMs == 0 ? ' no-motion' : '';

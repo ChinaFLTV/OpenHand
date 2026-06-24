@@ -1453,9 +1453,12 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
       unawaited(_refreshSdkVersionDetection(normalizedSdkPath));
       return;
     }
-    _sdkVersionDetectionTimer = Timer(const Duration(milliseconds: 220), () {
-      unawaited(_refreshSdkVersionDetection(normalizedSdkPath));
-    });
+    _sdkVersionDetectionTimer = startSafeTimer(
+      const Duration(milliseconds: 220),
+      () {
+        unawaited(_refreshSdkVersionDetection(normalizedSdkPath));
+      },
+    );
   }
 
   Future<void> _refreshSdkVersionDetection(String sdkPath) async {

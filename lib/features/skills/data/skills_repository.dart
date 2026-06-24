@@ -11,6 +11,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/xml_escape.dart';
 import '../model/local_skill.dart';
 
 class SkillsRepository {
@@ -893,7 +894,7 @@ class SkillsRepository {
   }
 
   String _buildEmojiIconSvg(String emoji) {
-    final escapedEmoji = _escapeXmlValue(emoji);
+    final escapedEmoji = escapeXmlAttribute(emoji);
     return '''
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <rect width="128" height="128" rx="32" fill="#B7C957"/>
@@ -932,15 +933,6 @@ class SkillsRepository {
 
   String _escapeYamlValue(String value) {
     return value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
-  }
-
-  String _escapeXmlValue(String value) {
-    return value
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&apos;');
   }
 
   Future<Directory> _createUniqueSkillDirectory(

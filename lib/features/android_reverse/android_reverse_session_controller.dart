@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/timer_safety.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
 import 'android_reverse_toolchain_diagnostics.dart';
@@ -209,7 +210,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     await _refreshDevices();
     if (_state == AndroidReverseSessionState.stopped || _disposed) return;
     _state = AndroidReverseSessionState.running;
-    _watchdogTimer = Timer.periodic(_kDeviceWatchdogInterval, (_) {
+    _watchdogTimer = startSafePeriodicTimer(_kDeviceWatchdogInterval, (_) {
       if (!_disposed) _scheduleRefresh();
     });
     _safeNotify();

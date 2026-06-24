@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../util/localized_text.dart';
+import '../util/timer_safety.dart';
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
 const Duration kNativeAudioControlTimeout = Duration(seconds: 8);
@@ -615,7 +616,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   void _restartProgressPolling() {
     _progressPollTimer?.cancel();
-    _progressPollTimer = Timer.periodic(_kNativeAudioPollInterval, (_) {
+    _progressPollTimer = startSafePeriodicTimer(_kNativeAudioPollInterval, (_) {
       unawaited(_pollPlaybackState());
     });
   }

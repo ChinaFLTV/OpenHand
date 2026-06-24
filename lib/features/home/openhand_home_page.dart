@@ -54,6 +54,7 @@ import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/appear_tracker.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/choice_input_dialog.dart';
+import '../../shared/ui/dialog_motion_css.dart';
 import '../../shared/ui/error_snackbar.dart';
 import '../../shared/ui/export_config_dialog.dart';
 import '../../shared/ui/export_progress_dialog.dart';
@@ -81,6 +82,7 @@ import '../../shared/util/path_safety.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
+import '../../shared/util/xml_escape.dart';
 import '../ai/index.dart';
 import '../android_reverse/index.dart';
 import '../crons/index.dart';

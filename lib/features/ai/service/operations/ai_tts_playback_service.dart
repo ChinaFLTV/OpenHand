@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/xml_escape.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_tts_provider_catalog.dart';
@@ -1583,9 +1584,9 @@ class AiTtsPlaybackService {
         ? '${(settings.volume * 100).round().clamp(0, 100)}%'
         : '${settings.volume.round().clamp(0, 100)}%';
     return '''
-<speak version="1.0" xml:lang="${_xmlEscape(language)}">
-  <voice xml:lang="${_xmlEscape(language)}" name="${_xmlEscape(voice)}">
-    <prosody rate="$rate" pitch="$pitch" volume="$volume">${_xmlEscape(text)}</prosody>
+<speak version="1.0" xml:lang="${escapeXmlAttribute(language)}">
+  <voice xml:lang="${escapeXmlAttribute(language)}" name="${escapeXmlAttribute(voice)}">
+    <prosody rate="$rate" pitch="$pitch" volume="$volume">${escapeXmlAttribute(text)}</prosody>
   </voice>
 </speak>''';
   }
@@ -1603,15 +1604,6 @@ class AiTtsPlaybackService {
 
   static String _appleScriptString(String value) {
     return '"${value.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"';
-  }
-
-  static String _xmlEscape(String value) {
-    return value
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&apos;');
   }
 
   static String _extraString(

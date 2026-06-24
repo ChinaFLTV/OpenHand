@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../util/byte_size_format.dart';
 import '../util/localized_text.dart';
 import 'animated_dialog.dart';
+import 'dialog_motion_css.dart';
 import 'interactive_image_preview.dart';
 import 'motion_preference.dart';
 import 'native_audio_preview.dart';
@@ -312,7 +313,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                             motionDurationMs: motionSettings.disablesAnimation
                                 ? 0
                                 : motionSettings.duration.inMilliseconds,
-                            motionCurveCss: _dialogCurveToCss(
+                            motionCurveCss: openHandDialogAnimationCurveCss(
                               motionSettings.curve,
                             ),
                             motionCurve: motionSettings.curve.curve,
@@ -633,8 +634,6 @@ class _MediaPlayerSurface extends StatefulWidget {
 class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
   static const int _kInlineDataUrlMaxBytes = 8 * kBytesPerMiB;
   static const int _kControlsAutoHideMs = 2600;
-  static const String _kDefaultControlMotionCurveCss =
-      'cubic-bezier(0.215, 0.61, 0.355, 1)';
 
   WebViewController? _controller;
   String? _tempHtmlPath;
@@ -714,9 +713,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
     final durationMs = widget.motionDurationMs
         .clamp(0, DialogAnimationSettings.maxDurationMs)
         .toInt();
-    final safeCurve = widget.motionCurveCss.trim().isEmpty
-        ? _kDefaultControlMotionCurveCss
-        : widget.motionCurveCss.trim();
+    final safeCurve = openHandCssTimingFunctionOrDefault(widget.motionCurveCss);
     final escapedSrc = _htmlAttributeEscape(src);
     return '''
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1058,13 +1055,3 @@ Future<void> showMediaPreviewDialog(
 }) {
   return showAnimatedDialog<void>(context: context, builder: builder);
 }
-
-String _dialogCurveToCss(DialogAnimationCurve curve) => switch (curve) {
-  DialogAnimationCurve.easeInOut => 'ease-in-out',
-  DialogAnimationCurve.easeOut => 'ease-out',
-  DialogAnimationCurve.easeOutCubic => 'cubic-bezier(0.215, 0.61, 0.355, 1)',
-  DialogAnimationCurve.easeInOutCubicEmphasized => 'cubic-bezier(0.2, 0, 0, 1)',
-  DialogAnimationCurve.elasticOut => 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-  DialogAnimationCurve.bounceOut => 'cubic-bezier(0.22, 1.45, 0.36, 1)',
-  DialogAnimationCurve.decelerate => 'cubic-bezier(0, 0, 0.2, 1)',
-};

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/timer_safety.dart';
 import 'throttle_cloud_sync_service.dart';
 
 /// 节流配置自动同步服务。
@@ -29,15 +30,17 @@ class ThrottleAutoSyncService {
   ThrottleAutoSyncService({
     required SettingsController settingsController,
     ThrottleCloudSyncService? cloudSyncService,
-  })  : _settingsController = settingsController,
-        _cloudSyncService = cloudSyncService ?? ThrottleCloudSyncService(),
-        _ownsService = cloudSyncService == null;
+  }) : _settingsController = settingsController,
+       _cloudSyncService = cloudSyncService ?? ThrottleCloudSyncService(),
+       _ownsService = cloudSyncService == null;
 
   final SettingsController _settingsController;
   final ThrottleCloudSyncService _cloudSyncService;
   final bool _ownsService;
 
   Timer? _debounceTimer;
+  Timer? _pullDebounceTimer;
+  Timer? _bootPullTimer;
   StreamSubscription<void>? _cloudChangesSub;
   String? _lastConfigSignature;
   bool _started = false;
@@ -62,15 +65,17 @@ class ThrottleAutoSyncService {
       _settingsController.exportAiStreamThrottleConfig(),
     );
     // 监听 native 推送的远端变更通知；订阅自身节流防止短时间内多次 pull。
-    Timer? pullDebounce;
     _cloudChangesSub = _cloudSyncService.cloudChanges.listen((_) {
-      pullDebounce?.cancel();
-      pullDebounce = Timer(const Duration(milliseconds: 600), () {
-        if (_disposed) return;
-        unawaited(_pullSilently());
-      });
+      _pullDebounceTimer?.cancel();
+      _pullDebounceTimer = startSafeTimer(
+        const Duration(milliseconds: 600),
+        () {
+          if (_disposed) return;
+          unawaited(_pullSilently());
+        },
+      );
     });
-    Future<void>.delayed(_bootPullDelay, () {
+    _bootPullTimer = startSafeTimer(_bootPullDelay, () {
       if (_disposed) return;
       unawaited(_pullSilently());
     });
@@ -81,6 +86,10 @@ class ThrottleAutoSyncService {
     _disposed = true;
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    _pullDebounceTimer?.cancel();
+    _pullDebounceTimer = null;
+    _bootPullTimer?.cancel();
+    _bootPullTimer = null;
     await _cloudChangesSub?.cancel();
     _cloudChangesSub = null;
     if (_started) {
@@ -99,7 +108,7 @@ class ThrottleAutoSyncService {
     _lastConfigSignature = signature;
     // 仅当配置发生有效变化时，重置 debounce timer。
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(_pushDebounce, () {
+    _debounceTimer = startSafeTimer(_pushDebounce, () {
       if (_disposed) return;
       unawaited(_pushSilently());
     });
