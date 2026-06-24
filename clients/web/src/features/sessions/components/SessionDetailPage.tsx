@@ -60,7 +60,6 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
 import {
-  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_LOW_Z_INDEX,
   DialogFrame,
   createStandardDialogFrameAppearance,
@@ -4821,7 +4820,6 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlayTone: 'strong',
         panelClassName: 'rounded-m3-md p-4 max-w-2xl w-full flex flex-col',
         panelBorder: 'outline',
@@ -4913,10 +4911,8 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlayTone: 'soft',
         panelClassName: 'w-full max-w-md rounded-m3-xl p-5 flex flex-col',
-        panelBorder: 'outlineVariant',
         panelSurface: {
           maxHeight: 'min(720px, calc(100vh - 32px))',
         },
@@ -5150,10 +5146,8 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlayTone: 'soft',
         panelClassName: 'w-full max-w-md rounded-m3-xl p-5',
-        panelBorder: 'outlineVariant',
       })}
       ariaLabel={t('contextStats.title', '上下文使用情况')}
     >
@@ -5851,10 +5845,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlayTone: 'inverse',
         panelClassName: 'rounded-m3-lg p-5 w-full flex flex-col',
-        panelBorder: 'outlineVariant',
         panelSurface: {
           maxWidth: '860px',
           maxHeight: '84vh',
@@ -6215,7 +6207,6 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlayTone: 'strong',
         panelClassName: 'rounded-m3-md p-4 max-w-3xl w-full flex flex-col',
         panelBorder: 'outline',

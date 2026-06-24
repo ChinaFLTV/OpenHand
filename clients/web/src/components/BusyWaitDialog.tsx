@@ -30,7 +30,6 @@ export function BusyWaitDialog({
       {...createStandardDialogFrameAppearance({
         overlayZIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
         panelClassName: 'w-full max-w-sm rounded-m3-xl p-5',
-        panelBorder: 'outlineVariant',
       })}
       ariaLabel={title}
     >

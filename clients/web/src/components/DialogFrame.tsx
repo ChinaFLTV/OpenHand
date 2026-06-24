@@ -18,20 +18,20 @@ export type DialogPanelBorder =
   | 'none';
 
 export const DIALOG_OVERLAY_LOW_Z_INDEX = 2400;
-export const DIALOG_OVERLAY_BASE_Z_INDEX = 2600;
+const DIALOG_OVERLAY_BASE_Z_INDEX = 2600;
 export const DIALOG_OVERLAY_MEDIA_Z_INDEX = 2700;
 export const DIALOG_OVERLAY_PRIORITY_Z_INDEX = 2800;
 export const DIALOG_OVERLAY_FOCUSED_Z_INDEX = 2900;
 export const DIALOG_OVERLAY_TOP_Z_INDEX = 3000;
-export const DIALOG_OVERLAY_DEFAULT_BACKGROUND = 'rgba(0,0,0,0.38)';
-export const DIALOG_OVERLAY_SOFT_BACKGROUND = 'rgba(0,0,0,0.36)';
-export const DIALOG_OVERLAY_STRONG_BACKGROUND = 'rgba(0,0,0,0.40)';
-export const DIALOG_OVERLAY_INTENSE_BACKGROUND = 'rgba(0,0,0,0.45)';
-export const DIALOG_OVERLAY_DEFAULT_BLUR_PX = 2;
-export const DIALOG_OVERLAY_MAX_BLUR_PX = 12;
-export const DIALOG_OVERLAY_INVERSE_BACKGROUND =
+const DIALOG_OVERLAY_DEFAULT_BACKGROUND = 'rgba(0,0,0,0.38)';
+const DIALOG_OVERLAY_SOFT_BACKGROUND = 'rgba(0,0,0,0.36)';
+const DIALOG_OVERLAY_STRONG_BACKGROUND = 'rgba(0,0,0,0.40)';
+const DIALOG_OVERLAY_INTENSE_BACKGROUND = 'rgba(0,0,0,0.45)';
+const DIALOG_OVERLAY_DEFAULT_BLUR_PX = 2;
+const DIALOG_OVERLAY_MAX_BLUR_PX = 12;
+const DIALOG_OVERLAY_INVERSE_BACKGROUND =
   'color-mix(in srgb, var(--m3-inverse-surface) 44%, transparent)';
-export const DIALOG_OVERLAY_CENTER_CLASS =
+const DIALOG_OVERLAY_CENTER_CLASS =
   'fixed inset-0 flex items-center justify-center p-4';
 export const DIALOG_OVERLAY_CENTER_FLUSH_CLASS =
   'fixed inset-0 flex items-center justify-center';
@@ -46,20 +46,20 @@ export interface DialogOverlayStyleOptions {
   zIndex?: number;
 }
 
-export const DIALOG_PANEL_DEFAULT_BACKGROUND = 'var(--m3-surface-container)';
-export const DIALOG_PANEL_DEFAULT_COLOR = 'var(--m3-on-surface)';
-export const DIALOG_PANEL_DEFAULT_SHADOW = 'var(--m3-elev-3)';
-export const DIALOG_PANEL_DEFAULT_BORDER = '1px solid var(--m3-outline-variant)';
-export const DIALOG_PANEL_OUTLINE_BORDER = '1px solid var(--m3-outline)';
-export const DIALOG_PANEL_OUTLINE_VARIANT_BORDER =
+const DIALOG_PANEL_DEFAULT_BACKGROUND = 'var(--m3-surface-container)';
+const DIALOG_PANEL_DEFAULT_COLOR = 'var(--m3-on-surface)';
+const DIALOG_PANEL_DEFAULT_SHADOW = 'var(--m3-elev-3)';
+const DIALOG_PANEL_DEFAULT_BORDER = '1px solid var(--m3-outline-variant)';
+const DIALOG_PANEL_OUTLINE_BORDER = '1px solid var(--m3-outline)';
+const DIALOG_PANEL_OUTLINE_VARIANT_BORDER =
   '1px solid var(--m3-outline-variant)';
-export const DIALOG_PANEL_BORDERLESS = 'none';
+const DIALOG_PANEL_BORDERLESS = 'none';
 const DIALOG_SCROLL_LOCK_STYLE_VALUE = 'hidden';
 const DIALOG_SCROLL_LOCK_DATASET_KEY = 'dialogScrollLocked';
 const DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY = 'overscroll-behavior';
 const DIALOG_SCROLL_LOCK_OVERSCROLL_VALUE = 'none';
 
-export interface DialogPanelSurfaceStyleOptions {
+interface DialogPanelSurfaceStyleOptions {
   background?: string;
   color?: string;
   boxShadow?: string;
@@ -70,7 +70,7 @@ export interface DialogPanelSurfaceStyleOptions {
   overflow?: JSX.CSSProperties['overflow'];
 }
 
-export interface DialogFrameAppearanceOptions {
+interface DialogFrameAppearanceOptions {
   overlayClassName?: string;
   overlay?: DialogOverlayStyleOptions;
   overlayStyle?: JSX.CSSProperties;
@@ -102,7 +102,7 @@ export interface DialogFrameProps {
   ariaLabelledBy?: string;
 }
 
-export function createDialogOverlayStyle({
+function createDialogOverlayStyle({
   background = DIALOG_OVERLAY_DEFAULT_BACKGROUND,
   blurPx = DIALOG_OVERLAY_DEFAULT_BLUR_PX,
   zIndex = DIALOG_OVERLAY_BASE_Z_INDEX,
@@ -124,7 +124,7 @@ export function createDialogOverlayStyle({
   return style;
 }
 
-export const DIALOG_OVERLAY_DEFAULT_STYLE = createDialogOverlayStyle();
+const DIALOG_OVERLAY_DEFAULT_STYLE = createDialogOverlayStyle();
 
 function stringStyleValueOr(value: string | undefined, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value : fallback;
@@ -139,7 +139,7 @@ function assignStringStyleValue<K extends keyof JSX.CSSProperties>(
   style[key] = value as JSX.CSSProperties[K];
 }
 
-export function createDialogPanelSurfaceStyle({
+function createDialogPanelSurfaceStyle({
   background,
   color,
   boxShadow,
@@ -162,7 +162,7 @@ export function createDialogPanelSurfaceStyle({
   return style;
 }
 
-export function createDialogFrameAppearance({
+function createDialogFrameAppearance({
   overlayClassName = DIALOG_OVERLAY_CENTER_CLASS,
   overlay,
   overlayStyle,
@@ -268,7 +268,7 @@ function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): st
   }
 }
 
-export function dialogClassNames(
+function dialogClassNames(
   ...values: Array<string | null | undefined | false>
 ): string {
   return values
@@ -277,7 +277,7 @@ export function dialogClassNames(
     .join(' ');
 }
 
-export function DialogCloseIcon({ size = 16 }: { size?: number }) {
+function DialogCloseIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -296,7 +296,7 @@ export function DialogCloseIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-export interface DialogCloseButtonProps {
+interface DialogCloseButtonProps {
   onClick: () => void;
   label?: string;
   disabled?: boolean;
@@ -305,7 +305,7 @@ export interface DialogCloseButtonProps {
   iconSize?: number;
 }
 
-export function DialogCloseButton({
+function DialogCloseButton({
   onClick,
   label = 'close',
   disabled = false,

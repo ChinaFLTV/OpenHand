@@ -287,6 +287,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
           'fixed inset-0 flex items-center justify-center p-3 sm:p-5',
         overlayZIndex: DIALOG_OVERLAY_MEDIA_Z_INDEX,
         panelClassName: 'oh-image-editor-dialog',
+        panelStyle: {},
       })}
       ariaLabel={t('imageEditor.title', '编辑图片')}
     >

@@ -17,7 +17,6 @@ import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob'
 import { buildSessionAssetUrl } from '../utils/session_asset';
 import { createTimedAbortController } from '../utils/timed_abort';
 import {
-  DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
   createStandardDialogFrameAppearance,
@@ -1308,7 +1307,6 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       closing={closing}
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
-        overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlay: {
           background: 'color-mix(in srgb, black 58%, transparent)',
           blurPx: 10,
