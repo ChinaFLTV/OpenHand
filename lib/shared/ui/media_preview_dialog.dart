@@ -218,8 +218,8 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         bodyH = math.max(0.0, side);
       }
     } else if (widget.kind == MediaPreviewKind.audio) {
-      bodyW = math.min(980.0, maxBodyW);
-      bodyH = math.min(560.0, maxBodyH);
+      bodyW = math.min(kNativeAudioPreviewPreferredSize.width, maxBodyW);
+      bodyH = math.min(kNativeAudioPreviewPreferredSize.height, maxBodyH);
     } else {
       bodyW = math.min(960.0, maxBodyW);
       bodyH = math.min(640.0, maxBodyH);

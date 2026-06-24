@@ -14,7 +14,10 @@ const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
 const Duration kNativeAudioControlTimeout = Duration(seconds: 8);
 const Duration kNativeAudioSeekStep = Duration(seconds: 15);
 const Curve kNativeAudioMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
-const double _kNativeAudioWideBreakpoint = 760;
+const Size kNativeAudioPreviewPreferredSize = Size(640, 560);
+const Duration _kNativeAudioPollInterval = Duration(milliseconds: 250);
+const Duration _kNativeAudioPollTimeout = Duration(seconds: 2);
+const double _kNativeAudioWideBreakpoint = 540;
 const double _kNativeAudioShortBreakpoint = 430;
 
 class NativeAudioPreviewController {
@@ -81,7 +84,6 @@ class NativeAudioVisualMeta {
     required this.secondaryColor,
     required this.accentColor,
     required this.coverGlyph,
-    required this.lyricLines,
     required this.seed,
   });
 
@@ -107,7 +109,6 @@ class NativeAudioVisualMeta {
       secondaryColor: palette.$2,
       accentColor: palette.$3,
       coverGlyph: '♪',
-      lyricLines: deriveNativeAudioLyrics(cleanTitle, cleanDetail),
       seed: seed,
     );
   }
@@ -120,7 +121,6 @@ class NativeAudioVisualMeta {
   final Color secondaryColor;
   final Color accentColor;
   final String coverGlyph;
-  final List<String> lyricLines;
   final int seed;
 }
 
@@ -193,9 +193,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   String? _tempAudioPath;
   Timer? _progressPollTimer;
   int _bootstrapSerial = 0;
+  bool _pollInFlight = false;
 
   bool get _isPlaying => _playerState == PlayerState.playing;
-  bool get _hasLyrics => widget.meta.lyricLines.isNotEmpty;
+  bool get _canScrub => _sourceReady && _duration > Duration.zero;
   bool get _hasMeaningfulAlbumLabel {
     final album = widget.meta.album.trim();
     if (album.isEmpty) return false;
@@ -221,20 +222,18 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       ..add(
         _player.onDurationChanged.listen((duration) {
           if (!mounted || duration < Duration.zero) return;
-          if (duration > _duration) {
-            setState(() => _duration = duration);
-          }
+          _setKnownDuration(duration);
         }),
       )
       ..add(
         _player.onPositionChanged.listen((position) {
-          if (!mounted || _seeking || _manualProgressActive || position < Duration.zero) {
+          if (!mounted ||
+              _seeking ||
+              _manualProgressActive ||
+              position < Duration.zero) {
             return;
           }
-          setState(() {
-            _position = _clampDuration(position, _duration);
-            if (_position > _duration) _duration = _position;
-          });
+          _setKnownPosition(position);
         }),
       )
       ..add(
@@ -295,6 +294,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           .setReleaseMode(ReleaseMode.stop)
           .timeout(kNativeAudioControlTimeout);
       await _player
+          .setPlayerMode(PlayerMode.mediaPlayer)
+          .timeout(kNativeAudioControlTimeout);
+      await _player
           .setVolume(_effectiveVolume)
           .timeout(kNativeAudioControlTimeout);
       final source = await _buildAudioSource();
@@ -308,6 +310,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _sourceReady = true;
         _loadError = null;
       });
+      unawaited(_pollPlaybackState());
       if (widget.autoplay) {
         await _play().timeout(kNativeAudioControlTimeout);
       }
@@ -320,14 +323,14 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<Duration> _resolveDuration() async {
     final initial = await _player.getDuration().timeout(
-      kNativeAudioControlTimeout,
+      _kNativeAudioPollTimeout,
       onTimeout: () => null,
     );
     if (initial != null && initial > Duration.zero) return initial;
-    for (var attempt = 0; attempt < 20; attempt++) {
+    for (var attempt = 0; attempt < 12; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 250));
       final next = await _player.getDuration().timeout(
-        kNativeAudioControlTimeout,
+        _kNativeAudioPollTimeout,
         onTimeout: () => null,
       );
       if (next != null && next > Duration.zero) return next;
@@ -337,35 +340,69 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   void _restartProgressPolling() {
     _progressPollTimer?.cancel();
-    _progressPollTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+    _progressPollTimer = Timer.periodic(_kNativeAudioPollInterval, (_) {
       unawaited(_pollPlaybackState());
     });
   }
 
   Future<void> _pollPlaybackState() async {
-    if (_disposed || !mounted || _seeking || _manualProgressActive) return;
+    if (_disposed ||
+        !mounted ||
+        _pollInFlight ||
+        _seeking ||
+        _manualProgressActive) {
+      return;
+    }
+    _pollInFlight = true;
     try {
       final polledDuration = await _player.getDuration().timeout(
-        kNativeAudioControlTimeout,
+        _kNativeAudioPollTimeout,
         onTimeout: () => null,
       );
       final polledPosition = await _player.getCurrentPosition().timeout(
-        kNativeAudioControlTimeout,
+        _kNativeAudioPollTimeout,
         onTimeout: () => null,
       );
       if (!mounted || _disposed) return;
+      final nextDuration =
+          polledDuration != null && polledDuration > Duration.zero
+          ? polledDuration
+          : _duration;
+      final nextPosition =
+          polledPosition != null && polledPosition >= Duration.zero
+          ? _clampDuration(polledPosition, nextDuration)
+          : _position;
+      if (nextDuration == _duration && nextPosition == _position) return;
       setState(() {
-        if (polledDuration != null && polledDuration > _duration) {
-          _duration = polledDuration;
-        }
-        if (polledPosition != null && polledPosition >= Duration.zero) {
-          _position = _clampDuration(polledPosition, _duration);
-          if (_position > _duration) _duration = _position;
-        }
+        _duration = nextDuration;
+        _position = nextPosition;
       });
     } catch (error, stack) {
-      silentLog('native_audio_preview', 'poll playback state failed', error, stack);
+      silentLog(
+        'native_audio_preview',
+        'poll playback state failed',
+        error,
+        stack,
+      );
+    } finally {
+      _pollInFlight = false;
     }
+  }
+
+  void _setKnownDuration(Duration duration) {
+    if (duration <= Duration.zero || !mounted) return;
+    if (_duration == duration) return;
+    setState(() {
+      _duration = duration;
+      _position = _clampDuration(_position, _duration);
+    });
+  }
+
+  void _setKnownPosition(Duration position) {
+    if (position < Duration.zero || !mounted) return;
+    final nextPosition = _clampDuration(position, _duration);
+    if (nextPosition == _position) return;
+    setState(() => _position = nextPosition);
   }
 
   Future<Source> _buildAudioSource() async {
@@ -488,13 +525,15 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     final upperBound = _duration > Duration.zero
         ? _duration
         : Duration(
-            milliseconds: math.max(target.inMilliseconds, _position.inMilliseconds),
+            milliseconds: math.max(
+              target.inMilliseconds,
+              _position.inMilliseconds,
+            ),
           );
     final clamped = _clampDuration(target, upperBound);
     setState(() {
       _seeking = true;
       _position = clamped;
-      if (clamped > _duration) _duration = clamped;
     });
     try {
       await _player.seek(clamped).timeout(kNativeAudioControlTimeout);
@@ -509,7 +548,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       );
       if (!mounted || _disposed) return;
       setState(() {
-        if (actualDuration != null && actualDuration > _duration) {
+        if (actualDuration != null && actualDuration > Duration.zero) {
           _duration = actualDuration;
         }
         if (actualPosition != null && actualPosition >= Duration.zero) {
@@ -606,7 +645,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         final height = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : fallbackSize.height;
-        final useWide = width >= _kNativeAudioWideBreakpoint &&
+        final useWide =
+            width >= _kNativeAudioWideBreakpoint &&
             height >= _kNativeAudioShortBreakpoint;
         final hPad = useWide ? 32.0 : 20.0;
         final vPad = useWide ? 22.0 : 18.0;
@@ -654,9 +694,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                         horizontal: hPad,
                         vertical: vPad,
                       ),
-                      child: useWide
-                          ? _buildWide(context)
-                          : _buildCompact(context),
+                      child: Center(
+                        child: _buildAlbumColumn(context, compact: !useWide),
+                      ),
                     ),
                   ),
                 ),
@@ -677,45 +717,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildWide(BuildContext context) {
-    if (!_hasLyrics) {
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: _buildAlbumColumn(context, compact: false),
-        ),
-      );
-    }
-    return Row(
-      children: [
-        Expanded(flex: 96, child: _buildAlbumColumn(context, compact: false)),
-        const SizedBox(width: 32),
-        Expanded(flex: 104, child: _buildLyricsColumn(context)),
-      ],
-    );
-  }
-
-  Widget _buildCompact(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final short = constraints.maxHeight < 420;
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(child: _buildAlbumColumn(context, compact: true)),
-            if (_hasLyrics && !short) ...[
-              const SizedBox(height: 10),
-              SizedBox(
-                height: math.min(110, constraints.maxHeight * 0.26),
-                child: _buildLyricsColumn(context, compact: true),
-              ),
-            ],
-          ],
         );
       },
     );
@@ -769,8 +770,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         return Align(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: compact ? 420 : 560,
-              minWidth: compact ? 280 : 420,
+              maxWidth: compact ? 420 : 500,
+              minWidth: compact ? 280 : 360,
             ),
             child: content,
           ),
@@ -799,7 +800,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         ),
         const SizedBox(height: 3),
         Text(
-          _hasMeaningfulAlbumLabel ? '${meta.artist} · ${meta.album}' : meta.artist,
+          _hasMeaningfulAlbumLabel
+              ? '${meta.artist} · ${meta.album}'
+              : meta.artist,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
@@ -831,42 +834,21 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           ),
           child: Slider(
             value: progress,
-            onChangeStart: _sourceReady
+            onChangeStart: _canScrub
                 ? (_) => setState(() => _manualProgressActive = true)
                 : null,
-            onChanged: _sourceReady
+            onChanged: _canScrub
                 ? (value) {
-                    final effectiveDuration = _duration > Duration.zero
-                        ? _duration
-                        : Duration(
-                            milliseconds: math.max(
-                              1,
-                              _position.inMilliseconds + 1000,
-                            ),
-                          );
                     final target = Duration(
-                      milliseconds:
-                          (effectiveDuration.inMilliseconds * value).round(),
+                      milliseconds: (_duration.inMilliseconds * value).round(),
                     );
-                    setState(() {
-                      _position = target;
-                      if (target > _duration) _duration = target;
-                    });
+                    setState(() => _position = target);
                   }
                 : null,
-            onChangeEnd: _sourceReady
+            onChangeEnd: _canScrub
                 ? (value) {
-                    final effectiveDuration = _duration > Duration.zero
-                        ? _duration
-                        : Duration(
-                            milliseconds: math.max(
-                              1,
-                              _position.inMilliseconds + 1000,
-                            ),
-                          );
                     final target = Duration(
-                      milliseconds:
-                          (effectiveDuration.inMilliseconds * value).round(),
+                      milliseconds: (_duration.inMilliseconds * value).round(),
                     );
                     setState(() => _manualProgressActive = false);
                     unawaited(_seekTo(target));
@@ -900,8 +882,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             en: 'Back 15 s',
           ),
           icon: Icons.replay_10_rounded,
-          onPressed:
-              _sourceReady ? () => unawaited(_seekBy(-kNativeAudioSeekStep)) : null,
+          onPressed: _sourceReady
+              ? () => unawaited(_seekBy(-kNativeAudioSeekStep))
+              : null,
         ),
         const SizedBox(width: 12),
         _NativeAudioIconButton(
@@ -912,8 +895,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           ),
           icon: _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           prominent: true,
-          onPressed:
-              _sourceReady ? () => unawaited(_togglePlayPause()) : null,
+          onPressed: _sourceReady ? () => unawaited(_togglePlayPause()) : null,
         ),
         const SizedBox(width: 12),
         _NativeAudioIconButton(
@@ -923,8 +905,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             en: 'Forward 15 s',
           ),
           icon: Icons.forward_10_rounded,
-          onPressed:
-              _sourceReady ? () => unawaited(_seekBy(kNativeAudioSeekStep)) : null,
+          onPressed: _sourceReady
+              ? () => unawaited(_seekBy(kNativeAudioSeekStep))
+              : null,
         ),
       ],
     );
@@ -972,8 +955,12 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                   inactiveTrackColor: cs.outlineVariant,
                   thumbColor: cs.primary,
                   overlayColor: cs.primary.withValues(alpha: 0.12),
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 11),
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 5,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 11,
+                  ),
                 ),
                 child: Slider(
                   value: _muted ? 0.0 : _volume,
@@ -989,82 +976,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildLyricsColumn(BuildContext context, {bool compact = false}) {
-    final cs = Theme.of(context).colorScheme;
-    final lines = widget.meta.lyricLines;
-    final active = _activeLyricIndex(lines.length);
-    final title = openHandLocalizedText(context, zh: '歌词', en: 'Lyrics');
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: cs.onSurfaceVariant.withValues(alpha: 0.70),
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.6,
-          ),
-        ),
-        SizedBox(height: compact ? 6 : 12),
-        Expanded(
-          child: ShaderMask(
-            shaderCallback: (rect) => const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                Colors.black,
-                Colors.black,
-                Colors.transparent,
-              ],
-              stops: [0, 0.14, 0.86, 1],
-            ).createShader(rect),
-            blendMode: BlendMode.dstIn,
-            child: ListView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(vertical: compact ? 4 : 10),
-              itemCount: lines.length,
-              itemBuilder: (context, index) {
-                final selected = index == active;
-                return AnimatedScale(
-                  duration: widget.motionDuration,
-                  curve: widget.motionCurve,
-                  scale: selected ? 1.0 : 0.96,
-                  alignment: Alignment.centerLeft,
-                  child: AnimatedDefaultTextStyle(
-                    duration: widget.motionDuration,
-                    curve: widget.motionCurve,
-                    style: Theme.of(context).textTheme.headlineSmall!.copyWith(
-                      color: selected
-                          ? cs.onSurface
-                          : cs.onSurfaceVariant.withValues(alpha: 0.50),
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
-                      letterSpacing: 0,
-                      fontSize: compact ? 14 : 19,
-                      height: 1.22,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: compact ? 3 : 6,
-                      ),
-                      child: Text(
-                        lines[index],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -1086,11 +997,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    color: cs.error,
-                    size: 30,
-                  ),
+                  Icon(Icons.error_outline_rounded, color: cs.error, size: 30),
                   const SizedBox(height: 10),
                   Text(
                     _loadError!,
@@ -1109,11 +1016,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                         onPressed: () => unawaited(_bootstrap()),
                         icon: const Icon(Icons.refresh_rounded, size: 18),
                         label: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '重试',
-                            en: 'Retry',
-                          ),
+                          openHandLocalizedText(context, zh: '重试', en: 'Retry'),
                         ),
                       ),
                       if (widget.onOpenExternal != null)
@@ -1137,16 +1040,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         ),
       ),
     );
-  }
-
-  int _activeLyricIndex(int lineCount) {
-    if (lineCount <= 1) return 0;
-    final durationMs = _duration.inMilliseconds;
-    final positionMs = _position.inMilliseconds;
-    final ratio = durationMs > 0
-        ? positionMs / durationMs
-        : ((positionMs % (lineCount * 6000)) / (lineCount * 6000));
-    return (ratio * lineCount).floor().clamp(0, lineCount - 1);
   }
 
   String _playModeTooltip(BuildContext context) {
@@ -1298,165 +1191,129 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
       duration: widget.motionDuration,
       curve: widget.motionCurve,
       scale: widget.isPlaying ? 1.018 : 1.0,
-      child: SizedBox.square(
-        dimension: widget.size,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            if (widget.isPlaying)
-              Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: _glowController,
-                  builder: (context, _) {
-                    final t = CurvedAnimation(
-                      parent: _glowController,
-                      curve: Curves.easeInOut,
-                    ).value;
-                    return DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: meta.accentColor.withValues(
-                              alpha: 0.22 + t * 0.18,
-                            ),
-                            blurRadius: 28 + t * 20,
-                            spreadRadius: 2 + t * 4,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+      child: AnimatedBuilder(
+        animation: _glowController,
+        builder: (context, child) {
+          final t = widget.isPlaying
+              ? CurvedAnimation(
+                  parent: _glowController,
+                  curve: Curves.easeInOut,
+                ).value
+              : 0.0;
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              boxShadow: [
+                BoxShadow(
+                  color: meta.primaryColor.withValues(alpha: 0.26 + t * 0.10),
+                  blurRadius: 34 + t * 14,
+                  offset: const Offset(0, 18),
                 ),
-              ),
-            Positioned.fill(
-              left: widget.size * 0.14,
-              child: RotationTransition(
-                turns: _rotateController,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF07090B),
-                        _mixNativeAudioColors(
-                          meta.primaryColor,
-                          const Color(0xFF11151A),
-                          0.30,
-                        ),
-                        const Color(0xFF050607),
-                      ],
-                      stops: const [0.18, 0.55, 1],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.30),
-                        blurRadius: 26,
-                        offset: const Offset(0, 16),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: widget.size * 0.26,
-                      height: widget.size * 0.26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: meta.accentColor.withValues(alpha: 0.86),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.34),
-                        ),
-                      ),
-                    ),
-                  ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.20),
+                  blurRadius: 36,
+                  offset: const Offset(0, 22),
                 ),
-              ),
+              ],
             ),
-            Positioned.fill(
-              right: widget.size * 0.12,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(radius),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      _mixNativeAudioColors(
-                        meta.accentColor,
-                        Colors.white,
-                        0.72,
-                      ),
-                      meta.secondaryColor.withValues(alpha: 0.92),
-                      _mixNativeAudioColors(
-                        meta.primaryColor,
-                        const Color(0xFF101316),
-                        0.64,
-                      ),
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: meta.primaryColor.withValues(alpha: 0.26),
-                      blurRadius: 34,
-                      offset: const Offset(0, 18),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      blurRadius: 40,
-                      offset: const Offset(0, 22),
+            child: child,
+          );
+        },
+        child: SizedBox.square(
+          dimension: widget.size,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(radius),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    _mixNativeAudioColors(meta.accentColor, Colors.white, 0.72),
+                    meta.secondaryColor.withValues(alpha: 0.92),
+                    _mixNativeAudioColors(
+                      meta.primaryColor,
+                      const Color(0xFF101316),
+                      0.64,
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radius),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withValues(alpha: 0.24),
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.22),
-                              ],
-                              stops: const [0, 0.48, 1],
-                            ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: RotationTransition(
+                      turns: _rotateController,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: SweepGradient(
+                            colors: [
+                              Colors.white.withValues(alpha: 0.18),
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.12),
+                              Colors.white.withValues(alpha: 0.18),
+                            ],
+                            stops: const [0, 0.36, 0.68, 1],
                           ),
                         ),
                       ),
-                      Positioned(
-                        left: widget.size * 0.10,
-                        bottom: widget.size * 0.10,
-                        child: Icon(
-                          Icons.graphic_eq_rounded,
-                          size: widget.size * 0.16,
-                          color: Colors.white.withValues(alpha: 0.54),
-                        ),
-                      ),
-                      Center(
-                        child: Text(
-                          meta.coverGlyph,
-                          maxLines: 1,
-                          overflow: TextOverflow.clip,
-                          style: TextStyle(
-                            color: widget.foregroundColor.withValues(
-                              alpha: 0.94,
-                            ),
-                            fontWeight: FontWeight.w900,
-                            fontSize: widget.size * 0.28,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.24),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.22),
+                          ],
+                          stops: const [0, 0.48, 1],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Container(
+                      width: widget.size * 0.30,
+                      height: widget.size * 0.30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: meta.accentColor.withValues(alpha: 0.48),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.24),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: widget.size * 0.10,
+                    bottom: widget.size * 0.10,
+                    child: Icon(
+                      Icons.graphic_eq_rounded,
+                      size: widget.size * 0.16,
+                      color: Colors.white.withValues(alpha: 0.54),
+                    ),
+                  ),
+                  Center(
+                    child: Text(
+                      meta.coverGlyph,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: TextStyle(
+                        color: widget.foregroundColor.withValues(alpha: 0.94),
+                        fontWeight: FontWeight.w900,
+                        fontSize: widget.size * 0.28,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1540,7 +1397,9 @@ class _NativeAudioAnimatedBackdropState
                     center: const Alignment(0.72, -0.55),
                     radius: 0.8,
                     colors: [
-                      widget.meta.primaryColor.withValues(alpha: highlightAlpha),
+                      widget.meta.primaryColor.withValues(
+                        alpha: highlightAlpha,
+                      ),
                       Colors.transparent,
                     ],
                   ),
@@ -1711,8 +1570,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
                 eLabel,
                 style: TextStyle(
                   color: e == effect ? cs.primary : cs.onSurface,
-                  fontWeight:
-                      e == effect ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: e == effect ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
               if (e == effect) ...[
@@ -1803,18 +1661,6 @@ String lastNativeAudioPathOrUrlSegment(String value) {
     return Uri.decodeComponent(lastSegment);
   }
   return p.basename(value.replaceAll('\\', '/'));
-}
-
-List<String> deriveNativeAudioLyrics(String title, String detail) {
-  final leaf = _prettyNativeAudioLeaf(detail);
-  final titleNormalized = normalizeNativeAudioText(title, fallback: 'Audio');
-  if (_looksLikeGeneratedAudioName(leaf) || leaf == titleNormalized) {
-    return const <String>[];
-  }
-  return <String>{
-    titleNormalized,
-    leaf,
-  }.where((line) => line.trim().isNotEmpty).take(4).toList(growable: false);
 }
 
 String _prettyNativeAudioLeaf(String detail) {

@@ -3412,7 +3412,8 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   }
 
   Widget _buildResultReveal(Widget child) {
-    if (MediaQuery.disableAnimationsOf(context) || _revealController.isCompleted) {
+    if (MediaQuery.disableAnimationsOf(context) ||
+        _revealController.isCompleted) {
       return child;
     }
     return AnimatedBuilder(
@@ -3639,7 +3640,6 @@ class _GeneratedAudioVisualMeta {
     required this.secondaryColor,
     required this.accentColor,
     required this.coverGlyph,
-    required this.lyricLines,
   });
 
   factory _GeneratedAudioVisualMeta.fromSource({
@@ -3669,7 +3669,6 @@ class _GeneratedAudioVisualMeta {
       secondaryColor: palette.$2,
       accentColor: palette.$3,
       coverGlyph: '♪',
-      lyricLines: _deriveGeneratedAudioLyricLines(cleanTitle, cleanDetail),
     );
   }
 
@@ -3682,7 +3681,6 @@ class _GeneratedAudioVisualMeta {
   final Color secondaryColor;
   final Color accentColor;
   final String coverGlyph;
-  final List<String> lyricLines;
 }
 
 const List<(Color, Color, Color)> _kGeneratedAudioPalettes =
@@ -3725,26 +3723,10 @@ String _deriveGeneratedAudioArtist(String detail) {
 
 String _deriveGeneratedAudioAlbum(String detail) {
   final basename = p.basename(detail).trim();
-  final leaf = _prettyGeneratedAudioLeaf(
-    basename.isEmpty ? detail : basename,
-  );
+  final leaf = _prettyGeneratedAudioLeaf(basename.isEmpty ? detail : basename);
   if (_looksLikeGeneratedAudioName(leaf)) return '生成音频';
   if (leaf.length <= 32) return leaf;
   return '音频专辑';
-}
-
-List<String> _deriveGeneratedAudioLyricLines(String title, String detail) {
-  final normalizedTitle = _normalizeAudioDisplayText(title, fallback: 'Audio');
-  final basename = _prettyGeneratedAudioLeaf(
-    p.basename(_normalizeAudioDisplayText(detail, fallback: 'OpenHand')),
-  );
-  if (_looksLikeGeneratedAudioName(basename) || basename == normalizedTitle) {
-    return const <String>[];
-  }
-  return <String>{
-    normalizedTitle,
-    basename,
-  }.where((line) => line.trim().isNotEmpty).take(4).toList(growable: false);
 }
 
 String _prettyGeneratedAudioLeaf(String detail) {
@@ -3798,7 +3780,6 @@ NativeAudioVisualMeta _nativeAudioVisualMetaForGenerated(
     secondaryColor: meta.secondaryColor,
     accentColor: meta.accentColor,
     coverGlyph: meta.coverGlyph,
-    lyricLines: meta.lyricLines,
     seed: meta.seed,
   );
 }
@@ -3871,10 +3852,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
             animation: _hoverController,
             builder: (context, child) {
               final t = disableAnimations ? 0.0 : _hoverController.value;
-              return Transform.scale(
-                scale: 1.0 + t * 0.012,
-                child: child,
-              );
+              return Transform.scale(scale: 1.0 + t * 0.012, child: child);
             },
             child: GestureDetector(
               onTap: widget.onTap,
@@ -3922,10 +3900,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
     );
   }
 
-  Widget _buildCoverBanner(
-    _GeneratedAudioVisualMeta meta,
-    Color textColor,
-  ) {
+  Widget _buildCoverBanner(_GeneratedAudioVisualMeta meta, Color textColor) {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: Stack(
@@ -3994,9 +3969,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.22),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.34),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.34)),
               ),
               child: const Icon(
                 Icons.play_arrow_rounded,
@@ -4142,7 +4115,6 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   static const double _kDividerH = 1.0;
   static const double _kMinDialogW = 360.0;
   static const double _kFallbackVideoAspectRatio = 16 / 9;
-  static const Size _kAudioContentSize = Size(980, 560);
 
   WebViewController? _controller;
   final NativeAudioPreviewController _audioController =
@@ -4765,7 +4737,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
             chromeHeight: 0,
             contentPadding: 0,
             minDialogWidth: _kMinDialogW,
-            contentSize: _kAudioContentSize,
+            contentSize: kNativeAudioPreviewPreferredSize,
           );
     if (isVideo) _scheduleHeaderHeightSync();
     return Shortcuts(
@@ -4804,7 +4776,9 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
               borderRadius: BorderRadius.circular(22),
             ),
             clipBehavior: Clip.antiAlias,
-            child: isVideo ? _buildVideoDialogBody(context, theme, colorScheme, metrics) : _buildAudioDialogBody(context, metrics),
+            child: isVideo
+                ? _buildVideoDialogBody(context, theme, colorScheme, metrics)
+                : _buildAudioDialogBody(context, metrics),
           ),
         ),
       ),
@@ -4835,7 +4809,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
                 padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.videocam_outlined, color: colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.videocam_outlined,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -4846,39 +4823,72 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
                     ),
                     MicroPressFeedback(
                       child: IconButton(
-                        icon: Icon(Icons.open_in_new_rounded, color: colorScheme.onSurfaceVariant),
-                        tooltip: _localizedText(context, zh: '使用系统播放器打开', en: 'Open with System Player'),
+                        icon: Icon(
+                          Icons.open_in_new_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '使用系统播放器打开',
+                          en: 'Open with System Player',
+                        ),
                         onPressed: () => _openInSystemPlayer(context),
                       ),
                     ),
                     const SizedBox(width: 4),
                     MicroPressFeedback(
                       child: IconButton(
-                        icon: Icon(Icons.content_copy_outlined, color: colorScheme.onSurfaceVariant),
-                        tooltip: _localizedText(context, zh: '复制媒体', en: 'Copy Media'),
-                        onPressed: _isCopyingMedia ? null : () => _copyMediaToClipboard(context),
+                        icon: Icon(
+                          Icons.content_copy_outlined,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '复制媒体',
+                          en: 'Copy Media',
+                        ),
+                        onPressed: _isCopyingMedia
+                            ? null
+                            : () => _copyMediaToClipboard(context),
                       ),
                     ),
                     const SizedBox(width: 4),
                     MicroPressFeedback(
                       child: IconButton(
-                        icon: Icon(Icons.fullscreen_rounded, color: colorScheme.onSurfaceVariant),
-                        tooltip: _localizedText(context, zh: '全屏沉浸播放', en: 'Fullscreen playback'),
+                        icon: Icon(
+                          Icons.fullscreen_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '全屏沉浸播放',
+                          en: 'Fullscreen playback',
+                        ),
                         onPressed: () => _enterFullscreen(context),
                       ),
                     ),
                     const SizedBox(width: 4),
                     MicroPressFeedback(
                       child: IconButton(
-                        icon: Icon(Icons.download_rounded, color: colorScheme.onSurfaceVariant),
-                        tooltip: _localizedText(context, zh: '保存到本地', en: 'Save to disk'),
+                        icon: Icon(
+                          Icons.download_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '保存到本地',
+                          en: 'Save to disk',
+                        ),
                         onPressed: () => _saveMediaAs(context),
                       ),
                     ),
                     const SizedBox(width: 4),
                     MicroPressFeedback(
                       child: IconButton(
-                        icon: Icon(Icons.close_rounded, color: colorScheme.onSurfaceVariant),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
@@ -4897,9 +4907,14 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
                       alignment: Alignment.center,
                       children: [
                         if (_controller != null)
-                          Positioned.fill(child: WebViewWidget(controller: _controller!)),
-                        if (!_pageLoaded || (!_mediaReady && _loadError == null))
-                          const Center(child: CircularProgressIndicator(strokeWidth: 2.6)),
+                          Positioned.fill(
+                            child: WebViewWidget(controller: _controller!),
+                          ),
+                        if (!_pageLoaded ||
+                            (!_mediaReady && _loadError == null))
+                          const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2.6),
+                          ),
                         if (_loadError != null)
                           _MediaLoadFallback(
                             message: _loadError!,
@@ -4933,7 +4948,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
             child: NativeAudioPreview(
               title: widget.title,
               source: _nativeAudioPreviewSourceFor(widget.source),
-              meta: _nativeAudioVisualMetaForGenerated(widget.source, widget.title),
+              meta: _nativeAudioVisualMetaForGenerated(
+                widget.source,
+                widget.title,
+              ),
               controller: _audioController,
               onOpenExternal: () => _openInSystemPlayer(context),
               motionDuration: audioMotionDuration,
@@ -4982,8 +5000,9 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
           _AudioOverlayIconButton(
             icon: Icons.content_copy_outlined,
             tooltip: _localizedText(context, zh: '复制媒体', en: 'Copy Media'),
-            onPressed:
-                _isCopyingMedia ? null : () => _copyMediaToClipboard(context),
+            onPressed: _isCopyingMedia
+                ? null
+                : () => _copyMediaToClipboard(context),
           ),
           const SizedBox(width: 10),
           _AudioOverlayIconButton(
