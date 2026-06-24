@@ -2,10 +2,17 @@ import 'ai_model_config.dart';
 import 'ai_tts_settings.dart';
 
 class AiTtsCatalogOption {
-  const AiTtsCatalogOption(this.value, this.label);
+  const AiTtsCatalogOption(this.value, this.label, [this.enLabel]);
 
   final String value;
   final String label;
+  final String? enLabel;
+
+  String labelForLocale({required bool chinese}) {
+    final english = enLabel?.trim();
+    if (!chinese && english != null && english.isNotEmpty) return english;
+    return label;
+  }
 }
 
 class AiTtsProviderCatalog {
@@ -31,6 +38,10 @@ class AiTtsProviderCatalogs {
 
   static const String openAiDefaultVoice = 'alloy';
   static const String stepFunDefaultVoice = 'cixingnansheng';
+  static const String qwenDefaultVoice = 'Cherry';
+  static const String minimaxDefaultVoice = 'female-shaonv';
+  static const String doubaoDefaultVoice = 'zh_female_vv_uranus_bigtts';
+  static const String mimoDefaultVoice = '冰糖';
 
   static AiTtsProviderCatalog of(AiTtsProvider provider) {
     return _catalogs[provider]!;
@@ -48,31 +59,66 @@ class AiTtsProviderCatalogs {
     required AiProtocolType protocol,
     required String modelId,
   }) {
-    if (!usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
-      return _aiVoices;
+    if (usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
+      if (isStepAudio25TtsModel(modelId)) return _stepAudio25Voices;
+      if (_isStepTtsMiniModel(modelId)) return _stepTtsMiniVoices;
+      if (_isStepTtsClassicModel(modelId)) return _stepTtsClassicVoices;
+      return _stepFunVoices;
     }
-    if (isStepAudio25TtsModel(modelId)) return _stepAudio25Voices;
-    if (_isStepTtsMiniModel(modelId)) return _stepTtsMiniVoices;
-    if (_isStepTtsClassicModel(modelId)) return _stepTtsClassicVoices;
-    return _stepFunVoices;
+    if (usesQwenSpeech(protocol: protocol, modelId: modelId)) {
+      return _qwenVoiceOptionsForModel(modelId);
+    }
+    if (usesMiniMaxSpeech(protocol: protocol, modelId: modelId)) {
+      return _minimaxVoices;
+    }
+    if (usesSeedSpeech(protocol: protocol, modelId: modelId)) {
+      return _doubaoVoices;
+    }
+    if (usesMimoSpeech(protocol: protocol, modelId: modelId)) {
+      return _mimoPresetVoiceOptionsForModel(modelId);
+    }
+    return _aiVoices;
   }
 
   static List<AiTtsCatalogOption> formatOptionsForAiModel({
     required AiProtocolType protocol,
     required String modelId,
   }) {
-    return usesStepFunSpeech(protocol: protocol, modelId: modelId)
-        ? _stepFunFormats
-        : _aiFormats;
+    if (usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
+      return _stepFunFormats;
+    }
+    if (usesSeedSpeech(protocol: protocol, modelId: modelId)) {
+      return of(AiTtsProvider.doubao).formatOptions;
+    }
+    if (usesMimoSpeech(protocol: protocol, modelId: modelId)) {
+      return of(AiTtsProvider.mimo).formatOptions;
+    }
+    if (usesMiniMaxSpeech(protocol: protocol, modelId: modelId)) {
+      return _minimaxFormats;
+    }
+    return _aiFormats;
   }
 
   static String defaultVoiceForAiModel({
     required AiProtocolType protocol,
     required String modelId,
   }) {
-    return usesStepFunSpeech(protocol: protocol, modelId: modelId)
-        ? stepFunDefaultVoice
-        : openAiDefaultVoice;
+    if (usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
+      return stepFunDefaultVoice;
+    }
+    if (usesQwenSpeech(protocol: protocol, modelId: modelId)) {
+      return qwenDefaultVoice;
+    }
+    if (usesMiniMaxSpeech(protocol: protocol, modelId: modelId)) {
+      return minimaxDefaultVoice;
+    }
+    if (usesSeedSpeech(protocol: protocol, modelId: modelId)) {
+      return doubaoDefaultVoice;
+    }
+    if (usesMimoSpeech(protocol: protocol, modelId: modelId)) {
+      return mimoDefaultVoice;
+    }
+    return openAiDefaultVoice;
   }
 
   static String normalizeVoiceForAiModel({
@@ -89,8 +135,19 @@ class AiTtsProviderCatalogs {
       final supported = options.any((option) => option.value == normalized);
       return supported ? normalized : stepFunDefaultVoice;
     }
+    if (usesQwenSpeech(protocol: protocol, modelId: modelId)) {
+      final normalized = voice?.trim() ?? '';
+      final options = voiceOptionsForAiModel(
+        protocol: protocol,
+        modelId: modelId,
+      );
+      final supported = options.any((option) => option.value == normalized);
+      return supported ? normalized : qwenDefaultVoice;
+    }
     final normalized = voice?.trim() ?? '';
-    return normalized.isEmpty ? openAiDefaultVoice : normalized;
+    return normalized.isEmpty
+        ? defaultVoiceForAiModel(protocol: protocol, modelId: modelId)
+        : normalized;
   }
 
   static String normalizeStepFunVoice(String? voice) {
@@ -114,6 +171,38 @@ class AiTtsProviderCatalogs {
     return protocol == AiProtocolType.stepfun || isStepFunTtsModel(modelId);
   }
 
+  static bool usesQwenSpeech({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    return protocol == AiProtocolType.qwen || isQwenTtsModel(modelId);
+  }
+
+  static bool usesMiniMaxSpeech({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    final normalized = modelId.trim().toLowerCase();
+    return protocol == AiProtocolType.minimax ||
+        normalized.startsWith('speech-') ||
+        normalized.startsWith('minimax/speech-') ||
+        normalized.contains('/speech-');
+  }
+
+  static bool usesSeedSpeech({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    return protocol == AiProtocolType.seed || isSeedTtsModel(modelId);
+  }
+
+  static bool usesMimoSpeech({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    return protocol == AiProtocolType.mimo || isMimoTtsModel(modelId);
+  }
+
   static bool isStepFunTtsModel(String modelId) {
     final normalized = modelId.trim().toLowerCase();
     if (normalized.isEmpty) return false;
@@ -123,6 +212,28 @@ class AiTtsProviderCatalogs {
 
   static bool isStepAudio25TtsModel(String modelId) {
     return modelId.trim().toLowerCase().startsWith('stepaudio-2.5-tts');
+  }
+
+  static bool isQwenTtsModel(String modelId) {
+    final normalized = modelId.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return normalized.startsWith('qwen-tts') ||
+        normalized.startsWith('qwen2-tts') ||
+        normalized.startsWith('qwen3-tts') ||
+        normalized.contains('cosyvoice');
+  }
+
+  static bool isSeedTtsModel(String modelId) {
+    final normalized = modelId.trim().toLowerCase();
+    return normalized.startsWith('seed-tts') ||
+        normalized.startsWith('doubao-tts') ||
+        normalized.contains('seed-tts') ||
+        normalized.contains('bigtts');
+  }
+
+  static bool isMimoTtsModel(String modelId) {
+    final normalized = modelId.trim().toLowerCase();
+    return normalized.startsWith('mimo-v2.5-tts');
   }
 
   static bool _isStepTtsMiniModel(String modelId) {
@@ -181,9 +292,11 @@ class AiTtsProviderCatalogs {
     AiTtsCatalogOption('alloy', 'Alloy'),
     AiTtsCatalogOption('ash', 'Ash'),
     AiTtsCatalogOption('ballad', 'Ballad'),
+    AiTtsCatalogOption('cedar', 'Cedar'),
     AiTtsCatalogOption('coral', 'Coral'),
     AiTtsCatalogOption('echo', 'Echo'),
     AiTtsCatalogOption('fable', 'Fable'),
+    AiTtsCatalogOption('marin', 'Marin'),
     AiTtsCatalogOption('nova', 'Nova'),
     AiTtsCatalogOption('onyx', 'Onyx'),
     AiTtsCatalogOption('sage', 'Sage'),
@@ -215,64 +328,192 @@ class AiTtsProviderCatalogs {
     ]),
   );
 
-  static const List<AiTtsCatalogOption> _stepAudio25Voices =
-      <AiTtsCatalogOption>[
-        AiTtsCatalogOption('cixingnansheng', '磁性男声'),
-        AiTtsCatalogOption('vibrant-youth', '活力青年'),
-        AiTtsCatalogOption('lively-girl', '活力女声'),
-        AiTtsCatalogOption('soft-spoken-gentleman', '温和绅士'),
-        AiTtsCatalogOption('magnetic-voiced-male', '磁性男声'),
-        AiTtsCatalogOption('zixinnansheng', '自信男声'),
-        AiTtsCatalogOption('elegantgentle-female', '优雅温柔女声'),
-        AiTtsCatalogOption('livelybreezy-female', '轻快活力女声'),
-        AiTtsCatalogOption('wenrounansheng', '温柔男声'),
-        AiTtsCatalogOption('wenrougongzi', '温柔公子'),
-        AiTtsCatalogOption('yuanqinansheng', '元气男声'),
-        AiTtsCatalogOption('jingdiannvsheng', '经典女声'),
-        AiTtsCatalogOption('wenroushunv', '温柔淑女'),
-        AiTtsCatalogOption('tianmeinvsheng', '甜美女声'),
-        AiTtsCatalogOption('qingchunshaonv', '青春少女'),
-        AiTtsCatalogOption('yuanqishaonv', '元气少女'),
-        AiTtsCatalogOption('linjiajiejie', '邻家姐姐'),
-        AiTtsCatalogOption('zhengpaiqingnian', '正派青年'),
-        AiTtsCatalogOption('qingniandaxuesheng', '青年大学生'),
-        AiTtsCatalogOption('boyinnansheng', '播音男声'),
-        AiTtsCatalogOption('ruyananshi', '儒雅男士'),
-        AiTtsCatalogOption('shenchennanyin', '深沉男音'),
-        AiTtsCatalogOption('qinqienvsheng', '亲切女声'),
-        AiTtsCatalogOption('wenrounvsheng', '温柔女声'),
-        AiTtsCatalogOption('jilingshaonv', '机灵少女'),
-        AiTtsCatalogOption('ruanmengnvsheng', '软萌女声'),
-        AiTtsCatalogOption('youyanvsheng', '优雅女声'),
-        AiTtsCatalogOption('lengyanyujie', '冷艳御姐'),
-        AiTtsCatalogOption('shuangkuaijiejie', '爽快姐姐'),
-        AiTtsCatalogOption('wenjingxuejie', '文静学姐'),
-        AiTtsCatalogOption('linjiameimei', '邻家妹妹'),
-        AiTtsCatalogOption('zhixingjiejie', '知性姐姐'),
-        AiTtsCatalogOption('shuangkuainansheng', '爽快男声'),
-        AiTtsCatalogOption('ganliannvsheng', '干练女声'),
-        AiTtsCatalogOption('qinhenvsheng', '亲和女声'),
-        AiTtsCatalogOption('huolinvsheng', '活力女声'),
-      ];
+  static const List<AiTtsCatalogOption>
+  _stepAudio25Voices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('cixingnansheng', '磁性男声', 'Magnetic Male Voice'),
+    AiTtsCatalogOption('vibrant-youth', '活力青年', 'Vibrant Young Voice'),
+    AiTtsCatalogOption('lively-girl', '活力女声', 'Lively Female Voice'),
+    AiTtsCatalogOption(
+      'soft-spoken-gentleman',
+      '温和绅士',
+      'Soft-Spoken Gentleman',
+    ),
+    AiTtsCatalogOption('magnetic-voiced-male', '磁性男声', 'Magnetic Male Voice'),
+    AiTtsCatalogOption('zixinnansheng', '自信男声', 'Confident Male Voice'),
+    AiTtsCatalogOption(
+      'elegantgentle-female',
+      '优雅温柔女声',
+      'Elegant Gentle Female Voice',
+    ),
+    AiTtsCatalogOption(
+      'livelybreezy-female',
+      '轻快活力女声',
+      'Breezy Lively Female Voice',
+    ),
+    AiTtsCatalogOption('wenrounansheng', '温柔男声', 'Gentle Male Voice'),
+    AiTtsCatalogOption('wenrougongzi', '温柔公子', 'Gentle Gentleman'),
+    AiTtsCatalogOption('yuanqinansheng', '元气男声', 'Energetic Male Voice'),
+    AiTtsCatalogOption('jingdiannvsheng', '经典女声', 'Classic Female Voice'),
+    AiTtsCatalogOption('wenroushunv', '温柔淑女', 'Gentle Lady'),
+    AiTtsCatalogOption('tianmeinvsheng', '甜美女声', 'Sweet Female Voice'),
+    AiTtsCatalogOption('qingchunshaonv', '青春少女', 'Youthful Girl Voice'),
+    AiTtsCatalogOption('yuanqishaonv', '元气少女', 'Energetic Girl Voice'),
+    AiTtsCatalogOption('linjiajiejie', '邻家姐姐', 'Girl-Next-Door Voice'),
+    AiTtsCatalogOption(
+      'zhengpaiqingnian',
+      '正派青年',
+      'Upstanding Young Male Voice',
+    ),
+    AiTtsCatalogOption('qingniandaxuesheng', '青年大学生', 'College Student Voice'),
+    AiTtsCatalogOption('boyinnansheng', '播音男声', 'Male Announcer Voice'),
+    AiTtsCatalogOption('ruyananshi', '儒雅男士', 'Refined Gentleman'),
+    AiTtsCatalogOption('shenchennanyin', '深沉男音', 'Deep Male Voice'),
+    AiTtsCatalogOption('qinqienvsheng', '亲切女声', 'Warm Female Voice'),
+    AiTtsCatalogOption('wenrounvsheng', '温柔女声', 'Gentle Female Voice'),
+    AiTtsCatalogOption('jilingshaonv', '机灵少女', 'Clever Girl Voice'),
+    AiTtsCatalogOption('ruanmengnvsheng', '软萌女声', 'Soft Cute Female Voice'),
+    AiTtsCatalogOption('youyanvsheng', '优雅女声', 'Elegant Female Voice'),
+    AiTtsCatalogOption('lengyanyujie', '冷艳御姐', 'Cool Mature Female Voice'),
+    AiTtsCatalogOption('shuangkuaijiejie', '爽快姐姐', 'Bright Female Voice'),
+    AiTtsCatalogOption('wenjingxuejie', '文静学姐', 'Quiet Senior Student Voice'),
+    AiTtsCatalogOption('linjiameimei', '邻家妹妹', 'Friendly Younger Female Voice'),
+    AiTtsCatalogOption('zhixingjiejie', '知性姐姐', 'Intellectual Female Voice'),
+    AiTtsCatalogOption('shuangkuainansheng', '爽快男声', 'Bright Male Voice'),
+    AiTtsCatalogOption('ganliannvsheng', '干练女声', 'Capable Female Voice'),
+    AiTtsCatalogOption('qinhenvsheng', '亲和女声', 'Approachable Female Voice'),
+    AiTtsCatalogOption('huolinvsheng', '活力女声', 'Energetic Female Voice'),
+  ];
 
   static const List<AiTtsCatalogOption> _stepTtsClassicVoices =
       <AiTtsCatalogOption>[
-        AiTtsCatalogOption('cixingnansheng', '磁性男声'),
-        AiTtsCatalogOption('chengshunvsheng', '成熟女声'),
-        AiTtsCatalogOption('zhengpainansheng', '正派男声'),
-        AiTtsCatalogOption('qingnianwenyinvsheng', '青年文艺女声'),
-        AiTtsCatalogOption('shuangkuainansheng', '爽快男声'),
-        AiTtsCatalogOption('wenrounvsheng', '温柔女声'),
-        AiTtsCatalogOption('jilingshaonv', '机灵少女'),
+        AiTtsCatalogOption('cixingnansheng', '磁性男声', 'Magnetic Male Voice'),
+        AiTtsCatalogOption('chengshunvsheng', '成熟女声', 'Mature Female Voice'),
+        AiTtsCatalogOption('zhengpainansheng', '正派男声', 'Upstanding Male Voice'),
+        AiTtsCatalogOption(
+          'qingnianwenyinvsheng',
+          '青年文艺女声',
+          'Young Artistic Female Voice',
+        ),
+        AiTtsCatalogOption('shuangkuainansheng', '爽快男声', 'Bright Male Voice'),
+        AiTtsCatalogOption('wenrounvsheng', '温柔女声', 'Gentle Female Voice'),
+        AiTtsCatalogOption('jilingshaonv', '机灵少女', 'Clever Girl Voice'),
       ];
 
   static const List<AiTtsCatalogOption> _stepTtsMiniVoices =
       <AiTtsCatalogOption>[
-        AiTtsCatalogOption('cixingnansheng', '磁性男声'),
-        AiTtsCatalogOption('zhengpainansheng', '正派男声'),
-        AiTtsCatalogOption('female-shaonv', '少女女声'),
-        AiTtsCatalogOption('male-qn-qingse', '青涩青年男声'),
+        AiTtsCatalogOption('cixingnansheng', '磁性男声', 'Magnetic Male Voice'),
+        AiTtsCatalogOption('zhengpainansheng', '正派男声', 'Upstanding Male Voice'),
+        AiTtsCatalogOption('female-shaonv', '少女女声', 'Young Female Voice'),
+        AiTtsCatalogOption('male-qn-qingse', '青涩青年男声', 'Young Male Voice'),
       ];
+
+  static const List<AiTtsCatalogOption> _qwenLegacyVoices =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('Cherry', '芊悦 - 阳光女声', 'Cherry - sunny female'),
+        AiTtsCatalogOption('Serena', '苏瑶 - 温柔女声', 'Serena - gentle female'),
+        AiTtsCatalogOption('Ethan', '晨煦 - 活力男声', 'Ethan - vibrant male'),
+        AiTtsCatalogOption('Chelsie', '千雪 - 二次元女声', 'Chelsie - anime female'),
+        AiTtsCatalogOption('Jada', '上海-阿珍', 'Shanghai - Jada'),
+        AiTtsCatalogOption('Dylan', '北京-晓东', 'Beijing - Dylan'),
+        AiTtsCatalogOption('Sunny', '四川-晴儿', 'Sichuan - Sunny'),
+      ];
+
+  static const List<AiTtsCatalogOption> _qwen3Voices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('Cherry', '芊悦 - 阳光女声', 'Cherry - sunny female'),
+    AiTtsCatalogOption('Serena', '苏瑶 - 温柔女声', 'Serena - gentle female'),
+    AiTtsCatalogOption('Ethan', '晨煦 - 活力男声', 'Ethan - vibrant male'),
+    AiTtsCatalogOption('Chelsie', '千雪 - 二次元女声', 'Chelsie - anime female'),
+    AiTtsCatalogOption('Momo', '茉兔 - 俏皮女声', 'Momo - playful female'),
+    AiTtsCatalogOption('Vivian', '十三 - 可爱女声', 'Vivian - cute female'),
+    AiTtsCatalogOption('Moon', '月白 - 率性男声', 'Moon - bold male'),
+    AiTtsCatalogOption(
+      'Maia',
+      '四月 - 知性女声',
+      'Maia - gentle intellectual female',
+    ),
+    AiTtsCatalogOption('Kai', '凯 - 舒缓男声', 'Kai - soothing male'),
+    AiTtsCatalogOption('Nofish', '不吃鱼 - 设计师男声', 'Nofish - designer male'),
+    AiTtsCatalogOption('Bella', '萌宝 - 活泼女声', 'Bella - bubbly female'),
+    AiTtsCatalogOption('Jennifer', '詹妮弗 - 美式女声', 'Jennifer - American female'),
+    AiTtsCatalogOption('Ryan', '甜茶 - 英语男声', 'Ryan - English male'),
+    AiTtsCatalogOption('Katerina', '卡捷琳娜 - 俄语女声', 'Katerina - Russian female'),
+    AiTtsCatalogOption('Aiden', '艾登 - 英语男声', 'Aiden - English male'),
+    AiTtsCatalogOption('Eldric Sage', '沧明子 - 仙侠男声', 'Eldric Sage'),
+    AiTtsCatalogOption('Mia', '乖小妹 - 甜美女声', 'Mia - sweet female'),
+    AiTtsCatalogOption('Mochi', '沙小弥 - 软萌女声', 'Mochi - soft cute female'),
+    AiTtsCatalogOption('Bellona', '燕铮莺 - 戏剧女声', 'Bellona - dramatic female'),
+    AiTtsCatalogOption('Vincent', '田叔 - 成熟男声', 'Vincent - mature male'),
+    AiTtsCatalogOption('Bunny', '萌小姬 - 萌系女声', 'Bunny - cute female'),
+    AiTtsCatalogOption('Neil', '阿闻 - 自然男声', 'Neil - natural male'),
+    AiTtsCatalogOption('Elias', '墨讲师 - 讲师男声', 'Elias - lecturer male'),
+    AiTtsCatalogOption('Arthur', '徐大爷 - 长者男声', 'Arthur - elderly male'),
+    AiTtsCatalogOption('Nini', '邻家妹妹 - 亲切女声', 'Nini - friendly female'),
+    AiTtsCatalogOption('Seren', '小婉 - 温婉女声', 'Seren - warm female'),
+    AiTtsCatalogOption('Pip', '顽屁小孩 - 童声', 'Pip - child voice'),
+    AiTtsCatalogOption('Stella', '少女阿月 - 少女声', 'Stella - young female'),
+    AiTtsCatalogOption('Bodega', '博德加 - 西语男声', 'Bodega - Spanish male'),
+    AiTtsCatalogOption('Sonrisa', '索尼莎 - 西语女声', 'Sonrisa - Spanish female'),
+    AiTtsCatalogOption('Alek', '阿列克 - 俄语男声', 'Alek - Russian male'),
+    AiTtsCatalogOption('Dolce', '多尔切 - 意语女声', 'Dolce - Italian female'),
+    AiTtsCatalogOption('Sohee', '素熙 - 韩语女声', 'Sohee - Korean female'),
+    AiTtsCatalogOption('Ono Anna', '小野杏 - 日语女声', 'Ono Anna - Japanese female'),
+    AiTtsCatalogOption('Lenn', '莱恩 - 德语男声', 'Lenn - German male'),
+    AiTtsCatalogOption('Emilien', '埃米尔安 - 法语男声', 'Emilien - French male'),
+    AiTtsCatalogOption('Andre', '安德雷 - 磁性男声', 'Andre - magnetic male'),
+    AiTtsCatalogOption(
+      'Radio Gol',
+      '拉迪奥·戈尔 - 解说男声',
+      'Radio Gol - commentator male',
+    ),
+    AiTtsCatalogOption('Jada', '上海-阿珍', 'Shanghai - Jada'),
+    AiTtsCatalogOption('Dylan', '北京-晓东', 'Beijing - Dylan'),
+    AiTtsCatalogOption('Li', '南京-老李', 'Nanjing - Li'),
+    AiTtsCatalogOption('Marcus', '陕西-秦川', 'Shaanxi - Marcus'),
+    AiTtsCatalogOption('Roy', '闽南-阿杰', 'Southern Min - Roy'),
+    AiTtsCatalogOption('Peter', '天津-李彼得', 'Tianjin - Peter'),
+    AiTtsCatalogOption('Sunny', '四川-晴儿', 'Sichuan - Sunny'),
+    AiTtsCatalogOption('Eric', '四川-程川', 'Sichuan - Eric'),
+    AiTtsCatalogOption('Rocky', '粤语-阿强', 'Cantonese - Rocky'),
+    AiTtsCatalogOption('Kiki', '粤语-阿清', 'Cantonese - Kiki'),
+  ];
+
+  static const List<AiTtsCatalogOption> _qwenCosyVoices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption(
+      'longxiaochun',
+      '龙小淳 - 中文女声',
+      'Longxiaochun - Chinese female',
+    ),
+    AiTtsCatalogOption(
+      'longxiaoxia',
+      '龙小夏 - 中文女声',
+      'Longxiaoxia - Chinese female',
+    ),
+    AiTtsCatalogOption(
+      'longxiaocheng',
+      '龙小诚 - 中文男声',
+      'Longxiaocheng - Chinese male',
+    ),
+    AiTtsCatalogOption(
+      'longxiaobai',
+      '龙小白 - 中文女声',
+      'Longxiaobai - Chinese female',
+    ),
+  ];
+
+  static const List<AiTtsCatalogOption> _minimaxVoices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('female-shaonv', '少女女声', 'Young Female Voice'),
+    AiTtsCatalogOption('male-qn-qingse', '青涩青年男声', 'Young Male Voice'),
+    AiTtsCatalogOption('male-qn-jingying', '精英青年男声', 'Elite Young Male Voice'),
+    AiTtsCatalogOption('male-qn-badao', '霸道青年男声', 'Assertive Young Male Voice'),
+    AiTtsCatalogOption('male-qn-daxuesheng', '青年大学生男声', 'College Male Voice'),
+    AiTtsCatalogOption('female-yujie', '御姐女声', 'Mature Female Voice'),
+    AiTtsCatalogOption('female-chengshu', '成熟女声', 'Mature Female Voice'),
+    AiTtsCatalogOption('female-tianmei', '甜美女声', 'Sweet Female Voice'),
+    AiTtsCatalogOption('presenter_male', '男性主持人', 'Male Presenter'),
+    AiTtsCatalogOption('presenter_female', '女性主持人', 'Female Presenter'),
+    AiTtsCatalogOption('audiobook_male_1', '有声书男声 1', 'Audiobook Male 1'),
+    AiTtsCatalogOption('audiobook_female_1', '有声书女声 1', 'Audiobook Female 1'),
+  ];
 
   static const List<AiTtsCatalogOption> _aiFormats = <AiTtsCatalogOption>[
     AiTtsCatalogOption('mp3', 'MP3'),
@@ -281,6 +522,13 @@ class AiTtsProviderCatalogs {
     AiTtsCatalogOption('aac', 'AAC'),
     AiTtsCatalogOption('flac', 'FLAC'),
     AiTtsCatalogOption('pcm', 'PCM'),
+  ];
+
+  static const List<AiTtsCatalogOption> _minimaxFormats = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('mp3', 'MP3'),
+    AiTtsCatalogOption('wav', 'WAV'),
+    AiTtsCatalogOption('pcm', 'PCM'),
+    AiTtsCatalogOption('flac', 'FLAC'),
   ];
 
   static const List<AiTtsCatalogOption> _stepFunFormats = <AiTtsCatalogOption>[
@@ -350,25 +598,57 @@ class AiTtsProviderCatalogs {
   ];
 
   static const List<AiTtsCatalogOption> _doubaoVoices = <AiTtsCatalogOption>[
-    AiTtsCatalogOption('zh_female_vv_uranus_bigtts', 'Vivi 2.0 - 女声'),
-    AiTtsCatalogOption('zh_female_wanwanxiaohe_moon_bigtts', '湾湾小何 - 女声'),
-    AiTtsCatalogOption('zh_male_beijingxiaoye_moon_bigtts', '北京小爷 - 男声'),
-    AiTtsCatalogOption('zh_female_shuangkuaisisi_moon_bigtts', '爽快思思 - 女声'),
-    AiTtsCatalogOption('zh_male_yangguangqingnian_moon_bigtts', '阳光青年 - 男声'),
-    AiTtsCatalogOption('zh_female_tianmeixiaoyuan_moon_bigtts', '甜美小源 - 女声'),
-    AiTtsCatalogOption('en_female_amanda_mars_bigtts', 'Amanda - English'),
-    AiTtsCatalogOption('en_male_jackson_mars_bigtts', 'Jackson - English'),
+    AiTtsCatalogOption(
+      'zh_female_vv_uranus_bigtts',
+      'Vivi 2.0 - 女声',
+      'Vivi 2.0 - female voice',
+    ),
+    AiTtsCatalogOption(
+      'zh_female_wanwanxiaohe_moon_bigtts',
+      '湾湾小何 - 女声',
+      'Wanwan Xiaohe - female voice',
+    ),
+    AiTtsCatalogOption(
+      'zh_male_beijingxiaoye_moon_bigtts',
+      '北京小爷 - 男声',
+      'Beijing Xiaoye - male voice',
+    ),
+    AiTtsCatalogOption(
+      'zh_female_shuangkuaisisi_moon_bigtts',
+      '爽快思思 - 女声',
+      'Bright Sisi - female voice',
+    ),
+    AiTtsCatalogOption(
+      'zh_male_yangguangqingnian_moon_bigtts',
+      '阳光青年 - 男声',
+      'Sunny Youth - male voice',
+    ),
+    AiTtsCatalogOption(
+      'zh_female_tianmeixiaoyuan_moon_bigtts',
+      '甜美小源 - 女声',
+      'Sweet Xiaoyuan - female voice',
+    ),
+    AiTtsCatalogOption(
+      'en_female_amanda_mars_bigtts',
+      'Amanda - 英语女声',
+      'Amanda - English female voice',
+    ),
+    AiTtsCatalogOption(
+      'en_male_jackson_mars_bigtts',
+      'Jackson - 英语男声',
+      'Jackson - English male voice',
+    ),
   ];
 
   static const List<AiTtsCatalogOption> _mimoVoices = <AiTtsCatalogOption>[
-    AiTtsCatalogOption('冰糖', '冰糖 - 中文女声'),
-    AiTtsCatalogOption('茉莉', '茉莉 - 中文女声'),
-    AiTtsCatalogOption('苏打', '苏打 - 中文男声'),
-    AiTtsCatalogOption('白桦', '白桦 - 中文男声'),
-    AiTtsCatalogOption('Mia', 'Mia - English Female'),
-    AiTtsCatalogOption('Chloe', 'Chloe - English Female'),
-    AiTtsCatalogOption('Milo', 'Milo - English Male'),
-    AiTtsCatalogOption('Dean', 'Dean - English Male'),
+    AiTtsCatalogOption('冰糖', '冰糖 - 中文女声', 'Bingtang - Chinese female'),
+    AiTtsCatalogOption('茉莉', '茉莉 - 中文女声', 'Moli - Chinese female'),
+    AiTtsCatalogOption('苏打', '苏打 - 中文男声', 'Soda - Chinese male'),
+    AiTtsCatalogOption('白桦', '白桦 - 中文男声', 'Baihua - Chinese male'),
+    AiTtsCatalogOption('Mia', 'Mia - 英语女声', 'Mia - English Female'),
+    AiTtsCatalogOption('Chloe', 'Chloe - 英语女声', 'Chloe - English Female'),
+    AiTtsCatalogOption('Milo', 'Milo - 英语男声', 'Milo - English Male'),
+    AiTtsCatalogOption('Dean', 'Dean - 英语男声', 'Dean - English Male'),
   ];
 
   static const List<AiTtsCatalogOption> _mimoLanguages = <AiTtsCatalogOption>[
@@ -487,6 +767,26 @@ class AiTtsProviderCatalogs {
           languageOptions: _commonLanguages,
         ),
       };
+
+  static List<AiTtsCatalogOption> _qwenVoiceOptionsForModel(String modelId) {
+    final normalized = modelId.trim().toLowerCase();
+    if (normalized.contains('cosyvoice')) return _qwenCosyVoices;
+    if (normalized.startsWith('qwen-tts') &&
+        !normalized.startsWith('qwen3-tts')) {
+      return _qwenLegacyVoices;
+    }
+    return _qwen3Voices;
+  }
+
+  static List<AiTtsCatalogOption> _mimoPresetVoiceOptionsForModel(
+    String modelId,
+  ) {
+    final normalized = modelId.trim().toLowerCase();
+    if (normalized.isNotEmpty && normalized != 'mimo-v2.5-tts') {
+      return const <AiTtsCatalogOption>[];
+    }
+    return _mimoVoices;
+  }
 
   static List<AiTtsCatalogOption> _uniqueOptions(
     List<AiTtsCatalogOption> options,

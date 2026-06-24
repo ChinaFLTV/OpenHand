@@ -175,10 +175,15 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
 /// currently active creation mode. Returns the updated options or null if the
 /// user dismissed without confirming.
 class _CreationOptionsSheet extends StatefulWidget {
-  const _CreationOptionsSheet({required this.mode, required this.initial});
+  const _CreationOptionsSheet({
+    required this.mode,
+    required this.initial,
+    this.selectedModel,
+  });
 
   final _CreationMode mode;
   final AiCreationOptions initial;
+  final AiModelConfig? selectedModel;
 
   @override
   State<_CreationOptionsSheet> createState() => _CreationOptionsSheetState();
@@ -191,7 +196,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   late int _count = widget.initial.count;
   late String? _quality = widget.initial.quality;
   late String? _style = widget.initial.style;
-  late String? _outputFormat = widget.initial.outputFormat;
+  late String? _outputFormat = _initialOutputFormat();
   late String? _background = widget.initial.background;
   late bool? _promptEnhance = widget.initial.promptEnhance;
   late bool? _watermark = widget.initial.watermark;
@@ -204,13 +209,14 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   late int? _bitrate = widget.initial.bitrate;
   late double? _volume = widget.initial.volume;
   late double? _pitch = widget.initial.pitch;
+  late bool _customVoiceInputVisible = _initialUsesCustomVoice();
   late final TextEditingController _negativePromptController =
       TextEditingController(text: widget.initial.negativePrompt ?? '');
   late final TextEditingController _seedController = TextEditingController(
     text: widget.initial.seed?.toString() ?? '',
   );
   late final TextEditingController _voiceController = TextEditingController(
-    text: widget.initial.voice ?? '',
+    text: _initialAudioVoice(),
   );
 
   // Mode-specific aspect ratio presets with matching pixel sizes. The 1024
@@ -264,6 +270,110 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     _seedController.dispose();
     _voiceController.dispose();
     super.dispose();
+  }
+
+  String? get _audioModelId {
+    final model = widget.selectedModel;
+    if (model == null) return null;
+    final routed = model
+        .resolveOperationModelId(AiApiFamily.audioSpeech)
+        .trim();
+    return routed.isNotEmpty ? routed : model.modelId.trim();
+  }
+
+  List<AiTtsCatalogOption> get _audioVoiceOptions {
+    final model = widget.selectedModel;
+    final modelId = _audioModelId;
+    if (model == null || modelId == null || modelId.isEmpty) {
+      return const <AiTtsCatalogOption>[];
+    }
+    return AiTtsProviderCatalogs.voiceOptionsForAiModel(
+      protocol: model.protocolType,
+      modelId: modelId,
+    );
+  }
+
+  List<AiTtsCatalogOption> get _audioFormatOptions {
+    final model = widget.selectedModel;
+    final modelId = _audioModelId;
+    if (model == null || modelId == null || modelId.isEmpty) {
+      return [
+        for (final format in _audioFormats) AiTtsCatalogOption(format, format),
+      ];
+    }
+    return AiTtsProviderCatalogs.formatOptionsForAiModel(
+      protocol: model.protocolType,
+      modelId: modelId,
+    );
+  }
+
+  List<String> get _audioFormatValues {
+    return _audioFormatOptions
+        .map((option) => option.value)
+        .where((value) => value.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  String _audioFormatLabel(String value) {
+    final normalized = value.trim();
+    for (final option in _audioFormatOptions) {
+      if (option.value == normalized) {
+        return option.labelForLocale(chinese: openHandIsChineseLocale(context));
+      }
+    }
+    return normalized;
+  }
+
+  String? _initialOutputFormat() {
+    final raw = widget.initial.outputFormat?.trim();
+    if (widget.mode != _CreationMode.audio || raw == null || raw.isEmpty) {
+      return raw;
+    }
+    final options = _audioFormatValues;
+    if (options.isEmpty || options.contains(raw)) return raw;
+    return null;
+  }
+
+  String _initialAudioVoice() {
+    final raw = widget.initial.voice?.trim() ?? '';
+    final model = widget.selectedModel;
+    final modelId = _audioModelId;
+    final options = _audioVoiceOptions;
+    if (model == null || modelId == null || modelId.isEmpty) return raw;
+    if (raw.isNotEmpty) {
+      if (_voiceInCatalog(raw, options)) return raw;
+      final closedCatalog =
+          AiTtsProviderCatalogs.usesStepFunSpeech(
+            protocol: model.protocolType,
+            modelId: modelId,
+          ) ||
+          AiTtsProviderCatalogs.usesQwenSpeech(
+            protocol: model.protocolType,
+            modelId: modelId,
+          );
+      if (!closedCatalog) return raw;
+    }
+    if (options.isEmpty) return raw;
+    final fallback = AiTtsProviderCatalogs.defaultVoiceForAiModel(
+      protocol: model.protocolType,
+      modelId: modelId,
+    );
+    if (_voiceInCatalog(fallback, options)) return fallback;
+    return options.first.value;
+  }
+
+  bool _initialUsesCustomVoice() {
+    final voice = _initialAudioVoice();
+    final options = _audioVoiceOptions;
+    return voice.isNotEmpty &&
+        options.isNotEmpty &&
+        !_voiceInCatalog(voice, options);
+  }
+
+  bool _voiceInCatalog(String voice, List<AiTtsCatalogOption> options) {
+    final normalized = voice.trim();
+    if (normalized.isEmpty) return false;
+    return options.any((option) => option.value == normalized);
   }
 
   @override
@@ -529,12 +639,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       const SizedBox(height: 16),
                     ],
                     if (isAudio) ...[
-                      _textInput(
-                        context,
-                        label: _localizedText(context, zh: '语音', en: 'Voice'),
-                        controller: _voiceController,
-                      ),
-                      const SizedBox(height: 12),
+                      _audioVoiceSection(context, sectionStyle),
                       _choiceSection<String>(
                         context: context,
                         title: _localizedText(
@@ -542,9 +647,9 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                           zh: '音频格式',
                           en: 'Audio format',
                         ),
-                        values: _audioFormats,
+                        values: _audioFormatValues,
                         selected: _outputFormat,
-                        labelFor: (value) => value,
+                        labelFor: _audioFormatLabel,
                         onSelected: (value) =>
                             setState(() => _outputFormat = value),
                         sectionStyle: sectionStyle,
@@ -699,6 +804,91 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     );
   }
 
+  Widget _audioVoiceSection(BuildContext context, TextStyle? sectionStyle) {
+    final options = _audioVoiceOptions;
+    if (options.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _textInput(
+          context,
+          label: _localizedText(context, zh: '音色 ID', en: 'Voice ID'),
+          controller: _voiceController,
+        ),
+      );
+    }
+
+    final currentVoice = _voiceController.text.trim();
+    final selectedKnown = _voiceInCatalog(currentVoice, options);
+    final customSelected = _customVoiceInputVisible && !selectedKnown;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionLabel(
+            context,
+            _localizedText(context, zh: '音色/发音人', en: 'Voice'),
+            sectionStyle,
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                ChoiceChip(
+                  label: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: Text(
+                      option.labelForLocale(
+                        chinese: openHandIsChineseLocale(context),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  selected: currentVoice == option.value,
+                  onSelected: (_) => _selectAudioVoice(option.value),
+                ),
+              ChoiceChip(
+                label: Text(
+                  _localizedText(context, zh: '自定义 ID', en: 'Custom ID'),
+                ),
+                selected: customSelected,
+                onSelected: (_) => _showCustomVoiceInput(selectedKnown),
+              ),
+            ],
+          ),
+          if (_customVoiceInputVisible) ...[
+            const SizedBox(height: 12),
+            _textInput(
+              context,
+              label: _localizedText(
+                context,
+                zh: '自定义音色 ID',
+                en: 'Custom voice ID',
+              ),
+              controller: _voiceController,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _selectAudioVoice(String voice) {
+    setState(() {
+      _customVoiceInputVisible = false;
+      _voiceController.text = voice;
+    });
+  }
+
+  void _showCustomVoiceInput(bool clearKnownVoice) {
+    setState(() {
+      _customVoiceInputVisible = true;
+      if (clearKnownVoice) _voiceController.clear();
+    });
+  }
+
   Widget _textInput(
     BuildContext context, {
     required String label,
@@ -803,7 +993,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     final isVideo = widget.mode == _CreationMode.video;
     final isAudio = widget.mode == _CreationMode.audio;
     final negativePrompt = _trimmedOrNull(_negativePromptController.text);
-    final voice = _trimmedOrNull(_voiceController.text);
+    final voice = _selectedAudioVoiceOrNull();
     return AiCreationOptions(
       size: isImage ? _size : null,
       aspectRatio: isAudio ? null : _aspectRatio,
@@ -829,6 +1019,23 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       bitrate: isAudio ? _bitrate : null,
       volume: isAudio ? _volume : null,
       pitch: isAudio ? _pitch : null,
+    );
+  }
+
+  String? _selectedAudioVoiceOrNull() {
+    if (widget.mode != _CreationMode.audio) return null;
+    final raw = _trimmedOrNull(_voiceController.text);
+    if (raw == null) return null;
+    final model = widget.selectedModel;
+    final modelId = _audioModelId;
+    if (model == null || modelId == null || modelId.isEmpty) return raw;
+    if (_customVoiceInputVisible && !_voiceInCatalog(raw, _audioVoiceOptions)) {
+      return raw;
+    }
+    return AiTtsProviderCatalogs.normalizeVoiceForAiModel(
+      voice: raw,
+      protocol: model.protocolType,
+      modelId: modelId,
     );
   }
 

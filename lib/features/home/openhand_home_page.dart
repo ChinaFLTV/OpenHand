@@ -5796,9 +5796,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (mode == _CreationMode.none || mode == _CreationMode.deepResearch) {
       return null;
     }
-    final menuAnimationSettings = context
-        .read<SettingsController>()
-        .menuAnimationSettings;
+    final settingsController = context.read<SettingsController>();
+    final sessionController = context.read<AiSessionController>();
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      sessionController.currentSession,
+    );
+    final menuAnimationSettings = settingsController.menuAnimationSettings;
     final colorScheme = Theme.of(context).colorScheme;
     return showAnimatedDialog<AiCreationOptions>(
       context: context,
@@ -5818,7 +5822,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 color: dialogColorScheme.surfaceContainerHigh,
                 surfaceTintColor: dialogColorScheme.surfaceTint,
                 borderRadius: BorderRadius.circular(28),
-                child: _CreationOptionsSheet(mode: mode, initial: initial),
+                child: _CreationOptionsSheet(
+                  mode: mode,
+                  initial: initial,
+                  selectedModel: selectedModel,
+                ),
               ),
             ),
           ),

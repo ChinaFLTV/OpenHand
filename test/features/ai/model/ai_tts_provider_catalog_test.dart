@@ -68,6 +68,8 @@ void main() {
       final values = voices.map((option) => option.value).toList();
 
       expect(values, contains('alloy'));
+      expect(values, contains('cedar'));
+      expect(values, contains('marin'));
       expect(values, isNot(contains('cixingnansheng')));
       expect(
         AiTtsProviderCatalogs.normalizeVoiceForAiModel(
@@ -85,6 +87,78 @@ void main() {
         ),
         'nova',
       );
+    });
+
+    test('uses Qwen voice catalogs by TTS model family', () {
+      final qwen3Voices = AiTtsProviderCatalogs.voiceOptionsForAiModel(
+        protocol: AiProtocolType.qwen,
+        modelId: 'qwen3-tts-flash',
+      );
+      final qwen3Values = qwen3Voices.map((option) => option.value).toList();
+
+      expect(qwen3Values, contains('Cherry'));
+      expect(qwen3Values, contains('Kiki'));
+      expect(qwen3Values, isNot(contains('alloy')));
+
+      final legacyVoices = AiTtsProviderCatalogs.voiceOptionsForAiModel(
+        protocol: AiProtocolType.qwen,
+        modelId: 'qwen-tts-latest',
+      );
+      final legacyValues = legacyVoices.map((option) => option.value).toList();
+
+      expect(legacyValues, contains('Cherry'));
+      expect(legacyValues, contains('Dylan'));
+      expect(legacyValues, isNot(contains('Kiki')));
+      expect(
+        AiTtsProviderCatalogs.normalizeVoiceForAiModel(
+          voice: 'alloy',
+          protocol: AiProtocolType.qwen,
+          modelId: 'qwen3-tts-flash',
+        ),
+        AiTtsProviderCatalogs.qwenDefaultVoice,
+      );
+    });
+
+    test('routes non OpenAI TTS providers to provider-specific voices', () {
+      final minimaxVoices = AiTtsProviderCatalogs.voiceOptionsForAiModel(
+        protocol: AiProtocolType.minimax,
+        modelId: 'speech-02-hd',
+      );
+      expect(
+        minimaxVoices.map((option) => option.value),
+        contains(AiTtsProviderCatalogs.minimaxDefaultVoice),
+      );
+      expect(
+        AiTtsProviderCatalogs.defaultVoiceForAiModel(
+          protocol: AiProtocolType.minimax,
+          modelId: 'speech-02-hd',
+        ),
+        AiTtsProviderCatalogs.minimaxDefaultVoice,
+      );
+
+      final seedVoices = AiTtsProviderCatalogs.voiceOptionsForAiModel(
+        protocol: AiProtocolType.seed,
+        modelId: 'seed-tts-2.0-standard',
+      );
+      expect(
+        seedVoices.map((option) => option.value),
+        contains(AiTtsProviderCatalogs.doubaoDefaultVoice),
+      );
+
+      final mimoPresetVoices = AiTtsProviderCatalogs.voiceOptionsForAiModel(
+        protocol: AiProtocolType.mimo,
+        modelId: 'mimo-v2.5-tts',
+      );
+      expect(
+        mimoPresetVoices.map((option) => option.value),
+        contains(AiTtsProviderCatalogs.mimoDefaultVoice),
+      );
+
+      final mimoCloneVoices = AiTtsProviderCatalogs.voiceOptionsForAiModel(
+        protocol: AiProtocolType.mimo,
+        modelId: 'mimo-v2.5-tts-voiceclone',
+      );
+      expect(mimoCloneVoices, isEmpty);
     });
   });
 }
