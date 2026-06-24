@@ -516,10 +516,22 @@ class _AiTranslationProviderDeck extends StatefulWidget {
 class _AiTranslationProviderDeckState
     extends State<_AiTranslationProviderDeck> {
   AiTranslationProvider? _draggingProvider;
+  int? _hoverInsertIndex;
+  final Map<AiTranslationProvider, GlobalKey> _providerKeys =
+      <AiTranslationProvider, GlobalKey>{};
+
+  @override
+  void didUpdateWidget(covariant _AiTranslationProviderDeck oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _providerKeys.removeWhere(
+      (provider, _) => !widget.settings.providerPriority.contains(provider),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final providers = widget.settings.providerPriority;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -539,125 +551,119 @@ class _AiTranslationProviderDeckState
           ),
         ),
         const SizedBox(height: 10),
-        Column(
-          children: [
-            for (
-              var index = 0;
-              index < widget.settings.providerPriority.length;
-              index++
-            )
-              _AiTranslationProviderDropTarget(
-                key: ValueKey<String>(
-                  'translation-provider-drop-${widget.settings.providerPriority[index].storageKey}',
-                ),
-                target: widget.settings.providerPriority[index],
-                onMove: _moveProvider,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == widget.settings.providerPriority.length - 1
-                        ? 0
-                        : 12,
+        DragTarget<AiTranslationProvider>(
+          onWillAcceptWithDetails: (details) =>
+              providers.contains(details.data),
+          onMove: (details) => _updateHoverInsertIndex(details),
+          onLeave: (_) => _clearHoverInsertIndex(),
+          onAcceptWithDetails: (details) => _acceptProviderDrop(details),
+          builder: (context, candidates, rejected) {
+            return Column(
+              children: [
+                for (var index = 0; index < providers.length; index++) ...[
+                  _AiProviderInsertionGuide(
+                    visible:
+                        _draggingProvider != null && _hoverInsertIndex == index,
                   ),
-                  child: _AiTranslationProviderCard(
-                    settings: widget.settings,
-                    provider: widget.settings.providerPriority[index],
-                    priorityIndex: index,
-                    dragging:
-                        _draggingProvider ==
-                        widget.settings.providerPriority[index],
-                    onDragStarted: () {
-                      if (!mounted) return;
-                      setState(
-                        () => _draggingProvider =
-                            widget.settings.providerPriority[index],
-                      );
-                    },
-                    onDragEnded: () {
-                      if (!mounted) return;
-                      if (_draggingProvider != null) {
-                        setState(() => _draggingProvider = null);
-                      }
-                    },
-                    onChanged: widget.onChanged,
-                    availableModels: widget.availableModels,
-                    recentModelSelections: widget.recentModelSelections,
+                  Padding(
+                    key: _keyForProvider(providers[index]),
+                    padding: EdgeInsets.only(
+                      bottom: index == providers.length - 1 ? 0 : 12,
+                    ),
+                    child: _AiTranslationProviderCard(
+                      settings: widget.settings,
+                      provider: providers[index],
+                      priorityIndex: index,
+                      dragging: _draggingProvider == providers[index],
+                      onDragStarted: () {
+                        if (!mounted) return;
+                        setState(() => _draggingProvider = providers[index]);
+                      },
+                      onDragEnded: (details) =>
+                          _completeProviderDrag(providers[index], details),
+                      onChanged: widget.onChanged,
+                      availableModels: widget.availableModels,
+                      recentModelSelections: widget.recentModelSelections,
+                    ),
                   ),
+                ],
+                _AiProviderInsertionGuide(
+                  visible:
+                      _draggingProvider != null &&
+                      _hoverInsertIndex == providers.length,
                 ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ],
     );
   }
 
-  void _moveProvider(
-    AiTranslationProvider source,
-    AiTranslationProvider target, {
-    required bool after,
-  }) {
-    final next = _settingsReorderedProviderPriority<AiTranslationProvider>(
+  GlobalKey _keyForProvider(AiTranslationProvider provider) {
+    return _providerKeys.putIfAbsent(provider, GlobalKey.new);
+  }
+
+  void _updateHoverInsertIndex(
+    DragTargetDetails<AiTranslationProvider> details,
+  ) {
+    final insertIndex = _settingsProviderPriorityInsertIndex(
       widget.settings.providerPriority,
-      source,
-      target,
-      after: after,
+      details.data,
+      details.offset,
+      _providerKeys,
+    );
+    if (_hoverInsertIndex == insertIndex) return;
+    setState(() => _hoverInsertIndex = insertIndex);
+  }
+
+  void _clearHoverInsertIndex() {
+    if (_hoverInsertIndex == null) return;
+    setState(() => _hoverInsertIndex = null);
+  }
+
+  void _acceptProviderDrop(DragTargetDetails<AiTranslationProvider> details) {
+    final insertIndex = _settingsProviderPriorityInsertIndex(
+      widget.settings.providerPriority,
+      details.data,
+      details.offset,
+      _providerKeys,
+    );
+    if (mounted && _hoverInsertIndex != null) {
+      setState(() => _hoverInsertIndex = null);
+    }
+    final next = _settingsReorderedProviderPriorityAt<AiTranslationProvider>(
+      widget.settings.providerPriority,
+      details.data,
+      insertIndex,
     );
     if (next == null) return;
     widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
-}
 
-class _AiTranslationProviderDropTarget extends StatefulWidget {
-  const _AiTranslationProviderDropTarget({
-    super.key,
-    required this.target,
-    required this.onMove,
-    required this.child,
-  });
-
-  final AiTranslationProvider target;
-  final void Function(
-    AiTranslationProvider source,
-    AiTranslationProvider target, {
-    required bool after,
-  })
-  onMove;
-  final Widget child;
-
-  @override
-  State<_AiTranslationProviderDropTarget> createState() =>
-      _AiTranslationProviderDropTargetState();
-}
-
-class _AiTranslationProviderDropTargetState
-    extends State<_AiTranslationProviderDropTarget> {
-  final GlobalKey _targetKey = GlobalKey();
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<AiTranslationProvider>(
-      onWillAcceptWithDetails: (details) => details.data != widget.target,
-      onAcceptWithDetails: (details) {
-        final box = _targetKey.currentContext?.findRenderObject() as RenderBox?;
-        final localOffset = box?.globalToLocal(details.offset);
-        final after =
-            box != null &&
-            localOffset != null &&
-            localOffset.dy > box.size.height / 2;
-        widget.onMove(details.data, widget.target, after: after);
-      },
-      builder: (context, candidates, rejected) {
-        final hovered = candidates.isNotEmpty;
-        return AnimatedScale(
-          key: _targetKey,
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : _aiTtsDragHoverDuration,
-          curve: Curves.easeOutCubic,
-          scale: hovered ? 1.006 : 1,
-          child: widget.child,
-        );
-      },
-    );
+  void _completeProviderDrag(
+    AiTranslationProvider provider,
+    DraggableDetails details,
+  ) {
+    if (!mounted) return;
+    final next = details.wasAccepted
+        ? null
+        : _settingsReorderedProviderPriorityAt<AiTranslationProvider>(
+            widget.settings.providerPriority,
+            provider,
+            _settingsProviderPriorityInsertIndex(
+              widget.settings.providerPriority,
+              provider,
+              details.offset,
+              _providerKeys,
+            ),
+          );
+    setState(() {
+      _draggingProvider = null;
+      _hoverInsertIndex = null;
+    });
+    if (next == null) return;
+    widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
 }
 
@@ -679,7 +685,7 @@ class _AiTranslationProviderCard extends StatefulWidget {
   final int priorityIndex;
   final bool dragging;
   final VoidCallback onDragStarted;
-  final VoidCallback onDragEnded;
+  final void Function(DraggableDetails details) onDragEnded;
   final Future<bool> Function(AiTranslationSettings settings) onChanged;
   final List<AiModelConfig> availableModels;
   final List<RecentModelSelection> recentModelSelections;
@@ -1179,7 +1185,7 @@ class _AiTranslationDragHandle extends StatefulWidget {
   final bool enabled;
   final double feedbackWidth;
   final VoidCallback onDragStarted;
-  final VoidCallback onDragEnded;
+  final void Function(DraggableDetails details) onDragEnded;
 
   @override
   State<_AiTranslationDragHandle> createState() =>
@@ -1198,8 +1204,7 @@ class _AiTranslationDragHandleState extends State<_AiTranslationDragHandle> {
       maxSimultaneousDrags: 1,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       onDragStarted: _startDrag,
-      onDragEnd: (_) => _finishDrag(),
-      onDraggableCanceled: (_, _) => _finishDrag(),
+      onDragEnd: _finishDrag,
       feedback: Directionality(
         textDirection: Directionality.of(context),
         child: Theme(
@@ -1231,14 +1236,14 @@ class _AiTranslationDragHandleState extends State<_AiTranslationDragHandle> {
     widget.onDragStarted();
   }
 
-  void _finishDrag() {
+  void _finishDrag(DraggableDetails details) {
     if (!_dragging) return;
     if (mounted) {
       setState(() => _dragging = false);
     } else {
       _dragging = false;
     }
-    widget.onDragEnded();
+    widget.onDragEnded(details);
   }
 }
 
@@ -1327,10 +1332,22 @@ class _AiTtsProviderDeck extends StatefulWidget {
 
 class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
   AiTtsProvider? _draggingProvider;
+  int? _hoverInsertIndex;
+  final Map<AiTtsProvider, GlobalKey> _providerKeys =
+      <AiTtsProvider, GlobalKey>{};
+
+  @override
+  void didUpdateWidget(covariant _AiTtsProviderDeck oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _providerKeys.removeWhere(
+      (provider, _) => !widget.settings.providerPriority.contains(provider),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final providers = widget.settings.providerPriority;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1350,125 +1367,115 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
           ),
         ),
         const SizedBox(height: 10),
-        Column(
-          children: [
-            for (
-              var index = 0;
-              index < widget.settings.providerPriority.length;
-              index++
-            )
-              _AiTtsProviderDropTarget(
-                key: ValueKey<String>(
-                  'tts-provider-drop-${widget.settings.providerPriority[index].storageKey}',
-                ),
-                target: widget.settings.providerPriority[index],
-                onMove: _moveProvider,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == widget.settings.providerPriority.length - 1
-                        ? 0
-                        : 12,
+        DragTarget<AiTtsProvider>(
+          onWillAcceptWithDetails: (details) =>
+              providers.contains(details.data),
+          onMove: (details) => _updateHoverInsertIndex(details),
+          onLeave: (_) => _clearHoverInsertIndex(),
+          onAcceptWithDetails: (details) => _acceptProviderDrop(details),
+          builder: (context, candidates, rejected) {
+            return Column(
+              children: [
+                for (var index = 0; index < providers.length; index++) ...[
+                  _AiProviderInsertionGuide(
+                    visible:
+                        _draggingProvider != null && _hoverInsertIndex == index,
                   ),
-                  child: _AiTtsProviderCard(
-                    settings: widget.settings,
-                    provider: widget.settings.providerPriority[index],
-                    priorityIndex: index,
-                    dragging:
-                        _draggingProvider ==
-                        widget.settings.providerPriority[index],
-                    onDragStarted: () {
-                      if (!mounted) return;
-                      setState(
-                        () => _draggingProvider =
-                            widget.settings.providerPriority[index],
-                      );
-                    },
-                    onDragEnded: () {
-                      if (!mounted) return;
-                      if (_draggingProvider != null) {
-                        setState(() => _draggingProvider = null);
-                      }
-                    },
-                    onChanged: widget.onChanged,
-                    playbackService: widget.playbackService,
-                    availableModels: widget.availableModels,
-                    recentModelSelections: widget.recentModelSelections,
+                  Padding(
+                    key: _keyForProvider(providers[index]),
+                    padding: EdgeInsets.only(
+                      bottom: index == providers.length - 1 ? 0 : 12,
+                    ),
+                    child: _AiTtsProviderCard(
+                      settings: widget.settings,
+                      provider: providers[index],
+                      priorityIndex: index,
+                      dragging: _draggingProvider == providers[index],
+                      onDragStarted: () {
+                        if (!mounted) return;
+                        setState(() => _draggingProvider = providers[index]);
+                      },
+                      onDragEnded: (details) =>
+                          _completeProviderDrag(providers[index], details),
+                      onChanged: widget.onChanged,
+                      playbackService: widget.playbackService,
+                      availableModels: widget.availableModels,
+                      recentModelSelections: widget.recentModelSelections,
+                    ),
                   ),
+                ],
+                _AiProviderInsertionGuide(
+                  visible:
+                      _draggingProvider != null &&
+                      _hoverInsertIndex == providers.length,
                 ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ],
     );
   }
 
-  void _moveProvider(
-    AiTtsProvider source,
-    AiTtsProvider target, {
-    required bool after,
-  }) {
-    final next = _settingsReorderedProviderPriority<AiTtsProvider>(
+  GlobalKey _keyForProvider(AiTtsProvider provider) {
+    return _providerKeys.putIfAbsent(provider, GlobalKey.new);
+  }
+
+  void _updateHoverInsertIndex(DragTargetDetails<AiTtsProvider> details) {
+    final insertIndex = _settingsProviderPriorityInsertIndex(
       widget.settings.providerPriority,
-      source,
-      target,
-      after: after,
+      details.data,
+      details.offset,
+      _providerKeys,
+    );
+    if (_hoverInsertIndex == insertIndex) return;
+    setState(() => _hoverInsertIndex = insertIndex);
+  }
+
+  void _clearHoverInsertIndex() {
+    if (_hoverInsertIndex == null) return;
+    setState(() => _hoverInsertIndex = null);
+  }
+
+  void _acceptProviderDrop(DragTargetDetails<AiTtsProvider> details) {
+    final insertIndex = _settingsProviderPriorityInsertIndex(
+      widget.settings.providerPriority,
+      details.data,
+      details.offset,
+      _providerKeys,
+    );
+    if (mounted && _hoverInsertIndex != null) {
+      setState(() => _hoverInsertIndex = null);
+    }
+    final next = _settingsReorderedProviderPriorityAt<AiTtsProvider>(
+      widget.settings.providerPriority,
+      details.data,
+      insertIndex,
     );
     if (next == null) return;
     widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
-}
 
-class _AiTtsProviderDropTarget extends StatefulWidget {
-  const _AiTtsProviderDropTarget({
-    super.key,
-    required this.target,
-    required this.onMove,
-    required this.child,
-  });
-
-  final AiTtsProvider target;
-  final void Function(
-    AiTtsProvider source,
-    AiTtsProvider target, {
-    required bool after,
-  })
-  onMove;
-  final Widget child;
-
-  @override
-  State<_AiTtsProviderDropTarget> createState() =>
-      _AiTtsProviderDropTargetState();
-}
-
-class _AiTtsProviderDropTargetState extends State<_AiTtsProviderDropTarget> {
-  final GlobalKey _targetKey = GlobalKey();
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<AiTtsProvider>(
-      onWillAcceptWithDetails: (details) => details.data != widget.target,
-      onAcceptWithDetails: (details) {
-        final box = _targetKey.currentContext?.findRenderObject() as RenderBox?;
-        final localOffset = box?.globalToLocal(details.offset);
-        final after =
-            box != null &&
-            localOffset != null &&
-            localOffset.dy > box.size.height / 2;
-        widget.onMove(details.data, widget.target, after: after);
-      },
-      builder: (context, candidates, rejected) {
-        final hovered = candidates.isNotEmpty;
-        return AnimatedScale(
-          key: _targetKey,
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : _aiTtsDragHoverDuration,
-          curve: Curves.easeOutCubic,
-          scale: hovered ? 1.006 : 1,
-          child: widget.child,
-        );
-      },
-    );
+  void _completeProviderDrag(AiTtsProvider provider, DraggableDetails details) {
+    if (!mounted) return;
+    final next = details.wasAccepted
+        ? null
+        : _settingsReorderedProviderPriorityAt<AiTtsProvider>(
+            widget.settings.providerPriority,
+            provider,
+            _settingsProviderPriorityInsertIndex(
+              widget.settings.providerPriority,
+              provider,
+              details.offset,
+              _providerKeys,
+            ),
+          );
+    setState(() {
+      _draggingProvider = null;
+      _hoverInsertIndex = null;
+    });
+    if (next == null) return;
+    widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
 }
 
@@ -1491,7 +1498,7 @@ class _AiTtsProviderCard extends StatefulWidget {
   final int priorityIndex;
   final bool dragging;
   final VoidCallback onDragStarted;
-  final VoidCallback onDragEnded;
+  final void Function(DraggableDetails details) onDragEnded;
   final Future<bool> Function(AiTtsSettings settings) onChanged;
   final AiTtsPlaybackService playbackService;
   final List<AiModelConfig> availableModels;
@@ -2190,7 +2197,7 @@ class _AiTtsDragHandle extends StatefulWidget {
   final bool enabled;
   final double feedbackWidth;
   final VoidCallback onDragStarted;
-  final VoidCallback onDragEnded;
+  final void Function(DraggableDetails details) onDragEnded;
 
   @override
   State<_AiTtsDragHandle> createState() => _AiTtsDragHandleState();
@@ -2208,8 +2215,7 @@ class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
       maxSimultaneousDrags: 1,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       onDragStarted: _startDrag,
-      onDragEnd: (_) => _finishDrag(),
-      onDraggableCanceled: (_, _) => _finishDrag(),
+      onDragEnd: _finishDrag,
       feedback: Directionality(
         textDirection: Directionality.of(context),
         child: Theme(
@@ -2241,14 +2247,14 @@ class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
     widget.onDragStarted();
   }
 
-  void _finishDrag() {
+  void _finishDrag(DraggableDetails details) {
     if (!_dragging) return;
     if (mounted) {
       setState(() => _dragging = false);
     } else {
       _dragging = false;
     }
-    widget.onDragEnded();
+    widget.onDragEnded(details);
   }
 }
 
@@ -2352,6 +2358,54 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
                 if (row != 2) const SizedBox(height: 8),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiProviderInsertionGuide extends StatelessWidget {
+  const _AiProviderInsertionGuide({required this.visible});
+
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.primary.withValues(alpha: 0.82);
+    return ClipRect(
+      child: AnimatedSize(
+        duration: reduceMotion ? Duration.zero : _aiTtsDragHoverDuration,
+        reverseDuration: reduceMotion
+            ? Duration.zero
+            : _aiTtsDragOpacityDuration,
+        curve: Curves.easeOutBack,
+        child: AnimatedOpacity(
+          duration: reduceMotion ? Duration.zero : _aiTtsDragOpacityDuration,
+          opacity: visible ? 1 : 0,
+          child: SizedBox(
+            height: visible ? 12 : 0,
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: 0.94,
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: color,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.28),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -3366,31 +3420,49 @@ bool _settingsJsonEquals(Object? left, Object? right) {
   return jsonEncode(left) == jsonEncode(right);
 }
 
-List<T>? _settingsReorderedProviderPriority<T>(
+List<T>? _settingsReorderedProviderPriorityAt<T>(
   List<T> priority,
   T source,
-  T target, {
-  required bool after,
-}) {
-  if (source == target) return null;
+  int insertIndex,
+) {
   final oldIndex = priority.indexOf(source);
-  final targetIndexBeforeRemoval = priority.indexOf(target);
-  if (oldIndex < 0 || targetIndexBeforeRemoval < 0) return null;
-
-  var insertAfter = after;
-  if (oldIndex == targetIndexBeforeRemoval + 1 && insertAfter) {
-    insertAfter = false;
-  } else if (oldIndex + 1 == targetIndexBeforeRemoval && !insertAfter) {
-    insertAfter = true;
-  }
+  if (oldIndex < 0) return null;
 
   final next = List<T>.from(priority);
   final item = next.removeAt(oldIndex);
-  var targetIndex = next.indexOf(target);
-  if (targetIndex < 0) return null;
-  if (insertAfter) targetIndex += 1;
-  next.insert(targetIndex.clamp(0, next.length), item);
+  final adjustedIndex = oldIndex < insertIndex ? insertIndex - 1 : insertIndex;
+  next.insert(adjustedIndex.clamp(0, next.length), item);
   return listEquals(next, priority) ? null : next;
+}
+
+int _settingsProviderPriorityInsertIndex<T>(
+  List<T> priority,
+  T source,
+  Offset globalOffset,
+  Map<T, GlobalKey> itemKeys,
+) {
+  final sourceIndex = priority.indexOf(source);
+  if (sourceIndex < 0) return priority.length;
+
+  for (var index = 0; index < priority.length; index++) {
+    final key = itemKeys[priority[index]];
+    final box = key?.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || box.size.isEmpty) continue;
+
+    final topLeft = box.localToGlobal(Offset.zero);
+    final top = topLeft.dy;
+    final bottom = top + box.size.height;
+    if (globalOffset.dy < top) return index;
+    if (globalOffset.dy > bottom) continue;
+
+    if (index == sourceIndex) {
+      final center = top + box.size.height / 2;
+      return globalOffset.dy < center ? index : index + 1;
+    }
+    return sourceIndex > index ? index : index + 1;
+  }
+
+  return priority.length;
 }
 
 List<AiModelConfig> _ttsAudioGenerationModels(List<AiModelConfig> models) {
