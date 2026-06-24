@@ -1,100 +1,40 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/ui/native_audio_preview.dart';
 
 void main() {
-  group('native audio seek guards', () {
-    test(
-      'keeps optimistic seek position when platform echoes the beginning',
-      () {
-        final requestedAt = DateTime(2026, 6, 24, 12);
-        final ignore = shouldIgnoreNativeAudioSeekEcho(
-          candidate: Duration.zero,
-          target: const Duration(seconds: 40),
-          hasActiveSeekEchoGuard: true,
-          requestedAt: requestedAt,
-          isPlaying: true,
-          now: requestedAt.add(const Duration(milliseconds: 600)),
-        );
-
-        expect(ignore, isTrue);
-      },
-    );
-
-    test(
-      'accepts reported progress once playback advances near the seek target',
-      () {
-        final requestedAt = DateTime(2026, 6, 24, 12);
-        final close = isNativeAudioSeekCandidateCloseToTarget(
-          candidate: const Duration(seconds: 42),
-          target: const Duration(seconds: 40),
-          requestedAt: requestedAt,
-          isPlaying: true,
-          now: requestedAt.add(const Duration(seconds: 1)),
-        );
-
-        expect(close, isTrue);
-      },
-    );
-
-    test('ignores non-user large rewinds after seek repair guard expires', () {
-      final ignore = shouldIgnoreNativeAudioUnexpectedRewind(
-        candidate: const Duration(seconds: 12),
-        displayedPosition: const Duration(seconds: 45),
-        sourceReady: true,
-        playerCompleted: false,
-      );
-
-      expect(ignore, isTrue);
-    });
-
-    test('allows legitimate early progress and completed reset states', () {
+  group('native audio playback backend selection', () {
+    test('uses just_audio on Apple app targets', () {
       expect(
-        shouldIgnoreNativeAudioUnexpectedRewind(
-          candidate: const Duration(seconds: 1),
-          displayedPosition: const Duration(seconds: 3),
-          sourceReady: true,
-          playerCompleted: false,
+        selectNativeAudioPlaybackBackend(
+          isWeb: false,
+          targetPlatform: TargetPlatform.macOS,
         ),
-        isFalse,
+        NativeAudioPlaybackBackendKind.justAudio,
       );
       expect(
-        shouldIgnoreNativeAudioUnexpectedRewind(
-          candidate: Duration.zero,
-          displayedPosition: const Duration(minutes: 2),
-          sourceReady: true,
-          playerCompleted: true,
+        selectNativeAudioPlaybackBackend(
+          isWeb: false,
+          targetPlatform: TargetPlatform.iOS,
         ),
-        isFalse,
+        NativeAudioPlaybackBackendKind.justAudio,
       );
     });
 
-    test('stops deferring rewind after repair budget is exhausted', () {
+    test('keeps audioplayers for web and non-Apple desktop targets', () {
       expect(
-        canAttemptNativeAudioUnexpectedRewindRepair(
-          target: const Duration(seconds: 48),
-          repairAttempts: 1,
-          maxRepairAttempts: 2,
-          rewindTolerance: const Duration(seconds: 4),
+        selectNativeAudioPlaybackBackend(
+          isWeb: true,
+          targetPlatform: TargetPlatform.macOS,
         ),
-        isTrue,
+        NativeAudioPlaybackBackendKind.audioplayers,
       );
       expect(
-        canAttemptNativeAudioUnexpectedRewindRepair(
-          target: const Duration(seconds: 48),
-          repairAttempts: 2,
-          maxRepairAttempts: 2,
-          rewindTolerance: const Duration(seconds: 4),
+        selectNativeAudioPlaybackBackend(
+          isWeb: false,
+          targetPlatform: TargetPlatform.windows,
         ),
-        isFalse,
-      );
-      expect(
-        canAttemptNativeAudioUnexpectedRewindRepair(
-          target: const Duration(seconds: 3),
-          repairAttempts: 0,
-          maxRepairAttempts: 2,
-          rewindTolerance: const Duration(seconds: 4),
-        ),
-        isFalse,
+        NativeAudioPlaybackBackendKind.audioplayers,
       );
     });
   });
