@@ -216,6 +216,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   DateTime? _seekRequestedAt;
   int _unexpectedRewindRepairAttempts = 0;
   DateTime? _lastUnexpectedRewindRepairAt;
+  bool _playbackResetRepairInFlight = false;
 
   bool get _isPlaying => _playerState == PlayerState.playing;
   bool get _canScrub => _sourceReady && _duration > Duration.zero;
@@ -239,6 +240,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _player.onPlayerStateChanged.listen((state) {
           if (!mounted) return;
           if (state == PlayerState.completed && !_shouldAcceptCompleteEvent()) {
+            unawaited(_repairUnexpectedPlaybackReset());
             return;
           }
           setState(() => _playerState = state);
@@ -264,7 +266,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       ..add(
         _player.onPlayerComplete.listen((_) {
           if (!mounted) return;
-          if (!_shouldAcceptCompleteEvent()) return;
+          if (!_shouldAcceptCompleteEvent()) {
+            unawaited(_repairUnexpectedPlaybackReset());
+            return;
+          }
           unawaited(_handleComplete());
         }),
       );
@@ -594,6 +599,41 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     }
   }
 
+  Future<void> _repairUnexpectedPlaybackReset() async {
+    if (_playbackResetRepairInFlight ||
+        _seeking ||
+        !_sourceReady ||
+        !_isPlaying) {
+      return;
+    }
+    final target = _clampDuration(_seekEchoTarget ?? _position, _duration);
+    if (target <= _kNativeAudioUnexpectedRewindTolerance) return;
+    _playbackResetRepairInFlight = true;
+    final repairSerial = _seekSerial;
+    _markSeekEchoGuard(target);
+    try {
+      await _player.seek(target).timeout(kNativeAudioControlTimeout);
+      if (!_isCurrentSeekOrPlayback(repairSerial: repairSerial)) return;
+      await _applyEffectToPlayer();
+      await _player.resume().timeout(kNativeAudioControlTimeout);
+      if (!_isCurrentSeekOrPlayback(repairSerial: repairSerial)) return;
+      setState(() {
+        _position = _clampDuration(target, _duration);
+        _playerState = PlayerState.playing;
+      });
+      _restartProgressPolling();
+    } catch (error, stack) {
+      silentLog(
+        'native_audio_preview',
+        'repair unexpected playback reset failed',
+        error,
+        stack,
+      );
+    } finally {
+      _playbackResetRepairInFlight = false;
+    }
+  }
+
   bool _isCurrentSeekOrPlayback({required int repairSerial}) {
     return !_disposed && mounted && repairSerial == _seekSerial;
   }
@@ -736,6 +776,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     if (!_sourceReady) return;
     final seekSerial = ++_seekSerial;
     var seekCommandCompleted = false;
+    final shouldResumeAfterSeek = _isPlaying;
     final upperBound = _duration > Duration.zero
         ? _duration
         : Duration(
@@ -755,11 +796,16 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     });
     try {
       await _player.seek(clamped).timeout(kNativeAudioControlTimeout);
+      if (shouldResumeAfterSeek && _isCurrentSeek(seekSerial)) {
+        await _applyEffectToPlayer();
+        await _player.resume().timeout(kNativeAudioControlTimeout);
+      }
       seekCommandCompleted = true;
       if (_isCurrentSeek(seekSerial)) {
         setState(() {
           _seeking = false;
           _position = _clampDuration(clamped, _duration);
+          if (shouldResumeAfterSeek) _playerState = PlayerState.playing;
         });
         _restartProgressPolling();
         unawaited(_settleSeekPosition(seekSerial, clamped));
@@ -822,6 +868,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     _markSeekEchoGuard(target);
     try {
       await _player.seek(target).timeout(kNativeAudioControlTimeout);
+      if (_isPlaying && _isCurrentSeek(seekSerial)) {
+        await _player.resume().timeout(kNativeAudioControlTimeout);
+      }
       if (_isCurrentSeek(seekSerial)) {
         setState(() => _position = _clampDuration(target, _duration));
       }
