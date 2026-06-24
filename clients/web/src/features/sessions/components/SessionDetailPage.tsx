@@ -3950,9 +3950,9 @@ export function SessionDetailPage() {
                 ) : (
                   <>
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
-                    <ul class="flex flex-col gap-3">
+                    <ul class="oh-session-message-list flex flex-col gap-3">
                       {visibleSortedMessages.map((m) => (
-                        <li key={m.id}>
+                        <li key={m.id} class="oh-session-message-row">
                           <MessageCard message={m} active={activeMessageId === m.id} streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)} turnActive={stableResponseRunning} sessionId={sessionId} onActiveChange={handleMessageActiveChange} onCopy={handleCopyMessage} onDelete={handleDeleteMessage} onDeleteAfter={handleDeleteMessageCascade} onEdit={m.role === 'user' ? handleEditMessage : undefined} onAudit={handleAuditMessage} onFork={handleForkMessage} />
                         </li>
                       ))}

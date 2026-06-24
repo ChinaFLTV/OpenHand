@@ -457,6 +457,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     maxPerFrame: _transcriptWarmupMaxPerFrame,
   );
   int _warmupGeneration = 0;
+  final Set<int> _warmupSignatures = <int>{};
+  final Queue<int> _warmupSignatureOrder = Queue<int>();
 
   @override
   void initState() {
@@ -519,6 +521,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _materializationGeneration += 1;
       _warmupGeneration += 1;
       _warmupScheduler.clear();
+      _clearWarmupSignatures();
       _resetSessionScopedState();
       _historyRevealCacheBoost = false;
       _messageActionPanelMotionKey += 1;
@@ -840,11 +843,43 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       staged.length,
       math.max(_transcriptInitialWindowSize, _transcriptWindowIncrement),
     );
-    final startIndex = math.max(0, staged.length - warmCount);
-    final warmMessages = staged.sublist(startIndex);
+    final warmMessages = <AiSessionMessage>[];
+    var warmCharacters = 0;
+    var htmlWarmups = 0;
+    for (
+      var index = staged.length - 1;
+      index >= 0 && warmMessages.length < warmCount;
+      index -= 1
+    ) {
+      final message = staged[index];
+      final usesHtml = _messageUsesHtmlRenderer(message, settings);
+      if (usesHtml && htmlWarmups >= _transcriptHtmlWarmupMaxPerPass) {
+        continue;
+      }
+      if (warmMessages.isNotEmpty &&
+          warmCharacters >= _transcriptWarmupCharacterBudget) {
+        break;
+      }
+      final signature = _warmupSignatureFor(message, settings);
+      if (!_rememberWarmupSignature(signature)) {
+        continue;
+      }
+      warmMessages.add(message);
+      warmCharacters += math.min(
+        math.max(1, message.content.length),
+        _transcriptWarmupCharacterBudget,
+      );
+      if (usesHtml) {
+        htmlWarmups += 1;
+      }
+    }
+    if (warmMessages.isEmpty) {
+      return;
+    }
+    final orderedWarmMessages = warmMessages.reversed.toList(growable: false);
     final generation = ++_warmupGeneration;
     _warmupScheduler.clear();
-    for (final message in warmMessages) {
+    for (final message in orderedWarmMessages) {
       _warmupScheduler.schedule(() {
         if (!mounted ||
             generation != _warmupGeneration ||
@@ -859,6 +894,39 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
       });
     }
+  }
+
+  int _warmupSignatureFor(
+    AiSessionMessage message,
+    SettingsController settings,
+  ) {
+    return Object.hash(
+      message.id,
+      message.kind,
+      message.content.length,
+      message.content.hashCode,
+      _messageContentFormat(message, settings),
+      settings.aiHtmlRenderFallback,
+    );
+  }
+
+  bool _rememberWarmupSignature(int signature) {
+    if (_warmupSignatures.contains(signature)) {
+      return false;
+    }
+    _warmupSignatures.add(signature);
+    _warmupSignatureOrder.add(signature);
+    while (_warmupSignatureOrder.length >
+        _transcriptWarmupSignatureCacheLimit) {
+      final oldest = _warmupSignatureOrder.removeFirst();
+      _warmupSignatures.remove(oldest);
+    }
+    return true;
+  }
+
+  void _clearWarmupSignatures() {
+    _warmupSignatures.clear();
+    _warmupSignatureOrder.clear();
   }
 
   void _warmRichRenderForMessage({

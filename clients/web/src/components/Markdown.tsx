@@ -114,6 +114,12 @@ const INLINE_DIFF_HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+
 const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
 const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
 const HTML_SANITIZE_CACHE_LIMIT = 256;
+const HTML_RENDER_READY_CACHE_LIMIT = 512;
+const HTML_DEFERRED_RENDER_ROOT_MARGIN = '720px 0px';
+const HTML_PLACEHOLDER_MIN_HEIGHT_PX = 96;
+const HTML_PLACEHOLDER_MAX_HEIGHT_PX = 520;
+const HTML_PLACEHOLDER_CHARS_PER_LINE = 90;
+const HTML_PLACEHOLDER_LINE_HEIGHT_PX = 24;
 
 function fnv1aHash(value: string): string {
   let hash = 0x811c9dc5;
@@ -140,6 +146,7 @@ function rememberLru<K, V>(cache: Map<K, V>, key: K, value: V, limit: number): v
 
 const markdownParseReadyCache = new Map<string, true>();
 const htmlSanitizeCache = new Map<string, string>();
+const htmlRenderReadyCache = new Map<string, true>();
 
 class MarkdownFrameScheduler {
   private pending: Array<() => void> = [];
@@ -191,6 +198,7 @@ class MarkdownFrameScheduler {
   }
 }
 const markdownFrameScheduler = new MarkdownFrameScheduler();
+const htmlFrameScheduler = new MarkdownFrameScheduler();
 
 export function isLocalMediaReference(raw: unknown): boolean {
   if (typeof raw !== 'string') return false;
@@ -500,6 +508,100 @@ const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono
       class="oh-html-body text-sm"
       style={{ fontFamily }}
     />
+  );
+});
+
+function estimateHtmlPlaceholderHeight(source: string): number {
+  const lineCount = Math.ceil(Math.max(1, source.length) / HTML_PLACEHOLDER_CHARS_PER_LINE);
+  return Math.max(
+    HTML_PLACEHOLDER_MIN_HEIGHT_PX,
+    Math.min(HTML_PLACEHOLDER_MAX_HEIGHT_PX, lineCount * HTML_PLACEHOLDER_LINE_HEIGHT_PX),
+  );
+}
+
+function HtmlBodyPlaceholder({ source }: { source: string }) {
+  return (
+    <div
+      class="oh-html-body-placeholder"
+      aria-hidden="true"
+      style={{ height: `${estimateHtmlPlaceholderHeight(source)}px` }}
+    >
+      <span />
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { source: string; mono: boolean }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const renderKey = useMemo(() => contentCacheKey('html-render', source), [source]);
+  const nearViewportRef = useRef(htmlRenderReadyCache.has(renderKey));
+  const [nearViewport, setNearViewport] = useState(() => nearViewportRef.current);
+  const [renderReady, setRenderReady] = useState(() => htmlRenderReadyCache.has(renderKey));
+
+  useEffect(() => {
+    if (htmlRenderReadyCache.has(renderKey)) {
+      nearViewportRef.current = true;
+      setNearViewport(true);
+      setRenderReady(true);
+      return;
+    }
+    setRenderReady(false);
+    if (nearViewportRef.current) {
+      setNearViewport(true);
+    } else {
+      setNearViewport(false);
+    }
+  }, [renderKey]);
+
+  useEffect(() => {
+    if (nearViewport) return;
+    const element = hostRef.current;
+    if (element == null) return;
+    if (typeof IntersectionObserver !== 'function') {
+      nearViewportRef.current = true;
+      setNearViewport(true);
+      return;
+    }
+    let cancelled = false;
+    const observer = new IntersectionObserver((entries) => {
+      if (cancelled) return;
+      const visible = entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0);
+      if (!visible) return;
+      nearViewportRef.current = true;
+      setNearViewport(true);
+      observer.disconnect();
+    }, {
+      root: null,
+      rootMargin: HTML_DEFERRED_RENDER_ROOT_MARGIN,
+      threshold: 0,
+    });
+    observer.observe(element);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [nearViewport, renderKey]);
+
+  useEffect(() => {
+    if (!nearViewport || renderReady) return;
+    if (htmlRenderReadyCache.has(renderKey)) {
+      setRenderReady(true);
+      return;
+    }
+    const cancel = htmlFrameScheduler.schedule(() => {
+      rememberLru(htmlRenderReadyCache, renderKey, true, HTML_RENDER_READY_CACHE_LIMIT);
+      setRenderReady(true);
+    });
+    return cancel;
+  }, [nearViewport, renderKey, renderReady]);
+
+  return (
+    <div ref={hostRef} class="oh-html-body-deferred">
+      {renderReady ? <HtmlBody source={source} mono={mono} /> : <HtmlBodyPlaceholder source={source} />}
+    </div>
   );
 });
 
@@ -1144,7 +1246,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   }
   if (format === 'html') {
     if (stickyLooksHtml) {
-      return <HtmlBody source={content} mono={mono} />;
+      return <DeferredHtmlBody source={content} mono={mono} />;
     }
     if (htmlFallback === 'plain_text') {
       return (
@@ -1166,7 +1268,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // 检测内容是否像 HTML，自动升级到 HtmlBody 渲染，使 WEB 端对 AI 输出
   // 自愈，无需用户手动切设置项。sticky 与 'html' 分支共用同一 hook 结果。
   if (format === 'markdown' && stickyLooksHtml) {
-    return <HtmlBody source={content} mono={mono} />;
+    return <DeferredHtmlBody source={content} mono={mono} />;
   }
 
   // tooBig 守卫仅针对 markdown（解析开销大）；plain_text/html 已在上方提前返回。

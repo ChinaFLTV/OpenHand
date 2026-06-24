@@ -2473,6 +2473,14 @@ html, body, #root {
   scroll-behavior: auto;
   overscroll-behavior: contain;
 }
+.oh-session-message-list {
+  overflow-anchor: none;
+}
+.oh-session-message-row {
+  overflow-anchor: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
+}
 .oh-session-message-content,
 .oh-session-message-content > * {
   overflow-anchor: none;
@@ -5182,6 +5190,49 @@ button.oh-composer-pill:not(:disabled):hover {
   overflow-y: hidden;
   overflow-wrap: normal;
   word-break: normal;
+}
+.oh-html-body-deferred {
+  width: 100%;
+  max-width: 100%;
+}
+.oh-html-body-placeholder {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  width: 100%;
+  min-height: 96px;
+  padding: 6px 2px;
+  overflow: hidden;
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, currentColor 7%, transparent),
+      color-mix(in srgb, currentColor 13%, transparent),
+      color-mix(in srgb, currentColor 7%, transparent)
+    );
+  background-size: 220% 100%;
+  animation: oh-html-placeholder-sweep 1.4s ease-in-out infinite;
+}
+.oh-html-body-placeholder span {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.oh-html-body-placeholder span:nth-child(1) { width: 76%; }
+.oh-html-body-placeholder span:nth-child(2) { width: 92%; }
+.oh-html-body-placeholder span:nth-child(3) { width: 68%; }
+.oh-html-body-placeholder span:nth-child(4) { width: 42%; }
+@keyframes oh-html-placeholder-sweep {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-html-body-placeholder {
+    animation: none;
+  }
 }
 .oh-html-body *,
 .oh-html-body *::before,

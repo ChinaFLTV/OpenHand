@@ -3830,6 +3830,8 @@ class _DeferredHtmlBubbleWebViewState
   TranscriptScrollActivity? _scrollActivity;
   bool _pendingMountAfterScroll = false;
   _HtmlWebViewMountPermit? _mountPermit;
+  Timer? _coldMountTimer;
+  Timer? _permitWaitTimer;
 
   bool _hasWarmWebViewMetrics() {
     final cacheKey = _htmlBubbleHeightCacheKey(
@@ -3854,8 +3856,10 @@ class _DeferredHtmlBubbleWebViewState
         oldWidget.textColor != widget.textColor ||
         oldWidget.backgroundColor != widget.backgroundColor ||
         oldWidget.baseTextStyle != widget.baseTextStyle) {
+      _generation += 1;
       _pendingMountAfterScroll = false;
       if (!_mountWebView) {
+        _cancelColdMountTimer();
         _releaseMountPermit();
         _scheduleMount();
       }
@@ -3879,6 +3883,7 @@ class _DeferredHtmlBubbleWebViewState
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = null;
     _generation += 1;
+    _cancelColdMountTimer();
     _releaseMountPermit();
     super.dispose();
   }
@@ -3895,12 +3900,24 @@ class _DeferredHtmlBubbleWebViewState
     _scheduleMount();
   }
 
-  void _scheduleMount() {
-    if (_mountWebView) {
+  void _scheduleMount({bool allowColdDelay = true}) {
+    if (_mountWebView || _mountPermit != null || _coldMountTimer != null) {
       return;
     }
-    if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+    final warmMetrics = _hasWarmWebViewMetrics();
+    if ((_scrollActivity?.value ?? false) && !warmMetrics) {
       _pendingMountAfterScroll = true;
+      return;
+    }
+    if (allowColdDelay && !warmMetrics) {
+      final generation = ++_generation;
+      _coldMountTimer = startSafeTimer(_htmlWebViewColdMountDelay, () {
+        _coldMountTimer = null;
+        if (!mounted || generation != _generation || _mountWebView) {
+          return;
+        }
+        _scheduleMount(allowColdDelay: false);
+      });
       return;
     }
     final generation = ++_generation;
@@ -3924,6 +3941,7 @@ class _DeferredHtmlBubbleWebViewState
     if (existing != null) {
       if (existing.granted) {
         _pendingMountAfterScroll = false;
+        _cancelPermitWaitTimer();
         setState(() => _mountWebView = true);
       }
       return;
@@ -3946,12 +3964,16 @@ class _DeferredHtmlBubbleWebViewState
         return;
       }
       _pendingMountAfterScroll = false;
+      _cancelPermitWaitTimer();
       setState(() => _mountWebView = true);
     }, priority: warmMetrics);
     _mountPermit = permit;
     if (permit.granted) {
       _pendingMountAfterScroll = false;
+      _cancelPermitWaitTimer();
       setState(() => _mountWebView = true);
+    } else {
+      _startPermitWaitTimer(permit, generation);
     }
   }
 
@@ -3959,7 +3981,53 @@ class _DeferredHtmlBubbleWebViewState
     final permit = _mountPermit;
     if (permit == null) return;
     _mountPermit = null;
+    _cancelPermitWaitTimer();
     permit.release();
+  }
+
+  void _cancelColdMountTimer() {
+    final timer = _coldMountTimer;
+    if (timer == null) {
+      return;
+    }
+    timer.cancel();
+    _coldMountTimer = null;
+  }
+
+  void _cancelPermitWaitTimer() {
+    final timer = _permitWaitTimer;
+    if (timer == null) {
+      return;
+    }
+    timer.cancel();
+    _permitWaitTimer = null;
+  }
+
+  void _startPermitWaitTimer(_HtmlWebViewMountPermit permit, int generation) {
+    _cancelPermitWaitTimer();
+    _permitWaitTimer = startSafeTimer(_htmlWebViewPermitWaitTimeout, () {
+      _permitWaitTimer = null;
+      if (!mounted ||
+          generation != _generation ||
+          _mountWebView ||
+          !identical(_mountPermit, permit) ||
+          permit.granted) {
+        return;
+      }
+      _mountPermit = null;
+      permit.release();
+      if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+        _pendingMountAfterScroll = true;
+        return;
+      }
+      _coldMountTimer = startSafeTimer(_htmlWebViewPermitRetryDelay, () {
+        _coldMountTimer = null;
+        if (!mounted || generation != _generation || _mountWebView) {
+          return;
+        }
+        _scheduleMount(allowColdDelay: false);
+      });
+    });
   }
 
   @override
