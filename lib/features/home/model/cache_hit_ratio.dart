@@ -1,3 +1,17 @@
+int computeCacheHitDenominatorTokens({
+  required int promptTokens,
+  required int cacheReadTokens,
+  required bool claudeStyle,
+}) {
+  if (promptTokens <= 0 && cacheReadTokens <= 0) {
+    return 0;
+  }
+  if (claudeStyle) {
+    return promptTokens + cacheReadTokens;
+  }
+  return promptTokens > 0 ? promptTokens : cacheReadTokens;
+}
+
 int computeUncachedPromptTokens({
   required int promptTokens,
   required int cacheReadTokens,
@@ -14,12 +28,11 @@ double computeCacheHitRatio({
   required int cacheReadTokens,
   required bool claudeStyle,
 }) {
-  if (promptTokens <= 0 && cacheReadTokens <= 0) {
-    return 0.0;
-  }
-  final denominator = claudeStyle
-      ? promptTokens + cacheReadTokens
-      : promptTokens;
+  final denominator = computeCacheHitDenominatorTokens(
+    promptTokens: promptTokens,
+    cacheReadTokens: cacheReadTokens,
+    claudeStyle: claudeStyle,
+  );
   if (denominator <= 0) {
     return 0.0;
   }

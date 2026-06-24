@@ -60,6 +60,27 @@ class _PromptSection {
   bool get hasContent => content.trim().isNotEmpty;
 }
 
+class _PromptAssemblyPlan {
+  const _PromptAssemblyPlan({
+    required this.stablePrefixTurns,
+    required this.historyTurns,
+    required this.latestUserTurns,
+    required this.volatileTailTurns,
+  });
+
+  final List<AiChatTurn> stablePrefixTurns;
+  final List<AiChatTurn> historyTurns;
+  final List<AiChatTurn> latestUserTurns;
+  final List<AiChatTurn> volatileTailTurns;
+
+  List<AiChatTurn> materialize() => <AiChatTurn>[
+    ...stablePrefixTurns,
+    ...historyTurns,
+    ...latestUserTurns,
+    ...volatileTailTurns,
+  ];
+}
+
 class AiPromptBuilder {
   const AiPromptBuilder();
 
@@ -463,12 +484,12 @@ class AiPromptBuilder {
       runtimeContext.userInstructions,
       const <String>{},
     );
-    final includeDynamicSessionState =
-        latestUserMessage != null &&
-        !latestUserInline &&
-        dynamicSessionState.isNotEmpty;
+    final includeDynamicSessionState = _shouldIncludeDynamicSessionState(
+      dynamicSessionState,
+      latestUserInline: latestUserInline,
+    );
 
-    final messages = <AiChatTurn>[
+    final stablePrefixTurns = <AiChatTurn>[
       _systemSectionTurn(
         AiPromptSectionHeaders.systemInstructions,
         '${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}',
@@ -559,26 +580,8 @@ class AiPromptBuilder {
         staticSessionState,
       ),
       ...outputFormatReminderTurns,
-      // ─────────────────────────────────────────────────────────────
-      // 2026-05-30 cache-friendly ordering：history 之前只放真正稳定的
-      // prefix 块（system / developer / tool catalog / memory /
-      // instructions / static session state / restored contexts /
-      // output-format reminders）。
-      //
-      // 易变块（[3d] / [5.5] / System Reminder / Plan Mode Reminder /
-      // hook system-reminder）不能插入到 history 与 latest user 之间；否则工具
-      // 轮次一旦追加新消息，下一轮从 history 之后开始就不再是纯追加路径。
-      // 顺序固定为：stable prefix → history → latest user → volatile tail。
-      // [3d] 只在用户发起轮注入一次；工具续写轮依赖上一轮状态快照与最新工具
-      // 结果继续推进，不重复追加 [3d]，避免上一轮尾部被挤开导致 provider
-      // prefix cache 断裂。
-      //
-      // 输出格式与主题提醒属于会话级稳定约束。放在 history 之前可以保持
-      // 各模板的静态前缀顺序统一；用户切换格式/主题时只影响一次。
-      // ─────────────────────────────────────────────────────────────
-      ...historyTurns,
-      // 用户消息本体（不含 hook system reminder）→ 共享前缀末端。
-      ...latestUserNonSystemTurns,
+    ];
+    final volatileTailTurns = <AiChatTurn>[
       if (includeDynamicSessionState)
         _jsonSystemSectionTurn(
           AiPromptSectionHeaders.dynamicSessionState,
@@ -597,6 +600,24 @@ class AiPromptBuilder {
       // 保留在 prompt 最尾部。
       ...latestUserSystemTurns,
     ];
+    // ─────────────────────────────────────────────────────────────
+    // Cache-friendly unified assembly:
+    //   stable prefix → persisted history → latest user → volatile tail.
+    //
+    // All templates share this same skeleton. Stable constraints stay before
+    // history; truly per-turn state stays after the latest user and is omitted
+    // when it only carries default/static values. This keeps OpenAI-compatible
+    // automatic provider caches (StepFun/Kimi/Qwen/etc.) on the pure append
+    // path instead of inserting a disappearing system block after every user
+    // turn.
+    // ─────────────────────────────────────────────────────────────
+    final promptAssembly = _PromptAssemblyPlan(
+      stablePrefixTurns: stablePrefixTurns,
+      historyTurns: historyTurns,
+      latestUserTurns: latestUserNonSystemTurns,
+      volatileTailTurns: volatileTailTurns,
+    );
+    final messages = promptAssembly.materialize();
     final systemMessageCount = messages
         .where((item) => item.role == AiChatRole.system)
         .length;
@@ -606,7 +627,6 @@ class AiPromptBuilder {
       0,
       (sum, item) => sum + item.promptCharacterCount,
     );
-    final stablePrefixTurns = _stablePromptPrefixTurns(messages);
     final stablePrefixHash = _promptFingerprint(
       stablePrefixTurns.map(_fingerprintTurn).join('\n\n'),
     );
@@ -715,19 +735,26 @@ class AiPromptBuilder {
     return _systemSectionTurn(header, _jsonCodeBlock(value));
   }
 
-  List<AiChatTurn> _stablePromptPrefixTurns(List<AiChatTurn> messages) {
-    final turns = <AiChatTurn>[];
-    var hasSeenConversationTurn = false;
-    for (final message in messages) {
-      if (message.role == AiChatRole.system && hasSeenConversationTurn) {
-        break;
-      }
-      turns.add(message);
-      if (message.role != AiChatRole.system) {
-        hasSeenConversationTurn = true;
-      }
-    }
-    return turns;
+  bool _shouldIncludeDynamicSessionState(
+    Map<String, Object?> dynamicSessionState, {
+    required bool latestUserInline,
+  }) {
+    if (latestUserInline || dynamicSessionState.isEmpty) return false;
+    return dynamicSessionState.keys.any(_isVolatileDynamicSessionStateKey);
+  }
+
+  bool _isVolatileDynamicSessionStateKey(String key) {
+    return switch (key) {
+      'mode' ||
+      'session_title' ||
+      'rehydration' ||
+      'web_reverse_runtime' ||
+      'android_reverse_runtime' ||
+      'todos' ||
+      'plan' ||
+      'skipped_user_instruction_ids' => true,
+      _ => false,
+    };
   }
 
   String _fingerprintTurn(AiChatTurn turn) {
@@ -1200,8 +1227,13 @@ class AiPromptBuilder {
         'tpr': runtimeContext.singleRoundToolCallLimit,
         'r': runtimeContext.sequentialToolRoundLimit,
       },
-      if (runtimeContext.writeCommandConfirmationEnabled)
-        'write_cmd_confirm': true,
+      'permission': <String, Object?>{
+        'full_access': session.fullAccessPermission,
+        'write_cmd_confirm_required': _writeCommandConfirmationRequired(
+          session: session,
+          runtimeContext: runtimeContext,
+        ),
+      },
     };
 
     if (runtimeContext.allowCommandRules.isNotEmpty) {
@@ -1296,17 +1328,6 @@ class AiPromptBuilder {
     if (session.mode != AiSessionMode.chat) {
       dynamicState['mode'] = session.mode.storageValue;
     }
-    if (session.fullAccessPermission ||
-        runtimeContext.writeCommandConfirmationEnabled) {
-      dynamicState['permission'] = <String, Object?>{
-        if (session.fullAccessPermission) 'full_access': true,
-        'write_cmd_confirm_required': _writeCommandConfirmationRequired(
-          session: session,
-          runtimeContext: runtimeContext,
-        ),
-      };
-    }
-
     final promptSessionTitle = _promptSessionTitleForMetadata(session);
     if (promptSessionTitle != null &&
         runtimeContext.autoTitleFetchMode ==

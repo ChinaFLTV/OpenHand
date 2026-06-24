@@ -285,9 +285,11 @@ class SessionCacheHitTrend {
         cacheReadTokens: cacheReadTokens,
         claudeStyle: claudeStyle,
       );
-      final denominator = claudeStyle
-          ? promptTokens + cacheReadTokens
-          : promptTokens;
+      final denominator = computeCacheHitDenominatorTokens(
+        promptTokens: promptTokens,
+        cacheReadTokens: cacheReadTokens,
+        claudeStyle: claudeStyle,
+      );
       if (denominator <= 0) {
         continue;
       }
