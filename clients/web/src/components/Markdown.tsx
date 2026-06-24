@@ -112,6 +112,35 @@ const INLINE_DIFF_HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+
 /// text 占位, 直到本帧完成后下一帧再升级。与 App 端
 /// _MarkdownFrameScheduler 思路完全对齐。
 const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
+const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
+const HTML_SANITIZE_CACHE_LIMIT = 256;
+
+function fnv1aHash(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function contentCacheKey(prefix: string, content: string): string {
+  return `${prefix}:${content.length}:${fnv1aHash(content)}`;
+}
+
+function rememberLru<K, V>(cache: Map<K, V>, key: K, value: V, limit: number): void {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > limit) {
+    const first = cache.keys().next().value;
+    if (first == null) break;
+    cache.delete(first);
+  }
+}
+
+const markdownParseReadyCache = new Map<string, true>();
+const htmlSanitizeCache = new Map<string, string>();
+
 class MarkdownFrameScheduler {
   private pending: Array<() => void> = [];
   private draining = false;
@@ -437,10 +466,18 @@ const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono
     return () => { cancelled = true; };
   }, [purify]);
   const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
-  const safeHtml = useMemo(
-    () => purify == null ? '' : purify.sanitize(source, { USE_PROFILES: { html: true } }),
-    [purify, source],
-  );
+  const sanitizeKey = useMemo(() => contentCacheKey('html', source), [source]);
+  const safeHtml = useMemo(() => {
+    if (purify == null) return '';
+    const cached = htmlSanitizeCache.get(sanitizeKey);
+    if (cached != null) {
+      rememberLru(htmlSanitizeCache, sanitizeKey, cached, HTML_SANITIZE_CACHE_LIMIT);
+      return cached;
+    }
+    const next = purify.sanitize(source, { USE_PROFILES: { html: true } });
+    rememberLru(htmlSanitizeCache, sanitizeKey, next, HTML_SANITIZE_CACHE_LIMIT);
+    return next;
+  }, [purify, sanitizeKey, source]);
   useLayoutEffect(() => {
     const element = containerRef.current;
     if (element == null || purify == null) return;
@@ -828,10 +865,22 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
   const shouldDeferParse = !raw && !tooBig
     && content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD;
-  const [parseReady, setParseReady] = useState(!shouldDeferParse);
+  const markdownReadyKey = useMemo(
+    () => contentCacheKey(`md:${format}:${htmlFallback}`, markdownContent),
+    [format, htmlFallback, markdownContent],
+  );
+  const [parseReady, setParseReady] = useState(
+    () => !shouldDeferParse || markdownParseReadyCache.has(markdownReadyKey),
+  );
   const lastSourceRef = useRef<string>(content);
   useEffect(() => {
     if (!shouldDeferParse) {
+      if (!parseReady) setParseReady(true);
+      rememberLru(markdownParseReadyCache, markdownReadyKey, true, MARKDOWN_PARSE_READY_CACHE_LIMIT);
+      lastSourceRef.current = content;
+      return;
+    }
+    if (markdownParseReadyCache.has(markdownReadyKey)) {
       if (!parseReady) setParseReady(true);
       lastSourceRef.current = content;
       return;
@@ -841,10 +890,11 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     // 内容变更后重新 defer 一次, 避免流式追加时立刻 parse 引发 jank。
     if (parseReady) return;
     const cancel = markdownFrameScheduler.schedule(() => {
+      rememberLru(markdownParseReadyCache, markdownReadyKey, true, MARKDOWN_PARSE_READY_CACHE_LIMIT);
       setParseReady(true);
     });
     return cancel;
-  }, [shouldDeferParse, content, parseReady]);
+  }, [shouldDeferParse, content, parseReady, markdownReadyKey]);
 
   // W1 流式节流：parseReady=true 之后的内容变更走 coalesce —— 增量较小
   // 且距上次 flush 不到 80ms 时延迟到本批结束再 setState，避免 SSE 每 tick

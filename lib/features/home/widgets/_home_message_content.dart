@@ -3741,14 +3741,21 @@ class _HtmlWebViewMountLimiter {
       Queue<_HtmlWebViewMountPermit>();
   int _nextId = 0;
 
-  _HtmlWebViewMountPermit request(VoidCallback onGranted) {
+  _HtmlWebViewMountPermit request(
+    VoidCallback onGranted, {
+    bool priority = false,
+  }) {
     final permit = _HtmlWebViewMountPermit._(++_nextId, this, onGranted);
     if (_activeIds.length < _htmlWebViewMaxMountedCount) {
       _activeIds.add(permit.id);
       permit._granted = true;
       return permit;
     }
-    _waiting.add(permit);
+    if (priority) {
+      _waiting.addFirst(permit);
+    } else {
+      _waiting.add(permit);
+    }
     return permit;
   }
 
@@ -3830,7 +3837,8 @@ class _DeferredHtmlBubbleWebViewState
       widget.baseTextStyle,
     );
     return _HtmlBubbleWebViewState._heightCache[cacheKey] != null ||
-        _HtmlBubbleWebViewState._heightFloorCache[cacheKey] != null;
+        _HtmlBubbleWebViewState._heightFloorCache[cacheKey] != null ||
+        _HtmlBubbleWebViewState._revealedHeightCache[cacheKey] != null;
   }
 
   @override
@@ -3900,7 +3908,7 @@ class _DeferredHtmlBubbleWebViewState
       if (!mounted || generation != _generation || _mountWebView) {
         return;
       }
-      if (_scrollActivity?.value ?? false) {
+      if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
         _pendingMountAfterScroll = true;
         return;
       }
@@ -3922,6 +3930,7 @@ class _DeferredHtmlBubbleWebViewState
     }
 
     late final _HtmlWebViewMountPermit permit;
+    final warmMetrics = _hasWarmWebViewMetrics();
     permit = _htmlWebViewMountLimiter.request(() {
       if (!mounted ||
           generation != _generation ||
@@ -3938,7 +3947,7 @@ class _DeferredHtmlBubbleWebViewState
       }
       _pendingMountAfterScroll = false;
       setState(() => _mountWebView = true);
-    });
+    }, priority: warmMetrics);
     _mountPermit = permit;
     if (permit.granted) {
       _pendingMountAfterScroll = false;
@@ -4457,6 +4466,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // maxScrollExtent 抖动。与 _heightCache 分离：floor 只写 dispose 时的
   // 真实高度，outlier 占位估计绝不写入，避免污染持久化数据。
   static final Map<int, double> _heightFloorCache = <int, double>{};
+  // 记录用户已经看见过真实 WebView 内容的高度。它可以来自真实测量，
+  // 也可以来自首次揭示 fallback；重进视口时用它跳过 shimmer，避免
+  // 已渲染 HTML 卡片重新显示骨架屏。
+  static final Map<int, double> _revealedHeightCache = <int, double>{};
   // HTML 文档字符串缓存。`_buildDocument()` 在每次 build 都会
   // 拼装 1-2KB HTML 字符串（多次 RegExp.match、字符串切片、模板拼接），
   // 长会话首屏 8-15 个 HTML 气泡同帧 build 时叠加，单帧 ~5-15ms 浪费
@@ -4611,6 +4624,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     if (_height != null && !_heightFromFallback) {
       _writeBoundedHeightCache(_heightFloorCache, _heightCacheKey, _height!);
     }
+    if (_height != null) {
+      _writeBoundedHeightCache(_revealedHeightCache, _heightCacheKey, _height!);
+    }
     super.dispose();
   }
 
@@ -4679,6 +4695,11 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
           return;
         }
         final estimated = _estimateHeight();
+        _writeBoundedHeightCache(
+          _revealedHeightCache,
+          _heightCacheKey,
+          estimated,
+        );
         _safeSetState(() {
           _height = estimated;
           _heightFromFallback = true;
@@ -4829,6 +4850,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     _writeBoundedHeightCache(_heightCache, _heightCacheKey, next);
     _writeBoundedHeightCache(_heightFloorCache, _heightCacheKey, next);
+    _writeBoundedHeightCache(_revealedHeightCache, _heightCacheKey, next);
     _lastHeightApplyTime = DateTime.now();
     _safeSetState(() {
       _height = next;
@@ -5140,20 +5162,19 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     }
     final cachedHeight = _heightCache[_heightCacheKey];
     final floor = _heightFloorCache[_heightCacheKey];
-    // 仅在"完全没有任何高度可参考"时显示 shimmer 骨架屏。
-    // 一旦 `_height` 或 `cachedHeight` 有值就切到真实 WebView。逻辑
-    // 简洁可靠：500ms 防抖让首测在 500ms 内被应用，shimmer 不会停留
-    // 太久；cachedHeight 处理"下滑后上滑"——用户见过此内容，state
-    // 重建时 cachedHeight 命中，直接显示 WebView，无须等待 JS 测量。
-    // 首次测量的"渲染下方空白"问题由 `_onContentSizeChanged` 中的
-    // outlier 检查（超出估算高度 × ratio 时改用估算值）解决。
-    final showShimmer = _height == null && cachedHeight == null;
+    final revealedHeight = _revealedHeightCache[_heightCacheKey];
+    // 仅在"完全没有任何高度/揭示记录可参考"时显示 shimmer 骨架屏。
+    // 一旦用户看见过该 HTML 内容，State 重建也直接展示 WebView，
+    // 后续由 JS 测高修正尺寸，不再回退到二次骨架屏。
+    final showShimmer =
+        _height == null && cachedHeight == null && revealedHeight == null;
     final estimatedHeight = _estimateHeight();
     // 跨 State 单调 floor——State dispose 时把真实高度写入
     // `_heightFloorCache`，新 State 重建后若 _height 丢失则用 floor
     // 兜底，防止 Stack 高度收缩到 estimatedHeight 导致 maxScrollExtent
     // 抖动。floor 与 cache 分离，outlier 占位估计绝不写入，避免污染。
-    final baseDisplayHeight = _height ?? cachedHeight ?? estimatedHeight;
+    final baseDisplayHeight =
+        _height ?? cachedHeight ?? floor ?? revealedHeight ?? estimatedHeight;
     final displayHeight =
         _heightUpdatesFrozen && floor != null && baseDisplayHeight < floor
         ? floor
