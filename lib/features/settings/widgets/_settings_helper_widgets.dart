@@ -2819,6 +2819,8 @@ String _localizedTtsCatalogOptionLabel(
   BuildContext context,
   AiTtsCatalogOption option,
 ) {
+  final voiceIdLabel = _localizedTtsVoiceIdLabel(context, option.value);
+  if (voiceIdLabel != null) return voiceIdLabel;
   final languageLabel = _localizedLanguageCodeLabel(
     context,
     option.value,
@@ -2826,6 +2828,55 @@ String _localizedTtsCatalogOptionLabel(
   );
   if (languageLabel.isNotEmpty) return languageLabel;
   return _localizedVoiceLabel(context, option.label);
+}
+
+String? _localizedTtsVoiceIdLabel(BuildContext context, String value) {
+  final label = switch (value.trim()) {
+    'cixingnansheng' => (zh: '磁性男声', en: 'Magnetic Male Voice'),
+    'vibrant-youth' => (zh: '活力青年', en: 'Vibrant Young Voice'),
+    'lively-girl' => (zh: '活力女声', en: 'Lively Female Voice'),
+    'soft-spoken-gentleman' => (zh: '温和绅士', en: 'Soft-Spoken Gentleman'),
+    'magnetic-voiced-male' => (zh: '磁性男声', en: 'Magnetic Male Voice'),
+    'zixinnansheng' => (zh: '自信男声', en: 'Confident Male Voice'),
+    'elegantgentle-female' => (zh: '优雅温柔女声', en: 'Elegant Gentle Female Voice'),
+    'livelybreezy-female' => (zh: '轻快活力女声', en: 'Breezy Lively Female Voice'),
+    'wenrounansheng' => (zh: '温柔男声', en: 'Gentle Male Voice'),
+    'wenrougongzi' => (zh: '温柔公子', en: 'Gentle Gentleman'),
+    'yuanqinansheng' => (zh: '元气男声', en: 'Energetic Male Voice'),
+    'jingdiannvsheng' => (zh: '经典女声', en: 'Classic Female Voice'),
+    'wenroushunv' => (zh: '温柔淑女', en: 'Gentle Lady'),
+    'tianmeinvsheng' => (zh: '甜美女声', en: 'Sweet Female Voice'),
+    'qingchunshaonv' => (zh: '青春少女', en: 'Youthful Girl Voice'),
+    'yuanqishaonv' => (zh: '元气少女', en: 'Energetic Girl Voice'),
+    'linjiajiejie' => (zh: '邻家姐姐', en: 'Girl-Next-Door Voice'),
+    'zhengpaiqingnian' => (zh: '正派青年', en: 'Upstanding Young Male Voice'),
+    'qingniandaxuesheng' => (zh: '青年大学生', en: 'College Student Voice'),
+    'boyinnansheng' => (zh: '播音男声', en: 'Male Announcer Voice'),
+    'ruyananshi' => (zh: '儒雅男士', en: 'Refined Gentleman'),
+    'shenchennanyin' => (zh: '深沉男音', en: 'Deep Male Voice'),
+    'qinqienvsheng' => (zh: '亲切女声', en: 'Warm Female Voice'),
+    'wenrounvsheng' => (zh: '温柔女声', en: 'Gentle Female Voice'),
+    'jilingshaonv' => (zh: '机灵少女', en: 'Clever Girl Voice'),
+    'ruanmengnvsheng' => (zh: '软萌女声', en: 'Soft Cute Female Voice'),
+    'youyanvsheng' => (zh: '优雅女声', en: 'Elegant Female Voice'),
+    'lengyanyujie' => (zh: '冷艳御姐', en: 'Cool Mature Female Voice'),
+    'shuangkuaijiejie' => (zh: '爽快姐姐', en: 'Bright Female Voice'),
+    'wenjingxuejie' => (zh: '文静学姐', en: 'Quiet Senior Student Voice'),
+    'linjiameimei' => (zh: '邻家妹妹', en: 'Friendly Younger Female Voice'),
+    'zhixingjiejie' => (zh: '知性姐姐', en: 'Intellectual Female Voice'),
+    'shuangkuainansheng' => (zh: '爽快男声', en: 'Bright Male Voice'),
+    'ganliannvsheng' => (zh: '干练女声', en: 'Capable Female Voice'),
+    'qinhenvsheng' => (zh: '亲和女声', en: 'Approachable Female Voice'),
+    'huolinvsheng' => (zh: '活力女声', en: 'Energetic Female Voice'),
+    'chengshunvsheng' => (zh: '成熟女声', en: 'Mature Female Voice'),
+    'zhengpainansheng' => (zh: '正派男声', en: 'Upstanding Male Voice'),
+    'qingnianwenyinvsheng' => (zh: '青年文艺女声', en: 'Young Artistic Female Voice'),
+    'female-shaonv' => (zh: '少女女声', en: 'Young Female Voice'),
+    'male-qn-qingse' => (zh: '青涩青年男声', en: 'Young Male Voice'),
+    _ => null,
+  };
+  if (label == null) return null;
+  return _localizedText(context, zh: label.zh, en: label.en);
 }
 
 String _humanizedDropdownValue(BuildContext context, String value) {
@@ -3544,11 +3595,11 @@ String? _settingsTargetedErrorSuggestion(BuildContext context, Object error) {
       context,
       zh:
           '· 当前音色不属于该模型可用的系统音色，或账号没有该自定义音色权限。\n'
-          '· 请先切换为下拉列表中的官方系统音色，例如 cixingnansheng 或 lively-girl。\n'
+          '· 请先切换为下拉列表中的官方系统音色，例如 磁性男声（cixingnansheng）或活力女声（lively-girl）。\n'
           '· 如果必须使用自定义音色，请确认该 voice_id 已在 StepFun 控制台创建并对当前 API Key 可见。',
       en:
           '· The selected voice is not available for this model, or the account cannot access that custom voice.\n'
-          '· Select an official system voice from the dropdown, such as cixingnansheng or lively-girl.\n'
+          '· Select an official system voice from the dropdown, such as Magnetic Male Voice (cixingnansheng) or Lively Female Voice (lively-girl).\n'
           '· If you need a custom voice, confirm that the voice_id exists in StepFun and is visible to the current API key.',
     );
   }

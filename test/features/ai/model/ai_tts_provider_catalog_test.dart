@@ -17,6 +17,12 @@ void main() {
       expect(values, isNot(contains('alloy')));
       expect(values, isNot(contains('mengwa')));
       expect(values.length, values.toSet().length);
+
+      final brightMale = voices.firstWhere(
+        (option) => option.value == 'shuangkuainansheng',
+      );
+      expect(brightMale.label, isNot(brightMale.value));
+      expect(brightMale.label, '爽快男声');
     });
 
     test('normalizes StepFun voices and response formats', () {
