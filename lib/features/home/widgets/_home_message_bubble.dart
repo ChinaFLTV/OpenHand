@@ -3370,14 +3370,39 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     if (_dialogOpen) return;
     _dialogOpen = true;
     try {
+      final previewSource = await _resolvePreviewSourceForDialog();
+      if (!mounted) return;
       await showAnimatedDialog<void>(
         context: context,
         builder: (dialogContext) =>
-            _MediaPreviewDialog(source: _effectiveSource, title: widget.title),
+            _MediaPreviewDialog(source: previewSource, title: widget.title),
       );
     } finally {
       if (mounted) _dialogOpen = false;
     }
+  }
+
+  Future<_GeneratedMediaSource> _resolvePreviewSourceForDialog() async {
+    final source = _effectiveSource;
+    if (source.filePath != null ||
+        source.kind != _GeneratedMessageMediaKind.audio) {
+      return source;
+    }
+    final url = source.uri.toString();
+    final cacheKind = _mediaCacheKindForGeneratedMedia(source.kind);
+    final cachedPath =
+        MediaCacheService.instance.cachedPathForUrl(url, kind: cacheKind) ??
+        await MediaCacheService.instance.ensureCached(url, kind: cacheKind);
+    if (cachedPath == null || !mounted) return source;
+    final cachedSource = _cachedGeneratedMediaSource(source, cachedPath);
+    if (mounted) {
+      setState(() {
+        _cachedSource = cachedSource;
+        _videoThumbPath = null;
+        _videoCaptureRequested = false;
+      });
+    }
+    return cachedSource;
   }
 
   @override

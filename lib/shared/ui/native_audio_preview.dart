@@ -16,7 +16,10 @@ const Duration kNativeAudioSeekStep = Duration(seconds: 15);
 const Curve kNativeAudioMotionCurve = Cubic(0.22, 1.22, 0.36, 1);
 const Size kNativeAudioPreviewPreferredSize = Size(640, 560);
 const Duration _kNativeAudioPollInterval = Duration(milliseconds: 250);
-const Duration _kNativeAudioPollTimeout = Duration(seconds: 2);
+const Duration _kNativeAudioMetadataPollTimeout = Duration(milliseconds: 450);
+const Duration _kNativeAudioDurationProbeInterval = Duration(milliseconds: 180);
+const int _kNativeAudioDurationProbeAttempts = 8;
+const int _kNativeAudioHeaderProbeBytes = 256 * 1024;
 const double _kNativeAudioWideBreakpoint = 540;
 const double _kNativeAudioShortBreakpoint = 430;
 
@@ -301,7 +304,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           .timeout(kNativeAudioControlTimeout);
       final source = await _buildAudioSource();
       await _player.setSource(source).timeout(kNativeAudioLoadTimeout);
-      final duration = await _resolveDuration();
+      final duration = await _resolveBestDuration();
       _restartProgressPolling();
       if (_disposed || !mounted || serial != _bootstrapSerial) return;
       setState(() {
@@ -310,6 +313,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _sourceReady = true;
         _loadError = null;
       });
+      if (duration <= Duration.zero) {
+        unawaited(_refreshDurationWhenAvailable(serial));
+      }
       unawaited(_pollPlaybackState());
       if (widget.autoplay) {
         await _play().timeout(kNativeAudioControlTimeout);
@@ -323,19 +329,57 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<Duration> _resolveDuration() async {
     final initial = await _player.getDuration().timeout(
-      _kNativeAudioPollTimeout,
+      _kNativeAudioMetadataPollTimeout,
       onTimeout: () => null,
     );
     if (initial != null && initial > Duration.zero) return initial;
-    for (var attempt = 0; attempt < 12; attempt++) {
-      await Future<void>.delayed(const Duration(milliseconds: 250));
+    for (
+      var attempt = 0;
+      attempt < _kNativeAudioDurationProbeAttempts;
+      attempt++
+    ) {
+      await Future<void>.delayed(_kNativeAudioDurationProbeInterval);
       final next = await _player.getDuration().timeout(
-        _kNativeAudioPollTimeout,
+        _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,
       );
       if (next != null && next > Duration.zero) return next;
     }
     return Duration.zero;
+  }
+
+  Future<Duration> _resolveBestDuration() async {
+    final localDuration = await _resolveLocalDurationHint();
+    if (localDuration != null && localDuration > Duration.zero) {
+      return localDuration;
+    }
+    return _resolveDuration();
+  }
+
+  Future<void> _refreshDurationWhenAvailable(int serial) async {
+    final duration = await _resolveBestDuration();
+    if (_disposed ||
+        !mounted ||
+        serial != _bootstrapSerial ||
+        duration <= Duration.zero) {
+      return;
+    }
+    _setKnownDuration(duration);
+  }
+
+  Future<Duration?> _resolveLocalDurationHint() async {
+    if (kIsWeb) return null;
+    final path = widget.source.filePath ?? _tempAudioPath;
+    if (path == null || path.trim().isEmpty) return null;
+    try {
+      return await estimateNativeAudioFileDuration(
+        path,
+        widget.source.mimeType,
+      ).timeout(kNativeAudioControlTimeout, onTimeout: () => null);
+    } catch (error, stack) {
+      silentLog('native_audio_preview', 'resolve local duration', error, stack);
+      return null;
+    }
   }
 
   void _restartProgressPolling() {
@@ -355,12 +399,12 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     }
     _pollInFlight = true;
     try {
-      final polledDuration = await _player.getDuration().timeout(
-        _kNativeAudioPollTimeout,
+      final polledPosition = await _player.getCurrentPosition().timeout(
+        _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,
       );
-      final polledPosition = await _player.getCurrentPosition().timeout(
-        _kNativeAudioPollTimeout,
+      final polledDuration = await _player.getDuration().timeout(
+        _kNativeAudioMetadataPollTimeout,
         onTimeout: () => null,
       );
       if (!mounted || _disposed) return;
@@ -636,6 +680,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         ? Duration.zero
         : widget.motionDuration;
     final baseColor = colorScheme.surface;
+    final quietTint = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.045),
+      colorScheme.surfaceContainerHighest,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final fallbackSize = MediaQuery.sizeOf(context);
@@ -659,14 +707,14 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                 baseColor,
                 Color.lerp(
                       baseColor,
-                      meta.primaryColor,
-                      colorScheme.brightness == Brightness.dark ? 0.14 : 0.08,
+                      quietTint,
+                      colorScheme.brightness == Brightness.dark ? 0.36 : 0.62,
                     ) ??
                     baseColor,
                 Color.lerp(
                       baseColor,
-                      meta.secondaryColor,
-                      colorScheme.brightness == Brightness.dark ? 0.10 : 0.06,
+                      colorScheme.surfaceContainerLow,
+                      colorScheme.brightness == Brightness.dark ? 0.50 : 0.78,
                     ) ??
                     baseColor,
               ],
@@ -1185,8 +1233,21 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final meta = widget.meta;
     final radius = math.min(20.0, widget.size * 0.09);
+    final coverBase = Color.alphaBlend(
+      meta.primaryColor.withValues(alpha: 0.08),
+      colorScheme.primaryContainer,
+    );
+    final coverMid = Color.alphaBlend(
+      colorScheme.secondary.withValues(alpha: 0.16),
+      colorScheme.surfaceContainerHighest,
+    );
+    final coverEnd = Color.alphaBlend(
+      meta.secondaryColor.withValues(alpha: 0.08),
+      colorScheme.surfaceContainerHigh,
+    );
     return AnimatedScale(
       duration: widget.motionDuration,
       curve: widget.motionCurve,
@@ -1205,14 +1266,14 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
               borderRadius: BorderRadius.circular(radius),
               boxShadow: [
                 BoxShadow(
-                  color: meta.primaryColor.withValues(alpha: 0.26 + t * 0.10),
-                  blurRadius: 34 + t * 14,
-                  offset: const Offset(0, 18),
+                  color: colorScheme.primary.withValues(alpha: 0.16 + t * 0.08),
+                  blurRadius: 28 + t * 10,
+                  offset: const Offset(0, 14),
                 ),
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.20),
-                  blurRadius: 36,
-                  offset: const Offset(0, 22),
+                  color: colorScheme.shadow.withValues(alpha: 0.12),
+                  blurRadius: 34,
+                  offset: const Offset(0, 18),
                 ),
               ],
             ),
@@ -1228,15 +1289,7 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    _mixNativeAudioColors(meta.accentColor, Colors.white, 0.72),
-                    meta.secondaryColor.withValues(alpha: 0.92),
-                    _mixNativeAudioColors(
-                      meta.primaryColor,
-                      const Color(0xFF101316),
-                      0.64,
-                    ),
-                  ],
+                  colors: [coverBase, coverMid, coverEnd],
                 ),
               ),
               child: Stack(
@@ -1248,10 +1301,14 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
                         decoration: BoxDecoration(
                           gradient: SweepGradient(
                             colors: [
-                              Colors.white.withValues(alpha: 0.18),
+                              colorScheme.onPrimaryContainer.withValues(
+                                alpha: 0.14,
+                              ),
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.12),
-                              Colors.white.withValues(alpha: 0.18),
+                              colorScheme.shadow.withValues(alpha: 0.08),
+                              colorScheme.onPrimaryContainer.withValues(
+                                alpha: 0.14,
+                              ),
                             ],
                             stops: const [0, 0.36, 0.68, 1],
                           ),
@@ -1266,9 +1323,11 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Colors.white.withValues(alpha: 0.24),
+                            colorScheme.onPrimaryContainer.withValues(
+                              alpha: 0.18,
+                            ),
                             Colors.transparent,
-                            Colors.black.withValues(alpha: 0.22),
+                            colorScheme.shadow.withValues(alpha: 0.14),
                           ],
                           stops: const [0, 0.48, 1],
                         ),
@@ -1281,9 +1340,11 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
                       height: widget.size * 0.30,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: meta.accentColor.withValues(alpha: 0.48),
+                        color: colorScheme.surface.withValues(alpha: 0.42),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.24),
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.72,
+                          ),
                         ),
                       ),
                     ),
@@ -1294,7 +1355,9 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
                     child: Icon(
                       Icons.graphic_eq_rounded,
                       size: widget.size * 0.16,
-                      color: Colors.white.withValues(alpha: 0.54),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.40,
+                      ),
                     ),
                   ),
                   Center(
@@ -1370,8 +1433,9 @@ class _NativeAudioAnimatedBackdropState
 
   @override
   Widget build(BuildContext context) {
-    final accentAlpha = widget.isDark ? 0.40 : 0.18;
-    final highlightAlpha = widget.isDark ? 0.10 : 0.06;
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentAlpha = widget.isDark ? 0.20 : 0.10;
+    final highlightAlpha = widget.isDark ? 0.11 : 0.07;
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
@@ -1386,7 +1450,7 @@ class _NativeAudioAnimatedBackdropState
                   center: const Alignment(-0.55, -0.45),
                   radius: 1.15,
                   colors: [
-                    widget.meta.accentColor.withValues(alpha: accentAlpha),
+                    colorScheme.primary.withValues(alpha: accentAlpha),
                     Colors.transparent,
                   ],
                 ),
@@ -1397,9 +1461,7 @@ class _NativeAudioAnimatedBackdropState
                     center: const Alignment(0.72, -0.55),
                     radius: 0.8,
                     colors: [
-                      widget.meta.primaryColor.withValues(
-                        alpha: highlightAlpha,
-                      ),
+                      colorScheme.tertiary.withValues(alpha: highlightAlpha),
                       Colors.transparent,
                     ],
                   ),
@@ -1692,14 +1754,514 @@ String _formatNativeAudioTime(Duration value) {
       : '${two(minutes)}:${two(seconds)}';
 }
 
+Future<Duration?> estimateNativeAudioFileDuration(
+  String filePath,
+  String? mimeType,
+) async {
+  final file = File(filePath);
+  if (!await file.exists()) return null;
+  final length = await file.length();
+  if (length <= 0) return null;
+  final normalizedMime = mimeType?.split(';').first.trim().toLowerCase();
+  final extension = p.extension(filePath).toLowerCase();
+  final kind = _nativeAudioContainerKind(extension, normalizedMime);
+  if (kind != null) {
+    final duration = await _estimateNativeAudioDurationByKind(
+      file,
+      length,
+      kind,
+    );
+    if (duration != null) return duration;
+  }
+  return _estimateNativeAudioDurationBySniffing(file, length);
+}
+
+String? _nativeAudioContainerKind(String extension, String? mimeType) {
+  if (mimeType == 'audio/mpeg' ||
+      mimeType == 'audio/mp3' ||
+      extension == '.mp3') {
+    return 'mp3';
+  }
+  if (mimeType == 'audio/wav' ||
+      mimeType == 'audio/wave' ||
+      mimeType == 'audio/x-wav' ||
+      extension == '.wav') {
+    return 'wav';
+  }
+  if (mimeType == 'audio/mp4' ||
+      mimeType == 'audio/m4a' ||
+      mimeType == 'audio/x-m4a' ||
+      extension == '.m4a' ||
+      extension == '.mp4') {
+    return 'mp4';
+  }
+  return null;
+}
+
+Future<Duration?> _estimateNativeAudioDurationByKind(
+  File file,
+  int length,
+  String kind,
+) {
+  return switch (kind) {
+    'mp3' => _estimateMp3Duration(file, length),
+    'wav' => _estimateWavDuration(file, length),
+    'mp4' => _estimateMp4Duration(file, length),
+    _ => Future<Duration?>.value(),
+  };
+}
+
+Future<Duration?> _estimateNativeAudioDurationBySniffing(
+  File file,
+  int length,
+) async {
+  final raf = await file.open();
+  try {
+    final header = await _readAt(raf, 0, math.min(16, length).toInt());
+    if (_asciiEquals(header, 0, 'ID3') ||
+        (header.length >= 2 &&
+            header[0] == 0xFF &&
+            (header[1] & 0xE0) == 0xE0)) {
+      return _estimateMp3Duration(file, length);
+    }
+    if (_asciiEquals(header, 0, 'RIFF') && _asciiEquals(header, 8, 'WAVE')) {
+      return _estimateWavDuration(file, length);
+    }
+    if (_asciiEquals(header, 4, 'ftyp')) {
+      return _estimateMp4Duration(file, length);
+    }
+    return null;
+  } finally {
+    await raf.close();
+  }
+}
+
+Future<Duration?> _estimateMp3Duration(File file, int length) async {
+  final raf = await file.open();
+  try {
+    final probe = await _readAt(
+      raf,
+      0,
+      math.min(_kNativeAudioHeaderProbeBytes, length).toInt(),
+    );
+    final start = _mp3AudioStartOffset(probe);
+    final frameOffset = _findMp3FrameOffset(probe, start);
+    if (frameOffset == null) return null;
+    final frame = _parseMp3FrameHeader(probe, frameOffset);
+    if (frame == null) return null;
+    final xingDuration = _readMp3XingDuration(probe, frameOffset, frame);
+    if (xingDuration != null) return xingDuration;
+
+    var audioBytes = math.max(0, length - frameOffset);
+    if (length >= 128) {
+      final tail = await _readAt(raf, length - 128, 128);
+      if (_asciiEquals(tail, 0, 'TAG')) {
+        audioBytes = math.max(0, audioBytes - 128);
+      }
+    }
+    if (audioBytes <= 0 || frame.bitrate <= 0) return null;
+    return _durationFromSeconds((audioBytes * 8) / frame.bitrate);
+  } finally {
+    await raf.close();
+  }
+}
+
+int _mp3AudioStartOffset(Uint8List bytes) {
+  if (!_asciiEquals(bytes, 0, 'ID3') || bytes.length < 10) return 0;
+  final size = _readSynchsafeUint32(bytes, 6);
+  if (size == null) return 0;
+  final hasFooter = (bytes[5] & 0x10) != 0;
+  final offset = 10 + size + (hasFooter ? 10 : 0);
+  return offset < bytes.length ? offset : 0;
+}
+
+int? _findMp3FrameOffset(Uint8List bytes, int start) {
+  for (var offset = math.max(0, start); offset + 4 <= bytes.length; offset++) {
+    if (_parseMp3FrameHeader(bytes, offset) != null) return offset;
+  }
+  return null;
+}
+
+_Mp3Frame? _parseMp3FrameHeader(Uint8List bytes, int offset) {
+  if (offset < 0 || offset + 4 > bytes.length) return null;
+  final header = _readUint32BE(bytes, offset);
+  if ((header & 0xFFE00000) != 0xFFE00000) return null;
+  final versionBits = (header >> 19) & 0x3;
+  final layerBits = (header >> 17) & 0x3;
+  final bitrateIndex = (header >> 12) & 0xF;
+  final sampleRateIndex = (header >> 10) & 0x3;
+  final channelMode = (header >> 6) & 0x3;
+  if (versionBits == 1 ||
+      layerBits == 0 ||
+      bitrateIndex == 0 ||
+      bitrateIndex == 0xF ||
+      sampleRateIndex == 0x3) {
+    return null;
+  }
+  final layer = switch (layerBits) {
+    3 => 1,
+    2 => 2,
+    1 => 3,
+    _ => 0,
+  };
+  final bitrateKbps = _mp3BitrateKbps(versionBits, layer, bitrateIndex);
+  final sampleRate = _mp3SampleRate(versionBits, sampleRateIndex);
+  if (bitrateKbps == null || sampleRate == null || layer == 0) return null;
+  return _Mp3Frame(
+    versionBits: versionBits,
+    layer: layer,
+    bitrate: bitrateKbps * 1000,
+    sampleRate: sampleRate,
+    samplesPerFrame: _mp3SamplesPerFrame(versionBits, layer),
+    channelMode: channelMode,
+  );
+}
+
+int? _mp3BitrateKbps(int versionBits, int layer, int index) {
+  const mpeg1Layer1 = <int>[
+    32,
+    64,
+    96,
+    128,
+    160,
+    192,
+    224,
+    256,
+    288,
+    320,
+    352,
+    384,
+    416,
+    448,
+  ];
+  const mpeg1Layer2 = <int>[
+    32,
+    48,
+    56,
+    64,
+    80,
+    96,
+    112,
+    128,
+    160,
+    192,
+    224,
+    256,
+    320,
+    384,
+  ];
+  const mpeg1Layer3 = <int>[
+    32,
+    40,
+    48,
+    56,
+    64,
+    80,
+    96,
+    112,
+    128,
+    160,
+    192,
+    224,
+    256,
+    320,
+  ];
+  const mpeg2Layer1 = <int>[
+    32,
+    48,
+    56,
+    64,
+    80,
+    96,
+    112,
+    128,
+    144,
+    160,
+    176,
+    192,
+    224,
+    256,
+  ];
+  const mpeg2Layer23 = <int>[
+    8,
+    16,
+    24,
+    32,
+    40,
+    48,
+    56,
+    64,
+    80,
+    96,
+    112,
+    128,
+    144,
+    160,
+  ];
+  final table = versionBits == 3
+      ? switch (layer) {
+          1 => mpeg1Layer1,
+          2 => mpeg1Layer2,
+          3 => mpeg1Layer3,
+          _ => null,
+        }
+      : (layer == 1 ? mpeg2Layer1 : mpeg2Layer23);
+  if (table == null || index < 1 || index > table.length) return null;
+  return table[index - 1];
+}
+
+int? _mp3SampleRate(int versionBits, int index) {
+  const mpeg1 = <int>[44100, 48000, 32000];
+  const mpeg2 = <int>[22050, 24000, 16000];
+  const mpeg25 = <int>[11025, 12000, 8000];
+  final table = switch (versionBits) {
+    3 => mpeg1,
+    2 => mpeg2,
+    0 => mpeg25,
+    _ => null,
+  };
+  if (table == null || index < 0 || index >= table.length) return null;
+  return table[index];
+}
+
+int _mp3SamplesPerFrame(int versionBits, int layer) {
+  if (layer == 1) return 384;
+  if (layer == 2) return 1152;
+  return versionBits == 3 ? 1152 : 576;
+}
+
+Duration? _readMp3XingDuration(
+  Uint8List bytes,
+  int frameOffset,
+  _Mp3Frame frame,
+) {
+  final xingOffset =
+      frameOffset +
+      (frame.versionBits == 3
+          ? (frame.channelMode == 3 ? 21 : 36)
+          : (frame.channelMode == 3 ? 13 : 21));
+  if (xingOffset + 16 > bytes.length) return null;
+  if (!_asciiEquals(bytes, xingOffset, 'Xing') &&
+      !_asciiEquals(bytes, xingOffset, 'Info')) {
+    return null;
+  }
+  final flags = _readUint32BE(bytes, xingOffset + 4);
+  if ((flags & 0x1) == 0) return null;
+  final frameCount = _readUint32BE(bytes, xingOffset + 8);
+  if (frameCount <= 0 || frame.sampleRate <= 0) return null;
+  return _durationFromSeconds(
+    frameCount * frame.samplesPerFrame / frame.sampleRate,
+  );
+}
+
+Future<Duration?> _estimateWavDuration(File file, int length) async {
+  final raf = await file.open();
+  try {
+    final header = await _readAt(raf, 0, math.min(12, length).toInt());
+    if (!_asciiEquals(header, 0, 'RIFF') || !_asciiEquals(header, 8, 'WAVE')) {
+      return null;
+    }
+    var offset = 12;
+    int? byteRate;
+    int? dataBytes;
+    while (offset + 8 <= length) {
+      final chunkHeader = await _readAt(raf, offset, 8);
+      if (chunkHeader.length < 8) break;
+      final type = String.fromCharCodes(chunkHeader.sublist(0, 4));
+      final chunkSize = _readUint32LE(chunkHeader, 4);
+      final contentOffset = offset + 8;
+      if (type == 'fmt ' && chunkSize >= 16) {
+        final fmt = await _readAt(raf, contentOffset, 16);
+        if (fmt.length >= 12) {
+          byteRate = _readUint32LE(fmt, 8);
+        }
+      } else if (type == 'data') {
+        dataBytes = math.min(chunkSize, math.max(0, length - contentOffset));
+      }
+      if (byteRate != null && byteRate > 0 && dataBytes != null) {
+        return _durationFromSeconds(dataBytes * 1.0 / byteRate);
+      }
+      final nextOffset = contentOffset + chunkSize + (chunkSize.isOdd ? 1 : 0);
+      if (nextOffset <= offset) break;
+      offset = nextOffset;
+    }
+    return null;
+  } finally {
+    await raf.close();
+  }
+}
+
+Future<Duration?> _estimateMp4Duration(File file, int length) async {
+  final raf = await file.open();
+  try {
+    return _findMp4DurationInRange(raf, 0, length, depth: 0);
+  } finally {
+    await raf.close();
+  }
+}
+
+Future<Duration?> _findMp4DurationInRange(
+  RandomAccessFile raf,
+  int start,
+  int end, {
+  required int depth,
+}) async {
+  if (depth > 3) return null;
+  var offset = start;
+  while (offset + 8 <= end) {
+    final box = await _readMp4BoxHeader(raf, offset, end);
+    if (box == null || box.size <= box.headerSize) break;
+    final contentStart = offset + box.headerSize;
+    final boxEnd = math.min(offset + box.size, end);
+    if (box.type == 'mvhd') {
+      return _readMvhdDuration(raf, contentStart, boxEnd);
+    }
+    if (box.type == 'moov') {
+      final duration = await _findMp4DurationInRange(
+        raf,
+        contentStart,
+        boxEnd,
+        depth: depth + 1,
+      );
+      if (duration != null) return duration;
+    }
+    if (boxEnd <= offset) break;
+    offset = boxEnd;
+  }
+  return null;
+}
+
+Future<_Mp4Box?> _readMp4BoxHeader(
+  RandomAccessFile raf,
+  int offset,
+  int end,
+) async {
+  final header = await _readAt(raf, offset, 8);
+  if (header.length < 8) return null;
+  final smallSize = _readUint32BE(header, 0);
+  final type = String.fromCharCodes(header.sublist(4, 8));
+  var headerSize = 8;
+  var size = smallSize;
+  if (smallSize == 1) {
+    final large = await _readAt(raf, offset + 8, 8);
+    if (large.length < 8) return null;
+    size = _readUint64BE(large, 0);
+    headerSize = 16;
+  } else if (smallSize == 0) {
+    size = end - offset;
+  }
+  if (size <= 0 || offset + size > end) return null;
+  return _Mp4Box(type: type, size: size, headerSize: headerSize);
+}
+
+Future<Duration?> _readMvhdDuration(
+  RandomAccessFile raf,
+  int contentStart,
+  int boxEnd,
+) async {
+  final header = await _readAt(
+    raf,
+    contentStart,
+    math.min(32, boxEnd - contentStart).toInt(),
+  );
+  if (header.length < 20) return null;
+  final version = header[0];
+  if (version == 1) {
+    if (header.length < 32) return null;
+    final timescale = _readUint32BE(header, 20);
+    final durationUnits = _readUint64BE(header, 24);
+    if (timescale <= 0 || durationUnits <= 0) return null;
+    return _durationFromSeconds(durationUnits / timescale);
+  }
+  final timescale = _readUint32BE(header, 12);
+  final durationUnits = _readUint32BE(header, 16);
+  if (timescale <= 0 || durationUnits <= 0) return null;
+  return _durationFromSeconds(durationUnits / timescale);
+}
+
+Future<Uint8List> _readAt(RandomAccessFile raf, int offset, int count) async {
+  if (count <= 0) return Uint8List(0);
+  await raf.setPosition(offset);
+  return raf.read(count);
+}
+
+Duration? _durationFromSeconds(num seconds) {
+  final value = seconds.toDouble();
+  if (!value.isFinite || value <= 0) return null;
+  return Duration(milliseconds: (value * 1000).round());
+}
+
+bool _asciiEquals(Uint8List bytes, int offset, String value) {
+  if (offset < 0 || offset + value.length > bytes.length) return false;
+  for (var i = 0; i < value.length; i++) {
+    if (bytes[offset + i] != value.codeUnitAt(i)) return false;
+  }
+  return true;
+}
+
+int? _readSynchsafeUint32(Uint8List bytes, int offset) {
+  if (offset < 0 || offset + 4 > bytes.length) return null;
+  final b0 = bytes[offset];
+  final b1 = bytes[offset + 1];
+  final b2 = bytes[offset + 2];
+  final b3 = bytes[offset + 3];
+  if ((b0 | b1 | b2 | b3) & 0x80 != 0) return null;
+  return (b0 << 21) | (b1 << 14) | (b2 << 7) | b3;
+}
+
+int _readUint32BE(Uint8List bytes, int offset) {
+  return (bytes[offset] << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3];
+}
+
+int _readUint64BE(Uint8List bytes, int offset) {
+  return (_readUint32BE(bytes, offset) << 32) |
+      _readUint32BE(bytes, offset + 4);
+}
+
+int _readUint32LE(Uint8List bytes, int offset) {
+  return bytes[offset] |
+      (bytes[offset + 1] << 8) |
+      (bytes[offset + 2] << 16) |
+      (bytes[offset + 3] << 24);
+}
+
+class _Mp3Frame {
+  const _Mp3Frame({
+    required this.versionBits,
+    required this.layer,
+    required this.bitrate,
+    required this.sampleRate,
+    required this.samplesPerFrame,
+    required this.channelMode,
+  });
+
+  final int versionBits;
+  final int layer;
+  final int bitrate;
+  final int sampleRate;
+  final int samplesPerFrame;
+  final int channelMode;
+}
+
+class _Mp4Box {
+  const _Mp4Box({
+    required this.type,
+    required this.size,
+    required this.headerSize,
+  });
+
+  final String type;
+  final int size;
+  final int headerSize;
+}
+
 Duration _clampDuration(Duration value, Duration max) {
   if (value < Duration.zero) return Duration.zero;
   if (max > Duration.zero && value > max) return max;
   return value;
-}
-
-Color _mixNativeAudioColors(Color color, Color other, double colorWeight) {
-  return Color.lerp(other, color, colorWeight.clamp(0.0, 1.0)) ?? color;
 }
 
 String _extensionForAudioMime(String? mimeType) {
