@@ -2095,11 +2095,56 @@ bool _shouldDefaultExpandToolStatus(String status) {
 }
 
 int _reasoningElapsedMs(AiSessionMessage message) {
-  final elapsed = DateTime.now()
-      .toUtc()
-      .difference(message.createdAt.toUtc())
-      .inMilliseconds;
+  final fixedElapsedMs = _reasoningFixedElapsedMs(message);
+  if (fixedElapsedMs != null) {
+    return fixedElapsedMs;
+  }
+  final startedAt =
+      _dateTimeFromMetadata(
+        message.metadata[aiSessionMessageReasoningStartedAtKey],
+      ) ??
+      message.createdAt.toUtc();
+  final elapsed = DateTime.now().toUtc().difference(startedAt).inMilliseconds;
   return math.max(0, elapsed);
+}
+
+int? _reasoningFixedElapsedMs(AiSessionMessage message) {
+  final storedElapsed = _nonNegativeIntFromMetadata(
+    message.metadata[aiSessionMessageReasoningElapsedMsKey],
+  );
+  if (storedElapsed != null) {
+    return storedElapsed;
+  }
+  final endedAt = _dateTimeFromMetadata(
+    message.metadata[aiSessionMessageReasoningEndedAtKey],
+  );
+  if (endedAt == null) {
+    return null;
+  }
+  final startedAt =
+      _dateTimeFromMetadata(
+        message.metadata[aiSessionMessageReasoningStartedAtKey],
+      ) ??
+      message.createdAt.toUtc();
+  return math.max(0, endedAt.difference(startedAt).inMilliseconds);
+}
+
+int? _nonNegativeIntFromMetadata(Object? rawValue) {
+  final value = rawValue is int
+      ? rawValue
+      : int.tryParse('${rawValue ?? ''}'.trim());
+  if (value == null || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+DateTime? _dateTimeFromMetadata(Object? rawValue) {
+  final text = '${rawValue ?? ''}'.trim();
+  if (text.isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(text)?.toUtc();
 }
 
 int? _toolExecutionExitCode(AiSessionMessage message) {

@@ -127,8 +127,12 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final labelText = _localizedText(context, zh: '思考', en: 'Reasoning');
-    final elapsedText = widget.showSweep
-        ? ' (${_formatToolExecutionDuration(_reasoningElapsedMs(widget.message))})'
+    final fixedElapsedMs = _reasoningFixedElapsedMs(widget.message);
+    final elapsedMs = widget.showSweep
+        ? _reasoningElapsedMs(widget.message)
+        : fixedElapsedMs;
+    final elapsedText = elapsedMs != null
+        ? ' (${_formatToolExecutionDuration(elapsedMs)})'
         : '';
     final pillContent = Row(
       mainAxisSize: MainAxisSize.min,

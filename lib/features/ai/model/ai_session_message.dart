@@ -47,6 +47,9 @@ enum AiSessionMessageRole {
 }
 
 const String aiSessionMessageMetadataStreamingKey = 'streaming';
+const String aiSessionMessageReasoningStartedAtKey = 'reasoning_started_at';
+const String aiSessionMessageReasoningEndedAtKey = 'reasoning_ended_at';
+const String aiSessionMessageReasoningElapsedMsKey = 'reasoning_elapsed_ms';
 const String aiSessionMessageContentFormatKey = 'content_format';
 const String aiSessionMessageSenderOriginExplicitUser = 'explicit_user';
 const String aiSessionMessageSenderOriginOpenHandBackground =

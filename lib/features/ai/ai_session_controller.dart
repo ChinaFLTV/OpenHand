@@ -5408,6 +5408,7 @@ class AiSessionController extends ChangeNotifier {
       var streamedSession = workingSession;
       String? assistantMessageId;
       String? reasoningMessageId;
+      DateTime? reasoningStartedAt;
       AiTokenUsage? streamedUsage;
       final toolCallMessageIds = <int, String>{};
       // Per-stream map from canonical DSML invoke ID (e.g.
@@ -5438,15 +5439,44 @@ class AiSessionController extends ChangeNotifier {
         final currentStreaming =
             currentMessage.metadata[aiSessionMessageMetadataStreamingKey] ==
             true;
-        if (currentStreaming == streaming) {
+        final hasCompletedTiming =
+            currentMessage.metadata[aiSessionMessageReasoningElapsedMsKey] !=
+                null ||
+            '${currentMessage.metadata[aiSessionMessageReasoningEndedAtKey] ?? ''}'
+                .trim()
+                .isNotEmpty;
+        if (currentStreaming == streaming &&
+            (streaming || hasCompletedTiming)) {
           return session;
+        }
+        final now = _clock().toUtc();
+        final startedAt =
+            DateTime.tryParse(
+              '${currentMessage.metadata[aiSessionMessageReasoningStartedAtKey] ?? ''}',
+            )?.toUtc() ??
+            reasoningStartedAt ??
+            currentMessage.createdAt.toUtc();
+        final nextMetadata = <String, Object?>{
+          ...currentMessage.metadata,
+          aiSessionMessageMetadataStreamingKey: streaming,
+          aiSessionMessageReasoningStartedAtKey: startedAt.toIso8601String(),
+        };
+        if (streaming) {
+          nextMetadata
+            ..remove(aiSessionMessageReasoningEndedAtKey)
+            ..remove(aiSessionMessageReasoningElapsedMsKey);
+        } else {
+          final elapsedMs = math.max(
+            0,
+            now.difference(startedAt).inMilliseconds,
+          );
+          nextMetadata
+            ..[aiSessionMessageReasoningEndedAtKey] = now.toIso8601String()
+            ..[aiSessionMessageReasoningElapsedMsKey] = elapsedMs;
         }
         final updatedMessages = List<AiSessionMessage>.from(session.messages);
         updatedMessages[messageIndex] = currentMessage.copyWith(
-          metadata: <String, Object?>{
-            ...currentMessage.metadata,
-            aiSessionMessageMetadataStreamingKey: streaming,
-          },
+          metadata: nextMetadata,
         );
         return session.copyWith(
           messages: updatedMessages,
@@ -5457,6 +5487,8 @@ class AiSessionController extends ChangeNotifier {
       AiSession upsertReasoningPreview(AiSession session, String content) {
         final resolvedMessageId = reasoningMessageId ?? _idGenerator();
         reasoningMessageId = resolvedMessageId;
+        final startedAt = reasoningStartedAt ?? _clock().toUtc();
+        reasoningStartedAt = startedAt;
         return _upsertMessage(
           session,
           messageId: resolvedMessageId,
@@ -5466,19 +5498,31 @@ class AiSessionController extends ChangeNotifier {
             createdAt: _clock().toUtc(),
             modelId: model.id,
             modelLabel: model.displayName,
-            metadata: const <String, Object?>{
-              aiSessionMessageMetadataStreamingKey: true,
-            },
-          ),
-          update: (message) => message.copyWith(
-            content: content,
-            modelId: model.id,
-            modelLabel: model.displayName,
             metadata: <String, Object?>{
-              ...message.metadata,
               aiSessionMessageMetadataStreamingKey: true,
+              aiSessionMessageReasoningStartedAtKey: startedAt
+                  .toIso8601String(),
             },
           ),
+          update: (message) {
+            final metadata =
+                <String, Object?>{
+                    ...message.metadata,
+                    aiSessionMessageMetadataStreamingKey: true,
+                    aiSessionMessageReasoningStartedAtKey:
+                        message
+                            .metadata[aiSessionMessageReasoningStartedAtKey] ??
+                        startedAt.toIso8601String(),
+                  }
+                  ..remove(aiSessionMessageReasoningEndedAtKey)
+                  ..remove(aiSessionMessageReasoningElapsedMsKey);
+            return message.copyWith(
+              content: content,
+              modelId: model.id,
+              modelLabel: model.displayName,
+              metadata: metadata,
+            );
+          },
         );
       }
 
@@ -5555,8 +5599,11 @@ class AiSessionController extends ChangeNotifier {
             createdAt: _clock().toUtc(),
             modelId: model.id,
             modelLabel: model.displayName,
-            metadata: const <String, Object?>{
+            metadata: <String, Object?>{
               aiSessionMessageMetadataStreamingKey: false,
+              if (reasoningStartedAt != null)
+                aiSessionMessageReasoningStartedAtKey: reasoningStartedAt!
+                    .toIso8601String(),
             },
           ),
           update: (message) => message.copyWith(
@@ -5568,6 +5615,10 @@ class AiSessionController extends ChangeNotifier {
             metadata: <String, Object?>{
               ...message.metadata,
               aiSessionMessageMetadataStreamingKey: false,
+              if (reasoningStartedAt != null)
+                aiSessionMessageReasoningStartedAtKey:
+                    message.metadata[aiSessionMessageReasoningStartedAtKey] ??
+                    reasoningStartedAt!.toIso8601String(),
             },
           ),
         );
@@ -5677,6 +5728,8 @@ class AiSessionController extends ChangeNotifier {
         if (sanitizedContent.isEmpty && assistantMessageId == null) {
           return;
         }
+        materializePendingReasoningPreview();
+        streamedSession = setReasoningStreamingState(streamedSession, false);
         // 2026-05-17 — 还有未释放的字符余量则标记 streaming=true，让 UI
         // 在尾部渲染打字机光标；停止时由 syncFinalAssistantMessage 把
         // streaming 置为 false，光标随之消失。
@@ -5943,6 +5996,7 @@ class AiSessionController extends ChangeNotifier {
             if (delta.isEmpty) {
               return;
             }
+            reasoningStartedAt ??= _clock().toUtc();
             aiThroughputSampler.recordText(delta);
             reasoningRawBuffer.write(delta);
             // 推理卡片首次创建时遵守卡片限速；后续仅追加内容时直接走
