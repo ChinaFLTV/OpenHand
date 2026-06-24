@@ -38,6 +38,11 @@ class AiTtsPlaybackService {
   static const String settingsTestMessageId = '__settings_tts_test__';
   static const String settingsTestText = '这是一段文本转语音测试。';
   static const int _doubaoTtsSuccessCode = 20000000;
+  static const String _defaultAiTtsAudioFormat = 'mp3';
+  static const int _defaultAiTtsSampleRate = 24000;
+  static const int _defaultAiTtsBitRate = 128000;
+  static final RegExp _markdownMediaLinkPattern = RegExp(r'\]\(([^)]+)\)');
+  static final RegExp _markdownLinkTitlePattern = RegExp(r'\s+"');
 
   final AiImageGenerationService _mediaGenerationService;
   final bool _ownsMediaGenerationService;
@@ -243,6 +248,11 @@ class AiTtsPlaybackService {
     if (!supportsAudioGenerationModel(model, model.modelId)) {
       throw StateError('AI TTS model does not support audio generation.');
     }
+    final outputFormat = _extraString(
+      settings,
+      'format',
+      fallback: _defaultAiTtsAudioFormat,
+    );
     final result = await _mediaGenerationService.generateAudio(
       model: model,
       prompt: text,
@@ -251,17 +261,30 @@ class AiTtsPlaybackService {
         speed: settings.speed,
         volume: settings.volume,
         pitch: settings.pitch,
-        outputFormat: _extraString(settings, 'format', fallback: 'mp3'),
-        sampleRate: _extraInt(settings, 'sample_rate', fallback: 24000),
-        bitrate: _extraInt(settings, 'bit_rate', fallback: 128000),
+        outputFormat: outputFormat,
+        sampleRate: _extraInt(
+          settings,
+          'sample_rate',
+          fallback: _defaultAiTtsSampleRate,
+        ),
+        bitrate: _extraInt(
+          settings,
+          'bit_rate',
+          fallback: _defaultAiTtsBitRate,
+        ),
       ),
       timeout: timeout,
     );
-    final audioPath = _firstLocalMediaPath(result.markdown);
-    if (audioPath.isEmpty) {
+    final audioReference = _firstMediaReference(result.markdown);
+    if (audioReference.isEmpty) {
       throw StateError('AI TTS returned no playable audio.');
     }
-    await _playAudioFile(audioPath, volume: settings.volume, timeout: timeout);
+    await _playAudioReference(
+      audioReference,
+      outputFormat: outputFormat,
+      volume: settings.volume,
+      timeout: timeout,
+    );
   }
 
   AiModelConfig? _resolveAiModel({
@@ -891,6 +914,79 @@ class AiTtsPlaybackService {
     ], timeout: timeout);
   }
 
+  Future<void> _playAudioReference(
+    String reference, {
+    required String outputFormat,
+    required double volume,
+    required Duration timeout,
+  }) async {
+    final normalized = reference.trim();
+    if (normalized.isEmpty) {
+      throw StateError('TTS audio reference is empty.');
+    }
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && uri.hasScheme) {
+      if (uri.scheme == 'file') {
+        await _playAudioFile(
+          uri.toFilePath(),
+          volume: volume,
+          timeout: timeout,
+        );
+        return;
+      }
+      if (uri.scheme == 'http' || uri.scheme == 'https') {
+        await _playRemoteAudio(
+          uri,
+          outputFormat: outputFormat,
+          volume: volume,
+          timeout: timeout,
+        );
+        return;
+      }
+      throw StateError('AI TTS returned unsupported audio reference.');
+    }
+    await _playAudioFile(normalized, volume: volume, timeout: timeout);
+  }
+
+  Future<void> _playRemoteAudio(
+    Uri uri, {
+    required String outputFormat,
+    required double volume,
+    required Duration timeout,
+  }) async {
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final response = await client
+          .get(
+            uri,
+            headers: const <String, String>{
+              HttpHeaders.acceptHeader: 'audio/*',
+            },
+          )
+          .timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'AI TTS audio download HTTP ${response.statusCode}',
+          uri: uri,
+        );
+      }
+      final contentType = _responseContentType(response.headers);
+      if (!_isPlayableAudioContentType(contentType)) {
+        throw StateError('AI TTS audio URL returned non-audio content.');
+      }
+      await _playAudioBytes(
+        response.bodyBytes,
+        extension: _audioExtensionFromUri(uri, fallbackFormat: outputFormat),
+        volume: volume,
+        timeout: timeout,
+      );
+    } finally {
+      if (identical(_activeClient, client)) _activeClient = null;
+      client.close();
+    }
+  }
+
   Future<void> _runSpeechProcess(
     String executable,
     List<String> args, {
@@ -1072,13 +1168,40 @@ class AiTtsPlaybackService {
     return trimmed.substring(0, maxCharacters);
   }
 
-  static String _firstLocalMediaPath(String markdown) {
-    final match = RegExp(r'\]\(([^)]+)\)').firstMatch(markdown);
-    final raw = match?.group(1)?.trim() ?? '';
-    if (raw.isEmpty) return '';
-    final uri = Uri.tryParse(raw);
-    if (uri != null && uri.scheme == 'file') return uri.toFilePath();
-    return raw;
+  static String _firstMediaReference(String markdown) {
+    final match = _markdownMediaLinkPattern.firstMatch(markdown);
+    final raw = _cleanMediaReference(match?.group(1) ?? '');
+    if (raw.isNotEmpty) return raw;
+    for (final line in markdown.split('\n')) {
+      final candidate = _cleanMediaReference(line);
+      if (_looksLikeMediaReference(candidate)) return candidate;
+    }
+    return '';
+  }
+
+  static String _cleanMediaReference(String raw) {
+    var value = raw.trim();
+    if (value.startsWith('<') && value.endsWith('>') && value.length > 2) {
+      value = value.substring(1, value.length - 1).trim();
+    }
+    final titleIndex = value.indexOf(_markdownLinkTitlePattern);
+    if (titleIndex > 0) {
+      value = value.substring(0, titleIndex).trim();
+    }
+    return value;
+  }
+
+  static bool _looksLikeMediaReference(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return false;
+    final uri = Uri.tryParse(normalized);
+    if (uri != null && uri.hasScheme) {
+      return uri.scheme == 'file' ||
+          uri.scheme == 'http' ||
+          uri.scheme == 'https';
+    }
+    return normalized.startsWith('/') ||
+        normalized.contains(Platform.pathSeparator);
   }
 
   static int _systemRate(double speed) {
@@ -1307,8 +1430,14 @@ class AiTtsPlaybackService {
 
   static String _audioExtension(String format) {
     switch (format.trim().toLowerCase()) {
+      case 'aac':
+        return '.aac';
+      case 'flac':
+        return '.flac';
       case 'pcm':
         return '.pcm';
+      case 'opus':
+        return '.opus';
       case 'wav':
         return '.wav';
       case 'ogg':
@@ -1318,6 +1447,41 @@ class AiTtsPlaybackService {
       default:
         return '.mp3';
     }
+  }
+
+  static String _audioExtensionFromUri(
+    Uri uri, {
+    required String fallbackFormat,
+  }) {
+    final path = uri.path.toLowerCase();
+    const supportedExtensions = <String>{
+      '.aac',
+      '.flac',
+      '.m4a',
+      '.mp3',
+      '.ogg',
+      '.opus',
+      '.pcm',
+      '.wav',
+    };
+    for (final extension in supportedExtensions) {
+      if (path.endsWith(extension)) return extension;
+    }
+    return _audioExtension(fallbackFormat);
+  }
+
+  static String _responseContentType(Map<String, String> headers) {
+    return (headers[HttpHeaders.contentTypeHeader] ?? '')
+        .split(';')
+        .first
+        .trim()
+        .toLowerCase();
+  }
+
+  static bool _isPlayableAudioContentType(String contentType) {
+    return contentType.isEmpty ||
+        contentType.startsWith('audio/') ||
+        contentType == 'application/octet-stream';
   }
 
   static String _mimoAudioExtension(String format) {

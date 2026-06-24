@@ -709,7 +709,7 @@ class _AiTranslationProviderCardState
     final latest = _latestProviderSettings;
     if (latest == null) return;
     final persisted = widget.settings.provider(widget.provider).normalized();
-    if (jsonEncode(latest.toJson()) == jsonEncode(persisted.toJson())) {
+    if (_settingsJsonEquals(latest.toJson(), persisted.toJson())) {
       _latestProviderSettings = null;
     }
   }
@@ -1357,7 +1357,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     final latest = _latestProviderSettings;
     if (latest == null) return;
     final persisted = widget.settings.provider(widget.provider).normalized();
-    if (latest.toJson().toString() == persisted.toJson().toString()) {
+    if (_settingsJsonEquals(latest.toJson(), persisted.toJson())) {
       _latestProviderSettings = null;
     }
   }
@@ -2884,18 +2884,11 @@ String? _translationSelectedModelLabel(
   AiTranslationProviderSettings settings,
   List<AiModelConfig> models,
 ) {
-  final configId = settings.modelConfigId.trim();
-  final modelId = settings.modelId.trim();
-  if (configId.isEmpty || modelId.isEmpty) return null;
-  for (final model in models) {
-    if (model.id == configId) {
-      final providerLabel = model.providerLabel.trim().isEmpty
-          ? model.name
-          : model.providerLabel;
-      return '$providerLabel · $modelId';
-    }
-  }
-  return modelId;
+  return _selectedProviderModelLabel(
+    configId: settings.modelConfigId,
+    modelId: settings.modelId,
+    models: models,
+  );
 }
 
 String? _translationProviderReadinessError(
@@ -3047,18 +3040,34 @@ String? _ttsSelectedModelLabel(
   AiTtsProviderSettings settings,
   List<AiModelConfig> models,
 ) {
-  final configId = settings.modelConfigId.trim();
-  final modelId = settings.modelId.trim();
-  if (configId.isEmpty || modelId.isEmpty) return null;
+  return _selectedProviderModelLabel(
+    configId: settings.modelConfigId,
+    modelId: settings.modelId,
+    models: models,
+  );
+}
+
+String? _selectedProviderModelLabel({
+  required String configId,
+  required String modelId,
+  required List<AiModelConfig> models,
+}) {
+  final normalizedConfigId = configId.trim();
+  final normalizedModelId = modelId.trim();
+  if (normalizedConfigId.isEmpty || normalizedModelId.isEmpty) return null;
   for (final model in models) {
-    if (model.id == configId) {
+    if (model.id == normalizedConfigId) {
       final providerLabel = model.providerLabel.trim().isEmpty
           ? model.name
           : model.providerLabel;
-      return '$providerLabel · $modelId';
+      return '$providerLabel · $normalizedModelId';
     }
   }
-  return modelId;
+  return normalizedModelId;
+}
+
+bool _settingsJsonEquals(Object? left, Object? right) {
+  return jsonEncode(left) == jsonEncode(right);
 }
 
 List<AiModelConfig> _ttsAudioGenerationModels(List<AiModelConfig> models) {
