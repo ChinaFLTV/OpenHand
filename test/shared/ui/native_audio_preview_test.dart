@@ -67,5 +67,35 @@ void main() {
         isFalse,
       );
     });
+
+    test('stops deferring rewind after repair budget is exhausted', () {
+      expect(
+        canAttemptNativeAudioUnexpectedRewindRepair(
+          target: const Duration(seconds: 48),
+          repairAttempts: 1,
+          maxRepairAttempts: 2,
+          rewindTolerance: const Duration(seconds: 4),
+        ),
+        isTrue,
+      );
+      expect(
+        canAttemptNativeAudioUnexpectedRewindRepair(
+          target: const Duration(seconds: 48),
+          repairAttempts: 2,
+          maxRepairAttempts: 2,
+          rewindTolerance: const Duration(seconds: 4),
+        ),
+        isFalse,
+      );
+      expect(
+        canAttemptNativeAudioUnexpectedRewindRepair(
+          target: const Duration(seconds: 3),
+          repairAttempts: 0,
+          maxRepairAttempts: 2,
+          rewindTolerance: const Duration(seconds: 4),
+        ),
+        isFalse,
+      );
+    });
   });
 }

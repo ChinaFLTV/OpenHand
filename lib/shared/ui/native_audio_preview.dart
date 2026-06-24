@@ -19,6 +19,7 @@ const Duration _kNativeAudioPollInterval = Duration(milliseconds: 250);
 const Duration _kNativeAudioMetadataPollTimeout = Duration(milliseconds: 450);
 const Duration _kNativeAudioDurationProbeInterval = Duration(milliseconds: 180);
 const Duration _kNativeAudioSeekSettleDelay = Duration(milliseconds: 140);
+const Duration _kNativeAudioSeekReadbackDelay = Duration(milliseconds: 80);
 const Duration _kNativeAudioSeekProbeInterval = Duration(milliseconds: 240);
 const Duration _kNativeAudioSeekEchoGuard = Duration(milliseconds: 2800);
 const Duration _kNativeAudioSeekEchoMinTarget = Duration(milliseconds: 900);
@@ -30,6 +31,7 @@ const Duration _kNativeAudioUnexpectedRewindRepairDebounce = Duration(
 const Duration _kNativeAudioCompletionTolerance = Duration(seconds: 2);
 const int _kNativeAudioDurationProbeAttempts = 8;
 const int _kNativeAudioSeekProbeAttempts = 5;
+const int _kNativeAudioPreResumeSeekAttempts = 2;
 const int _kNativeAudioSeekRepairAttempts = 2;
 const int _kNativeAudioUnexpectedRewindRepairAttempts = 2;
 const int _kNativeAudioHeaderProbeBytes = 256 * 1024;
@@ -217,9 +219,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   int _unexpectedRewindRepairAttempts = 0;
   DateTime? _lastUnexpectedRewindRepairAt;
   bool _playbackResetRepairInFlight = false;
+  Future<void> _seekCommandChain = Future<void>.value();
 
   bool get _isPlaying => _playerState == PlayerState.playing;
   bool get _canScrub => _sourceReady && _duration > Duration.zero;
+  bool get _shouldPauseBeforeSeek => !kIsWeb;
   bool get _hasMeaningfulAlbumLabel {
     final album = widget.meta.album.trim();
     if (album.isEmpty) return false;
@@ -241,6 +245,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           if (!mounted) return;
           if (state == PlayerState.completed && !_shouldAcceptCompleteEvent()) {
             unawaited(_repairUnexpectedPlaybackReset());
+            return;
+          }
+          if (_seeking &&
+              (state == PlayerState.paused || state == PlayerState.stopped)) {
             return;
           }
           setState(() => _playerState = state);
@@ -318,6 +326,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       _loadError = null;
       _position = Duration.zero;
       _duration = Duration.zero;
+      _seeking = false;
+      _manualProgressActive = false;
       _resetUnexpectedRewindRepair();
       _clearSeekEchoGuard();
     });
@@ -486,8 +496,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     final candidate = _clampDuration(reported, duration);
     if (_shouldIgnoreSeekEcho(candidate)) return null;
     if (_shouldIgnoreUnexpectedRewind(candidate)) {
-      _scheduleUnexpectedRewindRepair(candidate);
-      return null;
+      if (_scheduleUnexpectedRewindRepair(candidate)) return null;
+      _clearSeekEchoGuard();
     }
     _clearSeekEchoGuardIfSettled(candidate);
     _resetUnexpectedRewindRepair();
@@ -553,24 +563,32 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     );
   }
 
-  void _scheduleUnexpectedRewindRepair(Duration reported) {
+  bool _scheduleUnexpectedRewindRepair(Duration reported) {
     final target = _clampDuration(_seekEchoTarget ?? _position, _duration);
-    if (target <= _kNativeAudioUnexpectedRewindTolerance) return;
-    if (_unexpectedRewindRepairAttempts >=
-        _kNativeAudioUnexpectedRewindRepairAttempts) {
-      return;
+    if (!canAttemptNativeAudioUnexpectedRewindRepair(
+      target: target,
+      repairAttempts: _unexpectedRewindRepairAttempts,
+      maxRepairAttempts: _kNativeAudioUnexpectedRewindRepairAttempts,
+      rewindTolerance: _kNativeAudioUnexpectedRewindTolerance,
+    )) {
+      return false;
     }
     final now = DateTime.now();
     final lastRepairAt = _lastUnexpectedRewindRepairAt;
     if (lastRepairAt != null &&
         now.difference(lastRepairAt) <
             _kNativeAudioUnexpectedRewindRepairDebounce) {
-      return;
+      return true;
     }
     _lastUnexpectedRewindRepairAt = now;
     _unexpectedRewindRepairAttempts++;
     final repairSerial = _seekSerial;
-    unawaited(_repairUnexpectedRewind(repairSerial, target, reported));
+    unawaited(
+      _enqueueSeekCommand(
+        () => _repairUnexpectedRewind(repairSerial, target, reported),
+      ),
+    );
+    return true;
   }
 
   Future<void> _repairUnexpectedRewind(
@@ -606,9 +624,16 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         !_isPlaying) {
       return;
     }
-    final target = _clampDuration(_seekEchoTarget ?? _position, _duration);
-    if (target <= _kNativeAudioUnexpectedRewindTolerance) return;
     _playbackResetRepairInFlight = true;
+    await _enqueueSeekCommand(_runUnexpectedPlaybackResetRepair);
+  }
+
+  Future<void> _runUnexpectedPlaybackResetRepair() async {
+    final target = _clampDuration(_seekEchoTarget ?? _position, _duration);
+    if (target <= _kNativeAudioUnexpectedRewindTolerance) {
+      _playbackResetRepairInFlight = false;
+      return;
+    }
     final repairSerial = _seekSerial;
     _markSeekEchoGuard(target);
     try {
@@ -730,7 +755,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<void> _togglePlayPause() async {
-    if (_operationInFlight) return;
+    if (_operationInFlight || _seeking) return;
     if (!_sourceReady) {
       if (_loadError != null) unawaited(_bootstrap());
       return;
@@ -775,7 +800,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   Future<void> _seekTo(Duration target) async {
     if (!_sourceReady) return;
     final seekSerial = ++_seekSerial;
-    var seekCommandCompleted = false;
     final shouldResumeAfterSeek = _isPlaying;
     final upperBound = _duration > Duration.zero
         ? _duration
@@ -794,21 +818,52 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _playerState = PlayerState.paused;
       }
     });
+    await _enqueueSeekCommand(
+      () => _performSeekTo(seekSerial, clamped, shouldResumeAfterSeek),
+    );
+  }
+
+  Future<void> _performSeekTo(
+    int seekSerial,
+    Duration clamped,
+    bool shouldResumeAfterSeek,
+  ) async {
+    if (!_isCurrentSeek(seekSerial)) return;
+    var seekCommandCompleted = false;
     try {
-      await _player.seek(clamped).timeout(kNativeAudioControlTimeout);
+      if (shouldResumeAfterSeek && _shouldPauseBeforeSeek) {
+        try {
+          await _player.pause().timeout(kNativeAudioControlTimeout);
+        } catch (error, stack) {
+          silentLog(
+            'native_audio_preview',
+            'pause before seek failed',
+            error,
+            stack,
+          );
+        }
+      }
+      final readback = await _seekAndReadBack(seekSerial, clamped);
+      if (!_isCurrentSeek(seekSerial)) return;
       if (shouldResumeAfterSeek && _isCurrentSeek(seekSerial)) {
         await _applyEffectToPlayer();
         await _player.resume().timeout(kNativeAudioControlTimeout);
       }
       seekCommandCompleted = true;
       if (_isCurrentSeek(seekSerial)) {
+        final settled =
+            readback != null &&
+            _isSeekCandidateCloseToTarget(readback, clamped);
         setState(() {
           _seeking = false;
-          _position = _clampDuration(clamped, _duration);
+          _position = settled ? readback : _clampDuration(clamped, _duration);
           if (shouldResumeAfterSeek) _playerState = PlayerState.playing;
+          if (settled) _clearSeekEchoGuard();
         });
         _restartProgressPolling();
-        unawaited(_settleSeekPosition(seekSerial, clamped));
+        if (!settled) {
+          unawaited(_settleSeekPosition(seekSerial, clamped));
+        }
       }
     } catch (error, stack) {
       silentLog('native_audio_preview', 'seek failed', error, stack);
@@ -821,6 +876,39 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _restartProgressPolling();
       }
     }
+  }
+
+  Future<Duration?> _seekAndReadBack(int seekSerial, Duration target) async {
+    Duration? lastCandidate;
+    for (
+      var attempt = 0;
+      attempt < _kNativeAudioPreResumeSeekAttempts;
+      attempt++
+    ) {
+      if (!_isCurrentSeek(seekSerial)) return lastCandidate;
+      _markSeekEchoGuard(target);
+      await _player.seek(target).timeout(kNativeAudioControlTimeout);
+      if (!_isCurrentSeek(seekSerial)) return lastCandidate;
+      final candidate = await _readCurrentPositionAfter(
+        _kNativeAudioSeekReadbackDelay,
+      );
+      if (!_isCurrentSeek(seekSerial)) return lastCandidate;
+      if (candidate == null) continue;
+      lastCandidate = _clampDuration(candidate, _duration);
+      if (_isSeekCandidateCloseToTarget(lastCandidate, target)) {
+        return lastCandidate;
+      }
+    }
+    return lastCandidate;
+  }
+
+  Future<Duration?> _readCurrentPositionAfter(Duration delay) async {
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
+    final position = await _player.getCurrentPosition().timeout(
+      _kNativeAudioMetadataPollTimeout,
+      onTimeout: () => null,
+    );
+    return position != null && position >= Duration.zero ? position : null;
   }
 
   Future<bool> _settleSeekPosition(int seekSerial, Duration target) async {
@@ -854,7 +942,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       if (settled) return true;
       if (repairAttempts < _kNativeAudioSeekRepairAttempts && attempt.isOdd) {
         repairAttempts++;
-        await _repairSeekPosition(seekSerial, target);
+        await _enqueueSeekCommand(
+          () => _repairSeekPosition(seekSerial, target),
+        );
       }
     }
     if (_isCurrentSeek(seekSerial)) {
@@ -881,6 +971,29 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   bool _isCurrentSeek(int seekSerial) {
     return !_disposed && mounted && seekSerial == _seekSerial;
+  }
+
+  Future<void> _enqueueSeekCommand(Future<void> Function() command) {
+    final previous = _seekCommandChain;
+
+    Future<void> run() async {
+      try {
+        await previous;
+      } catch (error, stack) {
+        silentLog(
+          'native_audio_preview',
+          'previous seek command failed',
+          error,
+          stack,
+        );
+      }
+      if (_disposed) return;
+      await command();
+    }
+
+    final next = run();
+    _seekCommandChain = next;
+    return next;
   }
 
   Future<void> _setVolume(double value) async {
@@ -2057,6 +2170,17 @@ bool shouldIgnoreNativeAudioUnexpectedRewind({
     return false;
   }
   return candidate + _kNativeAudioUnexpectedRewindTolerance < displayedPosition;
+}
+
+@visibleForTesting
+bool canAttemptNativeAudioUnexpectedRewindRepair({
+  required Duration target,
+  required int repairAttempts,
+  required int maxRepairAttempts,
+  required Duration rewindTolerance,
+}) {
+  if (target <= rewindTolerance) return false;
+  return repairAttempts < maxRepairAttempts;
 }
 
 Future<Duration?> estimateNativeAudioFileDuration(
