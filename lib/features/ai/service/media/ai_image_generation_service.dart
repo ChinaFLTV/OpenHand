@@ -12,6 +12,7 @@ import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_catalog.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
+import '../../model/ai_tts_provider_catalog.dart';
 import '../chat/ai_protocol_adapter.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
 import '../operations/ai_operation_http.dart';
@@ -1452,12 +1453,10 @@ class AiImageGenerationService {
     required AiProtocolType protocol,
     required String modelId,
   }) {
-    return switch (protocol) {
-      AiProtocolType.stepfun => AiStepFunAudioPolicy.defaultVoice,
-      _ when AiStepFunAudioPolicy.isStepFunTtsModel(modelId) =>
-        AiStepFunAudioPolicy.defaultVoice,
-      _ => 'alloy',
-    };
+    return AiTtsProviderCatalogs.defaultVoiceForAiModel(
+      protocol: protocol,
+      modelId: modelId,
+    );
   }
 
   Map<String, Object?> _decodeJson(String body) {

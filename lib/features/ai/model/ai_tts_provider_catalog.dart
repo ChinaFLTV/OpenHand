@@ -1,3 +1,4 @@
+import 'ai_model_config.dart';
 import 'ai_tts_settings.dart';
 
 class AiTtsCatalogOption {
@@ -28,6 +29,9 @@ class AiTtsProviderCatalog {
 class AiTtsProviderCatalogs {
   const AiTtsProviderCatalogs._();
 
+  static const String openAiDefaultVoice = 'alloy';
+  static const String stepFunDefaultVoice = 'cixingnansheng';
+
   static AiTtsProviderCatalog of(AiTtsProvider provider) {
     return _catalogs[provider]!;
   }
@@ -39,6 +43,111 @@ class AiTtsProviderCatalogs {
   static List<AiTtsCatalogOption> languages(AiTtsProvider provider) {
     return of(provider).languageOptions;
   }
+
+  static List<AiTtsCatalogOption> voiceOptionsForAiModel({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    if (!usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
+      return _aiVoices;
+    }
+    if (isStepAudio25TtsModel(modelId)) return _stepAudio25Voices;
+    if (_isStepTtsMiniModel(modelId)) return _stepTtsMiniVoices;
+    if (_isStepTtsClassicModel(modelId)) return _stepTtsClassicVoices;
+    return _stepFunVoices;
+  }
+
+  static List<AiTtsCatalogOption> formatOptionsForAiModel({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    return usesStepFunSpeech(protocol: protocol, modelId: modelId)
+        ? _stepFunFormats
+        : _aiFormats;
+  }
+
+  static String defaultVoiceForAiModel({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    return usesStepFunSpeech(protocol: protocol, modelId: modelId)
+        ? stepFunDefaultVoice
+        : openAiDefaultVoice;
+  }
+
+  static String normalizeVoiceForAiModel({
+    required String? voice,
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    if (usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
+      return normalizeStepFunVoice(voice);
+    }
+    final normalized = voice?.trim() ?? '';
+    return normalized.isEmpty ? openAiDefaultVoice : normalized;
+  }
+
+  static String normalizeStepFunVoice(String? voice) {
+    final normalized = voice?.trim() ?? '';
+    if (normalized.isEmpty || isOpenAiPresetVoice(normalized)) {
+      return stepFunDefaultVoice;
+    }
+    return normalized;
+  }
+
+  static String normalizeStepFunResponseFormat(Object? raw) {
+    final format = '${raw ?? ''}'.trim().toLowerCase();
+    if (stepFunSupportedFormats.contains(format)) return format;
+    return 'mp3';
+  }
+
+  static bool usesStepFunSpeech({
+    required AiProtocolType protocol,
+    required String modelId,
+  }) {
+    return protocol == AiProtocolType.stepfun || isStepFunTtsModel(modelId);
+  }
+
+  static bool isStepFunTtsModel(String modelId) {
+    final normalized = modelId.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return normalized.startsWith('step-tts') ||
+        (normalized.startsWith('stepaudio-') && normalized.contains('tts'));
+  }
+
+  static bool isStepAudio25TtsModel(String modelId) {
+    return modelId.trim().toLowerCase().startsWith('stepaudio-2.5-tts');
+  }
+
+  static bool _isStepTtsMiniModel(String modelId) {
+    return modelId.trim().toLowerCase().startsWith('step-tts-mini');
+  }
+
+  static bool _isStepTtsClassicModel(String modelId) {
+    final normalized = modelId.trim().toLowerCase();
+    return normalized.startsWith('step-tts') &&
+        !normalized.startsWith('step-tts-mini');
+  }
+
+  static bool isOpenAiPresetVoice(String voice) {
+    return _openAiPresetVoices.contains(voice.trim().toLowerCase());
+  }
+
+  static const Set<String> stepFunSupportedFormats = <String>{
+    'wav',
+    'mp3',
+    'flac',
+    'opus',
+    'pcm',
+  };
+
+  static const Set<int> stepFunSupportedSampleRates = <int>{
+    8000,
+    16000,
+    22050,
+    24000,
+    48000,
+  };
 
   static const List<AiTtsCatalogOption> _commonLanguages = <AiTtsCatalogOption>[
     AiTtsCatalogOption('zh-CN', '简体中文 zh-CN'),
@@ -76,12 +185,127 @@ class AiTtsProviderCatalogs {
     AiTtsCatalogOption('verse', 'Verse'),
   ];
 
+  static const Set<String> _openAiPresetVoices = <String>{
+    'alloy',
+    'ash',
+    'ballad',
+    'cedar',
+    'coral',
+    'echo',
+    'fable',
+    'marin',
+    'nova',
+    'onyx',
+    'sage',
+    'shimmer',
+    'verse',
+  };
+
+  static final List<AiTtsCatalogOption> _stepFunVoices = List.unmodifiable(
+    _uniqueOptions(<AiTtsCatalogOption>[
+      ..._stepAudio25Voices,
+      ..._stepTtsClassicVoices,
+      ..._stepTtsMiniVoices,
+      ..._stepApiExampleVoices,
+    ]),
+  );
+
+  static const List<AiTtsCatalogOption> _stepAudio25Voices =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('cixingnansheng', 'cixingnansheng'),
+        AiTtsCatalogOption('lively-girl', 'lively-girl'),
+        AiTtsCatalogOption('shy-girl', 'shy-girl'),
+        AiTtsCatalogOption('rap-man', 'rap-man'),
+        AiTtsCatalogOption('elegant-lady', 'elegant-lady'),
+        AiTtsCatalogOption('deep-man', 'deep-man'),
+        AiTtsCatalogOption('surprised-girl', 'surprised-girl'),
+        AiTtsCatalogOption('zongcangyan', 'zongcangyan'),
+        AiTtsCatalogOption('zhengpainansheng', 'zhengpainansheng'),
+        AiTtsCatalogOption('yuanqinansheng', 'yuanqinansheng'),
+        AiTtsCatalogOption('qingniandaxuesheng', 'qingniandaxuesheng'),
+        AiTtsCatalogOption('boyanqingshu', 'boyanqingshu'),
+        AiTtsCatalogOption('jazzy', 'jazzy'),
+        AiTtsCatalogOption('kuainansheng', 'kuainansheng'),
+        AiTtsCatalogOption('xuanwukezhu', 'xuanwukezhu'),
+        AiTtsCatalogOption('qingniannanyin', 'qingniannanyin'),
+        AiTtsCatalogOption('shuangkuainansheng', 'shuangkuainansheng'),
+        AiTtsCatalogOption('qingyinnansheng', 'qingyinnansheng'),
+        AiTtsCatalogOption('old_man', 'old_man'),
+        AiTtsCatalogOption('yumeinvtong', 'yumeinvtong'),
+        AiTtsCatalogOption('kalinvtong', 'kalinvtong'),
+        AiTtsCatalogOption('huanlepengyou', 'huanlepengyou'),
+        AiTtsCatalogOption('showgirl', 'showgirl'),
+        AiTtsCatalogOption('jilingshaonv', 'jilingshaonv'),
+        AiTtsCatalogOption('chuanmeinvwang', 'chuanmeinvwang'),
+        AiTtsCatalogOption('qiaopinvsheng', 'qiaopinvsheng'),
+        AiTtsCatalogOption('pilibala', 'pilibala'),
+        AiTtsCatalogOption('meilinvtong', 'meilinvtong'),
+        AiTtsCatalogOption('radioer', 'radioer'),
+        AiTtsCatalogOption('baobao', 'baobao'),
+        AiTtsCatalogOption('kokonvsheng', 'kokonvsheng'),
+        AiTtsCatalogOption('lonely_girl', 'lonely_girl'),
+        AiTtsCatalogOption('female_sichuan', 'female_sichuan'),
+        AiTtsCatalogOption('mengwa', 'mengwa'),
+        AiTtsCatalogOption('yuzhoufeixingyuan', 'yuzhoufeixingyuan'),
+        AiTtsCatalogOption('female_wanqudashu', 'female_wanqudashu'),
+        AiTtsCatalogOption('female_wanwanxiaohe', 'female_wanwanxiaohe'),
+        AiTtsCatalogOption('taiwanxiaoge', 'taiwanxiaoge'),
+        AiTtsCatalogOption('xianzhanggui', 'xianzhanggui'),
+        AiTtsCatalogOption('mengmeng_haimian', 'mengmeng_haimian'),
+        AiTtsCatalogOption('taiwanerduo', 'taiwanerduo'),
+        AiTtsCatalogOption('yl_xiaoshen', 'yl_xiaoshen'),
+        AiTtsCatalogOption('RAP_sing', 'RAP_sing'),
+        AiTtsCatalogOption('RAP_sing2', 'RAP_sing2'),
+        AiTtsCatalogOption('RAP_sing3', 'RAP_sing3'),
+        AiTtsCatalogOption('quqiubingjiao', 'quqiubingjiao'),
+        AiTtsCatalogOption('yujieboss', 'yujieboss'),
+        AiTtsCatalogOption('phoneman', 'phoneman'),
+        AiTtsCatalogOption('irritable', 'irritable'),
+        AiTtsCatalogOption('xiaobudianer', 'xiaobudianer'),
+        AiTtsCatalogOption('yingtaowanzi', 'yingtaowanzi'),
+        AiTtsCatalogOption('yousahua', 'yousahua'),
+      ];
+
+  static const List<AiTtsCatalogOption> _stepTtsClassicVoices =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('cixingnansheng', 'cixingnansheng'),
+        AiTtsCatalogOption('chengshunvsheng', 'chengshunvsheng'),
+        AiTtsCatalogOption('zhengpainansheng', 'zhengpainansheng'),
+        AiTtsCatalogOption('qingnianwenyinvsheng', 'qingnianwenyinvsheng'),
+        AiTtsCatalogOption('shuangkuainansheng', 'shuangkuainansheng'),
+        AiTtsCatalogOption('wenrounvsheng', 'wenrounvsheng'),
+        AiTtsCatalogOption('jilingshaonv', 'jilingshaonv'),
+      ];
+
+  static const List<AiTtsCatalogOption> _stepTtsMiniVoices =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('cixingnansheng', 'cixingnansheng'),
+        AiTtsCatalogOption('zhengpainansheng', 'zhengpainansheng'),
+        AiTtsCatalogOption('female-shaonv', 'female-shaonv'),
+        AiTtsCatalogOption('male-qn-qingse', 'male-qn-qingse'),
+      ];
+
+  static const List<AiTtsCatalogOption> _stepApiExampleVoices =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('vibrant-youth', 'vibrant-youth'),
+        AiTtsCatalogOption('soft-spoken-gentleman', 'soft-spoken-gentleman'),
+        AiTtsCatalogOption('magnetic-voiced-male', 'magnetic-voiced-male'),
+      ];
+
   static const List<AiTtsCatalogOption> _aiFormats = <AiTtsCatalogOption>[
     AiTtsCatalogOption('mp3', 'MP3'),
     AiTtsCatalogOption('wav', 'WAV'),
     AiTtsCatalogOption('opus', 'Opus'),
     AiTtsCatalogOption('aac', 'AAC'),
     AiTtsCatalogOption('flac', 'FLAC'),
+    AiTtsCatalogOption('pcm', 'PCM'),
+  ];
+
+  static const List<AiTtsCatalogOption> _stepFunFormats = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('mp3', 'MP3'),
+    AiTtsCatalogOption('wav', 'WAV'),
+    AiTtsCatalogOption('flac', 'FLAC'),
+    AiTtsCatalogOption('opus', 'Opus'),
     AiTtsCatalogOption('pcm', 'PCM'),
   ];
 
@@ -281,4 +505,15 @@ class AiTtsProviderCatalogs {
           languageOptions: _commonLanguages,
         ),
       };
+
+  static List<AiTtsCatalogOption> _uniqueOptions(
+    List<AiTtsCatalogOption> options,
+  ) {
+    final seen = <String>{};
+    final result = <AiTtsCatalogOption>[];
+    for (final option in options) {
+      if (seen.add(option.value)) result.add(option);
+    }
+    return result;
+  }
 }

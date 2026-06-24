@@ -1,59 +1,28 @@
 import '../../model/ai_model_config.dart';
+import '../../model/ai_tts_provider_catalog.dart';
 
 final class AiStepFunAudioPolicy {
   const AiStepFunAudioPolicy._();
 
-  static const String defaultVoice = 'cixingnansheng';
+  static const String defaultVoice = AiTtsProviderCatalogs.stepFunDefaultVoice;
   static const int maxSpeechInputRunes = 1000;
-
-  static const Set<String> _supportedFormats = <String>{
-    'wav',
-    'mp3',
-    'flac',
-    'opus',
-    'pcm',
-  };
-
-  static const Set<int> _supportedSampleRates = <int>{
-    8000,
-    16000,
-    22050,
-    24000,
-    48000,
-  };
-
-  static const Set<String> _openAiPresetVoices = <String>{
-    'alloy',
-    'ash',
-    'ballad',
-    'cedar',
-    'coral',
-    'echo',
-    'fable',
-    'marin',
-    'nova',
-    'onyx',
-    'sage',
-    'shimmer',
-    'verse',
-  };
 
   static bool isStepFunSpeech({
     required AiProtocolType protocol,
     required String modelId,
   }) {
-    return protocol == AiProtocolType.stepfun || isStepFunTtsModel(modelId);
+    return AiTtsProviderCatalogs.usesStepFunSpeech(
+      protocol: protocol,
+      modelId: modelId,
+    );
   }
 
   static bool isStepFunTtsModel(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
-    if (normalized.isEmpty) return false;
-    return normalized.startsWith('step-tts') ||
-        (normalized.startsWith('stepaudio-') && normalized.contains('tts'));
+    return AiTtsProviderCatalogs.isStepFunTtsModel(modelId);
   }
 
   static bool isStepAudio25TtsModel(String modelId) {
-    return modelId.trim().toLowerCase().startsWith('stepaudio-2.5-tts');
+    return AiTtsProviderCatalogs.isStepAudio25TtsModel(modelId);
   }
 
   static String? inputValidationError({
@@ -67,22 +36,19 @@ final class AiStepFunAudioPolicy {
   }
 
   static String resolveVoice(String? raw) {
-    final voice = raw?.trim() ?? '';
-    if (voice.isEmpty || _openAiPresetVoices.contains(voice.toLowerCase())) {
-      return defaultVoice;
-    }
-    return voice;
+    return AiTtsProviderCatalogs.normalizeStepFunVoice(raw);
   }
 
   static String resolveResponseFormat(Object? raw) {
-    final format = '${raw ?? ''}'.trim().toLowerCase();
-    if (_supportedFormats.contains(format)) return format;
-    return 'mp3';
+    return AiTtsProviderCatalogs.normalizeStepFunResponseFormat(raw);
   }
 
   static int? resolveSampleRate(Object? raw) {
     final value = _intValue(raw);
-    if (value == null || !_supportedSampleRates.contains(value)) return null;
+    if (value == null ||
+        !AiTtsProviderCatalogs.stepFunSupportedSampleRates.contains(value)) {
+      return null;
+    }
     return value;
   }
 

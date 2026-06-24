@@ -14,6 +14,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/ai_tts_provider_catalog.dart';
 import '../../model/ai_tts_settings.dart';
 import '../media/ai_image_generation_service.dart';
 
@@ -248,16 +249,28 @@ class AiTtsPlaybackService {
     if (!supportsAudioGenerationModel(model, model.modelId)) {
       throw StateError('AI TTS model does not support audio generation.');
     }
-    final outputFormat = _extraString(
+    final requestedFormat = _extraString(
       settings,
       'format',
       fallback: _defaultAiTtsAudioFormat,
+    );
+    final stepFunSpeech = AiTtsProviderCatalogs.usesStepFunSpeech(
+      protocol: model.protocolType,
+      modelId: model.modelId,
+    );
+    final outputFormat = stepFunSpeech
+        ? AiTtsProviderCatalogs.normalizeStepFunResponseFormat(requestedFormat)
+        : requestedFormat;
+    final voice = AiTtsProviderCatalogs.normalizeVoiceForAiModel(
+      voice: settings.voice,
+      protocol: model.protocolType,
+      modelId: model.modelId,
     );
     final result = await _mediaGenerationService.generateAudio(
       model: model,
       prompt: text,
       options: AiCreationOptions(
-        voice: settings.voice.trim().isEmpty ? null : settings.voice.trim(),
+        voice: voice.trim().isEmpty ? null : voice.trim(),
         speed: settings.speed,
         volume: settings.volume,
         pitch: settings.pitch,

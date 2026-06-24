@@ -1345,8 +1345,40 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   AiTtsProviderSettings? _latestProviderSettings;
 
   AiTtsProviderSettings get _effectiveProviderSettings =>
-      (_latestProviderSettings ?? widget.settings.provider(widget.provider))
-          .normalized();
+      _normalizeProviderSettingsForCurrentModel(
+        (_latestProviderSettings ?? widget.settings.provider(widget.provider))
+            .normalized(),
+        widget.availableModels,
+      );
+
+  AiTtsProviderSettings _normalizeProviderSettingsForCurrentModel(
+    AiTtsProviderSettings settings,
+    List<AiModelConfig> models,
+  ) {
+    final normalized = settings.normalized();
+    if (normalized.provider != AiTtsProvider.ai) return normalized;
+    final model = _selectedAiTtsModel(settings: normalized, models: models);
+    final protocol = model?.protocolType ?? AiProtocolType.openai;
+    final modelId = (model?.modelId ?? normalized.modelId).trim();
+    if (modelId.isEmpty) return normalized;
+
+    final nextVoice = AiTtsProviderCatalogs.normalizeVoiceForAiModel(
+      voice: normalized.voice,
+      protocol: protocol,
+      modelId: modelId,
+    );
+    final nextExtra = Map<String, Object?>.from(normalized.extra);
+    if (AiTtsProviderCatalogs.usesStepFunSpeech(
+      protocol: protocol,
+      modelId: modelId,
+    )) {
+      nextExtra['format'] =
+          AiTtsProviderCatalogs.normalizeStepFunResponseFormat(
+            nextExtra['format'],
+          );
+    }
+    return normalized.copyWith(voice: nextVoice, extra: nextExtra).normalized();
+  }
 
   @override
   void didUpdateWidget(covariant _AiTtsProviderCard oldWidget) {
@@ -1480,7 +1512,29 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     AiTtsProviderSettings providerSettings,
   ) {
     final theme = Theme.of(context);
-    final catalog = AiTtsProviderCatalogs.of(AiTtsProvider.ai);
+    final model = _selectedAiTtsModel(
+      settings: providerSettings,
+      models: widget.availableModels,
+    );
+    final modelProtocol = model?.protocolType ?? AiProtocolType.openai;
+    final modelId = (model?.modelId ?? providerSettings.modelId).trim();
+    final voiceOptions = AiTtsProviderCatalogs.voiceOptionsForAiModel(
+      protocol: modelProtocol,
+      modelId: modelId,
+    );
+    final formatOptions = AiTtsProviderCatalogs.formatOptionsForAiModel(
+      protocol: modelProtocol,
+      modelId: modelId,
+    );
+    final usesStepFunSpeech = AiTtsProviderCatalogs.usesStepFunSpeech(
+      protocol: modelProtocol,
+      modelId: modelId,
+    );
+    final formatValue = usesStepFunSpeech
+        ? AiTtsProviderCatalogs.normalizeStepFunResponseFormat(
+            providerSettings.extra['format'],
+          )
+        : '${providerSettings.extra['format'] ?? 'mp3'}';
     final selectedLabel = _selectedProviderModelLabel(
       configId: providerSettings.modelConfigId,
       modelId: providerSettings.modelId,
@@ -1526,21 +1580,25 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
               _AiTtsDropdown(
                 label: _localizedText(context, zh: '音色/发音人', en: 'Voice'),
                 value: providerSettings.voice,
-                options: catalog.voiceOptions,
+                options: voiceOptions,
                 onChanged: (value) => _updateCurrent((current) {
                   return current.copyWith(voice: value);
                 }),
               ),
               _AiTtsDropdown(
                 label: _localizedText(context, zh: '音频格式', en: 'Format'),
-                value: '${providerSettings.extra['format'] ?? 'mp3'}',
-                options: catalog.formatOptions,
+                value: formatValue,
+                options: formatOptions,
                 onChanged: (value) => _updateExtra('format', value),
               ),
               _AiTtsProviderNumberField(
                 label: _localizedText(context, zh: '语速', en: 'Speed'),
                 value: providerSettings.speed,
-                range: _ttsNumberRange(AiTtsProvider.ai, _TtsNumberKind.speed),
+                range: _aiTtsNumberRangeForModel(
+                  protocol: modelProtocol,
+                  modelId: modelId,
+                  kind: _TtsNumberKind.speed,
+                ),
                 onChanged: (value) => _updateCurrent((current) {
                   return current.copyWith(speed: value);
                 }),
@@ -1548,7 +1606,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
               _AiTtsProviderNumberField(
                 label: _localizedText(context, zh: '音量', en: 'Volume'),
                 value: providerSettings.volume,
-                range: _ttsNumberRange(AiTtsProvider.ai, _TtsNumberKind.volume),
+                range: _aiTtsNumberRangeForModel(
+                  protocol: modelProtocol,
+                  modelId: modelId,
+                  kind: _TtsNumberKind.volume,
+                ),
                 onChanged: (value) => _updateCurrent((current) {
                   return current.copyWith(volume: value);
                 }),
@@ -1914,8 +1976,10 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     if (!mounted || picked == null) return;
     await settingsController.addRecentModelSelection(picked.$1, picked.$2);
     await _updateCurrent(
-      (current) =>
-          current.copyWith(modelConfigId: picked.$1, modelId: picked.$2),
+      (current) => _normalizeProviderSettingsForCurrentModel(
+        current.copyWith(modelConfigId: picked.$1, modelId: picked.$2),
+        latestModels,
+      ),
     );
   }
 }
@@ -3022,6 +3086,21 @@ String? _selectedProviderModelLabel({
   return normalizedModelId;
 }
 
+AiModelConfig? _selectedAiTtsModel({
+  required AiTtsProviderSettings settings,
+  required List<AiModelConfig> models,
+}) {
+  final configId = settings.modelConfigId.trim();
+  final modelId = settings.modelId.trim();
+  if (configId.isEmpty || modelId.isEmpty) return null;
+  for (final model in models) {
+    if (model.id == configId && model.allModelIds.contains(modelId)) {
+      return model.copyWith(modelId: modelId);
+    }
+  }
+  return null;
+}
+
 bool _settingsJsonEquals(Object? left, Object? right) {
   return jsonEncode(left) == jsonEncode(right);
 }
@@ -3115,6 +3194,24 @@ _TtsNumberRange _ttsNumberRange(AiTtsProvider provider, _TtsNumberKind kind) {
         _TtsNumberKind.pitch => const _TtsNumberRange(0.5, 2, step: 0.05),
       };
   }
+}
+
+_TtsNumberRange _aiTtsNumberRangeForModel({
+  required AiProtocolType protocol,
+  required String modelId,
+  required _TtsNumberKind kind,
+}) {
+  if (!AiTtsProviderCatalogs.usesStepFunSpeech(
+    protocol: protocol,
+    modelId: modelId,
+  )) {
+    return _ttsNumberRange(AiTtsProvider.ai, kind);
+  }
+  return switch (kind) {
+    _TtsNumberKind.speed => const _TtsNumberRange(0.5, 2, step: 0.05),
+    _TtsNumberKind.volume => const _TtsNumberRange(0.1, 2, step: 0.05),
+    _TtsNumberKind.pitch => _ttsNumberRange(AiTtsProvider.ai, kind),
+  };
 }
 
 String _primaryCredentialLabel(AiTtsProvider provider) {
