@@ -3737,11 +3737,11 @@ class _GeneratedAudioVisualMeta {
 
 const List<(Color, Color, Color)> _kGeneratedAudioPalettes =
     <(Color, Color, Color)>[
-      (Color(0xFF76815E), Color(0xFFBFC79A), Color(0xFFF4F0D7)),
-      (Color(0xFF5C6E75), Color(0xFFA9C3BD), Color(0xFFE8F0E9)),
-      (Color(0xFF765F73), Color(0xFFD2A9B8), Color(0xFFF4E5EA)),
-      (Color(0xFF6F6B55), Color(0xFFD1C394), Color(0xFFF1E8C8)),
-      (Color(0xFF59705C), Color(0xFFAEC8A8), Color(0xFFE8F3DF)),
+      (Color(0xFF65734F), Color(0xFF96A878), Color(0xFFE5EBD7)),
+      (Color(0xFF4F6B70), Color(0xFF7FA3A1), Color(0xFFE0ECEA)),
+      (Color(0xFF536D82), Color(0xFF89A7B8), Color(0xFFE2ECF1)),
+      (Color(0xFF6A7258), Color(0xFFA8B086), Color(0xFFECE9D6)),
+      (Color(0xFF51705F), Color(0xFF84A783), Color(0xFFE3EEE6)),
     ];
 
 String _normalizeAudioDisplayText(String value, {required String fallback}) {
@@ -3848,8 +3848,6 @@ class _GeneratedAudioCardStyle {
     required this.surface,
     required this.border,
     required this.borderHover,
-    required this.shadow,
-    required this.shadowHover,
     required this.bannerStart,
     required this.bannerMid,
     required this.bannerEnd,
@@ -3873,34 +3871,32 @@ class _GeneratedAudioCardStyle {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final quietSurface = Color.alphaBlend(
-      cs.primary.withValues(alpha: isDark ? 0.10 : 0.045),
+      cs.primary.withValues(alpha: isDark ? 0.07 : 0.035),
       cs.surfaceContainerHighest,
     );
     final surface = Color.alphaBlend(
-      bubbleTextColor.withValues(alpha: isDark ? 0.04 : 0.025),
+      bubbleTextColor.withValues(alpha: isDark ? 0.025 : 0.014),
       Color.alphaBlend(
-        bubbleBackground.withValues(alpha: isDark ? 0.10 : 0.16),
+        bubbleBackground.withValues(alpha: isDark ? 0.08 : 0.12),
         quietSurface,
       ),
     );
     final bannerStart = Color.alphaBlend(
-      meta.primaryColor.withValues(alpha: isDark ? 0.15 : 0.08),
-      cs.primaryContainer,
-    );
-    final bannerMid = Color.alphaBlend(
-      cs.secondary.withValues(alpha: isDark ? 0.22 : 0.16),
+      meta.primaryColor.withValues(alpha: isDark ? 0.18 : 0.12),
       cs.surfaceContainerHighest,
     );
+    final bannerMid = Color.alphaBlend(
+      meta.accentColor.withValues(alpha: isDark ? 0.13 : 0.10),
+      cs.surfaceContainerHigh,
+    );
     final bannerEnd = Color.alphaBlend(
-      meta.secondaryColor.withValues(alpha: isDark ? 0.13 : 0.08),
+      cs.primary.withValues(alpha: isDark ? 0.08 : 0.045),
       cs.surfaceContainerHigh,
     );
     return _GeneratedAudioCardStyle(
       surface: surface,
       border: cs.outlineVariant.withValues(alpha: isDark ? 0.36 : 0.62),
       borderHover: cs.primary.withValues(alpha: isDark ? 0.54 : 0.42),
-      shadow: cs.shadow.withValues(alpha: isDark ? 0.16 : 0.08),
-      shadowHover: cs.primary.withValues(alpha: isDark ? 0.20 : 0.13),
       bannerStart: bannerStart,
       bannerMid: bannerMid,
       bannerEnd: bannerEnd,
@@ -3921,8 +3917,6 @@ class _GeneratedAudioCardStyle {
   final Color surface;
   final Color border;
   final Color borderHover;
-  final Color shadow;
-  final Color shadowHover;
   final Color bannerStart;
   final Color bannerMid;
   final Color bannerEnd;
@@ -3937,8 +3931,6 @@ class _GeneratedAudioCardStyle {
   final Color metaIconColor;
 
   Color borderFor(double t) => Color.lerp(border, borderHover, t) ?? border;
-
-  Color shadowFor(double t) => Color.lerp(shadow, shadowHover, t) ?? shadow;
 }
 
 class _GeneratedAudioCard extends StatefulWidget {
@@ -4013,6 +4005,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
               final t = disableAnimations ? 0.0 : _hoverController.value;
               final scale = 1.0 + t * 0.010;
               final lift = -2.0 * t;
+              final radius = BorderRadius.circular(_kGeneratedAudioCardRadius);
               return Transform.translate(
                 offset: Offset(0, lift),
                 child: Transform.scale(
@@ -4027,28 +4020,23 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
                           minWidth: _kGeneratedAudioCardMinWidth,
                         ),
                         decoration: BoxDecoration(
+                          borderRadius: radius,
                           color: style.surface,
-                          borderRadius: BorderRadius.circular(
-                            _kGeneratedAudioCardRadius,
-                          ),
-                          border: Border.all(color: style.borderFor(t)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: style.shadowFor(t),
-                              blurRadius: 18 + t * 12,
-                              spreadRadius: t * 0.6,
-                              offset: Offset(0, 8 + t * 2),
-                            ),
-                          ],
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildCoverBanner(meta, style),
-                            _buildInfoRow(context, meta, style),
-                          ],
+                        foregroundDecoration: BoxDecoration(
+                          borderRadius: radius,
+                          border: Border.all(color: style.borderFor(t)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: radius,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildCoverBanner(meta, style),
+                              _buildInfoRow(context, meta, style),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -4205,42 +4193,38 @@ class _GeneratedAudioAlbumCover extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(compact ? 16 : 22);
     final coverBase = Color.alphaBlend(
-      meta.primaryColor.withValues(alpha: 0.08),
-      colorScheme.primaryContainer,
+      meta.primaryColor.withValues(alpha: 0.12),
+      colorScheme.surfaceContainerHighest,
     );
     final coverMid = Color.alphaBlend(
-      colorScheme.secondary.withValues(alpha: 0.16),
+      meta.accentColor.withValues(alpha: 0.10),
       colorScheme.surfaceContainerHighest,
     );
     final coverEnd = Color.alphaBlend(
-      meta.secondaryColor.withValues(alpha: 0.08),
+      colorScheme.primary.withValues(alpha: 0.045),
       colorScheme.surfaceContainerHigh,
     );
     return SizedBox.square(
       dimension: size,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: radius,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [coverBase, coverMid, coverEnd],
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Container(
+          foregroundDecoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(
+                alpha: compact ? 0.58 : 0.48,
+              ),
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.14),
-              blurRadius: compact ? 18 : 32,
-              offset: Offset(0, compact ? 8 : 16),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [coverBase, coverMid, coverEnd],
             ),
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.10),
-              blurRadius: compact ? 22 : 34,
-              offset: Offset(0, compact ? 10 : 18),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: radius,
+          ),
           child: Stack(
             children: [
               Positioned(
