@@ -11,6 +11,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
@@ -357,8 +358,6 @@ class AiToolRuntimeService {
 
   WebFetchScraplingProbeStatus get lastWebFetchScraplingProbe =>
       _scraplingBridge.lastProbe;
-
-  static const int _maxToolNameLength = 64;
 
   /// 2026-04-01 工具输出单轮最大字符数限制。
   /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
@@ -1999,59 +1998,13 @@ class AiToolRuntimeService {
   }
 
   String _safeToolName(String prefix, String token, Set<String> takenNames) {
-    final normalizedPrefix = _normalizeToolToken(prefix);
-    final normalizedToken = _normalizeToolToken(token);
-    var candidate = '${normalizedPrefix}__$normalizedToken';
-    if (candidate.length > _maxToolNameLength) {
-      final hash = _stableToolNameHash(token);
-      final allowedTokenLength =
-          _maxToolNameLength - normalizedPrefix.length - hash.length - 4;
-      final shortenedToken = normalizedToken.substring(
-        0,
-        allowedTokenLength > 8 && allowedTokenLength < normalizedToken.length
-            ? allowedTokenLength
-            : (normalizedToken.length < 24 ? normalizedToken.length : 24),
-      );
-      candidate = '${normalizedPrefix}__${shortenedToken}_$hash';
-      if (candidate.length > _maxToolNameLength) {
-        candidate = candidate.substring(0, _maxToolNameLength);
-      }
-    }
+    final candidate = compactToolName(prefix: prefix, token: token);
     var suffix = 1;
     var uniqueCandidate = candidate;
     while (takenNames.contains(uniqueCandidate)) {
-      uniqueCandidate = _toolNameWithUniqueSuffix(candidate, suffix++);
+      uniqueCandidate = appendUniqueToolNameSuffix(candidate, suffix++);
     }
     return uniqueCandidate;
-  }
-
-  String _toolNameWithUniqueSuffix(String candidate, int suffix) {
-    final suffixToken = '_$suffix';
-    final baseLength = math.max(1, _maxToolNameLength - suffixToken.length);
-    final base = candidate.length > baseLength
-        ? candidate.substring(0, baseLength)
-        : candidate;
-    final value = '$base$suffixToken';
-    return value.length > _maxToolNameLength
-        ? value.substring(0, _maxToolNameLength)
-        : value;
-  }
-
-  String _stableToolNameHash(String value) {
-    var hash = 0x811c9dc5;
-    for (final code in value.codeUnits) {
-      hash ^= code;
-      hash = (hash * 0x01000193) & 0xffffffff;
-    }
-    return hash.toRadixString(16).padLeft(8, '0');
-  }
-
-  String _normalizeToolToken(String value) {
-    final sanitized = value
-        .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    return sanitized.isEmpty ? 'tool' : sanitized;
   }
 
   AiResolvedTool _buildMcpTool({

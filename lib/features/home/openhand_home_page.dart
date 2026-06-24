@@ -80,6 +80,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/timer_safety.dart';
+import '../../shared/util/tool_name_normalization.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
 import '../../shared/util/xml_escape.dart';
@@ -162,7 +163,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 通过它取到 [_buildRuntimeContext]、[AiSessionController] 等私有 API。
   /// 同一时刻只会存在一个 OpenHand home page。
   static _OpenHandHomePageState? _activeHomeState;
-  static const int _androidReverseMcpRuntimeToolNameLimit = 64;
   static const int _androidReverseMcpToolSearchLimit = 8;
   static const List<String> _androidReverseMcpKeywords = <String>[
     ...TemplateRuntimeDependencyRegistry.androidReverseMcpKeywords,
@@ -4007,46 +4007,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   String _androidReverseResolvedMcpToolName(McpServer server, McpTool tool) {
-    final normalizedPrefix = _androidReverseNormalizeMcpToolToken(
-      'mcp__${server.name}',
-    );
-    final normalizedToken = _androidReverseNormalizeMcpToolToken(tool.id);
-    var candidate = '${normalizedPrefix}__$normalizedToken';
-    if (candidate.length <= _androidReverseMcpRuntimeToolNameLimit) {
-      return candidate;
-    }
-    final hash = _androidReverseStableMcpToolNameHash(tool.id);
-    final allowedTokenLength =
-        _androidReverseMcpRuntimeToolNameLimit -
-        normalizedPrefix.length -
-        hash.length -
-        4;
-    final preferredLength =
-        allowedTokenLength > 8 && allowedTokenLength < normalizedToken.length
-        ? allowedTokenLength
-        : (normalizedToken.length < 24 ? normalizedToken.length : 24);
-    final shortenedToken = normalizedToken.substring(0, preferredLength);
-    candidate = '${normalizedPrefix}__${shortenedToken}_$hash';
-    return candidate.length > _androidReverseMcpRuntimeToolNameLimit
-        ? candidate.substring(0, _androidReverseMcpRuntimeToolNameLimit)
-        : candidate;
-  }
-
-  String _androidReverseNormalizeMcpToolToken(String value) {
-    final sanitized = value
-        .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    return sanitized.isEmpty ? 'tool' : sanitized;
-  }
-
-  String _androidReverseStableMcpToolNameHash(String value) {
-    var hash = 0x811c9dc5;
-    for (final code in value.codeUnits) {
-      hash ^= code;
-      hash = (hash * 0x01000193) & 0xffffffff;
-    }
-    return hash.toRadixString(16).padLeft(8, '0');
+    return compactToolName(prefix: 'mcp__${server.name}', token: tool.id);
   }
 
   void _scheduleWebReverseRuntimeMetadataSync() {

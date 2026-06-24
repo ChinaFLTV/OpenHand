@@ -696,12 +696,6 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
     }
   }
 
-  String _htmlAttributeEscape(String value) => value
-      .replaceAll('&', '&amp;')
-      .replaceAll('"', '&quot;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;');
-
   void _requestDialogClose() {
     if (!mounted) return;
     final route = ModalRoute.of(context);
@@ -714,7 +708,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         .clamp(0, DialogAnimationSettings.maxDurationMs)
         .toInt();
     final safeCurve = openHandCssTimingFunctionOrDefault(widget.motionCurveCss);
-    final escapedSrc = _htmlAttributeEscape(src);
+    final escapedSrc = const HtmlEscape(HtmlEscapeMode.attribute).convert(src);
     return '''
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>

@@ -22,6 +22,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/stable_hash.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
 import '../mcp/index.dart';
@@ -11939,7 +11940,7 @@ $tail''';
     required Map<String, Object?> requestBody,
   }) {
     final currentJson = jsonEncode(requestBody);
-    final currentHash = _stableFnv32Hex(currentJson);
+    final currentHash = stableFnv1a32Hex(currentJson);
     final previousUser = _previousUserMessageForTelemetry(
       session: session,
       userMessageId: userMessageId,
@@ -11965,7 +11966,7 @@ $tail''';
     return <String, Object?>{
       'request_payload_json_length': currentJson.length,
       'request_payload_hash': currentHash,
-      'previous_request_payload_hash': _stableFnv32Hex(previousJson),
+      'previous_request_payload_hash': stableFnv1a32Hex(previousJson),
       'previous_request_payload_json_length': previousLength,
       'request_payload_lcp_chars': lcp,
       'request_payload_lcp_previous_ratio': ratio.clamp(0.0, 1.0),
@@ -12054,15 +12055,6 @@ $tail''';
       index += 1;
     }
     return index;
-  }
-
-  String _stableFnv32Hex(String content) {
-    var hash = 0x811c9dc5;
-    for (final codeUnit in content.codeUnits) {
-      hash ^= codeUnit;
-      hash = (hash * 0x01000193) & 0xffffffff;
-    }
-    return hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
   }
 
   AiSession _applyPromptInlinedRuntimeRemindersToUserMessage({

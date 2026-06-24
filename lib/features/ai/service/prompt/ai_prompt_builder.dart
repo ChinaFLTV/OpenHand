@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/stable_hash.dart';
+import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../instructions/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
@@ -1729,12 +1731,7 @@ class AiPromptBuilder {
     if (content.isEmpty) {
       return '0';
     }
-    var hash = 0x811c9dc5;
-    for (final codeUnit in content.codeUnits) {
-      hash ^= codeUnit;
-      hash = (hash * 0x01000193) & 0xffffffff;
-    }
-    return hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+    return stableFnv1a32Hex(content);
   }
 
   String _stableCacheKey({
@@ -4544,7 +4541,7 @@ $content
     }
 
     final serverTokens = servers
-        .map((server) => _normalizeMcpToolToken('mcp__${server.name}'))
+        .map((server) => normalizeToolNameToken('mcp__${server.name}'))
         .toSet();
     final toolNamesByServerToken = <String, List<AiToolDefinition>>{};
     for (final tool in mcpTools) {
@@ -4582,7 +4579,7 @@ $content
         if (renderedToolCount >= _postCompactRestoreMaxMcpTools) {
           break;
         }
-        final serverToken = _normalizeMcpToolToken('mcp__${server.name}');
+        final serverToken = normalizeToolNameToken('mcp__${server.name}');
         final tools = toolNamesByServerToken[serverToken];
         if (tools == null || tools.isEmpty) {
           continue;
@@ -4707,14 +4704,6 @@ $content
       return '';
     }
     return 'mcp__${parts[1]}';
-  }
-
-  String _normalizeMcpToolToken(String value) {
-    final sanitized = value
-        .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    return sanitized.isEmpty ? 'tool' : sanitized;
   }
 
   String _firstNonEmptyLine(String text, int maxChars) {

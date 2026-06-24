@@ -727,7 +727,7 @@ class SkillsRepository {
     final buffer = StringBuffer();
     buffer.writeln('---');
     for (final entry in metadata.entries) {
-      buffer.writeln('${entry.key}: "${_escapeFrontMatterValue(entry.value)}"');
+      buffer.writeln('${entry.key}: "${_escapeQuotedYamlValue(entry.value)}"');
     }
     buffer.writeln('---');
     buffer.writeln();
@@ -863,21 +863,23 @@ class SkillsRepository {
     final resolvedIconLargePath =
         iconLargeRelativePath ?? iconSmallRelativePath;
     final buffer = StringBuffer()..writeln('interface:');
-    buffer.writeln('  display_name: "${_escapeYamlValue(displayName)}"');
+    buffer.writeln('  display_name: "${_escapeQuotedYamlValue(displayName)}"');
     buffer.writeln(
-      '  short_description: "${_escapeYamlValue(shortDescription)}"',
+      '  short_description: "${_escapeQuotedYamlValue(shortDescription)}"',
     );
     if (resolvedIconSmallPath != null) {
       buffer.writeln(
-        '  icon_small: "${_escapeYamlValue(resolvedIconSmallPath)}"',
+        '  icon_small: "${_escapeQuotedYamlValue(resolvedIconSmallPath)}"',
       );
     }
     if (resolvedIconLargePath != null) {
       buffer.writeln(
-        '  icon_large: "${_escapeYamlValue(resolvedIconLargePath)}"',
+        '  icon_large: "${_escapeQuotedYamlValue(resolvedIconLargePath)}"',
       );
     }
-    buffer.writeln('  default_prompt: "${_escapeYamlValue(defaultPrompt)}"');
+    buffer.writeln(
+      '  default_prompt: "${_escapeQuotedYamlValue(defaultPrompt)}"',
+    );
     return buffer.toString();
   }
 
@@ -927,11 +929,7 @@ class SkillsRepository {
     );
   }
 
-  String _escapeFrontMatterValue(String value) {
-    return value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
-  }
-
-  String _escapeYamlValue(String value) {
+  String _escapeQuotedYamlValue(String value) {
     return value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
   }
 

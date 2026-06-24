@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/structured_text_format.dart';
 import '../../shared/util/timer_safety.dart';
+import '../../shared/util/tool_name_normalization.dart';
 import '../ai/index.dart';
 import '../mcp/index.dart';
 import '../plugin_service/index.dart';
@@ -52,7 +53,6 @@ const int _kMaxLogcatCacheLimit = 2000;
 const int _kShellHistoryLimit = 6;
 const int _kPackageDumpsysSummaryMaxLines = 160;
 const int _kDefaultScreenRecordSeconds = 10;
-const int _kMcpRuntimeToolNameLimit = 64;
 const int _kMcpToolPreviewLimit = 8;
 const Duration _kInteractiveShellTimeout = Duration(seconds: 8);
 const Duration _kPackageDumpsysTimeout = Duration(seconds: 12);
@@ -7030,39 +7030,7 @@ fi
   }
 
   String _mcpResolvedToolName(McpServer server, McpTool tool) {
-    final normalizedPrefix = _normalizeMcpToolToken('mcp__${server.name}');
-    final normalizedToken = _normalizeMcpToolToken(tool.id);
-    var candidate = '${normalizedPrefix}__$normalizedToken';
-    if (candidate.length <= _kMcpRuntimeToolNameLimit) return candidate;
-    final hash = _stableMcpToolNameHash(tool.id);
-    final allowedTokenLength =
-        _kMcpRuntimeToolNameLimit - normalizedPrefix.length - hash.length - 4;
-    final preferredLength =
-        allowedTokenLength > 8 && allowedTokenLength < normalizedToken.length
-        ? allowedTokenLength
-        : (normalizedToken.length < 24 ? normalizedToken.length : 24);
-    final shortenedToken = normalizedToken.substring(0, preferredLength);
-    candidate = '${normalizedPrefix}__${shortenedToken}_$hash';
-    return candidate.length > _kMcpRuntimeToolNameLimit
-        ? candidate.substring(0, _kMcpRuntimeToolNameLimit)
-        : candidate;
-  }
-
-  String _normalizeMcpToolToken(String value) {
-    final sanitized = value
-        .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    return sanitized.isEmpty ? 'tool' : sanitized;
-  }
-
-  String _stableMcpToolNameHash(String value) {
-    var hash = 0x811c9dc5;
-    for (final code in value.codeUnits) {
-      hash ^= code;
-      hash = (hash * 0x01000193) & 0xffffffff;
-    }
-    return hash.toRadixString(16).padLeft(8, '0');
+    return compactToolName(prefix: 'mcp__${server.name}', token: tool.id);
   }
 
   String _mcpCatalogStatusLabel(McpToolCatalogStatus status, bool isZh) {
