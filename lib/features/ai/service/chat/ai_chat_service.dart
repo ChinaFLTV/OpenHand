@@ -32,6 +32,7 @@ abstract class AiChatClient {
     List<String> responseModalities,
     AiCreationRequest creationRequest,
     Duration timeout,
+    Future<void>? cancelSignal,
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   });
@@ -447,17 +448,21 @@ class AiChatService implements AiChatClient {
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
     if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
       try {
-        return await _sendMediaGenerationCompletion(
-          model: model,
-          messages: messages,
-          creationRequest: creationRequest,
-          timeout: timeout,
+        return await _awaitWithCancelSignal(
+          _sendMediaGenerationCompletion(
+            model: model,
+            messages: messages,
+            creationRequest: creationRequest,
+            timeout: timeout,
+          ),
+          cancelSignal,
         );
       } on AiMediaGenerationException catch (error) {
         throw AiChatException(error.message);
@@ -477,16 +482,21 @@ class AiChatService implements AiChatClient {
           .join('\n\n');
       try {
         _responsesService ??= AiResponsesService();
-        final response = await _responsesService!.createResponse(
-          model: model,
-          input: flattenedInput,
-          timeout: timeout,
+        final response = await _awaitWithCancelSignal(
+          _responsesService!.createResponse(
+            model: model,
+            input: flattenedInput,
+            timeout: timeout,
+          ),
+          cancelSignal,
         );
         return AiChatCompletion(
           reply: response.text,
           reasoningContent: response.reasoning,
           rawResponse: response.rawResponse,
         );
+      } on AiChatCancelledException {
+        rethrow;
       } catch (_) {
         // Fall back to the existing chat/completions path when the provider
         // does not actually expose a compatible /responses family yet.
@@ -535,16 +545,19 @@ class AiChatService implements AiChatClient {
 
       late final http.Response response;
       try {
-        response = await http.Response.fromStream(
-          await _sendHttpRequestWithRedirects(
+        response = await _awaitWithCancelSignal(
+          _sendHttpRequestWithRedirects(
             client: _client,
             method: effectiveMethod,
             uri: Uri.parse(blueprint.url),
             headers: blueprint.headers,
             body: jsonEncode(blueprint.body),
             timeout: timeout,
-          ),
+          ).then(http.Response.fromStream),
+          cancelSignal,
         );
+      } on AiChatCancelledException {
+        rethrow;
       } on TimeoutException {
         final message = AiTransportDiagnosticMessages.timeout(timeout);
         throw AiChatException(message, telemetry: telemetry(error: message));
@@ -1465,6 +1478,29 @@ class AiChatService implements AiChatClient {
     );
   }
 
+  Future<T> _awaitWithCancelSignal<T>(
+    Future<T> future,
+    Future<void>? cancelSignal,
+  ) async {
+    if (cancelSignal == null) {
+      return future;
+    }
+    final firstResult = await Future.any<Object?>(<Future<Object?>>[
+      future.then<Object?>((value) => value),
+      cancelSignal.then<Object?>((_) => _cancelledRequestSentinel),
+    ]);
+    if (identical(firstResult, _cancelledRequestSentinel)) {
+      unawaited(
+        future.then<void>(
+          (value) {},
+          onError: (Object error, StackTrace stackTrace) {},
+        ),
+      );
+      throw const AiChatCancelledException();
+    }
+    return firstResult as T;
+  }
+
   @override
   Future<String> testModel(AiModelConfig model) async {
     if (model.normalizedBaseUrl.isEmpty) {
@@ -1524,6 +1560,7 @@ class AiChatService implements AiChatClient {
   }
 }
 
+const Object _cancelledRequestSentinel = Object();
 const Object _cancelledStreamSentinel = Object();
 
 class _SyntheticStreamCancelledException implements Exception {}
@@ -1909,6 +1946,15 @@ class AiChatException implements Exception {
 
   final String message;
   final AiChatRequestTelemetry? telemetry;
+
+  @override
+  String toString() => message;
+}
+
+class AiChatCancelledException implements Exception {
+  const AiChatCancelledException([this.message = 'Request cancelled.']);
+
+  final String message;
 
   @override
   String toString() => message;

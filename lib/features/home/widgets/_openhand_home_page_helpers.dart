@@ -171,6 +171,57 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
   }
 }
 
+class _TitleGenerationProgressDialog extends StatelessWidget {
+  const _TitleGenerationProgressDialog({required this.onCancel});
+
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    return buildOpenHandAlertDialog(
+      title: Text(isZh ? '获取 AI 摘要标题' : 'Generate AI Title'),
+      content: SizedBox(
+        width: 320,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.6,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  isZh ? '正在生成摘要标题…' : 'Generating title…',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: onCancel,
+          icon: Icons.close_rounded,
+          label: AppLocalizations.of(context)!.commonCancel,
+        ),
+      ],
+    );
+  }
+}
+
 /// Modal bottom sheet that lets users tweak [AiCreationOptions] for the
 /// currently active creation mode. Returns the updated options or null if the
 /// user dismissed without confirming.

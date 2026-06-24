@@ -7254,28 +7254,37 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         )
         .toList(growable: false);
     if (userMessages.isEmpty) {
-      _showHomeSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '暂无用户消息可供总结',
-              en: 'No user messages to summarize',
-            ),
+      unawaited(
+        showOpenHandInfoDialog(
+          context: context,
+          title: _localizedText(
+            context,
+            zh: '无法生成标题',
+            en: 'Unable to Generate Title',
           ),
+          message: _localizedText(
+            context,
+            zh: '暂无用户消息可供总结。',
+            en: 'No user messages to summarize.',
+          ),
+          closeLabel: AppLocalizations.of(context)!.commonClose,
         ),
       );
       return;
     }
     final model = _effectiveModelForSession(settingsController, session);
     if (model == null) {
-      _showHomeSnackBar(
+      showFriendlyErrorDetailsDialog(
         context,
-        SnackBar(
-          content: Text(
-            _localizedText(context, zh: '未配置模型', en: 'No model configured'),
-          ),
+        title: _localizedText(
+          context,
+          zh: '标题生成失败',
+          en: 'Title Generation Failed',
+        ),
+        fullText: _localizedText(
+          context,
+          zh: '未配置可用于标题生成的模型。',
+          en: 'No model is configured for title generation.',
         ),
       );
       return;
@@ -7335,23 +7344,66 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required AiSessionController sessionController,
     required SettingsController settingsController,
   }) async {
-    showOpenHandLoadingDialog(
+    final cancelCompleter = Completer<void>();
+    var userCancelled = false;
+    var progressCloseRequested = false;
+
+    void cancelTitleGeneration() {
+      userCancelled = true;
+      if (!cancelCompleter.isCompleted) {
+        cancelCompleter.complete();
+      }
+    }
+
+    late final Future<bool?> progressFuture;
+    Future<void> closeProgressDialog() async {
+      if (!progressCloseRequested) {
+        progressCloseRequested = true;
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+      try {
+        await progressFuture;
+      } catch (_) {
+        // Dialog futures should not fail, but closing progress must never mask
+        // the original title generation outcome.
+      }
+    }
+
+    progressFuture = showAnimatedDialog<bool>(
       context: context,
-      message: _localizedText(
-        context,
-        zh: '正在生成摘要标题…',
-        en: 'Generating title…',
+      barrierDismissible: false,
+      dismissOnEscape: false,
+      builder: (dialogContext) => _TitleGenerationProgressDialog(
+        onCancel: () {
+          cancelTitleGeneration();
+          if (!progressCloseRequested) {
+            progressCloseRequested = true;
+            Navigator.of(dialogContext).pop(true);
+          }
+        },
       ),
     );
+    unawaited(
+      progressFuture.then<void>((cancelled) {
+        if (cancelled == true) {
+          cancelTitleGeneration();
+        }
+      }, onError: (Object error, StackTrace stackTrace) {}),
+    );
+
     try {
       await sessionController.generateTitleManually(
         sessionId: session.id,
         content: content,
         model: model,
         maxTitleCharacters: settingsController.aiGeneratedTitleMaxCharacters,
+        cancelSignal: cancelCompleter.future,
       );
-      if (!mounted) return;
-      Navigator.of(context).pop();
+      if (!mounted || userCancelled) return;
+      await closeProgressDialog();
+      if (!mounted || userCancelled) return;
       _showHomeSnackBar(
         context,
         SnackBar(
@@ -7360,17 +7412,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           ),
         ),
       );
+    } on AiChatCancelledException {
+      cancelTitleGeneration();
     } catch (error) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      _showHomeSnackBar(
+      if (!mounted || userCancelled) return;
+      await closeProgressDialog();
+      if (!mounted || userCancelled) return;
+      showFriendlyErrorDetailsDialog(
         context,
-        SnackBar(
-          content: Text(
-            '${_localizedText(context, zh: '标题生成失败', en: 'Title generation failed')}: $error',
-          ),
+        title: _localizedText(
+          context,
+          zh: '标题生成失败',
+          en: 'Title Generation Failed',
+        ),
+        fullText: _localizedText(
+          context,
+          zh: '标题生成失败。\n\n原因：$error',
+          en: 'Title generation failed.\n\nReason: $error',
         ),
       );
+    } finally {
+      if (!progressCloseRequested && mounted) {
+        await closeProgressDialog();
+      }
     }
   }
 

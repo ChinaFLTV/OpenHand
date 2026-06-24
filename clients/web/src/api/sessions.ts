@@ -10,7 +10,7 @@
 //
 // 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
 
-import { ApiError, UnauthorizedError, apiRequest } from './client';
+import { ApiError, UnauthorizedError, apiRequest, type ApiRequestSignalOptions } from './client';
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
@@ -395,6 +395,26 @@ export function stopMessage(sessionId: string): Promise<StopMessageResponse> {
   return apiRequest<StopMessageResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/stop`,
     { method: 'POST', body: {} },
+  );
+}
+
+export interface GenerateSessionTitleResponse {
+  title: string;
+}
+
+export function generateSessionTitle(
+  sessionId: string,
+  content: string,
+  options: ApiRequestSignalOptions = {},
+): Promise<GenerateSessionTitleResponse> {
+  return apiRequest<GenerateSessionTitleResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/generate-title`,
+    {
+      method: 'POST',
+      body: { content },
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
+    },
   );
 }
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { describeApiError, isAbortError } from '../utils/api_error';
 import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
@@ -13,7 +14,11 @@ type Phase = 'config' | 'pending' | 'success' | 'error';
 
 interface TitleSummaryDialogProps {
   messages: SessionMessage[];
-  onGenerate: (startIndex: number, endIndex: number) => Promise<string>;
+  onGenerate: (
+    startIndex: number,
+    endIndex: number,
+    options: { signal: AbortSignal },
+  ) => Promise<string>;
   onClose: () => void;
   onTitleUpdated?: (title: string) => void;
 }
@@ -44,6 +49,8 @@ export function TitleSummaryDialog({
   const [errorMessage, setErrorMessage] = useState('');
   const [tooltipInfo, setTooltipInfo] = useState<{ text: string; x: number; y: number } | null>(null);
   const sliderContainerRef = useRef<HTMLDivElement | null>(null);
+  const activeControllerRef = useRef<AbortController | null>(null);
+  const generationIdRef = useRef(0);
 
   useEffect(() => {
     if (totalMessages > 0 && endIdx >= totalMessages) {
@@ -51,18 +58,47 @@ export function TitleSummaryDialog({
     }
   }, [totalMessages, endIdx]);
 
+  useEffect(() => {
+    return () => {
+      generationIdRef.current += 1;
+      activeControllerRef.current?.abort();
+      activeControllerRef.current = null;
+    };
+  }, []);
+
   const handleGenerate = useCallback(async () => {
+    activeControllerRef.current?.abort();
+    const controller = new AbortController();
+    const generationId = generationIdRef.current + 1;
+    generationIdRef.current = generationId;
+    activeControllerRef.current = controller;
+    setErrorMessage('');
     setPhase('pending');
     try {
-      const title = await onGenerate(startIdx, endIdx);
+      const title = await onGenerate(startIdx, endIdx, { signal: controller.signal });
+      if (generationIdRef.current !== generationId || controller.signal.aborted) {
+        return;
+      }
+      activeControllerRef.current = null;
       setGeneratedTitle(title);
       setPhase('success');
       onTitleUpdated?.(title);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : String(err));
+      if (generationIdRef.current !== generationId || controller.signal.aborted || isAbortError(err)) {
+        return;
+      }
+      activeControllerRef.current = null;
+      setErrorMessage(describeApiError(err));
       setPhase('error');
     }
   }, [startIdx, endIdx, onGenerate, onTitleUpdated]);
+
+  const handleCancelGenerate = useCallback(() => {
+    generationIdRef.current += 1;
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = null;
+    requestClose();
+  }, [requestClose]);
 
   const showTooltipForIndex = (idx: number, clientX: number) => {
     if (idx < 0 || idx >= userMessages.length) {
@@ -217,6 +253,14 @@ export function TitleSummaryDialog({
                 </svg>
               </div>
               <p class="text-sm font-medium">{t('titleSummary.generating', '正在生成摘要标题…')}</p>
+              <button
+                type="button"
+                onClick={handleCancelGenerate}
+                class="oh-tap-press px-5 py-2 rounded-full text-sm font-medium mt-1"
+                style={{ border: '1px solid var(--m3-outline)', color: 'var(--m3-on-surface)' }}
+              >
+                {t('common.cancel', '取消')}
+              </button>
             </div>
           ) : phase === 'success' ? (
             <div class="flex flex-col items-center py-4 gap-3">

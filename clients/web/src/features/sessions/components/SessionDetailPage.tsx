@@ -18,8 +18,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
-import { ApiError, UnauthorizedError, apiRequest } from '../../../api/client';
+import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
+import { ApiError, UnauthorizedError } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
@@ -4606,13 +4606,13 @@ export function SessionDetailPage() {
       {showTitleSummary && session ? (
         <TitleSummaryDialog
           messages={sortedMessages}
-          onGenerate={async (startIdx, endIdx) => {
+          onGenerate={async (startIdx, endIdx, options) => {
             const userMsgs = sortedMessages.filter((m) => m.role === 'user' && m.content.trim().length > 0);
             const selectedContent = userMsgs
               .slice(startIdx, endIdx + 1)
               .map((m) => m.content.trim())
               .join('\n\n');
-            const res = await apiRequest<{ title: string }>(`/api/sessions/${encodeURIComponent(sessionId)}/generate-title`, { method: 'POST', body: { content: selectedContent } });
+            const res = await generateSessionTitle(sessionId, selectedContent, { signal: options.signal });
             // 刷新会话详情以获取新标题
             loadDetail();
             return res.title;

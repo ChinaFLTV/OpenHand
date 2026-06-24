@@ -611,6 +611,7 @@ class AiSessionController extends ChangeNotifier {
     required String content,
     required AiModelConfig model,
     required int maxTitleCharacters,
+    Future<void>? cancelSignal,
   }) async {
     final autoTitleSystemPrompt = await _templateRepository
         .loadAutoTitleSystemPrompt(
@@ -631,6 +632,7 @@ class AiSessionController extends ChangeNotifier {
       model: model,
       messages: promptMessages,
       timeout: _autoTitleRequestTimeout,
+      cancelSignal: cancelSignal,
     );
     final rawTitle = _sanitizeGeneratedTitle(completion.reply);
     final title = rawTitle.isNotEmpty
