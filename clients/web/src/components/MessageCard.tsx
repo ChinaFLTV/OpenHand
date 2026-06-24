@@ -596,6 +596,19 @@ const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
 const MESSAGE_UI_STATE_CACHE_LIMIT = 500;
 const MESSAGE_CARD_TAP_MAX_MS = 350;
 const MESSAGE_CARD_TAP_MAX_DISTANCE_PX = 8;
+const MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR = [
+  'button',
+  'a',
+  'input',
+  'textarea',
+  'select',
+  '[role="button"]',
+  '.oh-message-badge-toggle',
+  '[data-message-media-interactive="true"]',
+  '[data-message-scrollable-body="true"]',
+  'video',
+  'audio',
+].join(',');
 
 // 已经完成入场动画的消息 id 集合。防止 SSE 流式更新导致 Preact 卸载/重挂时
 // CSS 入场动画重播，从而引发消息列表"闪烁→消失→重现"的鬼畜抖动。
@@ -641,6 +654,10 @@ function rememberMessageUiState(
     if (typeof first !== 'string') break;
     cache.delete(first);
   }
+}
+
+function stopNestedMessageScrollPropagation(event: Event): void {
+  event.stopPropagation();
 }
 
 /// W3 优化：打开历史会话时一次性把已加载的全部 message id 标记为"已入场"。
@@ -1353,9 +1370,7 @@ function MessageCardImpl({
               if (!hasAnyAction) return;
               const target = ev.target as HTMLElement;
               if (
-                target.closest(
-                  'button,a,input,textarea,select,[role="button"],.oh-message-badge-toggle,[data-message-media-interactive="true"]',
-                )
+                target.closest(MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR)
               ) {
                 cardPointerDownRef.current = null;
                 return;
@@ -1374,9 +1389,7 @@ function MessageCardImpl({
               if (!hasAnyAction) return;
               const target = ev.target as HTMLElement;
               if (
-                target.closest(
-                  'button,a,input,textarea,select,[role="button"],[data-message-media-interactive="true"],video,audio',
-                )
+                target.closest(MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR)
               ) {
                 return;
               }
@@ -1534,6 +1547,7 @@ function MessageCardImpl({
       {isUserBubble ? media : null}
       <ReasoningCollapsibleBody
         collapsed={badgeBodyCollapsed}
+        scrollableCollapsed={isAssistantResponseBadgeMessage}
         previewMaxHeight={
           isCollapsibleByBadge && badgeCollapsed
             ? REASONING_PREVIEW_MAX_HEIGHT_PX
@@ -1787,27 +1801,38 @@ export const MessageCard = memo(MessageCardImpl);
 /// 抽搐 / 鬼畜感。本容器只负责内容切换 + 渐隐遮罩。
 function ReasoningCollapsibleBody({
   collapsed,
+  scrollableCollapsed = false,
   previewMaxHeight,
   fadeBackground,
   children,
 }: {
   collapsed: boolean;
+  scrollableCollapsed?: boolean;
   previewMaxHeight: number;
   fadeBackground: string;
   children: ComponentChildren;
 }) {
-  // 始终设置 max-height（展开态 = 充分大的上限），以便 CSS transition 生效。
+  const useCollapsedScroll = collapsed && scrollableCollapsed;
+  const expandedMaxHeight = scrollableCollapsed ? 'none' : '4000px';
+  // 折叠态设置 max-height；正式响应展开态不设人为上限，避免极长正文被裁剪。
   // 底部渐隐用 overlay 而不是 mask-image，避免和流式文本 reveal 的 inline
   // mask 叠加后让已稳定文本在折叠态反复明暗闪动。
   return (
     <div
-      class="oh-reasoning-collapsible-body"
+      class={`oh-reasoning-collapsible-body${useCollapsedScroll ? ' is-scrollable-collapsed' : ''}`}
       data-collapsed={collapsed ? 'true' : 'false'}
+      data-message-scrollable-body={useCollapsedScroll ? 'true' : undefined}
       aria-expanded={collapsed ? 'false' : 'true'}
+      onWheel={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
+      onTouchMove={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
+      onScroll={useCollapsedScroll ? stopNestedMessageScrollPropagation : undefined}
       style={{
-        // 4000px 足以覆盖绝大多数长文本；超过部分不会被裁剪、不影响实际高度。
-        maxHeight: collapsed ? `${previewMaxHeight}px` : '4000px',
-        overflow: 'hidden',
+        maxHeight: collapsed ? `${previewMaxHeight}px` : expandedMaxHeight,
+        overflowX: 'hidden',
+        overflowY: collapsed
+          ? (useCollapsedScroll ? 'auto' : 'hidden')
+          : (scrollableCollapsed ? 'visible' : 'hidden'),
+        overscrollBehavior: useCollapsedScroll ? 'contain' : undefined,
       }}
     >
       {children}

@@ -603,7 +603,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
         collapseLineThreshold: isToolResult
             ? _toolResultMarkdownCollapseLineThreshold
             : _messageMarkdownCollapseLineThreshold,
-        previewMaxHeight: isToolResult ? 176 : 240,
+        previewMaxHeight: isToolResult
+            ? _toolResultPreviewMaxHeight
+            : _messageResponsePreviewMaxHeight,
         wrapInSelectionArea: !isToolResult,
         isStreaming: isStreaming,
         collapsedOverride: collapsedOverride,

@@ -21,6 +21,7 @@ const PULL_TO_REFRESH_INTERACTIVE_SELECTOR = [
   'select',
   '[role="button"]',
   '[data-message-action-panel="true"]',
+  '[data-message-scrollable-body="true"]',
   '[data-pull-refresh-ignore="true"]',
 ].join(',');
 

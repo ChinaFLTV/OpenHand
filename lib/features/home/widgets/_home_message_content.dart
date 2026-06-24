@@ -9,6 +9,9 @@ part of '../openhand_home_page.dart';
 const int _messageMarkdownCollapseCharThreshold = 2400;
 const int _toolResultMarkdownCollapseCharThreshold = 800;
 const int _messageMarkdownCollapseLineThreshold = 45;
+const double _messageResponsePreviewMaxHeight = 240;
+const double _toolResultPreviewMaxHeight = 176;
+const double _collapsedMessageFadeHeight = 40;
 
 /// Maximum message body size (in characters) at which we still attempt
 /// markdown parsing. Above this we render the raw text directly to keep
@@ -354,25 +357,28 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
                     behavior: ScrollConfiguration.of(
                       context,
                     ).copyWith(scrollbars: false),
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      physics: hasOverflow
-                          ? openHandDialogAwareScrollPhysics(context)
-                          : const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        width: constrainedWidth,
-                        child: _MeasureSize(
-                          onChange: (size) {
-                            if (!mounted) return;
-                            final nextHeight = size.height;
-                            final currentHeight = _contentHeight;
-                            if (currentHeight != null &&
-                                (currentHeight - nextHeight).abs() < 0.5) {
-                              return;
-                            }
-                            setState(() => _contentHeight = nextHeight);
-                          },
-                          child: SelectableText(_effectiveData, style: style),
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _consumeNestedMessageScrollNotification,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: hasOverflow
+                            ? openHandDialogAwareScrollPhysics(context)
+                            : const NeverScrollableScrollPhysics(),
+                        child: SizedBox(
+                          width: constrainedWidth,
+                          child: _MeasureSize(
+                            onChange: (size) {
+                              if (!mounted) return;
+                              final nextHeight = size.height;
+                              final currentHeight = _contentHeight;
+                              if (currentHeight != null &&
+                                  (currentHeight - nextHeight).abs() < 0.5) {
+                                return;
+                              }
+                              setState(() => _contentHeight = nextHeight);
+                            },
+                            child: SelectableText(_effectiveData, style: style),
+                          ),
                         ),
                       ),
                     ),
@@ -389,7 +395,7 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     child: Container(
-                      height: 40,
+                      height: _collapsedMessageFadeHeight,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -530,14 +536,15 @@ class _CollapsibleMessageMarkdownBodyState
           child: collapsed
               ? KeyedSubtree(
                   key: const ValueKey<String>('message-markdown-preview'),
-                  child: _MarkdownPreviewBody(
+                  child: _CollapsedFullMarkdownBody(
                     data: data,
                     maxHeight: widget.previewMaxHeight,
+                    selectable: widget.selectable,
                     styleSheet: widget.styleSheet,
                     builders: widget.builders,
                     inlineSyntaxes: widget.inlineSyntaxes,
                     pathRoots: widget.pathRoots,
-                    parseKey: '${widget.parseKey}|message-preview',
+                    parseKey: '${widget.parseKey}|message-collapsed-full',
                     fadeColor: widget.fadeColor,
                   ),
                 )
@@ -570,6 +577,10 @@ Widget _collapsibleMessageBodyMotion({
     alignment: Alignment.topLeft,
     child: ClipRect(child: child),
   );
+}
+
+bool _consumeNestedMessageScrollNotification(ScrollNotification _) {
+  return true;
 }
 
 bool _messageShouldCollapse(
@@ -701,6 +712,165 @@ class _MessageCollapseToggleCapsuleState
   }
 }
 
+class _CollapsedFullMarkdownBody extends StatefulWidget {
+  const _CollapsedFullMarkdownBody({
+    required this.data,
+    required this.maxHeight,
+    required this.selectable,
+    required this.styleSheet,
+    required this.builders,
+    required this.inlineSyntaxes,
+    required this.pathRoots,
+    required this.parseKey,
+    required this.fadeColor,
+  });
+
+  final String data;
+  final double maxHeight;
+  final bool selectable;
+  final MarkdownStyleSheet styleSheet;
+  final Map<String, MarkdownElementBuilder> builders;
+  final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> pathRoots;
+  final String parseKey;
+  final Color fadeColor;
+
+  @override
+  State<_CollapsedFullMarkdownBody> createState() =>
+      _CollapsedFullMarkdownBodyState();
+}
+
+class _CollapsedFullMarkdownBodyState
+    extends State<_CollapsedFullMarkdownBody> {
+  double? _contentHeight;
+  final ScrollController _scrollController = ScrollController();
+  bool _atBottom = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CollapsedFullMarkdownBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.parseKey != widget.parseKey ||
+        oldWidget.data != widget.data ||
+        oldWidget.maxHeight != widget.maxHeight) {
+      _contentHeight = null;
+      _atBottom = false;
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final measuredHeight = _contentHeight;
+    final hasOverflow =
+        measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
+    final effectiveHeight = measuredHeight == null
+        ? widget.maxHeight
+        : math.min(measuredHeight, widget.maxHeight);
+    final showFade = hasOverflow && !_atBottom;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final constrainedWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        return SizedBox(
+          height: effectiveHeight,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRect(
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _consumeNestedMessageScrollNotification,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: hasOverflow
+                            ? openHandDialogAwareScrollPhysics(context)
+                            : const NeverScrollableScrollPhysics(),
+                        child: SizedBox(
+                          width: constrainedWidth,
+                          child: _MeasureSize(
+                            onChange: (size) {
+                              if (!mounted) return;
+                              final nextHeight = size.height;
+                              final currentHeight = _contentHeight;
+                              if (currentHeight != null &&
+                                  (currentHeight - nextHeight).abs() < 0.5) {
+                                return;
+                              }
+                              setState(() => _contentHeight = nextHeight);
+                            },
+                            child: _SafeMarkdownBody(
+                              data: widget.data,
+                              selectable: widget.selectable,
+                              builders: widget.builders,
+                              styleSheet: widget.styleSheet,
+                              inlineSyntaxes: widget.inlineSyntaxes,
+                              pathRoots: widget.pathRoots,
+                              parseKey: widget.parseKey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: showFade ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: Container(
+                      height: _collapsedMessageFadeHeight,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            widget.fadeColor.withValues(alpha: 0),
+                            widget.fadeColor.withValues(alpha: 1),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _MarkdownPreviewBody extends StatefulWidget {
   const _MarkdownPreviewBody({
     required this.data,
@@ -814,57 +984,60 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                     behavior: ScrollConfiguration.of(
                       context,
                     ).copyWith(scrollbars: false),
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      // 内容未溢出时禁用滚动，避免与父级 ListView 争抢手势。
-                      physics: hasOverflow
-                          ? openHandDialogAwareScrollPhysics(context)
-                          : const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        width: constrainedWidth,
-                        child: _MeasureSize(
-                          onChange: (size) {
-                            if (!mounted) return;
-                            if (_scrollController.hasClients &&
-                                _scrollController
-                                    .position
-                                    .isScrollingNotifier
-                                    .value) {
-                              return;
-                            }
-                            if (_userScrollingPreview) {
-                              final pos = _scrollController.position;
-                              if (!pos.isScrollingNotifier.value) {
-                                // 滚动已停止，启动 600ms 宽限期后重置标志
-                                Future.delayed(
-                                  const Duration(milliseconds: 600),
-                                  () {
-                                    if (mounted) {
-                                      setState(
-                                        () => _userScrollingPreview = false,
-                                      );
-                                    }
-                                  },
-                                );
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _consumeNestedMessageScrollNotification,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        // 内容未溢出时禁用滚动，避免与父级 ListView 争抢手势。
+                        physics: hasOverflow
+                            ? openHandDialogAwareScrollPhysics(context)
+                            : const NeverScrollableScrollPhysics(),
+                        child: SizedBox(
+                          width: constrainedWidth,
+                          child: _MeasureSize(
+                            onChange: (size) {
+                              if (!mounted) return;
+                              if (_scrollController.hasClients &&
+                                  _scrollController
+                                      .position
+                                      .isScrollingNotifier
+                                      .value) {
+                                return;
                               }
-                              return;
-                            }
-                            final nextHeight = size.height;
-                            final currentHeight = _contentHeight;
-                            if (currentHeight != null &&
-                                (currentHeight - nextHeight).abs() < 0.5) {
-                              return;
-                            }
-                            setState(() => _contentHeight = nextHeight);
-                          },
-                          child: _SafeMarkdownBody(
-                            data: _effectiveData,
-                            selectable: true,
-                            builders: widget.builders,
-                            styleSheet: widget.styleSheet,
-                            inlineSyntaxes: widget.inlineSyntaxes,
-                            pathRoots: widget.pathRoots,
-                            parseKey: widget.parseKey,
+                              if (_userScrollingPreview) {
+                                final pos = _scrollController.position;
+                                if (!pos.isScrollingNotifier.value) {
+                                  // 滚动已停止，启动 600ms 宽限期后重置标志
+                                  Future.delayed(
+                                    const Duration(milliseconds: 600),
+                                    () {
+                                      if (mounted) {
+                                        setState(
+                                          () => _userScrollingPreview = false,
+                                        );
+                                      }
+                                    },
+                                  );
+                                }
+                                return;
+                              }
+                              final nextHeight = size.height;
+                              final currentHeight = _contentHeight;
+                              if (currentHeight != null &&
+                                  (currentHeight - nextHeight).abs() < 0.5) {
+                                return;
+                              }
+                              setState(() => _contentHeight = nextHeight);
+                            },
+                            child: _SafeMarkdownBody(
+                              data: _effectiveData,
+                              selectable: true,
+                              builders: widget.builders,
+                              styleSheet: widget.styleSheet,
+                              inlineSyntaxes: widget.inlineSyntaxes,
+                              pathRoots: widget.pathRoots,
+                              parseKey: widget.parseKey,
+                            ),
                           ),
                         ),
                       ),
@@ -884,7 +1057,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     child: Container(
-                      height: 40,
+                      height: _collapsedMessageFadeHeight,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -2623,6 +2796,7 @@ class _PlainTextMessageBody extends StatefulWidget {
     required this.data,
     required this.textColor,
     required this.backgroundColor,
+    this.previewMaxHeight = _messageResponsePreviewMaxHeight,
     this.style,
     this.collapsedOverride,
     this.onCollapsedChanged,
@@ -2632,6 +2806,7 @@ class _PlainTextMessageBody extends StatefulWidget {
   final String data;
   final Color textColor;
   final Color backgroundColor;
+  final double previewMaxHeight;
   final TextStyle? style;
   final bool? collapsedOverride;
   final ValueChanged<bool>? onCollapsedChanged;
@@ -2747,7 +2922,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
           collapsed: collapsed,
           child: collapsed
               ? SizedBox(
-                  height: 240,
+                  height: widget.previewMaxHeight,
                   child: Stack(
                     children: [
                       // 折叠态改为可滚动：用户无需展开即可浏览长文本。
@@ -2757,14 +2932,18 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                             behavior: ScrollConfiguration.of(
                               context,
                             ).copyWith(scrollbars: false),
-                            child: SingleChildScrollView(
-                              controller: _scrollController,
-                              physics: openHandDialogAwareScrollPhysics(
-                                context,
-                              ),
-                              child: SelectableText(
-                                data,
-                                style: effectiveStyle,
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification:
+                                  _consumeNestedMessageScrollNotification,
+                              child: SingleChildScrollView(
+                                controller: _scrollController,
+                                physics: openHandDialogAwareScrollPhysics(
+                                  context,
+                                ),
+                                child: SelectableText(
+                                  data,
+                                  style: effectiveStyle,
+                                ),
                               ),
                             ),
                           ),
@@ -2781,7 +2960,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeInOut,
                             child: Container(
-                              height: 40,
+                              height: _collapsedMessageFadeHeight,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topCenter,
@@ -5445,6 +5624,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       data: data.isEmpty ? ' ' : data,
       textColor: textColor,
       backgroundColor: backgroundColor,
+      previewMaxHeight: previewMaxHeight,
       style: markdownStyleSheet.p,
       collapsedOverride: collapsedOverride,
       onCollapsedChanged: onCollapsedChanged,

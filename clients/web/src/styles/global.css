@@ -2794,6 +2794,23 @@ html, body, #root {
   /* 固定 box-sizing，防止 box 继承 border-box 计算偏离。 */
   box-sizing: border-box;
 }
+.oh-reasoning-collapsible-body.is-scrollable-collapsed {
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-color: color-mix(in srgb, currentColor 26%, transparent) transparent;
+  scrollbar-width: thin;
+}
+.oh-reasoning-collapsible-body.is-scrollable-collapsed::-webkit-scrollbar {
+  width: 6px;
+}
+.oh-reasoning-collapsible-body.is-scrollable-collapsed::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 24%, transparent);
+}
+.oh-reasoning-collapsible-body.is-scrollable-collapsed::-webkit-scrollbar-track {
+  background: transparent;
+}
 .oh-reasoning-collapsible-fade {
   position: absolute;
   left: 0;
