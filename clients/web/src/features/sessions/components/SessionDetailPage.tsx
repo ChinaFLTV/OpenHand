@@ -87,6 +87,8 @@ const PAGE_SIZE = 24;
 const INITIAL_PAGE_SIZE = 12;
 const INITIAL_RENDERED_MESSAGE_COUNT = 4;
 const MESSAGE_RENDER_BATCH_SIZE = 2;
+const MESSAGE_RENDER_STEADY_WINDOW_LIMIT = 96;
+const MESSAGE_RENDER_REVEAL_INCREMENT = 24;
 const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 180;
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
@@ -283,6 +285,14 @@ function scheduleProgressiveMessageRenderStep(task: () => void): () => void {
     cancelled = true;
     window.clearTimeout(handle);
   };
+}
+
+function targetRenderedMessageCount(total: number, currentCount: number): number {
+  if (total <= 0) return 0;
+  return Math.min(
+    total,
+    Math.max(currentCount, Math.min(total, MESSAGE_RENDER_STEADY_WINDOW_LIMIT)),
+  );
 }
 
 async function copyJsonWithFeedback(json: string): Promise<void> {
@@ -2020,13 +2030,11 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     if (!olderRenderSettling) return;
-    if (renderedMessageCount < routeMessages.length) return;
     const handle = window.setTimeout(() => {
-      if (renderedMessageCountRef.current < messagesRef.current.length) return;
       setOlderRenderSettlingValue(false);
     }, LOAD_OLDER_RENDER_SETTLE_MS);
     return () => window.clearTimeout(handle);
-  }, [olderRenderSettling, renderedMessageCount, routeMessages.length]);
+  }, [olderRenderSettling, renderedMessageCount]);
 
   useEffect(() => {
     windowOffsetRef.current = windowOffset;
@@ -2436,6 +2444,27 @@ export function SessionDetailPage() {
     }
   }
 
+  function revealBufferedOlderMessages(): void {
+    const total = messagesRef.current.length;
+    const current = renderedMessageCountRef.current;
+    if (current >= total) return;
+    const requestSessionId = sessionId;
+    const scroller = mainRef.current;
+    const beforeHeight = scroller?.scrollHeight ?? 0;
+    const beforeY = scroller?.scrollTop ?? 0;
+    const next = Math.min(total, current + MESSAGE_RENDER_REVEAL_INCREMENT);
+    renderedMessageCountRef.current = next;
+    setOlderRenderSettlingValue(true);
+    setRenderedMessageCount(next);
+    requestAnimationFrame(() => {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      const el = mainRef.current;
+      if (!el) return;
+      const delta = el.scrollHeight - beforeHeight;
+      el.scrollTo({ top: beforeY + delta, behavior: 'auto' });
+    });
+  }
+
   async function loadOlder(): Promise<void> {
     if (
       loadingOlder ||
@@ -2445,7 +2474,7 @@ export function SessionDetailPage() {
       return;
     }
     if (renderedMessageCountRef.current < messagesRef.current.length) {
-      setOlderRenderSettlingValue(true);
+      revealBufferedOlderMessages();
       return;
     }
     if (windowOffset <= 0) return;
@@ -2468,7 +2497,16 @@ export function SessionDetailPage() {
       const existing = new Set(currentMessages.map((item) => item.id));
       const incoming = m.items.filter((item) => !existing.has(item.id));
       setOlderRenderSettlingValue(incoming.length > 0);
-      replaceMessageWindow([...incoming, ...currentMessages], m.offset);
+      const nextMessages = [...incoming, ...currentMessages];
+      replaceMessageWindow(nextMessages, m.offset);
+      if (incoming.length > 0) {
+        const nextRenderedCount = Math.min(
+          nextMessages.length,
+          renderedMessageCountRef.current + incoming.length,
+        );
+        renderedMessageCountRef.current = nextRenderedCount;
+        setRenderedMessageCount(nextRenderedCount);
+      }
       updateTotalKnown(m.total);
       updateSendPhaseValue(m.send_phase);
       updateLastErrorValue(m.last_error);
@@ -3730,6 +3768,7 @@ export function SessionDetailPage() {
 
     const initialCount = Math.min(INITIAL_RENDERED_MESSAGE_COUNT, total);
     const currentCount = renderedMessageCountRef.current;
+    const targetCount = targetRenderedMessageCount(total, currentCount);
     const isSmallTailAppend =
       !sessionChanged &&
       currentCount > 0 &&
@@ -3739,7 +3778,7 @@ export function SessionDetailPage() {
         ? total
         : sessionChanged || currentCount <= 0
         ? initialCount
-        : Math.min(total, Math.max(currentCount, initialCount));
+        : Math.min(targetCount, Math.max(currentCount, initialCount));
     renderedMessageCountRef.current = startCount;
     setRenderedMessageCount(startCount);
 
@@ -3749,18 +3788,18 @@ export function SessionDetailPage() {
         cancelStep = null;
         if (generation !== messageRenderGenerationRef.current) return;
         const next = Math.min(
-          total,
+          targetCount,
           renderedMessageCountRef.current + MESSAGE_RENDER_BATCH_SIZE,
         );
         if (next <= renderedMessageCountRef.current) return;
         renderedMessageCountRef.current = next;
         setRenderedMessageCount(next);
-        if (next < total) {
+        if (next < targetCount) {
           scheduleNext();
         }
       });
     };
-    if (startCount < total) {
+    if (startCount < targetCount) {
       scheduleNext();
     }
     return () => {
@@ -3927,14 +3966,16 @@ export function SessionDetailPage() {
                 {/* 加载更早 */}
                 {deferredLocalMessageCount > 0 || remainingOlder > 0 ? (
                   <div class="text-center mb-3">
-                    <button type="button" onClick={loadOlder} disabled={loadingOlder || olderRenderSettling || deferredLocalMessageCount > 0} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
-                      <span class={loadingOlder || olderRenderSettling || deferredLocalMessageCount > 0 ? 'oh-spin' : undefined} aria-hidden>
+                    <button type="button" onClick={loadOlder} disabled={loadingOlder || olderRenderSettling} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
+                      <span class={loadingOlder || olderRenderSettling ? 'oh-spin' : undefined} aria-hidden>
                         <ComposerIcon name="refresh" size={13} />
                       </span>
-                      {deferredLocalMessageCount > 0 || olderRenderSettling
+                      {olderRenderSettling
                         ? t('detail.preparingEarlier', '正在准备更早消息…')
                         : loadingOlder
                         ? t('detail.loadingOlder', '加载中…')
+                        : deferredLocalMessageCount > 0
+                        ? t('detail.revealBufferedOlder', '显示更早 ') + `(${deferredLocalMessageCount})`
                         : t('detail.loadOlder', '加载更早 ') + `(${remainingOlder})`}
                     </button>
                   </div>

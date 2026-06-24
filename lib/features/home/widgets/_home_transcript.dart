@@ -904,7 +904,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       message.id,
       message.kind,
       message.content.length,
-      message.content.hashCode,
+      _boundedTextFingerprint(message.content),
       _messageContentFormat(message, settings),
       settings.aiHtmlRenderFallback,
     );

@@ -3709,7 +3709,11 @@ double _estimateHtmlBubbleHeight(String data) {
 }
 
 int _htmlBubbleHeightCacheKey(String data, TextStyle? baseTextStyle) {
-  return Object.hash(data, baseTextStyle?.fontSize, baseTextStyle?.height);
+  return Object.hash(
+    _boundedTextFingerprint(data),
+    baseTextStyle?.fontSize,
+    baseTextStyle?.height,
+  );
 }
 
 void _warmHtmlBubbleMetrics(String data, TextStyle? baseTextStyle) {
@@ -3838,9 +3842,21 @@ class _DeferredHtmlBubbleWebViewState
       widget.data,
       widget.baseTextStyle,
     );
-    return _HtmlBubbleWebViewState._heightCache[cacheKey] != null ||
-        _HtmlBubbleWebViewState._heightFloorCache[cacheKey] != null ||
-        _HtmlBubbleWebViewState._revealedHeightCache[cacheKey] != null;
+    return _HtmlBubbleWebViewState._readBoundedHeightCache(
+              _HtmlBubbleWebViewState._heightCache,
+              cacheKey,
+            ) !=
+            null ||
+        _HtmlBubbleWebViewState._readBoundedHeightCache(
+              _HtmlBubbleWebViewState._heightFloorCache,
+              cacheKey,
+            ) !=
+            null ||
+        _HtmlBubbleWebViewState._readBoundedHeightCache(
+              _HtmlBubbleWebViewState._revealedHeightCache,
+              cacheKey,
+            ) !=
+            null;
   }
 
   @override
@@ -4036,7 +4052,7 @@ class _DeferredHtmlBubbleWebViewState
       return _HtmlBubbleWebView(
         key: ValueKey<int>(
           Object.hash(
-            widget.data,
+            _boundedTextFingerprint(widget.data),
             widget.textColor,
             widget.backgroundColor,
             widget.baseTextStyle,
@@ -4527,17 +4543,20 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   bool _selectionBridgeStarted = false;
   Offset? _selectionAnchorGlobalPosition;
   Offset? _pendingSelectionUpdate;
-  static final Map<int, double> _heightCache = <int, double>{};
+  static final LinkedHashMap<int, double> _heightCache =
+      LinkedHashMap<int, double>();
   // 跨 State 生命周期的单调 floor。
   // State dispose 时把真实测量高度写入此 cache，新 State 重建后若 _height
   // 丢失则用 floor 兜底，防止 Stack 高度收缩到 estimatedHeight 导致
   // maxScrollExtent 抖动。与 _heightCache 分离：floor 只写 dispose 时的
   // 真实高度，outlier 占位估计绝不写入，避免污染持久化数据。
-  static final Map<int, double> _heightFloorCache = <int, double>{};
+  static final LinkedHashMap<int, double> _heightFloorCache =
+      LinkedHashMap<int, double>();
   // 记录用户已经看见过真实 WebView 内容的高度。它可以来自真实测量，
   // 也可以来自首次揭示 fallback；重进视口时用它跳过 shimmer，避免
   // 已渲染 HTML 卡片重新显示骨架屏。
-  static final Map<int, double> _revealedHeightCache = <int, double>{};
+  static final LinkedHashMap<int, double> _revealedHeightCache =
+      LinkedHashMap<int, double>();
   // HTML 文档字符串缓存。`_buildDocument()` 在每次 build 都会
   // 拼装 1-2KB HTML 字符串（多次 RegExp.match、字符串切片、模板拼接），
   // 长会话首屏 8-15 个 HTML 气泡同帧 build 时叠加，单帧 ~5-15ms 浪费
@@ -4585,24 +4604,32 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 空白"）；之后不再做 outlier 检查，正常走 500ms 防抖路径。
   bool _firstMeasurementHandled = false;
   bool _heightFromFallback = false;
-  int get _heightCacheKey => Object.hash(
-    widget.data,
-    widget.baseTextStyle?.fontSize,
-    widget.baseTextStyle?.height,
-  );
+  int get _heightCacheKey =>
+      _htmlBubbleHeightCacheKey(widget.data, widget.baseTextStyle);
 
   bool get _heightUpdatesFrozen =>
       _scrollActive || (_postScrollHeightApplyTimer?.isActive ?? false);
 
   static void _writeBoundedHeightCache(
-    Map<int, double> cache,
+    LinkedHashMap<int, double> cache,
     int key,
     double value,
   ) {
+    cache.remove(key);
     cache[key] = value;
     if (cache.length > _kHeightCacheMaxSize) {
       cache.remove(cache.keys.first);
     }
+  }
+
+  static double? _readBoundedHeightCache(
+    LinkedHashMap<int, double> cache,
+    int key,
+  ) {
+    final value = cache.remove(key);
+    if (value == null) return null;
+    cache[key] = value;
+    return value;
   }
 
   @override
@@ -4759,7 +4786,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         if (!mounted || generation != _loadGeneration || _hasError) {
           return;
         }
-        if (_height != null || _heightCache[_heightCacheKey] != null) {
+        if (_height != null ||
+            _readBoundedHeightCache(_heightCache, _heightCacheKey) != null) {
           return;
         }
         final estimated = _estimateHeight();
@@ -4907,9 +4935,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 返回的"原始 HTML 文本高度"通常 > 1.5× 真实渲染高度，直接判
     // 为噪声保留旧值。
     final refHeight =
-        _heightFloorCache[_heightCacheKey] ??
+        _readBoundedHeightCache(_heightFloorCache, _heightCacheKey) ??
         (_heightFromFallback ? null : _height) ??
-        _heightCache[_heightCacheKey];
+        _readBoundedHeightCache(_heightCache, _heightCacheKey);
     if (refHeight != null && refHeight > 0) {
       final refRatio = next / refHeight;
       if (refRatio > _kReferenceOutlierRatio) {
@@ -5228,9 +5256,12 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         baseTextStyle: widget.baseTextStyle,
       );
     }
-    final cachedHeight = _heightCache[_heightCacheKey];
-    final floor = _heightFloorCache[_heightCacheKey];
-    final revealedHeight = _revealedHeightCache[_heightCacheKey];
+    final cachedHeight = _readBoundedHeightCache(_heightCache, _heightCacheKey);
+    final floor = _readBoundedHeightCache(_heightFloorCache, _heightCacheKey);
+    final revealedHeight = _readBoundedHeightCache(
+      _revealedHeightCache,
+      _heightCacheKey,
+    );
     // 仅在"完全没有任何高度/揭示记录可参考"时显示 shimmer 骨架屏。
     // 一旦用户看见过该 HTML 内容，State 重建也直接展示 WebView，
     // 后续由 JS 测高修正尺寸，不再回退到二次骨架屏。
@@ -5379,7 +5410,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       return SizedBox(
         width: double.infinity,
         child: _DeferredHtmlBubbleWebView(
-          key: ValueKey(Object.hash(data, textColor)),
+          key: ValueKey(Object.hash(_boundedTextFingerprint(data), textColor)),
           data: data,
           textColor: textColor,
           backgroundColor: backgroundColor,
@@ -5440,7 +5471,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       return SizedBox(
         width: double.infinity,
         child: _DeferredHtmlBubbleWebView(
-          key: ValueKey(Object.hash(data, textColor)),
+          key: ValueKey(Object.hash(_boundedTextFingerprint(data), textColor)),
           data: data,
           textColor: textColor,
           backgroundColor: backgroundColor,

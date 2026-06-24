@@ -32,14 +32,14 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // memory; this only limits initial widget materialisation.
 const int _transcriptInitialWindowSize = 6;
 const int _transcriptFirstFrameWindowSize = 3;
-const int _transcriptWindowIncrement = 8;
+const int _transcriptWindowIncrement = 6;
 const int _transcriptWindowingThreshold = 8;
 const int _transcriptPreparationThreshold = 8;
 const int _transcriptStagedMaterializationThreshold = 24;
 const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;
-const int _transcriptWarmupCharacterBudget = 48000;
-const int _transcriptHtmlWarmupMaxPerPass = 2;
+const int _transcriptWarmupCharacterBudget = 24000;
+const int _transcriptHtmlWarmupMaxPerPass = 1;
 const double _transcriptListCacheExtent = 120;
 const double _transcriptHistoryRevealListCacheExtent = 900;
 const int _htmlWebViewMaxMountedCount = 3;
@@ -94,6 +94,21 @@ const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
 // 外溢像素，防止 flutter_markdown_plus 的 Clip.hardEdge 裁掉圆角边框。
 const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
+
+int _boundedTextFingerprint(String value, {int edgeLength = 128}) {
+  final length = value.length;
+  if (length <= edgeLength * 3) {
+    return Object.hash(length, value);
+  }
+  final middle = length ~/ 2;
+  final halfEdge = edgeLength ~/ 2;
+  return Object.hash(
+    length,
+    value.substring(0, edgeLength),
+    value.substring(middle - halfEdge, middle + halfEdge),
+    value.substring(length - edgeLength),
+  );
+}
 
 /// Tiny frame-budgeted task queue used by transcript render warmups.
 ///
