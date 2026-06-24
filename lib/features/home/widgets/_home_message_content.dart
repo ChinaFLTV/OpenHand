@@ -623,6 +623,7 @@ class _CollapsibleMessageMarkdownBodyState
         inlineSyntaxes: widget.inlineSyntaxes,
         pathRoots: widget.pathRoots,
         parseKey: widget.parseKey,
+        deferredPlaceholderKind: _MarkdownDeferredPlaceholderKind.shimmer,
       );
     }
 
@@ -659,7 +660,7 @@ class _CollapsibleMessageMarkdownBodyState
                     builders: widget.builders,
                     inlineSyntaxes: widget.inlineSyntaxes,
                     pathRoots: widget.pathRoots,
-                    parseKey: '${widget.parseKey}|message-collapsed-full',
+                    parseKey: widget.parseKey,
                     scrollStateKey: _scrollStateKey,
                     fadeColor: widget.fadeColor,
                   ),
@@ -673,7 +674,9 @@ class _CollapsibleMessageMarkdownBodyState
                     styleSheet: widget.styleSheet,
                     inlineSyntaxes: widget.inlineSyntaxes,
                     pathRoots: widget.pathRoots,
-                    parseKey: '${widget.parseKey}|message-expanded',
+                    parseKey: widget.parseKey,
+                    deferredPlaceholderKind:
+                        _MarkdownDeferredPlaceholderKind.shimmer,
                   ),
                 ),
         ),
@@ -980,6 +983,8 @@ class _CollapsedFullMarkdownBodyState
                               inlineSyntaxes: widget.inlineSyntaxes,
                               pathRoots: widget.pathRoots,
                               parseKey: widget.parseKey,
+                              deferredPlaceholderKind:
+                                  _MarkdownDeferredPlaceholderKind.shimmer,
                             ),
                           ),
                         ),
@@ -1474,6 +1479,7 @@ class _SafeMarkdownBody extends StatefulWidget {
     this.inlineSyntaxes = const <md.InlineSyntax>[],
     this.pathRoots = const <String>[],
     this.parseKey = '',
+    this.deferredPlaceholderKind = _MarkdownDeferredPlaceholderKind.plainText,
   });
 
   final String data;
@@ -1484,21 +1490,22 @@ class _SafeMarkdownBody extends StatefulWidget {
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
   final String parseKey;
+  final _MarkdownDeferredPlaceholderKind deferredPlaceholderKind;
 
   @override
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
 }
 
 // Markdown bodies above this size get a one-frame delayed parse: on the
-// first frame we paint a plain-text placeholder so the transcript reveal /
-// scroll lands instantly, then upgrade to the rich Markdown widget tree on
-// the next frame.
+// first frame we paint a cheap placeholder so the transcript reveal / scroll
+// lands instantly, then upgrade to the rich Markdown widget tree on the next
+// frame.
 //
 // 从 1.5 KiB 下调到 800 字节：含多代码块的消息（如截图所示
 // 3个bash代码块）总字符数通常在 1000–3000 范围，但 markdown 解析 +
 // MarkdownBuilder.build() + 每个代码块的 widget 构造叠加起来就是
 // 主线程的致命负担。将阈值降到 800 字节让几乎所有含代码块的消息都
-// 走 deferred 路径，首帧仅渲染纯文本，下一帧再构建富文本树。
+// 走 deferred 路径，首帧仅渲染轻量占位，下一帧再构建富文本树。
 // 800 → 400：用户反馈 60+ 条历史消息会话首次打开仍卡顿，原因
 // 是历史里很多 ~600 字节的中等长度消息绕过了 deferred 路径，几张同帧
 // 同步解析就把 16 ms 帧预算撑爆。再降一档把更多消息纳入帧节流。
@@ -1541,6 +1548,8 @@ class _MarkdownAstCache {
 
 final _MarkdownAstCache _markdownAstCache = _MarkdownAstCache();
 final Set<int> _pendingMarkdownWarmups = <int>{};
+
+enum _MarkdownDeferredPlaceholderKind { plainText, shimmer }
 
 int _markdownAstCacheKeyForInputs({
   required String normalizedSource,
@@ -1859,7 +1868,7 @@ class _MarkdownFrameScheduler {
   );
 
   /// 每帧最多执行的 markdown 解析任务数。1 条足以让首屏视觉焦点
-  /// (最新消息) 第一时间从纯文本占位升级到完整 markdown 渲染，剩余
+  /// (最新消息) 第一时间从轻量占位升级到完整 markdown 渲染，剩余
   /// 卡片按帧节奏陆续到位；保持 1/帧 严格守住 16 ms 单帧预算，避免
   /// 单条带多代码块的长消息把帧预算撑爆触发 jank/ANR。
   static const int _maxPerFrame = 1;
@@ -1974,13 +1983,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         !_canRenderMarkdownAsPlainText(widget.data) &&
         !hasWarmAst) {
       // 流式抽搐修复：仅在「真·首挂载」（_children == null）
-      // 时铺纯文本占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
+      // 时铺轻量占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
       // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
       // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → plain
       // (看起来像折叠摘要) → rich」反复闪烁。
       final hadChildren = _children != null;
       if (initial || !hadChildren) {
-        _renderPlainTextPlaceholder();
+        _renderDeferredPlaceholder(normalizedSource);
       }
       if (_scrollActivity?.value ?? false) {
         _deferredParsePendingAfterScroll = true;
@@ -2049,13 +2058,18 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     });
   }
 
-  void _renderPlainTextPlaceholder() {
+  void _renderDeferredPlaceholder(String normalizedSource) {
+    if (widget.deferredPlaceholderKind ==
+        _MarkdownDeferredPlaceholderKind.shimmer) {
+      _disposeRecognizers();
+      _children = const <Widget>[
+        RepaintBoundary(child: _MarkdownDeferredShimmer()),
+      ];
+      return;
+    }
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
-    final normalizedSource = _sanitizeMarkdownSource(
-      widget.data.isEmpty ? ' ' : widget.data,
-    );
     _disposeRecognizers();
     _children = <Widget>[
       widget.selectable
@@ -4100,6 +4114,15 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
         ],
       ),
     );
+  }
+}
+
+class _MarkdownDeferredShimmer extends StatelessWidget {
+  const _MarkdownDeferredShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _HtmlBubbleShimmer();
   }
 }
 

@@ -490,7 +490,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 单 shot jumpTo 在长会话首屏并不可靠：ListView.builder 在
     // markdown 异步解析期间会陆续完成 lazy layout，maxScrollExtent
     // 会在 mount 后 ~10 帧内持续增大；首帧 jump 之后视口虽然贴底，但
-    // 第 N 个 bubble 解析完成、高度从纯文本占位扩张到富文本时，贴底
+    // 第 N 个 bubble 解析完成、高度从轻量占位扩张到富文本时，贴底
     // 状态会被打破而无法恢复（因为父级 settle 通常 8 帧内已耗尽）。
     // 线程会话窗口已下线所有 settle 循环（弹跳源头），首屏贴底由调用方
     // jumpToBottomOnInit 路径在 ListView 挂载后做单帧 jumpTo，不再走
@@ -1062,12 +1062,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
 
-    final collapseCharThreshold = isToolResult
-        ? _toolResultMarkdownCollapseCharThreshold
-        : _messageMarkdownCollapseCharThreshold;
-    final collapseLineThreshold = isToolResult
-        ? _toolResultMarkdownCollapseLineThreshold
-        : _messageMarkdownCollapseLineThreshold;
     final hasHtmlLikeTags = _looksLikeHtml(normalizedContent);
     final hasTagStructure =
         !hasHtmlLikeTags && _hasHtmlTagStructure(normalizedContent);
@@ -1076,14 +1070,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         _containsMarkdownCodeFence(normalizedContent.trim());
 
     void warmMarkdownBody() {
-      final collapsed = _messageShouldCollapse(
-        normalizedContent,
-        charThreshold: collapseCharThreshold,
-        lineThreshold: collapseLineThreshold,
-      );
       _warmMarkdownRenderPath(
         data: normalizedContent,
-        parseKey: collapsed ? '$parseKey|message-preview' : parseKey,
+        parseKey: parseKey,
         inlineSyntaxes: inlineSyntaxes,
         theme: theme,
         textColor: textColor,

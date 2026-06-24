@@ -581,6 +581,47 @@ class _MessageBubbleState extends State<_MessageBubble> {
         '${message.id}|compression|content:${message.content.length}:${message.content.hashCode}';
     final userBodyScrollStateKey =
         '${message.id}|user|translated:${showingTranslation ? 1 : 0}|content:$bodyContentSignature';
+    void warmAssistantResponseMarkdownRenderPath() {
+      if (!isAssistantResponse || isStreamingAssistant || _showRawContent) {
+        return;
+      }
+      if (resolvedMessageContentFormat == AiMessageContentFormat.plainText) {
+        return;
+      }
+      final normalizedContent = effectiveContent.isEmpty
+          ? ' '
+          : effectiveContent;
+      final trimmedContent = normalizedContent.trim();
+      final containsMarkdownFence =
+          _startsWithFencedMermaidBlock(trimmedContent) ||
+          _containsMarkdownCodeFence(trimmedContent);
+      final hasHtmlLikeTags = _looksLikeHtml(normalizedContent);
+      final hasTagStructure =
+          !hasHtmlLikeTags && _hasHtmlTagStructure(normalizedContent);
+      if (resolvedMessageContentFormat == AiMessageContentFormat.html &&
+          (hasHtmlLikeTags || hasTagStructure)) {
+        return;
+      }
+      if (resolvedMessageContentFormat == AiMessageContentFormat.html &&
+          context.read<SettingsController>().aiHtmlRenderFallback ==
+              AiHtmlRenderFallback.plainText) {
+        return;
+      }
+      if (resolvedMessageContentFormat == AiMessageContentFormat.markdown &&
+          !containsMarkdownFence &&
+          (hasHtmlLikeTags || hasTagStructure)) {
+        return;
+      }
+      _warmMarkdownRenderPath(
+        data: normalizedContent,
+        parseKey: filePathParseKey,
+        inlineSyntaxes: inlineSyntaxes,
+        theme: theme,
+        textColor: textColor,
+        useDarkCodeSurface: useDarkCodeSurface,
+      );
+    }
+
     void toggleAssistantResponseExpansion() {
       if (!canCollapseAssistantResponse) return;
       if (assistantResponseExpanded) {
@@ -590,6 +631,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         _CollapsedBodyScrollOffsetCache.reset(
           '$assistantBodyScrollStateKey|plain',
         );
+      } else {
+        warmAssistantResponseMarkdownRenderPath();
       }
       _setAssistantResponseExpandedOverride(!assistantResponseExpanded);
     }
