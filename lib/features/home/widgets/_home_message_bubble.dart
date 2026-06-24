@@ -3842,6 +3842,9 @@ const double _kGeneratedAudioCardRadius = 18;
 const double _kGeneratedAudioBannerAspectRatio = 16 / 9;
 const double _kGeneratedAudioCoverSize = 74;
 const double _kGeneratedAudioPlayButtonSize = 38;
+const double _kGeneratedAudioHoverScaleDelta = 0.010;
+const double _kGeneratedAudioHoverLift = 2.0;
+const double _kGeneratedAudioCardBorderWidth = 1.2;
 
 class _GeneratedAudioCardStyle {
   const _GeneratedAudioCardStyle({
@@ -4003,12 +4006,13 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
             animation: _hoverController,
             builder: (context, _) {
               final t = disableAnimations ? 0.0 : _hoverController.value;
-              final scale = 1.0 + t * 0.010;
-              final lift = -2.0 * t;
+              final scale = 1.0 + t * _kGeneratedAudioHoverScaleDelta;
+              final lift = -_kGeneratedAudioHoverLift * t;
               final radius = BorderRadius.circular(_kGeneratedAudioCardRadius);
               return Transform.translate(
                 offset: Offset(0, lift),
                 child: Transform.scale(
+                  alignment: Alignment.centerLeft,
                   scale: scale,
                   child: MicroPressFeedback(
                     scale: 0.985,
@@ -4025,7 +4029,10 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
                         ),
                         foregroundDecoration: BoxDecoration(
                           borderRadius: radius,
-                          border: Border.all(color: style.borderFor(t)),
+                          border: Border.all(
+                            color: style.borderFor(t),
+                            width: _kGeneratedAudioCardBorderWidth,
+                          ),
                         ),
                         child: ClipRRect(
                           borderRadius: radius,
