@@ -15,6 +15,7 @@ void main() {
       expect(values, contains('lively-girl'));
       expect(values, contains('shuangkuainansheng'));
       expect(values, isNot(contains('alloy')));
+      expect(values, isNot(contains('mengwa')));
       expect(values.length, values.toSet().length);
     });
 
@@ -34,6 +35,14 @@ void main() {
           modelId: 'stepaudio-2.5-tts',
         ),
         'lively-girl',
+      );
+      expect(
+        AiTtsProviderCatalogs.normalizeVoiceForAiModel(
+          voice: 'mengwa',
+          protocol: AiProtocolType.stepfun,
+          modelId: 'stepaudio-2.5-tts',
+        ),
+        AiTtsProviderCatalogs.stepFunDefaultVoice,
       );
       expect(
         AiTtsProviderCatalogs.normalizeStepFunResponseFormat('WAV'),

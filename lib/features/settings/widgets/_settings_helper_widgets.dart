@@ -8,6 +8,7 @@ const double _aiTtsDragHandleSize = 34;
 const double _aiTtsCardActionSize = 40;
 const double _aiTtsDragFeedbackMaxHeight = 240;
 const double _settingsStandardFieldWidth = 360;
+const String _translationSettingsTestText = 'Hello, OpenHand.';
 
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
@@ -693,6 +694,7 @@ class _AiTranslationProviderCard extends StatefulWidget {
 
 class _AiTranslationProviderCardState
     extends State<_AiTranslationProviderCard> {
+  bool _testing = false;
   AiTranslationProviderSettings? _latestProviderSettings;
 
   AiTranslationProviderSettings get _effectiveProviderSettings =>
@@ -788,11 +790,28 @@ class _AiTranslationProviderCardState
                 ),
               ),
               const SizedBox(width: 8),
-              _SettingsSwitch(
-                value: providerSettings.enabled,
-                onChanged: (value) => _updateCurrent(
-                  (current) => current.copyWith(enabled: value),
-                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.end,
+                children: [
+                  _AiTtsTestButton(
+                    testing: _testing,
+                    tooltip: _localizedText(
+                      context,
+                      zh: '测试文本翻译服务',
+                      en: 'Test translation',
+                    ),
+                    onPressed: _testing ? null : _testProvider,
+                  ),
+                  _SettingsSwitch(
+                    value: providerSettings.enabled,
+                    onChanged: (value) => _updateCurrent(
+                      (current) => current.copyWith(enabled: value),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -822,6 +841,82 @@ class _AiTranslationProviderCardState
       opacity: widget.dragging ? 0.58 : 1,
       child: card,
     );
+  }
+
+  Future<void> _testProvider() async {
+    if (_testing) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
+
+    final current = _effectiveProviderSettings;
+    final readinessError = _translationProviderReadinessError(
+      context,
+      current,
+      availableModels: widget.availableModels,
+    );
+    if (readinessError != null) {
+      _showSettingsTestErrorDialog(
+        context: context,
+        title: _localizedText(
+          context,
+          zh: '文本翻译测试无法开始',
+          en: 'Translation Test Cannot Start',
+        ),
+        targetLabel: _translationProviderLabel(context, widget.provider),
+        error: StateError(readinessError),
+      );
+      return;
+    }
+
+    setState(() => _testing = true);
+    final service = AiTranslationService();
+    try {
+      final settingsController = context.read<SettingsController>();
+      final result = await service.translate(
+        text: _translationSettingsTestText,
+        settings: _translationSettingsWithOnlyProvider(
+          current.copyWith(enabled: true),
+        ),
+        availableModels: settingsController.aiModels,
+        fallbackModel: settingsController.selectedAiModel,
+      );
+      if (!mounted) return;
+      OpenHandSnackBar.show(
+        context,
+        ScaffoldMessenger.of(context),
+        OpenHandSnackBar.success(
+          context,
+          _localizedText(
+            context,
+            zh: '文本翻译测试完成：${_compactSettingsPreview(result.text)}',
+            en: 'Translation test completed: ${_compactSettingsPreview(result.text)}',
+          ),
+          maxLines: 2,
+        ),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'translation-settings',
+        'test ${widget.provider.storageKey}',
+        error,
+        stack,
+      );
+      if (!mounted) return;
+      _showSettingsTestErrorDialog(
+        context: context,
+        title: _localizedText(
+          context,
+          zh: '文本翻译测试失败',
+          en: 'Translation Test Failed',
+        ),
+        targetLabel: _translationProviderLabel(context, widget.provider),
+        error: error,
+      );
+    } finally {
+      service.dispose();
+      if (mounted) setState(() => _testing = false);
+    }
   }
 
   Widget _buildAiModelSection(
@@ -1017,6 +1112,23 @@ class _AiTranslationProviderCardState
         );
     providers[widget.provider] = next.normalized();
     return widget.settings.copyWith(providers: providers);
+  }
+
+  AiTranslationSettings _translationSettingsWithOnlyProvider(
+    AiTranslationProviderSettings next,
+  ) {
+    final providers = <AiTranslationProvider, AiTranslationProviderSettings>{
+      for (final provider in AiTranslationProvider.values)
+        provider: widget.settings
+            .provider(provider)
+            .copyWith(enabled: provider == widget.provider),
+    };
+    providers[widget.provider] = next.copyWith(enabled: true).normalized();
+    return widget.settings.copyWith(
+      enabled: true,
+      providers: providers,
+      providerPriority: <AiTranslationProvider>[widget.provider],
+    );
   }
 }
 
@@ -1879,10 +1991,15 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       fallbackModel: fallbackModel,
     );
     if (readinessError != null) {
-      OpenHandSnackBar.show(
-        context,
-        ScaffoldMessenger.of(context),
-        OpenHandSnackBar.error(context, readinessError, maxLines: 3),
+      _showSettingsTestErrorDialog(
+        context: context,
+        title: _localizedText(
+          context,
+          zh: 'TTS 测试无法开始',
+          en: 'TTS Test Cannot Start',
+        ),
+        targetLabel: _ttsProviderLabel(context, widget.provider),
+        error: StateError(readinessError),
       );
       return;
     }
@@ -1915,18 +2032,11 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         );
       }
       if (!mounted) return;
-      OpenHandSnackBar.show(
-        context,
-        ScaffoldMessenger.of(context),
-        OpenHandSnackBar.error(
-          context,
-          _localizedText(
-            context,
-            zh: 'TTS 测试失败：${_friendlyTtsError(error)}',
-            en: 'TTS test failed: ${_friendlyTtsError(error)}',
-          ),
-          maxLines: 2,
-        ),
+      _showSettingsTestErrorDialog(
+        context: context,
+        title: _localizedText(context, zh: 'TTS 测试失败', en: 'TTS Test Failed'),
+        targetLabel: _ttsProviderLabel(context, widget.provider),
+        error: error,
       );
     } finally {
       if (mounted) setState(() => _testing = false);
@@ -2259,16 +2369,22 @@ class _AiTtsStatusBadge extends StatelessWidget {
 }
 
 class _AiTtsTestButton extends StatelessWidget {
-  const _AiTtsTestButton({required this.testing, required this.onPressed});
+  const _AiTtsTestButton({
+    required this.testing,
+    required this.onPressed,
+    this.tooltip,
+  });
 
   final bool testing;
   final VoidCallback? onPressed;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Tooltip(
-      message: _localizedText(context, zh: '测试 TTS 服务', en: 'Test TTS'),
+      message:
+          tooltip ?? _localizedText(context, zh: '测试 TTS 服务', en: 'Test TTS'),
       child: SizedBox.square(
         dimension: _aiTtsCardActionSize,
         child: IconButton.filledTonal(
@@ -3350,11 +3466,98 @@ String _defaultAudioEncoding(AiTtsProvider provider) {
       : 'MP3';
 }
 
-String _friendlyTtsError(Object error) {
-  final message = error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
-  final normalized = message.replaceAll(RegExp(r'\s+'), ' ').trim();
-  if (normalized.isEmpty) return 'unknown error';
-  const maxLength = 140;
+void _showSettingsTestErrorDialog({
+  required BuildContext context,
+  required String title,
+  required String targetLabel,
+  required Object error,
+}) {
+  OpenHandSnackBar.hideCurrentOn(ScaffoldMessenger.of(context));
+  showFriendlyErrorDetailsDialog(
+    context,
+    title: title,
+    fullText: _settingsTestErrorDetails(
+      context: context,
+      title: title,
+      targetLabel: targetLabel,
+      error: error,
+    ),
+  );
+}
+
+String _settingsTestErrorDetails({
+  required BuildContext context,
+  required String title,
+  required String targetLabel,
+  required Object error,
+}) {
+  final message = _settingsFullErrorText(error);
+  final buffer = StringBuffer()
+    ..writeln(title)
+    ..writeln(
+      _localizedText(
+        context,
+        zh: '测试对象：$targetLabel',
+        en: 'Test target: $targetLabel',
+      ),
+    )
+    ..writeln()
+    ..writeln(message);
+
+  final rawResponse = error is AiMediaGenerationException
+      ? error.rawResponseBody?.trim()
+      : null;
+  if (rawResponse != null &&
+      rawResponse.isNotEmpty &&
+      !message.contains(rawResponse)) {
+    buffer
+      ..writeln()
+      ..writeln(_localizedText(context, zh: '原始响应：', en: 'Raw response:'))
+      ..writeln(rawResponse);
+  }
+
+  final targetedSuggestion = _settingsTargetedErrorSuggestion(context, error);
+  if (targetedSuggestion != null) {
+    buffer
+      ..writeln()
+      ..writeln(_localizedText(context, zh: '排查建议：', en: 'Troubleshooting:'))
+      ..writeln(targetedSuggestion);
+  }
+  return buffer.toString().trim();
+}
+
+String _settingsFullErrorText(Object error) {
+  final raw = error.toString().trim();
+  if (raw.isEmpty) return 'unknown error';
+  return raw
+      .replaceFirst(RegExp(r'^[A-Za-z0-9_.$]+Exception:\s*'), '')
+      .replaceFirst(RegExp(r'^Bad state:\s*'), '')
+      .trim();
+}
+
+String? _settingsTargetedErrorSuggestion(BuildContext context, Object error) {
+  final message = _settingsFullErrorText(error).toLowerCase();
+  if (message.contains('voice_id') &&
+      (message.contains('does not exist') ||
+          message.contains('do not have access'))) {
+    return _localizedText(
+      context,
+      zh:
+          '· 当前音色不属于该模型可用的系统音色，或账号没有该自定义音色权限。\n'
+          '· 请先切换为下拉列表中的官方系统音色，例如 cixingnansheng 或 lively-girl。\n'
+          '· 如果必须使用自定义音色，请确认该 voice_id 已在 StepFun 控制台创建并对当前 API Key 可见。',
+      en:
+          '· The selected voice is not available for this model, or the account cannot access that custom voice.\n'
+          '· Select an official system voice from the dropdown, such as cixingnansheng or lively-girl.\n'
+          '· If you need a custom voice, confirm that the voice_id exists in StepFun and is visible to the current API key.',
+    );
+  }
+  return null;
+}
+
+String _compactSettingsPreview(String value) {
+  final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  const maxLength = 90;
   if (normalized.length <= maxLength) return normalized;
   return '${normalized.substring(0, maxLength)}...';
 }

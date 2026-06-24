@@ -81,7 +81,13 @@ class AiTtsProviderCatalogs {
     required String modelId,
   }) {
     if (usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
-      return normalizeStepFunVoice(voice);
+      final normalized = normalizeStepFunVoice(voice);
+      final options = voiceOptionsForAiModel(
+        protocol: protocol,
+        modelId: modelId,
+      );
+      final supported = options.any((option) => option.value == normalized);
+      return supported ? normalized : stepFunDefaultVoice;
     }
     final normalized = voice?.trim() ?? '';
     return normalized.isEmpty ? openAiDefaultVoice : normalized;
@@ -206,65 +212,48 @@ class AiTtsProviderCatalogs {
       ..._stepAudio25Voices,
       ..._stepTtsClassicVoices,
       ..._stepTtsMiniVoices,
-      ..._stepApiExampleVoices,
     ]),
   );
 
-  static const List<AiTtsCatalogOption> _stepAudio25Voices =
-      <AiTtsCatalogOption>[
-        AiTtsCatalogOption('cixingnansheng', 'cixingnansheng'),
-        AiTtsCatalogOption('lively-girl', 'lively-girl'),
-        AiTtsCatalogOption('shy-girl', 'shy-girl'),
-        AiTtsCatalogOption('rap-man', 'rap-man'),
-        AiTtsCatalogOption('elegant-lady', 'elegant-lady'),
-        AiTtsCatalogOption('deep-man', 'deep-man'),
-        AiTtsCatalogOption('surprised-girl', 'surprised-girl'),
-        AiTtsCatalogOption('zongcangyan', 'zongcangyan'),
-        AiTtsCatalogOption('zhengpainansheng', 'zhengpainansheng'),
-        AiTtsCatalogOption('yuanqinansheng', 'yuanqinansheng'),
-        AiTtsCatalogOption('qingniandaxuesheng', 'qingniandaxuesheng'),
-        AiTtsCatalogOption('boyanqingshu', 'boyanqingshu'),
-        AiTtsCatalogOption('jazzy', 'jazzy'),
-        AiTtsCatalogOption('kuainansheng', 'kuainansheng'),
-        AiTtsCatalogOption('xuanwukezhu', 'xuanwukezhu'),
-        AiTtsCatalogOption('qingniannanyin', 'qingniannanyin'),
-        AiTtsCatalogOption('shuangkuainansheng', 'shuangkuainansheng'),
-        AiTtsCatalogOption('qingyinnansheng', 'qingyinnansheng'),
-        AiTtsCatalogOption('old_man', 'old_man'),
-        AiTtsCatalogOption('yumeinvtong', 'yumeinvtong'),
-        AiTtsCatalogOption('kalinvtong', 'kalinvtong'),
-        AiTtsCatalogOption('huanlepengyou', 'huanlepengyou'),
-        AiTtsCatalogOption('showgirl', 'showgirl'),
-        AiTtsCatalogOption('jilingshaonv', 'jilingshaonv'),
-        AiTtsCatalogOption('chuanmeinvwang', 'chuanmeinvwang'),
-        AiTtsCatalogOption('qiaopinvsheng', 'qiaopinvsheng'),
-        AiTtsCatalogOption('pilibala', 'pilibala'),
-        AiTtsCatalogOption('meilinvtong', 'meilinvtong'),
-        AiTtsCatalogOption('radioer', 'radioer'),
-        AiTtsCatalogOption('baobao', 'baobao'),
-        AiTtsCatalogOption('kokonvsheng', 'kokonvsheng'),
-        AiTtsCatalogOption('lonely_girl', 'lonely_girl'),
-        AiTtsCatalogOption('female_sichuan', 'female_sichuan'),
-        AiTtsCatalogOption('mengwa', 'mengwa'),
-        AiTtsCatalogOption('yuzhoufeixingyuan', 'yuzhoufeixingyuan'),
-        AiTtsCatalogOption('female_wanqudashu', 'female_wanqudashu'),
-        AiTtsCatalogOption('female_wanwanxiaohe', 'female_wanwanxiaohe'),
-        AiTtsCatalogOption('taiwanxiaoge', 'taiwanxiaoge'),
-        AiTtsCatalogOption('xianzhanggui', 'xianzhanggui'),
-        AiTtsCatalogOption('mengmeng_haimian', 'mengmeng_haimian'),
-        AiTtsCatalogOption('taiwanerduo', 'taiwanerduo'),
-        AiTtsCatalogOption('yl_xiaoshen', 'yl_xiaoshen'),
-        AiTtsCatalogOption('RAP_sing', 'RAP_sing'),
-        AiTtsCatalogOption('RAP_sing2', 'RAP_sing2'),
-        AiTtsCatalogOption('RAP_sing3', 'RAP_sing3'),
-        AiTtsCatalogOption('quqiubingjiao', 'quqiubingjiao'),
-        AiTtsCatalogOption('yujieboss', 'yujieboss'),
-        AiTtsCatalogOption('phoneman', 'phoneman'),
-        AiTtsCatalogOption('irritable', 'irritable'),
-        AiTtsCatalogOption('xiaobudianer', 'xiaobudianer'),
-        AiTtsCatalogOption('yingtaowanzi', 'yingtaowanzi'),
-        AiTtsCatalogOption('yousahua', 'yousahua'),
-      ];
+  static const List<AiTtsCatalogOption>
+  _stepAudio25Voices = <AiTtsCatalogOption>[
+    AiTtsCatalogOption('cixingnansheng', '磁性男声 · cixingnansheng'),
+    AiTtsCatalogOption('vibrant-youth', '活力青年 · vibrant-youth'),
+    AiTtsCatalogOption('lively-girl', '活力女声 · lively-girl'),
+    AiTtsCatalogOption('soft-spoken-gentleman', '温和绅士 · soft-spoken-gentleman'),
+    AiTtsCatalogOption('magnetic-voiced-male', '磁性男声 · magnetic-voiced-male'),
+    AiTtsCatalogOption('zixinnansheng', '自信男声 · zixinnansheng'),
+    AiTtsCatalogOption('elegantgentle-female', '优雅温柔女声 · elegantgentle-female'),
+    AiTtsCatalogOption('livelybreezy-female', '轻快活力女声 · livelybreezy-female'),
+    AiTtsCatalogOption('wenrounansheng', '温柔男声 · wenrounansheng'),
+    AiTtsCatalogOption('wenrougongzi', '温柔公子 · wenrougongzi'),
+    AiTtsCatalogOption('yuanqinansheng', '元气男声 · yuanqinansheng'),
+    AiTtsCatalogOption('jingdiannvsheng', '经典女声 · jingdiannvsheng'),
+    AiTtsCatalogOption('wenroushunv', '温柔淑女 · wenroushunv'),
+    AiTtsCatalogOption('tianmeinvsheng', '甜美女声 · tianmeinvsheng'),
+    AiTtsCatalogOption('qingchunshaonv', '青春少女 · qingchunshaonv'),
+    AiTtsCatalogOption('yuanqishaonv', '元气少女 · yuanqishaonv'),
+    AiTtsCatalogOption('linjiajiejie', '邻家姐姐 · linjiajiejie'),
+    AiTtsCatalogOption('zhengpaiqingnian', '正派青年 · zhengpaiqingnian'),
+    AiTtsCatalogOption('qingniandaxuesheng', '青年大学生 · qingniandaxuesheng'),
+    AiTtsCatalogOption('boyinnansheng', '播音男声 · boyinnansheng'),
+    AiTtsCatalogOption('ruyananshi', '儒雅男士 · ruyananshi'),
+    AiTtsCatalogOption('shenchennanyin', '深沉男音 · shenchennanyin'),
+    AiTtsCatalogOption('qinqienvsheng', '亲切女声 · qinqienvsheng'),
+    AiTtsCatalogOption('wenrounvsheng', '温柔女声 · wenrounvsheng'),
+    AiTtsCatalogOption('jilingshaonv', '机灵少女 · jilingshaonv'),
+    AiTtsCatalogOption('ruanmengnvsheng', '软萌女声 · ruanmengnvsheng'),
+    AiTtsCatalogOption('youyanvsheng', '优雅女声 · youyanvsheng'),
+    AiTtsCatalogOption('lengyanyujie', '冷艳御姐 · lengyanyujie'),
+    AiTtsCatalogOption('shuangkuaijiejie', '爽快姐姐 · shuangkuaijiejie'),
+    AiTtsCatalogOption('wenjingxuejie', '文静学姐 · wenjingxuejie'),
+    AiTtsCatalogOption('linjiameimei', '邻家妹妹 · linjiameimei'),
+    AiTtsCatalogOption('zhixingjiejie', '知性姐姐 · zhixingjiejie'),
+    AiTtsCatalogOption('shuangkuainansheng', '爽快男声 · shuangkuainansheng'),
+    AiTtsCatalogOption('ganliannvsheng', '干练女声 · ganliannvsheng'),
+    AiTtsCatalogOption('qinhenvsheng', '亲和女声 · qinhenvsheng'),
+    AiTtsCatalogOption('huolinvsheng', '活力女声 · huolinvsheng'),
+  ];
 
   static const List<AiTtsCatalogOption> _stepTtsClassicVoices =
       <AiTtsCatalogOption>[
@@ -283,13 +272,6 @@ class AiTtsProviderCatalogs {
         AiTtsCatalogOption('zhengpainansheng', 'zhengpainansheng'),
         AiTtsCatalogOption('female-shaonv', 'female-shaonv'),
         AiTtsCatalogOption('male-qn-qingse', 'male-qn-qingse'),
-      ];
-
-  static const List<AiTtsCatalogOption> _stepApiExampleVoices =
-      <AiTtsCatalogOption>[
-        AiTtsCatalogOption('vibrant-youth', 'vibrant-youth'),
-        AiTtsCatalogOption('soft-spoken-gentleman', 'soft-spoken-gentleman'),
-        AiTtsCatalogOption('magnetic-voiced-male', 'magnetic-voiced-male'),
       ];
 
   static const List<AiTtsCatalogOption> _aiFormats = <AiTtsCatalogOption>[

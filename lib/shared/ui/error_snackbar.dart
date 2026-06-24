@@ -72,21 +72,27 @@ void showFriendlyErrorSnackBar(
 void showFriendlyErrorDetailsDialog(
   BuildContext context, {
   required String fullText,
+  String? title,
 }) {
-  _showErrorDetailsDialog(context, fullText: fullText);
+  _showErrorDetailsDialog(context, fullText: fullText, title: title);
 }
 
-void _showErrorDetailsDialog(BuildContext context, {required String fullText}) {
+void _showErrorDetailsDialog(
+  BuildContext context, {
+  required String fullText,
+  String? title,
+}) {
   showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) {
       final l10n = AppLocalizations.of(dialogContext)!;
       final theme = Theme.of(dialogContext);
       return buildOpenHandAlertDialog(
-        title: Text(l10n.sessMetaErrorDetail),
+        icon: Icon(Icons.error_outline_rounded, color: theme.colorScheme.error),
+        title: Text(title ?? l10n.sessMetaErrorDetail),
         content: buildOpenHandDialogConstrainedContent(
-          maxWidth: 560,
-          maxHeight: 480,
+          maxWidth: 680,
+          maxHeight: 560,
           child: _ErrorDetailsScrollBody(fullText: fullText, theme: theme),
         ),
         actions: <Widget>[
@@ -140,21 +146,220 @@ class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
 
   @override
   Widget build(BuildContext context) {
+    final details = _FriendlyErrorDetails.parse(widget.fullText);
     return PrimaryScrollController.none(
       child: OpenHandSafeScrollbar(
         controller: _scrollController,
         child: SingleChildScrollView(
           controller: _scrollController,
           primary: false,
-          child: SelectableText(
-            widget.fullText,
-            style: widget.theme.textTheme.bodyMedium?.copyWith(
-              height: 1.5,
-              fontFamily: 'monospace',
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ErrorSummaryBlock(text: details.summary, theme: widget.theme),
+              const SizedBox(height: 12),
+              for (final section in details.sections) ...[
+                _ErrorDetailSectionCard(section: section, theme: widget.theme),
+                const SizedBox(height: 10),
+              ],
+              _ErrorDetailSectionCard(
+                section: _FriendlyErrorSection(
+                  title: _errorLocalized(
+                    context,
+                    zh: '完整信息',
+                    en: 'Full details',
+                  ),
+                  body: details.rawText,
+                  monospace: true,
+                ),
+                theme: widget.theme,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+class _ErrorSummaryBlock extends StatelessWidget {
+  const _ErrorSummaryBlock({required this.text, required this.theme});
+
+  final String text;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.report_problem_rounded, color: colorScheme.error),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SelectableText(
+                text,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.45,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorDetailSectionCard extends StatelessWidget {
+  const _ErrorDetailSectionCard({required this.section, required this.theme});
+
+  final _FriendlyErrorSection section;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.64),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              section.title,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              section.body,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                height: 1.48,
+                color: colorScheme.onSurfaceVariant,
+                fontFamily: section.monospace ? 'monospace' : null,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendlyErrorDetails {
+  const _FriendlyErrorDetails({
+    required this.rawText,
+    required this.summary,
+    required this.sections,
+  });
+
+  final String rawText;
+  final String summary;
+  final List<_FriendlyErrorSection> sections;
+
+  static _FriendlyErrorDetails parse(String raw) {
+    final normalized = raw.replaceAll('\r\n', '\n').trim();
+    final rawText = normalized.isEmpty ? 'unknown error' : normalized;
+    final sections = <_FriendlyErrorSection>[];
+    var currentTitle = '概览';
+    final buffer = <String>[];
+
+    void flush() {
+      final body = buffer.join('\n').trim();
+      if (body.isEmpty) return;
+      sections.add(_FriendlyErrorSection(title: currentTitle, body: body));
+      buffer.clear();
+    }
+
+    for (final line in rawText.split('\n')) {
+      final trimmed = line.trimRight();
+      final heading = _errorHeading(trimmed);
+      if (heading == null) {
+        buffer.add(trimmed);
+        continue;
+      }
+      flush();
+      currentTitle = heading.title;
+      if (heading.inlineBody.isNotEmpty) {
+        buffer.add(heading.inlineBody);
+      }
+    }
+    flush();
+
+    final summary = sections.isEmpty
+        ? rawText
+        : sections.first.body
+              .split('\n')
+              .firstWhere(
+                (line) => line.trim().isNotEmpty,
+                orElse: () => sections.first.body,
+              );
+    final detailSections = sections.length <= 1
+        ? <_FriendlyErrorSection>[]
+        : sections.sublist(1);
+    return _FriendlyErrorDetails(
+      rawText: rawText,
+      summary: summary.trim().isEmpty ? rawText : summary.trim(),
+      sections: detailSections,
+    );
+  }
+}
+
+class _FriendlyErrorSection {
+  const _FriendlyErrorSection({
+    required this.title,
+    required this.body,
+    this.monospace = false,
+  });
+
+  final String title;
+  final String body;
+  final bool monospace;
+}
+
+class _ParsedErrorHeading {
+  const _ParsedErrorHeading({required this.title, required this.inlineBody});
+
+  final String title;
+  final String inlineBody;
+}
+
+_ParsedErrorHeading? _errorHeading(String line) {
+  final match = RegExp(
+    r'^(现象|概览|原因|建议|排查建议|服务端原文|服务端响应|原始响应|详情|完整信息|Summary|Reason|Suggestion|Troubleshooting|Server response|Raw response|Details)\s*[:：]\s*(.*)$',
+    caseSensitive: false,
+  ).firstMatch(line.trimLeft());
+  if (match == null) return null;
+  return _ParsedErrorHeading(
+    title: match.group(1)!.trim(),
+    inlineBody: match.group(2)!.trim(),
+  );
+}
+
+String _errorLocalized(
+  BuildContext context, {
+  required String zh,
+  required String en,
+}) {
+  return Localizations.localeOf(context).languageCode == 'zh' ? zh : en;
 }
