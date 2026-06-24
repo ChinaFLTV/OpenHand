@@ -138,7 +138,7 @@ class SettingsStore {
 
   static Map<String, Object?> _snapshotToJson(AppSettingsSnapshot snapshot) {
     return <String, Object?>{
-      'version': 3,
+      'version': 4,
       'theme_mode': _themeModeToStorage(snapshot.themeMode),
       'theme_preset': snapshot.themePreset.storageValue,
       'language': snapshot.language.storageValue,
@@ -327,6 +327,20 @@ class SettingsStore {
     return persisted;
   }
 
+  static bool _migrateAiMicroCompressionEnabled({
+    required bool persisted,
+    required int schemaVersion,
+  }) {
+    if (schemaVersion < 4 && !persisted) {
+      // Earlier schema versions wrote the old false default for most users.
+      // Treat that value as legacy default state once so consumed tool
+      // results stop bloating every follow-up prompt after upgrade; v4 false
+      // remains an explicit opt-out.
+      return AppSettingsSnapshot.defaultAiMicroCompressionEnabled;
+    }
+    return persisted;
+  }
+
   static AppSettingsSnapshot _snapshotFromJson(Map<String, Object?> json) {
     final schemaVersion = json['version'] is int ? json['version'] as int : 0;
     final themeMode = _themeModeFromStorage('${json['theme_mode'] ?? ''}');
@@ -467,8 +481,11 @@ class SettingsStore {
         : true;
     final aiMicroCompressionEnabled =
         json['ai_micro_compression_enabled'] is bool
-        ? json['ai_micro_compression_enabled'] as bool
-        : false;
+        ? _migrateAiMicroCompressionEnabled(
+            persisted: json['ai_micro_compression_enabled'] as bool,
+            schemaVersion: schemaVersion,
+          )
+        : AppSettingsSnapshot.defaultAiMicroCompressionEnabled;
     final aiMessageContentFormat = AiMessageContentFormat.fromStorageKey(
       json['ai_message_content_format'],
     );

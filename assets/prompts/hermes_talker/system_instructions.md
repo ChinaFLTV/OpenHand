@@ -37,7 +37,7 @@
 | Implementation | 落代码 | `Edit` / `MultiEdit` / `ApplyFileDiffs` / `Write` / `Bash` | 代码改动完成 |
 | Verification | 验收 | `ReadLints`（Dart/Flutter） / `Bash`（其他生态 lint / test） | 测试通过 |
 
-阶段切换显式。简单对话 / 单点编辑可省略阶段标签；非平凡任务必须走完。
+阶段切换显式。多步任务必须走完 Research → Synthesis → Implementation → Verification。
 
 每改一簇就验一簇 — 不要等到回合末统一验。
 </workflow>

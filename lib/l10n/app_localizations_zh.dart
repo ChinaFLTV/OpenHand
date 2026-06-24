@@ -9332,7 +9332,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      '开启后，会进一步清除更早的已消费工具结果，只保留恢复线索。关闭后仍会按上方阈值对过长旧结果做结构化摘要。';
+      '开启后，已消费的旧工具结果会替换为紧凑恢复线索，减少历史上下文重复增长。关闭后仍会按上方阈值对过长旧结果做结构化摘要。';
 
   @override
   String get aiMessageContentSectionLabel => '消息内容';
@@ -17168,7 +17168,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      '開啟後，會進一步清除更早的已消費工具結果，只保留恢復線索。關閉後仍會按上方閾值對過長舊結果做結構化摘要。';
+      '開啟後，已消費的舊工具結果會替換為緊湊恢復線索，減少歷史上下文重複增長。關閉後仍會按上方閾值對過長舊結果做結構化摘要。';
 
   @override
   String get aiMessageContentSectionLabel => '訊息內容';

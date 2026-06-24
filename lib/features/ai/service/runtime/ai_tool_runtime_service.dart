@@ -2050,7 +2050,7 @@ class AiToolRuntimeService {
     final description = [
       'Load the full instructions for the local skill "${skill.name}" only when the current request clearly matches it.',
       summary,
-      'Do not call this for greetings, casual chat, simple answers, or underspecified creative requests; answer directly or ask a clarifying question instead.',
+      'Do not call this unless the selected skill or its specialized workflow is required.',
       'Catalog shows summary only; this call returns the full SKILL.md body on demand.',
     ].where((item) => item.isNotEmpty).join(' ');
     return AiResolvedTool(

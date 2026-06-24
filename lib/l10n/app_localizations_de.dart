@@ -1578,7 +1578,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      'Wenn aktiviert, werden alte konsumierte Werkzeugergebnisse während normaler Gespräche gelöscht, um Kontext zu sparen. Wenn deaktiviert (empfohlen), wird die Mikro-Kompression nur vor aktiver/passiver Kompression ausgeführt — dies verbessert die promptübergreifende Cache-Trefferquote und senkt API-Kosten.';
+      'Wenn aktiviert, werden ältere konsumierte Werkzeugergebnisse durch kompakte Wiederherstellungshinweise ersetzt, damit der Verlauf weniger wiederholt wächst. Wenn deaktiviert, werden lange alte Ergebnisse weiterhin gemäß dem Schwellenwert oben zusammengefasst.';
 
   @override
   String get aiMessageContentSectionLabel => 'Nachrichteninhalt';

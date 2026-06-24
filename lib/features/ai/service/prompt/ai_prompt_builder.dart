@@ -88,7 +88,9 @@ class AiPromptBuilder {
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const JsonEncoder _promptJsonEncoder = JsonEncoder.withIndent('  ');
-  static const int _microCompactKeepRecentToolResults = 5;
+  static const int _microCompactKeepRecentToolResults = 2;
+  static const int _historyAssistantContentMaxChars = 1600;
+  static const int _historyAssistantContentEdgeChars = 700;
   static const int _contextBudgetEstimatedCharsPerToken = 4;
   static const int _contextBudgetSummaryReserveTokens = 20000;
   static const int _contextBudgetAutoCompactBufferTokens = 13000;
@@ -125,16 +127,6 @@ class AiPromptBuilder {
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
-  static const Set<String> _continuationOnlySignals = <String>{
-    'continue',
-    'continue.',
-    'go on',
-    'keep going',
-    '继续',
-    '继续吧',
-    '接着做',
-    '接着',
-  };
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
@@ -249,10 +241,6 @@ class AiPromptBuilder {
             ? latestUserMessage.id
             : null,
       ),
-    );
-    final todoReminder = _buildTodoWriteReminder(
-      session: session,
-      latestUserMessage: latestUserMessage,
     );
     final planModeReminder = _buildPlanModeReminder(
       session: session,
@@ -591,8 +579,6 @@ class AiPromptBuilder {
         ),
       if (focusContext.isNotEmpty)
         _systemSectionTurn(AiPromptSectionHeaders.focusContext, focusContext),
-      if (todoReminder != null && todoReminder.isNotEmpty)
-        _systemSectionTurn(AiPromptSectionHeaders.systemReminder, todoReminder),
       if (planModeReminder != null && planModeReminder.isNotEmpty)
         _systemSectionTurn(
           AiPromptSectionHeaders.planModeReminder,
@@ -2666,7 +2652,6 @@ $identity''';
     var index = 0;
     String? roundReasoning;
     var roundReasoningHasAssistantTurn = false;
-    var previousMappedUserWasContinuation = false;
     // 找出"已被模型消费"的边界。任何 assistant / toolCall 消息都意味着
     // 模型已经基于之前的工具结果产出了下一步动作；index 大于
     // `lastConsumerIndex` 的 tool 结果属于尚未被消费的最新工具输入。新鲜
@@ -2710,14 +2695,6 @@ $identity''';
         }
         roundReasoning = null;
         roundReasoningHasAssistantTurn = false;
-        final isContinuation = _isContinuationOnlyMessage(message.content);
-        if (isContinuation && previousMappedUserWasContinuation) {
-          index += 1;
-          continue;
-        }
-        previousMappedUserWasContinuation = isContinuation;
-      } else if (message.kind != AiSessionMessageKind.reasoning) {
-        previousMappedUserWasContinuation = false;
       }
       if (message.kind == AiSessionMessageKind.toolCall) {
         final mappedGroup = _mapToolExchange(
@@ -2992,7 +2969,7 @@ $identity''';
       case AiSessionMessageKind.assistant:
         return _mapMessageContent(
           role: AiChatRole.assistant,
-          content: promptContent,
+          content: _compactHistoricalAssistantContent(promptContent),
           inlineSystemReminders: preferInlineSystemReminders,
         );
       case AiSessionMessageKind.toolCall:
@@ -3117,6 +3094,25 @@ $identity''';
       return '';
     }
     return '[system_reminder] $trimmed';
+  }
+
+  String _compactHistoricalAssistantContent(String content) {
+    final trimmed = content.trimRight();
+    if (trimmed.length <= _historyAssistantContentMaxChars) {
+      return trimmed;
+    }
+    final edge = math.min(
+      _historyAssistantContentEdgeChars,
+      _historyAssistantContentMaxChars ~/ 2,
+    );
+    final omitted = trimmed.length - edge - edge;
+    final head = trimmed.substring(0, edge).trimRight();
+    final tail = trimmed.substring(trimmed.length - edge).trimLeft();
+    return '''$head
+
+[assistant_message_middle_omitted: $omitted chars]
+
+$tail''';
   }
 
   List<AiChatContentPart> _attachmentPartsForMessage(
@@ -5660,30 +5656,6 @@ $content
     return runtimeContext.repositorySnapshot;
   }
 
-  String? _buildTodoWriteReminder({
-    required AiSession session,
-    required AiSessionMessage? latestUserMessage,
-  }) {
-    final message = latestUserMessage;
-    if (message == null || message.kind != AiSessionMessageKind.user) {
-      return null;
-    }
-    if (session.awaitingPlanApproval) {
-      return null;
-    }
-    final hasIncompleteTodo = AiSessionTodoState.hasIncomplete(
-      session.todoItems,
-    );
-    final normalizedContent = message.content.trim().toLowerCase();
-    if (_continuationOnlySignals.contains(normalizedContent)) {
-      return null;
-    }
-    if (hasIncompleteTodo || !_looksLikeNonTrivialTask(message.content)) {
-      return null;
-    }
-    return 'This looks like a non-trivial multi-step task. Use TodoWrite now to create or refresh a structured todo list before continuing, and keep it updated as steps complete.';
-  }
-
   String? _buildPlanModeReminder({
     required AiSession session,
     required AiSessionMessage? latestUserMessage,
@@ -5816,129 +5788,11 @@ $content
   bool _looksLikePlanApproval(String content) =>
       AiPlanApprovalDetector.looksLikePlanApproval(content);
 
-  bool _isContinuationOnlyMessage(String content) {
-    return _continuationOnlySignals.contains(content.trim().toLowerCase());
-  }
-
   bool _looksLikePlanRecoveryContinuation(String content) {
     return AiPlanApprovalDetector.looksLikePlanRecoveryContinuation(
       content,
       includeGenericContinuations: true,
     );
-  }
-
-  bool _looksLikeNonTrivialTask(String content) {
-    final trimmed = content.trim();
-    if (trimmed.isEmpty) {
-      return false;
-    }
-    final normalized = trimmed.toLowerCase();
-    final bulletCount = RegExp(
-      r'^\s*(?:[-*]|\d+\.)\s+',
-      multiLine: true,
-    ).allMatches(trimmed).length;
-    if (bulletCount >= 2) {
-      return true;
-    }
-    const taskSignals = <String>[
-      'fix',
-      'implement',
-      'add',
-      'integrate',
-      'refactor',
-      'debug',
-      'investigate',
-      'migrate',
-      'optimize',
-      'update',
-      'patch',
-      'support',
-      'test',
-      'verify',
-      'review',
-      'audit',
-      'analyze',
-      'analyse',
-      'compare',
-      'trace',
-      'walk through',
-      '排查',
-      '审查',
-      '评审',
-      '分析',
-      '对比',
-      '梳理',
-      '修复',
-      '实现',
-      '新增',
-      '集成',
-      '迁移',
-      '优化',
-      '改进',
-      '完善',
-      '调整',
-      '检查',
-      '补齐',
-      '支持',
-      '测试',
-      '验证',
-    ];
-    if (!taskSignals.any(normalized.contains)) {
-      return false;
-    }
-    const informationalSignals = <String>[
-      'what is',
-      'what are',
-      'what does',
-      'why is',
-      'why does',
-      'how does claude code',
-      'how do claude code',
-      'can claude code',
-      'does claude code',
-      '什么是',
-      '为什么',
-      'claude code',
-    ];
-    final hasQuestionMark =
-        normalized.contains('?') || normalized.contains('？');
-    if (hasQuestionMark &&
-        informationalSignals.any(normalized.contains) &&
-        bulletCount == 0) {
-      return false;
-    }
-    const multiStepSignals = <String>[
-      ' and ',
-      ' then ',
-      ' after ',
-      ' before ',
-      ' also ',
-      ' first ',
-      ' next ',
-      '同时',
-      '然后',
-      '先',
-      '再',
-      '并且',
-      '以及',
-      '另外',
-      '顺便',
-      '继续',
-      '一次性',
-      '全面',
-      '彻底',
-    ];
-    final multiStepSignalCount = multiStepSignals
-        .where(normalized.contains)
-        .length;
-    final sentenceBreakCount = RegExp(
-      r'[.!?。！？]\s*|\n',
-    ).allMatches(trimmed).length;
-    if (multiStepSignalCount >= 1 &&
-        (trimmed.length >= 80 || sentenceBreakCount >= 2)) {
-      return true;
-    }
-    return trimmed.length >= 140 || sentenceBreakCount >= 3;
   }
 }
 

@@ -688,7 +688,7 @@
   "aiToolResultCompressionEnabledLabel": "啟用工具呼叫輸出壓縮",
   "aiToolResultCompressionEnabledBody": "控制對話歷史與壓縮檢查點中是否摘要過長工具輸出。關閉後保留原文，可能顯著增加上下文與快取成本。",
   "aiMicroCompressionEnabledLabel": "微壓縮",
-  "aiMicroCompressionEnabledBody": "開啟後，會進一步清除更早的已消費工具結果，只保留恢復線索。關閉後仍會按上方閾值對過長舊結果做結構化摘要。",
+  "aiMicroCompressionEnabledBody": "開啟後，已消費的舊工具結果會替換為緊湊恢復線索，減少歷史上下文重複增長。關閉後仍會按上方閾值對過長舊結果做結構化摘要。",
   "aiMessageContentSectionLabel": "訊息內容",
   "aiMessageContentFormatLabel": "內容格式",
   "aiMessageContentFormatBody": "控制 AI 助手訊息的展示方式。Markdown 為預設；純文字性能最佳；HTML 由第三方庫渲染，token 消耗略高，渲染失敗時依下方回退策略降級。",

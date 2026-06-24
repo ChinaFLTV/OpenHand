@@ -1558,7 +1558,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      'When enabled, even older consumed tool results are cleared further and only recovery hints remain. When disabled, long old results are still summarized by the threshold above.';
+      'When enabled, older consumed tool results are replaced with compact recovery hints to reduce repeated history growth. When disabled, long old results are still summarized by the threshold above.';
 
   @override
   String get aiMessageContentSectionLabel => 'Message Content';

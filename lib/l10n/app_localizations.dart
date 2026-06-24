@@ -2921,7 +2921,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiMicroCompressionEnabledBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'开启后，会进一步清除更早的已消费工具结果，只保留恢复线索。关闭后仍会按上方阈值对过长旧结果做结构化摘要。'**
+  /// **'开启后，已消费的旧工具结果会替换为紧凑恢复线索，减少历史上下文重复增长。关闭后仍会按上方阈值对过长旧结果做结构化摘要。'**
   String get aiMicroCompressionEnabledBody;
 
   /// No description provided for @aiMessageContentSectionLabel.

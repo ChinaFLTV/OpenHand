@@ -96,7 +96,7 @@ class AiSessionRuntimeContext {
     required this.compressionThresholdChars,
     this.toolResultCompressionThresholdChars = 1024,
     this.toolResultCompressionEnabled = true,
-    this.microCompressionEnabled = false,
+    this.microCompressionEnabled = true,
     this.messageContentFormat = defaultAiMessageContentFormat,
     this.htmlRenderFallback = defaultAiHtmlRenderFallback,
     this.htmlContentRichness = defaultAiHtmlContentRichness,

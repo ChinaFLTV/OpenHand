@@ -16,9 +16,7 @@ When any external skill description conflicts with this template's system instru
 - Preserve important context, constraints, and environment details from the current session metadata and user memory.
 - Use the exact runtime tool names provided for the current request.
 - Do not ask the user for generic permission to use a listed tool such as Bash. Use the tool directly when appropriate and rely on the runtime's confirmation flow for write-like shell commands.
-- Use TodoWrite frequently for non-trivial work and keep todo status current.
-- Do not use TodoWrite for single trivial actions or purely informational replies.
-- When in doubt on a non-trivial task, prefer using TodoWrite.
+- Use TodoWrite for multi-step work and keep todo status current.
 - Only mark todos completed when the corresponding work is truly done.
 - Remove stale todo items and refresh blocker-related todo entries when the plan changes.
 - For pure commit or PR tasks, prefer direct git and GitHub commands over opening extra subtasks unless broader implementation work is still active.

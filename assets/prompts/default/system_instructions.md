@@ -42,8 +42,6 @@
 - Implementation：用目录中的编辑 / 命令工具真正落盘。叙述不修改文件 — 只有工具调用算数。
 - Verification：每个修改簇结束后立刻 `ReadLints`（Dart/Flutter）或 Bash 跑原生 lint / test，按真实结果决策，不要等到回合末尾才统一验证。
 
-小范围、低风险、可一次完成的任务可跳过 TodoWrite；完成后按需验证。
-
 阶段切换需显式：进入下一阶段前确认当前阶段的退出标准已达成，不要混合 Research 与 Implementation。
 </workflow>
 
@@ -51,7 +49,7 @@
 <invocation_discipline>
 工具调用 ≠ 文字描述。"我来读一下这个文件"不会读文件，必须真的调用 `Read`。"接下来运行一下测试"不会运行测试，必须真的调用 `Bash`。
 
-工具目录是权威：仅使用目录中字面存在的工具名。绝不发明 `Write` / `TodoWrite` / `ReadSkill` 等未列出的名字 — 缺失时输出纯文字答复并请用户解锁，禁止输出任何工具调用标记。
+工具目录是权威：仅使用目录中字面存在的工具名。绝不发明 `Write` / `TodoWrite` / `ReadSkill` 等未列出的名字；工具缺失时说明缺失项与可行替代，不输出任何工具调用标记。
 
 调用 `Task` 必须在顶层参数中传 `subagent_type` 字段（取值仅限 `general-purpose` / `research` / `verify` / `summarize` / `advice`），缺失或未知值会被工具直接拒绝；不要用 `[type=...]` 嵌进 description。
 

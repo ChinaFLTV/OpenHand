@@ -688,7 +688,7 @@
   "aiToolResultCompressionEnabledLabel": "ツール呼び出し出力の圧縮を有効化",
   "aiToolResultCompressionEnabledBody": "会話履歴と圧縮チェックポイントで長いツール出力を要約するかを制御します。無効にすると原文を保持し、コンテキストとキャッシュのコストが大きく増える可能性があります。",
   "aiMicroCompressionEnabledLabel": "微圧縮",
-  "aiMicroCompressionEnabledBody": "有効にすると、通常の会話中に消費済みの古いツール結果がクリアされコンテキストを節約します。無効（推奨）にすると、能動的/受動的圧縮の前にのみ微圧縮が実行され、ターンをまたいだプロンプトキャッシュのヒット率が向上しAPIコストが削減されます。",
+  "aiMicroCompressionEnabledBody": "有効にすると、消費済みの古いツール結果をコンパクトな復元ヒントに置き換え、履歴コンテキストの重複増加を抑えます。無効にしても、長い古い結果は上のしきい値に従って要約されます。",
   "aiMessageContentSectionLabel": "メッセージ内容",
   "aiMessageContentFormatLabel": "内容フォーマット",
   "aiMessageContentFormatBody": "AI アシスタントメッセージの表示方法を制御します。Markdown が既定、PlainText が最も高速、HTML はサードパーティライブラリによるレンダリングで token がやや多め、レンダリング失敗時は以下のフォールバックでダウングレードします。",

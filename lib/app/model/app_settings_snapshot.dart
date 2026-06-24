@@ -161,7 +161,7 @@ class AppSettingsSnapshot {
     required this.aiMessageCompressionThresholdChars,
     required this.aiToolResultCompressionThresholdChars,
     required this.aiToolResultCompressionEnabled,
-    this.aiMicroCompressionEnabled = false,
+    this.aiMicroCompressionEnabled = defaultAiMicroCompressionEnabled,
     this.aiMessageContentFormat = defaultAiMessageContentFormat,
     this.aiHtmlRenderFallback = defaultAiHtmlRenderFallback,
     this.aiHtmlContentRichness = defaultAiHtmlContentRichness,
@@ -342,6 +342,8 @@ class AppSettingsSnapshot {
   static const int defaultAiToolResultCompressionMaxPathHits = 12;
   static const int minAiToolResultCompressionMaxPathHits = 0;
   static const int maxAiToolResultCompressionMaxPathHits = 200;
+
+  static const bool defaultAiMicroCompressionEnabled = true;
 
   /// 2026-05-02 — 成本控制：是否启用输入缓存优化。开启后，Prompt
   /// Builder 尽量保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
@@ -665,7 +667,8 @@ class AppSettingsSnapshot {
   final bool aiToolResultCompressionEnabled;
 
   /// 2026-05-23 — 正常对话中是否启用工具结果微压缩（清除旧工具结果）。
-  /// 关闭后仅在主动/被动压缩时才执行微压缩，可提高跨轮前缀缓存命中率。
+  /// 开启后旧工具结果在被模型消费后会稳定替换成结构化摘要，减少历史
+  /// token 增长；关闭后仅在主动/被动压缩时才执行微压缩。
   final bool aiMicroCompressionEnabled;
 
   /// 2026-05-24 — 助手消息内容渲染格式（Markdown / 纯文本 / HTML）。
