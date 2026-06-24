@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
@@ -34,12 +35,14 @@ class AiModelsService {
   final AiTransportClient _transport;
 
   static const int _maxGeminiPages = 20;
+  static const int _defaultGeminiPageSize = 100;
+  static const int _maxGeminiPageSize = 1000;
 
   Future<AiModelsListResult> listModels({
     required AiModelConfig model,
     Duration timeout = const Duration(seconds: 60),
     bool paginateGemini = true,
-    int pageSize = 100,
+    int pageSize = _defaultGeminiPageSize,
   }) async {
     if (model.protocolType == AiProtocolType.gemini && paginateGemini) {
       return _listGeminiModels(
@@ -100,6 +103,7 @@ class AiModelsService {
     final rawPages = <Map<String, Object?>>[];
     final records = <AiModelRecord>[];
     String? pageToken;
+    final effectivePageSize = _safeGeminiPageSize(pageSize);
     for (var page = 0; page < _maxGeminiPages; page++) {
       final uri = AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family)
           .replace(
@@ -111,7 +115,7 @@ class AiModelsService {
                   family,
                 )[AiOperationHttp.extrasQueryKey],
               ),
-              if (pageSize > 0) 'pageSize': '$pageSize',
+              if (effectivePageSize > 0) 'pageSize': '$effectivePageSize',
               if (pageToken != null) 'pageToken': pageToken,
             },
           );
@@ -133,15 +137,21 @@ class AiModelsService {
       rawPages.add(payload);
       records.addAll(_parseModelRecords(payload));
       final next = '${payload['nextPageToken'] ?? ''}'.trim();
-      if (next.isEmpty) break;
+      if (next.isEmpty || next == pageToken) break;
       pageToken = next;
     }
     final deduped = _dedupeRecords(records);
     return AiModelsListResult(
       models: deduped,
-      rawResponse: rawPages.toString(),
+      rawResponse: jsonEncode(<String, Object?>{'pages': rawPages}),
       payload: <String, Object?>{'pages': rawPages},
     );
+  }
+
+  int _safeGeminiPageSize(int pageSize) {
+    if (pageSize <= 0) return 0;
+    if (pageSize > _maxGeminiPageSize) return _maxGeminiPageSize;
+    return pageSize;
   }
 
   List<AiModelRecord> _parseModelRecords(Map<String, Object?> payload) {

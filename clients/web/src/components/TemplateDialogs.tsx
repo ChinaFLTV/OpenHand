@@ -9,10 +9,9 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
   DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
   DIALOG_OVERLAY_LOW_Z_INDEX,
-  DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
   DialogHeader,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
 interface DialogShellProps {
@@ -29,15 +28,13 @@ function DialogShell({ title, onClose, children, maxWidth = 880 }: DialogShellPr
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
-        overlay: {
-          background: DIALOG_OVERLAY_STRONG_BACKGROUND,
-          zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
-        },
+        overlayTone: 'strong',
+        overlayZIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
         panelClassName: 'rounded-m3-xl w-full overflow-hidden flex flex-col',
+        panelBorder: 'none',
         panelSurface: {
-          border: 'none',
           maxWidth: `${maxWidth}px`,
           maxHeight: '88vh',
         },

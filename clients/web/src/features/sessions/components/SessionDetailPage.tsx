@@ -61,13 +61,9 @@ import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
 import {
   DIALOG_OVERLAY_CENTER_CLASS,
-  DIALOG_OVERLAY_INTENSE_BACKGROUND,
-  DIALOG_OVERLAY_INVERSE_BACKGROUND,
   DIALOG_OVERLAY_LOW_Z_INDEX,
-  DIALOG_OVERLAY_SOFT_BACKGROUND,
-  DIALOG_OVERLAY_STRONG_BACKGROUND,
   DialogFrame,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from '../../../components/DialogFrame';
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
@@ -4824,13 +4820,13 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
-        overlay: { background: DIALOG_OVERLAY_STRONG_BACKGROUND },
+        overlayTone: 'strong',
         panelClassName: 'rounded-m3-md p-4 max-w-2xl w-full flex flex-col',
+        panelBorder: 'outline',
         panelSurface: {
           maxHeight: '80vh',
-          border: '1px solid var(--m3-outline)',
         },
       })}
       ariaLabel={`${t('common.audit', '审计')} ${message.id}`}
@@ -4916,12 +4912,12 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
-        overlay: { background: DIALOG_OVERLAY_SOFT_BACKGROUND },
+        overlayTone: 'soft',
         panelClassName: 'w-full max-w-md rounded-m3-xl p-5 flex flex-col',
+        panelBorder: 'outlineVariant',
         panelSurface: {
-          border: '1px solid var(--m3-outline-variant)',
           maxHeight: 'min(720px, calc(100vh - 32px))',
         },
       })}
@@ -5153,11 +5149,11 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
-        overlay: { background: DIALOG_OVERLAY_SOFT_BACKGROUND },
+        overlayTone: 'soft',
         panelClassName: 'w-full max-w-md rounded-m3-xl p-5',
-        panelSurface: { border: '1px solid var(--m3-outline-variant)' },
+        panelBorder: 'outlineVariant',
       })}
       ariaLabel={t('contextStats.title', '上下文使用情况')}
     >
@@ -5854,12 +5850,12 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
-        overlay: { background: DIALOG_OVERLAY_INVERSE_BACKGROUND },
+        overlayTone: 'inverse',
         panelClassName: 'rounded-m3-lg p-5 w-full flex flex-col',
+        panelBorder: 'outlineVariant',
         panelSurface: {
-          border: '1px solid var(--m3-outline-variant)',
           maxWidth: '860px',
           maxHeight: '84vh',
         },
@@ -6218,12 +6214,12 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
-        overlay: { background: DIALOG_OVERLAY_STRONG_BACKGROUND },
+        overlayTone: 'strong',
         panelClassName: 'rounded-m3-md p-4 max-w-3xl w-full flex flex-col',
+        panelBorder: 'outline',
         panelSurface: {
-          border: '1px solid var(--m3-outline)',
           maxHeight: '84vh',
         },
       })}
@@ -6422,14 +6418,14 @@ function SessionThrottleDialog({
       closing={closing}
       onRequestClose={requestClose}
       closeOnBackdrop={!busy && !closing}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName:
           'oh-dialog-backdrop fixed inset-0 flex items-center justify-center p-4',
-        overlay: { background: DIALOG_OVERLAY_INTENSE_BACKGROUND },
+        overlayTone: 'intense',
         panelClassName: 'rounded-m3-md p-5 w-full max-w-md',
+        panelBorder: 'none',
         panelSurface: {
           background: 'var(--m3-surface-container-high)',
-          border: 'none',
         },
       })}
       ariaLabel={t('topbar.throttle.dialogTitle', '本会话流式节流')}

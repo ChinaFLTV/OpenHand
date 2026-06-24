@@ -14,7 +14,7 @@ import {
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
   DialogHeader,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 import type { DashboardTone } from './ReverseDashboardPrimitives';
 import {
@@ -132,14 +132,12 @@ export function AndroidReverseDashboardDialog({
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
-        overlay: {
-          background: 'var(--m3-scrim-bg)',
-          blurPx: 0,
-          zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
-        },
+      {...createStandardDialogFrameAppearance({
+        overlayTone: 'scrim',
+        overlayBlurPx: 0,
+        overlayZIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
         panelClassName: 'w-full max-w-[820px] rounded-m3-lg overflow-hidden',
-        panelSurface: { border: 'none' },
+        panelBorder: 'none',
       })}
       ariaLabel={t('androidReverse.dashboard.title', 'Android 逆向调试面板')}
     >

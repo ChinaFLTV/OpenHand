@@ -13,6 +13,7 @@ final class AiOperationHttp {
   static const String _jsonMimeType = 'application/json';
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';
+  static const int _maxExtractedErrorMessageLength = 4000;
 
   static const String extrasGlobalKey = 'global';
   static const String extrasBodyKey = 'body';
@@ -172,19 +173,19 @@ final class AiOperationHttp {
       if (decoded is Map<String, Object?>) {
         final error = decoded['error'];
         if (error is String && error.trim().isNotEmpty) {
-          return error.trim();
+          return _boundedErrorMessage(error.trim());
         }
         if (error is Map) {
           final map = Map<String, Object?>.from(error);
           final message = '${map['message'] ?? map['error'] ?? ''}'.trim();
-          if (message.isNotEmpty) return message;
+          if (message.isNotEmpty) return _boundedErrorMessage(message);
           final code = '${map['code'] ?? ''}'.trim();
-          if (code.isNotEmpty) return code;
+          if (code.isNotEmpty) return _boundedErrorMessage(code);
         }
         final message =
             '${decoded['message'] ?? decoded['error_description'] ?? ''}'
                 .trim();
-        if (message.isNotEmpty) return message;
+        if (message.isNotEmpty) return _boundedErrorMessage(message);
       }
     } catch (_) {
       // Plain text or HTML error response.
@@ -194,8 +195,16 @@ final class AiOperationHttp {
           .replaceAll(RegExp(r'<[^>]*>'), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
-      return stripped.isEmpty ? trimmed : stripped;
+      return _boundedErrorMessage(stripped.isEmpty ? trimmed : stripped);
     }
-    return trimmed;
+    return _boundedErrorMessage(trimmed);
+  }
+
+  static String _boundedErrorMessage(String message) {
+    final normalized = message.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized.length <= _maxExtractedErrorMessageLength) {
+      return normalized;
+    }
+    return '${normalized.substring(0, _maxExtractedErrorMessageLength)}...';
   }
 }

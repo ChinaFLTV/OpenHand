@@ -8,7 +8,7 @@ import { describeApiError, isAbortError } from '../utils/api_error';
 import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 import { ModelPickerDialog } from './ModelPickerDialog';
 
@@ -224,16 +224,16 @@ export function TitleSummaryDialog({
       closing={closing}
       onRequestClose={requestClose}
       closeOnBackdrop={phase !== 'pending'}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlay: {
           background: 'color-mix(in srgb, black 48%, transparent)',
           blurPx: 6,
-          zIndex: DIALOG_OVERLAY_FOCUSED_Z_INDEX,
         },
+        overlayZIndex: DIALOG_OVERLAY_FOCUSED_Z_INDEX,
         panelClassName: 'w-full max-w-md rounded-2xl px-6 py-5',
+        panelBorder: 'none',
         panelSurface: {
           boxShadow: 'var(--m3-elev-4)',
-          border: 'none',
         },
       })}
       ariaLabel={t('titleSummary.title', '获取 AI 摘要标题')}

@@ -7,7 +7,7 @@ import {
   DIALOG_OVERLAY_EDGE_SHEET_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
 export interface CreationOptions {
@@ -302,18 +302,18 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
       onRequestClose={requestCancel}
       closeOnBackdrop={!closing}
       panelAnimation="slideUp"
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_EDGE_SHEET_CLASS,
         overlay: {
           background: 'color-mix(in srgb, black 32%, transparent)',
           blurPx: 0,
-          zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
         },
+        overlayZIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
         panelClassName:
           'w-full max-w-3xl rounded-t-2xl px-6 py-5 flex flex-col overflow-hidden',
+        panelBorder: 'none',
         panelSurface: {
           background: 'var(--m3-surface-container-low)',
-          border: 'none',
           maxHeight: '82vh',
         },
       })}

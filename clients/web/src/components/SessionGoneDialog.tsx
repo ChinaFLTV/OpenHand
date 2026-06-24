@@ -5,9 +5,8 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { runWithTimeout } from '../utils/timed_abort';
 import {
   DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
-  DIALOG_OVERLAY_INTENSE_BACKGROUND,
   DialogFrame,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
 export interface SessionGoneDialogProps {
@@ -60,11 +59,11 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
     <DialogFrame
       closing={closing}
       closeOnBackdrop={false}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
-        overlay: { background: DIALOG_OVERLAY_INTENSE_BACKGROUND },
+        overlayTone: 'intense',
         panelClassName: 'rounded-m3-xl w-full max-w-[420px] flex flex-col',
-        panelSurface: { border: 'none' },
+        panelBorder: 'none',
       })}
       ariaLabel={t('sessionGone.title', '会话已不存在')}
     >

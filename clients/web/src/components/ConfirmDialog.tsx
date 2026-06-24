@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { DialogFrame, createDialogFrameAppearance } from './DialogFrame';
+import { DialogFrame, createStandardDialogFrameAppearance } from './DialogFrame';
 
 type ConfirmCloseReason = 'cancel' | 'dismiss' | 'escape';
 
@@ -79,14 +79,14 @@ export function ConfirmDialog({
       closing={closing}
       onRequestClose={requestDismiss}
       closeOnBackdrop={!busy && !closing && !disableBackdropClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName:
           'oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4',
         panelClassName: `oh-confirm-dialog ${wide ? 'is-wide' : ''} ${
           scrollBody ? 'is-scroll-body' : ''
         } w-full rounded-m3-xl p-5`,
+        panelBorder: 'outline',
         panelSurface: {
-          border: '1px solid var(--m3-outline)',
           maxWidth: wide
             ? 'min(720px, calc(100vw - 32px))'
             : 'min(448px, calc(100vw - 32px))',

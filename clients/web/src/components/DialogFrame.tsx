@@ -4,6 +4,18 @@ import { clampNumber, normalizeInteger } from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
 type DialogPanelAnimation = 'pop' | 'slideUp' | 'none';
+export type DialogOverlayTone =
+  | 'default'
+  | 'soft'
+  | 'strong'
+  | 'intense'
+  | 'inverse'
+  | 'scrim';
+export type DialogPanelBorder =
+  | 'default'
+  | 'outline'
+  | 'outlineVariant'
+  | 'none';
 
 export const DIALOG_OVERLAY_LOW_Z_INDEX = 2400;
 export const DIALOG_OVERLAY_BASE_Z_INDEX = 2600;
@@ -38,6 +50,10 @@ export const DIALOG_PANEL_DEFAULT_BACKGROUND = 'var(--m3-surface-container)';
 export const DIALOG_PANEL_DEFAULT_COLOR = 'var(--m3-on-surface)';
 export const DIALOG_PANEL_DEFAULT_SHADOW = 'var(--m3-elev-3)';
 export const DIALOG_PANEL_DEFAULT_BORDER = '1px solid var(--m3-outline-variant)';
+export const DIALOG_PANEL_OUTLINE_BORDER = '1px solid var(--m3-outline)';
+export const DIALOG_PANEL_OUTLINE_VARIANT_BORDER =
+  '1px solid var(--m3-outline-variant)';
+export const DIALOG_PANEL_BORDERLESS = 'none';
 const DIALOG_SCROLL_LOCK_STYLE_VALUE = 'hidden';
 const DIALOG_SCROLL_LOCK_DATASET_KEY = 'dialogScrollLocked';
 const DIALOG_SCROLL_LOCK_OVERSCROLL_PROPERTY = 'overscroll-behavior';
@@ -62,6 +78,14 @@ export interface DialogFrameAppearanceOptions {
   panelSurface?: DialogPanelSurfaceStyleOptions;
   panelStyle?: JSX.CSSProperties;
   panelStyleOverrides?: JSX.CSSProperties;
+}
+
+export interface StandardDialogFrameAppearanceOptions
+  extends DialogFrameAppearanceOptions {
+  overlayTone?: DialogOverlayTone;
+  overlayZIndex?: number;
+  overlayBlurPx?: number;
+  panelBorder?: DialogPanelBorder;
 }
 
 export interface DialogFrameProps {
@@ -163,6 +187,75 @@ export function createDialogFrameAppearance({
   };
 }
 
+function dialogOverlayBackground(tone: DialogOverlayTone): string {
+  switch (tone) {
+    case 'soft':
+      return DIALOG_OVERLAY_SOFT_BACKGROUND;
+    case 'strong':
+      return DIALOG_OVERLAY_STRONG_BACKGROUND;
+    case 'intense':
+      return DIALOG_OVERLAY_INTENSE_BACKGROUND;
+    case 'inverse':
+      return DIALOG_OVERLAY_INVERSE_BACKGROUND;
+    case 'scrim':
+      return 'var(--m3-scrim-bg)';
+    case 'default':
+    default:
+      return DIALOG_OVERLAY_DEFAULT_BACKGROUND;
+  }
+}
+
+function dialogPanelBorderValue(border: DialogPanelBorder): string {
+  switch (border) {
+    case 'outline':
+      return DIALOG_PANEL_OUTLINE_BORDER;
+    case 'outlineVariant':
+      return DIALOG_PANEL_OUTLINE_VARIANT_BORDER;
+    case 'none':
+      return DIALOG_PANEL_BORDERLESS;
+    case 'default':
+    default:
+      return DIALOG_PANEL_DEFAULT_BORDER;
+  }
+}
+
+export function createStandardDialogFrameAppearance({
+  overlayTone,
+  overlayZIndex,
+  overlayBlurPx,
+  overlay,
+  panelBorder,
+  panelSurface,
+  ...rest
+}: StandardDialogFrameAppearanceOptions = {}): Pick<
+  DialogFrameProps,
+  'overlayClassName' | 'overlayStyle' | 'panelClassName' | 'panelStyle'
+> {
+  const resolvedOverlay =
+    overlayTone == null && overlayZIndex == null && overlayBlurPx == null
+      ? overlay
+      : {
+          ...overlay,
+          background:
+            overlay?.background ??
+            dialogOverlayBackground(overlayTone ?? 'default'),
+          zIndex: overlay?.zIndex ?? overlayZIndex,
+          blurPx: overlay?.blurPx ?? overlayBlurPx,
+        };
+  const resolvedPanelSurface =
+    panelBorder == null
+      ? panelSurface
+      : {
+          ...panelSurface,
+          border: panelSurface?.border ?? dialogPanelBorderValue(panelBorder),
+        };
+  return createDialogFrameAppearance({
+    ...rest,
+    overlay: resolvedOverlay,
+    panelSurface: resolvedPanelSurface,
+  });
+}
+
 function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): string {
   switch (animation) {
     case 'slideUp':
@@ -175,7 +268,9 @@ function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): st
   }
 }
 
-export function dialogClassNames(...values: Array<string | undefined | false>): string {
+export function dialogClassNames(
+  ...values: Array<string | null | undefined | false>
+): string {
   return values
     .flatMap((value) => (value ? value.trim().split(/\s+/) : []))
     .filter(Boolean)

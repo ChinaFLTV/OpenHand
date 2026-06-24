@@ -14,7 +14,7 @@ import {
   DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
 const RECENT_KEY = 'openhand.web.recent_models';
@@ -209,14 +209,14 @@ export function ModelPickerDialog({
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
-        overlay: { zIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX },
+        overlayZIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,
         panelClassName: 'flex flex-col',
+        panelBorder: 'none',
         panelSurface: {
           width: 'min(420px, 92vw)',
           maxHeight: 'min(520px, 86vh)',
-          border: 'none',
         },
         panelStyleOverrides: {
           borderRadius: '16px',

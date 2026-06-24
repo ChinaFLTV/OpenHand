@@ -5,7 +5,7 @@ import { clampNumber } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_MEDIA_Z_INDEX,
   DialogFrame,
-  createDialogOverlayStyle,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
 export interface ImageEditorInput {
@@ -282,11 +282,12 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
       closing={closing}
       onRequestClose={requestClose}
       closeOnBackdrop={!busy && !closing}
-      overlayClassName="fixed inset-0 flex items-center justify-center p-3 sm:p-5"
-      overlayStyle={createDialogOverlayStyle({
-        zIndex: DIALOG_OVERLAY_MEDIA_Z_INDEX,
+      {...createStandardDialogFrameAppearance({
+        overlayClassName:
+          'fixed inset-0 flex items-center justify-center p-3 sm:p-5',
+        overlayZIndex: DIALOG_OVERLAY_MEDIA_Z_INDEX,
+        panelClassName: 'oh-image-editor-dialog',
       })}
-      panelClassName="oh-image-editor-dialog"
       ariaLabel={t('imageEditor.title', '编辑图片')}
     >
       <div class="oh-image-editor-body">

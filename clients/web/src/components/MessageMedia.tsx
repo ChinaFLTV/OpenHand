@@ -20,7 +20,7 @@ import {
   DIALOG_OVERLAY_CENTER_CLASS,
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
-  createDialogFrameAppearance,
+  createStandardDialogFrameAppearance,
 } from './DialogFrame';
 import { showSnackbar } from './Snackbar';
 
@@ -1307,20 +1307,20 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
     <DialogFrame
       closing={closing}
       onRequestClose={requestClose}
-      {...createDialogFrameAppearance({
+      {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_CLASS,
         overlay: {
           background: 'color-mix(in srgb, black 58%, transparent)',
           blurPx: 10,
-          zIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
         },
+        overlayZIndex: DIALOG_OVERLAY_TOP_Z_INDEX,
         panelClassName: 'rounded-m3-lg overflow-hidden',
+        panelBorder: 'outline',
         panelSurface: {
           width: `${layout.panelWidth}px`,
           maxWidth: `${layout.maxPanelWidth}px`,
           maxHeight: `${layout.maxPanelHeight}px`,
           boxShadow: 'var(--m3-elev-4)',
-          border: '1px solid var(--m3-outline)',
         },
         panelStyleOverrides: {
           display: 'flex',
