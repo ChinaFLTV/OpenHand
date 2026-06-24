@@ -9,6 +9,7 @@ const double _aiTtsCardActionSize = 40;
 const double _aiTtsDragFeedbackMaxHeight = 240;
 const double _settingsStandardFieldWidth = 360;
 const String _translationSettingsTestText = 'Hello, OpenHand.';
+const bool _settingsProviderCardDefaultExpanded = false;
 
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
@@ -594,17 +595,13 @@ class _AiTranslationProviderDeckState
     AiTranslationProvider target, {
     required bool after,
   }) {
-    if (source == target) return;
-    final next = List<AiTranslationProvider>.from(
+    final next = _settingsReorderedProviderPriority<AiTranslationProvider>(
       widget.settings.providerPriority,
+      source,
+      target,
+      after: after,
     );
-    final oldIndex = next.indexOf(source);
-    if (oldIndex < 0) return;
-    final item = next.removeAt(oldIndex);
-    var targetIndex = next.indexOf(target);
-    if (targetIndex < 0) return;
-    if (after) targetIndex += 1;
-    next.insert(targetIndex.clamp(0, next.length), item);
+    if (next == null) return;
     widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
 }
@@ -695,7 +692,7 @@ class _AiTranslationProviderCard extends StatefulWidget {
 class _AiTranslationProviderCardState
     extends State<_AiTranslationProviderCard> {
   bool _testing = false;
-  bool _expanded = true;
+  bool _expanded = _settingsProviderCardDefaultExpanded;
   AiTranslationProviderSettings? _latestProviderSettings;
 
   AiTranslationProviderSettings get _effectiveProviderSettings =>
@@ -707,7 +704,19 @@ class _AiTranslationProviderCardState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.provider != widget.provider) {
       _latestProviderSettings = null;
+      _expanded = _settingsProviderCardDefaultExpanded;
       return;
+    }
+    final wasEnabled = oldWidget.settings
+        .provider(widget.provider)
+        .normalized()
+        .enabled;
+    final isEnabled = widget.settings
+        .provider(widget.provider)
+        .normalized()
+        .enabled;
+    if (wasEnabled && !isEnabled) {
+      _expanded = _settingsProviderCardDefaultExpanded;
     }
     final latest = _latestProviderSettings;
     if (latest == null) return;
@@ -799,6 +808,7 @@ class _AiTranslationProviderCardState
                 children: [
                   _AiProviderCardExpandButton(
                     expanded: _expanded,
+                    enabled: providerSettings.enabled,
                     onPressed: _toggleExpanded,
                   ),
                   _AiTtsTestButton(
@@ -812,9 +822,7 @@ class _AiTranslationProviderCardState
                   ),
                   _SettingsSwitch(
                     value: providerSettings.enabled,
-                    onChanged: (value) => _updateCurrent(
-                      (current) => current.copyWith(enabled: value),
-                    ),
+                    onChanged: _setEnabled,
                   ),
                 ],
               ),
@@ -856,6 +864,13 @@ class _AiTranslationProviderCardState
   void _toggleExpanded() {
     setState(() => _expanded = !_expanded);
     HapticFeedback.selectionClick();
+  }
+
+  Future<void> _setEnabled(bool value) {
+    if (!value && _expanded) {
+      setState(() => _expanded = _settingsProviderCardDefaultExpanded);
+    }
+    return _updateCurrent((current) => current.copyWith(enabled: value));
   }
 
   Future<void> _testProvider() async {
@@ -1172,37 +1187,58 @@ class _AiTranslationDragHandle extends StatefulWidget {
 }
 
 class _AiTranslationDragHandleState extends State<_AiTranslationDragHandle> {
+  bool _dragging = false;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final handle = SizedBox(
-      width: _aiTtsDragHandleSize,
-      height: _aiTtsDragHandleSize,
-      child: Center(
-        child: Icon(
-          Icons.drag_indicator_rounded,
-          color: theme.colorScheme.onSurfaceVariant,
-          size: 22,
-        ),
-      ),
-    );
+    final handle = _buildHandle(context, opacity: _dragging ? 0.42 : 1);
     return Draggable<AiTranslationProvider>(
       data: widget.provider,
-      onDragStarted: widget.onDragStarted,
-      onDragEnd: (_) => widget.onDragEnded(),
-      onDraggableCanceled: (_, _) => widget.onDragEnded(),
-      feedback: Material(
-        color: Colors.transparent,
-        child: _AiTranslationProviderDragFeedbackCard(
-          label: widget.label,
-          priorityIndex: widget.priorityIndex,
-          enabled: widget.enabled,
-          width: widget.feedbackWidth,
+      maxSimultaneousDrags: 1,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      onDragStarted: _startDrag,
+      onDragEnd: (_) => _finishDrag(),
+      onDraggableCanceled: (_, _) => _finishDrag(),
+      feedback: Directionality(
+        textDirection: Directionality.of(context),
+        child: Theme(
+          data: theme,
+          child: Material(
+            color: Colors.transparent,
+            child: _AiTranslationProviderDragFeedbackCard(
+              label: widget.label,
+              priorityIndex: widget.priorityIndex,
+              enabled: widget.enabled,
+              width: widget.feedbackWidth,
+            ),
+          ),
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.32, child: handle),
-      child: MouseRegion(cursor: SystemMouseCursors.grab, child: handle),
+      childWhenDragging: _buildHandle(context, opacity: 0.42),
+      child: handle,
     );
+  }
+
+  Widget _buildHandle(BuildContext context, {required double opacity}) {
+    return _AiProviderDragHandleFrame(opacity: opacity);
+  }
+
+  void _startDrag() {
+    if (_dragging) return;
+    setState(() => _dragging = true);
+    HapticFeedback.selectionClick();
+    widget.onDragStarted();
+  }
+
+  void _finishDrag() {
+    if (!_dragging) return;
+    if (mounted) {
+      setState(() => _dragging = false);
+    } else {
+      _dragging = false;
+    }
+    widget.onDragEnded();
   }
 }
 
@@ -1371,15 +1407,13 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
     AiTtsProvider target, {
     required bool after,
   }) {
-    if (source == target) return;
-    final next = List<AiTtsProvider>.from(widget.settings.providerPriority);
-    final oldIndex = next.indexOf(source);
-    if (oldIndex < 0) return;
-    final item = next.removeAt(oldIndex);
-    var targetIndex = next.indexOf(target);
-    if (targetIndex < 0) return;
-    if (after) targetIndex += 1;
-    next.insert(targetIndex.clamp(0, next.length), item);
+    final next = _settingsReorderedProviderPriority<AiTtsProvider>(
+      widget.settings.providerPriority,
+      source,
+      target,
+      after: after,
+    );
+    if (next == null) return;
     widget.onChanged(widget.settings.copyWith(providerPriority: next));
   }
 }
@@ -1469,7 +1503,7 @@ class _AiTtsProviderCard extends StatefulWidget {
 
 class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   bool _testing = false;
-  bool _expanded = true;
+  bool _expanded = _settingsProviderCardDefaultExpanded;
   AiTtsProviderSettings? _latestProviderSettings;
 
   AiTtsProviderSettings get _effectiveProviderSettings =>
@@ -1513,7 +1547,19 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.provider != widget.provider) {
       _latestProviderSettings = null;
+      _expanded = _settingsProviderCardDefaultExpanded;
       return;
+    }
+    final wasEnabled = oldWidget.settings
+        .provider(widget.provider)
+        .normalized()
+        .enabled;
+    final isEnabled = widget.settings
+        .provider(widget.provider)
+        .normalized()
+        .enabled;
+    if (wasEnabled && !isEnabled) {
+      _expanded = _settingsProviderCardDefaultExpanded;
     }
     final latest = _latestProviderSettings;
     if (latest == null) return;
@@ -1599,6 +1645,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 children: [
                   _AiProviderCardExpandButton(
                     expanded: _expanded,
+                    enabled: providerSettings.enabled,
                     onPressed: _toggleExpanded,
                   ),
                   _AiTtsTestButton(
@@ -1607,9 +1654,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   ),
                   _SettingsSwitch(
                     value: providerSettings.enabled,
-                    onChanged: (value) => _updateCurrent((current) {
-                      return current.copyWith(enabled: value);
-                    }),
+                    onChanged: _setEnabled,
                   ),
                 ],
               ),
@@ -1644,6 +1689,13 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
   void _toggleExpanded() {
     setState(() => _expanded = !_expanded);
     HapticFeedback.selectionClick();
+  }
+
+  Future<void> _setEnabled(bool value) {
+    if (!value && _expanded) {
+      setState(() => _expanded = _settingsProviderCardDefaultExpanded);
+    }
+    return _updateCurrent((current) => current.copyWith(enabled: value));
   }
 
   Widget _buildAiModelSection(
@@ -2179,39 +2231,7 @@ class _AiTtsDragHandleState extends State<_AiTtsDragHandle> {
   }
 
   Widget _buildHandle(BuildContext context, {required double opacity}) {
-    final theme = Theme.of(context);
-    final label = _localizedText(context, zh: '拖动调整优先级', en: 'Drag');
-    return Semantics(
-      button: true,
-      label: label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.grab,
-        child: AnimatedOpacity(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : _aiTtsDragOpacityDuration,
-          opacity: opacity,
-          child: Container(
-            width: _aiTtsDragHandleSize,
-            height: _aiTtsDragHandleSize,
-            margin: const EdgeInsets.only(right: 10, top: 1),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: theme.colorScheme.surfaceContainerHigh,
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.74),
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.drag_indicator_rounded,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ),
-    );
+    return _AiProviderDragHandleFrame(opacity: opacity);
   }
 
   void _startDrag() {
@@ -2339,6 +2359,48 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
   }
 }
 
+class _AiProviderDragHandleFrame extends StatelessWidget {
+  const _AiProviderDragHandleFrame({required this.opacity});
+
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: _localizedText(context, zh: '拖动调整优先级', en: 'Drag'),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: AnimatedOpacity(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : _aiTtsDragOpacityDuration,
+          opacity: opacity,
+          child: Container(
+            width: _aiTtsDragHandleSize,
+            height: _aiTtsDragHandleSize,
+            margin: const EdgeInsets.only(right: 10, top: 1),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.74),
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.drag_indicator_rounded,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AiTtsPriorityBadge extends StatelessWidget {
   const _AiTtsPriorityBadge({required this.index});
 
@@ -2398,10 +2460,12 @@ class _AiTtsStatusBadge extends StatelessWidget {
 class _AiProviderCardExpandButton extends StatelessWidget {
   const _AiProviderCardExpandButton({
     required this.expanded,
+    required this.enabled,
     required this.onPressed,
   });
 
   final bool expanded;
+  final bool enabled;
   final VoidCallback onPressed;
 
   @override
@@ -2411,13 +2475,15 @@ class _AiProviderCardExpandButton extends StatelessWidget {
         ? Duration.zero
         : const Duration(milliseconds: 260);
     return Tooltip(
-      message: expanded
+      message: !enabled
+          ? _localizedText(context, zh: '启用后可展开', en: 'Enable to expand')
+          : expanded
           ? _localizedText(context, zh: '折叠服务卡片', en: 'Collapse provider')
           : _localizedText(context, zh: '展开服务卡片', en: 'Expand provider'),
       child: SizedBox.square(
         dimension: _aiTtsCardActionSize,
         child: IconButton.filledTonal(
-          onPressed: onPressed,
+          onPressed: enabled ? onPressed : null,
           style: IconButton.styleFrom(
             shape: const CircleBorder(),
             padding: EdgeInsets.zero,
@@ -2427,9 +2493,13 @@ class _AiProviderCardExpandButton extends StatelessWidget {
             backgroundColor: theme.colorScheme.surfaceContainerHighest
                 .withValues(alpha: 0.74),
             foregroundColor: theme.colorScheme.onSurfaceVariant,
+            disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.42),
+            disabledForegroundColor: theme.colorScheme.onSurfaceVariant
+                .withValues(alpha: 0.42),
           ),
           icon: AnimatedRotation(
-            turns: expanded ? 0 : 0.5,
+            turns: enabled && expanded ? 0 : 0.5,
             duration: duration,
             curve: Curves.easeOutBack,
             child: const Icon(Icons.expand_less_rounded, size: 22),
@@ -3294,6 +3364,33 @@ AiModelConfig? _selectedAiTtsModel({
 
 bool _settingsJsonEquals(Object? left, Object? right) {
   return jsonEncode(left) == jsonEncode(right);
+}
+
+List<T>? _settingsReorderedProviderPriority<T>(
+  List<T> priority,
+  T source,
+  T target, {
+  required bool after,
+}) {
+  if (source == target) return null;
+  final oldIndex = priority.indexOf(source);
+  final targetIndexBeforeRemoval = priority.indexOf(target);
+  if (oldIndex < 0 || targetIndexBeforeRemoval < 0) return null;
+
+  var insertAfter = after;
+  if (oldIndex == targetIndexBeforeRemoval + 1 && insertAfter) {
+    insertAfter = false;
+  } else if (oldIndex + 1 == targetIndexBeforeRemoval && !insertAfter) {
+    insertAfter = true;
+  }
+
+  final next = List<T>.from(priority);
+  final item = next.removeAt(oldIndex);
+  var targetIndex = next.indexOf(target);
+  if (targetIndex < 0) return null;
+  if (insertAfter) targetIndex += 1;
+  next.insert(targetIndex.clamp(0, next.length), item);
+  return listEquals(next, priority) ? null : next;
 }
 
 List<AiModelConfig> _ttsAudioGenerationModels(List<AiModelConfig> models) {
