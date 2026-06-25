@@ -16,6 +16,10 @@ export interface ApiMetaService {
   auto_start_on_launch?: boolean;
   auto_reload_on_change?: boolean;
   plan_mode_enabled?: boolean;
+  read_aloud_enabled?: boolean;
+  translation_enabled?: boolean;
+  feedback_enabled?: boolean;
+  regeneration_enabled?: boolean;
   session_management_enabled?: boolean;
   single_message_token_limit?: number;
   max_messages_per_session?: number;

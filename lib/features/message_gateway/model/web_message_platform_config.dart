@@ -258,6 +258,10 @@ class WebMessagePlatformConfig {
     },
     this.allowedModelKeys = const <String>[],
     this.planModeEnabled = false,
+    this.readAloudEnabled = true,
+    this.translationEnabled = true,
+    this.feedbackEnabled = true,
+    this.regenerationEnabled = true,
     this.singleMessageTokenLimit = 2000,
     this.maxMessagesPerSession = 100,
     this.sessionManagementEnabled = true,
@@ -322,6 +326,10 @@ class WebMessagePlatformConfig {
       ),
       allowedModelKeys: _stringList(json['allowed_model_keys']),
       planModeEnabled: json['plan_mode_enabled'] as bool? ?? false,
+      readAloudEnabled: json['read_aloud_enabled'] as bool? ?? true,
+      translationEnabled: json['translation_enabled'] as bool? ?? true,
+      feedbackEnabled: json['feedback_enabled'] as bool? ?? true,
+      regenerationEnabled: json['regeneration_enabled'] as bool? ?? true,
       singleMessageTokenLimit: clampedIntFromValue(
         json['single_message_token_limit'],
         fallback: 2000,
@@ -399,6 +407,10 @@ class WebMessagePlatformConfig {
   final Set<WebGatewayConversationMode> allowedConversationModes;
   final List<String> allowedModelKeys;
   final bool planModeEnabled;
+  final bool readAloudEnabled;
+  final bool translationEnabled;
+  final bool feedbackEnabled;
+  final bool regenerationEnabled;
   final int singleMessageTokenLimit;
   final int maxMessagesPerSession;
   final bool sessionManagementEnabled;
@@ -437,6 +449,10 @@ class WebMessagePlatformConfig {
     Set<WebGatewayConversationMode>? allowedConversationModes,
     List<String>? allowedModelKeys,
     bool? planModeEnabled,
+    bool? readAloudEnabled,
+    bool? translationEnabled,
+    bool? feedbackEnabled,
+    bool? regenerationEnabled,
     int? singleMessageTokenLimit,
     int? maxMessagesPerSession,
     bool? sessionManagementEnabled,
@@ -478,6 +494,10 @@ class WebMessagePlatformConfig {
           allowedConversationModes ?? this.allowedConversationModes,
       allowedModelKeys: allowedModelKeys ?? this.allowedModelKeys,
       planModeEnabled: planModeEnabled ?? this.planModeEnabled,
+      readAloudEnabled: readAloudEnabled ?? this.readAloudEnabled,
+      translationEnabled: translationEnabled ?? this.translationEnabled,
+      feedbackEnabled: feedbackEnabled ?? this.feedbackEnabled,
+      regenerationEnabled: regenerationEnabled ?? this.regenerationEnabled,
       singleMessageTokenLimit:
           singleMessageTokenLimit ?? this.singleMessageTokenLimit,
       maxMessagesPerSession:
@@ -531,6 +551,10 @@ class WebMessagePlatformConfig {
           .toList(growable: false),
       'allowed_model_keys': allowedModelKeys,
       'plan_mode_enabled': planModeEnabled,
+      'read_aloud_enabled': readAloudEnabled,
+      'translation_enabled': translationEnabled,
+      'feedback_enabled': feedbackEnabled,
+      'regeneration_enabled': regenerationEnabled,
       'single_message_token_limit': singleMessageTokenLimit,
       'max_messages_per_session': maxMessagesPerSession,
       'session_management_enabled': sessionManagementEnabled,

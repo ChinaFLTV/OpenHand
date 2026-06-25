@@ -444,6 +444,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _opsEnabled;
   late bool _healthEnabled;
   late bool _planModeEnabled;
+  late bool _readAloudEnabled;
+  late bool _translationEnabled;
+  late bool _feedbackEnabled;
+  late bool _regenerationEnabled;
   late bool _sessionManagementEnabled;
   late bool _workspaceFileWriteEnabled;
   late final TextEditingController _descriptionController;
@@ -493,6 +497,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _opsEnabled = config.opsEnabled;
     _healthEnabled = config.healthCheck.enabled;
     _planModeEnabled = config.planModeEnabled;
+    _readAloudEnabled = config.readAloudEnabled;
+    _translationEnabled = config.translationEnabled;
+    _feedbackEnabled = config.feedbackEnabled;
+    _regenerationEnabled = config.regenerationEnabled;
     _sessionManagementEnabled = config.sessionManagementEnabled;
     _workspaceFileWriteEnabled = config.workspaceFileWriteEnabled;
     _descriptionController = TextEditingController(text: config.description);
@@ -731,6 +739,30 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             value: _planModeEnabled,
                             onChanged: (v) =>
                                 setState(() => _planModeEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否启用朗读功能',
+                            value: _readAloudEnabled,
+                            onChanged: (v) =>
+                                setState(() => _readAloudEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否启用翻译功能',
+                            value: _translationEnabled,
+                            onChanged: (v) =>
+                                setState(() => _translationEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否启用点赞功能',
+                            value: _feedbackEnabled,
+                            onChanged: (v) =>
+                                setState(() => _feedbackEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: '是否启用重新生成功能',
+                            value: _regenerationEnabled,
+                            onChanged: (v) =>
+                                setState(() => _regenerationEnabled = v),
                           ),
                           _SwitchTile(
                             label: '是否允许 Web 会话管理',
@@ -1097,6 +1129,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       allowedConversationModes: _modes,
       allowedModelKeys: _models.toList(growable: false),
       planModeEnabled: _planModeEnabled,
+      readAloudEnabled: _readAloudEnabled,
+      translationEnabled: _translationEnabled,
+      feedbackEnabled: _feedbackEnabled,
+      regenerationEnabled: _regenerationEnabled,
       singleMessageTokenLimit: _int(_singleMessageController.text, 2000),
       maxMessagesPerSession: _int(_maxMessagesController.text, 100),
       sessionManagementEnabled: _sessionManagementEnabled,

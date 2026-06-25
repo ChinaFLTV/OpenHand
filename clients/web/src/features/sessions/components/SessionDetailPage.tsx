@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, listSessionTitleSourceMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionSummary } from '../../../api/sessions';
+import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, listSessionTitleSourceMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, setMessageFeedback, translateMessage, regenerateMessage, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionMessageFeedback, type SessionSummary } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
@@ -352,6 +352,42 @@ function messageMetadataStreaming(message: SessionMessage): boolean {
   return value === true || value === 'true' || value === 1 || value === '1';
 }
 
+function normalizedMessageFeedback(value: unknown): SessionMessageFeedback | null {
+  return value === 'liked' || value === 'needs_improvement' ? value : null;
+}
+
+function messageFeedbackValue(message: SessionMessage): SessionMessageFeedback | null {
+  const direct = normalizedMessageFeedback(message.feedback);
+  if (direct) return direct;
+  const meta = recordOrNullFromUnknown(message.metadata);
+  if (!meta) return null;
+  const legacy = normalizedMessageFeedback(meta['message_feedback']);
+  if (legacy) return legacy;
+  const variants = meta['response_variants'];
+  if (!Array.isArray(variants) || variants.length === 0) return null;
+  const index = Math.max(
+    0,
+    Math.min(
+      variants.length - 1,
+      finiteNumberOrNullFromUnknown(meta['response_variant_index']) ?? 0,
+    ),
+  );
+  return normalizedMessageFeedback(recordOrNullFromUnknown(variants[index])?.['message_feedback']);
+}
+
+function messageWithFeedback(
+  message: SessionMessage,
+  feedback: SessionMessageFeedback | null,
+): SessionMessage {
+  const metadata = { ...(message.metadata ?? {}) };
+  if (feedback == null) {
+    delete metadata['message_feedback'];
+  } else {
+    metadata['message_feedback'] = feedback;
+  }
+  return { ...message, feedback, metadata };
+}
+
 function metadataString(value: unknown): string {
   return value == null ? '' : String(value).trim();
 }
@@ -418,6 +454,9 @@ const MESSAGE_RENDER_METADATA_KEYS = [
   'conversation_mode',
   'user_skill_selection',
   'selected_skill',
+  'message_feedback',
+  'response_variants',
+  'response_variant_index',
 ] as const;
 
 const metadataRenderFingerprintCache = new WeakMap<object, string>();
@@ -474,6 +513,7 @@ function messageRenderSignature(message: SessionMessage): string {
     message.created_at,
     message.model_id ?? '',
     message.model_label ?? '',
+    message.feedback ?? '',
     usageRenderFingerprint(message),
     metadataRenderFingerprint(message.metadata),
   ].join('|');
@@ -1254,6 +1294,13 @@ interface QueuedComposerMessage {
   createdAt: number;
 }
 
+interface MessageTranslationState {
+  source: string;
+  text: string | null;
+  loading: boolean;
+  visible: boolean;
+}
+
 export interface ComposerCollapsedSummaryState {
   textLength: number;
   attachmentCount: number;
@@ -1456,6 +1503,9 @@ export function SessionDetailPage() {
   const [imageEditorInput, setImageEditorInput] = useState<ImageEditorInput | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [forkBusy, setForkBusy] = useState(false);
+  const [messageTranslations, setMessageTranslations] = useState<Record<string, MessageTranslationState>>({});
+  const [feedbackBusyMessageIds, setFeedbackBusyMessageIds] = useState<Set<string>>(() => new Set());
+  const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(() => new Set());
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
 
@@ -1492,6 +1542,9 @@ export function SessionDetailPage() {
     setDeleteBusy(false);
     setPendingForkMessage(null);
     setForkBusy(false);
+    setMessageTranslations({});
+    setFeedbackBusyMessageIds(new Set());
+    setRegeneratingMessageIds(new Set());
     setPendingSessionDelete(false);
     setSessionDeleteBusy(false);
     setPermissionSaving(false);
@@ -1717,6 +1770,150 @@ export function SessionDetailPage() {
       showSnackbar(`${t('topbar.fullscreen.failed', '切换全屏失败')}：${message}`, { tone: 'error' });
     }
   };
+
+  function updateMessageInLocalWindow(
+    messageId: string,
+    updater: (message: SessionMessage) => SessionMessage,
+  ): void {
+    setMessages((prev) => {
+      const index = prev.findIndex((item) => item.id === messageId);
+      if (index < 0) return prev;
+      const nextMessage = updater(prev[index]!);
+      if (nextMessage === prev[index]) return prev;
+      const next = prev.slice();
+      next[index] = nextMessage;
+      messagesRef.current = next;
+      return next;
+    });
+  }
+
+  function setMessageFeedbackBusy(messageId: string, busy: boolean): void {
+    setFeedbackBusyMessageIds((current) => {
+      if (busy && current.has(messageId)) return current;
+      if (!busy && !current.has(messageId)) return current;
+      const next = new Set(current);
+      if (busy) next.add(messageId);
+      else next.delete(messageId);
+      return next;
+    });
+  }
+
+  function setMessageRegenerating(messageId: string, busy: boolean): void {
+    setRegeneratingMessageIds((current) => {
+      if (busy && current.has(messageId)) return current;
+      if (!busy && !current.has(messageId)) return current;
+      const next = new Set(current);
+      if (busy) next.add(messageId);
+      else next.delete(messageId);
+      return next;
+    });
+  }
+
+  const handleToggleMessageTranslation = useCallback(async (m: SessionMessage) => {
+    if (!sessionId) return;
+    const source = m.content ?? '';
+    const current = messageTranslations[m.id];
+    if (current?.source === source && current.loading) return;
+    if (current?.source === source && current.text) {
+      setMessageTranslations((prev) => ({
+        ...prev,
+        [m.id]: { ...current, visible: !current.visible },
+      }));
+      return;
+    }
+    const requestSessionId = sessionId;
+    setMessageTranslations((prev) => ({
+      ...prev,
+      [m.id]: { source, text: null, loading: true, visible: false },
+    }));
+    try {
+      const result = await translateMessage(requestSessionId, m.id);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      const translated = (result.text ?? '').trim();
+      if (!translated) {
+        showSnackbar(t('message.translate.empty', '未得到可展示的译文'), { tone: 'error' });
+        setMessageTranslations((prev) => ({
+          ...prev,
+          [m.id]: { source, text: null, loading: false, visible: false },
+        }));
+        return;
+      }
+      setMessageTranslations((prev) => ({
+        ...prev,
+        [m.id]: { source, text: translated, loading: false, visible: true },
+      }));
+      showSnackbar(t('message.translate.ok', '已翻译消息'), { tone: 'success' });
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setMessageTranslations((prev) => ({
+        ...prev,
+        [m.id]: { source, text: null, loading: false, visible: false },
+      }));
+      showSnackbar(`${t('message.translate.failed', '翻译失败')}：${message}`, { tone: 'error' });
+    }
+  }, [messageTranslations, sessionId]);
+
+  const handleSetMessageFeedback = useCallback(async (
+    m: SessionMessage,
+    feedback: SessionMessageFeedback | null,
+  ) => {
+    if (!sessionId || feedbackBusyMessageIds.has(m.id)) return;
+    const requestSessionId = sessionId;
+    const previousMessage = messagesRef.current.find((item) => item.id === m.id) ?? m;
+    const previousFeedback = messageFeedbackValue(previousMessage);
+    setMessageFeedbackBusy(m.id, true);
+    updateMessageInLocalWindow(m.id, (message) => messageWithFeedback(message, feedback));
+    try {
+      const result = await setMessageFeedback(requestSessionId, m.id, feedback);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (result.message) {
+        updateMessageInLocalWindow(m.id, () => result.message!);
+      } else {
+        updateMessageInLocalWindow(m.id, (message) => messageWithFeedback(message, result.feedback ?? feedback));
+      }
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      updateMessageInLocalWindow(m.id, (message) => messageWithFeedback(message, previousFeedback));
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      showSnackbar(`${t('message.feedback.failed', '反馈提交失败')}：${message}`, { tone: 'error' });
+    } finally {
+      if (ownsSessionAsyncResult(requestSessionId)) setMessageFeedbackBusy(m.id, false);
+    }
+  }, [feedbackBusyMessageIds, sessionId]);
+
+  const handleRegenerateMessage = useCallback(async (m: SessionMessage) => {
+    if (!sessionId || regeneratingMessageIds.has(m.id)) return;
+    if (sendPhase !== 'idle') {
+      showSnackbar(t('message.regenerate.busy', '当前会话正在运行，稍后再试'), { tone: 'error' });
+      return;
+    }
+    const requestSessionId = sessionId;
+    setMessageRegenerating(m.id, true);
+    try {
+      const result = await regenerateMessage(requestSessionId, m.id, {
+        modelKey: composerModelKey,
+      });
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      setActiveMessageId(null);
+      updateSendPhaseValue(result.send_phase || 'sendingMessage');
+      lastLocalSendAtRef.current = Date.now();
+      scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
+      showSnackbar(t('message.regenerate.started', '已开始重新生成'), { tone: 'success' });
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      showSnackbar(`${t('message.regenerate.failed', '重新生成失败')}：${message}`, { tone: 'error' });
+    } finally {
+      if (ownsSessionAsyncResult(requestSessionId)) setMessageRegenerating(m.id, false);
+    }
+  }, [composerModelKey, reduceMotion, regeneratingMessageIds, sendPhase, sessionId]);
 
   const handleCopyMessage = useCallback(async (m: SessionMessage) => {
     const text = m.content ?? '';
@@ -3770,6 +3967,11 @@ export function SessionDetailPage() {
   // 注意：服务端按 created_at 升序返回（store loadMessages 默认升序），
   // 直接渲染即是「上旧下新」。如果出现倒序问题，派生视图会做一次排序兜底。
   const sortedMessages = messageWindowView.ordered;
+  const webMessageFeatureConfig = auth.meta?.service;
+  const readAloudEnabled = webMessageFeatureConfig?.read_aloud_enabled !== false;
+  const translationEnabled = webMessageFeatureConfig?.translation_enabled !== false;
+  const feedbackEnabled = webMessageFeatureConfig?.feedback_enabled !== false;
+  const regenerationEnabled = webMessageFeatureConfig?.regeneration_enabled !== false;
   const messageRenderWindowKey = useMemo(() => {
     return messageWindowShapeKey(sessionId, windowOffset, sortedMessages);
   }, [sessionId, windowOffset, sortedMessages]);
@@ -4017,11 +4219,40 @@ export function SessionDetailPage() {
                   <>
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
                     <ul class="oh-session-message-list flex flex-col gap-3">
-                      {visibleSortedMessages.map((m) => (
-                        <li key={m.id} class="oh-session-message-row">
-                          <MessageCard message={m} active={activeMessageId === m.id} streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)} turnActive={stableResponseRunning} sessionId={sessionId} onActiveChange={handleMessageActiveChange} onCopy={handleCopyMessage} onDelete={handleDeleteMessage} onDeleteAfter={handleDeleteMessageCascade} onEdit={m.role === 'user' ? handleEditMessage : undefined} onAudit={handleAuditMessage} onFork={handleForkMessage} />
-                        </li>
-                      ))}
+                      {visibleSortedMessages.map((m) => {
+                        const translation = messageTranslations[m.id];
+                        const translationMatches = translation?.source === (m.content ?? '');
+                        return (
+                          <li key={m.id} class="oh-session-message-row">
+                            <MessageCard
+                              message={m}
+                              active={activeMessageId === m.id}
+                              streaming={m.id === latestStreamingTextMessageId || messageMetadataStreaming(m)}
+                              turnActive={stableResponseRunning}
+                              sessionId={sessionId}
+                              readAloudEnabled={readAloudEnabled}
+                              translationEnabled={translationEnabled}
+                              feedbackEnabled={feedbackEnabled}
+                              regenerationEnabled={regenerationEnabled}
+                              translatedContent={translationMatches ? translation.text : null}
+                              translationLoading={translationMatches && translation.loading}
+                              translationVisible={translationMatches && translation.visible}
+                              feedbackBusy={feedbackBusyMessageIds.has(m.id)}
+                              regenerating={regeneratingMessageIds.has(m.id)}
+                              onActiveChange={handleMessageActiveChange}
+                              onCopy={handleCopyMessage}
+                              onDelete={handleDeleteMessage}
+                              onDeleteAfter={handleDeleteMessageCascade}
+                              onEdit={m.role === 'user' ? handleEditMessage : undefined}
+                              onAudit={handleAuditMessage}
+                              onFork={handleForkMessage}
+                              onToggleTranslation={handleToggleMessageTranslation}
+                              onSetFeedback={handleSetMessageFeedback}
+                              onRegenerate={handleRegenerateMessage}
+                            />
+                          </li>
+                        );
+                      })}
                     </ul>
                     <MediaGeneratingPlaceholderTransition
                       mode={responseRunning ? messageWindowView.lastCreationModeAwaitingAssistant : null}

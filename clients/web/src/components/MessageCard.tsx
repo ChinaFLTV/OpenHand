@@ -9,7 +9,7 @@
 //
 // Web 端不执行撤销/重做等本地文件 ledger 操作，只做只读审阅展示。
 
-import type { SessionMessage } from '../api/sessions';
+import type { SessionMessage, SessionMessageFeedback } from '../api/sessions';
 import type { ComponentChildren } from 'preact';
 import { t } from '../i18n';
 import { Markdown, looksLikeHtml, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
@@ -132,7 +132,11 @@ type MessageIconName =
   | 'model'
   | 'clock'
   | 'speech'
-  | 'stop';
+  | 'stop'
+  | 'translate'
+  | 'thumbUp'
+  | 'thumbDown'
+  | 'refresh';
 
 function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
   const common = {
@@ -224,6 +228,14 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M4 10v4h3l5 4V6l-5 4z" /><path d="M16 9.5a3.2 3.2 0 0 1 0 5" /><path d="M18.5 7a6.5 6.5 0 0 1 0 10" /></svg>;
     case 'stop':
       return <svg {...common}><rect x="7" y="7" width="10" height="10" rx="2" /><circle cx="12" cy="12" r="9" /></svg>;
+    case 'translate':
+      return <svg {...common}><path d="M4 5h8" /><path d="M8 3v2" /><path d="M10.5 5c-.7 2.7-2.3 5-5.5 6.5" /><path d="M5.5 8.5c1.1 1.5 2.4 2.6 4.2 3.4" /><path d="M13 21l4.5-10L22 21" /><path d="M14.4 18h6.2" /></svg>;
+    case 'thumbUp':
+      return <svg {...common}><path d="M7 10v10H4V10z" /><path d="M7 10 12 3c.8 0 1.6.6 1.6 1.7V8H19a2 2 0 0 1 2 2.3l-1.2 7A3 3 0 0 1 16.9 20H7" /></svg>;
+    case 'thumbDown':
+      return <svg {...common}><path d="M7 14V4H4v10z" /><path d="M7 14 12 21c.8 0 1.6-.6 1.6-1.7V16H19a2 2 0 0 0 2-2.3l-1.2-7A3 3 0 0 0 16.9 4H7" /></svg>;
+    case 'refresh':
+      return <svg {...common}><path d="M4 12a8 8 0 0 1 13.4-5.9" /><path d="M17 3v4h-4" /><path d="M20 12a8 8 0 0 1-13.4 5.9" /><path d="M7 21v-4h4" /></svg>;
   }
 }
 
@@ -723,11 +735,38 @@ function isAssistantResponseMessage(message: SessionMessage): boolean {
   ].includes(message.kind);
 }
 
+function isFormalAssistantResponseMessage(message: SessionMessage): boolean {
+  return isAssistantResponseMessage(message) && message.kind !== 'reasoning';
+}
+
 function isPlainConversationMessage(message: SessionMessage): boolean {
   if (message.role !== 'user' && message.role !== 'assistant') return false;
   return !message.kind ||
     message.kind === 'text' ||
     message.kind === message.role;
+}
+
+function normalizedMessageFeedback(value: unknown): SessionMessageFeedback | null {
+  return value === 'liked' || value === 'needs_improvement' ? value : null;
+}
+
+function messageFeedbackValue(message: SessionMessage): SessionMessageFeedback | null {
+  const direct = normalizedMessageFeedback(message.feedback);
+  if (direct) return direct;
+  const meta = recordOrNullFromUnknown(message.metadata);
+  if (!meta) return null;
+  const legacy = normalizedMessageFeedback(meta['message_feedback']);
+  if (legacy) return legacy;
+  const variants = meta['response_variants'];
+  if (!Array.isArray(variants) || variants.length === 0) return null;
+  const index = Math.max(
+    0,
+    Math.min(
+      variants.length - 1,
+      finiteNumberOrNullFromUnknown(meta['response_variant_index']) ?? 0,
+    ),
+  );
+  return normalizedMessageFeedback(recordOrNullFromUnknown(variants[index])?.['message_feedback']);
 }
 
 function selectedMessageInfoChips(message: SessionMessage): MessageContextChip[] {
@@ -1091,6 +1130,18 @@ export interface MessageCardProps {
   onAudit?: (m: SessionMessage) => void;
   /// 从当前消息派生新会话。
   onFork?: (m: SessionMessage) => void;
+  readAloudEnabled?: boolean;
+  translationEnabled?: boolean;
+  feedbackEnabled?: boolean;
+  regenerationEnabled?: boolean;
+  translatedContent?: string | null;
+  translationLoading?: boolean;
+  translationVisible?: boolean;
+  feedbackBusy?: boolean;
+  regenerating?: boolean;
+  onToggleTranslation?: (m: SessionMessage) => void;
+  onSetFeedback?: (m: SessionMessage, feedback: SessionMessageFeedback | null) => void;
+  onRegenerate?: (m: SessionMessage) => void;
   onActiveChange?: (m: SessionMessage, active: boolean) => void;
 }
 
@@ -1107,6 +1158,18 @@ function MessageCardImpl({
   onEdit,
   onAudit,
   onFork,
+  readAloudEnabled = true,
+  translationEnabled = true,
+  feedbackEnabled = true,
+  regenerationEnabled = true,
+  translatedContent,
+  translationLoading = false,
+  translationVisible = false,
+  feedbackBusy = false,
+  regenerating = false,
+  onToggleTranslation,
+  onSetFeedback,
+  onRegenerate,
   onActiveChange,
 }: MessageCardProps) {
   const reduceMotion = useReducedMotion();
@@ -1183,9 +1246,11 @@ function MessageCardImpl({
   const collapsed = canCollapse && !expanded;
   // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
+  const translatedText = typeof translatedContent === 'string' ? translatedContent.trim() : '';
+  const showingTranslation = translationVisible && translatedText.length > 0;
   // 不再在内容层面截断：完整渲染后交由 CollapsibleBody 用 max-height + mask 动画过渡，
   // 避免「全多」↔「袪断+…」间的文字跳变在手动折叠/展开时生硬。
-  const visibleContent = strippedContent;
+  const visibleContent = showingTranslation ? translatedText : strippedContent;
 
   // ── 工具调用/思考类型消息的胶囊折叠/展开（与 APP 端 _ReasoningBody 对齐） ──
   // - 工具调用 / 工具结果 / hook / mcp / skill / reasoning：支持点击胶囊折叠
@@ -1249,18 +1314,21 @@ function MessageCardImpl({
     finiteNumberOrNullFromUnknown(metadata['response_variant_index']) ??
     finiteNumberOrNullFromUnknown(metadata['responseVariantIndex']) ??
     0;
-  const collapsedBodyScrollStateKey = isAssistantResponseBadgeMessage
+  const collapsedBodyScrollStateKey = (isCollapsibleByBadge || isAssistantResponseBadgeMessage)
     ? [
         message.id,
-        'response',
+        isAssistantResponseBadgeMessage ? 'response' : `badge:${message.kind}`,
         responseVariantIndex,
         effectiveFormat,
         showRawContent ? 'raw' : 'rendered',
+        showingTranslation ? 'translation' : 'source',
         visibleContent.length,
         boundedTextHash(visibleContent),
       ].join('|')
     : undefined;
-  const supportsTextActions = effectiveFormat !== 'html';
+  const textFeatureFormat = isUserBubble ? 'markdown' : effectiveFormat;
+  const supportsTextActions =
+    textFeatureFormat === 'markdown' || textFeatureFormat === 'plain_text';
   const supportsRenderedSourceToggle =
     effectiveFormat === 'html' || effectiveFormat === 'markdown';
   const contentLooksHtml = looksLikeRenderableHtml(visibleContent);
@@ -1281,21 +1349,46 @@ function MessageCardImpl({
   }, [showRawContent, supportsRenderedSourceToggle]);
   const ttsPlaying = ttsPlayback.playing && ttsPlayback.messageId === message.id;
   const hasMultimediaContent = messageHasMultimedia(message);
-  const ttsUnsupported = hasMultimediaContent || !textActionsSupported;
+  const isFormalAssistantResponse = isFormalAssistantResponseMessage(message);
+  const textActionKindSupported =
+    isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse;
+  const textMessageActionSupported =
+    textActionKindSupported &&
+    !activelyStreaming &&
+    !hasMultimediaContent &&
+    textActionsSupported &&
+    content.trim().length > 0;
+  const ttsUnsupported = !textMessageActionSupported;
   const canReadMessage = (
+    readAloudEnabled &&
     ttsSettings.enabled &&
-    !isUserBubble &&
-    !ttsUnsupported &&
-    content.trim().length > 0
+    !ttsUnsupported
   );
+  const canTranslateMessage =
+    translationEnabled &&
+    Boolean(onToggleTranslation) &&
+    textMessageActionSupported;
+  const currentFeedback = messageFeedbackValue(message);
+  const canFeedbackMessage =
+    feedbackEnabled &&
+    Boolean(onSetFeedback) &&
+    (isUserBubble || (isFormalAssistantResponse && !activelyStreaming));
+  const canRegenerateMessage =
+    regenerationEnabled &&
+    Boolean(onRegenerate) &&
+    isFormalAssistantResponse &&
+    !activelyStreaming;
   useEffect(() => {
-    if (ttsPlaying && ttsUnsupported) {
+    if (ttsPlaying && (!readAloudEnabled || ttsUnsupported)) {
       stopTtsPlayback();
     }
-  }, [ttsPlaying, ttsUnsupported]);
+  }, [readAloudEnabled, ttsPlaying, ttsUnsupported]);
   const hasAnyAction = Boolean(
     onCopy ||
     canReadMessage ||
+    canTranslateMessage ||
+    canFeedbackMessage ||
+    canRegenerateMessage ||
     onDelete ||
     onDeleteAfter ||
     onEdit ||
@@ -1354,7 +1447,7 @@ function MessageCardImpl({
       presentation={isUserBubble ? 'attachmentList' : 'preview'}
     />
   ) : null;
-  const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
+  const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|translated:${showingTranslation ? 1 : 0}:${visibleContent.length}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   // 正文卡片只承接折叠 / 展开 / 原始内容切换这类语义级尺寸变化。
   // 操作面板使用自己的布局槽动画，避免裁剪已加载的媒体节点。
   // 流式正文自身在 StreamingMarkdownReveal / StreamingPlainTextReveal 内
@@ -1605,7 +1698,7 @@ function MessageCardImpl({
       {isUserBubble ? media : null}
       <ReasoningCollapsibleBody
         collapsed={badgeBodyCollapsed}
-        scrollableCollapsed={isAssistantResponseBadgeMessage}
+        scrollableCollapsed={isCollapsibleByBadge || isAssistantResponseBadgeMessage}
         scrollStateKey={collapsedBodyScrollStateKey}
         previewMaxHeight={
           isCollapsibleByBadge && badgeCollapsed
@@ -1711,6 +1804,57 @@ function MessageCardImpl({
                       }}
                     />
                   ) : null}
+                  {canTranslateMessage ? (
+                    <ActionBtn
+                      icon={translationLoading ? 'refresh' : 'translate'}
+                      label={translationLoading
+                        ? t('message.translating', '翻译中')
+                        : showingTranslation
+                        ? t('message.showOriginal', '原文')
+                        : t('message.translate', '翻译')}
+                      disabled={!actionPanelInteractive || translationLoading}
+                      selected={showingTranslation}
+                      busy={translationLoading}
+                      onClick={() => onToggleTranslation?.(message)}
+                    />
+                  ) : null}
+                  {canFeedbackMessage ? (
+                    <ActionBtn
+                      icon="thumbUp"
+                      label={t('message.feedback.like', '点赞')}
+                      disabled={!actionPanelInteractive || feedbackBusy}
+                      selected={currentFeedback === 'liked'}
+                      onClick={() => onSetFeedback?.(
+                        message,
+                        currentFeedback === 'liked' ? null : 'liked',
+                      )}
+                    />
+                  ) : null}
+                  {canFeedbackMessage ? (
+                    <ActionBtn
+                      icon="thumbDown"
+                      label={t('message.feedback.improve', '需要改进')}
+                      disabled={!actionPanelInteractive || feedbackBusy}
+                      selected={currentFeedback === 'needs_improvement'}
+                      onClick={() => onSetFeedback?.(
+                        message,
+                        currentFeedback === 'needs_improvement'
+                          ? null
+                          : 'needs_improvement',
+                      )}
+                    />
+                  ) : null}
+                  {canRegenerateMessage ? (
+                    <ActionBtn
+                      icon="refresh"
+                      label={regenerating
+                        ? t('message.regenerating', '重新生成中')
+                        : t('message.regenerate', '重新生成')}
+                      disabled={!actionPanelInteractive || regenerating}
+                      busy={regenerating}
+                      onClick={() => onRegenerate?.(message)}
+                    />
+                  ) : null}
                   {onEdit && message.role === 'user' ? (
                     <ActionBtn
                       icon="edit"
@@ -1812,11 +1956,15 @@ function ActionBtn({
   icon,
   label,
   disabled = false,
+  selected = false,
+  busy = false,
   onClick,
 }: {
   icon: MessageIconName;
   label: string;
   disabled?: boolean;
+  selected?: boolean;
+  busy?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -1828,18 +1976,29 @@ function ActionBtn({
         if (disabled) return;
         onClick();
       }}
-      class="oh-tap-press oh-message-action-button"
-      style={messageActionSurfaceStyle}
+      class={`oh-tap-press oh-message-action-button${selected ? ' is-selected' : ''}${busy ? ' is-busy' : ''}`}
+      style={{
+        ...messageActionSurfaceStyle,
+        background: selected
+          ? 'color-mix(in srgb, currentColor 12%, transparent)'
+          : 'transparent',
+      }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.background =
-          'color-mix(in srgb, currentColor 8%, transparent)';
+          selected
+            ? 'color-mix(in srgb, currentColor 16%, transparent)'
+            : 'color-mix(in srgb, currentColor 8%, transparent)';
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = 'transparent';
+        (e.currentTarget as HTMLElement).style.background = selected
+          ? 'color-mix(in srgb, currentColor 12%, transparent)'
+          : 'transparent';
       }}
     >
-      <MessageIcon name={icon} size={14} />
-      <span>{label}</span>
+      <span class={`oh-message-action-icon${busy ? ' oh-spin' : ''}`} aria-hidden>
+        <MessageIcon name={icon} size={14} />
+      </span>
+      <span class="oh-message-action-label">{label}</span>
     </button>
   );
 }

@@ -200,6 +200,7 @@ class WebMessagePlatformService {
   final StreamController<List<WebWriteApprovalRequest>>
   _pendingWriteApprovalStreamController =
       StreamController<List<WebWriteApprovalRequest>>.broadcast(sync: true);
+  final AiTranslationService _translationService = AiTranslationService();
   final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
   final List<WebGatewayCleanupResult> _cleanupHistory =
       <WebGatewayCleanupResult>[];
@@ -443,6 +444,7 @@ class WebMessagePlatformService {
 
   Future<void> dispose() async {
     await stop();
+    _translationService.dispose();
     await _logStreamController.close();
     await _pendingWriteApprovalStreamController.close();
   }
@@ -1243,6 +1245,27 @@ class WebMessagePlatformService {
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)),
     );
+    router.put(
+      '/api/sessions/<sessionId>/messages/<messageId>/feedback',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _updateMessageFeedback(req, auth, sessionId, messageId),
+      ),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/messages/<messageId>/translate',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _translateMessage(req, auth, sessionId, messageId),
+      ),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/messages/<messageId>/regenerate',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _regenerateMessage(req, auth, sessionId, messageId),
+      ),
+    );
     router.post(
       '/api/sessions/<sessionId>/stop',
       (shelf.Request r, String sessionId) =>
@@ -2033,6 +2056,10 @@ class WebMessagePlatformService {
         'logging_enabled': _config.loggingEnabled,
         'ops_enabled': _config.opsEnabled,
         'plan_mode_enabled': _config.planModeEnabled,
+        'read_aloud_enabled': _config.readAloudEnabled,
+        'translation_enabled': _config.translationEnabled,
+        'feedback_enabled': _config.feedbackEnabled,
+        'regeneration_enabled': _config.regenerationEnabled,
         'session_management_enabled': _config.sessionManagementEnabled,
         'single_message_token_limit': _config.singleMessageTokenLimit,
         'max_messages_per_session': _config.maxMessagesPerSession,
@@ -2892,6 +2919,248 @@ class WebMessagePlatformService {
         'chars': content.length,
         'attachments': attachments.length,
         'mode': conversationMode.storageValue,
+      },
+    );
+    return _json(HttpStatus.accepted, <String, Object?>{
+      'ok': true,
+      'send_phase': AiSendPhase.sendingMessage.name,
+    });
+  }
+
+  Future<shelf.Response> _updateMessageFeedback(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    if (!_config.feedbackEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'message_feedback_disabled',
+      });
+    }
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final body = await _readJsonBody(request, maxBytes: 4096);
+    if (!body.containsKey('feedback')) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'feedback_required',
+      });
+    }
+    final rawFeedback = body['feedback'];
+    final feedback = AiSessionMessageFeedback.fromStorage(rawFeedback);
+    if (rawFeedback != null &&
+        '$rawFeedback'.trim().isNotEmpty &&
+        feedback == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'invalid_feedback',
+      });
+    }
+    final message = await _loadMessageForWebOperation(session, messageId);
+    if (message == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'message_not_found',
+      });
+    }
+    if (!_messageSupportsWebFeedback(message)) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'message_feedback_not_supported',
+      });
+    }
+    final ok = await _sessionController.updateMessageFeedback(
+      sessionId: session.id,
+      messageId: message.id,
+      feedback: feedback,
+    );
+    if (!ok) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'ok': false,
+        'error': 'message_feedback_save_failed',
+      });
+    }
+    final updatedSession = _findAuthorizedSession(auth, sessionId) ?? session;
+    final updatedMessage =
+        await _loadMessageForWebOperation(updatedSession, message.id) ??
+        message;
+    _log(
+      WebGatewayLogLevel.info,
+      'MESSAGE',
+      'Web 更新消息反馈 ${session.id}/${message.id}',
+      <String, Object?>{
+        'feedback': feedback?.storageValue,
+        'device_id': auth.deviceId,
+      },
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'feedback': feedback?.storageValue,
+      'message': _messageJson(updatedMessage),
+    });
+  }
+
+  Future<shelf.Response> _translateMessage(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    if (!_config.translationEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'message_translation_disabled',
+      });
+    }
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final message = await _loadMessageForWebOperation(session, messageId);
+    if (message == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'message_not_found',
+      });
+    }
+    if (!_messageSupportsWebTextAction(message)) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'message_translation_not_supported',
+      });
+    }
+    final settings = _settingsController.aiTranslationSettings;
+    if (!settings.enabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'translation_settings_disabled',
+      });
+    }
+    try {
+      final fallbackModel =
+          _resolveModel(_lastModelKeyForSession(session) ?? '') ??
+          _settingsController.selectedAiModel;
+      final result = await _translationService.translate(
+        text: message.content,
+        settings: settings,
+        availableModels: _settingsController.aiModels,
+        fallbackModel: fallbackModel,
+      );
+      _log(
+        WebGatewayLogLevel.info,
+        'MESSAGE',
+        'Web 翻译消息 ${session.id}/${message.id}',
+        <String, Object?>{
+          'provider': result.provider.storageKey,
+          'device_id': auth.deviceId,
+        },
+      );
+      return _json(HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'text': result.text,
+        'provider': result.provider.storageKey,
+        'model_config_id': result.modelConfigId,
+        'model_id': result.modelId,
+      });
+    } on AiTranslationException catch (error) {
+      return _json(HttpStatus.badGateway, <String, Object?>{
+        'ok': false,
+        'error': 'message_translation_failed',
+        'message': error.message,
+        'provider': error.provider?.storageKey,
+      });
+    } catch (error, stack) {
+      silentLog('WebGateway', 'translate message', error, stack);
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'ok': false,
+        'error': 'message_translation_failed',
+        'message': '$error',
+      });
+    }
+  }
+
+  Future<shelf.Response> _regenerateMessage(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    if (!_config.regenerationEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'message_regeneration_disabled',
+      });
+    }
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final message = await _loadMessageForWebOperation(session, messageId);
+    if (message == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'message_not_found',
+      });
+    }
+    if (!_messageSupportsWebRegeneration(message)) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'message_regeneration_not_supported',
+      });
+    }
+    final currentPhase = _sessionController.sendPhaseForSession(session.id);
+    if (currentPhase != AiSendPhase.idle) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'session_busy',
+        'send_phase': currentPhase.name,
+      });
+    }
+    final body = await _readJsonBody(request, maxBytes: 4096);
+    final requestedModelKey = _string(body['model_key'], '').trim();
+    final requestedModel = requestedModelKey.isEmpty
+        ? null
+        : _resolveModel(requestedModelKey);
+    if (requestedModelKey.isNotEmpty && requestedModel == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_not_configured',
+        'model_key': requestedModelKey,
+      });
+    }
+    final model =
+        requestedModel ??
+        _resolveModel(_lastModelKeyForSession(session) ?? '') ??
+        _resolveModel('');
+    if (model == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_not_configured',
+      });
+    }
+    unawaited(
+      _sessionController
+          .regenerateAssistantMessageVariant(
+            sessionId: session.id,
+            messageId: message.id,
+            model: model,
+            runtimeContext: _buildRuntimeContext(
+              templateId: session.templateId,
+            ),
+            denyCommandRules: _settingsController.aiDenyCommandRules,
+            requireWriteCommandConfirmation: session.fullAccessPermission
+                ? false
+                : _settingsController.aiWriteCommandConfirmationEnabled,
+            confirmWriteCommand: (request) =>
+                _confirmWebWriteCommand(session.id, request),
+          )
+          .catchError((Object error, StackTrace stack) {
+            silentLog('WebGateway', 'regenerateMessage.async', error, stack);
+            return false;
+          }),
+    );
+    _log(
+      WebGatewayLogLevel.info,
+      'MESSAGE',
+      'Web 重新生成消息 ${session.id}/${message.id}',
+      <String, Object?>{
+        'model_key': _modelKey(model.id, model.modelId),
+        'device_id': auth.deviceId,
       },
     );
     return _json(HttpStatus.accepted, <String, Object?>{
@@ -4254,6 +4523,108 @@ class WebMessagePlatformService {
     return null;
   }
 
+  Future<AiSessionMessage?> _loadMessageForWebOperation(
+    AiSession session,
+    String messageId,
+  ) async {
+    final normalizedMessageId = messageId.trim();
+    if (normalizedMessageId.isEmpty) return null;
+    for (final message in session.displayMessages) {
+      if (message.id == normalizedMessageId) return message;
+    }
+    final hydrated =
+        await _sessionController.ensureSessionMessagesHydrated(session.id) ??
+        session;
+    for (final message in hydrated.displayMessages) {
+      if (message.id == normalizedMessageId) return message;
+    }
+    try {
+      return await _sessionController.store.loadMessage(
+        session.id,
+        normalizedMessageId,
+      );
+    } catch (error, stack) {
+      silentLog('WebGateway', 'load message for web operation', error, stack);
+      return null;
+    }
+  }
+
+  bool _messageSupportsWebFeedback(AiSessionMessage message) {
+    return message.kind == AiSessionMessageKind.user ||
+        message.kind == AiSessionMessageKind.assistant;
+  }
+
+  bool _messageSupportsWebRegeneration(AiSessionMessage message) {
+    return message.kind == AiSessionMessageKind.assistant &&
+        !_boolishWebValue(
+          message.metadata[aiSessionMessageMetadataStreamingKey],
+        );
+  }
+
+  bool _messageSupportsWebTextAction(AiSessionMessage message) {
+    if (message.content.trim().isEmpty) return false;
+    if (_boolishWebValue(
+      message.metadata[aiSessionMessageMetadataStreamingKey],
+    )) {
+      return false;
+    }
+    final kindSupported =
+        message.kind == AiSessionMessageKind.user ||
+        message.kind == AiSessionMessageKind.assistant ||
+        message.kind == AiSessionMessageKind.reasoning;
+    if (!kindSupported) return false;
+    final contentFormat = _string(
+      message.metadata[aiSessionMessageContentFormatKey],
+      '',
+    ).trim();
+    if (contentFormat == 'html') return false;
+    if (contentFormat.isNotEmpty &&
+        contentFormat != 'plain_text' &&
+        contentFormat != 'markdown') {
+      return false;
+    }
+    return !_messageHasWebMultimediaPayload(message);
+  }
+
+  bool _messageHasWebMultimediaPayload(AiSessionMessage message) {
+    final metadata = message.metadata;
+    if (_nonEmptyList(metadata['attachments'])) return true;
+    if (_intFromWebValue(metadata['attachment_count'], 0) > 0) return true;
+    if (_nonEmptyList(metadata['generated_image_paths']) ||
+        _nonEmptyList(metadata['generated_video_paths']) ||
+        _nonEmptyList(metadata['generated_audio_paths'])) {
+      return true;
+    }
+    final directMode = _string(metadata['conversation_mode'], '').trim();
+    if (_isMultimediaConversationMode(directMode)) return true;
+    final creationRequest = metadata['creation_request'];
+    if (creationRequest is Map) {
+      final mode = _string(creationRequest['mode'], '').trim();
+      if (_isMultimediaConversationMode(mode)) return true;
+    }
+    return false;
+  }
+
+  bool _nonEmptyList(Object? value) => value is List && value.isNotEmpty;
+
+  bool _boolishWebValue(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = '$value'.trim().toLowerCase();
+    return text == '1' || text == 'true' || text == 'yes';
+  }
+
+  int _intFromWebValue(Object? value, int fallback) {
+    if (value is int) return value;
+    if (value is num && value.isFinite) return value.round();
+    if (value is String) return int.tryParse(value.trim()) ?? fallback;
+    return fallback;
+  }
+
+  bool _isMultimediaConversationMode(String mode) {
+    return mode == 'image' || mode == 'video' || mode == 'audio';
+  }
+
   Map<String, Object?>? _pendingWriteApprovalJson(String sessionId) {
     for (final approval in _pendingWriteApprovals.values) {
       if (approval.sessionId == sessionId && !approval.completer.isCompleted) {
@@ -4894,6 +5265,7 @@ class WebMessagePlatformService {
       'character_count': message.characterCount,
       'model_id': message.modelId,
       'model_label': message.modelLabel,
+      'feedback': message.feedback?.storageValue,
       if (usage != null) 'usage': usage.toJson(),
       ...message.derivedConversationJson(),
       'metadata': message.metadata,

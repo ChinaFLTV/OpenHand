@@ -119,6 +119,8 @@ export type SessionMessageConversationSide =
   | 'system'
   | (string & {});
 
+export type SessionMessageFeedback = 'liked' | 'needs_improvement';
+
 export interface SessionMessage {
   id: string;
   kind: string;
@@ -132,6 +134,7 @@ export interface SessionMessage {
   sender_origin?: SessionMessageSenderOrigin;
   conversation_side?: SessionMessageConversationSide;
   starts_conversation_round?: boolean;
+  feedback?: SessionMessageFeedback | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -518,6 +521,50 @@ export async function forkSessionFromMessage(
   return apiRequest<{ ok: boolean; session: SessionSummary }>(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/fork`,
     { method: 'POST' },
+  );
+}
+
+export async function setMessageFeedback(
+  sessionId: string,
+  messageId: string,
+  feedback: SessionMessageFeedback | null,
+): Promise<{ ok: boolean; feedback?: SessionMessageFeedback | null; message?: SessionMessage }> {
+  return apiRequest<{ ok: boolean; feedback?: SessionMessageFeedback | null; message?: SessionMessage }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/feedback`,
+    { method: 'PUT', body: { feedback } },
+  );
+}
+
+export async function translateMessage(
+  sessionId: string,
+  messageId: string,
+): Promise<{
+  ok: boolean;
+  text: string;
+  provider?: string;
+  model_config_id?: string | null;
+  model_id?: string | null;
+}> {
+  return apiRequest<{
+    ok: boolean;
+    text: string;
+    provider?: string;
+    model_config_id?: string | null;
+    model_id?: string | null;
+  }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/translate`,
+    { method: 'POST' },
+  );
+}
+
+export async function regenerateMessage(
+  sessionId: string,
+  messageId: string,
+  input: { modelKey?: string } = {},
+): Promise<{ ok: boolean; send_phase?: string }> {
+  return apiRequest<{ ok: boolean; send_phase?: string }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/regenerate`,
+    { method: 'POST', body: { model_key: input.modelKey ?? '' } },
   );
 }
 

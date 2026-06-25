@@ -935,6 +935,11 @@ html, body, #root {
   height: 12px;
 }
 
+.oh-message-selected-panel .oh-message-action-button > .oh-message-action-icon > svg {
+  width: 12px;
+  height: 12px;
+}
+
 .oh-message-selected-panel .oh-message-context-emoji {
   width: 12px;
   height: 12px;
@@ -2846,7 +2851,19 @@ html, body, #root {
   flex: none;
 }
 
-.oh-message-action-button > span {
+.oh-message-action-button > .oh-message-action-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oh-message-action-button.is-selected {
+  border-color: color-mix(in srgb, currentColor 42%, transparent) !important;
+}
+
+.oh-message-action-button > .oh-message-action-label,
+.oh-message-action-button > span:not(.oh-message-action-icon) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
