@@ -5653,6 +5653,54 @@ button.oh-composer-pill:not(:disabled):hover {
   width: 100%;
   max-width: 100%;
 }
+.oh-html-progressive-preview {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 30%, transparent);
+}
+.oh-html-progressive-preview-text {
+  max-height: 190px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1.58;
+  opacity: 0.82;
+  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+}
+.oh-html-progressive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.oh-html-progressive-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.oh-html-progressive-button:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.oh-html-progressive-button svg {
+  flex: none;
+}
 .oh-html-body-placeholder {
   position: relative;
   display: grid;

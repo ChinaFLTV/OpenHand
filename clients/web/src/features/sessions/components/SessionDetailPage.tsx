@@ -94,6 +94,7 @@ import {
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
 import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPickerDialog';
 import { PullIndicator } from '../../../components/PullIndicator';
+import { estimateHtmlRenderCost, looksLikeRenderableHtml } from '../../../components/Markdown';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import type { MessageContentFormat } from '../../../hooks/useMessageContentFormat';
@@ -126,8 +127,14 @@ const PAGE_SIZE = 24;
 // 首屏只取最近少量消息；历史按 PAGE_SIZE 增量补齐，避免打开存量会话时
 // 浏览器一次挂载几十张复杂消息卡。
 const INITIAL_PAGE_SIZE = 12;
-const INITIAL_RENDERED_MESSAGE_COUNT = 4;
-const MESSAGE_RENDER_BATCH_SIZE = 2;
+const MESSAGE_RENDER_INITIAL_MIN_COUNT = 2;
+const MESSAGE_RENDER_INITIAL_MAX_COUNT = 8;
+const MESSAGE_RENDER_INITIAL_COST_BUDGET = 18;
+const MESSAGE_RENDER_STEP_MAX_COUNT = 8;
+const MESSAGE_RENDER_STEP_COST_BUDGET = 12;
+const MESSAGE_RENDER_STEADY_COST_BUDGET = 150;
+const MESSAGE_RENDER_REVEAL_MAX_COUNT = 32;
+const MESSAGE_RENDER_REVEAL_COST_BUDGET = 48;
 const MESSAGE_RENDER_STEADY_WINDOW_LIMIT = 96;
 
 function supportsTitleGeneration(model: ApiMetaModel | undefined): boolean {
@@ -147,7 +154,6 @@ function resolveDefaultTitleModelKey(models: ApiMetaModel[], currentKey: string)
   if (current) return '';
   return models.find((model) => supportsTitleGeneration(model))?.key ?? '';
 }
-const MESSAGE_RENDER_REVEAL_INCREMENT = 24;
 const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 180;
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
@@ -347,12 +353,141 @@ function scheduleProgressiveMessageRenderStep(task: () => void): () => void {
   };
 }
 
-function targetRenderedMessageCount(total: number, currentCount: number): number {
+interface MessageRenderCostCacheEntry {
+  signature: string;
+  cost: number;
+}
+
+const messageRenderCostCache = new WeakMap<SessionMessage, MessageRenderCostCacheEntry>();
+const MESSAGE_RENDER_FENCED_CODE_RE = /(^|\n)[ \t]*```/;
+const MESSAGE_RENDER_MARKDOWN_TABLE_RE = /(^|\n)\s*\|.+\|\s*\n\s*\|[\s:-]+\|/;
+
+function messageRenderContentFormat(message: SessionMessage): string {
+  return stringFromUnknown(recordOrNullFromUnknown(message.metadata)?.['content_format']);
+}
+
+function messageRenderCostSignature(message: SessionMessage): string {
+  const content = message.content ?? '';
+  const meta = recordOrNullFromUnknown(message.metadata);
+  return [
+    message.id,
+    message.kind,
+    message.role,
+    content.length,
+    content.slice(0, 48),
+    content.slice(-24),
+    messageRenderContentFormat(message),
+    metadataTextLength(meta?.['tool_execution_stdout']),
+    metadataTextLength(meta?.['tool_execution_stderr']),
+    metadataTextLength(meta?.['tool_execution_result'] ?? meta?.['result_text']),
+    metadataTextLength(meta?.['attachments']),
+  ].join('|');
+}
+
+function estimateMessageRenderCost(message: SessionMessage): number {
+  const signature = messageRenderCostSignature(message);
+  const cached = messageRenderCostCache.get(message);
+  if (cached?.signature === signature) return cached.cost;
+
+  const content = message.content ?? '';
+  const meta = recordOrNullFromUnknown(message.metadata);
+  let cost = 1 + Math.min(12, Math.ceil(content.length / 2600));
+  if (message.role === 'assistant') cost += 1;
+  if (message.role === 'system' || message.role === 'tool') cost += 2;
+  if (message.kind === 'reasoning') cost += 3;
+  if (message.kind === 'tool_call' || message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'hook') {
+    cost += 4;
+  }
+  if (message.kind === 'file_mutation_summary' || message.kind === 'compression_point') {
+    cost += 3;
+  }
+  if (MESSAGE_RENDER_FENCED_CODE_RE.test(content)) cost += 4;
+  if (MESSAGE_RENDER_MARKDOWN_TABLE_RE.test(content)) cost += 3;
+
+  const contentFormat = messageRenderContentFormat(message);
+  if (contentFormat === 'html' || (content.includes('<') && looksLikeRenderableHtml(content))) {
+    cost += estimateHtmlRenderCost(content);
+  }
+
+  const toolOutputLength =
+    metadataTextLength(meta?.['tool_execution_stdout']) +
+    metadataTextLength(meta?.['tool_execution_stderr']) +
+    metadataTextLength(meta?.['tool_execution_result'] ?? meta?.['result_text']);
+  if (toolOutputLength > 0) {
+    cost += Math.min(18, Math.ceil(toolOutputLength / 3600));
+  }
+  const attachments = meta?.['attachments'];
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    cost += Math.min(8, attachments.length * 2);
+  }
+  if (messageMetadataStreaming(message)) cost += 2;
+
+  const normalized = Math.max(1, Math.min(80, cost));
+  messageRenderCostCache.set(message, { signature, cost: normalized });
+  return normalized;
+}
+
+function renderedTailCountForBudget(
+  messages: SessionMessage[],
+  budget: number,
+  minCount: number,
+  maxCount: number,
+): number {
+  const total = messages.length;
   if (total <= 0) return 0;
-  return Math.min(
-    total,
-    Math.max(currentCount, Math.min(total, MESSAGE_RENDER_STEADY_WINDOW_LIMIT)),
+  const boundedMin = Math.min(total, Math.max(1, minCount));
+  const boundedMax = Math.min(total, Math.max(boundedMin, maxCount));
+  let count = 0;
+  let cost = 0;
+  for (let index = total - 1; index >= 0 && count < boundedMax; index -= 1) {
+    const nextCost = estimateMessageRenderCost(messages[index]!);
+    if (count >= boundedMin && cost + nextCost > budget) break;
+    cost += nextCost;
+    count += 1;
+  }
+  return Math.max(boundedMin, count);
+}
+
+function initialRenderedMessageCount(messages: SessionMessage[]): number {
+  return renderedTailCountForBudget(
+    messages,
+    MESSAGE_RENDER_INITIAL_COST_BUDGET,
+    MESSAGE_RENDER_INITIAL_MIN_COUNT,
+    MESSAGE_RENDER_INITIAL_MAX_COUNT,
   );
+}
+
+function nextRenderedTailCount(
+  messages: SessionMessage[],
+  currentCount: number,
+  targetCount: number,
+  budget: number,
+  maxIncrement: number,
+): number {
+  const total = messages.length;
+  if (currentCount >= targetCount || currentCount >= total) return currentCount;
+  const boundedTarget = Math.min(total, targetCount, currentCount + Math.max(1, maxIncrement));
+  let nextCount = currentCount;
+  let cost = 0;
+  for (let index = total - currentCount - 1; index >= 0 && nextCount < boundedTarget; index -= 1) {
+    const nextCost = estimateMessageRenderCost(messages[index]!);
+    if (nextCount > currentCount && cost + nextCost > budget) break;
+    cost += nextCost;
+    nextCount += 1;
+  }
+  return Math.max(currentCount + 1, nextCount);
+}
+
+function targetRenderedMessageCount(messages: SessionMessage[], currentCount: number): number {
+  const total = messages.length;
+  if (total <= 0) return 0;
+  const budgetCount = renderedTailCountForBudget(
+    messages,
+    MESSAGE_RENDER_STEADY_COST_BUDGET,
+    MESSAGE_RENDER_INITIAL_MIN_COUNT,
+    MESSAGE_RENDER_STEADY_WINDOW_LIMIT,
+  );
+  return Math.min(total, Math.max(currentCount, budgetCount));
 }
 
 async function copyJsonWithFeedback(json: string): Promise<void> {
@@ -3026,7 +3161,13 @@ export function SessionDetailPage() {
     const scroller = mainRef.current;
     const beforeHeight = scroller?.scrollHeight ?? 0;
     const beforeY = scroller?.scrollTop ?? 0;
-    const next = Math.min(total, current + MESSAGE_RENDER_REVEAL_INCREMENT);
+    const next = nextRenderedTailCount(
+      messagesRef.current,
+      current,
+      total,
+      MESSAGE_RENDER_REVEAL_COST_BUDGET,
+      MESSAGE_RENDER_REVEAL_MAX_COUNT,
+    );
     renderedMessageCountRef.current = next;
     setOlderRenderSettlingValue(true);
     setRenderedMessageCount(next);
@@ -3074,9 +3215,12 @@ export function SessionDetailPage() {
       const nextMessages = [...incoming, ...currentMessages];
       replaceMessageWindow(nextMessages, m.offset);
       if (incoming.length > 0) {
-        const nextRenderedCount = Math.min(
+        const nextRenderedCount = nextRenderedTailCount(
+          nextMessages,
+          renderedMessageCountRef.current,
           nextMessages.length,
-          renderedMessageCountRef.current + incoming.length,
+          MESSAGE_RENDER_REVEAL_COST_BUDGET,
+          MESSAGE_RENDER_REVEAL_MAX_COUNT,
         );
         renderedMessageCountRef.current = nextRenderedCount;
         setRenderedMessageCount(nextRenderedCount);
@@ -4665,15 +4809,15 @@ export function SessionDetailPage() {
       return;
     }
 
-    const initialCount = Math.min(INITIAL_RENDERED_MESSAGE_COUNT, total);
+    const initialCount = initialRenderedMessageCount(sortedMessages);
     const currentCount = renderedMessageCountRef.current;
-    const targetCount = targetRenderedMessageCount(total, currentCount);
+    const targetCount = targetRenderedMessageCount(sortedMessages, currentCount);
     const isSmallTailAppend =
       !sessionChanged &&
       currentCount > 0 &&
       total <= currentCount + 1;
     const startCount =
-      total <= INITIAL_RENDERED_MESSAGE_COUNT || isSmallTailAppend
+      total <= initialCount || isSmallTailAppend
         ? total
         : sessionChanged || currentCount <= 0
         ? initialCount
@@ -4686,9 +4830,12 @@ export function SessionDetailPage() {
       cancelStep = scheduleProgressiveMessageRenderStep(() => {
         cancelStep = null;
         if (generation !== messageRenderGenerationRef.current) return;
-        const next = Math.min(
+        const next = nextRenderedTailCount(
+          sortedMessages,
+          renderedMessageCountRef.current,
           targetCount,
-          renderedMessageCountRef.current + MESSAGE_RENDER_BATCH_SIZE,
+          MESSAGE_RENDER_STEP_COST_BUDGET,
+          MESSAGE_RENDER_STEP_MAX_COUNT,
         );
         if (next <= renderedMessageCountRef.current) return;
         renderedMessageCountRef.current = next;

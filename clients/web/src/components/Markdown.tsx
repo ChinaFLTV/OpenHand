@@ -115,11 +115,16 @@ const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
 const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
 const HTML_SANITIZE_CACHE_LIMIT = 256;
 const HTML_RENDER_READY_CACHE_LIMIT = 512;
+const HTML_RENDER_PROFILE_CACHE_LIMIT = 256;
 const HTML_DEFERRED_RENDER_ROOT_MARGIN = '720px 0px';
 const HTML_PLACEHOLDER_MIN_HEIGHT_PX = 96;
 const HTML_PLACEHOLDER_MAX_HEIGHT_PX = 520;
 const HTML_PLACEHOLDER_CHARS_PER_LINE = 90;
 const HTML_PLACEHOLDER_LINE_HEIGHT_PX = 24;
+const HTML_COMPLEX_SOURCE_MIN_CHARS = 9 * 1024;
+const HTML_COMPLEX_TAG_COUNT = 96;
+const HTML_COMPLEX_RENDER_COST = 18;
+const HTML_COMPLEX_PREVIEW_MAX_CHARS = 1400;
 
 function fnv1aHash(value: string): string {
   let hash = 0x811c9dc5;
@@ -147,6 +152,7 @@ function rememberLru<K, V>(cache: Map<K, V>, key: K, value: V, limit: number): v
 const markdownParseReadyCache = new Map<string, true>();
 const htmlSanitizeCache = new Map<string, string>();
 const htmlRenderReadyCache = new Map<string, true>();
+const htmlRenderProfileCache = new Map<string, HtmlRenderProfile>();
 
 class MarkdownFrameScheduler {
   private pending: Array<() => void> = [];
@@ -381,6 +387,125 @@ function looksLikeRenderableHtml(value: string): boolean {
 
 export { looksLikeHtml, looksLikeRenderableHtml };
 
+interface HtmlRenderProfile {
+  renderCost: number;
+  complex: boolean;
+  previewText: string;
+}
+
+const HTML_PROFILE_TAG_RE = /<\s*\/?\s*([a-zA-Z][a-zA-Z0-9:-]*)\b([^>]*)>/g;
+const HTML_PREVIEW_BLOCK_BREAK_RE = /<\s*\/(?:p|div|section|article|header|footer|main|aside|nav|h[1-6]|li|tr|table|ul|ol|blockquote|pre)\s*>/gi;
+const HTML_PREVIEW_DROP_RE = /<\s*(script|style|svg|canvas|iframe)\b[\s\S]*?<\s*\/\s*\1\s*>/gi;
+const HTML_PREVIEW_TAG_RE = /<[^>]+>/g;
+const HTML_PREVIEW_BR_RE = /<\s*br\s*\/?>/gi;
+
+function decodeBasicHtmlEntities(value: string): string {
+  return value.replace(/&(?:nbsp|amp|lt|gt|quot|apos|#(\d+)|#x([0-9a-fA-F]+));/g, (match, dec: string | undefined, hex: string | undefined) => {
+    if (dec != null) {
+      const code = Number.parseInt(dec, 10);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+    }
+    if (hex != null) {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+    }
+    switch (match) {
+      case '&nbsp;': return ' ';
+      case '&amp;': return '&';
+      case '&lt;': return '<';
+      case '&gt;': return '>';
+      case '&quot;': return '"';
+      case '&apos;': return "'";
+      default: return match;
+    }
+  });
+}
+
+function extractHtmlPreviewText(source: string): string {
+  const preview = decodeBasicHtmlEntities(source)
+    .replace(HTML_PREVIEW_DROP_RE, ' ')
+    .replace(HTML_PREVIEW_BR_RE, '\n')
+    .replace(HTML_PREVIEW_BLOCK_BREAK_RE, '\n')
+    .replace(HTML_PREVIEW_TAG_RE, ' ')
+    .replace(/[ \t\f\v\r]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const text = preview || source.replace(HTML_PREVIEW_TAG_RE, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length <= HTML_COMPLEX_PREVIEW_MAX_CHARS) return text;
+  return `${text.slice(0, HTML_COMPLEX_PREVIEW_MAX_CHARS).trimEnd()}...`;
+}
+
+function htmlRenderProfile(source: string): HtmlRenderProfile {
+  const key = contentCacheKey('html-profile', source);
+  const cached = htmlRenderProfileCache.get(key);
+  if (cached != null) {
+    rememberLru(htmlRenderProfileCache, key, cached, HTML_RENDER_PROFILE_CACHE_LIMIT);
+    return cached;
+  }
+
+  const scanSource = source.length > 160 * 1024 ? source.slice(0, 160 * 1024) : source;
+  let tagCount = 0;
+  let layoutTagCount = 0;
+  let mediaTagCount = 0;
+  let interactiveTagCount = 0;
+  let styleAttrCount = 0;
+  let expensiveTagCount = 0;
+  HTML_PROFILE_TAG_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = HTML_PROFILE_TAG_RE.exec(scanSource)) != null) {
+    tagCount += 1;
+    const name = (match[1] ?? '').toLowerCase();
+    const attrs = match[2] ?? '';
+    if (/^(?:div|section|article|header|footer|main|aside|nav|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|form)$/.test(name)) {
+      layoutTagCount += 1;
+    }
+    if (/^(?:img|video|audio|picture|source|iframe|canvas|svg)$/.test(name)) {
+      mediaTagCount += 1;
+    }
+    if (/^(?:button|input|textarea|select|option|label|details|summary|a)$/.test(name)) {
+      interactiveTagCount += 1;
+    }
+    if (/^(?:script|style|link|meta|iframe|canvas|svg)$/.test(name)) {
+      expensiveTagCount += 1;
+    }
+    if (/\sstyle\s*=/i.test(attrs)) {
+      styleAttrCount += 1;
+    }
+    if (tagCount >= 1800) break;
+  }
+
+  const renderCost = Math.min(
+    72,
+    3 +
+      Math.ceil(source.length / 5500) +
+      Math.ceil(tagCount / 22) +
+      Math.ceil(layoutTagCount / 20) +
+      Math.ceil(styleAttrCount / 16) +
+      mediaTagCount * 2 +
+      interactiveTagCount +
+      expensiveTagCount * 3,
+  );
+  const complex =
+    (source.length >= HTML_COMPLEX_SOURCE_MIN_CHARS && renderCost >= 12) ||
+    tagCount >= HTML_COMPLEX_TAG_COUNT ||
+    renderCost >= HTML_COMPLEX_RENDER_COST ||
+    mediaTagCount >= 5 ||
+    expensiveTagCount >= 3;
+  const profile = {
+    renderCost,
+    complex,
+    previewText: complex ? extractHtmlPreviewText(source) : '',
+  };
+  rememberLru(htmlRenderProfileCache, key, profile, HTML_RENDER_PROFILE_CACHE_LIMIT);
+  return profile;
+}
+
+export function estimateHtmlRenderCost(source: string): number {
+  return htmlRenderProfile(source).renderCost;
+}
+
 /// 将一段 HTML 源码以 Blob URL 形式在新标签页打开。与 APP 端
 /// `_HtmlPreviewDialog` 的 "在浏览器中打开" 功能对齐：APP 在 OS 默认浏览器
 /// 中打开临时文件，Web 端直接借宿主浏览器 new tab 即可。
@@ -601,6 +726,64 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { sour
   return (
     <div ref={hostRef} class="oh-html-body-deferred">
       {renderReady ? <HtmlBody source={source} mono={mono} /> : <HtmlBodyPlaceholder source={source} />}
+    </div>
+  );
+});
+
+function HtmlPreviewIcon({ name, size = 14 }: { name: 'render' | 'external'; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    focusable: 'false',
+    'aria-hidden': true,
+  };
+  if (name === 'external') {
+    return <svg {...common}><path d="M14 5h5v5" /><path d="m19 5-8 8" /><path d="M19 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h4" /></svg>;
+  }
+  return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2.5" /><path d="M8 9h8M8 13h5" /></svg>;
+}
+
+const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({ source, mono }: { source: string; mono: boolean }) {
+  const profile = useMemo(() => htmlRenderProfile(source), [source]);
+  const [expanded, setExpanded] = useState(() => !profile.complex);
+
+  useEffect(() => {
+    setExpanded(!profile.complex);
+  }, [profile.complex, source]);
+
+  if (!profile.complex || expanded) {
+    return <DeferredHtmlBody source={source} mono={mono} />;
+  }
+
+  return (
+    <div class="oh-html-progressive-preview">
+      <div class="oh-html-progressive-preview-text">
+        {profile.previewText || source.slice(0, HTML_COMPLEX_PREVIEW_MAX_CHARS)}
+      </div>
+      <div class="oh-html-progressive-actions">
+        <button
+          type="button"
+          class="oh-html-progressive-button oh-tap-press"
+          onClick={() => setExpanded(true)}
+        >
+          <HtmlPreviewIcon name="render" />
+          <span>显示完整卡片</span>
+        </button>
+        <button
+          type="button"
+          class="oh-html-progressive-button oh-tap-press"
+          onClick={() => openHtmlInNewTab(source)}
+        >
+          <HtmlPreviewIcon name="external" />
+          <span>新标签页打开</span>
+        </button>
+      </div>
     </div>
   );
 });
@@ -965,7 +1148,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
   // 先 plain text 占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
   // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
-  const shouldDeferParse = !raw && !tooBig
+  const shouldDeferParse = !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
     && content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD;
   const markdownReadyKey = useMemo(
     () => contentCacheKey(`md:${format}:${htmlFallback}`, markdownContent),
@@ -1246,7 +1429,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   }
   if (format === 'html') {
     if (stickyLooksHtml) {
-      return <DeferredHtmlBody source={content} mono={mono} />;
+      return <ProgressiveHtmlBody source={content} mono={mono} />;
     }
     if (htmlFallback === 'plain_text') {
       return (
@@ -1268,7 +1451,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // 检测内容是否像 HTML，自动升级到 HtmlBody 渲染，使 WEB 端对 AI 输出
   // 自愈，无需用户手动切设置项。sticky 与 'html' 分支共用同一 hook 结果。
   if (format === 'markdown' && stickyLooksHtml) {
-    return <DeferredHtmlBody source={content} mono={mono} />;
+    return <ProgressiveHtmlBody source={content} mono={mono} />;
   }
 
   // tooBig 守卫仅针对 markdown（解析开销大）；plain_text/html 已在上方提前返回。
