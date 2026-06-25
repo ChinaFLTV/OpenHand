@@ -32,6 +32,10 @@ class _QueuedMessage {
 
 enum _SubmitTextOutcome { submitted, stoppedBeforeSubmit, failedBeforeSubmit }
 
+const double _kGoalStartDialogWidth = 460;
+const double _kGoalStartSwitchRowGap = 16;
+const double _kGoalStartSwitchSectionSpacing = 18;
+
 class _GoalStartDialogResult {
   const _GoalStartDialogResult({
     required this.evaluatorProviderConfigId,
@@ -138,6 +142,58 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
     );
   }
 
+  Widget _buildGoalSwitchRow({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    height: 1.28,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: _kGoalStartSwitchRowGap),
+          Switch(
+            value: value,
+            thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return const Icon(Icons.check_rounded, size: 16);
+              }
+              return const Icon(Icons.close_rounded, size: 16);
+            }),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -148,10 +204,16 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
         (_turnLimitEnabled && _readPositiveInt(_turnLimitController) == null) ||
         (_tokenBudgetEnabled &&
             _readPositiveInt(_tokenBudgetController) == null);
-    return AlertDialog(
-      title: Text(_localizedText(context, zh: '启动目标模式', en: 'Start Goal Mode')),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
+    return buildOpenHandAlertDialog(
+      title: Text(
+        _localizedText(context, zh: '启动目标模式', en: 'Start Goal Mode'),
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+      content: buildOpenHandDialogConstrainedContent(
+        width: _kGoalStartDialogWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -174,86 +236,104 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                 });
               },
             ),
-            const SizedBox(height: 16),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
+            const SizedBox(height: _kGoalStartSwitchSectionSpacing),
+            _buildGoalSwitchRow(
               value: _turnLimitEnabled,
               onChanged: (value) => setState(() => _turnLimitEnabled = value),
-              title: Text(
-                _localizedText(context, zh: '轮次限制', en: 'Turn limit'),
-              ),
-              subtitle: Text(
-                _localizedText(
-                  context,
-                  zh: '开启后限制自动推进的最大对话轮次。',
-                  en: 'Limit the maximum automatic conversation rounds.',
-                ),
+              title: _localizedText(context, zh: '轮次限制', en: 'Turn limit'),
+              subtitle: _localizedText(
+                context,
+                zh: '开启后限制自动推进的最大对话轮次。',
+                en: 'Limit the maximum automatic conversation rounds.',
               ),
             ),
-            AnimatedSwitcher(
+            AnimatedSize(
               duration: MediaQuery.disableAnimationsOf(context)
                   ? Duration.zero
                   : const Duration(milliseconds: 180),
-              child: _turnLimitEnabled
-                  ? Padding(
-                      key: const ValueKey<String>('turn-limit-field'),
-                      padding: const EdgeInsets.only(top: 6, bottom: 10),
-                      child: TextField(
-                        controller: _turnLimitController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '最大对话轮次',
-                            en: 'Maximum turns',
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                child: _turnLimitEnabled
+                    ? Padding(
+                        key: const ValueKey<String>('turn-limit-field'),
+                        padding: const EdgeInsets.only(top: 10, bottom: 12),
+                        child: TextField(
+                          controller: _turnLimitController,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: '最大对话轮次',
+                              en: 'Maximum turns',
+                            ),
+                            border: const OutlineInputBorder(),
                           ),
-                          border: const OutlineInputBorder(),
                         ),
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey<String>('turn-limit-empty'),
                       ),
-                    )
-                  : const SizedBox.shrink(
-                      key: ValueKey<String>('turn-limit-empty'),
-                    ),
+              ),
             ),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
+            _buildGoalSwitchRow(
               value: _tokenBudgetEnabled,
               onChanged: (value) => setState(() => _tokenBudgetEnabled = value),
-              title: Text(
-                _localizedText(context, zh: 'Token 预算', en: 'Token budget'),
+              title: _localizedText(
+                context,
+                zh: 'Token 预算',
+                en: 'Token budget',
               ),
-              subtitle: Text(
-                _localizedText(
-                  context,
-                  zh: '开启后限制目标执行阶段最多消耗的 token。',
-                  en: 'Limit token usage while this goal runs.',
-                ),
+              subtitle: _localizedText(
+                context,
+                zh: '开启后限制目标执行阶段最多消耗的 token。',
+                en: 'Limit token usage while this goal runs.',
               ),
             ),
-            AnimatedSwitcher(
+            AnimatedSize(
               duration: MediaQuery.disableAnimationsOf(context)
                   ? Duration.zero
                   : const Duration(milliseconds: 180),
-              child: _tokenBudgetEnabled
-                  ? Padding(
-                      key: const ValueKey<String>('token-budget-field'),
-                      padding: const EdgeInsets.only(top: 6),
-                      child: TextField(
-                        controller: _tokenBudgetController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '最多消耗 token',
-                            en: 'Maximum tokens',
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                child: _tokenBudgetEnabled
+                    ? Padding(
+                        key: const ValueKey<String>('token-budget-field'),
+                        padding: const EdgeInsets.only(top: 10),
+                        child: TextField(
+                          controller: _tokenBudgetController,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: '最多消耗 token',
+                              en: 'Maximum tokens',
+                            ),
+                            border: const OutlineInputBorder(),
                           ),
-                          border: const OutlineInputBorder(),
                         ),
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey<String>('token-budget-empty'),
                       ),
-                    )
-                  : const SizedBox.shrink(
-                      key: ValueKey<String>('token-budget-empty'),
-                    ),
+              ),
             ),
             if (!validSelection || invalidLimit) ...[
               const SizedBox(height: 12),
@@ -272,13 +352,13 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
+          label: _localizedText(context, zh: '取消', en: 'Cancel'),
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: validSelection && !invalidLimit ? _submit : null,
-          child: Text(_localizedText(context, zh: '开始', en: 'Start')),
+          label: _localizedText(context, zh: '开始', en: 'Start'),
         ),
       ],
     );
