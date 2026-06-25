@@ -4910,6 +4910,47 @@ class AiSessionController extends ChangeNotifier {
     return 'Continue the current goal until there is concrete evidence it is complete.\n\nGoal:\n${goal.objective.trim()}';
   }
 
+  AiSession _appendGoalEvaluationMessage(
+    AiSession session,
+    AiSessionMessage message, {
+    required DateTime updatedAt,
+  }) {
+    return _copySessionWithMessagesPreservingWindow(session, <AiSessionMessage>[
+      ...session.messages,
+      message,
+    ], updatedAt: updatedAt);
+  }
+
+  Map<String, Object?> _goalEvaluationMessageMetadata({
+    required AiSessionGoalRecord goal,
+    required String evaluationId,
+    required String type,
+    required int roundIndex,
+    bool? passed,
+  }) {
+    return <String, Object?>{
+      aiSessionMessageSenderOriginJsonKey:
+          type == aiSessionGoalEvaluationMessageTypeRequest
+          ? aiSessionMessageSenderOriginOpenHandBackground
+          : aiSessionMessageSenderOriginAiModel,
+      aiSessionGoalEvaluationMessageMetadataKey: true,
+      aiSessionGoalEvaluationMessageTypeMetadataKey: type,
+      aiSessionGoalIdMetadataKey: goal.id,
+      aiSessionGoalEvaluationIdMetadataKey: evaluationId,
+      aiSessionGoalEvaluationRoundIndexMetadataKey: roundIndex,
+      if (passed != null) aiSessionGoalEvaluationPassedMetadataKey: passed,
+    };
+  }
+
+  String _formatGoalEvaluationRequestForTranscript(List<AiChatTurn> turns) {
+    return turns
+        .map((turn) {
+          final role = turn.role.name.toUpperCase();
+          return '$role:\n${turn.content.trim()}';
+        })
+        .join('\n\n');
+  }
+
   bool _shouldYieldGoalContinuation(String sessionId) {
     if (_goalContinuationYieldPredicates.isEmpty) {
       return false;
@@ -5011,14 +5052,39 @@ class AiSessionController extends ChangeNotifier {
       );
     }
 
+    final evaluationId = _idGenerator();
+    final evaluationTurns = _buildGoalEvaluationMessages(
+      session: workingSession,
+      goal: goal,
+    );
+    final evaluationRequestAt = _clock().toUtc();
+    workingSession = _appendGoalEvaluationMessage(
+      workingSession,
+      AiSessionMessage.user(
+        id: _idGenerator(),
+        content: _formatGoalEvaluationRequestForTranscript(evaluationTurns),
+        createdAt: evaluationRequestAt,
+        metadata: _goalEvaluationMessageMetadata(
+          goal: goal,
+          evaluationId: evaluationId,
+          type: aiSessionGoalEvaluationMessageTypeRequest,
+          roundIndex: goal.turnCount,
+        ),
+      ),
+      updatedAt: evaluationRequestAt,
+    );
+    final requestCommitted = await _commitSessionLocked(
+      _rebuildSession(workingSession),
+    );
+    if (requestCommitted) {
+      workingSession = _sessionById(workingSession.id) ?? workingSession;
+    }
+
     AiSessionGoalEvaluationRecord evaluation;
     try {
       final completion = await _backgroundChatClient.sendMessage(
         model: evaluatorModel,
-        messages: _buildGoalEvaluationMessages(
-          session: workingSession,
-          goal: goal,
-        ),
+        messages: evaluationTurns,
         timeout: _goalEvaluationTimeout,
         cancelSignal: _stopSignalForSession(workingSession.id),
       );
@@ -5030,19 +5096,44 @@ class AiSessionController extends ChangeNotifier {
           nextUserMessageId: null,
         );
       }
+      final evaluationResponseAt = _clock().toUtc();
       evaluation = _parseGoalEvaluationRecord(
         completion.reply,
+        evaluationId: evaluationId,
+        createdAt: evaluationResponseAt,
         goal: goal,
         evaluatorModel: evaluatorModel,
         usage: completion.usage,
       );
+      workingSession = _appendGoalEvaluationMessage(
+        workingSession,
+        AiSessionMessage.assistant(
+          id: _idGenerator(),
+          content: _boundedGoalText(
+            completion.reply,
+            _goalEvaluationMaxMessageChars,
+          ),
+          createdAt: evaluationResponseAt,
+          modelId: evaluatorModel.modelId,
+          modelLabel: evaluatorModel.displayName,
+          usage: completion.usage,
+          metadata: _goalEvaluationMessageMetadata(
+            goal: goal,
+            evaluationId: evaluation.id,
+            type: aiSessionGoalEvaluationMessageTypeResponse,
+            roundIndex: evaluation.roundIndex,
+            passed: evaluation.passed,
+          ),
+        ),
+        updatedAt: evaluationResponseAt,
+      );
       final evaluatorTokens = _tokenCountFromUsage(completion.usage);
       goal = goal
           .copyWith(
-            updatedAt: _clock().toUtc(),
+            updatedAt: evaluationResponseAt,
             tokensUsed: goal.tokensUsed + evaluatorTokens,
           )
-          .appendEvaluation(evaluation, updatedAt: _clock().toUtc());
+          .appendEvaluation(evaluation, updatedAt: evaluationResponseAt);
     } catch (error) {
       if (_isStopRequestedForSession(workingSession.id)) {
         final latest = _sessionById(workingSession.id) ?? workingSession;
@@ -5054,7 +5145,7 @@ class AiSessionController extends ChangeNotifier {
       }
       final failedAt = _clock().toUtc();
       evaluation = AiSessionGoalEvaluationRecord(
-        id: _idGenerator(),
+        id: evaluationId,
         createdAt: failedAt,
         roundIndex: goal.turnCount,
         passed: false,
@@ -5064,6 +5155,27 @@ class AiSessionController extends ChangeNotifier {
         modelId: evaluatorModel.modelId,
         modelLabel: evaluatorModel.displayName,
         error: '$error',
+      );
+      workingSession = _appendGoalEvaluationMessage(
+        workingSession,
+        AiSessionMessage.assistant(
+          id: _idGenerator(),
+          content: _boundedGoalText(
+            'Evaluator failed.\n\n$error',
+            _goalEvaluationMaxMessageChars,
+          ),
+          createdAt: failedAt,
+          modelId: evaluatorModel.modelId,
+          modelLabel: evaluatorModel.displayName,
+          metadata: _goalEvaluationMessageMetadata(
+            goal: goal,
+            evaluationId: evaluation.id,
+            type: aiSessionGoalEvaluationMessageTypeResponse,
+            roundIndex: evaluation.roundIndex,
+            passed: false,
+          ),
+        ),
+        updatedAt: failedAt,
       );
       goal = goal.appendEvaluation(evaluation, updatedAt: failedAt);
       final failed = _finalizeGoal(
@@ -5265,15 +5377,16 @@ class AiSessionController extends ChangeNotifier {
 
   AiSessionGoalEvaluationRecord _parseGoalEvaluationRecord(
     String rawReply, {
+    required String evaluationId,
+    required DateTime createdAt,
     required AiSessionGoalRecord goal,
     required AiModelConfig evaluatorModel,
     required AiTokenUsage? usage,
   }) {
     final decoded = _decodeGoalEvaluationJson(rawReply);
-    final createdAt = _clock().toUtc();
     if (decoded == null) {
       return AiSessionGoalEvaluationRecord(
-        id: _idGenerator(),
+        id: evaluationId,
         createdAt: createdAt,
         roundIndex: goal.turnCount,
         passed: false,
@@ -5289,7 +5402,7 @@ class AiSessionController extends ChangeNotifier {
     final passed = decoded['passed'] == true;
     final summary = '${decoded['summary'] ?? ''}'.trim();
     return AiSessionGoalEvaluationRecord(
-      id: _idGenerator(),
+      id: evaluationId,
       createdAt: createdAt,
       roundIndex: goal.turnCount,
       passed: passed,

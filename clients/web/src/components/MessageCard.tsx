@@ -375,18 +375,37 @@ function nonEmptyString(value: unknown): string {
 }
 
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
-  if (message.role !== 'user') return [];
   const meta = recordOrNullFromUnknown(message.metadata);
   if (!meta) return [];
   return [
+    ...goalEvaluationChips(message, meta),
     ...goalAutoFollowUpChips(message, meta),
-    ...creationModeChips(meta),
-    ...skillChips(meta),
-    ...attachmentChips(meta),
+    ...(message.role === 'user' ? creationModeChips(meta) : []),
+    ...(message.role === 'user' ? skillChips(meta) : []),
+    ...(message.role === 'user' ? attachmentChips(meta) : []),
   ];
 }
 
+function isGoalEvaluationMessage(message: SessionMessage): boolean {
+  return recordOrNullFromUnknown(message.metadata)?.['goal_evaluation_message'] === true;
+}
+
+function goalEvaluationChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
+  if (meta['goal_evaluation_message'] !== true) return [];
+  const type = nonEmptyString(meta['goal_evaluation_message_type']);
+  const round = nonEmptyString(meta['goal_evaluation_round_index']);
+  const suffix = round ? ` · #${round}` : '';
+  return [{
+    key: `goal-evaluation:${type || message.id}:${nonEmptyString(meta['goal_evaluation_id']) || message.id}`,
+    icon: 'audit',
+    label: type === 'request'
+      ? `${t('message.context.goalEvaluationRequest', '目标评估请求')}${suffix}`
+      : `${t('message.context.goalEvaluationResponse', '目标评估响应')}${suffix}`,
+  }];
+}
+
 function goalAutoFollowUpChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
+  if (meta['goal_evaluation_message'] === true) return [];
   const origin = nonEmptyString(message.sender_origin) || nonEmptyString(meta['sender_origin']);
   const isGoalAutoFollowUp = meta['goal_auto_follow_up'] === true || origin === 'openhand_background';
   if (!isGoalAutoFollowUp) return [];
@@ -808,6 +827,7 @@ function isGeneralMessageLong(content: string): boolean {
 
 function isAssistantResponseMessage(message: SessionMessage): boolean {
   if (message.role !== 'assistant') return false;
+  if (isGoalEvaluationMessage(message)) return false;
   return ![
     'tool',
     'tool_call',
@@ -822,7 +842,7 @@ function isAssistantResponseMessage(message: SessionMessage): boolean {
 }
 
 function isFormalAssistantResponseMessage(message: SessionMessage): boolean {
-  return isAssistantResponseMessage(message) && message.kind !== 'reasoning';
+  return isAssistantResponseMessage(message) && message.kind !== 'reasoning' && !isGoalEvaluationMessage(message);
 }
 
 function isPlainConversationMessage(message: SessionMessage): boolean {
@@ -1267,7 +1287,23 @@ function MessageCardImpl({
   const reduceMotion = useReducedMotion();
   const { format: contentFormat, htmlFallback: contentHtmlFallback } = useMessageContentFormat();
   const [showRawContent, setShowRawContent] = useState(false);
-  const style = styleForKind(message.kind, message.role);
+  const baseStyle = styleForKind(message.kind, message.role);
+  const goalEvaluation = isGoalEvaluationMessage(message);
+  const style = goalEvaluation
+    ? {
+        ...baseStyle,
+        background: message.role === 'user'
+          ? 'color-mix(in srgb, var(--m3-secondary-container) 82%, var(--m3-surface))'
+          : 'color-mix(in srgb, var(--m3-tertiary-container) 78%, var(--m3-surface))',
+        color: message.role === 'user'
+          ? 'var(--m3-on-secondary-container)'
+          : 'var(--m3-on-tertiary-container)',
+        border: message.role === 'user'
+          ? '1px solid color-mix(in srgb, var(--m3-secondary) 36%, var(--m3-outline-variant))'
+          : '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, var(--m3-outline-variant))',
+        shadow: 'none',
+      }
+    : baseStyle;
   const content = message.content ?? '';
   const isUserBubble = message.role === 'user';
   const useStructuredToolBody =

@@ -742,6 +742,46 @@ function goalStatusLabel(status: string | null | undefined): string {
   }
 }
 
+function goalStatusReasonLabel(reason: string | null | undefined): string {
+  const normalized = String(reason ?? '').trim();
+  switch (normalized) {
+    case 'Paused by user.':
+      return t('goal.reason.pausedByUser', '用户已暂停目标。');
+    case GOAL_PAUSED_FOR_QUEUE_STATUS_REASON:
+      return t('goal.reason.pausedForQueue', '已让出给等待队列中的消息。');
+    case 'Terminated by user.':
+      return t('goal.reason.terminatedByUser', '用户已终止目标。');
+    case 'Resumed by goal runtime.':
+      return t('goal.reason.resumedByRuntime', '目标运行时已恢复执行。');
+    case 'Token budget reached before evaluation.':
+      return t('goal.reason.tokenBudgetBeforeEvaluation', '评估前已达到 token 预算。');
+    case 'No evaluator model is configured.':
+      return t('goal.reason.noEvaluatorModel', '未配置可用评估模型。');
+    case 'Round limit reached before evidence was sufficient.':
+      return t('goal.reason.roundLimitBeforeEvidence', '证据充分前已达到轮次限制。');
+    case 'Token budget reached before evidence was sufficient.':
+      return t('goal.reason.tokenBudgetBeforeEvidence', '证据充分前已达到 token 预算。');
+    default:
+      return normalized;
+  }
+}
+
+function goalEvaluationSummaryLabel(summary: string | null | undefined): string {
+  const normalized = String(summary ?? '').trim();
+  switch (normalized) {
+    case 'Evaluator failed.':
+      return t('goal.evaluation.summary.failed', '评估模型调用失败。');
+    case 'Evaluator returned invalid JSON.':
+      return t('goal.evaluation.summary.invalidJson', '评估模型返回了无效 JSON。');
+    case 'Goal is complete.':
+      return t('goal.evaluation.summary.complete', '目标已完成。');
+    case 'Goal is not complete yet.':
+      return t('goal.evaluation.summary.incomplete', '目标尚未完成。');
+    default:
+      return normalized;
+  }
+}
+
 function goalDisplayTurnLimit(goal: SessionGoalRecord): number {
   const configured = typeof goal.max_turns === 'number' ? Math.round(goal.max_turns) : 0;
   return Math.max(1, Math.min(GOAL_HARD_MAX_AUTO_TURNS, configured || GOAL_DEFAULT_MAX_AUTO_TURNS));
@@ -5849,7 +5889,7 @@ function GoalStartOptionsDialog({
         })}
         ariaLabel={t('goal.start.title', '启动目标模式')}
       >
-        <form onSubmit={submit} class="flex flex-col gap-4">
+        <form onSubmit={submit} class="oh-goal-start-form">
           <header class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
@@ -5865,7 +5905,7 @@ function GoalStartOptionsDialog({
             </button>
           </header>
 
-          <label class="flex flex-col gap-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          <label class="oh-goal-field text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('goal.start.evaluatorModel', '评估模型')}
             <button
               type="button"
@@ -5880,47 +5920,51 @@ function GoalStartOptionsDialog({
             </button>
           </label>
 
-          <div class="oh-goal-option-row">
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.turnLimit', '轮次限制')}</div>
-              <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.turnLimit.hint', '关闭时使用运行时默认安全上限。')}</div>
+          <div class="oh-goal-option-stack">
+            <div class="oh-goal-option-row">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.turnLimit', '轮次限制')}</div>
+                <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.turnLimit.hint', '关闭时使用运行时默认安全上限。')}</div>
+              </div>
+              <SwitchButton checked={turnLimitEnabled} onClick={() => setTurnLimitEnabled((value) => !value)} label={t('goal.start.turnLimit', '轮次限制')} />
             </div>
-            <SwitchButton checked={turnLimitEnabled} onClick={() => setTurnLimitEnabled((value) => !value)} label={t('goal.start.turnLimit', '轮次限制')} />
+            {turnLimitEnabled ? (
+              <input
+                type="number"
+                min={1}
+                max={GOAL_HARD_MAX_AUTO_TURNS}
+                value={turnLimit}
+                onInput={(event) => setTurnLimit((event.currentTarget as HTMLInputElement).value)}
+                class="oh-goal-number-input"
+                aria-label={t('goal.start.turnLimit', '轮次限制')}
+              />
+            ) : null}
           </div>
-          {turnLimitEnabled ? (
-            <input
-              type="number"
-              min={1}
-              max={GOAL_HARD_MAX_AUTO_TURNS}
-              value={turnLimit}
-              onInput={(event) => setTurnLimit((event.currentTarget as HTMLInputElement).value)}
-              class="oh-goal-number-input"
-              aria-label={t('goal.start.turnLimit', '轮次限制')}
-            />
-          ) : null}
 
-          <div class="oh-goal-option-row">
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.tokenBudget', 'Token 预算')}</div>
-              <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.tokenBudget.hint', '关闭时不额外设置预算，只保留硬性轮次保护。')}</div>
+          <div class="oh-goal-option-stack">
+            <div class="oh-goal-option-row">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.tokenBudget', 'Token 预算')}</div>
+                <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.tokenBudget.hint', '关闭时不额外设置预算，只保留硬性轮次保护。')}</div>
+              </div>
+              <SwitchButton checked={tokenBudgetEnabled} onClick={() => setTokenBudgetEnabled((value) => !value)} label={t('goal.start.tokenBudget', 'Token 预算')} />
             </div>
-            <SwitchButton checked={tokenBudgetEnabled} onClick={() => setTokenBudgetEnabled((value) => !value)} label={t('goal.start.tokenBudget', 'Token 预算')} />
+            {tokenBudgetEnabled ? (
+              <input
+                type="number"
+                min={1}
+                value={tokenBudget}
+                onInput={(event) => setTokenBudget((event.currentTarget as HTMLInputElement).value)}
+                class="oh-goal-number-input"
+                placeholder="128000"
+                aria-label={t('goal.start.tokenBudget', 'Token 预算')}
+              />
+            ) : null}
           </div>
-          {tokenBudgetEnabled ? (
-            <input
-              type="number"
-              min={1}
-              value={tokenBudget}
-              onInput={(event) => setTokenBudget((event.currentTarget as HTMLInputElement).value)}
-              class="oh-goal-number-input"
-              placeholder="128000"
-              aria-label={t('goal.start.tokenBudget', 'Token 预算')}
-            />
-          ) : null}
 
           {error ? <p class="text-xs" style={{ color: 'var(--m3-error)' }}>{error}</p> : null}
 
-          <div class="flex items-center justify-end gap-2 pt-1">
+          <div class="oh-goal-dialog-actions">
             <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface)', border: '1px solid var(--m3-outline)' }}>
               {t('common.cancel', '取消')}
             </button>
@@ -5973,7 +6017,7 @@ function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onCl
             {t('goal.details.title', '目标执行详情')}
           </h2>
           <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
-            {session.template_name || session.template_id} · {session.mode}
+            {session.template_name || session.template_id} · {sessionModeLabel(session.mode)}
           </p>
         </div>
         <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}>
@@ -5995,12 +6039,13 @@ function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onCl
         <section class="oh-goal-section">
           <h3>{t('goal.details.environment', '环境信息')}</h3>
           <div class="oh-goal-kv-grid">
-            <GoalKv label="Session" value={session.id} />
-            <GoalKv label="Template" value={session.template_name || session.template_id} />
-            <GoalKv label="Mode" value={session.mode} />
-            <GoalKv label="Messages" value={String(session.message_count ?? 0)} />
-            <GoalKv label="Platform" value={stringFromUnknown(environment['platform']) || '—'} />
-            <GoalKv label="Working Directory" value={stringFromUnknown(environment['application_directory'] ?? environment['working_directory']) || '—'} />
+            <GoalKv label={t('goal.details.session', '线程')} value={session.id} />
+            <GoalKv label={t('goal.details.template', '模板')} value={session.template_name || session.template_id} />
+            <GoalKv label={t('goal.details.mode', '当前模式')} value={sessionModeLabel(session.mode)} />
+            <GoalKv label={t('goal.details.messages', '消息数')} value={String(session.message_count ?? 0)} />
+            <GoalKv label={t('goal.details.platform', '平台')} value={stringFromUnknown(environment['platform']) || '—'} />
+            <GoalKv label={t('goal.details.workingDirectory', '工作目录')} value={stringFromUnknown(environment['application_directory'] ?? environment['working_directory']) || '—'} />
+            <GoalKv label={t('goal.details.sessionsDirectory', '会话目录')} value={stringFromUnknown(environment['sessions_directory_path'] ?? environment['sessions_directory']) || '—'} />
           </div>
         </section>
 
@@ -6034,28 +6079,37 @@ function GoalRecordSection({ goal, title, full = false }: { goal: SessionGoalRec
         <GoalKv label={t('goal.details.evaluator', '评估模型')} value={goal.evaluator_model_label || goal.evaluator_model_id} />
         <GoalKv label={t('goal.details.createdAt', '创建时间')} value={formatDialogDate(goal.created_at)} />
         <GoalKv label={t('goal.details.updatedAt', '更新时间')} value={formatDialogDate(goal.updated_at)} />
-        <GoalKv label={t('goal.details.completedAt', '完成时间')} value={formatDialogDate(goal.completed_at ?? goal.terminated_at)} />
+        <GoalKv label={t('goal.details.finishedAt', '结束时间')} value={formatDialogDate(goal.completed_at ?? goal.terminated_at)} />
       </div>
       {goal.status_reason ? (
-        <p class="oh-goal-reason">{goal.status_reason}</p>
+        <p class="oh-goal-reason">{goalStatusReasonLabel(goal.status_reason)}</p>
       ) : null}
       {evaluations.length > 0 ? (
         <div class="oh-goal-evaluation-list">
-          {evaluations.map((evaluation) => (
-            <div key={evaluation.id} class={`oh-goal-evaluation ${evaluation.passed ? 'is-pass' : 'is-miss'}`}>
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <strong>{evaluation.passed ? t('goal.evaluation.pass', '证据通过') : t('goal.evaluation.miss', '继续推进')}</strong>
-                <span>{formatDialogDate(evaluation.created_at)} · #{evaluation.round_index}</span>
+          {evaluations.map((evaluation) => {
+            const summary = goalEvaluationSummaryLabel(evaluation.summary) || goalEvaluationSummaryLabel(evaluation.error) || '—';
+            return (
+              <div key={evaluation.id} class={`oh-goal-evaluation ${evaluation.passed ? 'is-pass' : 'is-miss'}`}>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <strong>{evaluation.passed ? t('goal.evaluation.pass', '证据通过') : t('goal.evaluation.miss', '继续推进')}</strong>
+                  <span>{formatDialogDate(evaluation.created_at)} · #{evaluation.round_index}</span>
+                </div>
+                <p>{summary}</p>
+                {evaluation.evidence?.length ? (
+                  <div class="oh-goal-evaluation-block">
+                    <span>{t('goal.evaluation.evidence', '证据')}</span>
+                    <div class="oh-goal-inline-list">{evaluation.evidence.slice(0, 4).map((item, index) => <span key={`e-${index}`}>{item}</span>)}</div>
+                  </div>
+                ) : null}
+                {evaluation.missing?.length ? (
+                  <div class="oh-goal-evaluation-block">
+                    <span>{t('goal.evaluation.missing', '缺口')}</span>
+                    <div class="oh-goal-inline-list is-missing">{evaluation.missing.slice(0, 4).map((item, index) => <span key={`m-${index}`}>{item}</span>)}</div>
+                  </div>
+                ) : null}
               </div>
-              <p>{evaluation.summary || evaluation.error || '—'}</p>
-              {evaluation.evidence?.length ? (
-                <div class="oh-goal-inline-list">{evaluation.evidence.slice(0, 4).map((item, index) => <span key={`e-${index}`}>{item}</span>)}</div>
-              ) : null}
-              {evaluation.missing?.length ? (
-                <div class="oh-goal-inline-list is-missing">{evaluation.missing.slice(0, 4).map((item, index) => <span key={`m-${index}`}>{item}</span>)}</div>
-              ) : null}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </section>

@@ -1592,6 +1592,90 @@ String _goalStatusLabel(BuildContext context, AiSessionGoalStatus status) {
   };
 }
 
+String _goalStatusReasonLabel(BuildContext context, String reason) {
+  final normalized = reason.trim();
+  return switch (normalized) {
+    'Paused by user.' => _localizedText(
+      context,
+      zh: '用户已暂停目标。',
+      en: 'Paused by user.',
+    ),
+    aiSessionGoalPausedForQueueStatusReason => _localizedText(
+      context,
+      zh: '已让出给等待队列中的消息。',
+      en: aiSessionGoalPausedForQueueStatusReason,
+    ),
+    'Terminated by user.' => _localizedText(
+      context,
+      zh: '用户已终止目标。',
+      en: 'Terminated by user.',
+    ),
+    'Resumed by goal runtime.' => _localizedText(
+      context,
+      zh: '目标运行时已恢复执行。',
+      en: 'Resumed by goal runtime.',
+    ),
+    'Token budget reached before evaluation.' => _localizedText(
+      context,
+      zh: '评估前已达到 token 预算。',
+      en: 'Token budget reached before evaluation.',
+    ),
+    'No evaluator model is configured.' => _localizedText(
+      context,
+      zh: '未配置可用评估模型。',
+      en: 'No evaluator model is configured.',
+    ),
+    'Round limit reached before evidence was sufficient.' => _localizedText(
+      context,
+      zh: '证据充分前已达到轮次限制。',
+      en: 'Round limit reached before evidence was sufficient.',
+    ),
+    'Token budget reached before evidence was sufficient.' => _localizedText(
+      context,
+      zh: '证据充分前已达到 token 预算。',
+      en: 'Token budget reached before evidence was sufficient.',
+    ),
+    _ => normalized,
+  };
+}
+
+String _goalEvaluationSummaryLabel(BuildContext context, String summary) {
+  final normalized = summary.trim();
+  return switch (normalized) {
+    'Evaluator failed.' => _localizedText(
+      context,
+      zh: '评估模型调用失败。',
+      en: 'Evaluator failed.',
+    ),
+    'Evaluator returned invalid JSON.' => _localizedText(
+      context,
+      zh: '评估模型返回了无效 JSON。',
+      en: 'Evaluator returned invalid JSON.',
+    ),
+    'Goal is complete.' => _localizedText(
+      context,
+      zh: '目标已完成。',
+      en: 'Goal is complete.',
+    ),
+    'Goal is not complete yet.' => _localizedText(
+      context,
+      zh: '目标尚未完成。',
+      en: 'Goal is not complete yet.',
+    ),
+    _ => normalized,
+  };
+}
+
+String _formatGoalDateTime(BuildContext context, DateTime? value) {
+  if (value == null) {
+    return '-';
+  }
+  final local = value.toLocal();
+  final material = MaterialLocalizations.of(context);
+  final time = TimeOfDay.fromDateTime(local);
+  return '${material.formatShortDate(local)} ${material.formatTimeOfDay(time, alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context))}';
+}
+
 Future<void> _showGoalDetailsDialog(BuildContext context, AiSession session) {
   return showAnimatedDialog<void>(
     context: context,
@@ -1611,10 +1695,19 @@ class _GoalDetailsDialog extends StatelessWidget {
     final recentHistory = state.history.reversed
         .take(8)
         .toList(growable: false);
-    return AlertDialog(
-      title: Text(_localizedText(context, zh: '目标执行详情', en: 'Goal Details')),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
+    final theme = Theme.of(context);
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
+    return buildOpenHandAlertDialog(
+      title: Text(
+        _localizedText(context, zh: '目标执行详情', en: 'Goal Details'),
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+      content: buildOpenHandDialogConstrainedContent(
+        width: 680,
+        maxHeight: maxHeight,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1664,9 +1757,9 @@ class _GoalDetailsDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+          label: _localizedText(context, zh: '关闭', en: 'Close'),
         ),
       ],
     );
@@ -1692,11 +1785,12 @@ class _GoalRecordSection extends StatelessWidget {
         : goal.evaluations.reversed.take(6).toList(growable: false);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1733,10 +1827,29 @@ class _GoalRecordSection extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _GoalKeyValue(
+              _localizedText(context, zh: '创建时间', en: 'Created'),
+              _formatGoalDateTime(context, goal.createdAt),
+            ),
+            _GoalKeyValue(
+              _localizedText(context, zh: '更新时间', en: 'Updated'),
+              _formatGoalDateTime(context, goal.updatedAt),
+            ),
+            if (goal.completedAt != null)
+              _GoalKeyValue(
+                _localizedText(context, zh: '完成时间', en: 'Completed'),
+                _formatGoalDateTime(context, goal.completedAt),
+              ),
+            if (goal.terminatedAt != null)
+              _GoalKeyValue(
+                _localizedText(context, zh: '终止时间', en: 'Terminated'),
+                _formatGoalDateTime(context, goal.terminatedAt),
+              ),
             if ((goal.statusReason ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
-                goal.statusReason!.trim(),
+                _goalStatusReasonLabel(context, goal.statusReason!),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -1797,6 +1910,9 @@ class _GoalEvaluationRow extends StatelessWidget {
     final color = evaluation.passed
         ? OpenHandStatusColors.success
         : theme.colorScheme.tertiary;
+    final statusLabel = evaluation.passed
+        ? _localizedText(context, zh: '证据通过', en: 'Evidence Passed')
+        : _localizedText(context, zh: '继续推进', en: 'Continue Goal');
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -1820,35 +1936,107 @@ class _GoalEvaluationRow extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    evaluation.summary,
+                    statusLabel,
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w700,
+                      color: color,
                     ),
+                  ),
+                ),
+                Text(
+                  '#${evaluation.roundIndex} · ${_formatGoalDateTime(context, evaluation.createdAt)}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
             ),
-            if (evaluation.evidence.isNotEmpty) ...[
+            if (_goalEvaluationSummaryLabel(
+              context,
+              evaluation.summary,
+            ).isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                evaluation.evidence.join(' · '),
+                _goalEvaluationSummaryLabel(context, evaluation.summary),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.45,
                 ),
               ),
             ],
+            if (evaluation.evidence.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _GoalInlineList(
+                label: _localizedText(context, zh: '证据', en: 'Evidence'),
+                values: evaluation.evidence,
+                color: OpenHandStatusColors.success,
+              ),
+            ],
             if (evaluation.missing.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                evaluation.missing.join(' · '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              const SizedBox(height: 8),
+              _GoalInlineList(
+                label: _localizedText(context, zh: '缺口', en: 'Missing'),
+                values: evaluation.missing,
+                color: theme.colorScheme.tertiary,
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GoalInlineList extends StatelessWidget {
+  const _GoalInlineList({
+    required this.label,
+    required this.values,
+    required this.color,
+  });
+
+  final String label;
+  final List<String> values;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final value in values.take(4))
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: _borderRadius999,
+                  border: Border.all(color: color.withValues(alpha: 0.18)),
+                ),
+                child: Text(
+                  value,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -1864,11 +2052,34 @@ class _GoalEnvironmentSection extends StatelessWidget {
     return _GoalRecordShell(
       title: _localizedText(context, zh: '环境信息', en: 'Environment'),
       children: [
-        _GoalKeyValue('Template', session.templateName),
-        _GoalKeyValue('Mode', session.mode.storageValue),
-        _GoalKeyValue('Platform', environment.platform),
-        _GoalKeyValue('Working Directory', environment.applicationDirectory),
-        _GoalKeyValue('Sessions Directory', environment.sessionsDirectoryPath),
+        _GoalKeyValue(
+          _localizedText(context, zh: '线程', en: 'Session'),
+          session.id,
+        ),
+        _GoalKeyValue(
+          _localizedText(context, zh: '模板', en: 'Template'),
+          session.templateName,
+        ),
+        _GoalKeyValue(
+          _localizedText(context, zh: '当前模式', en: 'Mode'),
+          _runtimeModeLabel(context, null, explicitMode: session.mode),
+        ),
+        _GoalKeyValue(
+          _localizedText(context, zh: '消息数', en: 'Messages'),
+          '${session.messages.length}',
+        ),
+        _GoalKeyValue(
+          _localizedText(context, zh: '平台', en: 'Platform'),
+          environment.platform,
+        ),
+        _GoalKeyValue(
+          _localizedText(context, zh: '工作目录', en: 'Working Directory'),
+          environment.applicationDirectory,
+        ),
+        _GoalKeyValue(
+          _localizedText(context, zh: '会话目录', en: 'Sessions Directory'),
+          environment.sessionsDirectoryPath,
+        ),
       ],
     );
   }
@@ -1885,11 +2096,12 @@ class _GoalRecordShell extends StatelessWidget {
     final theme = Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2089,9 +2301,7 @@ String _runtimeModeLabel(
   final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
   final l10n = AppLocalizations.of(context)!;
   if (mode == AiSessionMode.goal) {
-    return compact
-        ? _localizedText(context, zh: '目标', en: 'Goal')
-        : _localizedText(context, zh: '目标模式', en: 'Goal Mode');
+    return _localizedText(context, zh: '目标模式', en: 'Goal Mode');
   }
   if (mode != AiSessionMode.plan) {
     return compact

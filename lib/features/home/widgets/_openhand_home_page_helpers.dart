@@ -34,7 +34,9 @@ enum _SubmitTextOutcome { submitted, stoppedBeforeSubmit, failedBeforeSubmit }
 
 const double _kGoalStartDialogWidth = 460;
 const double _kGoalStartSwitchRowGap = 16;
-const double _kGoalStartSwitchSectionSpacing = 18;
+const double _kGoalStartFormItemSpacing = 22;
+const double _kGoalStartEnabledFieldTopPadding = 12;
+const double _kGoalStartEnabledFieldBottomPadding = 4;
 
 class _GoalStartDialogResult {
   const _GoalStartDialogResult({
@@ -236,7 +238,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                 });
               },
             ),
-            const SizedBox(height: _kGoalStartSwitchSectionSpacing),
+            const SizedBox(height: _kGoalStartFormItemSpacing),
             _buildGoalSwitchRow(
               value: _turnLimitEnabled,
               onChanged: (value) => setState(() => _turnLimitEnabled = value),
@@ -260,7 +262,10 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                 child: _turnLimitEnabled
                     ? Padding(
                         key: const ValueKey<String>('turn-limit-field'),
-                        padding: const EdgeInsets.only(top: 10, bottom: 12),
+                        padding: const EdgeInsets.only(
+                          top: _kGoalStartEnabledFieldTopPadding,
+                          bottom: _kGoalStartEnabledFieldBottomPadding,
+                        ),
                         child: TextField(
                           controller: _turnLimitController,
                           keyboardType: TextInputType.number,
@@ -284,6 +289,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                       ),
               ),
             ),
+            const SizedBox(height: _kGoalStartFormItemSpacing),
             _buildGoalSwitchRow(
               value: _tokenBudgetEnabled,
               onChanged: (value) => setState(() => _tokenBudgetEnabled = value),
@@ -311,7 +317,9 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                 child: _tokenBudgetEnabled
                     ? Padding(
                         key: const ValueKey<String>('token-budget-field'),
-                        padding: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.only(
+                          top: _kGoalStartEnabledFieldTopPadding,
+                        ),
                         child: TextField(
                           controller: _tokenBudgetController,
                           keyboardType: TextInputType.number,

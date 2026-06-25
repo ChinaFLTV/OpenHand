@@ -381,6 +381,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final colorScheme = theme.colorScheme;
     final message = widget.message;
     final isUser = message.kind == AiSessionMessageKind.user;
+    final goalEvaluationType =
+        '${message.metadata[aiSessionGoalEvaluationMessageTypeMetadataKey] ?? ''}'
+            .trim();
+    final isGoalEvaluationRequest =
+        message.metadata[aiSessionGoalEvaluationMessageMetadataKey] == true &&
+        goalEvaluationType == aiSessionGoalEvaluationMessageTypeRequest;
+    final isGoalEvaluationResponse =
+        message.metadata[aiSessionGoalEvaluationMessageMetadataKey] == true &&
+        goalEvaluationType == aiSessionGoalEvaluationMessageTypeResponse;
+    final isGoalEvaluationMessage =
+        isGoalEvaluationRequest || isGoalEvaluationResponse;
     final isGoalAutoUser =
         isUser &&
         message.metadata[aiSessionGoalAutoFollowUpMetadataKey] == true;
@@ -436,6 +447,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final borderRadius = BorderRadius.circular(18);
     final backgroundColor = isCompressionPoint
         ? colorScheme.tertiaryContainer
+        : isGoalEvaluationRequest
+        ? colorScheme.secondaryContainer
+        : isGoalEvaluationResponse
+        ? colorScheme.tertiaryContainer
         : isUser
         ? colorScheme.primaryContainer
         : isReasoning
@@ -450,6 +465,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ? colorScheme.surfaceContainer
         : colorScheme.surfaceContainerHigh;
     final textColor = isCompressionPoint
+        ? colorScheme.onTertiaryContainer
+        : isGoalEvaluationRequest
+        ? colorScheme.onSecondaryContainer
+        : isGoalEvaluationResponse
         ? colorScheme.onTertiaryContainer
         : isUser
         ? colorScheme.onPrimaryContainer
@@ -547,6 +566,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ? displayContent
         : heAnnotation?.strippedContent ?? message.content;
     final isAssistantResponse =
+        !isGoalEvaluationMessage &&
         !isUser &&
         !isCompressionPoint &&
         !isReasoning &&
@@ -554,7 +574,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         !isToolResult &&
         !isStatus &&
         !isSelfLearning;
-    final isAiSideMessage = message.isAiSideConversationMessage;
+    final isAiSideMessage =
+        message.isAiSideConversationMessage && !isGoalEvaluationMessage;
     final selectedFeedback = message.feedback;
     final canCollapseAssistantResponse =
         isAssistantResponse &&
@@ -798,6 +819,28 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ),
                     color: textColor,
                   )
+                else if (isGoalEvaluationRequest)
+                  _MessageMetaRow(
+                    key: _metaCapsuleKey,
+                    icon: Icons.fact_check_outlined,
+                    label: _localizedText(
+                      context,
+                      zh: '目标评估请求',
+                      en: 'Goal Evaluation Request',
+                    ),
+                    color: textColor,
+                  )
+                else if (isGoalEvaluationResponse)
+                  _MessageMetaRow(
+                    key: _metaCapsuleKey,
+                    icon: Icons.verified_outlined,
+                    label: _localizedText(
+                      context,
+                      zh: '目标评估响应',
+                      en: 'Goal Evaluation Response',
+                    ),
+                    color: textColor,
+                  )
                 else if (isGoalAutoUser)
                   _MessageMetaRow(
                     key: _metaCapsuleKey,
@@ -824,6 +867,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     isReasoning ||
                     isToolCall ||
                     isToolResult ||
+                    isGoalEvaluationRequest ||
+                    isGoalEvaluationResponse ||
                     isGoalAutoUser ||
                     showAssistantResponseMetaRow)
                   const SizedBox(height: 10),

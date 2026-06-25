@@ -4971,6 +4971,17 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-dialog-action-button > svg {
   flex: none;
 }
+.oh-goal-start-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.oh-goal-field,
+.oh-goal-option-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .oh-goal-model-button,
 .oh-goal-number-input {
   width: 100%;
@@ -4995,7 +5006,7 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-goal-model-button:not(:disabled):hover,
 .oh-goal-number-input:focus {
   border-color: color-mix(in srgb, var(--m3-primary) 52%, var(--m3-outline));
-  box-shadow: var(--m3-elev-1);
+  box-shadow: none;
   outline: none;
 }
 .oh-goal-model-icon {
@@ -5059,6 +5070,18 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 .oh-goal-switch:not(:disabled):active > span {
   transform: scale(0.92);
+}
+.oh-goal-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 2px;
+}
+.oh-goal-dialog-actions .oh-dialog-action-button {
+  min-width: 132px;
+  min-height: 40px;
 }
 .oh-goal-details-scroll {
   min-height: 0;
@@ -5164,6 +5187,16 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-goal-evaluation p {
   margin: 6px 0 0;
   line-height: 1.5;
+}
+.oh-goal-evaluation-block {
+  margin-top: 9px;
+}
+.oh-goal-evaluation-block > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 800;
 }
 .oh-goal-inline-list {
   display: flex;

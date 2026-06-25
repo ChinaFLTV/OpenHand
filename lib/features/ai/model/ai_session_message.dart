@@ -63,6 +63,16 @@ const String aiSessionMessageSenderOriginJsonKey = 'sender_origin';
 const String aiSessionMessageConversationSideJsonKey = 'conversation_side';
 const String aiSessionMessageStartsConversationRoundJsonKey =
     'starts_conversation_round';
+const String aiSessionGoalEvaluationMessageMetadataKey =
+    'goal_evaluation_message';
+const String aiSessionGoalEvaluationMessageTypeMetadataKey =
+    'goal_evaluation_message_type';
+const String aiSessionGoalEvaluationMessageTypeRequest = 'request';
+const String aiSessionGoalEvaluationMessageTypeResponse = 'response';
+const String aiSessionGoalEvaluationRoundIndexMetadataKey =
+    'goal_evaluation_round_index';
+const String aiSessionGoalEvaluationPassedMetadataKey =
+    'goal_evaluation_passed';
 const String aiSessionMessageFeedbackMetadataKey = 'message_feedback';
 const String aiSessionMessageResponseVariantsMetadataKey = 'response_variants';
 const String aiSessionMessageResponseVariantIndexMetadataKey =
@@ -389,7 +399,14 @@ class AiSessionMessage {
     if (isDeleted) {
       return false;
     }
+    if (isGoalEvaluationMessage) {
+      return false;
+    }
     return kind == AiSessionMessageKind.user || isOpenHandBackgroundInput;
+  }
+
+  bool get isGoalEvaluationMessage {
+    return metadata[aiSessionGoalEvaluationMessageMetadataKey] == true;
   }
 
   bool get isAiSideConversationMessage {
@@ -448,6 +465,9 @@ class AiSessionMessage {
 
   bool get isConversationTurn {
     if (isDeleted) {
+      return false;
+    }
+    if (isGoalEvaluationMessage) {
       return false;
     }
     return switch (kind) {
