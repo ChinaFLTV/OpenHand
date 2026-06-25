@@ -12,6 +12,10 @@ const int _messageMarkdownCollapseLineThreshold = 45;
 const double _messageResponsePreviewMaxHeight = 240;
 const double _toolResultPreviewMaxHeight = 176;
 const double _collapsedMessageFadeHeight = 40;
+const Duration _collapsedMessageFadeDuration = Duration(milliseconds: 160);
+const Duration _collapsedPreviewScrollSettleDelay = Duration(milliseconds: 220);
+const double _collapsedPreviewBottomEnterEpsilon = 2;
+const double _collapsedPreviewBottomExitEpsilon = 10;
 const int _collapsedBodyScrollOffsetCacheLimit = 500;
 
 /// Maximum message body size (in characters) at which we still attempt
@@ -67,6 +71,66 @@ void _restoreCollapsedBodyScrollOffset({
     }
     onRestored?.call();
   });
+}
+
+bool _isCollapsedPreviewAtBottom(
+  ScrollPosition position, {
+  required bool currentlyAtBottom,
+}) {
+  final maxExtent = position.maxScrollExtent;
+  if (maxExtent <= _collapsedPreviewBottomEnterEpsilon) return true;
+  final epsilon = currentlyAtBottom
+      ? _collapsedPreviewBottomExitEpsilon
+      : _collapsedPreviewBottomEnterEpsilon;
+  return position.pixels >= maxExtent - epsilon;
+}
+
+class _CollapsedPreviewFade extends StatelessWidget {
+  const _CollapsedPreviewFade({
+    required this.visible,
+    required this.fadeColor,
+    this.animate = true,
+  });
+
+  final bool visible;
+  final Color fadeColor;
+  final bool animate;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final transcriptScrolling = context.select<TranscriptScrollActivity, bool>(
+      (activity) => activity.value,
+    );
+    final duration = reduceMotion || transcriptScrolling || !animate
+        ? Duration.zero
+        : _collapsedMessageFadeDuration;
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          opacity: visible ? 1.0 : 0.0,
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          child: Container(
+            height: _collapsedMessageFadeHeight,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  fadeColor.withValues(alpha: 0),
+                  fadeColor.withValues(alpha: 0.94),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _CompressionCheckpointBody extends StatelessWidget {
@@ -348,15 +412,26 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
   late final ScrollController _scrollController;
   double? _contentHeight;
   bool _atBottom = false;
+  bool _userScrollingPreview = false;
+  int? _lockedPreviewLength;
+  Timer? _scrollSettleTimer;
 
   String get _scrollStateKey =>
       widget.scrollStateKey ??
       'plain-preview|${widget.maxHeight}|${widget.data.length}|${widget.data.hashCode}';
 
+  int get _previewDataLength {
+    final data = widget.data.isEmpty ? ' ' : widget.data;
+    final cappedLength = math.min(data.length, _previewCharCap);
+    final lockedLength = _lockedPreviewLength;
+    return lockedLength == null
+        ? cappedLength
+        : math.min(cappedLength, lockedLength);
+  }
+
   String get _effectiveData {
     final data = widget.data.isEmpty ? ' ' : widget.data;
-    if (data.length <= _previewCharCap) return data;
-    return data.substring(0, _previewCharCap);
+    return data.substring(0, _previewDataLength);
   }
 
   @override
@@ -372,6 +447,8 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
 
   @override
   void dispose() {
+    _scrollSettleTimer?.cancel();
+    _scrollSettleTimer = null;
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -395,6 +472,10 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
       _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
       _contentHeight = null;
       _atBottom = false;
+      _userScrollingPreview = false;
+      _lockedPreviewLength = null;
+      _scrollSettleTimer?.cancel();
+      _scrollSettleTimer = null;
     } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
     }
@@ -405,10 +486,37 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    _markUserScrollingPreview();
+    final atBottom = _isCollapsedPreviewAtBottom(
+      pos,
+      currentlyAtBottom: _atBottom,
+    );
     if (atBottom != _atBottom) {
       setState(() => _atBottom = atBottom);
     }
+  }
+
+  void _markUserScrollingPreview() {
+    if (!_userScrollingPreview) {
+      setState(() => _userScrollingPreview = true);
+    }
+    _armScrollSettleTimer();
+  }
+
+  void _armScrollSettleTimer() {
+    _scrollSettleTimer?.cancel();
+    _scrollSettleTimer = startSafeTimer(_collapsedPreviewScrollSettleDelay, () {
+      _scrollSettleTimer = null;
+      if (!mounted) return;
+      if (_scrollController.hasClients &&
+          _scrollController.position.isScrollingNotifier.value) {
+        _armScrollSettleTimer();
+        return;
+      }
+      if (_userScrollingPreview) {
+        setState(() => _userScrollingPreview = false);
+      }
+    });
   }
 
   void _restoreScrollOffset() {
@@ -423,10 +531,40 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
   void _syncAtBottom() {
     if (!mounted || !_scrollController.hasClients) return;
     final pos = _scrollController.position;
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    final atBottom = _isCollapsedPreviewAtBottom(
+      pos,
+      currentlyAtBottom: _atBottom,
+    );
     if (atBottom != _atBottom) {
       setState(() => _atBottom = atBottom);
     }
+  }
+
+  void _handleContentSizeChanged(Size size) {
+    if (!mounted) return;
+    if (_scrollController.hasClients &&
+        _scrollController.position.isScrollingNotifier.value) {
+      _markUserScrollingPreview();
+      return;
+    }
+    if (_userScrollingPreview) {
+      _armScrollSettleTimer();
+      return;
+    }
+    final nextHeight = size.height;
+    final currentHeight = _contentHeight;
+    final nextLockedLength =
+        _lockedPreviewLength ??
+        (nextHeight > widget.maxHeight + 0.5 ? _previewDataLength : null);
+    if (currentHeight != null &&
+        (currentHeight - nextHeight).abs() < 0.5 &&
+        nextLockedLength == _lockedPreviewLength) {
+      return;
+    }
+    setState(() {
+      _contentHeight = nextHeight;
+      _lockedPreviewLength = nextLockedLength;
+    });
   }
 
   @override
@@ -468,16 +606,7 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
                         child: SizedBox(
                           width: constrainedWidth,
                           child: _MeasureSize(
-                            onChange: (size) {
-                              if (!mounted) return;
-                              final nextHeight = size.height;
-                              final currentHeight = _contentHeight;
-                              if (currentHeight != null &&
-                                  (currentHeight - nextHeight).abs() < 0.5) {
-                                return;
-                              }
-                              setState(() => _contentHeight = nextHeight);
-                            },
+                            onChange: _handleContentSizeChanged,
                             child: SelectableText(_effectiveData, style: style),
                           ),
                         ),
@@ -486,30 +615,10 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
                   ),
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: showFade ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: Container(
-                      height: _collapsedMessageFadeHeight,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            widget.fadeColor.withValues(alpha: 0),
-                            widget.fadeColor.withValues(alpha: 1),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _CollapsedPreviewFade(
+                visible: showFade,
+                fadeColor: widget.fadeColor,
+                animate: !_userScrollingPreview,
               ),
             ],
           ),
@@ -866,6 +975,8 @@ class _CollapsedFullMarkdownBodyState
   double? _contentHeight;
   late final ScrollController _scrollController;
   bool _atBottom = false;
+  bool _userScrollingPreview = false;
+  Timer? _scrollSettleTimer;
 
   String get _scrollStateKey => widget.scrollStateKey ?? widget.parseKey;
 
@@ -882,6 +993,8 @@ class _CollapsedFullMarkdownBodyState
 
   @override
   void dispose() {
+    _scrollSettleTimer?.cancel();
+    _scrollSettleTimer = null;
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -899,6 +1012,9 @@ class _CollapsedFullMarkdownBodyState
       _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
       _contentHeight = null;
       _atBottom = false;
+      _userScrollingPreview = false;
+      _scrollSettleTimer?.cancel();
+      _scrollSettleTimer = null;
     }
     _restoreScrollOffset();
   }
@@ -907,8 +1023,35 @@ class _CollapsedFullMarkdownBodyState
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    _markUserScrollingPreview();
+    final atBottom = _isCollapsedPreviewAtBottom(
+      pos,
+      currentlyAtBottom: _atBottom,
+    );
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
+  }
+
+  void _markUserScrollingPreview() {
+    if (!_userScrollingPreview) {
+      setState(() => _userScrollingPreview = true);
+    }
+    _armScrollSettleTimer();
+  }
+
+  void _armScrollSettleTimer() {
+    _scrollSettleTimer?.cancel();
+    _scrollSettleTimer = startSafeTimer(_collapsedPreviewScrollSettleDelay, () {
+      _scrollSettleTimer = null;
+      if (!mounted) return;
+      if (_scrollController.hasClients &&
+          _scrollController.position.isScrollingNotifier.value) {
+        _armScrollSettleTimer();
+        return;
+      }
+      if (_userScrollingPreview) {
+        setState(() => _userScrollingPreview = false);
+      }
+    });
   }
 
   void _restoreScrollOffset() {
@@ -923,10 +1066,32 @@ class _CollapsedFullMarkdownBodyState
   void _syncAtBottom() {
     if (!mounted || !_scrollController.hasClients) return;
     final pos = _scrollController.position;
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    final atBottom = _isCollapsedPreviewAtBottom(
+      pos,
+      currentlyAtBottom: _atBottom,
+    );
     if (atBottom != _atBottom) {
       setState(() => _atBottom = atBottom);
     }
+  }
+
+  void _handleContentSizeChanged(Size size) {
+    if (!mounted) return;
+    if (_scrollController.hasClients &&
+        _scrollController.position.isScrollingNotifier.value) {
+      _markUserScrollingPreview();
+      return;
+    }
+    if (_userScrollingPreview) {
+      _armScrollSettleTimer();
+      return;
+    }
+    final nextHeight = size.height;
+    final currentHeight = _contentHeight;
+    if (currentHeight != null && (currentHeight - nextHeight).abs() < 0.5) {
+      return;
+    }
+    setState(() => _contentHeight = nextHeight);
   }
 
   @override
@@ -965,16 +1130,7 @@ class _CollapsedFullMarkdownBodyState
                         child: SizedBox(
                           width: constrainedWidth,
                           child: _MeasureSize(
-                            onChange: (size) {
-                              if (!mounted) return;
-                              final nextHeight = size.height;
-                              final currentHeight = _contentHeight;
-                              if (currentHeight != null &&
-                                  (currentHeight - nextHeight).abs() < 0.5) {
-                                return;
-                              }
-                              setState(() => _contentHeight = nextHeight);
-                            },
+                            onChange: _handleContentSizeChanged,
                             child: _SafeMarkdownBody(
                               data: widget.data,
                               selectable: widget.selectable,
@@ -993,30 +1149,10 @@ class _CollapsedFullMarkdownBodyState
                   ),
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: showFade ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: Container(
-                      height: _collapsedMessageFadeHeight,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            widget.fadeColor.withValues(alpha: 0),
-                            widget.fadeColor.withValues(alpha: 1),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _CollapsedPreviewFade(
+                visible: showFade,
+                fadeColor: widget.fadeColor,
+                animate: !_userScrollingPreview,
               ),
             ],
           ),
@@ -1064,15 +1200,23 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   bool _atBottom = false;
   // 用户滚动 Markdown 预览区期间跳过高度变化通知，防止外层视口被拽回底部。
   bool _userScrollingPreview = false;
+  int? _lockedPreviewLength;
+  Timer? _scrollSettleTimer;
 
   String get _scrollStateKey => widget.scrollStateKey ?? widget.parseKey;
 
+  int get _previewDataLength {
+    final data = widget.data.isEmpty ? ' ' : widget.data;
+    final cappedLength = math.min(data.length, _previewCharCap);
+    final lockedLength = _lockedPreviewLength;
+    return lockedLength == null
+        ? cappedLength
+        : math.min(cappedLength, lockedLength);
+  }
+
   String get _effectiveData {
-    final data = widget.data;
-    if (data.length <= _previewCharCap) {
-      return data;
-    }
-    return data.substring(0, _previewCharCap);
+    final data = widget.data.isEmpty ? ' ' : widget.data;
+    return data.substring(0, _previewDataLength);
   }
 
   @override
@@ -1088,6 +1232,8 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
 
   @override
   void dispose() {
+    _scrollSettleTimer?.cancel();
+    _scrollSettleTimer = null;
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -1097,10 +1243,11 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
-    if (!_userScrollingPreview && pos.isScrollingNotifier.value) {
-      _userScrollingPreview = true;
-    }
+    _markUserScrollingPreview();
+    final atBottom = _isCollapsedPreviewAtBottom(
+      pos,
+      currentlyAtBottom: _atBottom,
+    );
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
   }
 
@@ -1109,13 +1256,46 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     super.didUpdateWidget(oldWidget);
     final scrollStateChanged =
         (oldWidget.scrollStateKey ?? oldWidget.parseKey) != _scrollStateKey;
-    if (scrollStateChanged || oldWidget.parseKey != widget.parseKey) {
+    final appendOnlyDataUpdate =
+        widget.data.length >= oldWidget.data.length &&
+        widget.data.startsWith(oldWidget.data);
+    if (scrollStateChanged ||
+        oldWidget.parseKey != widget.parseKey ||
+        !appendOnlyDataUpdate) {
       _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
       _contentHeight = null;
       _atBottom = false;
       _userScrollingPreview = false;
+      _lockedPreviewLength = null;
+      _scrollSettleTimer?.cancel();
+      _scrollSettleTimer = null;
+    } else if (oldWidget.data != widget.data && _atBottom) {
+      _atBottom = false;
     }
     _restoreScrollOffset();
+  }
+
+  void _markUserScrollingPreview() {
+    if (!_userScrollingPreview) {
+      setState(() => _userScrollingPreview = true);
+    }
+    _armScrollSettleTimer();
+  }
+
+  void _armScrollSettleTimer() {
+    _scrollSettleTimer?.cancel();
+    _scrollSettleTimer = startSafeTimer(_collapsedPreviewScrollSettleDelay, () {
+      _scrollSettleTimer = null;
+      if (!mounted) return;
+      if (_scrollController.hasClients &&
+          _scrollController.position.isScrollingNotifier.value) {
+        _armScrollSettleTimer();
+        return;
+      }
+      if (_userScrollingPreview) {
+        setState(() => _userScrollingPreview = false);
+      }
+    });
   }
 
   void _restoreScrollOffset() {
@@ -1130,10 +1310,40 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
   void _syncAtBottom() {
     if (!mounted || !_scrollController.hasClients) return;
     final pos = _scrollController.position;
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+    final atBottom = _isCollapsedPreviewAtBottom(
+      pos,
+      currentlyAtBottom: _atBottom,
+    );
     if (atBottom != _atBottom) {
       setState(() => _atBottom = atBottom);
     }
+  }
+
+  void _handleContentSizeChanged(Size size) {
+    if (!mounted) return;
+    if (_scrollController.hasClients &&
+        _scrollController.position.isScrollingNotifier.value) {
+      _markUserScrollingPreview();
+      return;
+    }
+    if (_userScrollingPreview) {
+      _armScrollSettleTimer();
+      return;
+    }
+    final nextHeight = size.height;
+    final currentHeight = _contentHeight;
+    final nextLockedLength =
+        _lockedPreviewLength ??
+        (nextHeight > widget.maxHeight + 0.5 ? _previewDataLength : null);
+    if (currentHeight != null &&
+        (currentHeight - nextHeight).abs() < 0.5 &&
+        nextLockedLength == _lockedPreviewLength) {
+      return;
+    }
+    setState(() {
+      _contentHeight = nextHeight;
+      _lockedPreviewLength = nextLockedLength;
+    });
   }
 
   @override
@@ -1178,40 +1388,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                         child: SizedBox(
                           width: constrainedWidth,
                           child: _MeasureSize(
-                            onChange: (size) {
-                              if (!mounted) return;
-                              if (_scrollController.hasClients &&
-                                  _scrollController
-                                      .position
-                                      .isScrollingNotifier
-                                      .value) {
-                                return;
-                              }
-                              if (_userScrollingPreview) {
-                                final pos = _scrollController.position;
-                                if (!pos.isScrollingNotifier.value) {
-                                  // 滚动已停止，启动 600ms 宽限期后重置标志
-                                  Future.delayed(
-                                    const Duration(milliseconds: 600),
-                                    () {
-                                      if (mounted) {
-                                        setState(
-                                          () => _userScrollingPreview = false,
-                                        );
-                                      }
-                                    },
-                                  );
-                                }
-                                return;
-                              }
-                              final nextHeight = size.height;
-                              final currentHeight = _contentHeight;
-                              if (currentHeight != null &&
-                                  (currentHeight - nextHeight).abs() < 0.5) {
-                                return;
-                              }
-                              setState(() => _contentHeight = nextHeight);
-                            },
+                            onChange: _handleContentSizeChanged,
                             child: _SafeMarkdownBody(
                               data: _effectiveData,
                               selectable: true,
@@ -1230,30 +1407,10 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
               ),
               // 底部渐隐遮罩：滚到底时 AnimatedOpacity 平滑淡出，
               // 告知用户已无更多预览内容（需展开查看完整正文）。
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: showFade ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: Container(
-                      height: _collapsedMessageFadeHeight,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            widget.fadeColor.withValues(alpha: 0),
-                            widget.fadeColor.withValues(alpha: 1),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _CollapsedPreviewFade(
+                visible: showFade,
+                fadeColor: widget.fadeColor,
+                animate: !_userScrollingPreview,
               ),
             ],
           ),
@@ -3016,38 +3173,10 @@ class _PlainTextMessageBody extends StatefulWidget {
 class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
   late bool _collapsed = _shouldCollapse(widget.data);
   bool _userToggled = false;
-  late final ScrollController _scrollController;
-  bool _atBottom = false;
 
   String get _scrollStateKey =>
       widget.scrollStateKey ??
       'plain-message|${widget.data.length}|${widget.data.hashCode}';
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController(
-      initialScrollOffset:
-          _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
-    );
-    _scrollController.addListener(_onScroll);
-    _restoreScrollOffset();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final pos = _scrollController.position;
-    _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
-    if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
-  }
 
   @override
   void didUpdateWidget(covariant _PlainTextMessageBody oldWidget) {
@@ -3063,12 +3192,10 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
         'plain-message|${oldWidget.data.length}|${oldWidget.data.hashCode}';
     if (oldScrollStateKey != _scrollStateKey) {
       _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
-      _atBottom = false;
     }
     if (!_userToggled && oldWidget.data != widget.data) {
       _collapsed = _shouldCollapse(widget.data);
     }
-    _restoreScrollOffset();
   }
 
   bool _shouldCollapse(String value) {
@@ -3091,41 +3218,12 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     }
     if (widget.collapsedOverride != null) {
       widget.onCollapsedChanged?.call(value);
-      if (value) _scrollPreviewToTop();
       return;
     }
     setState(() {
       _collapsed = value;
       _userToggled = true;
-      if (value) _atBottom = false;
     });
-    if (value) _scrollPreviewToTop();
-  }
-
-  void _scrollPreviewToTop() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _scrollController.hasClients) {
-        _scrollController.jumpTo(0);
-      }
-    });
-  }
-
-  void _restoreScrollOffset() {
-    _restoreCollapsedBodyScrollOffset(
-      state: this,
-      controller: _scrollController,
-      key: _scrollStateKey,
-      onRestored: _syncAtBottom,
-    );
-  }
-
-  void _syncAtBottom() {
-    if (!mounted || !_scrollController.hasClients) return;
-    final pos = _scrollController.position;
-    final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
-    if (atBottom != _atBottom) {
-      setState(() => _atBottom = atBottom);
-    }
   }
 
   @override
@@ -3163,63 +3261,13 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
           context: context,
           collapsed: collapsed,
           child: collapsed
-              ? SizedBox(
-                  height: widget.previewMaxHeight,
-                  child: Stack(
-                    children: [
-                      // 折叠态改为可滚动：用户无需展开即可浏览长文本。
-                      Positioned.fill(
-                        child: ClipRect(
-                          child: ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(
-                              context,
-                            ).copyWith(scrollbars: false),
-                            child: NotificationListener<ScrollNotification>(
-                              onNotification:
-                                  _consumeNestedMessageScrollNotification,
-                              child: SingleChildScrollView(
-                                controller: _scrollController,
-                                primary: false,
-                                physics: openHandDialogAwareScrollPhysics(
-                                  context,
-                                ),
-                                child: SelectableText(
-                                  data,
-                                  style: effectiveStyle,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 底部渐隐遮罩：滚到底时平滑淡出，与 _MarkdownPreviewBody 行为一致。
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: IgnorePointer(
-                          child: AnimatedOpacity(
-                            opacity: _atBottom ? 0.0 : 1.0,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeInOut,
-                            child: Container(
-                              height: _collapsedMessageFadeHeight,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    widget.backgroundColor.withValues(alpha: 0),
-                                    widget.backgroundColor.withValues(alpha: 1),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              ? _PlainTextPreviewBody(
+                  data: data,
+                  maxHeight: widget.previewMaxHeight,
+                  textColor: widget.textColor,
+                  fadeColor: widget.backgroundColor,
+                  style: effectiveStyle,
+                  scrollStateKey: _scrollStateKey,
                 )
               : SelectableText(data, style: effectiveStyle),
         ),

@@ -2961,7 +2961,20 @@ html, body, #root {
   right: 0;
   bottom: 0;
   height: 40px;
+  opacity: 1;
   pointer-events: none;
+  transition: opacity 160ms var(--oh-motion-emphasized);
+}
+.oh-reasoning-collapsible-fade.is-hidden {
+  opacity: 0;
+}
+.oh-reasoning-collapsible-fade.is-scroll-sync {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-reasoning-collapsible-fade {
+    transition: none;
+  }
 }
 
 .oh-message-action-button {

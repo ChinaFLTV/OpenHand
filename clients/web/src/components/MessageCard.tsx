@@ -851,6 +851,9 @@ const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
 const MESSAGE_UI_STATE_CACHE_LIMIT = 500;
 const MESSAGE_CARD_TAP_MAX_MS = 350;
 const MESSAGE_CARD_TAP_MAX_DISTANCE_PX = 8;
+const COLLAPSED_BODY_BOTTOM_ENTER_PX = 2;
+const COLLAPSED_BODY_BOTTOM_EXIT_PX = 10;
+const COLLAPSED_BODY_SCROLL_SETTLE_MS = 180;
 const MESSAGE_CARD_INTERACTIVE_TARGET_SELECTOR = [
   'button',
   'a',
@@ -926,6 +929,18 @@ function rememberCollapsedBodyScrollTop(key: string | undefined, value: number):
 function resetCollapsedBodyScrollTop(key: string | undefined): void {
   if (!key) return;
   rememberCollapsedBodyScrollTop(key, 0);
+}
+
+function isCollapsedBodyAtBottom(
+  element: HTMLElement,
+  currentlyAtBottom: boolean,
+): boolean {
+  const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+  if (maxScrollTop <= COLLAPSED_BODY_BOTTOM_ENTER_PX) return true;
+  const epsilon = currentlyAtBottom
+    ? COLLAPSED_BODY_BOTTOM_EXIT_PX
+    : COLLAPSED_BODY_BOTTOM_ENTER_PX;
+  return element.scrollTop >= maxScrollTop - epsilon;
 }
 
 function stopNestedMessageScrollPropagation(event: Event): void {
@@ -1677,6 +1692,9 @@ function MessageCardImpl({
     : isCollapsibleByBadge
       ? `badge:${message.kind}`
       : `message:${message.role}:${message.kind}`;
+  const collapsedBodyContentKey = activelyStreaming || recentlyUpdatedContent
+    ? 'streaming'
+    : `${visibleContent.length}|${boundedTextHash(visibleContent)}`;
   const collapsedBodyScrollStateKey = scrollableCollapsedBody
     ? [
         message.id,
@@ -1685,8 +1703,7 @@ function MessageCardImpl({
         effectiveFormat,
         showRawContent ? 'raw' : 'rendered',
         showingTranslation ? 'translation' : 'source',
-        visibleContent.length,
-        boundedTextHash(visibleContent),
+        collapsedBodyContentKey,
       ].join('|')
     : undefined;
   const textActionFallbackFormat = textActionContentFormat ?? contentFormat;
@@ -2404,7 +2421,47 @@ function ReasoningCollapsibleBody({
 }) {
   const useCollapsedScroll = collapsed && scrollableCollapsed;
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const scrollSettleTimerRef = useRef<number | null>(null);
+  const [atBottom, setAtBottom] = useState(false);
+  const [scrollingCollapsedBody, setScrollingCollapsedBody] = useState(false);
   const expandedMaxHeight = scrollableCollapsed ? 'none' : '4000px';
+
+  const cancelScrollSettleTimer = useCallback(() => {
+    if (scrollSettleTimerRef.current == null) return;
+    window.clearTimeout(scrollSettleTimerRef.current);
+    scrollSettleTimerRef.current = null;
+  }, []);
+
+  const syncAtBottom = useCallback((element: HTMLDivElement | null = bodyRef.current) => {
+    if (!element || !useCollapsedScroll) {
+      setAtBottom(false);
+      return;
+    }
+    setAtBottom((current) => {
+      const next = isCollapsedBodyAtBottom(element, current);
+      return next === current ? current : next;
+    });
+  }, [useCollapsedScroll]);
+
+  const settleCollapsedScroll = useCallback(() => {
+    cancelScrollSettleTimer();
+    scrollSettleTimerRef.current = window.setTimeout(() => {
+      scrollSettleTimerRef.current = null;
+      setScrollingCollapsedBody(false);
+      syncAtBottom();
+    }, COLLAPSED_BODY_SCROLL_SETTLE_MS);
+  }, [cancelScrollSettleTimer, syncAtBottom]);
+
+  useEffect(() => {
+    if (!useCollapsedScroll) {
+      cancelScrollSettleTimer();
+      setScrollingCollapsedBody(false);
+      setAtBottom(false);
+      return;
+    }
+    syncAtBottom();
+    return cancelScrollSettleTimer;
+  }, [cancelScrollSettleTimer, scrollStateKey, syncAtBottom, useCollapsedScroll]);
 
   useLayoutEffect(() => {
     if (!useCollapsedScroll || !scrollStateKey) return;
@@ -2418,11 +2475,12 @@ function ReasoningCollapsibleBody({
       if (Math.abs(element.scrollTop - next) > 1) {
         element.scrollTop = next;
       }
+      syncAtBottom(element);
     };
     restore();
     const raf = window.requestAnimationFrame(restore);
     return () => window.cancelAnimationFrame(raf);
-  }, [children, previewMaxHeight, scrollStateKey, useCollapsedScroll]);
+  }, [children, previewMaxHeight, scrollStateKey, syncAtBottom, useCollapsedScroll]);
 
   const handleScroll = useCallback((event: Event) => {
     stopNestedMessageScrollPropagation(event);
@@ -2430,7 +2488,13 @@ function ReasoningCollapsibleBody({
     const target = event.currentTarget as HTMLDivElement | null;
     if (!target) return;
     rememberCollapsedBodyScrollTop(scrollStateKey, target.scrollTop);
-  }, [scrollStateKey, useCollapsedScroll]);
+    setScrollingCollapsedBody(true);
+    setAtBottom((current) => {
+      const next = isCollapsedBodyAtBottom(target, current);
+      return next === current ? current : next;
+    });
+    settleCollapsedScroll();
+  }, [scrollStateKey, settleCollapsedScroll, useCollapsedScroll]);
 
   // 折叠态设置 max-height；正式响应展开态不设人为上限，避免极长正文被裁剪。
   // 底部渐隐用 overlay 而不是 mask-image，避免和流式文本 reveal 的 inline
@@ -2457,7 +2521,7 @@ function ReasoningCollapsibleBody({
       {children}
       {collapsed ? (
         <div
-          class="oh-reasoning-collapsible-fade"
+          class={`oh-reasoning-collapsible-fade${atBottom ? ' is-hidden' : ''}${scrollingCollapsedBody ? ' is-scroll-sync' : ''}`}
           aria-hidden="true"
           style={{
             background: `linear-gradient(to bottom, transparent, ${fadeBackground})`,
