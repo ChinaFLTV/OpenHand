@@ -128,9 +128,11 @@ class _ComposerPanel extends StatefulWidget {
     required this.editingMessageId,
     required this.onCancelEditing,
     required this.queuedMessages,
+    required this.queuedGuidanceInProgress,
     required this.onRemoveQueuedMessage,
     required this.onMoveQueuedMessage,
     required this.onEditQueuedMessage,
+    required this.onGuideQueuedMessage,
     this.projectRoot,
     this.onStateCreated,
     this.onStateDisposed,
@@ -175,9 +177,11 @@ class _ComposerPanel extends StatefulWidget {
   final String? editingMessageId;
   final Future<void> Function() onCancelEditing;
   final List<_QueuedMessage> queuedMessages;
+  final bool queuedGuidanceInProgress;
   final ValueChanged<int> onRemoveQueuedMessage;
   final void Function(int from, int to) onMoveQueuedMessage;
   final void Function(int index, String newText) onEditQueuedMessage;
+  final ValueChanged<int> onGuideQueuedMessage;
   final String? projectRoot;
   final ValueChanged<_ComposerPanelState>? onStateCreated;
   final ValueChanged<_ComposerPanelState>? onStateDisposed;
@@ -1448,8 +1452,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               final msg = widget.queuedMessages[index];
               final isFirst = index == 0;
               final isLast = index == widget.queuedMessages.length - 1;
+              final queueActionsLocked = widget.queuedGuidanceInProgress;
+              final actionBaseColor = Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant;
+              Color actionColor(bool enabled) => enabled
+                  ? actionBaseColor
+                  : actionBaseColor.withValues(alpha: 0.3);
               return AnimatedRemovableChip(
-                key: ValueKey<String>('queued:$index:${identityHashCode(msg)}'),
+                key: ValueKey<String>('queued:${msg.id}'),
                 settings: chipAnim,
                 collapseAxis: Axis.vertical,
                 onRemove: () => widget.onRemoveQueuedMessage(index),
@@ -1520,9 +1531,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         // 140ms ease-out rebound on tap. Honors
                         // reduceMotion via the wrapper.
                         MicroPressFeedback(
-                          enabled: !isFirst,
+                          enabled: !isFirst && !queueActionsLocked,
                           child: IconButton(
-                            onPressed: isFirst
+                            onPressed: isFirst || queueActionsLocked
                                 ? null
                                 : () => widget.onMoveQueuedMessage(
                                     index,
@@ -1531,14 +1542,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             icon: Icon(
                               Icons.arrow_upward_rounded,
                               size: 14,
-                              color: isFirst
-                                  ? Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant
-                                        .withValues(alpha: 0.3)
-                                  : Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                              color: actionColor(
+                                !isFirst && !queueActionsLocked,
+                              ),
                             ),
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -1552,9 +1558,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         ),
                         const SizedBox(width: 4),
                         MicroPressFeedback(
-                          enabled: !isLast,
+                          enabled: !isLast && !queueActionsLocked,
                           child: IconButton(
-                            onPressed: isLast
+                            onPressed: isLast || queueActionsLocked
                                 ? null
                                 : () => widget.onMoveQueuedMessage(
                                     index,
@@ -1563,14 +1569,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             icon: Icon(
                               Icons.arrow_downward_rounded,
                               size: 14,
-                              color: isLast
-                                  ? Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant
-                                        .withValues(alpha: 0.3)
-                                  : Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                              color: actionColor(
+                                !isLast && !queueActionsLocked,
+                              ),
                             ),
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -1584,22 +1585,25 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         ),
                         const SizedBox(width: 4),
                         MicroPressFeedback(
+                          enabled: !queueActionsLocked,
                           child: IconButton(
-                            onPressed: () async {
-                              final edited = await _showEditQueuedMessageDialog(
-                                context,
-                                msg.text,
-                              );
-                              if (edited != null && edited.trim().isNotEmpty) {
-                                widget.onEditQueuedMessage(index, edited);
-                              }
-                            },
+                            onPressed: queueActionsLocked
+                                ? null
+                                : () async {
+                                    final edited =
+                                        await _showEditQueuedMessageDialog(
+                                          context,
+                                          msg.text,
+                                        );
+                                    if (edited != null &&
+                                        edited.trim().isNotEmpty) {
+                                      widget.onEditQueuedMessage(index, edited);
+                                    }
+                                  },
                             icon: Icon(
                               Icons.edit_outlined,
                               size: 14,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                              color: actionColor(!queueActionsLocked),
                             ),
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -1613,14 +1617,37 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         ),
                         const SizedBox(width: 4),
                         MicroPressFeedback(
+                          enabled: !queueActionsLocked,
                           child: IconButton(
-                            onPressed: requestRemove,
+                            onPressed: queueActionsLocked
+                                ? null
+                                : () => widget.onGuideQueuedMessage(index),
+                            icon: Icon(
+                              Icons.lightbulb_outline_rounded,
+                              size: 14,
+                              color: actionColor(!queueActionsLocked),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: _localizedText(
+                              context,
+                              zh: '指导发送此等待消息',
+                              en: 'Send this queued message as guidance',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        MicroPressFeedback(
+                          enabled: !queueActionsLocked,
+                          child: IconButton(
+                            onPressed: queueActionsLocked
+                                ? null
+                                : requestRemove,
                             icon: Icon(
                               Icons.close_rounded,
                               size: 14,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                              color: actionColor(!queueActionsLocked),
                             ),
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,

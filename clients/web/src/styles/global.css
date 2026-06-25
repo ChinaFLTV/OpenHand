@@ -3608,6 +3608,10 @@ button.oh-composer-pill:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant));
   background: color-mix(in srgb, var(--m3-primary-container) 54%, var(--m3-surface));
 }
+.oh-queued-message-row.is-guiding {
+  border-color: color-mix(in srgb, var(--m3-tertiary) 58%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-tertiary-container) 62%, var(--m3-surface));
+}
 .oh-queued-message-row.is-exiting {
   overflow: hidden;
   animation: oh-queued-message-out 190ms var(--oh-motion-emphasized) both;
@@ -3682,6 +3686,11 @@ button.oh-composer-pill:not(:disabled):hover {
   background: color-mix(in srgb, var(--m3-primary) 9%, var(--m3-surface));
   color: var(--m3-primary);
   transform: translateY(-1px) scale(1.04);
+}
+.oh-queued-message-icon-action.is-guide:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--m3-tertiary) 52%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-tertiary) 12%, var(--m3-surface));
+  color: var(--m3-tertiary);
 }
 .oh-queued-message-icon-action.is-danger:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--m3-error) 48%, var(--m3-outline-variant));

@@ -61,9 +61,11 @@ class _WorkspaceView extends StatelessWidget {
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
     required this.queuedMessages,
+    required this.queuedGuidanceInProgress,
     required this.onRemoveQueuedMessage,
     required this.onMoveQueuedMessage,
     required this.onEditQueuedMessage,
+    required this.onGuideQueuedMessage,
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
@@ -139,9 +141,11 @@ class _WorkspaceView extends StatelessWidget {
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
   final List<_QueuedMessage> queuedMessages;
+  final bool queuedGuidanceInProgress;
   final ValueChanged<int> onRemoveQueuedMessage;
   final void Function(int from, int to) onMoveQueuedMessage;
   final void Function(int index, String newText) onEditQueuedMessage;
+  final ValueChanged<int> onGuideQueuedMessage;
   // When true, the message list widget will immediately jump to the bottom
   // on its first frame instead of relying on the parent's scroll scheduler.
   final bool jumpToBottomOnInit;
@@ -391,9 +395,11 @@ class _WorkspaceView extends StatelessWidget {
                       onToggleFullAccessPermission:
                           onToggleFullAccessPermission,
                       queuedMessages: queuedMessages,
+                      queuedGuidanceInProgress: queuedGuidanceInProgress,
                       onRemoveQueuedMessage: onRemoveQueuedMessage,
                       onMoveQueuedMessage: onMoveQueuedMessage,
                       onEditQueuedMessage: onEditQueuedMessage,
+                      onGuideQueuedMessage: onGuideQueuedMessage,
                       projectRoot: projectRoot,
                     ),
                   ),

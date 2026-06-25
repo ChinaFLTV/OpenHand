@@ -14,6 +14,7 @@ class _ComposerDraftState {
 
 class _QueuedMessage {
   const _QueuedMessage({
+    required this.id,
     required this.text,
     required this.attachments,
     this.creationRequest = AiCreationRequest.none,
@@ -21,12 +22,15 @@ class _QueuedMessage {
     this.skillMetadata,
   });
 
+  final String id;
   final String text;
   final List<_ComposerAttachmentDraft> attachments;
   final AiCreationRequest creationRequest;
   final List<String> systemReminders;
   final Map<String, Object?>? skillMetadata;
 }
+
+enum _SubmitTextOutcome { submitted, stoppedBeforeSubmit, failedBeforeSubmit }
 
 extension on AppSection {
   /// Returns the drawer index for this section, or -1 if this section

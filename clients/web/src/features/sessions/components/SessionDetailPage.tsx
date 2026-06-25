@@ -663,7 +663,7 @@ function sessionModeLabel(mode: string): string {
   return mode === 'plan' ? t('sessions.mode.plan', '计划模式') : t('sessions.mode.chat', '聊天模式');
 }
 
-type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'image' | 'model' | 'mode' | 'plan' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video' | 'follow';
+type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'guide' | 'image' | 'model' | 'mode' | 'plan' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
 
 function sessionModeIconName(mode: string): ComposerIconName {
   return mode === 'plan' ? 'plan' : 'chat';
@@ -760,6 +760,14 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
       return (
         <svg {...common}>
           <path {...stroke} d="M12 5v10M8 11l4 4 4-4M5 19h14" />
+        </svg>
+      );
+    case 'guide':
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M9 18h6M10 22h4" />
+          <path {...stroke} d="M8.2 14.4a6 6 0 1 1 7.6 0c-.8.6-1.1 1.4-1.2 2.6H9.4c-.1-1.2-.4-2-1.2-2.6z" />
+          <path {...stroke} d="M12 7.5V11l2 1.2" />
         </svg>
       );
     case 'refresh':
@@ -1441,6 +1449,7 @@ export function SessionDetailPage() {
   const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(null);
   const [queuedEditText, setQueuedEditText] = useState('');
   const [queueDispatchingId, setQueueDispatchingId] = useState<string | null>(null);
+  const [queueGuidanceDispatchingId, setQueueGuidanceDispatchingId] = useState<string | null>(null);
   const [queuedListMotionGeneration, setQueuedListMotionGeneration] = useState(0);
   const [stopping, setStopping] = useState<boolean>(false);
   const [composerCollapsed, setComposerCollapsed] = useState(readPersistedComposerCollapsed);
@@ -1498,6 +1507,8 @@ export function SessionDetailPage() {
   const queuedComposerMessagesRef = useRef<QueuedComposerMessage[]>([]);
   const queuedMessageSeqRef = useRef(0);
   const queueDispatchingRef = useRef(false);
+  const queueGuidanceDispatchingRef = useRef(false);
+  const blockedQueuedMessageIdRef = useRef<string | null>(null);
   const composerAttachmentIdsRef = useRef<string[]>([]);
   const attachmentIdSeqRef = useRef(0);
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
@@ -1585,11 +1596,14 @@ export function SessionDetailPage() {
       .then((result) => applyTtsPlayback(result.playback))
       .catch(() => undefined);
     queueDispatchingRef.current = false;
+    queueGuidanceDispatchingRef.current = false;
+    blockedQueuedMessageIdRef.current = null;
     setQueuedComposerMessages([]);
     setExitingQueuedMessageIds([]);
     setEditingQueuedMessageId(null);
     setQueuedEditText('');
     setQueueDispatchingId(null);
+    setQueueGuidanceDispatchingId(null);
     setComposerSending(false);
     setStopping(false);
     setPendingDeleteAction(null);
@@ -1713,6 +1727,16 @@ export function SessionDetailPage() {
 
   function queuedMessageIsExiting(id: string): boolean {
     return exitingQueuedMessageIds.includes(id);
+  }
+
+  function blockQueuedMessageRetry(id: string): void {
+    blockedQueuedMessageIdRef.current = id;
+  }
+
+  function clearQueuedMessageRetryBlock(id?: string): void {
+    if (!id || blockedQueuedMessageIdRef.current === id) {
+      blockedQueuedMessageIdRef.current = null;
+    }
   }
 
   function runAfterComposerChipExit(key: string, action: () => void): void {
@@ -3085,6 +3109,7 @@ export function SessionDetailPage() {
       skippedInstructionIds: Array.from(skippedInstructionIds),
       createdAt: Date.now(),
     };
+    clearQueuedMessageRetryBlock();
     setQueuedComposerMessages((prev) => [...prev, queued]);
     setQueuedListMotionGeneration((value) => value + 1);
     setComposerError(null);
@@ -3096,6 +3121,7 @@ export function SessionDetailPage() {
   function removeQueuedMessage(id: string): void {
     if (queueDispatchingId === id || queuedMessageIsExiting(id)) return;
     runAfterQueuedMessageExit(id, () => {
+      clearQueuedMessageRetryBlock(id);
       setQueuedComposerMessages((prev) => prev.filter((item) => item.id !== id));
       setQueuedListMotionGeneration((value) => value + 1);
       if (editingQueuedMessageId === id) {
@@ -3106,6 +3132,7 @@ export function SessionDetailPage() {
   }
 
   function moveQueuedMessage(from: number, to: number): void {
+    clearQueuedMessageRetryBlock();
     setQueuedComposerMessages((prev) => {
       if (from < 0 || from >= prev.length || to < 0 || to >= prev.length || from === to) return prev;
       const next = [...prev];
@@ -3126,27 +3153,36 @@ export function SessionDetailPage() {
   function saveQueuedMessageEdit(id: string): void {
     const trimmed = queuedEditText.trim();
     if (!trimmed) return;
+    clearQueuedMessageRetryBlock(id);
     setQueuedComposerMessages((prev) => prev.map((item) => (item.id === id ? { ...item, content: trimmed } : item)));
     setEditingQueuedMessageId(null);
     setQueuedEditText('');
     setQueuedListMotionGeneration((value) => value + 1);
   }
 
-  async function dispatchNextQueuedMessage(): Promise<void> {
-    if (queueDispatchingRef.current || composerSending || isRunningPhase(sendPhase)) return;
-    const next = queuedComposerMessagesRef.current[0];
-    if (!next) return;
+  function removeQueuedMessageAfterSend(id: string): void {
+    clearQueuedMessageRetryBlock(id);
+    runAfterQueuedMessageExit(id, () => {
+      setQueuedComposerMessages((prev) => (prev[0]?.id === id ? prev.slice(1) : prev.filter((item) => item.id !== id)));
+      setQueuedListMotionGeneration((value) => value + 1);
+      if (editingQueuedMessageId === id) {
+        setEditingQueuedMessageId(null);
+        setQueuedEditText('');
+      }
+    });
+  }
+
+  async function sendQueuedComposerMessage(next: QueuedComposerMessage): Promise<boolean> {
     const queuedModel = allowedModels.find((model) => model.key === next.modelKey);
     const validation = validateComposerPayload(next.content, next.attachments, next.modelKey, next.mode, queuedModel);
     if (validation) {
+      blockQueuedMessageRetry(next.id);
       setComposerError(validation);
-      return;
+      return false;
     }
-    queueDispatchingRef.current = true;
-    setQueueDispatchingId(next.id);
+    const dispatchSessionId = sessionId;
     setComposerError(null);
     lastLocalSendAtRef.current = Date.now();
-    const dispatchSessionId = sessionId;
     try {
       const res = await sendMessage(dispatchSessionId, {
         content: next.content,
@@ -3156,38 +3192,93 @@ export function SessionDetailPage() {
         selectedSkill: next.selectedSkill,
         skippedInstructionIds: next.skippedInstructionIds,
       });
-      if (!ownsSessionAsyncResult(dispatchSessionId)) return;
-      setQueuedComposerMessages((prev) => (prev[0]?.id === next.id ? prev.slice(1) : prev.filter((item) => item.id !== next.id)));
-      setQueuedListMotionGeneration((value) => value + 1);
+      if (!ownsSessionAsyncResult(dispatchSessionId)) return false;
+      removeQueuedMessageAfterSend(next.id);
       updateSendPhaseValue(res.send_phase || 'sendingMessage');
       if (!sseLive) void refresh();
       if (shouldWatchAutoTitleAfterSend(next.content)) scheduleAutoTitleFollowUp();
+      return true;
     } catch (e: unknown) {
-      if (!ownsSessionAsyncResult(dispatchSessionId)) return;
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
+      if (!ownsSessionAsyncResult(dispatchSessionId)) return false;
+      if (handleAuthError(e)) return false;
+      if (handleSessionGoneError(e)) return false;
+      blockQueuedMessageRetry(next.id);
       if (e instanceof ApiError) {
         const body = e.body as { error?: string; message?: string } | null;
         setComposerError(body?.message || t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') + String(e.status) + (body?.error ? ` (${body.error})` : ''));
       } else {
         setComposerError(t('composer.queue.sendFailed', '等待队列发送失败：HTTP ') + (e instanceof Error ? e.message : String(e)));
       }
+      return false;
+    }
+  }
+
+  async function dispatchNextQueuedMessage(): Promise<void> {
+    if (queueDispatchingRef.current || queueGuidanceDispatchingRef.current || composerSending || isRunningPhase(sendPhase)) return;
+    const next = queuedComposerMessagesRef.current[0];
+    if (!next) return;
+    if (blockedQueuedMessageIdRef.current === next.id) {
+      return;
+    }
+    queueDispatchingRef.current = true;
+    setQueueDispatchingId(next.id);
+    try {
+      await sendQueuedComposerMessage(next);
     } finally {
-      if (ownsSessionAsyncResult(dispatchSessionId)) {
-        queueDispatchingRef.current = false;
-        setQueueDispatchingId(null);
+      queueDispatchingRef.current = false;
+      setQueueDispatchingId(null);
+    }
+  }
+
+  async function guideQueuedMessage(id: string): Promise<void> {
+    if (queueGuidanceDispatchingRef.current || queueDispatchingRef.current || composerSending || stopping) return;
+    const next = queuedComposerMessagesRef.current.find((item) => item.id === id);
+    if (!next) return;
+    queueGuidanceDispatchingRef.current = true;
+    setQueueGuidanceDispatchingId(id);
+    clearQueuedMessageRetryBlock(id);
+    setComposerError(null);
+    const requestSessionId = sessionId;
+    try {
+      if (isRunningPhase(sendPhase)) {
+        const previousSendPhase = sendPhase;
+        setStopping(true);
+        updateSendPhaseValue('idle');
+        try {
+          const res = await stopMessage(requestSessionId);
+          if (!ownsSessionAsyncResult(requestSessionId)) return;
+          updateSendPhaseValue(res.send_phase || 'idle');
+          if (!sseLive) void refresh();
+        } catch (e: unknown) {
+          if (!ownsSessionAsyncResult(requestSessionId)) return;
+          if (handleAuthError(e)) return;
+          if (handleSessionGoneError(e)) return;
+          updateSendPhaseValue(previousSendPhase || 'responding');
+          updateLastErrorValue(e instanceof Error ? e.message : String(e));
+          return;
+        } finally {
+          if (ownsSessionAsyncResult(requestSessionId)) {
+            setStopping(false);
+          }
+        }
+      }
+      await sendQueuedComposerMessage(next);
+    } finally {
+      queueGuidanceDispatchingRef.current = false;
+      if (mountedRef.current) {
+        setQueueGuidanceDispatchingId(null);
       }
     }
   }
 
   useEffect(() => {
     if (!sessionId || queuedComposerMessages.length === 0) return;
-    if (composerSending || queueDispatchingRef.current || isRunningPhase(sendPhase)) return;
+    if (composerSending || queueDispatchingRef.current || queueGuidanceDispatchingRef.current || isRunningPhase(sendPhase)) return;
     const timer = window.setTimeout(() => {
       void dispatchNextQueuedMessage();
     }, QUEUE_SEND_SETTLE_MS);
     return () => window.clearTimeout(timer);
-  }, [sessionId, queuedComposerMessages, sendPhase, composerSending, allowedModels, allowedMessageTypes, textAllowed, sseLive]);
+  }, [sessionId, queuedComposerMessages, sendPhase, composerSending, queueGuidanceDispatchingId, allowedModels, allowedMessageTypes, textAllowed, sseLive]);
 
   useEffect(() => {
     if (allowedModels.length === 0) return;
@@ -4673,9 +4764,12 @@ export function SessionDetailPage() {
                   {queuedComposerMessages.map((item, index) => {
                     const isEditingQueued = editingQueuedMessageId === item.id;
                     const isDispatchingQueued = queueDispatchingId === item.id;
+                    const isGuidingQueued = queueGuidanceDispatchingId === item.id;
+                    const queueGuidanceBusy = queueGuidanceDispatchingId !== null;
+                    const queueActionsLocked = queueGuidanceBusy || isDispatchingQueued;
                     const queueKey = `${item.id}-${queuedListMotionGeneration}`;
                     return (
-                      <li key={queueKey} class={`oh-queued-message-row ${queuedMessageIsExiting(item.id) ? 'is-exiting' : ''} ${isDispatchingQueued ? 'is-dispatching' : ''}`}>
+                      <li key={queueKey} class={`oh-queued-message-row ${queuedMessageIsExiting(item.id) ? 'is-exiting' : ''} ${isDispatchingQueued ? 'is-dispatching' : ''} ${isGuidingQueued ? 'is-guiding' : ''}`}>
                         <div class="oh-queued-message-index">{index + 1}</div>
                         <div class="oh-queued-message-main">
                           {isEditingQueued ? (
@@ -4710,21 +4804,27 @@ export function SessionDetailPage() {
                                   </span>
                                 ) : null}
                                 {isDispatchingQueued ? <span>{t('composer.queue.sending', '正在自动发送')}</span> : null}
+                                {isGuidingQueued ? <span>{t('composer.queue.guiding', '正在指导发送')}</span> : null}
                               </div>
                             </>
                           )}
                         </div>
                         <div class="oh-queued-message-actions">
-                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => moveQueuedMessage(index, index - 1)} disabled={index === 0 || isDispatchingQueued} title={t('composer.queue.moveUp', '上移')} aria-label={t('composer.queue.moveUp', '上移')}>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => moveQueuedMessage(index, index - 1)} disabled={index === 0 || queueActionsLocked} title={t('composer.queue.moveUp', '上移')} aria-label={t('composer.queue.moveUp', '上移')}>
                             <ComposerIcon name="chevronUp" size={15} />
                           </button>
-                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => moveQueuedMessage(index, index + 1)} disabled={index >= queuedComposerMessages.length - 1 || isDispatchingQueued} title={t('composer.queue.moveDown', '下移')} aria-label={t('composer.queue.moveDown', '下移')}>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => moveQueuedMessage(index, index + 1)} disabled={index >= queuedComposerMessages.length - 1 || queueActionsLocked} title={t('composer.queue.moveDown', '下移')} aria-label={t('composer.queue.moveDown', '下移')}>
                             <ComposerIcon name="chevronDown" size={15} />
                           </button>
-                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => startEditQueuedMessage(item)} disabled={isDispatchingQueued} title={t('composer.queue.edit', '编辑')} aria-label={t('composer.queue.edit', '编辑')}>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action" onClick={() => startEditQueuedMessage(item)} disabled={queueActionsLocked} title={t('composer.queue.edit', '编辑')} aria-label={t('composer.queue.edit', '编辑')}>
                             <ComposerIcon name="edit" size={15} />
                           </button>
-                          <button type="button" class="oh-tap-press oh-queued-message-icon-action is-danger" onClick={() => removeQueuedMessage(item.id)} disabled={isDispatchingQueued} title={t('composer.queue.remove', '删除')} aria-label={t('composer.queue.remove', '删除')}>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action is-guide" onClick={() => void guideQueuedMessage(item.id)} disabled={queueGuidanceBusy || queueDispatchingId !== null || composerSending || stopping} title={t('composer.queue.guide', '指导')} aria-label={t('composer.queue.guide', '指导')}>
+                            <span class={isGuidingQueued ? 'oh-spin' : undefined}>
+                              <ComposerIcon name={isGuidingQueued ? 'refresh' : 'guide'} size={15} />
+                            </span>
+                          </button>
+                          <button type="button" class="oh-tap-press oh-queued-message-icon-action is-danger" onClick={() => removeQueuedMessage(item.id)} disabled={queueActionsLocked} title={t('composer.queue.remove', '删除')} aria-label={t('composer.queue.remove', '删除')}>
                             <ComposerIcon name="close" size={15} />
                           </button>
                         </div>
