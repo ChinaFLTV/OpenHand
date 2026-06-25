@@ -5106,14 +5106,22 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
   );
 }
 
-function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailResponse; onClose: () => void }) {
-  const [trendDisplayMode, setTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
-  const { closing, requestClose } = useDialogExitMotion(onClose);
-  const session = detail.session;
-  const stats = session.statistics ?? {};
+interface SessionTokenStatsViewModel {
+  promptTokens: number;
+  completionTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+  totalMessageCount: number;
+  promptBuildCount: number;
+  totalPromptCharacters: number;
+  cacheHit: SessionCacheHitDisplay;
+}
+
+function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenStatsViewModel {
+  const stats = recordFromUnknown(session.statistics);
   const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
   const firstPrompt = readStatNumber(stats['first_prompt_tokens'], 0);
-  const promptTokens = Math.max(0, promptTokensTotal - firstPrompt);
+  const promptTokens = Math.max(0, Math.min(promptTokensTotal, promptTokensTotal - firstPrompt));
   const completionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens);
   const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
   const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? promptTokensTotal + completionTokens);
@@ -5123,7 +5131,38 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
   // 2026-06-08 — WEB 端纯只读：缓存命中率 / 走势数据均从后端 metadata
   // 实时取得，不做任何客户端计算。后端 _patchedStatistics 保证不存在 stale
   // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
-  const cacheHit = buildSessionCacheHitDisplay(session, stats as Record<string, unknown>);
+  const cacheHit = buildSessionCacheHitDisplay(session, stats);
+  return {
+    promptTokens,
+    completionTokens,
+    reasoningTokens,
+    totalTokens,
+    totalMessageCount,
+    promptBuildCount,
+    totalPromptCharacters,
+    cacheHit,
+  };
+}
+
+function SessionTokenStatsContent({
+  stats,
+  trendDisplayMode,
+  onTrendDisplayModeChange,
+}: {
+  stats: SessionTokenStatsViewModel;
+  trendDisplayMode: CacheHitDisplayMode;
+  onTrendDisplayModeChange: (mode: CacheHitDisplayMode) => void;
+}) {
+  const {
+    promptTokens,
+    completionTokens,
+    reasoningTokens,
+    totalTokens,
+    totalMessageCount,
+    promptBuildCount,
+    totalPromptCharacters,
+    cacheHit,
+  } = stats;
   const {
     cacheReadTokens,
     cacheWriteTokens,
@@ -5137,6 +5176,52 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
   // Stacked-bar weights (read / write / unCached prompt)。与 APP 端
   // _CacheHitBar 同口径：使用 backend 预计算的 cacheHitRatio（由
   // SessionCacheHitTrend.displayData 生成），而非客户端聚合公式。
+  return (
+    <>
+      <TokenStatsSection title={t('tokenPopup.input', '输入')}>
+        <TokenStatsRow label={t('tokenPopup.prompt', 'Prompt')} value={promptTokens} />
+        <TokenStatsRow label={t('tokenPopup.cacheRead', 'Cache 命中')} value={cacheReadTokens} tone="success" />
+        <TokenStatsRow label={t('tokenPopup.cacheWrite', 'Cache 写入')} value={cacheWriteTokens} tone="success" />
+      </TokenStatsSection>
+      <TokenStatsSection title={t('tokenPopup.output', '输出')}>
+        <TokenStatsRow label={t('tokenPopup.completion', 'Completion')} value={completionTokens} />
+        {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', 'Reasoning')} value={reasoningTokens} tone="reasoning" /> : null}
+      </TokenStatsSection>
+      <div
+        class="rounded-m3-md px-3 py-2.5"
+        style={{
+          background: 'var(--m3-primary-container)',
+          color: 'var(--m3-on-primary-container)',
+          border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
+        }}
+      >
+        <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
+        {cacheHit.hasCacheHitMetrics ? (
+          <>
+            <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
+            <CacheHitBar readWeight={readWeight} writeWeight={writeWeight} missWeight={missWeight} />
+            {trendData && trendData.points.length > 0 ? (
+              <div style={{ marginTop: '8px' }}>
+                <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={onTrendDisplayModeChange} t={t} />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+      <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
+        <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
+        <TokenStatsRow label={t('tokenPopup.promptBuilds', 'Prompt 构建')} value={promptBuildCount} />
+        <TokenStatsRow label={t('tokenPopup.promptChars', 'Prompt 字符')} value={totalPromptCharacters} />
+      </TokenStatsSection>
+    </>
+  );
+}
+
+function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailResponse; onClose: () => void }) {
+  const [trendDisplayMode, setTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  const session = detail.session;
+  const tokenStats = useMemo(() => buildSessionTokenStatsViewModel(session), [session]);
   return (
     <DialogFrame
       closing={closing}
@@ -5170,44 +5255,7 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
         </button>
       </header>
       <div class="space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-        <TokenStatsSection title={t('tokenPopup.input', '输入')}>
-          <TokenStatsRow label={t('tokenPopup.prompt', 'Prompt')} value={promptTokens} />
-          <TokenStatsRow label={t('tokenPopup.cacheRead', 'Cache 命中')} value={cacheReadTokens} tone="success" />
-          <TokenStatsRow label={t('tokenPopup.cacheWrite', 'Cache 写入')} value={cacheWriteTokens} tone="success" />
-        </TokenStatsSection>
-        <TokenStatsSection title={t('tokenPopup.output', '输出')}>
-          <TokenStatsRow label={t('tokenPopup.completion', 'Completion')} value={completionTokens} />
-          {reasoningTokens > 0 ? <TokenStatsRow label={t('tokenPopup.reasoning', 'Reasoning')} value={reasoningTokens} tone="reasoning" /> : null}
-        </TokenStatsSection>
-        <div
-          class="rounded-m3-md px-3 py-2.5"
-          style={{
-            background: 'var(--m3-primary-container)',
-            color: 'var(--m3-on-primary-container)',
-            border: '1px solid color-mix(in srgb, var(--m3-primary) 34%, transparent)',
-          }}
-        >
-          <TokenStatsRow label={t('tokenPopup.total', '总计')} value={totalTokens} emphasized />
-          {cacheHit.hasCacheHitMetrics ? (
-            <>
-              <TokenStatsRow label={t('tokenPopup.cacheHit', '缓存命中率')} value={cacheHitRatio} suffix="%" tone="success" />
-              <CacheHitBar readWeight={readWeight} writeWeight={writeWeight} missWeight={missWeight} />
-              {(() => {
-                if (!trendData || trendData.points.length === 0) return null;
-                return (
-                  <div style={{ marginTop: '8px' }}>
-                    <CacheHitTrendChart points={trendData.points} averageRatio={trendData.averageRatio} claudeStyle={claudeStyle} height={136} displayMode={trendDisplayMode} onDisplayModeChange={setTrendDisplayMode} t={t} />
-                  </div>
-                );
-              })()}
-            </>
-          ) : null}
-        </div>
-        <TokenStatsSection title={t('tokenPopup.session', '会话累计')}>
-          <TokenStatsRow label={t('tokenPopup.messages', '消息总数')} value={totalMessageCount} />
-          <TokenStatsRow label={t('tokenPopup.promptBuilds', 'Prompt 构建')} value={promptBuildCount} />
-          <TokenStatsRow label={t('tokenPopup.promptChars', 'Prompt 字符')} value={totalPromptCharacters} />
-        </TokenStatsSection>
+        <SessionTokenStatsContent stats={tokenStats} trendDisplayMode={trendDisplayMode} onTrendDisplayModeChange={setTrendDisplayMode} />
       </div>
     </DialogFrame>
   );
@@ -5293,6 +5341,8 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
   const cumulativePromptTokens = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens ?? 0);
   const cumulativeCompletionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens ?? 0);
   const cumulativeTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? cumulativePromptTokens + cumulativeCompletionTokens);
+  const tokenStats = useMemo(() => buildSessionTokenStatsViewModel(session), [session]);
+  const [contextTrendDisplayMode, setContextTrendDisplayMode] = useState<CacheHitDisplayMode>('excludeExtremeMisses');
 
   const [busy, setBusy] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
@@ -5378,12 +5428,18 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
         overlayTone: 'soft',
-        panelClassName: 'w-full max-w-md rounded-m3-xl p-5',
+        panelClassName: 'w-full max-w-xl rounded-m3-xl p-0 flex flex-col overflow-hidden',
+        panelSurface: {
+          maxHeight: 'min(820px, calc(100vh - 32px))',
+        },
       })}
       ariaLabel={t('contextStats.title', '上下文使用情况')}
     >
-      <header class="mb-4 flex items-start justify-between gap-3">
-        <div class="min-w-0">
+      <header
+        class="flex shrink-0 flex-wrap items-start justify-between gap-3 px-5 py-4"
+        style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}
+      >
+        <div class="min-w-0 flex-1">
           <h2 class="text-base font-semibold">{t('contextStats.title', '上下文使用情况')}</h2>
           <p class="mt-0.5 truncate text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {session.title || t('sessions.untitled', '未命名会话')}
@@ -5391,37 +5447,31 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
         </div>
         <button
           type="button"
-          class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
+          class={`oh-tap-press oh-dialog-action-button${busy ? ' opacity-60' : ''}`}
           style={{
             color: 'var(--m3-on-surface-variant)',
-            background: 'transparent',
+            background: 'var(--m3-surface-container-high)',
+            border: '1px solid var(--m3-outline-variant)',
+            cursor: busy ? 'not-allowed' : 'pointer',
           }}
           onClick={requestClose}
           disabled={busy}
         >
-          {t('common.close', '关闭')}
+          <ComposerIcon name="close" size={14} />
+          <span>{t('common.close', '关闭')}</span>
         </button>
       </header>
-      <div class="space-y-4">
-        <section
-          class="rounded-m3-md p-3"
-          style={{
-            background: 'var(--m3-surface)',
-            border: '1px solid var(--m3-outline-variant)',
-          }}
-        >
+      <div
+        class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4"
+        style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
+      >
+        <ContextStatsSection>
           <ContextStatsRow label={t('contextStats.estimated', '估算 prompt tokens')} value={estimatedTokens > 0 ? estimatedTokens.toLocaleString() : t('contextStats.empty', '暂无')} />
           <ContextStatsRow label={t('contextStats.usage', '占用 / 剩余')} value={estimatedTokens > 0 && percentLeft >= 0 ? `${usagePercent}% · ${Math.round(percentLeft)}%` : t('contextStats.empty', '暂无')} valueColor={statusBadge.color} suffix={statusBadge.label} />
           <ContextStatsRow label={t('contextStats.window', '有效窗口 tokens')} value={effectiveWindow > 0 ? `${effectiveWindow.toLocaleString()}${inferred ? '*' : ''}` : t('contextStats.empty', '暂无')} />
           <ContextStatsRow label={t('contextStats.remaining', '剩余 tokens')} value={remainingTokens > 0 ? remainingTokens.toLocaleString() : t('contextStats.empty', '暂无')} />
-        </section>
-        <section
-          class="rounded-m3-md p-3"
-          style={{
-            background: 'var(--m3-surface)',
-            border: '1px solid var(--m3-outline-variant)',
-          }}
-        >
+        </ContextStatsSection>
+        <ContextStatsSection>
           <h3 class="mb-2 text-xs font-semibold" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {t('contextStats.breakdown', '会话历史字符占比')}
           </h3>
@@ -5436,18 +5486,16 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
               ))}
             </div>
           )}
-        </section>
-        <section
-          class="rounded-m3-md p-3"
-          style={{
-            background: 'var(--m3-surface)',
-            border: '1px solid var(--m3-outline-variant)',
-          }}
-        >
+        </ContextStatsSection>
+        <ContextStatsSection>
           <ContextStatsRow label={t('contextStats.cumulativePrompt', '历史累计 prompt tokens')} value={cumulativePromptTokens.toLocaleString()} />
           <ContextStatsRow label={t('contextStats.cumulativeCompletion', '历史累计输出 tokens')} value={cumulativeCompletionTokens.toLocaleString()} />
           <ContextStatsRow label={t('contextStats.cumulativeTotal', '历史总 tokens')} value={cumulativeTokens.toLocaleString()} emphasized />
-        </section>
+        </ContextStatsSection>
+        <div class="pt-1 text-[11px] font-semibold uppercase" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {t('contextStats.tokenDetails', 'Token 统计')}
+        </div>
+        <SessionTokenStatsContent stats={tokenStats} trendDisplayMode={contextTrendDisplayMode} onTrendDisplayModeChange={setContextTrendDisplayMode} />
         {resultMessage ? (
           <div
             class="rounded-m3-sm px-3 py-2 text-xs"
@@ -5465,24 +5513,42 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
             {t('contextStats.inferred', `* 模型未声明 maxContextTokens，按 ${INFERRED_MODEL_CONTEXT_WINDOW_TOKENS} 估算。`)}
           </p>
         ) : null}
-        <div class="flex justify-end">
-          <button
-            type="button"
-            class="oh-tap-press rounded-m3-md px-4 py-2 text-sm font-semibold"
-            style={{
-              background: disableCompact ? 'var(--m3-surface-variant)' : 'var(--m3-primary)',
-              color: disableCompact ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-primary)',
-              cursor: disableCompact ? 'not-allowed' : 'pointer',
-              opacity: disableCompact ? 0.7 : 1,
-            }}
-            disabled={disableCompact}
-            onClick={() => void handleCompactPressed()}
-          >
-            {busy ? t('contextStats.busy', '正在压缩…') : t('contextStats.action', '立即压缩')}
-          </button>
-        </div>
       </div>
+      <footer
+        class="flex shrink-0 justify-end px-5 py-4"
+        style={{ borderTop: '1px solid var(--m3-outline-variant)' }}
+      >
+        <button
+          type="button"
+          class="oh-tap-press oh-dialog-action-button"
+          style={{
+            background: disableCompact ? 'var(--m3-surface-variant)' : 'var(--m3-primary)',
+            color: disableCompact ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-primary)',
+            border: '1px solid ' + (disableCompact ? 'var(--m3-outline-variant)' : 'color-mix(in srgb, var(--m3-primary) 70%, transparent)'),
+            cursor: disableCompact ? 'not-allowed' : 'pointer',
+            opacity: disableCompact ? 0.7 : 1,
+          }}
+          disabled={disableCompact}
+          onClick={() => void handleCompactPressed()}
+        >
+          {busy ? t('contextStats.busy', '正在压缩…') : t('contextStats.action', '立即压缩')}
+        </button>
+      </footer>
     </DialogFrame>
+  );
+}
+
+function ContextStatsSection({ children }: { children: ComponentChildren }) {
+  return (
+    <section
+      class="rounded-m3-md p-3"
+      style={{
+        background: 'var(--m3-surface)',
+        border: '1px solid var(--m3-outline-variant)',
+      }}
+    >
+      {children}
+    </section>
   );
 }
 
@@ -6070,6 +6136,19 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   };
 
   const cacheHitPanel = renderCacheHitPanel(promptBudgetTokens > 0);
+  const metadataSnapshotJson = JSON.stringify(
+    {
+      session,
+      runtime: detail.runtime,
+      loaded_messages: messages.length,
+    },
+    null,
+    2,
+  );
+  const metadataActionButtonSurface = {
+    background: 'var(--m3-surface-container-high)',
+    border: '1px solid var(--m3-outline-variant)',
+  };
 
   return (
     <DialogFrame
@@ -6077,7 +6156,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       onRequestClose={requestClose}
       {...createStandardDialogFrameAppearance({
         overlayTone: 'inverse',
-        panelClassName: 'rounded-m3-lg p-5 w-full flex flex-col',
+        panelClassName: 'rounded-m3-lg w-full flex flex-col overflow-hidden',
         panelSurface: {
           maxWidth: '860px',
           maxHeight: '84vh',
@@ -6085,9 +6164,11 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       })}
       ariaLabel={t('metadata.currentTitle', '当前会话元数据')}
     >
-      <div class="overflow-auto pr-1 flex-1 min-h-0">
-      <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <div class="min-w-0">
+      <header
+        class="flex shrink-0 flex-wrap items-start justify-between gap-3 px-5 py-4"
+        style={{ borderBottom: '1px solid var(--m3-outline-variant)' }}
+      >
+        <div class="min-w-0 flex-1">
           <h2 class="text-2xl font-extrabold truncate">{t('metadata.currentTitle', '当前会话元数据')}</h2>
           <p class="text-sm mt-2 truncate" style={{ color: 'var(--m3-on-surface-variant)' }}>
             {session.title}
@@ -6098,22 +6179,10 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             type="button"
             class="oh-tap-press oh-dialog-action-button"
             style={{
+              ...metadataActionButtonSurface,
               color: 'var(--m3-primary)',
-              border: '1px solid var(--m3-outline)',
             }}
-            onClick={() =>
-              void copyJsonWithFeedback(
-                JSON.stringify(
-                  {
-                    session,
-                    runtime: detail.runtime,
-                    loaded_messages: messages.length,
-                  },
-                  null,
-                  2,
-                ),
-              )
-            }
+            onClick={() => void copyJsonWithFeedback(metadataSnapshotJson)}
           >
             <ComposerIcon name="copy" size={14} />
             <span>{t('common.copy', '复制')}</span>
@@ -6122,8 +6191,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             type="button"
             class="oh-tap-press oh-dialog-action-button"
             style={{
+              ...metadataActionButtonSurface,
               color: 'var(--m3-on-surface-variant)',
-              background: 'transparent',
             }}
             onClick={requestClose}
           >
@@ -6132,6 +6201,10 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           </button>
         </div>
       </header>
+      <div
+        class="min-h-0 flex-1 overflow-auto px-5 py-4 pr-4"
+        style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
+      >
       <div class="flex flex-wrap gap-3 mb-4">
         <SummaryTile label="消息总数" value={`${stats.total_message_count ?? session.message_count ?? 0}`} />
         <SummaryTile label="Prompt 构建" value={`${stats.prompt_build_count ?? 0}`} />
@@ -6388,19 +6461,6 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <JsonPanel content={lastPromptMetadata} />
           </Section>
         </div>
-        <footer class="flex justify-end pt-4">
-        <button
-          type="button"
-          class="oh-tap-press px-5 py-2 rounded-m3-sm text-sm font-bold"
-          style={{
-            background: 'var(--m3-primary)',
-            color: 'var(--m3-on-primary)',
-          }}
-          onClick={requestClose}
-        >
-          {t('common.close', '关闭')}
-        </button>
-        </footer>
       </div>
     </DialogFrame>
   );
