@@ -895,7 +895,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   _GoalMessageStructuredBody(
                     data: goalMessageView,
                     textColor: textColor,
-                    surfaceColor: backgroundColor,
                   )
                 else if (isUser)
                   _PlainTextMessageBody(
@@ -6174,12 +6173,10 @@ class _GoalMessageStructuredBody extends StatelessWidget {
   const _GoalMessageStructuredBody({
     required this.data,
     required this.textColor,
-    required this.surfaceColor,
   });
 
   final _GoalMessageViewData data;
   final Color textColor;
-  final Color surfaceColor;
 
   @override
   Widget build(BuildContext context) {
@@ -6229,92 +6226,84 @@ class _GoalMessageStructuredBody extends StatelessWidget {
                 en: 'The evaluator found the evidence insufficient and requested more work.',
               ),
     };
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: surfaceColor.withValues(alpha: 0.36),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: textColor.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(data.icon, size: 18, color: accent),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(data.icon, size: 18, color: accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          description,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: textColor.withValues(alpha: 0.78),
+            height: 1.45,
           ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: textColor.withValues(alpha: 0.78),
-              height: 1.45,
-            ),
+        ),
+        if ((data.objective ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageField(
+            label: _localizedText(context, zh: '目标', en: 'Goal'),
+            value: data.objective!.trim(),
+            textColor: textColor,
           ),
-          if ((data.objective ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _GoalMessageField(
-              label: _localizedText(context, zh: '目标', en: 'Goal'),
-              value: data.objective!.trim(),
-              textColor: textColor,
-            ),
-          ],
-          if ((data.summary ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _GoalMessageField(
-              label: _localizedText(
-                context,
-                zh: '评估摘要',
-                en: 'Evaluation Summary',
-              ),
-              value: data.summary!.trim(),
-              textColor: textColor,
-            ),
-          ],
-          if ((data.followUpPrompt ?? '').trim().isNotEmpty &&
-              data.kind != _GoalMessageViewKind.autoFollowUp) ...[
-            const SizedBox(height: 12),
-            _GoalMessageField(
-              label: _localizedText(context, zh: '下一步', en: 'Next Step'),
-              value: data.followUpPrompt!.trim(),
-              textColor: textColor,
-            ),
-          ],
-          if (data.evidence.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _GoalMessageInlineList(
-              label: _localizedText(context, zh: '证据', en: 'Evidence'),
-              values: data.evidence,
-              accent: OpenHandStatusColors.success,
-            ),
-          ],
-          if (data.missing.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _GoalMessageInlineList(
-              label: _localizedText(context, zh: '缺口', en: 'Missing'),
-              values: data.missing,
-              accent: theme.colorScheme.tertiary,
-            ),
-          ],
-          if (_metricChips(context).isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(spacing: 6, runSpacing: 6, children: _metricChips(context)),
-          ],
         ],
-      ),
+        if ((data.summary ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageField(
+            label: _localizedText(
+              context,
+              zh: '评估摘要',
+              en: 'Evaluation Summary',
+            ),
+            value: data.summary!.trim(),
+            textColor: textColor,
+          ),
+        ],
+        if ((data.followUpPrompt ?? '').trim().isNotEmpty &&
+            data.kind != _GoalMessageViewKind.autoFollowUp) ...[
+          const SizedBox(height: 12),
+          _GoalMessageField(
+            label: _localizedText(context, zh: '下一步', en: 'Next Step'),
+            value: data.followUpPrompt!.trim(),
+            textColor: textColor,
+          ),
+        ],
+        if (data.evidence.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageInlineList(
+            label: _localizedText(context, zh: '证据', en: 'Evidence'),
+            values: data.evidence,
+            accent: OpenHandStatusColors.success,
+          ),
+        ],
+        if (data.missing.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageInlineList(
+            label: _localizedText(context, zh: '缺口', en: 'Missing'),
+            values: data.missing,
+            accent: theme.colorScheme.tertiary,
+          ),
+        ],
+        if (_metricChips(context).isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(spacing: 6, runSpacing: 6, children: _metricChips(context)),
+        ],
+      ],
     );
   }
 
