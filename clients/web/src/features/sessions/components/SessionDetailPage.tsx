@@ -1897,10 +1897,10 @@ export function SessionDetailPage() {
       current?.source === source &&
       current.settingsFingerprint === settingsFingerprint;
     if (cacheMatches && current.loading) return;
-    if (cacheMatches && current.text) {
+    if (cacheMatches && current.text && current.visible) {
       setMessageTranslations((prev) => ({
         ...prev,
-        [m.id]: { ...current, visible: !current.visible },
+        [m.id]: { ...current, visible: false },
       }));
       return;
     }

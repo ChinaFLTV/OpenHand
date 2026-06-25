@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/xml_escape.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
@@ -43,8 +44,16 @@ class AiTtsPlaybackService {
   static const String _defaultAiTtsAudioFormat = 'mp3';
   static const int _defaultAiTtsSampleRate = 24000;
   static const int _defaultAiTtsBitRate = 128000;
+  static const int _audioCacheMaxEntries = 48;
+  static const int _audioCacheMaxBytes = 64 * 1024 * 1024;
   static final RegExp _markdownMediaLinkPattern = RegExp(r'\]\(([^)]+)\)');
   static final RegExp _markdownLinkTitlePattern = RegExp(r'\s+"');
+  static final LifecycleLruCache<_AiTtsAudioPayload> _audioCache =
+      LifecycleLruCache<_AiTtsAudioPayload>(
+        maxEntries: _audioCacheMaxEntries,
+        maxCost: _audioCacheMaxBytes,
+        costOf: (audio) => audio.byteLength,
+      );
 
   final AiImageGenerationService _mediaGenerationService;
   final bool _ownsMediaGenerationService;
@@ -110,6 +119,7 @@ class AiTtsPlaybackService {
           timeout: Duration(seconds: normalized.timeoutSeconds),
           availableModels: availableModels,
           fallbackModel: fallbackModel,
+          isCurrent: () => generation == _generation,
         );
         if (generation == _generation) await stop();
         return;
@@ -154,6 +164,7 @@ class AiTtsPlaybackService {
         timeout: Duration(seconds: normalized.timeoutSeconds),
         availableModels: availableModels,
         fallbackModel: fallbackModel,
+        isCurrent: () => generation == _generation,
       );
     } on _AiTtsPlaybackCancelled {
       return;
@@ -202,10 +213,50 @@ class AiTtsPlaybackService {
     required Duration timeout,
     required List<AiModelConfig> availableModels,
     required AiModelConfig? fallbackModel,
+    required bool Function() isCurrent,
+  }) async {
+    if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
+    if (!_isCacheableTtsProvider(provider.provider)) {
+      await _speakWithSystem(provider, text, timeout: timeout);
+      return;
+    }
+    final cacheKey = await _ttsAudioCacheKey(
+      provider: provider,
+      text: text,
+      timeout: timeout,
+      availableModels: availableModels,
+      fallbackModel: fallbackModel,
+    );
+    var audio = _audioCache.get(cacheKey);
+    if (audio == null) {
+      audio = await _synthesizeWithProvider(
+        provider,
+        text,
+        timeout: timeout,
+        availableModels: availableModels,
+        fallbackModel: fallbackModel,
+      );
+      _audioCache.put(cacheKey, audio);
+    }
+    if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
+    await _playAudioBytes(
+      audio.bytes,
+      extension: audio.extension,
+      volume: _playbackVolume(provider),
+      timeout: timeout,
+    );
+  }
+
+  Future<_AiTtsAudioPayload> _synthesizeWithProvider(
+    AiTtsProviderSettings provider,
+    String text, {
+    required Duration timeout,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
   }) {
     switch (provider.provider) {
       case AiTtsProvider.ai:
-        return _speakWithAiModel(
+        return _synthesizeWithAiModel(
           provider,
           text,
           timeout: timeout,
@@ -214,25 +265,25 @@ class AiTtsPlaybackService {
         );
       case AiTtsProvider.system:
       case AiTtsProvider.apple:
-        return _speakWithSystem(provider, text, timeout: timeout);
+        throw StateError('System TTS is not cacheable.');
       case AiTtsProvider.xfyun:
-        return _speakWithXfyun(provider, text, timeout: timeout);
+        return _synthesizeWithXfyun(provider, text, timeout: timeout);
       case AiTtsProvider.baidu:
-        return _speakWithBaidu(provider, text, timeout: timeout);
+        return _synthesizeWithBaidu(provider, text, timeout: timeout);
       case AiTtsProvider.doubao:
-        return _speakWithDoubao(provider, text, timeout: timeout);
+        return _synthesizeWithDoubao(provider, text, timeout: timeout);
       case AiTtsProvider.mimo:
-        return _speakWithMimo(provider, text, timeout: timeout);
+        return _synthesizeWithMimo(provider, text, timeout: timeout);
       case AiTtsProvider.youdao:
-        return _speakWithYoudao(provider, text, timeout: timeout);
+        return _synthesizeWithYoudao(provider, text, timeout: timeout);
       case AiTtsProvider.bing:
-        return _speakWithBing(provider, text, timeout: timeout);
+        return _synthesizeWithBing(provider, text, timeout: timeout);
       case AiTtsProvider.google:
-        return _speakWithGoogle(provider, text, timeout: timeout);
+        return _synthesizeWithGoogle(provider, text, timeout: timeout);
     }
   }
 
-  Future<void> _speakWithAiModel(
+  Future<_AiTtsAudioPayload> _synthesizeWithAiModel(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -293,10 +344,9 @@ class AiTtsPlaybackService {
     if (audioReference.isEmpty) {
       throw StateError('AI TTS returned no playable audio.');
     }
-    await _playAudioReference(
+    return _audioPayloadFromReference(
       audioReference,
       outputFormat: outputFormat,
-      volume: settings.volume,
       timeout: timeout,
     );
   }
@@ -324,7 +374,109 @@ class AiTtsPlaybackService {
     return null;
   }
 
-  Future<void> _speakWithMimo(
+  Future<String> _ttsAudioCacheKey({
+    required AiTtsProviderSettings provider,
+    required String text,
+    required Duration timeout,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
+  }) async {
+    final resolvedModel = provider.provider == AiTtsProvider.ai
+        ? _resolveAiModel(
+            settings: provider,
+            availableModels: availableModels,
+            fallbackModel: fallbackModel,
+          )
+        : null;
+    return 'ai_tts_audio:${provider.provider.storageKey}:${stableJsonSha256(<String, Object?>{
+      'version': 1,
+      'text_sha256': stableJsonSha256(text),
+      'provider': provider.provider.storageKey,
+      'provider_settings': provider.toJson(),
+      'effective_endpoint': _endpointOrDefault(provider),
+      if (provider.provider == AiTtsProvider.ai) ...<String, Object?>{'model': resolvedModel?.toJson(), 'audio_request': resolvedModel == null ? null : _aiTtsCacheDetails(provider, resolvedModel)},
+      if (provider.provider == AiTtsProvider.mimo) 'voice_sample': await _mimoVoiceSampleCacheToken(provider, timeout: timeout),
+    })}';
+  }
+
+  Map<String, Object?> _aiTtsCacheDetails(
+    AiTtsProviderSettings settings,
+    AiModelConfig model,
+  ) {
+    final requestedFormat = _extraString(
+      settings,
+      'format',
+      fallback: _defaultAiTtsAudioFormat,
+    );
+    final stepFunSpeech = AiTtsProviderCatalogs.usesStepFunSpeech(
+      protocol: model.protocolType,
+      modelId: model.modelId,
+    );
+    final outputFormat = stepFunSpeech
+        ? AiTtsProviderCatalogs.normalizeStepFunResponseFormat(requestedFormat)
+        : requestedFormat;
+    return <String, Object?>{
+      'protocol': model.protocolType.storageValue,
+      'model_id': model.modelId,
+      'voice': AiTtsProviderCatalogs.normalizeVoiceForAiModel(
+        voice: settings.voice,
+        protocol: model.protocolType,
+        modelId: model.modelId,
+      ),
+      'speed': settings.speed,
+      'volume': settings.volume,
+      'pitch': settings.pitch,
+      'output_format': outputFormat,
+      'sample_rate': _extraInt(
+        settings,
+        'sample_rate',
+        fallback: _defaultAiTtsSampleRate,
+      ),
+      'bit_rate': _extraInt(
+        settings,
+        'bit_rate',
+        fallback: _defaultAiTtsBitRate,
+      ),
+    };
+  }
+
+  Future<Map<String, Object?>?> _mimoVoiceSampleCacheToken(
+    AiTtsProviderSettings settings, {
+    required Duration timeout,
+  }) async {
+    final model = _extraString(settings, 'model', fallback: 'mimo-v2.5-tts');
+    if (!_mimoUsesVoiceClone(model)) return null;
+    final path = _extraString(settings, 'voice_sample_path');
+    if (path.isEmpty) return const <String, Object?>{'path': ''};
+    try {
+      final stat = await File(path).stat().timeout(timeout);
+      return <String, Object?>{
+        'path': path,
+        'type': stat.type.toString(),
+        'size': stat.size,
+        'modified': stat.modified.toUtc().toIso8601String(),
+        'changed': stat.changed.toUtc().toIso8601String(),
+      };
+    } catch (_) {
+      return <String, Object?>{'path': path, 'stat_error': true};
+    }
+  }
+
+  String _endpointOrDefault(AiTtsProviderSettings settings) {
+    final endpoint = settings.endpoint.trim();
+    if (endpoint.isNotEmpty) return endpoint;
+    return AiTtsProviderSettings.defaults(settings.provider).endpoint;
+  }
+
+  static bool _isCacheableTtsProvider(AiTtsProvider provider) {
+    return provider != AiTtsProvider.system && provider != AiTtsProvider.apple;
+  }
+
+  static double _playbackVolume(AiTtsProviderSettings settings) {
+    return settings.provider == AiTtsProvider.google ? 1 : settings.volume;
+  }
+
+  Future<_AiTtsAudioPayload> _synthesizeWithMimo(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -332,9 +484,7 @@ class AiTtsPlaybackService {
     if (settings.apiKey.isEmpty) {
       throw StateError('Mimo TTS API key is empty.');
     }
-    final endpoint = settings.endpoint.isEmpty
-        ? AiTtsProviderSettings.defaults(AiTtsProvider.mimo).endpoint
-        : settings.endpoint;
+    final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint);
     final model = _extraString(settings, 'model', fallback: 'mimo-v2.5-tts');
     final audioFormat = _extraString(settings, 'format', fallback: 'wav');
@@ -387,11 +537,9 @@ class AiTtsPlaybackService {
             'format': audioFormat,
             'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
           });
-      await _playAudioBytes(
+      return _AiTtsAudioPayload(
         audioBytes,
         extension: _mimoAudioExtension(audioFormat),
-        volume: settings.volume,
-        timeout: timeout,
       );
     } finally {
       if (identical(_activeClient, client)) _activeClient = null;
@@ -428,7 +576,7 @@ class AiTtsPlaybackService {
     return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
 
-  Future<void> _speakWithDoubao(
+  Future<_AiTtsAudioPayload> _synthesizeWithDoubao(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -440,9 +588,7 @@ class AiTtsPlaybackService {
     if (speaker.isEmpty) {
       throw StateError('Doubao TTS speaker is empty.');
     }
-    final endpoint = settings.endpoint.isEmpty
-        ? AiTtsProviderSettings.defaults(AiTtsProvider.doubao).endpoint
-        : settings.endpoint;
+    final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint);
     final resourceId = _extraString(
       settings,
@@ -514,11 +660,9 @@ class AiTtsPlaybackService {
         flush: true,
         onAudio: (audio) => audioBytes.add(base64Decode(audio)),
       );
-      await _playAudioBytes(
+      return _AiTtsAudioPayload(
         audioBytes.takeBytes(),
         extension: _audioExtension(audioFormat),
-        volume: settings.volume,
-        timeout: timeout,
       );
     } finally {
       if (identical(_activeClient, client)) _activeClient = null;
@@ -573,7 +717,7 @@ class AiTtsPlaybackService {
     throw UnsupportedError('System TTS is not available on this platform.');
   }
 
-  Future<void> _speakWithXfyun(
+  Future<_AiTtsAudioPayload> _synthesizeWithXfyun(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -583,9 +727,7 @@ class AiTtsPlaybackService {
         settings.apiSecret.isEmpty) {
       throw StateError('Xfyun TTS credentials are incomplete.');
     }
-    final endpoint = settings.endpoint.isEmpty
-        ? AiTtsProviderSettings.defaults(AiTtsProvider.xfyun).endpoint
-        : settings.endpoint;
+    final endpoint = _endpointOrDefault(settings);
     final uri = _xfyunAuthorizedUri(Uri.parse(endpoint), settings);
     final ws = await WebSocket.connect('$uri').timeout(timeout);
     _activeWebSocket = ws;
@@ -630,15 +772,13 @@ class AiTtsPlaybackService {
     } finally {
       if (identical(_activeWebSocket, ws)) _activeWebSocket = null;
     }
-    await _playAudioBytes(
+    return _AiTtsAudioPayload(
       audioBytes.takeBytes(),
       extension: '${settings.extra['aue'] ?? 'mp3'}' == 'raw' ? '.pcm' : '.mp3',
-      volume: settings.volume,
-      timeout: timeout,
     );
   }
 
-  Future<void> _speakWithBaidu(
+  Future<_AiTtsAudioPayload> _synthesizeWithBaidu(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -646,9 +786,7 @@ class AiTtsPlaybackService {
     final accessToken = settings.accessToken.isNotEmpty
         ? settings.accessToken
         : await _fetchBaiduAccessToken(settings, timeout: timeout);
-    final endpoint = settings.endpoint.isEmpty
-        ? AiTtsProviderSettings.defaults(AiTtsProvider.baidu).endpoint
-        : settings.endpoint;
+    final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint).replace(
       queryParameters: <String, String>{
         'tex': text,
@@ -674,19 +812,14 @@ class AiTtsPlaybackService {
       if (!contentType.startsWith('audio/')) {
         throw StateError('Baidu TTS returned non-audio response.');
       }
-      await _playAudioBytes(
-        response.bodyBytes,
-        extension: '.mp3',
-        volume: settings.volume,
-        timeout: timeout,
-      );
+      return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
     } finally {
       if (identical(_activeClient, client)) _activeClient = null;
       client.close();
     }
   }
 
-  Future<void> _speakWithGoogle(
+  Future<_AiTtsAudioPayload> _synthesizeWithGoogle(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -694,9 +827,7 @@ class AiTtsPlaybackService {
     if (settings.apiKey.isEmpty) {
       throw StateError('Google TTS API key is empty.');
     }
-    final endpoint = settings.endpoint.isEmpty
-        ? AiTtsProviderSettings.defaults(AiTtsProvider.google).endpoint
-        : settings.endpoint;
+    final endpoint = _endpointOrDefault(settings);
     final uri = Uri.parse(endpoint).replace(
       queryParameters: <String, String>{
         ...Uri.parse(endpoint).queryParameters,
@@ -745,11 +876,9 @@ class AiTtsPlaybackService {
       if (decoded is! Map || decoded['audioContent'] is! String) {
         throw StateError('Google TTS returned invalid audio payload.');
       }
-      await _playAudioBytes(
+      return _AiTtsAudioPayload(
         base64Decode(decoded['audioContent'] as String),
         extension: _googleAudioExtension(audioEncoding),
-        volume: 1,
-        timeout: timeout,
       );
     } finally {
       if (identical(_activeClient, client)) _activeClient = null;
@@ -757,7 +886,7 @@ class AiTtsPlaybackService {
     }
   }
 
-  Future<void> _speakWithBing(
+  Future<_AiTtsAudioPayload> _synthesizeWithBing(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -800,11 +929,9 @@ class AiTtsPlaybackService {
           uri: uri,
         );
       }
-      await _playAudioBytes(
+      return _AiTtsAudioPayload(
         response.bodyBytes,
         extension: _bingAudioExtension(outputFormat),
-        volume: settings.volume,
-        timeout: timeout,
       );
     } finally {
       if (identical(_activeClient, client)) _activeClient = null;
@@ -812,7 +939,7 @@ class AiTtsPlaybackService {
     }
   }
 
-  Future<void> _speakWithYoudao(
+  Future<_AiTtsAudioPayload> _synthesizeWithYoudao(
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
@@ -820,9 +947,7 @@ class AiTtsPlaybackService {
     if (settings.apiKey.isEmpty || settings.apiSecret.isEmpty) {
       throw StateError('Youdao TTS credentials are incomplete.');
     }
-    final endpoint = settings.endpoint.isEmpty
-        ? AiTtsProviderSettings.defaults(AiTtsProvider.youdao).endpoint
-        : settings.endpoint;
+    final endpoint = _endpointOrDefault(settings);
     final salt = DateTime.now().microsecondsSinceEpoch.toString();
     final input = _youdaoSignInput(text);
     final curtime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -869,12 +994,7 @@ class AiTtsPlaybackService {
       if (!contentType.startsWith('audio/')) {
         throw StateError('Youdao TTS returned non-audio response.');
       }
-      await _playAudioBytes(
-        response.bodyBytes,
-        extension: '.mp3',
-        volume: settings.volume,
-        timeout: timeout,
-      );
+      return _AiTtsAudioPayload(response.bodyBytes, extension: '.mp3');
     } finally {
       if (identical(_activeClient, client)) _activeClient = null;
       client.close();
@@ -928,10 +1048,9 @@ class AiTtsPlaybackService {
     ], timeout: timeout);
   }
 
-  Future<void> _playAudioReference(
+  Future<_AiTtsAudioPayload> _audioPayloadFromReference(
     String reference, {
     required String outputFormat,
-    required double volume,
     required Duration timeout,
   }) async {
     final normalized = reference.trim();
@@ -941,31 +1060,46 @@ class AiTtsPlaybackService {
     final uri = Uri.tryParse(normalized);
     if (uri != null && uri.hasScheme) {
       if (uri.scheme == 'file') {
-        await _playAudioFile(
+        return _audioPayloadFromFile(
           uri.toFilePath(),
-          volume: volume,
+          outputFormat: outputFormat,
           timeout: timeout,
         );
-        return;
       }
       if (uri.scheme == 'http' || uri.scheme == 'https') {
-        await _playRemoteAudio(
+        return _remoteAudioPayload(
           uri,
           outputFormat: outputFormat,
-          volume: volume,
           timeout: timeout,
         );
-        return;
       }
       throw StateError('AI TTS returned unsupported audio reference.');
     }
-    await _playAudioFile(normalized, volume: volume, timeout: timeout);
+    return _audioPayloadFromFile(
+      normalized,
+      outputFormat: outputFormat,
+      timeout: timeout,
+    );
   }
 
-  Future<void> _playRemoteAudio(
+  Future<_AiTtsAudioPayload> _audioPayloadFromFile(
+    String path, {
+    required String outputFormat,
+    required Duration timeout,
+  }) async {
+    final file = File(path);
+    if (!await file.exists().timeout(timeout)) {
+      throw StateError('TTS audio file is missing.');
+    }
+    return _AiTtsAudioPayload(
+      await file.readAsBytes().timeout(timeout),
+      extension: _audioExtensionFromPath(path, fallbackFormat: outputFormat),
+    );
+  }
+
+  Future<_AiTtsAudioPayload> _remoteAudioPayload(
     Uri uri, {
     required String outputFormat,
-    required double volume,
     required Duration timeout,
   }) async {
     final client = http.Client();
@@ -989,11 +1123,9 @@ class AiTtsPlaybackService {
       if (!_isPlayableAudioContentType(contentType)) {
         throw StateError('AI TTS audio URL returned non-audio content.');
       }
-      await _playAudioBytes(
+      return _AiTtsAudioPayload(
         response.bodyBytes,
         extension: _audioExtensionFromUri(uri, fallbackFormat: outputFormat),
-        volume: volume,
-        timeout: timeout,
       );
     } finally {
       if (identical(_activeClient, client)) _activeClient = null;
@@ -1467,7 +1599,14 @@ class AiTtsPlaybackService {
     Uri uri, {
     required String fallbackFormat,
   }) {
-    final path = uri.path.toLowerCase();
+    return _audioExtensionFromPath(uri.path, fallbackFormat: fallbackFormat);
+  }
+
+  static String _audioExtensionFromPath(
+    String value, {
+    required String fallbackFormat,
+  }) {
+    final path = value.toLowerCase();
     const supportedExtensions = <String>{
       '.aac',
       '.flac',
@@ -1671,4 +1810,23 @@ class AiTtsPlaybackService {
 
 class _AiTtsPlaybackCancelled implements Exception {
   const _AiTtsPlaybackCancelled();
+}
+
+class _AiTtsAudioPayload {
+  _AiTtsAudioPayload(List<int> sourceBytes, {required String extension})
+    : bytes = Uint8List.fromList(sourceBytes),
+      extension = _normalizeExtension(extension) {
+    if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
+  }
+
+  final Uint8List bytes;
+  final String extension;
+
+  int get byteLength => bytes.length;
+
+  static String _normalizeExtension(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '.mp3';
+    return trimmed.startsWith('.') ? trimmed : '.$trimmed';
+  }
 }

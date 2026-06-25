@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/lifecycle_cache.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_translation_settings.dart';
@@ -48,6 +49,13 @@ class AiTranslationService {
   static const int _networkPreviewLength = 180;
   static const int _doubaoSuccessCode = 20000000;
   static const String _doubaoDefaultResourceId = 'volc.speech.mt';
+  static const int _translationCacheMaxEntries = 512;
+  static final LifecycleLruCache<AiTranslationResult> _translationCache =
+      LifecycleLruCache<AiTranslationResult>(
+        maxEntries: _translationCacheMaxEntries,
+      );
+  static final Map<String, Future<AiTranslationResult>> _translationInFlight =
+      <String, Future<AiTranslationResult>>{};
 
   final http.Client _client;
   final AiChatClient _chatClient;
@@ -59,8 +67,9 @@ class AiTranslationService {
     required List<AiModelConfig> availableModels,
     AiModelConfig? fallbackModel,
   }) async {
+    final normalizedSettings = settings.normalized();
     final normalizedText = text.trim();
-    if (!settings.enabled) {
+    if (!normalizedSettings.enabled) {
       throw const AiTranslationException('文本翻译未开启。');
     }
     if (normalizedText.isEmpty) {
@@ -68,79 +77,27 @@ class AiTranslationService {
     }
     final boundedText = _truncateText(
       normalizedText,
-      settings.maxTextCharacters,
+      normalizedSettings.maxTextCharacters,
     );
-    final timeout = Duration(seconds: settings.timeoutSeconds);
+    final timeout = Duration(seconds: normalizedSettings.timeoutSeconds);
     AiTranslationException? firstFailure;
     var triedAny = false;
 
-    for (final provider in settings.providerPriority) {
-      final providerSettings = settings.provider(provider).normalized();
+    for (final provider in normalizedSettings.providerPriority) {
+      final providerSettings = normalizedSettings
+          .provider(provider)
+          .normalized();
       if (!providerSettings.enabled) continue;
       triedAny = true;
       try {
-        final translated = switch (provider) {
-          AiTranslationProvider.ai => await _translateWithAi(
-            text: boundedText,
-            settings: settings,
-            providerSettings: providerSettings,
-            availableModels: availableModels,
-            fallbackModel: fallbackModel,
-            timeout: timeout,
-          ),
-          AiTranslationProvider.youdao => await _translateWithYoudao(
-            text: boundedText,
-            settings: settings,
-            providerSettings: providerSettings,
-            timeout: timeout,
-          ),
-          AiTranslationProvider.google => await _translateWithGoogle(
-            text: boundedText,
-            settings: settings,
-            providerSettings: providerSettings,
-            timeout: timeout,
-          ),
-          AiTranslationProvider.bing => await _translateWithBing(
-            text: boundedText,
-            settings: settings,
-            providerSettings: providerSettings,
-            timeout: timeout,
-          ),
-          AiTranslationProvider.apple => await _translateWithAppleBridge(
-            text: boundedText,
-            settings: settings,
-            providerSettings: providerSettings,
-            timeout: timeout,
-          ),
-          AiTranslationProvider.baidu => await _translateWithBaidu(
-            text: boundedText,
-            settings: settings,
-            providerSettings: providerSettings,
-            timeout: timeout,
-          ),
-          AiTranslationProvider.doubao => await _translateWithDoubao(
-            text: boundedText,
-            settings: settings,
-            providerSettings: providerSettings,
-            timeout: timeout,
-          ),
-        };
-        final cleanText = translated.trim();
-        if (cleanText.isEmpty) {
-          throw AiTranslationException(
-            '${provider.storageKey} returned an empty translation.',
-            provider: provider,
-          );
-        }
-        return AiTranslationResult(
-          text: cleanText,
+        return await _translateWithCache(
           provider: provider,
-          modelConfigId: providerSettings.modelConfigId.isEmpty
-              ? null
-              : providerSettings.modelConfigId,
-          modelId: providerSettings.modelId.isEmpty
-              ? null
-              : providerSettings.modelId,
+          text: boundedText,
+          settings: normalizedSettings,
+          providerSettings: providerSettings,
+          availableModels: availableModels,
+          fallbackModel: fallbackModel,
+          timeout: timeout,
         );
       } on AiTranslationException catch (error) {
         firstFailure ??= error;
@@ -161,6 +118,126 @@ class AiTranslationService {
       throw const AiTranslationException('没有启用可用的翻译服务。');
     }
     throw firstFailure ?? const AiTranslationException('翻译失败。');
+  }
+
+  Future<AiTranslationResult> _translateWithCache({
+    required AiTranslationProvider provider,
+    required String text,
+    required AiTranslationSettings settings,
+    required AiTranslationProviderSettings providerSettings,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
+    required Duration timeout,
+  }) async {
+    final cacheKey = _translationCacheKey(
+      provider: provider,
+      text: text,
+      settings: settings,
+      providerSettings: providerSettings,
+      availableModels: availableModels,
+      fallbackModel: fallbackModel,
+    );
+    final cached = _translationCache.get(cacheKey);
+    if (cached != null) return cached;
+
+    final inFlight = _translationInFlight[cacheKey];
+    if (inFlight != null) return inFlight;
+
+    final request =
+        _translateProvider(
+          provider: provider,
+          text: text,
+          settings: settings,
+          providerSettings: providerSettings,
+          availableModels: availableModels,
+          fallbackModel: fallbackModel,
+          timeout: timeout,
+        ).then((result) {
+          _translationCache.put(cacheKey, result);
+          return result;
+        });
+    _translationInFlight[cacheKey] = request;
+    try {
+      return await request;
+    } finally {
+      if (identical(_translationInFlight[cacheKey], request)) {
+        _translationInFlight.remove(cacheKey);
+      }
+    }
+  }
+
+  Future<AiTranslationResult> _translateProvider({
+    required AiTranslationProvider provider,
+    required String text,
+    required AiTranslationSettings settings,
+    required AiTranslationProviderSettings providerSettings,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
+    required Duration timeout,
+  }) async {
+    final translated = switch (provider) {
+      AiTranslationProvider.ai => await _translateWithAi(
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        availableModels: availableModels,
+        fallbackModel: fallbackModel,
+        timeout: timeout,
+      ),
+      AiTranslationProvider.youdao => await _translateWithYoudao(
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        timeout: timeout,
+      ),
+      AiTranslationProvider.google => await _translateWithGoogle(
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        timeout: timeout,
+      ),
+      AiTranslationProvider.bing => await _translateWithBing(
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        timeout: timeout,
+      ),
+      AiTranslationProvider.apple => await _translateWithAppleBridge(
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        timeout: timeout,
+      ),
+      AiTranslationProvider.baidu => await _translateWithBaidu(
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        timeout: timeout,
+      ),
+      AiTranslationProvider.doubao => await _translateWithDoubao(
+        text: text,
+        settings: settings,
+        providerSettings: providerSettings,
+        timeout: timeout,
+      ),
+    };
+    final cleanText = translated.trim();
+    if (cleanText.isEmpty) {
+      throw AiTranslationException(
+        '${provider.storageKey} returned an empty translation.',
+        provider: provider,
+      );
+    }
+    return AiTranslationResult(
+      text: cleanText,
+      provider: provider,
+      modelConfigId: providerSettings.modelConfigId.isEmpty
+          ? null
+          : providerSettings.modelConfigId,
+      modelId: providerSettings.modelId.isEmpty
+          ? null
+          : providerSettings.modelId,
+    );
   }
 
   Future<String> _translateWithAi({
@@ -525,6 +602,32 @@ class AiTranslationService {
       }
     }
     return fallbackModel;
+  }
+
+  String _translationCacheKey({
+    required AiTranslationProvider provider,
+    required String text,
+    required AiTranslationSettings settings,
+    required AiTranslationProviderSettings providerSettings,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
+  }) {
+    final resolvedModel = provider == AiTranslationProvider.ai
+        ? _resolveAiModel(
+            providerSettings: providerSettings,
+            availableModels: availableModels,
+            fallbackModel: fallbackModel,
+          )
+        : null;
+    return 'ai_translation:${provider.storageKey}:${stableJsonSha256(<String, Object?>{
+      'version': 1,
+      'text_sha256': stableJsonSha256(text),
+      'provider': provider.storageKey,
+      'settings': settings.toJson(),
+      'provider_settings': providerSettings.toJson(),
+      'effective_endpoint': _endpointOrDefault(providerSettings),
+      if (provider == AiTranslationProvider.ai) ...<String, Object?>{'prompt_asset': _aiPromptAsset, 'model': resolvedModel?.toJson()},
+    })}';
   }
 
   String _buildAiUserPrompt({

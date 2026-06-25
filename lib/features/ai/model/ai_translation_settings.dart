@@ -1,3 +1,5 @@
+import '../../../shared/util/lifecycle_cache.dart';
+
 enum AiTranslationProvider {
   ai('ai'),
   youdao('youdao'),
@@ -430,28 +432,7 @@ class AiTranslationSettings {
   }
 
   String get cacheFingerprint {
-    final activeProviders = providerPriority
-        .map((provider) {
-          final settings = this.provider(provider);
-          return [
-            provider.storageKey,
-            settings.enabled,
-            settings.endpoint,
-            settings.region,
-            settings.modelConfigId,
-            settings.modelId,
-            settings.extra,
-          ].join(':');
-        })
-        .join('|');
-    return [
-      enabled,
-      sourceLanguage,
-      targetLanguage,
-      timeoutSeconds,
-      maxTextCharacters,
-      activeProviders,
-    ].join('::');
+    return stableJsonSha256(normalized().toJson());
   }
 
   static List<AiTranslationProvider> _normalizePriority(

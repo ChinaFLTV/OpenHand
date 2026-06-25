@@ -1455,6 +1455,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (_messageHasMultimediaContent(message)) return;
     final sourceText = _translatableMessageText(message, settings);
     if (sourceText == null) return;
+    final settingsController = context.read<SettingsController>();
+    final fallbackModel = _translationFallbackModel(settingsController);
+    final requestFingerprint = _translationRequestFingerprint(
+      settings,
+      fallbackModel,
+    );
     if (_translationVisibleMessageIds.contains(message.id)) {
       setState(() {
         _translationVisibleMessageIds.remove(message.id);
@@ -1464,7 +1470,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final cached = _translationCacheByMessageId[message.id];
     if (cached != null &&
         cached.sourceText == sourceText &&
-        cached.settingsFingerprint == settings.cacheFingerprint) {
+        cached.settingsFingerprint == requestFingerprint) {
       setState(() {
         _translationVisibleMessageIds.add(message.id);
       });
@@ -1475,18 +1481,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _translationLoadingMessageIds.add(message.id);
     });
     try {
-      final settingsController = context.read<SettingsController>();
       final result = await widget.translationService.translate(
         text: sourceText,
         settings: settings,
         availableModels: settingsController.aiModels,
-        fallbackModel: _translationFallbackModel(settingsController),
+        fallbackModel: fallbackModel,
       );
       if (!mounted) return;
       setState(() {
         _translationCacheByMessageId[message.id] = _MessageTranslationEntry(
           sourceText: sourceText,
-          settingsFingerprint: settings.cacheFingerprint,
+          settingsFingerprint: requestFingerprint,
           translatedText: result.text,
           provider: result.provider,
         );
@@ -1531,6 +1536,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
     }
     return settings.selectedAiModel;
+  }
+
+  String _translationRequestFingerprint(
+    AiTranslationSettings settings,
+    AiModelConfig? fallbackModel,
+  ) {
+    return stableJsonSha256(<String, Object?>{
+      'settings': settings.cacheFingerprint,
+      'fallback_model': fallbackModel?.toJson(),
+    });
   }
 
   Future<void> _setMessageFeedbackAnchored(
@@ -2669,6 +2684,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                         ttsSnapshot.messageId == message.id;
                     final translationEntry =
                         _translationCacheByMessageId[message.id];
+                    final translationFingerprint =
+                        _translationRequestFingerprint(
+                          translationSettings,
+                          _translationFallbackModel(settingsController),
+                        );
                     final translationVisible =
                         !hasMultimediaContent &&
                         translationEntry != null &&
@@ -2679,7 +2699,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                               translationSettings,
                             ) &&
                         translationEntry.settingsFingerprint ==
-                            translationSettings.cacheFingerprint;
+                            translationFingerprint;
                     final translationLoading =
                         !hasMultimediaContent &&
                         _translationLoadingMessageIds.contains(message.id);
