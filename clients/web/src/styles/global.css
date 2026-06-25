@@ -834,6 +834,90 @@ html, body, #root {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.oh-goal-message-body {
+  min-width: min(100%, 320px);
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  border-radius: var(--m3-radius-sm);
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  padding: 12px;
+}
+.oh-goal-message-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.oh-goal-message-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+.oh-goal-message-title {
+  color: currentColor;
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+.oh-goal-message-description {
+  margin-top: 3px;
+  color: color-mix(in srgb, currentColor 76%, transparent);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.oh-goal-message-field > span,
+.oh-goal-message-tags > span {
+  display: block;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  font-size: 11px;
+  font-weight: 820;
+}
+.oh-goal-message-field > p {
+  margin: 0;
+  color: currentColor;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.oh-goal-message-tags > div,
+.oh-goal-message-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.oh-goal-message-tags em {
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: currentColor;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 720;
+  line-height: 1.35;
+}
+.oh-goal-message-tags.is-pass em {
+  color: var(--m3-primary);
+  background: color-mix(in srgb, var(--m3-primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--m3-primary) 18%, transparent);
+}
+.oh-goal-message-tags.is-missing em {
+  color: var(--m3-tertiary);
+  background: color-mix(in srgb, var(--m3-tertiary) 11%, transparent);
+  border-color: color-mix(in srgb, var(--m3-tertiary) 20%, transparent);
+}
+.oh-goal-message-metrics {
+  padding-top: 1px;
+}
 
 .oh-message-card-frame {
   display: block;

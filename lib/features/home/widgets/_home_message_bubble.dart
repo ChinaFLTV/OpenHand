@@ -392,9 +392,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         goalEvaluationType == aiSessionGoalEvaluationMessageTypeResponse;
     final isGoalEvaluationMessage =
         isGoalEvaluationRequest || isGoalEvaluationResponse;
-    final isGoalAutoUser =
-        isUser &&
-        message.metadata[aiSessionGoalAutoFollowUpMetadataKey] == true;
+    final goalMessageView = _GoalMessageViewData.fromMessage(message);
     final isCompressionPoint =
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
@@ -597,10 +595,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
         (isStreamingAssistant || canCollapseAssistantResponse);
     final bodyContentSignature =
         '${effectiveContent.length}:${effectiveContent.hashCode}';
+    final assistantBodyContentScrollKey = isStreamingAssistant
+        ? 'streaming'
+        : 'content:$bodyContentSignature';
+    final reasoningBodyContentScrollKey = isStreamingReasoning
+        ? 'streaming'
+        : 'content:$bodyContentSignature';
     final assistantBodyScrollStateKey =
-        '${message.id}|assistant|variant:${message.responseVariantIndex}|fmt:${resolvedMessageContentFormat.storageKey}|translated:${showingTranslation ? 1 : 0}|raw:${_showRawContent ? 1 : 0}|content:$bodyContentSignature';
+        '${message.id}|assistant|variant:${message.responseVariantIndex}|fmt:${resolvedMessageContentFormat.storageKey}|translated:${showingTranslation ? 1 : 0}|raw:${_showRawContent ? 1 : 0}|$assistantBodyContentScrollKey';
     final reasoningBodyScrollStateKey =
-        '${message.id}|reasoning|raw:${_showRawContent ? 1 : 0}|stream:${isStreamingReasoning ? 1 : 0}|content:$bodyContentSignature';
+        '${message.id}|reasoning|raw:${_showRawContent ? 1 : 0}|stream:${isStreamingReasoning ? 1 : 0}|$reasoningBodyContentScrollKey';
     final compressionBodyScrollStateKey =
         '${message.id}|compression|content:${message.content.length}:${message.content.hashCode}';
     final userBodyScrollStateKey =
@@ -726,6 +730,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
             effectiveContent.hashCode,
           )
         : null;
+    final streamingPlainAssistantShouldCollapse =
+        isStreamingAssistant &&
+        resolvedMessageContentFormat == AiMessageContentFormat.plainText &&
+        _messageShouldCollapse(
+          effectiveContent,
+          charThreshold: _messageMarkdownCollapseCharThreshold,
+          lineThreshold: _messageMarkdownCollapseLineThreshold,
+        );
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
     final bubbleCard = Container(
@@ -819,39 +831,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ),
                     color: textColor,
                   )
-                else if (isGoalEvaluationRequest)
-                  _MessageMetaRow(
-                    key: _metaCapsuleKey,
-                    icon: Icons.fact_check_outlined,
-                    label: _localizedText(
-                      context,
-                      zh: '目标评估请求',
-                      en: 'Goal Evaluation Request',
-                    ),
-                    color: textColor,
-                  )
-                else if (isGoalEvaluationResponse)
-                  _MessageMetaRow(
-                    key: _metaCapsuleKey,
-                    icon: Icons.verified_outlined,
-                    label: _localizedText(
-                      context,
-                      zh: '目标评估响应',
-                      en: 'Goal Evaluation Response',
-                    ),
-                    color: textColor,
-                  )
-                else if (isGoalAutoUser)
-                  _MessageMetaRow(
-                    key: _metaCapsuleKey,
-                    icon: Icons.flag_outlined,
-                    label: _localizedText(
-                      context,
-                      zh: '目标自动推进',
-                      en: 'Goal Auto Follow-up',
-                    ),
-                    color: textColor,
-                  )
                 else if (showAssistantResponseMetaRow)
                   _ResponseMetaRow(
                     key: _metaCapsuleKey,
@@ -867,9 +846,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     isReasoning ||
                     isToolCall ||
                     isToolResult ||
-                    isGoalEvaluationRequest ||
-                    isGoalEvaluationResponse ||
-                    isGoalAutoUser ||
                     showAssistantResponseMetaRow)
                   const SizedBox(height: 10),
                 if (isCompressionPoint)
@@ -922,6 +898,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   _ToolCallBody(message: message, selectable: true)
                 else if (isSelfLearning)
                   ClipRect(child: _SelfLearningCard(message: message))
+                else if (goalMessageView != null)
+                  _GoalMessageStructuredBody(
+                    data: goalMessageView,
+                    textColor: textColor,
+                    surfaceColor: backgroundColor,
+                  )
                 else if (isUser)
                   _PlainTextMessageBody(
                     data: effectiveContent.isEmpty ? ' ' : effectiveContent,
@@ -965,53 +947,65 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           scrollStateKey: assistantBodyScrollStateKey,
                         )
                       else if (isStreamingAssistant)
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0.992, end: 1.0),
-                          duration: cardMotionDurationFor(
-                            context,
-                            expanding: true,
-                          ),
-                          curve: kCardMotionCurve,
-                          child:
-                              resolvedMessageContentFormat ==
-                                  AiMessageContentFormat.markdown
-                              ? StreamingTextRevealText(
-                                  text: effectiveContent.isEmpty
-                                      ? ' '
-                                      : effectiveContent,
-                                  streaming: true,
-                                  animateSize: false,
-                                  builder: (context, visibleContent) =>
-                                      buildStreamingMarkdownBody(
-                                        visibleContent,
-                                      ),
-                                )
-                              : StreamingTextRevealText(
-                                  text: effectiveContent.isEmpty
-                                      ? ' '
-                                      : effectiveContent,
-                                  streaming: true,
-                                  animateSize: false,
-                                  builder: (context, visibleContent) =>
-                                      _StreamingAssistantTextBody(
-                                        data: visibleContent.isEmpty
-                                            ? ' '
-                                            : visibleContent,
-                                        textColor: textColor,
-                                        backgroundColor: backgroundColor,
-                                        style: markdownStyleSheet.styleSheet.p,
-                                        scrollStateKey:
-                                            assistantBodyScrollStateKey,
-                                      ),
+                        streamingPlainAssistantShouldCollapse
+                            ? _StreamingAssistantTextBody(
+                                data: effectiveContent.isEmpty
+                                    ? ' '
+                                    : effectiveContent,
+                                textColor: textColor,
+                                backgroundColor: backgroundColor,
+                                style: markdownStyleSheet.styleSheet.p,
+                                scrollStateKey: assistantBodyScrollStateKey,
+                              )
+                            : TweenAnimationBuilder<double>(
+                                tween: Tween<double>(begin: 0.992, end: 1.0),
+                                duration: cardMotionDurationFor(
+                                  context,
+                                  expanding: true,
                                 ),
-                          builder: (context, value, child) {
-                            return Transform.scale(
-                              scale: value,
-                              alignment: Alignment.topLeft,
-                              child: child,
-                            );
-                          },
-                        )
+                                curve: kCardMotionCurve,
+                                child:
+                                    resolvedMessageContentFormat ==
+                                        AiMessageContentFormat.markdown
+                                    ? StreamingTextRevealText(
+                                        text: effectiveContent.isEmpty
+                                            ? ' '
+                                            : effectiveContent,
+                                        streaming: true,
+                                        animateSize: false,
+                                        builder: (context, visibleContent) =>
+                                            buildStreamingMarkdownBody(
+                                              visibleContent,
+                                            ),
+                                      )
+                                    : StreamingTextRevealText(
+                                        text: effectiveContent.isEmpty
+                                            ? ' '
+                                            : effectiveContent,
+                                        streaming: true,
+                                        animateSize: false,
+                                        builder: (context, visibleContent) =>
+                                            _StreamingAssistantTextBody(
+                                              data: visibleContent.isEmpty
+                                                  ? ' '
+                                                  : visibleContent,
+                                              textColor: textColor,
+                                              backgroundColor: backgroundColor,
+                                              style: markdownStyleSheet
+                                                  .styleSheet
+                                                  .p,
+                                              scrollStateKey:
+                                                  assistantBodyScrollStateKey,
+                                            ),
+                                      ),
+                                builder: (context, value, child) {
+                                  return Transform.scale(
+                                    scale: value,
+                                    alignment: Alignment.topLeft,
+                                    child: child,
+                                  );
+                                },
+                              )
                       else
                         buildAssistantBodyDispatcher(
                           data: effectiveContent,
@@ -1219,6 +1213,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             !isSelfLearning &&
             !isCompressionPoint &&
             !isStatus &&
+            !isGoalEvaluationMessage &&
             resolvedMessageContentFormat != AiMessageContentFormat.plainText)
           _MessageActionSpec(
             id: 'raw-toggle',
@@ -5950,6 +5945,535 @@ const Set<String> _audioMediaExtensions = <String>{
   '.flac',
 };
 
+enum _GoalMessageViewKind {
+  autoFollowUp,
+  evaluationRequest,
+  evaluationResponse,
+}
+
+class _GoalMessageViewData {
+  const _GoalMessageViewData({
+    required this.kind,
+    this.goalId,
+    this.evaluationId,
+    this.objective,
+    this.summary,
+    this.followUpPrompt,
+    this.status,
+    this.roundIndex,
+    this.turnCount,
+    this.maxTurns,
+    this.tokensUsed,
+    this.tokenBudget,
+    this.recentMessageCount,
+    this.passed,
+    this.confidence,
+    this.evidence = const <String>[],
+    this.missing = const <String>[],
+  });
+
+  final _GoalMessageViewKind kind;
+  final String? goalId;
+  final String? evaluationId;
+  final String? objective;
+  final String? summary;
+  final String? followUpPrompt;
+  final String? status;
+  final int? roundIndex;
+  final int? turnCount;
+  final int? maxTurns;
+  final int? tokensUsed;
+  final int? tokenBudget;
+  final int? recentMessageCount;
+  final bool? passed;
+  final double? confidence;
+  final List<String> evidence;
+  final List<String> missing;
+
+  static _GoalMessageViewData? fromMessage(AiSessionMessage message) {
+    final metadata = message.metadata;
+    final goalId = _readString(metadata[aiSessionGoalIdMetadataKey]);
+    final evaluationId = _readString(
+      metadata[aiSessionGoalEvaluationIdMetadataKey],
+    );
+    if (metadata[aiSessionGoalAutoFollowUpMetadataKey] == true) {
+      final parsed = _parseAutoFollowUp(message.content);
+      return _GoalMessageViewData(
+        kind: _GoalMessageViewKind.autoFollowUp,
+        goalId: goalId,
+        evaluationId: evaluationId,
+        objective: _readString(
+          metadata[aiSessionGoalObjectiveMetadataKey],
+        ).ifEmpty(parsed.objective),
+        followUpPrompt: parsed.prompt,
+      );
+    }
+    if (metadata[aiSessionGoalEvaluationMessageMetadataKey] != true) {
+      return null;
+    }
+    final type = _readString(
+      metadata[aiSessionGoalEvaluationMessageTypeMetadataKey],
+    );
+    if (type == aiSessionGoalEvaluationMessageTypeRequest) {
+      final payload = _decodeJsonObject(message.content, marker: '{"goal":');
+      final goal = _object(payload?['goal']);
+      final recentMessages = payload?['recent_messages'];
+      return _GoalMessageViewData(
+        kind: _GoalMessageViewKind.evaluationRequest,
+        goalId: goalId.ifEmpty(_readString(goal?['id'])),
+        evaluationId: evaluationId,
+        objective: _readString(goal?['objective']),
+        status: _readString(goal?['status']),
+        roundIndex: _readInt(
+          metadata[aiSessionGoalEvaluationRoundIndexMetadataKey],
+        ),
+        turnCount: _readInt(goal?['turn_count']),
+        maxTurns: _readInt(goal?['max_turns']),
+        tokensUsed: _readInt(goal?['tokens_used']),
+        tokenBudget: _readInt(goal?['token_budget']),
+        recentMessageCount: recentMessages is List
+            ? recentMessages.length
+            : null,
+      );
+    }
+    if (type == aiSessionGoalEvaluationMessageTypeResponse) {
+      final decoded = _decodeJsonObject(message.content);
+      return _GoalMessageViewData(
+        kind: _GoalMessageViewKind.evaluationResponse,
+        goalId: goalId,
+        evaluationId: evaluationId,
+        summary: _readString(decoded?['summary']),
+        followUpPrompt: _readString(decoded?['follow_up_prompt']),
+        roundIndex: _readInt(
+          metadata[aiSessionGoalEvaluationRoundIndexMetadataKey],
+        ),
+        passed:
+            decoded?['passed'] == true ||
+            metadata[aiSessionGoalEvaluationPassedMetadataKey] == true,
+        confidence: _readDouble(decoded?['confidence']),
+        evidence: _readStringList(decoded?['evidence']),
+        missing: _readStringList(decoded?['missing']),
+      );
+    }
+    return null;
+  }
+
+  static ({String? prompt, String? objective}) _parseAutoFollowUp(
+    String content,
+  ) {
+    final trimmed = content.trim();
+    final marker = RegExp(
+      r'\n\s*Goal:\s*',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (marker == null) {
+      return (prompt: trimmed.ifEmpty(null), objective: null);
+    }
+    final prompt = trimmed.substring(0, marker.start).trim();
+    final objective = trimmed.substring(marker.end).trim();
+    return (prompt: prompt.ifEmpty(null), objective: objective.ifEmpty(null));
+  }
+
+  static Map<String, Object?>? _decodeJsonObject(
+    String content, {
+    String? marker,
+  }) {
+    final start = marker == null
+        ? content.indexOf('{')
+        : content.indexOf(marker);
+    if (start < 0) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(content.substring(start).trim());
+      return _object(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Map<String, Object?>? _object(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    return Map<String, Object?>.from(value);
+  }
+
+  static String _readString(Object? value) {
+    final text = '${value ?? ''}'.trim();
+    if (text.isEmpty || text == 'null') {
+      return '';
+    }
+    return text;
+  }
+
+  static int? _readInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.round();
+    }
+    return int.tryParse(_readString(value));
+  }
+
+  static double? _readDouble(Object? value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(_readString(value));
+  }
+
+  static List<String> _readStringList(Object? value) {
+    if (value is! List) {
+      return const <String>[];
+    }
+    return value
+        .map(_readString)
+        .where((item) => item.isNotEmpty)
+        .take(4)
+        .toList(growable: false);
+  }
+
+  String chipLabel(BuildContext context) {
+    final round = roundIndex == null ? '' : ' · #$roundIndex';
+    return switch (kind) {
+      _GoalMessageViewKind.autoFollowUp => _localizedText(
+        context,
+        zh: '目标自动推进',
+        en: 'Goal Auto Follow-up',
+      ),
+      _GoalMessageViewKind.evaluationRequest =>
+        _localizedText(context, zh: '目标评估请求', en: 'Goal Evaluation Request') +
+            round,
+      _GoalMessageViewKind.evaluationResponse =>
+        _localizedText(context, zh: '目标评估响应', en: 'Goal Evaluation Response') +
+            round,
+    };
+  }
+
+  IconData get icon => switch (kind) {
+    _GoalMessageViewKind.autoFollowUp => Icons.flag_outlined,
+    _GoalMessageViewKind.evaluationRequest => Icons.fact_check_outlined,
+    _GoalMessageViewKind.evaluationResponse => Icons.verified_outlined,
+  };
+
+  Color accentColor(ThemeData theme) => switch (kind) {
+    _GoalMessageViewKind.autoFollowUp => theme.colorScheme.primary,
+    _GoalMessageViewKind.evaluationRequest => theme.colorScheme.secondary,
+    _GoalMessageViewKind.evaluationResponse =>
+      passed == true
+          ? OpenHandStatusColors.success
+          : theme.colorScheme.tertiary,
+  };
+}
+
+extension _GoalNullableString on String {
+  String? ifEmpty(String? fallback) => isEmpty ? fallback : this;
+}
+
+class _GoalMessageStructuredBody extends StatelessWidget {
+  const _GoalMessageStructuredBody({
+    required this.data,
+    required this.textColor,
+    required this.surfaceColor,
+  });
+
+  final _GoalMessageViewData data;
+  final Color textColor;
+  final Color surfaceColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = data.accentColor(theme);
+    final title = switch (data.kind) {
+      _GoalMessageViewKind.autoFollowUp => _localizedText(
+        context,
+        zh: '继续推进当前目标',
+        en: 'Continue Current Goal',
+      ),
+      _GoalMessageViewKind.evaluationRequest => _localizedText(
+        context,
+        zh: '验证目标完成证据',
+        en: 'Verify Goal Evidence',
+      ),
+      _GoalMessageViewKind.evaluationResponse =>
+        data.passed == true
+            ? _localizedText(context, zh: '目标证据已通过', en: 'Goal Evidence Passed')
+            : _localizedText(
+                context,
+                zh: '目标仍需推进',
+                en: 'Goal Still Needs Work',
+              ),
+    };
+    final description = switch (data.kind) {
+      _GoalMessageViewKind.autoFollowUp => _localizedText(
+        context,
+        zh: 'Agent Runtime 自动发送，用于在上一轮评估未通过后继续收敛目标。',
+        en: 'Agent Runtime sent this automatically after evaluation required more evidence.',
+      ),
+      _GoalMessageViewKind.evaluationRequest => _localizedText(
+        context,
+        zh: '评估模型会基于当前目标和最近对话判断完成证据是否充分。',
+        en: 'The evaluator checks the current goal and recent transcript for completion evidence.',
+      ),
+      _GoalMessageViewKind.evaluationResponse =>
+        data.passed == true
+            ? _localizedText(
+                context,
+                zh: '评估模型认为当前证据足以完成目标。',
+                en: 'The evaluator found enough evidence to complete the goal.',
+              )
+            : _localizedText(
+                context,
+                zh: '评估模型认为证据仍不足，需要继续推进。',
+                en: 'The evaluator found the evidence insufficient and requested more work.',
+              ),
+    };
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: surfaceColor.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: textColor.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(data.icon, size: 18, color: accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: textColor.withValues(alpha: 0.78),
+              height: 1.45,
+            ),
+          ),
+          if ((data.objective ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _GoalMessageField(
+              label: _localizedText(context, zh: '目标', en: 'Goal'),
+              value: data.objective!.trim(),
+              textColor: textColor,
+            ),
+          ],
+          if ((data.summary ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _GoalMessageField(
+              label: _localizedText(
+                context,
+                zh: '评估摘要',
+                en: 'Evaluation Summary',
+              ),
+              value: data.summary!.trim(),
+              textColor: textColor,
+            ),
+          ],
+          if ((data.followUpPrompt ?? '').trim().isNotEmpty &&
+              data.kind != _GoalMessageViewKind.autoFollowUp) ...[
+            const SizedBox(height: 12),
+            _GoalMessageField(
+              label: _localizedText(context, zh: '下一步', en: 'Next Step'),
+              value: data.followUpPrompt!.trim(),
+              textColor: textColor,
+            ),
+          ],
+          if (data.evidence.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _GoalMessageInlineList(
+              label: _localizedText(context, zh: '证据', en: 'Evidence'),
+              values: data.evidence,
+              accent: OpenHandStatusColors.success,
+            ),
+          ],
+          if (data.missing.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _GoalMessageInlineList(
+              label: _localizedText(context, zh: '缺口', en: 'Missing'),
+              values: data.missing,
+              accent: theme.colorScheme.tertiary,
+            ),
+          ],
+          if (_metricChips(context).isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(spacing: 6, runSpacing: 6, children: _metricChips(context)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _metricChips(BuildContext context) {
+    final chips = <Widget>[];
+    void add(IconData icon, String label) {
+      if (label.trim().isEmpty) return;
+      chips.add(_GoalMessageMetricChip(icon: icon, label: label));
+    }
+
+    if (data.roundIndex != null) {
+      add(Icons.repeat_rounded, '#${data.roundIndex}');
+    }
+    if (data.turnCount != null || data.maxTurns != null) {
+      add(
+        Icons.route_outlined,
+        '${data.turnCount ?? 0}/${data.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns}',
+      );
+    }
+    if (data.tokensUsed != null) {
+      final budget = data.tokenBudget == null ? '' : '/${data.tokenBudget}';
+      add(Icons.speed_rounded, '${data.tokensUsed}$budget tok');
+    }
+    if (data.recentMessageCount != null) {
+      add(
+        Icons.chat_bubble_outline_rounded,
+        _localizedText(
+          context,
+          zh: '最近 ${data.recentMessageCount} 条',
+          en: '${data.recentMessageCount} recent',
+        ),
+      );
+    }
+    if (data.confidence != null) {
+      add(
+        Icons.query_stats_rounded,
+        '${(data.confidence!.clamp(0, 1) * 100).round()}%',
+      );
+    }
+    return chips;
+  }
+}
+
+class _GoalMessageField extends StatelessWidget {
+  const _GoalMessageField({
+    required this.label,
+    required this.value,
+    required this.textColor,
+  });
+
+  final String label;
+  final String value;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: textColor.withValues(alpha: 0.62),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: textColor,
+            height: 1.45,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GoalMessageInlineList extends StatelessWidget {
+  const _GoalMessageInlineList({
+    required this.label,
+    required this.values,
+    required this.accent,
+  });
+
+  final String label;
+  final List<String> values;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: accent,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final value in values)
+              _GoalMessageMetricChip(label: value, accent: accent),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _GoalMessageMetricChip extends StatelessWidget {
+  const _GoalMessageMetricChip({required this.label, this.icon, this.accent});
+
+  final String label;
+  final IconData? icon;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = accent ?? theme.colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: _borderRadius999,
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Context capsules shown in the focused message action panel's second row.
 /// Keeps message cards focused on message content while preserving mode, skill,
 /// attachment, model, and timestamp metadata next to the selected message.
@@ -5988,6 +6512,11 @@ class _SelectedMessageContextRow extends StatelessWidget {
           textColor: textColor,
           onSelect: onSelectResponseVariant,
         ),
+      ..._GoalMessageContextCapsules.build(
+        context,
+        message: message,
+        textColor: textColor,
+      ),
       if (creationRequest.isActive)
         _CreationModeChip(request: creationRequest, textColor: textColor),
       if (_UserSkillSelectionChip.nameFromMetadata(skillMetadata).isNotEmpty)
@@ -6079,6 +6608,33 @@ class _HardnessAnnotationContextCapsules {
     final agentId = annotation.agentId;
     if (agentId == null || agentId.trim().isEmpty) return '';
     return ' · ${agentId.trim()}';
+  }
+}
+
+class _GoalMessageContextCapsules {
+  const _GoalMessageContextCapsules._();
+
+  static List<Widget> build(
+    BuildContext context, {
+    required AiSessionMessage message,
+    required Color textColor,
+  }) {
+    final data = _GoalMessageViewData.fromMessage(message);
+    if (data == null) {
+      return const <Widget>[];
+    }
+    final label = data.passed == null
+        ? data.chipLabel(context)
+        : data.passed == true
+        ? '${data.chipLabel(context)} · ${_localizedText(context, zh: '通过', en: 'Passed')}'
+        : '${data.chipLabel(context)} · ${_localizedText(context, zh: '继续', en: 'Continue')}';
+    return <Widget>[
+      _MessageContextCapsule(
+        icon: data.icon,
+        label: label,
+        textColor: textColor,
+      ),
+    ];
   }
 }
 

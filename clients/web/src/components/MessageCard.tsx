@@ -378,8 +378,6 @@ function messageContextChips(message: SessionMessage): MessageContextChip[] {
   const meta = recordOrNullFromUnknown(message.metadata);
   if (!meta) return [];
   return [
-    ...goalEvaluationChips(message, meta),
-    ...goalAutoFollowUpChips(message, meta),
     ...(message.role === 'user' ? creationModeChips(meta) : []),
     ...(message.role === 'user' ? skillChips(meta) : []),
     ...(message.role === 'user' ? attachmentChips(meta) : []),
@@ -406,9 +404,7 @@ function goalEvaluationChips(message: SessionMessage, meta: Record<string, unkno
 
 function goalAutoFollowUpChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
   if (meta['goal_evaluation_message'] === true) return [];
-  const origin = nonEmptyString(message.sender_origin) || nonEmptyString(meta['sender_origin']);
-  const isGoalAutoFollowUp = meta['goal_auto_follow_up'] === true || origin === 'openhand_background';
-  if (!isGoalAutoFollowUp) return [];
+  if (meta['goal_auto_follow_up'] !== true) return [];
   const goalId = nonEmptyString(meta['goal_id']);
   return [{
     key: `goal-auto:${goalId || message.id}`,
@@ -417,6 +413,160 @@ function goalAutoFollowUpChips(message: SessionMessage, meta: Record<string, unk
       ? `${t('message.context.goalAutoFollowUp', '目标自动推进')} · ${goalId}`
       : t('message.context.goalAutoFollowUp', '目标自动推进'),
   }];
+}
+
+type GoalMessageKind = 'auto_follow_up' | 'evaluation_request' | 'evaluation_response';
+
+interface GoalMessageViewModel {
+  kind: GoalMessageKind;
+  icon: MessageIconName;
+  title: string;
+  description: string;
+  objective?: string;
+  summary?: string;
+  followUpPrompt?: string;
+  passed?: boolean;
+  confidence?: number;
+  evidence: string[];
+  missing: string[];
+  metrics: MessageContextChip[];
+}
+
+function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | null {
+  const meta = recordOrNullFromUnknown(message.metadata);
+  if (!meta) return null;
+  if (meta['goal_auto_follow_up'] === true) {
+    const parsed = parseGoalAutoFollowUpContent(message.content ?? '');
+    return {
+      kind: 'auto_follow_up',
+      icon: 'goal',
+      title: t('message.goal.auto.title', '继续推进当前目标'),
+      description: t('message.goal.auto.description', 'Agent Runtime 自动发送，用于在上一轮评估未通过后继续收敛目标。'),
+      objective: nonEmptyString(meta['goal_objective']) || parsed.objective,
+      summary: parsed.prompt,
+      evidence: [],
+      missing: [],
+      metrics: goalMetricsFromMeta(meta),
+    };
+  }
+  if (meta['goal_evaluation_message'] !== true) return null;
+  const type = nonEmptyString(meta['goal_evaluation_message_type']);
+  if (type === 'request') {
+    const payload = parseJsonObjectFromMarker(message.content ?? '', '{"goal":');
+    const goal = recordOrNullFromUnknown(payload?.['goal']);
+    const recent = Array.isArray(payload?.['recent_messages'])
+      ? payload?.['recent_messages'] as unknown[]
+      : [];
+    return {
+      kind: 'evaluation_request',
+      icon: 'audit',
+      title: t('message.goal.evaluationRequest.title', '验证目标完成证据'),
+      description: t('message.goal.evaluationRequest.description', '评估模型会基于当前目标和最近对话判断完成证据是否充分。'),
+      objective: nonEmptyString(goal?.['objective']),
+      evidence: [],
+      missing: [],
+      metrics: [
+        ...goalMetricsFromMeta(meta),
+        ...goalMetricsFromGoal(goal),
+        ...(recent.length > 0 ? [{
+          key: 'recent',
+          icon: 'assistant' as const,
+          label: t('message.goal.recentMessages', `最近 ${recent.length} 条`).replace('{count}', String(recent.length)),
+        }] : []),
+      ],
+    };
+  }
+  if (type === 'response') {
+    const decoded = parseJsonObjectFromMarker(message.content ?? '', '{');
+    const passed = decoded?.['passed'] === true || meta['goal_evaluation_passed'] === true;
+    const confidence = finiteNumberOrNullFromUnknown(decoded?.['confidence']) ?? undefined;
+    return {
+      kind: 'evaluation_response',
+      icon: 'audit',
+      title: passed
+        ? t('message.goal.evaluationResponse.passedTitle', '目标证据已通过')
+        : t('message.goal.evaluationResponse.continueTitle', '目标仍需推进'),
+      description: passed
+        ? t('message.goal.evaluationResponse.passedDescription', '评估模型认为当前证据足以完成目标。')
+        : t('message.goal.evaluationResponse.continueDescription', '评估模型认为证据仍不足，需要继续推进。'),
+      summary: nonEmptyString(decoded?.['summary']),
+      followUpPrompt: nonEmptyString(decoded?.['follow_up_prompt']),
+      passed,
+      confidence,
+      evidence: stringListFromUnknown(decoded?.['evidence']).slice(0, 4),
+      missing: stringListFromUnknown(decoded?.['missing']).slice(0, 4),
+      metrics: [
+        ...goalMetricsFromMeta(meta),
+        ...(confidence != null ? [{
+          key: 'confidence',
+          icon: 'audit' as const,
+          label: `${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}%`,
+        }] : []),
+      ],
+    };
+  }
+  return null;
+}
+
+function parseGoalAutoFollowUpContent(content: string): { prompt?: string; objective?: string } {
+  const trimmed = content.trim();
+  const match = /\n\s*Goal:\s*/i.exec(trimmed);
+  if (!match) return { prompt: trimmed || undefined };
+  const prompt = trimmed.slice(0, match.index).trim();
+  const objective = trimmed.slice(match.index + match[0].length).trim();
+  return {
+    prompt: prompt || undefined,
+    objective: objective || undefined,
+  };
+}
+
+function parseJsonObjectFromMarker(content: string, marker: string): Record<string, unknown> | null {
+  const index = content.indexOf(marker);
+  if (index < 0) return null;
+  try {
+    const parsed: unknown = JSON.parse(content.slice(index).trim());
+    return recordOrNullFromUnknown(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function stringListFromUnknown(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item ?? '').trim()).filter(Boolean);
+}
+
+function goalMetricsFromMeta(meta: Record<string, unknown>): MessageContextChip[] {
+  const round = nonEmptyString(meta['goal_evaluation_round_index']);
+  const goalId = nonEmptyString(meta['goal_id']);
+  return [
+    ...(round ? [{ key: 'round', icon: 'refresh' as const, label: `#${round}` }] : []),
+    ...(goalId ? [{ key: 'goal-id', icon: 'goal' as const, label: shortGoalId(goalId) }] : []),
+  ];
+}
+
+function goalMetricsFromGoal(goal: Record<string, unknown> | null): MessageContextChip[] {
+  if (!goal) return [];
+  const turnCount = finiteNumberOrNullFromUnknown(goal['turn_count']);
+  const maxTurns = finiteNumberOrNullFromUnknown(goal['max_turns']);
+  const tokensUsed = finiteNumberOrNullFromUnknown(goal['tokens_used']);
+  const tokenBudget = finiteNumberOrNullFromUnknown(goal['token_budget']);
+  return [
+    ...(turnCount != null || maxTurns != null ? [{
+      key: 'turns',
+      icon: 'refresh' as const,
+      label: `${Math.round(turnCount ?? 0)}/${Math.round(maxTurns ?? 12)}`,
+    }] : []),
+    ...(tokensUsed != null ? [{
+      key: 'tokens',
+      icon: 'model' as const,
+      label: `${Math.round(tokensUsed)}${tokenBudget != null ? `/${Math.round(tokenBudget)}` : ''} tok`,
+    }] : []),
+  ];
+}
+
+function shortGoalId(goalId: string): string {
+  return goalId.length <= 8 ? goalId : goalId.slice(0, 8);
 }
 
 function creationModeChips(meta: Record<string, unknown>): MessageContextChip[] {
@@ -877,6 +1027,11 @@ function messageFeedbackValue(message: SessionMessage): SessionMessageFeedback |
 
 function selectedMessageInfoChips(message: SessionMessage): MessageContextChip[] {
   const chips: MessageContextChip[] = [];
+  const meta = recordOrNullFromUnknown(message.metadata);
+  if (meta) {
+    chips.push(...goalEvaluationChips(message, meta));
+    chips.push(...goalAutoFollowUpChips(message, meta));
+  }
   if (message.role !== 'user') {
     const modelLabel = nonEmptyString(message.model_label) || nonEmptyString(message.model_id);
     if (modelLabel) {
@@ -1210,6 +1365,70 @@ function StreamingMarkdownReveal({
   );
 }
 
+function GoalMessageBody({ view }: { view: GoalMessageViewModel }) {
+  return (
+    <div class={`oh-goal-message-body is-${view.kind}`}>
+      <div class="oh-goal-message-heading">
+        <span class="oh-goal-message-icon" aria-hidden>
+          <MessageIcon name={view.icon} size={16} />
+        </span>
+        <div class="min-w-0">
+          <div class="oh-goal-message-title">{view.title}</div>
+          <div class="oh-goal-message-description">{view.description}</div>
+        </div>
+      </div>
+      {view.objective ? (
+        <GoalMessageField label={t('message.goal.field.objective', '目标')} value={view.objective} />
+      ) : null}
+      {view.summary ? (
+        <GoalMessageField label={view.kind === 'auto_follow_up' ? t('message.goal.field.instruction', '推进指令') : t('message.goal.field.summary', '评估摘要')} value={view.summary} />
+      ) : null}
+      {view.followUpPrompt ? (
+        <GoalMessageField label={t('message.goal.field.nextStep', '下一步')} value={view.followUpPrompt} />
+      ) : null}
+      {view.evidence.length > 0 ? (
+        <GoalMessageTagList label={t('message.goal.field.evidence', '证据')} values={view.evidence} tone="pass" />
+      ) : null}
+      {view.missing.length > 0 ? (
+        <GoalMessageTagList label={t('message.goal.field.missing', '缺口')} values={view.missing} tone="missing" />
+      ) : null}
+      {view.metrics.length > 0 ? (
+        <div class="oh-goal-message-metrics">
+          {view.metrics.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function GoalMessageField({ label, value }: { label: string; value: string }) {
+  return (
+    <div class="oh-goal-message-field">
+      <span>{label}</span>
+      <p>{value}</p>
+    </div>
+  );
+}
+
+function GoalMessageTagList({
+  label,
+  values,
+  tone,
+}: {
+  label: string;
+  values: string[];
+  tone: 'pass' | 'missing';
+}) {
+  return (
+    <div class={`oh-goal-message-tags is-${tone}`}>
+      <span>{label}</span>
+      <div>
+        {values.map((value, index) => <em key={`${tone}-${index}`}>{value}</em>)}
+      </div>
+    </div>
+  );
+}
+
 export interface MessageCardProps {
   message: SessionMessage;
   /// 由详情页受控的点击选中态；只有选中的卡片显示操作栏。
@@ -1306,6 +1525,7 @@ function MessageCardImpl({
     : baseStyle;
   const content = message.content ?? '';
   const isUserBubble = message.role === 'user';
+  const goalMessageView = goalMessageViewModel(message);
   const useStructuredToolBody =
     message.kind === 'tool' ||
     message.kind === 'tool_call' ||
@@ -1500,7 +1720,8 @@ function MessageCardImpl({
   const hasMultimediaContent = messageHasMultimedia(message);
   const isFormalAssistantResponse = isFormalAssistantResponseMessage(message);
   const textActionKindSupported =
-    isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse;
+    !goalMessageView &&
+    (isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse);
   const textMessageActionSupported =
     textActionKindSupported &&
     !activelyStreaming &&
@@ -1857,6 +2078,8 @@ function MessageCardImpl({
           <ToolExecutionCard message={message} autoFollow={streamingContent || stableTurnActive} />
         ) : useToolBody ? (
           content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent || stableTurnActive} /> : null
+        ) : goalMessageView ? (
+          <GoalMessageBody view={goalMessageView} />
         ) : (
           // 思考卡在流式阶段强制使用纯文本，避免 Markdown/代码块逐 token
           // 成型时反复重排，把下方 pending tool-call 卡片顶上顶下。流式结束
@@ -2023,7 +2246,7 @@ function MessageCardImpl({
                       onClick={() => onFork(message)}
                     />
                   ) : null}
-                  {!isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' && supportsRenderedSourceToggle ? (
+                  {!goalMessageView && !isUserBubble && !useToolBody && message.kind !== 'file_mutation_summary' && supportsRenderedSourceToggle ? (
                     <ActionBtn
                       icon={showRawContent ? 'codeOff' : 'code'}
                       label={showRawContent
