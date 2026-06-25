@@ -30,11 +30,16 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 // First-open jank mitigation: mount only the latest handful of message bubbles
 // and let older history expand on demand. The transcript stays complete in
 // memory; this only limits initial widget materialisation.
-const int _transcriptInitialWindowSize = 6;
-const int _transcriptFirstFrameWindowSize = 3;
-const int _transcriptWindowIncrement = 6;
-const int _transcriptWindowingThreshold = 8;
-const int _transcriptPreparationThreshold = 8;
+const int _transcriptInitialWindowSize = 12;
+const int _transcriptFirstFrameMinMessages = 4;
+const int _transcriptFirstFrameMaxMessages = 8;
+const int _transcriptFirstFrameRenderCostBudget = 14;
+const int _transcriptMaterializationMinMessagesPerFrame = 2;
+const int _transcriptMaterializationMaxMessagesPerFrame = 8;
+const int _transcriptMaterializationRenderCostBudget = 24;
+const int _transcriptWindowIncrement = 8;
+const int _transcriptWindowingThreshold = 16;
+const int _transcriptPreparationThreshold = 16;
 const int _transcriptStagedMaterializationThreshold = 24;
 const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;

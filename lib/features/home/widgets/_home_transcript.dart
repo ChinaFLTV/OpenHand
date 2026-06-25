@@ -674,17 +674,20 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   List<AiSessionMessage> _initialVisibleMessagesForFirstFrame() {
     final visibleMessages = _visibleMessagesForWindow();
-    final shouldStage =
-        visibleMessages.length > _transcriptFirstFrameWindowSize &&
+    final firstFrameCount = _tailMessageCountForRenderBudget(
+      visibleMessages,
+      minMessages: _transcriptFirstFrameMinMessages,
+      maxMessages: _transcriptFirstFrameMaxMessages,
+      renderCostBudget: _transcriptFirstFrameRenderCostBudget,
+    );
+    _initialMaterializationPending =
+        firstFrameCount < visibleMessages.length &&
         widget.session.statistics.totalMessageCount >=
             _transcriptStagedMaterializationThreshold;
-    _initialMaterializationPending = shouldStage;
-    if (!shouldStage) {
+    if (!_initialMaterializationPending) {
       return visibleMessages;
     }
-    return visibleMessages.sublist(
-      visibleMessages.length - _transcriptFirstFrameWindowSize,
-    );
+    return visibleMessages.sublist(visibleMessages.length - firstFrameCount);
   }
 
   void _scheduleInitialMaterializationCompletionIfNeeded() {
@@ -743,11 +746,94 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (currentCount <= 0) {
       return _initialVisibleMessagesForFirstFrame();
     }
+    final remainingStartIndex = math.max(
+      0,
+      allVisibleMessages.length - currentCount,
+    );
+    final remainingPrefix = allVisibleMessages.sublist(0, remainingStartIndex);
+    final prependCount = _tailMessageCountForRenderBudget(
+      remainingPrefix,
+      minMessages: _transcriptMaterializationMinMessagesPerFrame,
+      maxMessages: _transcriptMaterializationMaxMessagesPerFrame,
+      renderCostBudget: _transcriptMaterializationRenderCostBudget,
+    );
     final targetCount = math.min(
       allVisibleMessages.length,
-      currentCount + _transcriptWindowIncrement,
+      currentCount + prependCount,
     );
     return allVisibleMessages.sublist(allVisibleMessages.length - targetCount);
+  }
+
+  int _tailMessageCountForRenderBudget(
+    List<AiSessionMessage> messages, {
+    required int minMessages,
+    required int maxMessages,
+    required int renderCostBudget,
+  }) {
+    if (messages.isEmpty) {
+      return 0;
+    }
+    final effectiveMin = minMessages.clamp(1, messages.length).toInt();
+    final effectiveMax = maxMessages
+        .clamp(effectiveMin, messages.length)
+        .toInt();
+    var selected = 0;
+    var renderCost = 0;
+    for (var index = messages.length - 1; index >= 0; index -= 1) {
+      final cost = _estimatedTranscriptMessageRenderCost(messages[index]);
+      final mustMeetMinimum = selected < effectiveMin;
+      final withinBudget = renderCost + cost <= renderCostBudget;
+      if (!mustMeetMinimum && (!withinBudget || selected >= effectiveMax)) {
+        break;
+      }
+      selected += 1;
+      renderCost += cost;
+      if (selected >= effectiveMax) {
+        break;
+      }
+    }
+    return selected.clamp(effectiveMin, effectiveMax).toInt();
+  }
+
+  int _estimatedTranscriptMessageRenderCost(AiSessionMessage message) {
+    var cost = 1;
+    final kind = message.kind;
+    final content = message.content;
+    final length = content.length;
+    if (kind == AiSessionMessageKind.assistant ||
+        kind == AiSessionMessageKind.reasoning ||
+        kind == AiSessionMessageKind.compressionPoint) {
+      cost += 1;
+    }
+    if (kind == AiSessionMessageKind.tool ||
+        kind == AiSessionMessageKind.mcp ||
+        kind == AiSessionMessageKind.skill ||
+        kind == AiSessionMessageKind.toolCall ||
+        kind == AiSessionMessageKind.hook) {
+      cost += 2;
+    }
+    if (_looksLikeHtml(content) || _hasHtmlTagStructure(content)) {
+      cost += length > _htmlProgressiveRenderCharThreshold ? 9 : 6;
+    } else if (_containsMarkdownCodeFence(content)) {
+      cost += 3;
+    } else if (_markdownStructuralPattern.hasMatch(content)) {
+      cost += 1;
+    }
+    if (length > 32000) {
+      cost += 5;
+    } else if (length > 12000) {
+      cost += 3;
+    } else if (length > 4000) {
+      cost += 1;
+    }
+    if (message.metadata.isNotEmpty) {
+      final attachments =
+          message.metadata[aiSessionMessageAttachmentsMetadataKey];
+      if (attachments is Iterable && attachments.isNotEmpty) {
+        cost += 2;
+      }
+    }
+    return cost.clamp(1, 18).toInt();
   }
 
   void _replaceRenderEntries(
@@ -1085,10 +1171,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       case AiMessageContentFormat.html:
         if (hasHtmlLikeTags || hasTagStructure) {
-          _warmHtmlBubbleMetrics(
-            normalizedContent,
-            markdownThemeData.styleSheet.p,
-          );
+          final preparedHtml = _preparedHtmlRenderDataFor(normalizedContent);
+          if (!preparedHtml.shouldUseProgressiveHighFidelity) {
+            _warmHtmlBubbleMetrics(
+              preparedHtml.healedHtml,
+              markdownThemeData.styleSheet.p,
+            );
+          }
           return;
         }
         if (settings.aiHtmlRenderFallback == AiHtmlRenderFallback.markdown) {
@@ -1097,10 +1186,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       case AiMessageContentFormat.markdown:
         if (!containsMarkdownFence && (hasHtmlLikeTags || hasTagStructure)) {
-          _warmHtmlBubbleMetrics(
-            normalizedContent,
-            markdownThemeData.styleSheet.p,
-          );
+          final preparedHtml = _preparedHtmlRenderDataFor(normalizedContent);
+          if (!preparedHtml.shouldUseProgressiveHighFidelity) {
+            _warmHtmlBubbleMetrics(
+              preparedHtml.healedHtml,
+              markdownThemeData.styleSheet.p,
+            );
+          }
           return;
         }
         warmMarkdownBody();
