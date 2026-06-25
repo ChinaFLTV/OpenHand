@@ -461,6 +461,36 @@ Future<T?> showAnimatedDialog<T>({
   );
 }
 
+Widget buildOpenHandDialogMotionSurface({
+  required BuildContext context,
+  required Widget child,
+  OpenHandAnimationTransitionProfile transitionProfile =
+      const OpenHandAnimationTransitionProfile(),
+}) {
+  final settings = openHandMotionSettingsOf(
+    context,
+    OpenHandMotionSettingsScope.dialog,
+  );
+  final routeAnimation = ModalRoute.of(context)?.animation;
+  if (routeAnimation == null ||
+      openHandMotionDisabled(settings) ||
+      settings.duration <= Duration.zero) {
+    return child;
+  }
+  return AnimatedBuilder(
+    animation: routeAnimation,
+    child: child,
+    builder: (context, child) {
+      return buildAnimationStyleTransition(
+        animation: routeAnimation,
+        settings: settings,
+        profile: transitionProfile,
+        child: child!,
+      );
+    },
+  );
+}
+
 Future<void> showOpenHandInfoDialog({
   required BuildContext context,
   required String title,

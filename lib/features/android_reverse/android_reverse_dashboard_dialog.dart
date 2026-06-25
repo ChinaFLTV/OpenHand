@@ -104,6 +104,7 @@ Future<void> showAndroidReverseDashboardDialog(
     context: context,
     transitionProfile: _kAndroidDashboardMotionProfile,
     builder: (_) => OpenHandDialogMotionSurface(
+      transitionProfile: _kAndroidDashboardMotionProfile,
       child: _AndroidReverseDashboardDialog(
         controller: controller,
         sessionId: sessionId,

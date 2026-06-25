@@ -18,6 +18,9 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
+const double _kMockRulesDialogMaxWidth = 1080;
+const double _kMockRulesDialogMaxHeight = 760;
+
 Future<void> showWebReverseMockRulesDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -161,292 +164,265 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     final loc = AppLocalizations.of(context);
     final hits = widget.controller.mockHits;
 
-    return Dialog(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: _kMockRulesDialogMaxWidth,
+      maxHeight: _kMockRulesDialogMaxHeight,
       backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.alt_route_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseMockRulesTitle ?? 'Local Mock',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseMockRulesSubtitle ??
-                              'URL pattern match → Fetch.fulfillRequest returns a canned response',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip:
-                        loc?.webReverseMockRulesExportJson ?? 'Export JSON',
-                    onPressed: _exportJson,
-                    icon: const Icon(Icons.upload_rounded),
-                  ),
-                  IconButton(
-                    tooltip:
-                        loc?.webReverseMockRulesImportJson ?? 'Import JSON',
-                    onPressed: _importJson,
-                    icon: const Icon(Icons.download_rounded),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.alt_route_rounded,
+            title: loc?.webReverseMockRulesTitle ?? 'Local Mock',
+            subtitle:
+                loc?.webReverseMockRulesSubtitle ??
+                'URL pattern match → Fetch.fulfillRequest returns a canned response',
+            actions: [
+              IconButton(
+                tooltip: loc?.webReverseMockRulesExportJson ?? 'Export JSON',
+                onPressed: _exportJson,
+                icon: const Icon(Icons.upload_rounded),
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 320,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                          child: Row(
-                            children: [
-                              Text(
-                                '${loc?.webReverseMockRulesListLabel ?? 'Rules'} (${_draft.length})',
-                                style: theme.textTheme.labelMedium,
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                tooltip: loc?.webReverseMockRulesAdd ?? 'Add',
-                                onPressed: _addRule,
-                                icon: const Icon(Icons.add_rounded),
-                              ),
-                            ],
-                          ),
+              IconButton(
+                tooltip: loc?.webReverseMockRulesImportJson ?? 'Import JSON',
+                onPressed: _importJson,
+                icon: const Icon(Icons.download_rounded),
+              ),
+            ],
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 320,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+                        child: Row(
+                          children: [
+                            Text(
+                              '${loc?.webReverseMockRulesListLabel ?? 'Rules'} (${_draft.length})',
+                              style: theme.textTheme.labelMedium,
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: loc?.webReverseMockRulesAdd ?? 'Add',
+                              onPressed: _addRule,
+                              icon: const Icon(Icons.add_rounded),
+                            ),
+                          ],
                         ),
-                        Expanded(
-                          child: _draft.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    loc?.webReverseMockRulesEmptyRules ??
-                                        'No rules',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
+                      ),
+                      Expanded(
+                        child: _draft.isEmpty
+                            ? Center(
+                                child: Text(
+                                  loc?.webReverseMockRulesEmptyRules ??
+                                      'No rules',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
                                   ),
-                                )
-                              : ListView.separated(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  itemCount: _draft.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 4),
-                                  itemBuilder: (_, i) {
-                                    final r = _draft[i];
-                                    final sel = i == _selected;
-                                    return Material(
-                                      color: sel
-                                          ? cs.primaryContainer.withValues(
-                                              alpha: 0.4,
-                                            )
-                                          : cs.surfaceContainerHigh,
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                itemCount: _draft.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 4),
+                                itemBuilder: (_, i) {
+                                  final r = _draft[i];
+                                  final sel = i == _selected;
+                                  return Material(
+                                    color: sel
+                                        ? cs.primaryContainer.withValues(
+                                            alpha: 0.4,
+                                          )
+                                        : cs.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: InkWell(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(8),
-                                        onTap: () =>
-                                            setState(() => _selected = i),
-                                        child: Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            8,
-                                            6,
-                                            4,
-                                            6,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Switch(
-                                                value: r.enabled,
-                                                onChanged: (v) => setState(() {
-                                                  _draft[i] = r.copyWith(
-                                                    enabled: v,
-                                                  );
-                                                }),
+                                      onTap: () =>
+                                          setState(() => _selected = i),
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          8,
+                                          6,
+                                          4,
+                                          6,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Switch(
+                                              value: r.enabled,
+                                              onChanged: (v) => setState(() {
+                                                _draft[i] = r.copyWith(
+                                                  enabled: v,
+                                                );
+                                              }),
+                                            ),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    r.name,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelMedium,
+                                                  ),
+                                                  Text(
+                                                    r.urlPattern,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelSmall
+                                                        ?.copyWith(
+                                                          color: cs
+                                                              .onSurfaceVariant,
+                                                          fontFamily:
+                                                              'monospace',
+                                                        ),
+                                                  ),
+                                                ],
                                               ),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      r.name,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: theme
-                                                          .textTheme
-                                                          .labelMedium,
-                                                    ),
-                                                    Text(
-                                                      r.urlPattern,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: theme
-                                                          .textTheme
-                                                          .labelSmall
-                                                          ?.copyWith(
-                                                            color: cs
-                                                                .onSurfaceVariant,
-                                                            fontFamily:
-                                                                'monospace',
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ),
+                                            ),
+                                            IconButton(
+                                              tooltip:
+                                                  loc?.webReverseMockRulesDelete ??
+                                                  'Delete',
+                                              onPressed: () => _removeAt(i),
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 16,
                                               ),
-                                              IconButton(
-                                                tooltip:
-                                                    loc?.webReverseMockRulesDelete ??
-                                                    'Delete',
-                                                onPressed: () => _removeAt(i),
-                                                icon: const Icon(
-                                                  Icons.delete_outline,
-                                                  size: 16,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   ),
-                  VerticalDivider(width: 1, color: cs.outlineVariant),
+                ),
+                VerticalDivider(width: 1, color: cs.outlineVariant),
+                Expanded(
+                  child: _selected < 0 || _selected >= _draft.length
+                      ? Center(
+                          child: Text(
+                            loc?.webReverseMockRulesPickRule ??
+                                'Pick a rule on the left',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : _RuleEditor(
+                          key: ValueKey(_draft[_selected].id),
+                          rule: _draft[_selected],
+                          onChanged: (updated) {
+                            setState(() => _draft[_selected] = updated);
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          SizedBox(
+            height: 110,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        loc?.webReverseMockRulesHits ?? 'Hits',
+                        style: theme.textTheme.labelMedium,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '(${hits.length})',
+                        style: theme.textTheme.labelSmall,
+                      ),
+                      const Spacer(),
+                      if (hits.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: widget.controller.clearMockHits,
+                          icon: const Icon(
+                            Icons.cleaning_services_rounded,
+                            size: 14,
+                          ),
+                          label: Text(loc?.webReverseMockRulesClear ?? 'Clear'),
+                        ),
+                    ],
+                  ),
                   Expanded(
-                    child: _selected < 0 || _selected >= _draft.length
+                    child: hits.isEmpty
                         ? Center(
                             child: Text(
-                              loc?.webReverseMockRulesPickRule ??
-                                  'Pick a rule on the left',
-                              style: theme.textTheme.bodySmall?.copyWith(
+                              loc?.webReverseMockRulesNoHits ?? 'No hits yet',
+                              style: theme.textTheme.labelSmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
                           )
-                        : _RuleEditor(
-                            key: ValueKey(_draft[_selected].id),
-                            rule: _draft[_selected],
-                            onChanged: (updated) {
-                              setState(() => _draft[_selected] = updated);
+                        : ListView.builder(
+                            itemCount: hits.length,
+                            itemBuilder: (_, i) {
+                              final h = hits[i];
+                              return Text(
+                                '${_fmt(h.at)}  '
+                                '${h.status}  '
+                                '${h.ruleName}',
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                ),
+                              );
                             },
                           ),
                   ),
                 ],
               ),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            SizedBox(
-              height: 110,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          loc?.webReverseMockRulesHits ?? 'Hits',
-                          style: theme.textTheme.labelMedium,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '(${hits.length})',
-                          style: theme.textTheme.labelSmall,
-                        ),
-                        const Spacer(),
-                        if (hits.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: widget.controller.clearMockHits,
-                            icon: const Icon(
-                              Icons.cleaning_services_rounded,
-                              size: 14,
-                            ),
-                            label: Text(
-                              loc?.webReverseMockRulesClear ?? 'Clear',
-                            ),
-                          ),
-                      ],
-                    ),
-                    Expanded(
-                      child: hits.isEmpty
-                          ? Center(
-                              child: Text(
-                                loc?.webReverseMockRulesNoHits ?? 'No hits yet',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: hits.length,
-                              itemBuilder: (_, i) {
-                                final h = hits[i];
-                                return Text(
-                                  '${_fmt(h.at)}  '
-                                  '${h.status}  '
-                                  '${h.ruleName}',
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseMockRulesClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ),
+                const SizedBox(width: 8),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.webReverseMockRulesSaveApply ?? 'Save & Apply',
+                  onPressed: _commit,
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseMockRulesClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.webReverseMockRulesSaveApply ?? 'Save & Apply',
-                    onPressed: _commit,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

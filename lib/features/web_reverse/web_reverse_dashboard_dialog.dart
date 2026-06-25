@@ -107,6 +107,11 @@ part 'web_reverse_dashboard_dialog.realtime.part.dart';
 // 略大一点的视觉，保证 macOS 上点击命中区充足。
 const double _kToolbarHeight = 36;
 const double _kToolbarRadius = 999;
+const double _kDashboardDialogMaxWidth = 1180;
+const double _kDashboardDialogMaxHeight = 760;
+const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(24);
+const double _kShortcutsHelpDialogMaxWidth = 560;
+const double _kShortcutsHelpDialogMaxHeight = 600;
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const Curve _kSwitchOutCurve = Curves.easeInCubic;
@@ -974,82 +979,74 @@ class _WebReverseDashboardDialogState
       // 任何 TextField 都无法输入 / 复制 / 粘贴。Dialog 由 showAnimatedDialog
       // 套上 `_EscapeDismissDialogScope` 提供 ESC 关闭，ModalRoute 自身的
       // 焦点 scope 已足以让 CallbackShortcuts 接收到键盘事件。
-      child: Dialog(
+      child: buildOpenHandToolDialogShell(
+        context: context,
+        maxWidth: _kDashboardDialogMaxWidth,
+        maxHeight: _kDashboardDialogMaxHeight,
+        insetPadding: _kDashboardDialogInsetPadding,
         backgroundColor: cs.surfaceContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        insetPadding: const EdgeInsets.all(24),
-        child: ClipRRect(
-          // Dialog 自带 shape 只裁切 Material 自身的背景；body 内的 Container
-          // / Image / Stack 等会延伸到 Dialog 边缘，覆盖掉本来的圆角。
-          // 用一层 ClipRRect 把所有 body 内容统一裁成圆角，右下角不再是
-          // 尖角。
-          borderRadius: BorderRadius.circular(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 760),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              // 关键：所有子项横向拉到 Dialog 全宽，避免不同 tab 切换时
-              // body 内容更窄导致 Column 把 toolbar 行整体回缩并重新居中
-              // （Network 行能拉满工具条变左对齐；Console / 性能行 body 窄、
-              // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(theme, cs, isZh),
-                Divider(height: 1, color: cs.outlineVariant),
-                AnimatedSize(
-                  duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                  curve: _kSwitchInCurve,
-                  alignment: Alignment.topCenter,
-                  child: AnimatedSwitcher(
-                    duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                    switchInCurve: _kSwitchInCurve,
-                    switchOutCurve: _kSwitchOutCurve,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SizeTransition(
-                        sizeFactor: animation,
-                        axisAlignment: -1,
-                        child: child,
-                      ),
-                    ),
-                    child: (ctrl.errorMessage ?? '').trim().isNotEmpty
-                        ? _DiagnosisBanner(
-                            key: const ValueKey('diagnosis-banner'),
-                            controller: ctrl,
-                            isZh: isZh,
-                            reduceMotion: reduceMotion,
-                          )
-                        : const SizedBox.shrink(
-                            key: ValueKey('diagnosis-banner-empty'),
-                          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          // 关键：所有子项横向拉到 Dialog 全宽，避免不同 tab 切换时
+          // body 内容更窄导致 Column 把 toolbar 行整体回缩并重新居中
+          // （Network 行能拉满工具条变左对齐；Console / 性能行 body 窄、
+          // 工具条又默认 MainAxisSize.min，外层 stretch 会强制铺满）。
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(theme, cs, isZh),
+            Divider(height: 1, color: cs.outlineVariant),
+            AnimatedSize(
+              duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+              curve: _kSwitchInCurve,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+                duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+                switchInCurve: _kSwitchInCurve,
+                switchOutCurve: _kSwitchOutCurve,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(
+                    sizeFactor: animation,
+                    axisAlignment: -1,
+                    child: child,
                   ),
                 ),
-                _buildToolbar(theme, cs, isZh, ctrl, reduceMotion),
-                Divider(height: 1, color: cs.outlineVariant),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                    switchInCurve: _kSwitchInCurve,
-                    switchOutCurve: _kSwitchOutCurve,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.02),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
+                child: (ctrl.errorMessage ?? '').trim().isNotEmpty
+                    ? _DiagnosisBanner(
+                        key: const ValueKey('diagnosis-banner'),
+                        controller: ctrl,
+                        isZh: isZh,
+                        reduceMotion: reduceMotion,
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey('diagnosis-banner-empty'),
                       ),
-                    ),
-                    child: KeyedSubtree(
-                      key: ValueKey<_Tab>(_tab),
-                      child: _buildBody(theme, cs, isZh, ctrl, reduceMotion),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            _buildToolbar(theme, cs, isZh, ctrl, reduceMotion),
+            Divider(height: 1, color: cs.outlineVariant),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: reduceMotion ? Duration.zero : _kSwitchDuration,
+                switchInCurve: _kSwitchInCurve,
+                switchOutCurve: _kSwitchOutCurve,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.02),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: KeyedSubtree(
+                  key: ValueKey<_Tab>(_tab),
+                  child: _buildBody(theme, cs, isZh, ctrl, reduceMotion),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -2263,37 +2260,23 @@ class _ShortcutsHelpDialog extends StatelessWidget {
         ],
       ),
     ];
-    return Dialog(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: _kShortcutsHelpDialogMaxWidth,
+      maxHeight: _kShortcutsHelpDialogMaxHeight,
       backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Row(
-                children: [
-                  Icon(Icons.keyboard_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      isZh ? '快捷键速查' : 'Keyboard shortcuts',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Flexible(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.keyboard_rounded,
+            title: isZh ? '快捷键速查' : 'Keyboard shortcuts',
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Flexible(
+            child: OpenHandSafeScrollbar(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
                 children: [
@@ -2348,8 +2331,8 @@ class _ShortcutsHelpDialog extends StatelessWidget {
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

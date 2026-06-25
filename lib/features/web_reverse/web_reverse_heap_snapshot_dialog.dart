@@ -17,6 +17,8 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
+const double _kHeapDialogMaxWidth = 640;
+
 Future<void> showWebReverseHeapSnapshotDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -113,100 +115,75 @@ class _HeapDialogState extends State<_HeapDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: _kHeapDialogMaxWidth,
       backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.memory_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Heap Snapshot',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseHeapSubtitle ??
-                              'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.memory_rounded,
+            title: 'Heap Snapshot',
+            subtitle:
+                loc?.webReverseHeapSubtitle ??
+                'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+            closeEnabled: !_busy,
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+            child: Row(
+              children: [
+                if (_busy)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Icon(Icons.flash_on_rounded, color: cs.secondary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _status.isEmpty
+                        ? (loc?.webReverseHeapEmptyHint ??
+                              'Click below to capture current page V8 heap snapshot.\nLarge pages may produce 50MB+ files.')
+                        : _status,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
-                  IconButton(
-                    onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-              child: Row(
-                children: [
-                  if (_busy)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    Icon(Icons.flash_on_rounded, color: cs.secondary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _status.isEmpty
-                          ? (loc?.webReverseHeapEmptyHint ??
-                                'Click below to capture current page V8 heap snapshot.\nLarge pages may produce 50MB+ files.')
-                          : _status,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            buildOpenHandDialogActionsBar(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              spacing: 10,
-              actions: [
-                if (_lastSaved.isNotEmpty)
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseHeapCopyPath ?? 'Copy path',
-                    icon: Icons.copy_rounded,
-                    onPressed: _copyPath,
-                  ),
-                OpenHandDialogActionButton.secondary(
-                  label: loc?.webReverseHeapTake ?? 'Take Snapshot',
-                  icon: Icons.camera_alt_rounded,
-                  busy: _busy,
-                  onPressed: _busy ? null : _take,
-                ),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.commonClose ?? 'Close',
-                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          buildOpenHandDialogActionsBar(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            spacing: 10,
+            actions: [
+              if (_lastSaved.isNotEmpty)
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseHeapCopyPath ?? 'Copy path',
+                  icon: Icons.copy_rounded,
+                  onPressed: _copyPath,
+                ),
+              OpenHandDialogActionButton.secondary(
+                label: loc?.webReverseHeapTake ?? 'Take Snapshot',
+                icon: Icons.camera_alt_rounded,
+                busy: _busy,
+                onPressed: _busy ? null : _take,
+              ),
+              OpenHandDialogActionButton.primary(
+                label: loc?.commonClose ?? 'Close',
+                onPressed: _busy ? null : () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

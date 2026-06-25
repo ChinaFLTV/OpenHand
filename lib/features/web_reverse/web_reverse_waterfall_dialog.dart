@@ -22,6 +22,10 @@ import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
+const double _kWaterfallDialogMaxWidth = 1100;
+const double _kWaterfallDialogMaxHeight = 760;
+const double _kWaterfallInitiatorDialogMaxWidth = 720;
+
 Future<void> showWebReverseWaterfallDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -109,226 +113,199 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         ? latest.difference(earliest).inMilliseconds.clamp(1, 1 << 30)
         : 1;
 
-    return Dialog(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: _kWaterfallDialogMaxWidth,
+      maxHeight: _kWaterfallDialogMaxHeight,
       backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1100, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.timeline_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseWaterfallTitle ?? 'Network Waterfall',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseWaterfallSubtitle ??
-                              'Blue = wait TTFB, Green = download; click row to copy URL',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => setState(() {}),
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: loc?.webReverseWaterfallRefresh ?? 'Refresh',
-                  ),
-                  IconButton(
-                    onPressed: _importHar,
-                    icon: const Icon(Icons.file_upload_outlined),
-                    tooltip: loc?.webReverseWaterfallImportHar ?? 'Import HAR',
-                  ),
-                  IconButton(
-                    onPressed: entries.isEmpty ? null : _exportHar,
-                    icon: const Icon(Icons.file_download_outlined),
-                    tooltip: loc?.webReverseWaterfallExportHar ?? 'Export HAR',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.timeline_rounded,
+            title: loc?.webReverseWaterfallTitle ?? 'Network Waterfall',
+            subtitle:
+                loc?.webReverseWaterfallSubtitle ??
+                'Blue = wait TTFB, Green = download; click row to copy URL',
+            actions: [
+              IconButton(
+                onPressed: () => setState(() {}),
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: loc?.webReverseWaterfallRefresh ?? 'Refresh',
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _filterCtrl,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText:
-                            loc?.webReverseWaterfallFilterHint ??
-                            'filter URL substring',
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilterChip(
-                    label: Text(
-                      loc?.webReverseWaterfallOnlyXhr ?? 'XHR/Fetch only',
-                    ),
-                    selected: _onlyXhr,
-                    onSelected: (v) => setState(() => _onlyXhr = v),
-                  ),
-                  const SizedBox(width: 12),
-                  WebReverseSelectButton<_SortMode>(
-                    value: _sort,
-                    dense: true,
-                    minWidth: 112,
-                    tooltip: loc?.webReverseWaterfallSortTime ?? 'Sort',
-                    onChanged: (v) => setState(() => _sort = v),
-                    options: [
-                      WebReverseSelectOption(
-                        value: _SortMode.time,
-                        label: loc?.webReverseWaterfallSortTime ?? 'Time',
-                      ),
-                      WebReverseSelectOption(
-                        value: _SortMode.duration,
-                        label:
-                            loc?.webReverseWaterfallSortDuration ?? 'Duration',
-                      ),
-                      WebReverseSelectOption(
-                        value: _SortMode.size,
-                        label: loc?.webReverseWaterfallSortSize ?? 'Size',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '${entries.length}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+              IconButton(
+                onPressed: _importHar,
+                icon: const Icon(Icons.file_upload_outlined),
+                tooltip: loc?.webReverseWaterfallImportHar ?? 'Import HAR',
               ),
-            ),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: cs.outlineVariant),
+              IconButton(
+                onPressed: entries.isEmpty ? null : _exportHar,
+                icon: const Icon(Icons.file_download_outlined),
+                tooltip: loc?.webReverseWaterfallExportHar ?? 'Export HAR',
+              ),
+            ],
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _filterCtrl,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      hintText:
+                          loc?.webReverseWaterfallFilterHint ??
+                          'filter URL substring',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
                 ),
-                child: entries.isEmpty
-                    ? Center(
-                        child: Text(
-                          loc?.webReverseWaterfallNoRequests ?? 'No requests',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          const leftWidth = 360.0;
-                          final barWidth =
-                              (constraints.maxWidth - leftWidth - 16).clamp(
-                                120.0,
-                                9999.0,
-                              );
-                          return Column(
-                            children: [
-                              _scaleHeader(
-                                theme,
-                                cs,
-                                leftWidth,
-                                barWidth,
-                                windowMs,
-                              ),
-                              Divider(height: 1, color: cs.outlineVariant),
-                              Expanded(
-                                child: ListView.separated(
-                                  itemCount: entries.length,
-                                  separatorBuilder: (_, _) => Divider(
-                                    height: 1,
-                                    color: cs.outlineVariant,
-                                  ),
-                                  itemBuilder: (_, i) {
-                                    final e = entries[i];
-                                    return _row(
-                                      theme: theme,
-                                      cs: cs,
-                                      e: e,
-                                      earliest: earliest!,
-                                      windowMs: windowMs,
-                                      leftWidth: leftWidth,
-                                      barWidth: barWidth,
-                                      onTap: () async {
-                                        final copied =
-                                            await setWebReverseClipboardText(
-                                              e.url,
-                                            );
-                                        if (messenger != null &&
-                                            context.mounted) {
-                                          final loc = AppLocalizations.of(
-                                            context,
-                                          );
-                                          OpenHandSnackBar.showSuccessOn(
-                                            context,
-                                            messenger,
-                                            webReverseClipboardSnackMessage(
-                                              isZh:
-                                                  loc?.localeName.startsWith(
-                                                    'zh',
-                                                  ) ??
-                                                  false,
-                                              base:
-                                                  loc?.webReverseWaterfallUrlCopied ??
-                                                  'URL copied',
-                                              result: copied,
-                                            ),
-                                          );
-                                        }
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseWaterfallClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
+                const SizedBox(width: 12),
+                FilterChip(
+                  label: Text(
+                    loc?.webReverseWaterfallOnlyXhr ?? 'XHR/Fetch only',
                   ),
-                ],
-              ),
+                  selected: _onlyXhr,
+                  onSelected: (v) => setState(() => _onlyXhr = v),
+                ),
+                const SizedBox(width: 12),
+                WebReverseSelectButton<_SortMode>(
+                  value: _sort,
+                  dense: true,
+                  minWidth: 112,
+                  tooltip: loc?.webReverseWaterfallSortTime ?? 'Sort',
+                  onChanged: (v) => setState(() => _sort = v),
+                  options: [
+                    WebReverseSelectOption(
+                      value: _SortMode.time,
+                      label: loc?.webReverseWaterfallSortTime ?? 'Time',
+                    ),
+                    WebReverseSelectOption(
+                      value: _SortMode.duration,
+                      label: loc?.webReverseWaterfallSortDuration ?? 'Duration',
+                    ),
+                    WebReverseSelectOption(
+                      value: _SortMode.size,
+                      label: loc?.webReverseWaterfallSortSize ?? 'Size',
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '${entries.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: entries.isEmpty
+                  ? Center(
+                      child: Text(
+                        loc?.webReverseWaterfallNoRequests ?? 'No requests',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        const leftWidth = 360.0;
+                        final barWidth = (constraints.maxWidth - leftWidth - 16)
+                            .clamp(120.0, 9999.0);
+                        return Column(
+                          children: [
+                            _scaleHeader(
+                              theme,
+                              cs,
+                              leftWidth,
+                              barWidth,
+                              windowMs,
+                            ),
+                            Divider(height: 1, color: cs.outlineVariant),
+                            Expanded(
+                              child: ListView.separated(
+                                itemCount: entries.length,
+                                separatorBuilder: (_, _) => Divider(
+                                  height: 1,
+                                  color: cs.outlineVariant,
+                                ),
+                                itemBuilder: (_, i) {
+                                  final e = entries[i];
+                                  return _row(
+                                    theme: theme,
+                                    cs: cs,
+                                    e: e,
+                                    earliest: earliest!,
+                                    windowMs: windowMs,
+                                    leftWidth: leftWidth,
+                                    barWidth: barWidth,
+                                    onTap: () async {
+                                      final copied =
+                                          await setWebReverseClipboardText(
+                                            e.url,
+                                          );
+                                      if (messenger != null &&
+                                          context.mounted) {
+                                        final loc = AppLocalizations.of(
+                                          context,
+                                        );
+                                        OpenHandSnackBar.showSuccessOn(
+                                          context,
+                                          messenger,
+                                          webReverseClipboardSnackMessage(
+                                            isZh:
+                                                loc?.localeName.startsWith(
+                                                  'zh',
+                                                ) ??
+                                                false,
+                                            base:
+                                                loc?.webReverseWaterfallUrlCopied ??
+                                                'URL copied',
+                                            result: copied,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseWaterfallClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -605,177 +582,161 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         final cs = theme.colorScheme;
         final loc = AppLocalizations.of(dialogContext);
         final frames = e.initiatorStack;
-        return Dialog(
+        return buildOpenHandToolDialogShell(
+          context: dialogContext,
+          maxWidth: _kWaterfallInitiatorDialogMaxWidth,
           backgroundColor: cs.surfaceContainer,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          child: SizedBox(
-            width: 720,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 8, 10),
-                  child: Row(
-                    children: [
-                      Icon(Icons.account_tree_rounded, color: cs.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          loc?.webReverseWaterfallInitiatorTitle ??
-                              'Request Initiator',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: cs.outlineVariant),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
-                  child: Row(
-                    children: [
-                      Text(
-                        '${loc?.webReverseWaterfallInitiatorTypeLabel ?? "Type"}: ${e.initiatorType ?? "—"}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      const Spacer(),
-                      if (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty)
-                        TextButton.icon(
-                          onPressed: () {
-                            ctrl.requestSourceJump(
-                              url: e.initiatorUrl!,
-                              line: e.initiatorLineNumber ?? 0,
-                              col: e.initiatorColumnNumber ?? 0,
-                            );
-                            Navigator.of(dialogContext).pop();
-                            if (mounted) Navigator.of(context).pop();
-                          },
-                          icon: const Icon(Icons.launch_rounded, size: 14),
-                          label: Text(
-                            loc?.webReverseWaterfallJumpToSources ??
-                                'Open in Sources',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-                    child: Text(
-                      '${e.initiatorUrl}:${(e.initiatorLineNumber ?? 0) + 1}:${(e.initiatorColumnNumber ?? 0) + 1}',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              buildOpenHandToolDialogHeader(
+                context: dialogContext,
+                icon: Icons.account_tree_rounded,
+                title:
+                    loc?.webReverseWaterfallInitiatorTitle ??
+                    'Request Initiator',
+                onClose: () => Navigator.of(dialogContext).pop(),
+              ),
+              Divider(height: 1, color: cs.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 4),
+                child: Row(
+                  children: [
+                    Text(
+                      '${loc?.webReverseWaterfallInitiatorTypeLabel ?? "Type"}: ${e.initiatorType ?? "—"}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
-                        color: cs.onSurfaceVariant,
                       ),
                     ),
+                    const Spacer(),
+                    if (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () {
+                          ctrl.requestSourceJump(
+                            url: e.initiatorUrl!,
+                            line: e.initiatorLineNumber ?? 0,
+                            col: e.initiatorColumnNumber ?? 0,
+                          );
+                          Navigator.of(dialogContext).pop();
+                          if (mounted) Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.launch_rounded, size: 14),
+                        label: Text(
+                          loc?.webReverseWaterfallJumpToSources ??
+                              'Open in Sources',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (e.initiatorUrl != null && e.initiatorUrl!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+                  child: Text(
+                    '${e.initiatorUrl}:${(e.initiatorLineNumber ?? 0) + 1}:${(e.initiatorColumnNumber ?? 0) + 1}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
-                Divider(height: 1, color: cs.outlineVariant),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 360),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: frames.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Text(
-                            loc?.webReverseWaterfallNoJsStack ??
-                                'No JavaScript stack (typical for parser/preflight)',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
+                ),
+              Divider(height: 1, color: cs.outlineVariant),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 360),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: frames.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Text(
+                          loc?.webReverseWaterfallNoJsStack ??
+                              'No JavaScript stack (typical for parser/preflight)',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
                           ),
-                        )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: frames.length,
-                          separatorBuilder: (_, _) =>
-                              Divider(height: 1, color: cs.outlineVariant),
-                          itemBuilder: (_, i) {
-                            final f = frames[i];
-                            final fn = (f['functionName'] as String?) ?? '';
-                            final url = (f['url'] as String?) ?? '';
-                            final line =
-                                ((f['lineNumber'] as num?)?.toInt() ?? 0) + 1;
-                            final col =
-                                ((f['columnNumber'] as num?)?.toInt() ?? 0) + 1;
-                            return InkWell(
-                              onTap: url.isEmpty
-                                  ? null
-                                  : () {
-                                      ctrl.requestSourceJump(
-                                        url: url,
-                                        line:
-                                            (f['lineNumber'] as num?)
-                                                ?.toInt() ??
-                                            0,
-                                        col:
-                                            (f['columnNumber'] as num?)
-                                                ?.toInt() ??
-                                            0,
-                                      );
-                                      Navigator.of(dialogContext).pop();
-                                      if (mounted) Navigator.of(context).pop();
-                                    },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 6,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: frames.length,
+                        separatorBuilder: (_, _) =>
+                            Divider(height: 1, color: cs.outlineVariant),
+                        itemBuilder: (_, i) {
+                          final f = frames[i];
+                          final fn = (f['functionName'] as String?) ?? '';
+                          final url = (f['url'] as String?) ?? '';
+                          final line =
+                              ((f['lineNumber'] as num?)?.toInt() ?? 0) + 1;
+                          final col =
+                              ((f['columnNumber'] as num?)?.toInt() ?? 0) + 1;
+                          return InkWell(
+                            onTap: url.isEmpty
+                                ? null
+                                : () {
+                                    ctrl.requestSourceJump(
+                                      url: url,
+                                      line:
+                                          (f['lineNumber'] as num?)?.toInt() ??
+                                          0,
+                                      col:
+                                          (f['columnNumber'] as num?)
+                                              ?.toInt() ??
+                                          0,
+                                    );
+                                    Navigator.of(dialogContext).pop();
+                                    if (mounted) Navigator.of(context).pop();
+                                  },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 6,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fn.isEmpty ? '(anonymous)' : fn,
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                  if (url.isNotEmpty)
                                     Text(
-                                      fn.isEmpty ? '(anonymous)' : fn,
+                                      '$url:$line:$col',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontFamily: 'monospace',
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: cs.onSurface,
+                                        fontSize: 10,
+                                        color: cs.onSurfaceVariant,
                                       ),
                                     ),
-                                    if (url.isNotEmpty)
-                                      Text(
-                                        '$url:$line:$col',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 10,
-                                          color: cs.onSurfaceVariant,
-                                        ),
-                                      ),
-                                  ],
-                                ),
+                                ],
                               ),
-                            );
-                          },
-                        ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      OpenHandDialogActionButton.secondary(
-                        label: loc?.webReverseWaterfallClose ?? 'Close',
-                        onPressed: () => Navigator.of(dialogContext).pop(),
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      label: loc?.webReverseWaterfallClose ?? 'Close',
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

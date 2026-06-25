@@ -18,6 +18,9 @@ import '../../shared/util/date_time_format.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
+const double _kAccountSnapshotsDialogMaxWidth = 720;
+const double _kAccountSnapshotsDialogMaxHeight = 620;
+
 Future<void> showWebReverseAccountSnapshotsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
@@ -185,149 +188,118 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
       animation: widget.controller,
       builder: (context, _) {
         final snaps = widget.controller.accountSnapshots;
-        return Dialog(
+        return buildOpenHandToolDialogShell(
+          context: context,
+          maxWidth: _kAccountSnapshotsDialogMaxWidth,
+          maxHeight: _kAccountSnapshotsDialogMaxHeight,
           backgroundColor: cs.surfaceContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
           insetPadding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 620),
-            child: Column(
-              children: [
-                _buildHeader(theme, cs, loc),
-                Divider(height: 1, color: cs.outlineVariant),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _nameCtrl,
-                          decoration: InputDecoration(
-                            labelText:
-                                loc?.webReverseAccountSnapNameLabel ??
-                                'Name for current account',
-                            hintText:
-                                loc?.webReverseAccountSnapNameHint ??
-                                'e.g. main / test-001',
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onSubmitted: (_) => _capture(),
+          child: Column(
+            children: [
+              _buildHeader(context, loc),
+              Divider(height: 1, color: cs.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _nameCtrl,
+                        decoration: InputDecoration(
+                          labelText:
+                              loc?.webReverseAccountSnapNameLabel ??
+                              'Name for current account',
+                          hintText:
+                              loc?.webReverseAccountSnapNameHint ??
+                              'e.g. main / test-001',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
                         ),
+                        onSubmitted: (_) => _capture(),
                       ),
-                      const SizedBox(width: 12),
-                      FilledButton.icon(
-                        onPressed: _busy ? null : _capture,
-                        icon: const Icon(Icons.bookmark_add_rounded, size: 18),
-                        label: Text(
-                          loc?.webReverseAccountSnapCapture ?? 'Capture',
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _capture,
+                      icon: const Icon(Icons.bookmark_add_rounded, size: 18),
+                      label: Text(
+                        loc?.webReverseAccountSnapCapture ?? 'Capture',
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: snaps.isEmpty ? null : _export,
-                        icon: const Icon(Icons.upload_rounded, size: 16),
-                        label: Text(
-                          loc?.webReverseAccountSnapExportAll ?? 'Export all',
-                        ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: snaps.isEmpty ? null : _export,
+                      icon: const Icon(Icons.upload_rounded, size: 16),
+                      label: Text(
+                        loc?.webReverseAccountSnapExportAll ?? 'Export all',
                       ),
-                      TextButton.icon(
-                        onPressed: _import,
-                        icon: const Icon(Icons.download_rounded, size: 16),
-                        label: Text(
-                          loc?.webReverseAccountSnapImport ?? 'Import',
-                        ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _import,
+                      icon: const Icon(Icons.download_rounded, size: 16),
+                      label: Text(loc?.webReverseAccountSnapImport ?? 'Import'),
+                    ),
+                    const Spacer(),
+                    Text(
+                      loc?.webReverseAccountSnapSnapshotsCount(snaps.length) ??
+                          '${snaps.length} total',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                      const Spacer(),
-                      Text(
-                        loc?.webReverseAccountSnapSnapshotsCount(
-                              snaps.length,
-                            ) ??
-                            '${snaps.length} total',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Expanded(
-                  child: snaps.isEmpty
-                      ? _buildEmpty(theme, cs, loc)
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 4,
-                          ),
-                          itemCount: snaps.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (_, idx) =>
-                              _buildRow(theme, cs, loc, snaps[idx]),
+              ),
+              const SizedBox(height: 4),
+              Expanded(
+                child: snaps.isEmpty
+                    ? _buildEmpty(theme, cs, loc)
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
                         ),
-                ),
-                Divider(height: 1, color: cs.outlineVariant),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      OpenHandDialogActionButton.secondary(
-                        label: loc?.webReverseAccountSnapClose ?? 'Close',
-                        onPressed: () => Navigator.of(context).pop(),
+                        itemCount: snaps.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (_, idx) =>
+                            _buildRow(theme, cs, loc, snaps[idx]),
                       ),
-                    ],
-                  ),
+              ),
+              Divider(height: 1, color: cs.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      label: loc?.webReverseAccountSnapClose ?? 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-      child: Row(
-        children: [
-          Icon(Icons.switch_account_rounded, color: cs.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc?.webReverseAccountSnapTitle ?? 'Account Snapshots',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  loc?.webReverseAccountSnapSubtitle ??
-                      'Save cookies + localStorage/sessionStorage; one-click switch between accounts',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
-          ),
-        ],
-      ),
+  Widget _buildHeader(BuildContext context, AppLocalizations? loc) {
+    return buildOpenHandToolDialogHeader(
+      context: context,
+      icon: Icons.switch_account_rounded,
+      title: loc?.webReverseAccountSnapTitle ?? 'Account Snapshots',
+      subtitle:
+          loc?.webReverseAccountSnapSubtitle ??
+          'Save cookies + localStorage/sessionStorage; one-click switch between accounts',
+      onClose: () => Navigator.of(context).pop(),
     );
   }
 

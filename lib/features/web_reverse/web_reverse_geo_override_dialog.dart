@@ -40,11 +40,18 @@ const List<_GeoPreset> _presets = <_GeoPreset>[
   _GeoPreset('Berlin', 52.5200, 13.4050, 'Europe/Berlin', 'de-DE'),
   _GeoPreset('New York', 40.7128, -74.0060, 'America/New_York', 'en-US'),
   _GeoPreset('Los Angeles', 34.0522, -118.2437, 'America/Los_Angeles', 'en-US'),
-  _GeoPreset('San Francisco', 37.7749, -122.4194, 'America/Los_Angeles', 'en-US'),
+  _GeoPreset(
+    'San Francisco',
+    37.7749,
+    -122.4194,
+    'America/Los_Angeles',
+    'en-US',
+  ),
   _GeoPreset('Sydney', -33.8688, 151.2093, 'Australia/Sydney', 'en-AU'),
   _GeoPreset('São Paulo', -23.5505, -46.6333, 'America/Sao_Paulo', 'pt-BR'),
   _GeoPreset('Moscow', 55.7558, 37.6173, 'Europe/Moscow', 'ru-RU'),
 ];
+const double _kGeoOverrideDialogMaxWidth = 760;
 
 Future<void> showWebReverseGeoOverrideDialog(
   BuildContext context, {
@@ -95,7 +102,10 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
     });
   }
 
-  Future<Map<String, Object?>?> _callCdp(String method, Map<String, Object?> params) async {
+  Future<Map<String, Object?>?> _callCdp(
+    String method,
+    Map<String, Object?> params,
+  ) async {
     return widget.controller.sendRawCdp(
       method: method,
       paramsJson: jsonEncode(params),
@@ -131,7 +141,9 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
         if (tz.isEmpty) {
           errors.add('timezone 为空');
         } else {
-          final r = await _callCdp('Emulation.setTimezoneOverride', {'timezoneId': tz});
+          final r = await _callCdp('Emulation.setTimezoneOverride', {
+            'timezoneId': tz,
+          });
           if (r != null && r['error'] != null) errors.add('tz: ${r['error']}');
         }
       }
@@ -140,8 +152,12 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
         if (loc.isEmpty) {
           errors.add('locale 为空');
         } else {
-          final r = await _callCdp('Emulation.setLocaleOverride', {'locale': loc});
-          if (r != null && r['error'] != null) errors.add('locale: ${r['error']}');
+          final r = await _callCdp('Emulation.setLocaleOverride', {
+            'locale': loc,
+          });
+          if (r != null && r['error'] != null) {
+            errors.add('locale: ${r['error']}');
+          }
         }
       }
     } catch (e, st) {
@@ -165,11 +181,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
               'Environment overrides applied',
         );
       } else {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          messenger,
-          errors.join('; '),
-        );
+        OpenHandSnackBar.showErrorOn(context, messenger, errors.join('; '));
       }
     }
   }
@@ -190,8 +202,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
     final loc = AppLocalizations.of(context);
     setState(() {
       _busy = false;
-      _lastStatus =
-          loc?.webReverseGeoOverridesCleared ?? 'Overrides cleared';
+      _lastStatus = loc?.webReverseGeoOverridesCleared ?? 'Overrides cleared';
     });
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(
@@ -208,238 +219,215 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: _kGeoOverrideDialogMaxWidth,
       backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-              child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.public_rounded,
+            title: loc?.webReverseGeoTitle ?? 'Geo / TZ / Locale Override',
+            subtitle:
+                'Emulation.setGeolocationOverride / setTimezoneOverride / setLocaleOverride',
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.public_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseGeoTitle ??
-                              'Geo / TZ / Locale Override',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          'Emulation.setGeolocationOverride / setTimezoneOverride / setLocaleOverride',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
+                  Text(
+                    loc?.webReverseGeoCityPresets ?? 'City Presets',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final p in _presets)
+                        ActionChip(
+                          label: Text(p.name),
+                          onPressed: () => _applyPreset(p),
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc?.webReverseGeoCityPresets ?? 'City Presets',
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final p in _presets)
-                          ActionChip(
-                            label: Text(p.name),
-                            onPressed: () => _applyPreset(p),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _enableGeo,
-                          onChanged: (v) =>
-                              setState(() => _enableGeo = v ?? true),
-                        ),
-                        Expanded(
-                          child: Text(
-                            loc?.webReverseGeoEnableGeo ??
-                                'Enable geolocation override',
-                            style: theme.textTheme.labelLarge,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _latCtl,
-                            enabled: _enableGeo,
-                            decoration: const InputDecoration(
-                              labelText: 'Latitude',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _lngCtl,
-                            enabled: _enableGeo,
-                            decoration: const InputDecoration(
-                              labelText: 'Longitude',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 110,
-                          child: TextField(
-                            controller: _accCtl,
-                            enabled: _enableGeo,
-                            decoration: const InputDecoration(
-                              labelText: 'Accuracy(m)',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _enableTz,
-                          onChanged: (v) =>
-                              setState(() => _enableTz = v ?? true),
-                        ),
-                        Expanded(
-                          child: Text(
-                            loc?.webReverseGeoEnableTz ??
-                                'Enable timezone override',
-                            style: theme.textTheme.labelLarge,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _tzCtl,
-                      enabled: _enableTz,
-                      decoration: const InputDecoration(
-                        labelText: 'IANA timezone (eg. Asia/Shanghai)',
-                        border: OutlineInputBorder(),
-                        isDense: true,
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _enableGeo,
+                        onChanged: (v) =>
+                            setState(() => _enableGeo = v ?? true),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _enableLocale,
-                          onChanged: (v) =>
-                              setState(() => _enableLocale = v ?? true),
-                        ),
-                        Expanded(
-                          child: Text(
-                            loc?.webReverseGeoEnableLocale ??
-                                'Enable locale override',
-                            style: theme.textTheme.labelLarge,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _localeCtl,
-                      enabled: _enableLocale,
-                      decoration: const InputDecoration(
-                        labelText: 'Locale (eg. zh-CN / en-US)',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                    if (_lastStatus != null) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
+                      Expanded(
                         child: Text(
-                          _lastStatus!,
-                          style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 12),
+                          loc?.webReverseGeoEnableGeo ??
+                              'Enable geolocation override',
+                          style: theme.textTheme.labelLarge,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 12),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _latCtl,
+                          enabled: _enableGeo,
+                          decoration: const InputDecoration(
+                            labelText: 'Latitude',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _lngCtl,
+                          enabled: _enableGeo,
+                          decoration: const InputDecoration(
+                            labelText: 'Longitude',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 110,
+                        child: TextField(
+                          controller: _accCtl,
+                          enabled: _enableGeo,
+                          decoration: const InputDecoration(
+                            labelText: 'Accuracy(m)',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _enableTz,
+                        onChanged: (v) => setState(() => _enableTz = v ?? true),
+                      ),
+                      Expanded(
+                        child: Text(
+                          loc?.webReverseGeoEnableTz ??
+                              'Enable timezone override',
+                          style: theme.textTheme.labelLarge,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _tzCtl,
+                    enabled: _enableTz,
+                    decoration: const InputDecoration(
+                      labelText: 'IANA timezone (eg. Asia/Shanghai)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _enableLocale,
+                        onChanged: (v) =>
+                            setState(() => _enableLocale = v ?? true),
+                      ),
+                      Expanded(
+                        child: Text(
+                          loc?.webReverseGeoEnableLocale ??
+                              'Enable locale override',
+                          style: theme.textTheme.labelLarge,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _localeCtl,
+                    enabled: _enableLocale,
+                    decoration: const InputDecoration(
+                      labelText: 'Locale (eg. zh-CN / en-US)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  if (_lastStatus != null) ...[
+                    const SizedBox(height: 14),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: cs.tertiaryContainer.withValues(alpha: 0.35),
+                        color: cs.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: cs.outlineVariant),
                       ),
                       child: Text(
-                        loc?.webReverseGeoTip ??
-                            'Tip: overrides apply immediately within current target and persist across reloads. Inspect via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Hard-reload after override if a site caches detection.',
-                        style: theme.textTheme.labelSmall,
+                        _lastStatus!,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseGeoClear ?? 'Clear',
-                    onPressed: _busy ? null : _clear,
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    label: _busy
-                        ? (loc?.webReverseGeoWorking ?? 'Working…')
-                        : (loc?.webReverseGeoApply ?? 'Apply Overrides'),
-                    onPressed: _busy ? null : _apply,
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: cs.tertiaryContainer.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      loc?.webReverseGeoTip ??
+                          'Tip: overrides apply immediately within current target and persist across reloads. Inspect via navigator.geolocation, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language. Hard-reload after override if a site caches detection.',
+                      style: theme.textTheme.labelSmall,
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseGeoClear ?? 'Clear',
+                  onPressed: _busy ? null : _clear,
+                ),
+                const SizedBox(width: 8),
+                OpenHandDialogActionButton.primary(
+                  label: _busy
+                      ? (loc?.webReverseGeoWorking ?? 'Working…')
+                      : (loc?.webReverseGeoApply ?? 'Apply Overrides'),
+                  onPressed: _busy ? null : _apply,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

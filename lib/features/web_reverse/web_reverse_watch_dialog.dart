@@ -28,6 +28,7 @@ const int _kWatchMaxNameChars = 80;
 const int _kWatchMaxExpressionChars = 16 * 1024;
 const int _kWatchMaxResultChars = 800;
 const int _kWatchMaxSamples = 50;
+const double _kWatchDialogMaxWidth = 1020;
 
 Future<void> showWebReverseWatchDialog(
   BuildContext context, {
@@ -267,266 +268,241 @@ class _WatchDialogState extends State<_WatchDialog> {
     final cur = (_selected >= 0 && _selected < _exprs.length)
         ? _exprs[_selected]
         : null;
-    return Dialog(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: _kWatchDialogMaxWidth,
       backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1020, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.visibility_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseWatchTitle ?? 'Watch Expressions',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseWatchSubtitleHint(
-                                _interval.inMilliseconds,
-                                _kWatchMaxSamples,
-                              ) ??
-                              'Polls Runtime.evaluate every ${_interval.inMilliseconds}ms, keeps last $_kWatchMaxSamples samples',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: loc?.webReverseWatchExportJson ?? 'Export JSON',
-                    onPressed: _exportJson,
-                    icon: const Icon(Icons.upload_rounded),
-                  ),
-                  IconButton(
-                    tooltip: _running
-                        ? (loc?.webReverseWatchPause ?? 'Pause')
-                        : (loc?.webReverseWatchResume ?? 'Resume'),
-                    onPressed: _running ? _stop : _start,
-                    icon: Icon(
-                      _running
-                          ? Icons.pause_circle_filled_rounded
-                          : Icons.play_circle_filled_rounded,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.visibility_rounded,
+            title: loc?.webReverseWatchTitle ?? 'Watch Expressions',
+            subtitle:
+                loc?.webReverseWatchSubtitleHint(
+                  _interval.inMilliseconds,
+                  _kWatchMaxSamples,
+                ) ??
+                'Polls Runtime.evaluate every ${_interval.inMilliseconds}ms, keeps last $_kWatchMaxSamples samples',
+            actions: [
+              IconButton(
+                tooltip: loc?.webReverseWatchExportJson ?? 'Export JSON',
+                onPressed: _exportJson,
+                icon: const Icon(Icons.upload_rounded),
               ),
-            ),
-            _IntervalRow(
-              interval: _interval,
-              onChanged: (d) {
-                setState(() => _interval = d);
-                if (_running) _start();
-              },
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 340,
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: _exprs.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    loc?.webReverseWatchNoExpressions ??
-                                        'No expressions',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
+              IconButton(
+                tooltip: _running
+                    ? (loc?.webReverseWatchPause ?? 'Pause')
+                    : (loc?.webReverseWatchResume ?? 'Resume'),
+                onPressed: _running ? _stop : _start,
+                icon: Icon(
+                  _running
+                      ? Icons.pause_circle_filled_rounded
+                      : Icons.play_circle_filled_rounded,
+                ),
+              ),
+            ],
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          _IntervalRow(
+            interval: _interval,
+            onChanged: (d) {
+              setState(() => _interval = d);
+              if (_running) _start();
+            },
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 340,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: _exprs.isEmpty
+                            ? Center(
+                                child: Text(
+                                  loc?.webReverseWatchNoExpressions ??
+                                      'No expressions',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
                                   ),
-                                )
-                              : ListView.separated(
-                                  padding: const EdgeInsets.all(8),
-                                  itemCount: _exprs.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 4),
-                                  itemBuilder: (_, i) {
-                                    final e = _exprs[i];
-                                    final sel = i == _selected;
-                                    return Material(
-                                      color: sel
-                                          ? cs.primaryContainer.withValues(
-                                              alpha: 0.4,
-                                            )
-                                          : cs.surfaceContainerHigh,
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(8),
+                                itemCount: _exprs.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 4),
+                                itemBuilder: (_, i) {
+                                  final e = _exprs[i];
+                                  final sel = i == _selected;
+                                  return Material(
+                                    color: sel
+                                        ? cs.primaryContainer.withValues(
+                                            alpha: 0.4,
+                                          )
+                                        : cs.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: InkWell(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(8),
-                                        onTap: () =>
-                                            setState(() => _selected = i),
-                                        child: Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            10,
-                                            6,
-                                            4,
-                                            6,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                e.error
-                                                    ? Icons.error_outline
-                                                    : Icons
-                                                          .check_circle_outline,
+                                      onTap: () =>
+                                          setState(() => _selected = i),
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          10,
+                                          6,
+                                          4,
+                                          6,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              e.error
+                                                  ? Icons.error_outline
+                                                  : Icons.check_circle_outline,
+                                              size: 16,
+                                              color: e.error
+                                                  ? cs.error
+                                                  : cs.primary,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    e.name,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelMedium,
+                                                  ),
+                                                  Text(
+                                                    e.last.isEmpty
+                                                        ? (loc?.webReverseWatchAwaiting ??
+                                                              'awaiting…')
+                                                        : e.last,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelSmall
+                                                        ?.copyWith(
+                                                          color: e.error
+                                                              ? cs.error
+                                                              : cs.onSurfaceVariant,
+                                                          fontFamily:
+                                                              'monospace',
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            IconButton(
+                                              tooltip:
+                                                  loc?.webReverseWatchDelete ??
+                                                  'Delete',
+                                              onPressed: () => _removeAt(i),
+                                              icon: const Icon(
+                                                Icons.delete_outline,
                                                 size: 16,
-                                                color: e.error
-                                                    ? cs.error
-                                                    : cs.primary,
                                               ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      e.name,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: theme
-                                                          .textTheme
-                                                          .labelMedium,
-                                                    ),
-                                                    Text(
-                                                      e.last.isEmpty
-                                                          ? (loc?.webReverseWatchAwaiting ??
-                                                                'awaiting…')
-                                                          : e.last,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: theme
-                                                          .textTheme
-                                                          .labelSmall
-                                                          ?.copyWith(
-                                                            color: e.error
-                                                                ? cs.error
-                                                                : cs.onSurfaceVariant,
-                                                            fontFamily:
-                                                                'monospace',
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              IconButton(
-                                                tooltip:
-                                                    loc?.webReverseWatchDelete ??
-                                                    'Delete',
-                                                onPressed: () => _removeAt(i),
-                                                icon: const Icon(
-                                                  Icons.delete_outline,
-                                                  size: 16,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
-                        ),
-                        Divider(height: 1, color: cs.outlineVariant),
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Column(
-                            children: [
-                              TextField(
-                                controller: _newName,
-                                maxLength: _kWatchMaxNameChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideWatchCounter,
-                                decoration: InputDecoration(
-                                  labelText:
-                                      loc?.webReverseWatchNameLabel ??
-                                      'Name (optional)',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                ),
+                                    ),
+                                  );
+                                },
                               ),
-                              const SizedBox(height: 6),
-                              TextField(
-                                controller: _newCode,
-                                minLines: 2,
-                                maxLines: 4,
-                                maxLength: _kWatchMaxExpressionChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                buildCounter: _hideWatchCounter,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                ),
-                                decoration: InputDecoration(
-                                  labelText:
-                                      loc?.webReverseWatchExpressionLabel ??
-                                      'JS expression',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.tonalIcon(
-                                  onPressed: _addExpr,
-                                  icon: const Icon(Icons.add_rounded, size: 16),
-                                  label: Text(
-                                    loc?.webReverseWatchAddWatch ?? 'Add watch',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: cs.outlineVariant),
-                  Expanded(
-                    child: cur == null
-                        ? Center(
-                            child: Text(
-                              loc?.webReverseWatchPickWatch ?? 'Pick a watch',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
+                      ),
+                      Divider(height: 1, color: cs.outlineVariant),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          children: [
+                            TextField(
+                              controller: _newName,
+                              maxLength: _kWatchMaxNameChars,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
+                              buildCounter: _hideWatchCounter,
+                              decoration: InputDecoration(
+                                labelText:
+                                    loc?.webReverseWatchNameLabel ??
+                                    'Name (optional)',
+                                border: const OutlineInputBorder(),
+                                isDense: true,
                               ),
                             ),
-                          )
-                        : _HistoryPane(expr: cur),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _newCode,
+                              minLines: 2,
+                              maxLines: 4,
+                              maxLength: _kWatchMaxExpressionChars,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
+                              buildCounter: _hideWatchCounter,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                              ),
+                              decoration: InputDecoration(
+                                labelText:
+                                    loc?.webReverseWatchExpressionLabel ??
+                                    'JS expression',
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.tonalIcon(
+                                onPressed: _addExpr,
+                                icon: const Icon(Icons.add_rounded, size: 16),
+                                label: Text(
+                                  loc?.webReverseWatchAddWatch ?? 'Add watch',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                VerticalDivider(width: 1, color: cs.outlineVariant),
+                Expanded(
+                  child: cur == null
+                      ? Center(
+                          child: Text(
+                            loc?.webReverseWatchPickWatch ?? 'Pick a watch',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : _HistoryPane(expr: cur),
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            buildOpenHandDialogFooter(
-              primaryLabel: loc?.webReverseWatchClose ?? 'Close',
-              onPrimaryPressed: () => Navigator.of(context).pop(),
-              padding: const EdgeInsets.all(12),
-            ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseWatchClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
+            padding: const EdgeInsets.all(12),
+          ),
+        ],
       ),
     );
   }
