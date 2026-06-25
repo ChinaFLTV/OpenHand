@@ -29,6 +29,7 @@ import {
   toggleTtsPlayback,
   useTtsPlaybackState,
   useTtsSettings,
+  type TtsSettings,
 } from '../hooks/useTtsSettings';
 import {
   useStreamingReveal,
@@ -84,6 +85,7 @@ interface KindStyle {
   background: string;
   color: string;
   border?: string;
+  shadow?: string;
   label: string;
   icon: MessageIconName;
   /// 标题区是否额外带图标徽章。
@@ -137,6 +139,13 @@ type MessageIconName =
   | 'thumbUp'
   | 'thumbDown'
   | 'refresh';
+
+const MESSAGE_REASONING_BACKGROUND = '#18181B';
+const MESSAGE_REASONING_TEXT = '#F7F7FA';
+const MESSAGE_REASONING_BORDER =
+  '1px solid color-mix(in srgb, var(--m3-inverse-on-surface) 18%, transparent)';
+const MESSAGE_REASONING_SHADOW =
+  'var(--m3-elev-2), 0 16px 38px -24px rgba(0, 0, 0, 0.72)';
 
 function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number }) {
   const common = {
@@ -242,14 +251,11 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
 function styleForKind(kind: string, role: string): KindStyle {
   switch (kind) {
     case 'reasoning':
-      // 思考卡：用户实测 tertiary-container 弱饱和在 dark mode 仍带蓝调，
-      // 与全局深色灰主题强对比割裂。改用 surface-container-high 微弱提亮
-      // （比 assistant 卡略亮一档以保持类型区分）+ 细描边，与全局
-      // 灰黑主题完全融合。
       return {
-        background: 'var(--m3-surface-container-high, rgba(255,255,255,0.05))',
-        color: 'var(--m3-on-surface-variant, #888)',
-        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.25))',
+        background: MESSAGE_REASONING_BACKGROUND,
+        color: MESSAGE_REASONING_TEXT,
+        border: MESSAGE_REASONING_BORDER,
+        shadow: MESSAGE_REASONING_SHADOW,
         label: t('detail.kind.reasoning', '思考'),
         icon: 'reasoning',
         badge: true,
@@ -352,8 +358,9 @@ function styleForKind(kind: string, role: string): KindStyle {
         };
       }
       return {
-        background: 'var(--m3-surface-container)',
+        background: 'color-mix(in srgb, var(--m3-surface-container-high) 88%, var(--m3-surface))',
         color: 'var(--m3-on-surface)',
+        border: '1px solid color-mix(in srgb, var(--oh-full-access) 24%, var(--m3-outline-variant))',
         label: t('detail.role.assistant', '助手'),
         icon: 'assistant',
       };
@@ -589,6 +596,86 @@ const messageActionSurfaceStyle = {
   border: '1px solid color-mix(in srgb, currentColor 28%, transparent)',
   background: 'transparent',
 };
+
+type MessageActionTone = 'neutral' | 'positive' | 'improvement';
+
+function messageActionSelectedSurfaceStyle(
+  tone: MessageActionTone,
+  hovered = false,
+): Record<string, string> {
+  const neutralBackground = hovered
+    ? 'color-mix(in srgb, currentColor 22%, transparent)'
+    : 'color-mix(in srgb, currentColor 16%, transparent)';
+  switch (tone) {
+    case 'positive':
+      return {
+        background: hovered
+          ? 'color-mix(in srgb, var(--m3-primary-container) 92%, var(--m3-surface))'
+          : 'color-mix(in srgb, var(--m3-primary-container) 82%, var(--m3-surface))',
+        borderColor: 'color-mix(in srgb, var(--m3-primary) 68%, var(--m3-outline-variant))',
+        color: 'var(--m3-on-primary-container)',
+        boxShadow: '0 6px 18px -14px color-mix(in srgb, var(--m3-primary) 72%, transparent)',
+      };
+    case 'improvement':
+      return {
+        background: hovered
+          ? 'color-mix(in srgb, var(--oh-full-access-container) 88%, var(--m3-secondary-container))'
+          : 'color-mix(in srgb, var(--oh-full-access-container) 76%, var(--m3-secondary-container))',
+        borderColor: 'color-mix(in srgb, var(--oh-full-access) 72%, var(--m3-outline-variant))',
+        color: 'var(--oh-on-full-access-container)',
+        boxShadow: '0 6px 18px -14px color-mix(in srgb, var(--oh-full-access) 74%, transparent)',
+      };
+    case 'neutral':
+      return {
+        background: neutralBackground,
+        borderColor: 'color-mix(in srgb, currentColor 54%, transparent)',
+        boxShadow: 'none',
+      };
+  }
+}
+
+function messageActionDefaultSurfaceStyle(hovered = false): Record<string, string> {
+  return {
+    background: hovered
+      ? 'color-mix(in srgb, currentColor 8%, transparent)'
+      : 'transparent',
+    boxShadow: 'none',
+  };
+}
+
+function messageActionVisualStyle(
+  tone: MessageActionTone,
+  selected: boolean,
+  hovered = false,
+): Record<string, string> {
+  return selected
+    ? messageActionSelectedSurfaceStyle(tone, hovered)
+    : messageActionDefaultSurfaceStyle(hovered);
+}
+
+function messageTtsPlaybackSettings(settings: TtsSettings): TtsSettings {
+  const hasEnabledProvider = settings.providerPriority.some((provider) => (
+    settings.providers[provider]?.enabled === true
+  ));
+  if (settings.enabled && hasEnabledProvider) return settings;
+  const systemProvider = settings.providers.system;
+  return {
+    ...settings,
+    enabled: true,
+    providerPriority: settings.providerPriority.includes('system')
+      ? settings.providerPriority
+      : ['system', ...settings.providerPriority],
+    providers: hasEnabledProvider || systemProvider == null
+      ? settings.providers
+      : {
+        ...settings.providers,
+        system: {
+          ...systemProvider,
+          enabled: true,
+        },
+      },
+  };
+}
 
 // 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
 const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
@@ -1326,7 +1413,9 @@ function MessageCardImpl({
         boundedTextHash(visibleContent),
       ].join('|')
     : undefined;
-  const textFeatureFormat = isUserBubble ? 'markdown' : effectiveFormat;
+  const textFeatureFormat = isUserBubble || isReasoningMessage
+    ? resolveMessageContentFormat(message.metadata?.['content_format'], 'markdown')
+    : effectiveFormat;
   const supportsTextActions =
     textFeatureFormat === 'markdown' || textFeatureFormat === 'plain_text';
   const supportsRenderedSourceToggle =
@@ -1361,7 +1450,6 @@ function MessageCardImpl({
   const ttsUnsupported = !textMessageActionSupported;
   const canReadMessage = (
     readAloudEnabled &&
-    ttsSettings.enabled &&
     !ttsUnsupported
   );
   const canTranslateMessage =
@@ -1502,7 +1590,7 @@ function MessageCardImpl({
           style={{ transformOrigin: isUserBubble ? 'right top' : 'left top' }}
         >
           <article
-            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
+            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
             style={{
               display: 'block',
               width: isHtmlAssistantCard ? bubbleMaxWidth : 'fit-content',
@@ -1511,7 +1599,7 @@ function MessageCardImpl({
               marginRight: isUserBubble ? '0' : 'auto',
               background: style.background,
               color: style.color,
-              boxShadow: style.border ? 'none' : 'var(--m3-elev-1)',
+              boxShadow: style.shadow ?? (style.border ? 'none' : 'var(--m3-elev-1)'),
               border: style.border,
               cursor: hasAnyAction ? 'pointer' : 'default',
               overflowWrap: 'anywhere',
@@ -1800,7 +1888,11 @@ function MessageCardImpl({
                         : t('message.tts.read', '朗读')}
                       disabled={!actionPanelInteractive}
                       onClick={() => {
-                        void toggleTtsPlayback(message.id, content, ttsSettings);
+                        void toggleTtsPlayback(
+                          message.id,
+                          content,
+                          messageTtsPlaybackSettings(ttsSettings),
+                        );
                       }}
                     />
                   ) : null}
@@ -1824,6 +1916,7 @@ function MessageCardImpl({
                       label={t('message.feedback.like', '点赞')}
                       disabled={!actionPanelInteractive || feedbackBusy}
                       selected={currentFeedback === 'liked'}
+                      tone="positive"
                       onClick={() => onSetFeedback?.(
                         message,
                         currentFeedback === 'liked' ? null : 'liked',
@@ -1836,6 +1929,7 @@ function MessageCardImpl({
                       label={t('message.feedback.improve', '需要改进')}
                       disabled={!actionPanelInteractive || feedbackBusy}
                       selected={currentFeedback === 'needs_improvement'}
+                      tone="improvement"
                       onClick={() => onSetFeedback?.(
                         message,
                         currentFeedback === 'needs_improvement'
@@ -1957,6 +2051,7 @@ function ActionBtn({
   label,
   disabled = false,
   selected = false,
+  tone = 'neutral',
   busy = false,
   onClick,
 }: {
@@ -1964,6 +2059,7 @@ function ActionBtn({
   label: string;
   disabled?: boolean;
   selected?: boolean;
+  tone?: MessageActionTone;
   busy?: boolean;
   onClick: () => void;
 }) {
@@ -1976,23 +2072,23 @@ function ActionBtn({
         if (disabled) return;
         onClick();
       }}
+      aria-pressed={selected ? 'true' : undefined}
       class={`oh-tap-press oh-message-action-button${selected ? ' is-selected' : ''}${busy ? ' is-busy' : ''}`}
       style={{
         ...messageActionSurfaceStyle,
-        background: selected
-          ? 'color-mix(in srgb, currentColor 12%, transparent)'
-          : 'transparent',
+        ...messageActionVisualStyle(tone, selected),
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.background =
-          selected
-            ? 'color-mix(in srgb, currentColor 16%, transparent)'
-            : 'color-mix(in srgb, currentColor 8%, transparent)';
+        Object.assign(
+          (e.currentTarget as HTMLElement).style,
+          messageActionVisualStyle(tone, selected, true),
+        );
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = selected
-          ? 'color-mix(in srgb, currentColor 12%, transparent)'
-          : 'transparent';
+        Object.assign(
+          (e.currentTarget as HTMLElement).style,
+          messageActionVisualStyle(tone, selected),
+        );
       }}
     >
       <span class={`oh-message-action-icon${busy ? ' oh-spin' : ''}`} aria-hidden>

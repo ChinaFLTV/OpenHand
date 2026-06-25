@@ -845,6 +845,61 @@ html, body, #root {
   width: 100%;
 }
 
+.oh-message-card.is-reasoning {
+  isolation: isolate;
+}
+
+.oh-message-card.is-reasoning .oh-message-card-header {
+  opacity: 1;
+}
+
+.oh-message-card.is-reasoning .oh-message-badge-toggle {
+  background: color-mix(in srgb, currentColor 11%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.oh-message-card.is-reasoning .oh-message-badge-toggle:hover {
+  background: color-mix(in srgb, currentColor 17%, transparent);
+}
+
+.oh-message-card.is-reasoning .oh-message-kind-icon {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.oh-message-card.is-reasoning .oh-markdown {
+  color: inherit;
+}
+
+.oh-message-card.is-reasoning .oh-markdown a {
+  color: color-mix(in srgb, var(--m3-primary-container) 78%, #ffffff);
+}
+
+.oh-message-card.is-reasoning .oh-markdown code:not(pre code) {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.oh-message-card.is-reasoning .oh-code-block {
+  background: color-mix(in srgb, #000000 36%, var(--m3-inverse-surface));
+  border-color: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.oh-message-card.is-reasoning .oh-code-block-header {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-bottom-color: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.oh-message-card.is-reasoning .oh-code-block-lang,
+.oh-message-card.is-reasoning .oh-code-block-copy {
+  color: inherit;
+  background: color-mix(in srgb, currentColor 11%, transparent);
+}
+
+.oh-message-card.is-reasoning .hljs {
+  color: inherit;
+}
+
 .oh-message-selected-panel-slot {
   display: grid;
   grid-template-rows: 0fr;
@@ -2859,7 +2914,13 @@ html, body, #root {
 }
 
 .oh-message-action-button.is-selected {
-  border-color: color-mix(in srgb, currentColor 42%, transparent) !important;
+  font-weight: 760;
+  border-color: color-mix(in srgb, currentColor 54%, transparent);
+  transform: translateZ(0);
+}
+
+.oh-message-action-button.is-selected > .oh-message-action-icon {
+  filter: saturate(1.12);
 }
 
 .oh-message-action-button > .oh-message-action-label,

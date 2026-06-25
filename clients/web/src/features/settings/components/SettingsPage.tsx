@@ -788,7 +788,7 @@ export function SettingsPage() {
             <Appear variant="up">
               <SettingRow
                 title={t('settings.tts.title', '开启文本转语音')}
-                description={t('settings.tts.desc', '开启后，聚焦可朗读的文本消息卡片时显示朗读胶囊。默认走系统 TTS，服务不可用时按优先级回退。')}
+                description={t('settings.tts.desc', '配置朗读偏好与服务优先级。消息平台朗读开关启用时，可朗读文本卡片会显示朗读胶囊。')}
                 meta={<SavingPill active={false} value={ttsSettings.enabled ? t('common.on', '开') : t('common.off', '关')} />}
               >
                 <label class="oh-settings-switch">
