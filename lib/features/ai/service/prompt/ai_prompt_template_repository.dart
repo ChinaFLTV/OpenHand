@@ -28,111 +28,28 @@ class AiPromptTemplateRepository {
     Future<String> Function(String assetPath)? loader,
   }) : _loader = loader ?? rootBundle.loadString;
 
+  static const String _systemInstructionsFile = 'system_instructions.md';
+  static const String _developerInstructionsFile = 'developer_instructions.md';
+  static const String _compressionSummaryInstructionsFile =
+      'compression_summary_instructions.md';
+
   final Future<String> Function(String assetPath) _loader;
   final Map<String, Future<AiPromptTemplateBundle>> _bundleCache =
       <String, Future<AiPromptTemplateBundle>>{};
 
-  static const List<AiThreadTemplate> _templates = <AiThreadTemplate>[
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.defaultTemplateId,
-      name: 'Default Assistant',
-      iconName: 'auto_awesome_rounded',
-      description:
-          'A Claude Code style general-purpose template for tool-assisted work, MCP usage, and local skill activation.',
-      internalVersion: '3.0.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.defaultPromptAssetDirectory,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.machineExpertTemplateId,
-      name: '机器专家',
-      iconName: 'build_circle_rounded',
-      description: '主要是通过本地终端程序去与目标机器交互，完成用户提出的任务或需求。',
-      internalVersion: '1.1.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.machineExpertPromptAssetDirectory,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.hardnessEngineeringTemplateId,
-      name: 'Harness Engineering',
-      iconName: 'hub_rounded',
-      description:
-          '多角色编排协调模式。OpenHand 作为 OS 层统一编排，将编码任务委托给用户配置的 CLI 工具（调查者→规划者→实施者→验收者），并管理结构化持久化上下文。',
-      internalVersion: '1.0.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.hardnessEngineeringPromptAssetDirectory,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.programmingExpertTemplateId,
-      name: '编程专家',
-      iconName: 'code_rounded',
-      description:
-          '对标 Claude Code 范式的全栈 AI 编程代理。以工具事实回灌、Plan/Todo 状态纪律、子代理隔离、对抗验证和上下文恢复推进端到端工程任务。',
-      internalVersion: '1.2.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.programmingExpertPromptAssetDirectory,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.hermesTalkerTemplateId,
-      name: 'Hermes Talker',
-      iconName: 'forum_rounded',
-      description:
-          '在 Default 模板基础上新增 skill_manager 工具与每 5 分钟运行的自我学习能力,持续在对话中积累用户画像与可复用技能。',
-      internalVersion: '1.0.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.hermesTalkerPromptAssetDirectory,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.webReverseExpertTemplateId,
-      name: 'Web 逆向专家',
-      iconName: 'travel_explore_rounded',
-      description:
-          '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。仅用于授权安全研究与学习。',
-      internalVersion: '1.2.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.webReverseExpertPromptAssetDirectory,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.siriHelperTemplateId,
-      name: 'Siri 助手',
-      iconName: 'assistant_rounded',
-      description: '默认模板的苹果设备特化版本，内置 Siri 风格系统提示词，适合依赖 Apple 生态语义与交互氛围的任务。',
-      internalVersion: '1.0.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.siriHelperPromptAssetDirectory,
-      availability: AiThreadTemplateAvailability.appleOnly,
-    ),
-    AiThreadTemplate(
-      id: AiPromptTemplatePolicies.androidReverseExpertTemplateId,
-      name: 'Android 逆向专家',
-      iconName: 'android_rounded',
-      description:
-          '通过 ADB + Frida + jadx / apktool + mitmproxy 完成 Android APP 接口逆向、加密破解、Hook 脚本产出。Dashboard 提供设备管理、Logcat、网络抓包、证书注入等面板。仅用于授权安全研究与学习。',
-      internalVersion: '1.1.0',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.androidReverseExpertPromptAssetDirectory,
-    ),
-  ];
-
-  List<AiThreadTemplate> get templates =>
-      List<AiThreadTemplate>.unmodifiable(_templates);
+  List<AiThreadTemplate> get templates => AiPromptTemplatePolicies.templates;
 
   List<AiThreadTemplate> templatesForPlatform([TargetPlatform? platform]) {
     final effectivePlatform = platform ?? defaultTargetPlatform;
     return List<AiThreadTemplate>.unmodifiable(
-      _templates.where(
+      templates.where(
         (template) => template.isSupportedOnPlatform(effectivePlatform),
       ),
     );
   }
 
   AiThreadTemplate resolveTemplate(String templateId) {
-    for (final template in _templates) {
-      if (template.id == templateId) {
-        return template;
-      }
-    }
-    return _templates.first;
+    return AiPromptTemplatePolicies.resolveEntry(templateId).template;
   }
 
   AiThreadTemplate resolveTemplateForPlatform(
@@ -148,7 +65,9 @@ class AiPromptTemplateRepository {
     if (supportedTemplates.isNotEmpty) {
       return supportedTemplates.first;
     }
-    return _templates.first;
+    return AiPromptTemplatePolicies.resolveEntry(
+      AiPromptTemplatePolicies.defaultTemplateId,
+    ).template;
   }
 
   Future<AiPromptTemplateBundle> loadBundle(String templateId) async {
@@ -173,21 +92,25 @@ class AiPromptTemplateRepository {
   }
 
   Future<AiPromptTemplateBundle> _loadBundleUncached(String templateId) async {
-    final template = resolveTemplate(templateId);
-    final policy = AiPromptTemplatePolicies.resolve(template.id);
-    final assetDirectory = template.promptAssetDirectory;
+    final catalogEntry = AiPromptTemplatePolicies.resolveEntry(templateId);
+    final template = catalogEntry.template;
+    final policy = catalogEntry.policy;
+    final assetDirectory = policy.promptAssetDirectory;
     final fallback = _TemplatePromptFallbacks.resolve(policy.templateId);
-    final systemInstructions = await _loadTemplateSection(
-      '$assetDirectory/system_instructions.md',
-      fallback.systemInstructions,
+    final systemInstructions = await _loadTemplateAsset(
+      assetDirectory,
+      _systemInstructionsFile,
+      fallback: fallback.systemInstructions,
     );
-    final developerInstructions = await _loadTemplateSection(
-      '$assetDirectory/developer_instructions.md',
-      fallback.developerInstructions,
+    final developerInstructions = await _loadTemplateAsset(
+      assetDirectory,
+      _developerInstructionsFile,
+      fallback: fallback.developerInstructions,
     );
-    final compressionSummaryInstructions = await _loadTemplateSection(
-      '$assetDirectory/compression_summary_instructions.md',
-      fallback.compressionSummaryInstructions,
+    final compressionSummaryInstructions = await _loadTemplateAsset(
+      assetDirectory,
+      _compressionSummaryInstructionsFile,
+      fallback: fallback.compressionSummaryInstructions,
     );
     final systemWithSharedSections = await _appendSectionsIfAbsent(
       systemInstructions,
@@ -209,6 +132,14 @@ class AiPromptTemplateRepository {
       developerInstructions: developerInstructions,
       compressionSummaryInstructions: compressionSummaryInstructions,
     );
+  }
+
+  Future<String> _loadTemplateAsset(
+    String assetDirectory,
+    String fileName, {
+    required String fallback,
+  }) {
+    return _loadTemplateSection('$assetDirectory/$fileName', fallback);
   }
 
   Future<String> _appendSectionsIfAbsent(
@@ -254,11 +185,6 @@ class AiPromptTemplateRepository {
       enSnippet: enSnippet,
     );
   }
-
-  /// Heuristic: treat instructions as Chinese when CJK characters make up
-  /// ≥15% of all non-whitespace characters. Threshold is intentionally low
-  /// because English-only templates have ~0% CJK while Chinese templates
-  /// (hardness_engineering, machine_expert) routinely exceed 40%.
 
   Future<String> _loadTemplateSection(String assetPath, String fallback) async {
     try {
@@ -338,22 +264,6 @@ to reinstall or re-run the build.
 - 简洁、坦诚地告知用户当前是兜底模式，避免做出超出已掌握信息的承诺。
 ''';
 
-const String _defaultSystemInstructions = _fallbackNotice;
-const String _defaultDeveloperInstructions = _fallbackNotice;
-const String _defaultCompressionSummaryInstructions = _fallbackNotice;
-
-const String _hardnessSystemInstructions = _fallbackNotice;
-const String _hardnessDeveloperInstructions = _fallbackNotice;
-const String _hardnessCompressionSummaryInstructions = _fallbackNotice;
-
-const String _hermesTalkerSystemInstructions = _fallbackNotice;
-const String _hermesTalkerDeveloperInstructions = _fallbackNotice;
-const String _hermesTalkerCompressionSummaryInstructions = _fallbackNotice;
-
-const String _siriHelperSystemInstructions = _fallbackNotice;
-const String _siriHelperDeveloperInstructions = _fallbackNotice;
-const String _siriHelperCompressionSummaryInstructions = _fallbackNotice;
-
 const String _webReverseFallbackNotice =
     '''
 $_fallbackNotice
@@ -380,23 +290,17 @@ $_fallbackNotice
 - Stop and report after 2 consecutive Frida / ADB failures on the same target.
 ''';
 
-const String _webReverseSystemInstructions = _webReverseFallbackNotice;
-const String _webReverseDeveloperInstructions = _webReverseFallbackNotice;
-const String _webReverseCompressionSummaryInstructions =
-    _webReverseFallbackNotice;
-
-const String _androidReverseSystemInstructions = _androidReverseFallbackNotice;
-const String _androidReverseDeveloperInstructions =
-    _androidReverseFallbackNotice;
-const String _androidReverseCompressionSummaryInstructions =
-    _androidReverseFallbackNotice;
-
 class _TemplatePromptFallback {
   const _TemplatePromptFallback({
     required this.systemInstructions,
     required this.developerInstructions,
     required this.compressionSummaryInstructions,
   });
+
+  const _TemplatePromptFallback.same(String instructions)
+    : systemInstructions = instructions,
+      developerInstructions = instructions,
+      compressionSummaryInstructions = instructions;
 
   final String systemInstructions;
   final String developerInstructions;
@@ -406,10 +310,8 @@ class _TemplatePromptFallback {
 class _TemplatePromptFallbacks {
   const _TemplatePromptFallbacks._();
 
-  static const _TemplatePromptFallback _default = _TemplatePromptFallback(
-    systemInstructions: _defaultSystemInstructions,
-    developerInstructions: _defaultDeveloperInstructions,
-    compressionSummaryInstructions: _defaultCompressionSummaryInstructions,
+  static const _TemplatePromptFallback _default = _TemplatePromptFallback.same(
+    _fallbackNotice,
   );
 
   static const Map<String, _TemplatePromptFallback>
@@ -420,12 +322,7 @@ class _TemplatePromptFallbacks {
       developerInstructions: expertDeveloperInstructions,
       compressionSummaryInstructions: expertCompressionSummaryInstructions,
     ),
-    AiPromptTemplatePolicies
-        .hardnessEngineeringTemplateId: _TemplatePromptFallback(
-      systemInstructions: _hardnessSystemInstructions,
-      developerInstructions: _hardnessDeveloperInstructions,
-      compressionSummaryInstructions: _hardnessCompressionSummaryInstructions,
-    ),
+    AiPromptTemplatePolicies.hardnessEngineeringTemplateId: _default,
     AiPromptTemplatePolicies.programmingExpertTemplateId:
         _TemplatePromptFallback(
           systemInstructions: programmingExpertSystemInstructions,
@@ -433,30 +330,12 @@ class _TemplatePromptFallbacks {
           compressionSummaryInstructions:
               programmingExpertCompressionSummaryInstructions,
         ),
-    AiPromptTemplatePolicies.hermesTalkerTemplateId: _TemplatePromptFallback(
-      systemInstructions: _hermesTalkerSystemInstructions,
-      developerInstructions: _hermesTalkerDeveloperInstructions,
-      compressionSummaryInstructions:
-          _hermesTalkerCompressionSummaryInstructions,
-    ),
-    AiPromptTemplatePolicies
-        .webReverseExpertTemplateId: _TemplatePromptFallback(
-      systemInstructions: _webReverseSystemInstructions,
-      developerInstructions: _webReverseDeveloperInstructions,
-      compressionSummaryInstructions: _webReverseCompressionSummaryInstructions,
-    ),
+    AiPromptTemplatePolicies.hermesTalkerTemplateId: _default,
+    AiPromptTemplatePolicies.webReverseExpertTemplateId:
+        _TemplatePromptFallback.same(_webReverseFallbackNotice),
     AiPromptTemplatePolicies.androidReverseExpertTemplateId:
-        _TemplatePromptFallback(
-          systemInstructions: _androidReverseSystemInstructions,
-          developerInstructions: _androidReverseDeveloperInstructions,
-          compressionSummaryInstructions:
-              _androidReverseCompressionSummaryInstructions,
-        ),
-    AiPromptTemplatePolicies.siriHelperTemplateId: _TemplatePromptFallback(
-      systemInstructions: _siriHelperSystemInstructions,
-      developerInstructions: _siriHelperDeveloperInstructions,
-      compressionSummaryInstructions: _siriHelperCompressionSummaryInstructions,
-    ),
+        _TemplatePromptFallback.same(_androidReverseFallbackNotice),
+    AiPromptTemplatePolicies.siriHelperTemplateId: _default,
   };
 
   static _TemplatePromptFallback resolve(String templateId) {

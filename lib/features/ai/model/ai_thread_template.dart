@@ -13,6 +13,36 @@ enum AiThreadTemplateAvailability {
   }
 }
 
+class AiThreadTemplateIcons {
+  const AiThreadTemplateIcons._();
+
+  static const String autoAwesomeRounded = 'auto_awesome_rounded';
+  static const String buildCircleRounded = 'build_circle_rounded';
+  static const String forumRounded = 'forum_rounded';
+  static const String hubRounded = 'hub_rounded';
+  static const String codeRounded = 'code_rounded';
+  static const String travelExploreRounded = 'travel_explore_rounded';
+  static const String assistantRounded = 'assistant_rounded';
+  static const String androidRounded = 'android_rounded';
+
+  static const IconData fallback = Icons.auto_awesome_rounded;
+
+  static const Map<String, IconData> _byName = <String, IconData>{
+    autoAwesomeRounded: Icons.auto_awesome_rounded,
+    buildCircleRounded: Icons.build_circle_rounded,
+    forumRounded: Icons.forum_rounded,
+    hubRounded: Icons.hub_rounded,
+    codeRounded: Icons.code_rounded,
+    travelExploreRounded: Icons.travel_explore_rounded,
+    assistantRounded: Icons.assistant_rounded,
+    androidRounded: Icons.android_rounded,
+  };
+
+  static IconData resolve(String iconName) {
+    return _byName[iconName.trim()] ?? fallback;
+  }
+}
+
 class AiThreadTemplate {
   const AiThreadTemplate({
     required this.id,
@@ -37,16 +67,6 @@ class AiThreadTemplate {
   }
 
   IconData get iconData {
-    return switch (iconName) {
-      'auto_awesome_rounded' => Icons.auto_awesome_rounded,
-      'build_circle_rounded' => Icons.build_circle_rounded,
-      'forum_rounded' => Icons.forum_rounded,
-      'hub_rounded' => Icons.hub_rounded,
-      'code_rounded' => Icons.code_rounded,
-      'travel_explore_rounded' => Icons.travel_explore_rounded,
-      'assistant_rounded' => Icons.assistant_rounded,
-      'android_rounded' => Icons.android_rounded,
-      _ => Icons.auto_awesome_rounded,
-    };
+    return AiThreadTemplateIcons.resolve(iconName);
   }
 }
