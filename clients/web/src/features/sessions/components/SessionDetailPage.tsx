@@ -754,12 +754,6 @@ function latestGoalRecord(goalState: SessionGoalState | null | undefined): Sessi
   return history.length > 0 ? history[history.length - 1]! : null;
 }
 
-function nextSessionMode(current: SessionMode, options: SessionMode[]): SessionMode {
-  if (options.length === 0) return 'chat';
-  const index = options.indexOf(current);
-  return options[(index < 0 ? 0 : index + 1) % options.length] ?? 'chat';
-}
-
 type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'image' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
 
 function sessionModeIconName(mode: string): ComposerIconName {
@@ -1678,6 +1672,7 @@ export function SessionDetailPage() {
   const [contextStatsOpen, setContextStatsOpen] = useState(false);
   const [goalDetailsOpen, setGoalDetailsOpen] = useState(false);
   const [goalStartOptionsOpen, setGoalStartOptionsOpen] = useState(false);
+  const [pendingGoalOptionsBySessionId, setPendingGoalOptionsBySessionId] = useState<Record<string, GoalStartOptions>>({});
   const [goalControlBusy, setGoalControlBusy] = useState<'pause' | 'resume' | 'terminate' | null>(null);
   const [webReverseDashboardOpen, setWebReverseDashboardOpen] = useState(false);
   const [androidReverseDashboardOpen, setAndroidReverseDashboardOpen] = useState(false);
@@ -3864,6 +3859,19 @@ export function SessionDetailPage() {
     resolve?.(result);
   }
 
+  function rememberPendingGoalOptions(targetSessionId: string, options: GoalStartOptions): void {
+    setPendingGoalOptionsBySessionId((prev) => ({ ...prev, [targetSessionId]: options }));
+  }
+
+  function clearPendingGoalOptions(targetSessionId: string): void {
+    setPendingGoalOptionsBySessionId((prev) => {
+      if (!(targetSessionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[targetSessionId];
+      return next;
+    });
+  }
+
   // 从 File[] 追加附件。共用与 file input / drag-drop / paste
   async function appendFiles(files: File[]): Promise<void> {
     if (files.length === 0) return;
@@ -3993,8 +4001,12 @@ export function SessionDetailPage() {
         showSnackbar(message, { tone: 'error' });
         return;
       }
-      goalOptions = await openGoalStartOptionsDialog();
-      if (!goalOptions) return;
+      goalOptions = pendingGoalOptionsBySessionId[sessionId] ?? null;
+      if (!goalOptions) {
+        goalOptions = await openGoalStartOptionsDialog();
+        if (!goalOptions) return;
+        rememberPendingGoalOptions(sessionId, goalOptions);
+      }
     }
     const shouldTrackAutoTitle = shouldWatchAutoTitleAfterSend(text);
     setComposerSending(true);
@@ -4060,6 +4072,9 @@ export function SessionDetailPage() {
         goalOptions,
       });
       if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (goalOptions) {
+        clearPendingGoalOptions(requestSessionId);
+      }
       setComposerText('');
       setComposerAttachments([]);
       setComposerAttachmentIds([]);
@@ -4225,21 +4240,41 @@ export function SessionDetailPage() {
 
   const effectiveLoadingDetail = loadingDetail || Boolean(detail && !detailBelongsToRoute);
   const currentSessionMode: SessionMode = session?.mode === 'plan' || session?.mode === 'goal' ? session.mode : 'chat';
-  const nextMode = nextSessionMode(currentSessionMode, sessionModeOptions);
   const canToggleSessionMode =
-    !hasActiveGoal &&
-    sessionModeOptions.length > 1 &&
-    sessionModeOptions.includes(nextMode);
+    !hasActiveGoal && sessionModeOptions.length > 1;
   async function applySessionMode(next: SessionMode): Promise<void> {
     if (!sessionId) return;
     if (hasActiveGoal) {
       showSnackbar(t('goal.mode.locked', '目标执行期间不能切换会话模式'), { tone: 'error' });
       return;
     }
+    if (!sessionModeOptions.includes(next)) {
+      return;
+    }
+    if (next === currentSessionMode) {
+      return;
+    }
     const requestSessionId = sessionId;
+    let pendingGoalOptions: GoalStartOptions | null = null;
+    if (next === 'goal') {
+      if (!goalModeAvailable) {
+        const message = t('goal.start.unavailable', '当前线程模板暂不支持目标模式');
+        setComposerError(message);
+        showSnackbar(message, { tone: 'error' });
+        return;
+      }
+      pendingGoalOptions = await openGoalStartOptionsDialog();
+      if (!pendingGoalOptions) return;
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+    }
     try {
       const res = await updateSessionMode(requestSessionId, next);
       if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (next === 'goal' && pendingGoalOptions) {
+        rememberPendingGoalOptions(requestSessionId, pendingGoalOptions);
+      } else {
+        clearPendingGoalOptions(requestSessionId);
+      }
       setDetail((prev) => (prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev));
       showSnackbar(t('topbar.mode.ok', '已更新会话模式'), { tone: 'success' });
     } catch (e: unknown) {
@@ -4803,14 +4838,35 @@ export function SessionDetailPage() {
             {!composerCollapsed ? (
               <>
                 {sessionModeOptions.length > 1 ? (
-                  <button type="button" onClick={() => void applySessionMode(nextMode)} disabled={composerSending || !canToggleSessionMode} class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'goal' ? 'is-goal is-tonal' : currentSessionMode === 'plan' ? 'is-plan is-tonal' : 'is-chat'}`} aria-pressed={currentSessionMode !== 'chat'} title={hasActiveGoal ? t('goal.mode.locked', '目标执行期间不能切换会话模式') : sessionModeLabel(currentSessionMode)}>
-                    <span key={`session-mode-icon-${currentSessionMode}`} class="oh-composer-control-icon oh-session-mode-icon oh-soft-replace">
-                      <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
-                    </span>
-                    <span key={`session-mode-label-${currentSessionMode}`} class="oh-session-mode-label oh-soft-replace">
-                      {sessionModeLabel(currentSessionMode)}
-                    </span>
-                  </button>
+                  <PopMenu
+                    align="left"
+                    width={196}
+                    wrapperClassName="oh-session-mode-menu"
+                    items={sessionModeOptions.map((mode) => {
+                      const active = mode === currentSessionMode;
+                      const label = sessionModeLabel(mode);
+                      return {
+                        key: mode,
+                        label: active ? `${label} · ${t('common.current', '当前')}` : label,
+                        disabled: composerSending || active || !canToggleSessionMode,
+                        selected: active,
+                        onClick: () => void applySessionMode(mode),
+                      };
+                    })}
+                    trigger={({ open, toggle }) => (
+                      <button type="button" onClick={toggle} disabled={composerSending || !canToggleSessionMode} class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'goal' ? 'is-goal' : currentSessionMode === 'plan' ? 'is-plan' : 'is-chat'}`} aria-expanded={open} aria-pressed={currentSessionMode !== 'chat'} title={hasActiveGoal ? t('goal.mode.locked', '目标执行期间不能切换会话模式') : sessionModeLabel(currentSessionMode)}>
+                        <span key={`session-mode-icon-${currentSessionMode}`} class="oh-composer-control-icon oh-session-mode-icon oh-soft-replace">
+                          <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
+                        </span>
+                        <span key={`session-mode-label-${currentSessionMode}`} class="oh-session-mode-label oh-soft-replace">
+                          {sessionModeLabel(currentSessionMode)}
+                        </span>
+                        <span class={`oh-composer-caret ${open ? 'is-open' : ''}`}>
+                          <ComposerIcon name="chevronDown" size={16} />
+                        </span>
+                      </button>
+                    )}
+                  />
                 ) : null}
 
                 <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={selectedModelName && selectedModelProvider ? `${selectedModelName} · ${selectedModelProvider}` : t('composer.model', '模型')}>

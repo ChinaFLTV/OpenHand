@@ -1857,17 +1857,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     mode: widget.sessionMode,
                     runtimeStatus: runtimeStatus,
                     enabled: modeToggleEnabled,
-                    onPressed: () {
-                      final modes = <AiSessionMode>[
-                        AiSessionMode.chat,
-                        AiSessionMode.plan,
-                        if (widget.goalModeAvailable) AiSessionMode.goal,
-                      ];
-                      final currentIndex = modes.indexOf(widget.sessionMode);
-                      widget.onSessionModeChanged(
-                        modes[(currentIndex + 1) % modes.length],
-                      );
-                    },
+                    availableModes: <AiSessionMode>[
+                      AiSessionMode.chat,
+                      AiSessionMode.plan,
+                      if (widget.goalModeAvailable) AiSessionMode.goal,
+                    ],
+                    onChanged: widget.onSessionModeChanged,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -2309,51 +2304,110 @@ class _ComposerFullAccessModeButtonState
   }
 }
 
-class _ComposerModeButton extends StatelessWidget {
+class _ComposerModeButton extends StatefulWidget {
   const _ComposerModeButton({
     required this.mode,
     required this.runtimeStatus,
     required this.enabled,
-    required this.onPressed,
+    required this.availableModes,
+    required this.onChanged,
   });
 
   final AiSessionMode mode;
   final _RuntimeToolCatalogStatus? runtimeStatus;
   final bool enabled;
-  final VoidCallback onPressed;
+  final List<AiSessionMode> availableModes;
+  final ValueChanged<AiSessionMode> onChanged;
+
+  @override
+  State<_ComposerModeButton> createState() => _ComposerModeButtonState();
+}
+
+class _ComposerModeButtonState extends State<_ComposerModeButton> {
+  void _showModeMenu() {
+    final button = context.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final modes = widget.availableModes.isEmpty
+        ? <AiSessionMode>[AiSessionMode.chat]
+        : widget.availableModes;
+
+    showAnimatedMenu<AiSessionMode>(
+      context: context,
+      position: position,
+      items: [
+        for (final mode in modes)
+          PopupMenuItem<AiSessionMode>(
+            value: mode,
+            child: Row(
+              children: [
+                Icon(
+                  _runtimeModeIcon(widget.runtimeStatus, explicitMode: mode),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _runtimeModeLabel(
+                      context,
+                      widget.runtimeStatus,
+                      compact: true,
+                      explicitMode: mode,
+                    ),
+                  ),
+                ),
+                if (mode == widget.mode)
+                  const Icon(Icons.check_rounded, size: 20)
+                else
+                  const SizedBox(width: 20),
+              ],
+            ),
+          ),
+      ],
+    ).then((value) {
+      if (!mounted || value == null || value == widget.mode) return;
+      widget.onChanged(value);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isPlanMode = mode == AiSessionMode.plan;
-    final modeIcon = _runtimeModeIcon(runtimeStatus, explicitMode: mode);
+    final modeIcon = _runtimeModeIcon(
+      widget.runtimeStatus,
+      explicitMode: widget.mode,
+    );
     final modeLabel = _runtimeModeLabel(
       context,
-      runtimeStatus,
+      widget.runtimeStatus,
       compact: true,
-      explicitMode: mode,
+      explicitMode: widget.mode,
     );
-    final backgroundColor = !enabled
+    final backgroundColor = !widget.enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
-        : isPlanMode
-        ? colorScheme.primaryContainer
         : colorScheme.surfaceContainerHighest;
-    final foregroundColor = !enabled
+    final foregroundColor = !widget.enabled
         ? colorScheme.onSurface.withValues(alpha: 0.38)
-        : isPlanMode
-        ? colorScheme.onPrimaryContainer
         : colorScheme.onSurface;
-    final accentColor = !enabled
+    final accentColor = !widget.enabled
         ? colorScheme.onSurface.withValues(alpha: 0.28)
-        : colorScheme.primary.withValues(alpha: isPlanMode ? 1 : 0.9);
-    final borderColor = !enabled
+        : colorScheme.primary.withValues(alpha: 0.9);
+    final borderColor = !widget.enabled
         ? colorScheme.outlineVariant.withValues(alpha: 0.48)
-        : isPlanMode
-        ? colorScheme.primary.withValues(alpha: 0.24)
         : colorScheme.outlineVariant;
     return OutlinedButton(
-      onPressed: enabled ? onPressed : null,
+      onPressed: widget.enabled ? _showModeMenu : null,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 52),
         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -2371,7 +2425,7 @@ class _ComposerModeButton extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: isPlanMode ? 0.16 : 0.10),
+              color: accentColor.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
@@ -2383,7 +2437,7 @@ class _ComposerModeButton extends StatelessWidget {
                   : const Duration(milliseconds: 180),
               child: Icon(
                 modeIcon,
-                key: ValueKey<String>('${mode.storageValue}-$modeIcon'),
+                key: ValueKey<String>('${widget.mode.storageValue}-$modeIcon'),
                 size: 16,
                 color: accentColor,
               ),
@@ -2398,11 +2452,17 @@ class _ComposerModeButton extends StatelessWidget {
                 : const Duration(milliseconds: 180),
             child: Text(
               modeLabel,
-              key: ValueKey<String>('${mode.storageValue}-$modeLabel'),
+              key: ValueKey<String>('${widget.mode.storageValue}-$modeLabel'),
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
+          ),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: foregroundColor,
           ),
         ],
       ),

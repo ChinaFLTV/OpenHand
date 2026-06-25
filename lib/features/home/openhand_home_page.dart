@@ -301,6 +301,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       <String, String>{};
   final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
       <String, _ComposerDraftState>{};
+  final Map<String, AiSessionGoalStartOptions>
+  _pendingGoalStartOptionsBySessionId = <String, AiSessionGoalStartOptions>{};
   final Map<String, bool> _collapsedPlanTimelinesBySessionId = <String, bool>{};
   final Set<String> _handledSessionDeletionNoticeKeys = <String>{};
   int? _runtimeToolPreviewCacheKey;
@@ -5445,6 +5447,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final currentSession = sessionController.currentSession;
     if (currentSession == null) {
+      if (mode == AiSessionMode.goal) {
+        _showHomeSnackBar(
+          context,
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '请先进入支持目标模式的线程。',
+                en: 'Open a thread that supports Goal Mode first.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
       if (_detachedComposerMode == mode) {
         return;
       }
@@ -5456,11 +5473,60 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (currentSession.mode == mode) {
       return;
     }
+    AiSessionGoalStartOptions? pendingGoalStartOptions;
+    if (mode == AiSessionMode.goal) {
+      if (!aiSessionGoalModeAllowedForTemplate(currentSession.templateId)) {
+        _showHomeSnackBar(
+          context,
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '当前线程模板暂不支持目标模式。',
+                en: 'This thread template does not support Goal Mode.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      final settingsController = context.read<SettingsController>();
+      final selectedModel = _effectiveModelForSession(
+        settingsController,
+        currentSession,
+      );
+      if (selectedModel == null) {
+        OpenHandSnackBar.showError(
+          context,
+          AppLocalizations.of(context)!.aiModelSelectionRequired,
+        );
+        return;
+      }
+      final result = await _showGoalStartOptionsDialog(
+        selectedModel: selectedModel,
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+      if (sessionController.currentSessionId != currentSession.id) {
+        return;
+      }
+      pendingGoalStartOptions = result.toStartOptions();
+    }
     final updated = await sessionController.updateSessionMode(
       currentSession.id,
       mode,
     );
-    if (!mounted || updated) {
+    if (!mounted) {
+      return;
+    }
+    if (updated) {
+      if (mode == AiSessionMode.goal && pendingGoalStartOptions != null) {
+        _pendingGoalStartOptionsBySessionId[currentSession.id] =
+            pendingGoalStartOptions;
+      } else {
+        _pendingGoalStartOptionsBySessionId.remove(currentSession.id);
+      }
       return;
     }
     final l10n = AppLocalizations.of(context)!;
@@ -5830,13 +5896,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     AiSessionGoalStartOptions? goalStartOptions;
     if (sendSession?.mode == AiSessionMode.goal) {
-      final result = await _showGoalStartOptionsDialog(
-        selectedModel: selectedModel,
-      );
-      if (!mounted || result == null) {
-        return;
+      goalStartOptions = _pendingGoalStartOptionsBySessionId[targetSessionId];
+      if (goalStartOptions == null) {
+        final result = await _showGoalStartOptionsDialog(
+          selectedModel: selectedModel,
+        );
+        if (!mounted || result == null) {
+          return;
+        }
+        goalStartOptions = result.toStartOptions();
+        _pendingGoalStartOptionsBySessionId[targetSessionId] = goalStartOptions;
       }
-      goalStartOptions = result.toStartOptions();
     }
 
     _replaceComposerText('');
@@ -5849,7 +5919,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _creationOptions = AiCreationOptions.empty;
     });
 
-    await _submitTextToSession(
+    final submitOutcome = await _submitTextToSession(
       targetSessionId,
       prompt,
       pendingAttachments,
@@ -5861,6 +5931,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       selectedSkillMetadata: skillDisplayMetadata,
       goalStartOptions: goalStartOptions,
     );
+    if (submitOutcome == _SubmitTextOutcome.submitted &&
+        goalStartOptions != null) {
+      _pendingGoalStartOptionsBySessionId.remove(targetSessionId);
+    }
   }
 
   void _beginPendingAutoStartSubmission(String sessionId) {

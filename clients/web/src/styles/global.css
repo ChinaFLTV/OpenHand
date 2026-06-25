@@ -3083,16 +3083,6 @@ html, body, #root {
   background: var(--m3-surface-container-high);
   border-color: var(--m3-outline-variant);
 }
-.oh-session-mode-button.is-plan {
-  border-color: color-mix(in srgb, var(--m3-primary) 46%, transparent);
-  background: color-mix(in srgb, var(--m3-primary-container) 88%, var(--m3-surface));
-  color: var(--m3-on-primary-container);
-}
-.oh-session-mode-button.is-goal {
-  border-color: color-mix(in srgb, var(--m3-tertiary) 50%, transparent);
-  background: color-mix(in srgb, var(--m3-tertiary-container) 86%, var(--m3-surface));
-  color: var(--m3-on-tertiary-container);
-}
 .oh-composer-model-control {
   max-width: 260px;
 }
@@ -3122,9 +3112,7 @@ html, body, #root {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.oh-composer-control.is-tonal .oh-composer-control-icon,
-.oh-session-mode-button.is-plan .oh-session-mode-icon,
-.oh-session-mode-button.is-goal .oh-session-mode-icon {
+.oh-composer-control.is-tonal .oh-composer-control-icon {
   background: color-mix(in srgb, var(--m3-primary) 16%, transparent);
   color: var(--m3-on-primary-container);
 }
