@@ -1892,15 +1892,24 @@ export function SessionDetailPage() {
     const source = m.content ?? '';
     const settingsFingerprint =
       auth.meta?.message_content_settings?.translation_settings_fingerprint ?? '';
+    const modelSettingsFingerprint =
+      auth.meta?.message_content_settings?.translation_model_settings_fingerprint ?? '';
+    const fallbackModelKey =
+      detail?.session.last_model_key || auth.meta?.active_model_key || '';
+    const requestFingerprint = [
+      settingsFingerprint,
+      modelSettingsFingerprint,
+      fallbackModelKey,
+    ].join('|');
     const current = messageTranslations[m.id];
     const cacheMatches =
       current?.source === source &&
-      current.settingsFingerprint === settingsFingerprint;
+      current.settingsFingerprint === requestFingerprint;
     if (cacheMatches && current.loading) return;
-    if (cacheMatches && current.text && current.visible) {
+    if (cacheMatches && current.text) {
       setMessageTranslations((prev) => ({
         ...prev,
-        [m.id]: { ...current, visible: false },
+        [m.id]: { ...current, visible: !current.visible },
       }));
       return;
     }
@@ -1909,7 +1918,7 @@ export function SessionDetailPage() {
       ...prev,
       [m.id]: {
         source,
-        settingsFingerprint,
+        settingsFingerprint: requestFingerprint,
         text: null,
         loading: true,
         visible: false,
@@ -1925,7 +1934,7 @@ export function SessionDetailPage() {
           ...prev,
           [m.id]: {
             source,
-            settingsFingerprint,
+            settingsFingerprint: requestFingerprint,
             text: null,
             loading: false,
             visible: false,
@@ -1937,7 +1946,7 @@ export function SessionDetailPage() {
         ...prev,
         [m.id]: {
           source,
-          settingsFingerprint: result.settings_fingerprint ?? settingsFingerprint,
+          settingsFingerprint: requestFingerprint,
           text: translated,
           loading: false,
           visible: true,
@@ -1953,7 +1962,7 @@ export function SessionDetailPage() {
         ...prev,
         [m.id]: {
           source,
-          settingsFingerprint,
+          settingsFingerprint: requestFingerprint,
           text: null,
           loading: false,
           visible: false,
@@ -1962,7 +1971,10 @@ export function SessionDetailPage() {
       showSnackbar(`${t('message.translate.failed', '翻译失败')}：${message}`, { tone: 'error' });
     }
   }, [
+    auth.meta?.active_model_key,
+    auth.meta?.message_content_settings?.translation_model_settings_fingerprint,
     auth.meta?.message_content_settings?.translation_settings_fingerprint,
+    detail?.session.last_model_key,
     messageTranslations,
     sessionId,
   ]);
@@ -4105,6 +4117,15 @@ export function SessionDetailPage() {
     messageContentSettings?.translation_enabled === true;
   const translationSettingsFingerprint =
     messageContentSettings?.translation_settings_fingerprint ?? '';
+  const translationModelSettingsFingerprint =
+    messageContentSettings?.translation_model_settings_fingerprint ?? '';
+  const translationFallbackModelKey =
+    detail?.session.last_model_key || meta?.active_model_key || '';
+  const translationRequestFingerprint = [
+    translationSettingsFingerprint,
+    translationModelSettingsFingerprint,
+    translationFallbackModelKey,
+  ].join('|');
   const textActionContentFormat = normalizeMetaMessageContentFormat(
     messageContentSettings?.message_content_format,
   );
@@ -4369,7 +4390,7 @@ export function SessionDetailPage() {
                         const translation = messageTranslations[m.id];
                         const translationMatches =
                           translation?.source === (m.content ?? '') &&
-                          translation.settingsFingerprint === translationSettingsFingerprint;
+                          translation.settingsFingerprint === translationRequestFingerprint;
                         return (
                           <li key={m.id} class="oh-session-message-row">
                             <MessageCard

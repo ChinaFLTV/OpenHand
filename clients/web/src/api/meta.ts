@@ -46,6 +46,7 @@ export interface ApiMetaMessageContentSettings {
   tts_enabled?: boolean;
   translation_enabled?: boolean;
   translation_settings_fingerprint?: string;
+  translation_model_settings_fingerprint?: string;
   message_content_format?: string;
 }
 

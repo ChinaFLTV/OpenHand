@@ -18,6 +18,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/xml_escape.dart';
 import '../../ai/index.dart';
@@ -2088,6 +2089,8 @@ class WebMessagePlatformService {
             _settingsController.aiTranslationSettings.enabled,
         'translation_settings_fingerprint':
             _settingsController.aiTranslationSettings.cacheFingerprint,
+        'translation_model_settings_fingerprint':
+            _translationModelSettingsFingerprint(),
         'message_content_format':
             _settingsController.aiMessageContentFormat.storageKey,
       },
@@ -5661,6 +5664,19 @@ class WebMessagePlatformService {
       return null;
     }
     return key;
+  }
+
+  String _translationModelSettingsFingerprint() {
+    final allowedKeys = _allowedModels()
+        .map((model) => model.key)
+        .toList(growable: false);
+    return stableJsonSha256(<String, Object?>{
+      'active_model_key': _activeModelKey(),
+      'allowed_model_keys': allowedKeys,
+      'model_configs': _settingsController.aiModels
+          .map((model) => model.toJson())
+          .toList(growable: false),
+    });
   }
 
   List<_AllowedWebModel> _allowedModels() {
