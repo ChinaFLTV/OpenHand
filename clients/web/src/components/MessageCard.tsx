@@ -1746,6 +1746,7 @@ function MessageCardImpl({
   const canRegenerateMessage =
     regenerationEnabled &&
     Boolean(onRegenerate) &&
+    !goalMessageView &&
     isFormalAssistantResponse &&
     !activelyStreaming;
   const hasAnyAction = Boolean(

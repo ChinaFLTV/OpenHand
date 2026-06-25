@@ -393,6 +393,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final isGoalEvaluationMessage =
         isGoalEvaluationRequest || isGoalEvaluationResponse;
     final goalMessageView = _GoalMessageViewData.fromMessage(message);
+    final isGoalRuntimeMessage = goalMessageView != null;
     final isCompressionPoint =
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
@@ -1105,7 +1106,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
           icon: Icons.content_copy_outlined,
           label: _localizedText(context, zh: '复制', en: 'Copy'),
         ),
-        if (widget.speechEnabled && widget.onToggleSpeech != null)
+        if (!isGoalRuntimeMessage &&
+            widget.speechEnabled &&
+            widget.onToggleSpeech != null)
           _MessageActionSpec(
             id: 'speech',
             onPressed: widget.onToggleSpeech,
@@ -1116,7 +1119,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ? _localizedText(context, zh: '停止', en: 'Stop')
                 : _localizedText(context, zh: '朗读', en: 'Read'),
           ),
-        if (widget.translationEnabled && widget.onToggleTranslation != null)
+        if (!isGoalRuntimeMessage &&
+            widget.translationEnabled &&
+            widget.onToggleTranslation != null)
           _MessageActionSpec(
             id: 'translation-toggle',
             onPressed: widget.translationLoading
@@ -1162,7 +1167,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
             selected:
                 selectedFeedback == AiSessionMessageFeedback.needsImprovement,
           ),
-        if (isAssistantResponse &&
+        if (!isGoalRuntimeMessage &&
+            isAssistantResponse &&
             !isStreamingAssistant &&
             widget.onRegenerateResponse != null)
           _MessageActionSpec(
