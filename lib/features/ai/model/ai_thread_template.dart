@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'ai_thread_template_icon_names.dart';
+
 enum AiThreadTemplateAvailability {
   all,
   appleOnly;
@@ -16,14 +18,18 @@ enum AiThreadTemplateAvailability {
 class AiThreadTemplateIcons {
   const AiThreadTemplateIcons._();
 
-  static const String autoAwesomeRounded = 'auto_awesome_rounded';
-  static const String buildCircleRounded = 'build_circle_rounded';
-  static const String forumRounded = 'forum_rounded';
-  static const String hubRounded = 'hub_rounded';
-  static const String codeRounded = 'code_rounded';
-  static const String travelExploreRounded = 'travel_explore_rounded';
-  static const String assistantRounded = 'assistant_rounded';
-  static const String androidRounded = 'android_rounded';
+  static const String autoAwesomeRounded =
+      AiThreadTemplateIconNames.autoAwesomeRounded;
+  static const String buildCircleRounded =
+      AiThreadTemplateIconNames.buildCircleRounded;
+  static const String forumRounded = AiThreadTemplateIconNames.forumRounded;
+  static const String hubRounded = AiThreadTemplateIconNames.hubRounded;
+  static const String codeRounded = AiThreadTemplateIconNames.codeRounded;
+  static const String travelExploreRounded =
+      AiThreadTemplateIconNames.travelExploreRounded;
+  static const String assistantRounded =
+      AiThreadTemplateIconNames.assistantRounded;
+  static const String androidRounded = AiThreadTemplateIconNames.androidRounded;
 
   static const IconData fallback = Icons.auto_awesome_rounded;
 

@@ -37,7 +37,16 @@ class AiPromptTemplateRepository {
   final Map<String, Future<AiPromptTemplateBundle>> _bundleCache =
       <String, Future<AiPromptTemplateBundle>>{};
 
-  List<AiThreadTemplate> get templates => AiPromptTemplatePolicies.templates;
+  static final Map<String, AiThreadTemplate> _templatesById =
+      Map<String, AiThreadTemplate>.unmodifiable(<String, AiThreadTemplate>{
+        for (final info in AiPromptTemplatePolicies.templateInfos)
+          info.id: _threadTemplateFromInfo(info),
+      });
+
+  static final List<AiThreadTemplate> _templates =
+      List<AiThreadTemplate>.unmodifiable(_templatesById.values);
+
+  List<AiThreadTemplate> get templates => _templates;
 
   List<AiThreadTemplate> templatesForPlatform([TargetPlatform? platform]) {
     final effectivePlatform = platform ?? defaultTargetPlatform;
@@ -49,7 +58,8 @@ class AiPromptTemplateRepository {
   }
 
   AiThreadTemplate resolveTemplate(String templateId) {
-    return AiPromptTemplatePolicies.resolveEntry(templateId).template;
+    final resolvedId = AiPromptTemplatePolicies.resolveEntry(templateId).id;
+    return _templatesById[resolvedId] ?? _templatesById[_defaultTemplateId]!;
   }
 
   AiThreadTemplate resolveTemplateForPlatform(
@@ -65,9 +75,7 @@ class AiPromptTemplateRepository {
     if (supportedTemplates.isNotEmpty) {
       return supportedTemplates.first;
     }
-    return AiPromptTemplatePolicies.resolveEntry(
-      AiPromptTemplatePolicies.defaultTemplateId,
-    ).template;
+    return _templatesById[_defaultTemplateId]!;
   }
 
   Future<AiPromptTemplateBundle> loadBundle(String templateId) async {
@@ -93,7 +101,7 @@ class AiPromptTemplateRepository {
 
   Future<AiPromptTemplateBundle> _loadBundleUncached(String templateId) async {
     final catalogEntry = AiPromptTemplatePolicies.resolveEntry(templateId);
-    final template = catalogEntry.template;
+    final template = resolveTemplate(catalogEntry.id);
     final policy = catalogEntry.policy;
     final assetDirectory = policy.promptAssetDirectory;
     final fallback = _TemplatePromptFallbacks.resolve(policy.templateId);
@@ -223,9 +231,33 @@ class AiPromptTemplateRepository {
   }
 }
 
+const String _defaultTemplateId = AiPromptTemplatePolicies.defaultTemplateId;
+
+AiThreadTemplate _threadTemplateFromInfo(AiPromptTemplateInfo info) {
+  return AiThreadTemplate(
+    id: info.id,
+    name: info.name,
+    iconName: info.iconName,
+    description: info.description,
+    internalVersion: info.internalVersion,
+    promptAssetDirectory: info.promptAssetDirectory,
+    availability: _availabilityFromScope(info.availability),
+  );
+}
+
+AiThreadTemplateAvailability _availabilityFromScope(
+  AiPromptTemplateAvailabilityScope availability,
+) {
+  return switch (availability) {
+    AiPromptTemplateAvailabilityScope.appleOnly =>
+      AiThreadTemplateAvailability.appleOnly,
+    AiPromptTemplateAvailabilityScope.all => AiThreadTemplateAvailability.all,
+  };
+}
+
 /// Shared "Memory Tone Policy" section applied to every template's system
-/// instructions only (Task 22 / 2026-04-25; dedup'd from developer layer
-/// 2026-05-01 — see [_resolveBundleAsync]).
+/// instructions only. Keeping it out of the developer layer prevents the same
+/// guidance from rendering twice in every assembled prompt.
 ///
 /// Templates whose fallback already embeds this section (e.g.
 /// `hermes_talker`) will NOT have it appended twice — see

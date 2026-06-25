@@ -36,14 +36,12 @@ String _appendSectionsIfAbsent(
 }
 
 String _appendTemplateSectionsIfAbsent(String instructions, String templateId) {
+  final policy = AiPromptTemplatePolicies.resolve(templateId);
   final withShared = _appendSectionsIfAbsent(
     instructions,
-    aiPromptSharedSectionsForTemplate(templateId),
+    policy.sharedSections,
   );
-  return _appendSectionsIfAbsent(
-    withShared,
-    aiPromptExtensionSectionsForTemplate(templateId),
-  );
+  return _appendSectionsIfAbsent(withShared, policy.extensionSections);
 }
 
 String _appendV4DisciplineIfAbsent(String instructions) {

@@ -1,4 +1,4 @@
-import '../../model/ai_thread_template.dart';
+import '../../model/ai_thread_template_icon_names.dart';
 
 class AiPromptSharedSectionSpec {
   const AiPromptSharedSectionSpec({required this.tag, required this.assetPath});
@@ -57,20 +57,42 @@ class AiPromptTemplatePolicy {
       toolCatalogProfile == AiPromptToolCatalogProfile.androidReverse;
 }
 
+enum AiPromptTemplateAvailabilityScope { all, appleOnly }
+
+class AiPromptTemplateInfo {
+  const AiPromptTemplateInfo({
+    required this.id,
+    required this.name,
+    required this.iconName,
+    required this.description,
+    required this.internalVersion,
+    required this.promptAssetDirectory,
+    this.availability = AiPromptTemplateAvailabilityScope.all,
+  });
+
+  final String id;
+  final String name;
+  final String iconName;
+  final String description;
+  final String internalVersion;
+  final String promptAssetDirectory;
+  final AiPromptTemplateAvailabilityScope availability;
+}
+
 class AiPromptTemplateCatalogEntry {
   const AiPromptTemplateCatalogEntry({
-    required this.template,
+    required this.info,
     required this.policy,
   });
 
-  final AiThreadTemplate template;
+  final AiPromptTemplateInfo info;
   final AiPromptTemplatePolicy policy;
 
   String get id => policy.templateId;
 
   bool get isConsistent =>
-      template.id == policy.templateId &&
-      template.promptAssetDirectory == policy.promptAssetDirectory;
+      info.id == policy.templateId &&
+      info.promptAssetDirectory == policy.promptAssetDirectory;
 }
 
 class AiPromptTemplatePolicies {
@@ -104,10 +126,10 @@ class AiPromptTemplatePolicies {
   static const List<AiPromptTemplateCatalogEntry>
   entries = <AiPromptTemplateCatalogEntry>[
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: defaultTemplateId,
         name: 'Default Assistant',
-        iconName: AiThreadTemplateIcons.autoAwesomeRounded,
+        iconName: AiThreadTemplateIconNames.autoAwesomeRounded,
         description:
             'A Claude Code style general-purpose template for tool-assisted work, MCP usage, and local skill activation.',
         internalVersion: '3.0.0',
@@ -124,10 +146,10 @@ class AiPromptTemplatePolicies {
       ),
     ),
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: machineExpertTemplateId,
         name: '机器专家',
-        iconName: AiThreadTemplateIcons.buildCircleRounded,
+        iconName: AiThreadTemplateIconNames.buildCircleRounded,
         description: '主要是通过本地终端程序去与目标机器交互，完成用户提出的任务或需求。',
         internalVersion: '1.1.0',
         promptAssetDirectory: machineExpertPromptAssetDirectory,
@@ -143,10 +165,10 @@ class AiPromptTemplatePolicies {
       ),
     ),
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: hardnessEngineeringTemplateId,
         name: 'Harness Engineering',
-        iconName: AiThreadTemplateIcons.hubRounded,
+        iconName: AiThreadTemplateIconNames.hubRounded,
         description:
             '多角色编排协调模式。OpenHand 作为 OS 层统一编排，将编码任务委托给用户配置的 CLI 工具（调查者→规划者→实施者→验收者），并管理结构化持久化上下文。',
         internalVersion: '1.0.0',
@@ -163,10 +185,10 @@ class AiPromptTemplatePolicies {
       ),
     ),
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: programmingExpertTemplateId,
         name: '编程专家',
-        iconName: AiThreadTemplateIcons.codeRounded,
+        iconName: AiThreadTemplateIconNames.codeRounded,
         description:
             '对标 Claude Code 范式的全栈 AI 编程代理。以工具事实回灌、Plan/Todo 状态纪律、子代理隔离、对抗验证和上下文恢复推进端到端工程任务。',
         internalVersion: '1.2.0',
@@ -184,10 +206,10 @@ class AiPromptTemplatePolicies {
       ),
     ),
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: hermesTalkerTemplateId,
         name: 'Hermes Talker',
-        iconName: AiThreadTemplateIcons.forumRounded,
+        iconName: AiThreadTemplateIconNames.forumRounded,
         description:
             '在 Default 模板基础上新增 skill_manager 工具与每 5 分钟运行的自我学习能力,持续在对话中积累用户画像与可复用技能。',
         internalVersion: '1.0.0',
@@ -204,10 +226,10 @@ class AiPromptTemplatePolicies {
       ),
     ),
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: webReverseExpertTemplateId,
         name: 'Web 逆向专家',
-        iconName: AiThreadTemplateIcons.travelExploreRounded,
+        iconName: AiThreadTemplateIconNames.travelExploreRounded,
         description:
             '通过 Google Chrome（或同核 Chromium）+ CDP 通道完成 Web 站点的接口逆向、参数还原、复现脚本产出。Dashboard 提供内嵌浏览器面板（screencast + 输入桥）与 F12 等价控制台。仅用于授权安全研究与学习。',
         internalVersion: '1.2.0',
@@ -225,14 +247,14 @@ class AiPromptTemplatePolicies {
       ),
     ),
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: siriHelperTemplateId,
         name: 'Siri 助手',
-        iconName: AiThreadTemplateIcons.assistantRounded,
+        iconName: AiThreadTemplateIconNames.assistantRounded,
         description: '默认模板的苹果设备特化版本，内置 Siri 风格系统提示词，适合依赖 Apple 生态语义与交互氛围的任务。',
         internalVersion: '1.0.0',
         promptAssetDirectory: siriHelperPromptAssetDirectory,
-        availability: AiThreadTemplateAvailability.appleOnly,
+        availability: AiPromptTemplateAvailabilityScope.appleOnly,
       ),
       policy: AiPromptTemplatePolicy(
         templateId: siriHelperTemplateId,
@@ -245,10 +267,10 @@ class AiPromptTemplatePolicies {
       ),
     ),
     AiPromptTemplateCatalogEntry(
-      template: AiThreadTemplate(
+      info: AiPromptTemplateInfo(
         id: androidReverseExpertTemplateId,
         name: 'Android 逆向专家',
-        iconName: AiThreadTemplateIcons.androidRounded,
+        iconName: AiThreadTemplateIconNames.androidRounded,
         description:
             '通过 ADB + Frida + jadx / apktool + mitmproxy 完成 Android APP 接口逆向、加密破解、Hook 脚本产出。Dashboard 提供设备管理、Logcat、网络抓包、证书注入等面板。仅用于授权安全研究与学习。',
         internalVersion: '1.1.0',
@@ -266,9 +288,9 @@ class AiPromptTemplatePolicies {
     ),
   ];
 
-  static final List<AiThreadTemplate> templates =
-      List<AiThreadTemplate>.unmodifiable(
-        entries.map((entry) => entry.template),
+  static final List<AiPromptTemplateInfo> templateInfos =
+      List<AiPromptTemplateInfo>.unmodifiable(
+        entries.map((entry) => entry.info),
       );
 
   static final Map<String, AiPromptTemplateCatalogEntry> byTemplateId =
@@ -372,14 +394,6 @@ _programmingExpertExtensionSections = <AiPromptSharedSectionSpec>[
     assetPath: 'assets/prompts/programming_expert/sections/context_recovery.md',
   ),
 ];
-
-List<AiPromptSharedSectionSpec> aiPromptSharedSectionsForTemplate(
-  String templateId,
-) => AiPromptTemplatePolicies.resolve(templateId).sharedSections;
-
-List<AiPromptSharedSectionSpec> aiPromptExtensionSectionsForTemplate(
-  String templateId,
-) => AiPromptTemplatePolicies.resolve(templateId).extensionSections;
 
 bool aiPromptInstructionsLooksLikeChinese(String text) {
   var cjk = 0;

@@ -13,16 +13,16 @@ void main() {
     for (final entry in entries) {
       expect(entry.isConsistent, isTrue, reason: entry.id);
       expect(ids.add(entry.id), isTrue, reason: 'duplicate id: ${entry.id}');
-      expect(entry.template.name.trim(), isNotEmpty, reason: entry.id);
-      expect(entry.template.description.trim(), isNotEmpty, reason: entry.id);
-      expect(entry.template.internalVersion.trim(), isNotEmpty);
+      expect(entry.info.name.trim(), isNotEmpty, reason: entry.id);
+      expect(entry.info.description.trim(), isNotEmpty, reason: entry.id);
+      expect(entry.info.internalVersion.trim(), isNotEmpty);
       expect(entry.policy.compressionIdentity.trim(), isNotEmpty);
     }
 
     expect(AiPromptTemplatePolicies.byTemplateId.keys.toSet(), ids);
     expect(AiPromptTemplatePolicies.byId.keys.toSet(), ids);
     expect(
-      AiPromptTemplatePolicies.templates.map((template) => template.id),
+      AiPromptTemplatePolicies.templateInfos.map((template) => template.id),
       orderedEquals(entries.map((entry) => entry.id)),
     );
   });
