@@ -850,6 +850,9 @@ html, body, #root {
   align-items: flex-start;
   gap: 9px;
 }
+.oh-goal-message-heading > div {
+  min-width: 0;
+}
 .oh-goal-message-icon {
   width: 26px;
   height: 26px;
@@ -886,15 +889,18 @@ html, body, #root {
   font-weight: 620;
   line-height: 1.55;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .oh-goal-message-tags > div,
 .oh-goal-message-metrics {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 .oh-goal-message-tags em {
   max-width: 100%;
+  min-width: 0;
   border-radius: 999px;
   padding: 3px 8px;
   border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
@@ -904,6 +910,7 @@ html, body, #root {
   font-style: normal;
   font-weight: 720;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 .oh-goal-message-tags.is-pass em {
   color: var(--m3-primary);

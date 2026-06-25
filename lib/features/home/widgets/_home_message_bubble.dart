@@ -446,10 +446,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final borderRadius = BorderRadius.circular(18);
     final backgroundColor = isCompressionPoint
         ? colorScheme.tertiaryContainer
-        : isGoalEvaluationRequest
-        ? colorScheme.secondaryContainer
-        : isGoalEvaluationResponse
-        ? colorScheme.tertiaryContainer
         : isUser
         ? colorScheme.primaryContainer
         : isReasoning
@@ -464,10 +460,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ? colorScheme.surfaceContainer
         : colorScheme.surfaceContainerHigh;
     final textColor = isCompressionPoint
-        ? colorScheme.onTertiaryContainer
-        : isGoalEvaluationRequest
-        ? colorScheme.onSecondaryContainer
-        : isGoalEvaluationResponse
         ? colorScheme.onTertiaryContainer
         : isUser
         ? colorScheme.onPrimaryContainer
@@ -6445,6 +6437,11 @@ class _GoalMessageInlineList extends StatelessWidget {
 class _GoalMessageMetricChip extends StatelessWidget {
   const _GoalMessageMetricChip({required this.label, this.icon, this.accent});
 
+  static const double _fallbackMaxWidth = 520;
+  static const double _viewportWidthFactor = 0.72;
+  static const double _minReadableWidth = 120;
+  static const int _maxLabelLines = 3;
+
   final String label;
   final IconData? icon;
   final Color? accent;
@@ -6453,29 +6450,49 @@ class _GoalMessageMetricChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = accent ?? theme.colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: _borderRadius999,
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = MediaQuery.sizeOf(context).width;
+        final fallbackWidth = math.min(
+          _fallbackMaxWidth,
+          viewportWidth * _viewportWidthFactor,
+        );
+        final maxWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : math.max(_minReadableWidth, fallbackWidth);
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: _borderRadius999,
+              border: Border.all(color: color.withValues(alpha: 0.18)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 13, color: color),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: _maxLabelLines,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

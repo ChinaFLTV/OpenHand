@@ -1521,23 +1521,7 @@ function MessageCardImpl({
   const reduceMotion = useReducedMotion();
   const { format: contentFormat, htmlFallback: contentHtmlFallback } = useMessageContentFormat();
   const [showRawContent, setShowRawContent] = useState(false);
-  const baseStyle = styleForKind(message.kind, message.role);
-  const goalEvaluation = isGoalEvaluationMessage(message);
-  const style = goalEvaluation
-    ? {
-        ...baseStyle,
-        background: message.role === 'user'
-          ? 'color-mix(in srgb, var(--m3-secondary-container) 82%, var(--m3-surface))'
-          : 'color-mix(in srgb, var(--m3-tertiary-container) 78%, var(--m3-surface))',
-        color: message.role === 'user'
-          ? 'var(--m3-on-secondary-container)'
-          : 'var(--m3-on-tertiary-container)',
-        border: message.role === 'user'
-          ? '1px solid color-mix(in srgb, var(--m3-secondary) 36%, var(--m3-outline-variant))'
-          : '1px solid color-mix(in srgb, var(--m3-tertiary) 36%, var(--m3-outline-variant))',
-        shadow: 'none',
-      }
-    : baseStyle;
+  const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
   const isUserBubble = message.role === 'user';
   const goalMessageView = goalMessageViewModel(message);
