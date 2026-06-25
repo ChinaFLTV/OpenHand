@@ -297,6 +297,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       <String, List<_QueuedMessage>>{};
   final Set<String> _autoQueuedMessageDispatchSessionIds = <String>{};
   final Set<String> _queuedGuidanceSessionIds = <String>{};
+  final Set<String> _queuedGoalResumeSessionIds = <String>{};
   final Map<String, String> _failedQueuedMessageIdsBySessionId =
       <String, String>{};
   final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
@@ -308,6 +309,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int? _runtimeToolPreviewCacheKey;
   AiRuntimeToolPreview? _runtimeToolPreviewCacheValue;
   AiSessionController? _observedSessionController;
+  AiGoalContinuationYieldPredicate? _goalContinuationYieldPredicate;
   MessageGatewayController? _observedMessageGatewayController;
   TemplateRuntimeLinkageController? _templateRuntimeLinkageController;
   StreamSubscription<List<WebWriteApprovalRequest>>? _writeApprovalSubscription;
@@ -574,7 +576,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   AiSessionMode _effectiveComposerMode(AiSessionController sessionController) {
-    return sessionController.currentSession?.mode ?? _detachedComposerMode;
+    final session = sessionController.currentSession;
+    if (_goalPausedForQueuedMessages(session)) {
+      return AiSessionMode.chat;
+    }
+    return session?.mode ?? _detachedComposerMode;
   }
 
   AiSendPhase _displaySendPhaseForSession(
@@ -651,6 +657,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String _nextQueuedMessageId() {
     _queuedMessageSerial += 1;
     return 'queued-${DateTime.now().microsecondsSinceEpoch}-$_queuedMessageSerial';
+  }
+
+  bool _hasRunnableQueuedMessagesForSession(String sessionId) {
+    final queue = _queuedMessagesBySessionId[sessionId];
+    if (queue == null || queue.isEmpty) {
+      return false;
+    }
+    return _failedQueuedMessageIdsBySessionId[sessionId] != queue.first.id;
+  }
+
+  bool _goalPausedForQueuedMessages(AiSession? session) {
+    final goal = session?.activeGoal;
+    return goal?.status == AiSessionGoalStatus.paused &&
+        goal?.statusReason == aiSessionGoalPausedForQueueStatusReason;
+  }
+
+  bool _hasQueuedMessageDispatchInFlight(String sessionId) {
+    return _autoQueuedMessageDispatchSessionIds.contains(sessionId) ||
+        _queuedGuidanceSessionIds.contains(sessionId) ||
+        _queuedGoalResumeSessionIds.contains(sessionId);
   }
 
   Future<bool> _stopCurrentResponseBeforeQueuedGuidance(
@@ -806,11 +832,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (identical(_observedSessionController, sessionController)) {
       return;
     }
+    final goalYieldPredicate = _goalContinuationYieldPredicate ??=
+        _hasRunnableQueuedMessagesForSession;
+    _observedSessionController?.removeGoalContinuationYieldPredicate(
+      goalYieldPredicate,
+    );
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _observedSessionController?.toolSearchLoadedSignal.removeListener(
       _handleToolSearchLoadedSignal,
     );
     _observedSessionController = sessionController;
+    _observedSessionController?.addGoalContinuationYieldPredicate(
+      goalYieldPredicate,
+    );
     _observedSessionController?.addListener(_handleSessionControllerChanged);
     _observedSessionController?.toolSearchLoadedSignal.addListener(
       _handleToolSearchLoadedSignal,
@@ -872,6 +906,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     WidgetsBinding.instance.removeObserver(this);
+    final goalYieldPredicate = _goalContinuationYieldPredicate;
+    if (goalYieldPredicate != null) {
+      _observedSessionController?.removeGoalContinuationYieldPredicate(
+        goalYieldPredicate,
+      );
+    }
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _observedSessionController?.toolSearchLoadedSignal.removeListener(
       _handleToolSearchLoadedSignal,
@@ -1590,6 +1630,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       creationRequest: queuedMessage.creationRequest,
       additionalSystemReminders: queuedMessage.systemReminders,
       selectedSkillMetadata: queuedMessage.skillMetadata,
+      allowQueuedGoalInterruption: true,
       processQueueAfterCompletion: false,
     );
     final shouldRetryBlock =
@@ -1628,8 +1669,91 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _autoQueuedMessageDispatchSessionIds.remove(sessionId);
       }
     });
-    if (sentOutcome == _SubmitTextOutcome.submitted) {
+    if (sentOutcome == _SubmitTextOutcome.submitted || shouldRetryBlock) {
       _processMessageQueueIfNeeded(sessionController);
+    }
+  }
+
+  Future<void> _resumeGoalAfterQueuedMessagesIfNeeded(
+    AiSessionController sessionController,
+    AiSession session,
+  ) async {
+    final sessionId = session.id;
+    if (!_goalPausedForQueuedMessages(session) ||
+        _hasRunnableQueuedMessagesForSession(sessionId) ||
+        _hasQueuedMessageDispatchInFlight(sessionId) ||
+        _displaySendPhaseForSession(sessionController, sessionId) !=
+            AiSendPhase.idle ||
+        _submittingSessionId == sessionId) {
+      return;
+    }
+    final settingsController = context.read<SettingsController>();
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      session,
+    );
+    if (selectedModel == null) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _queuedGoalResumeSessionIds.add(sessionId);
+    });
+    try {
+      final latestSession = _sessionForId(sessionController, sessionId);
+      if (!mounted ||
+          latestSession == null ||
+          !_goalPausedForQueuedMessages(latestSession) ||
+          _hasRunnableQueuedMessagesForSession(sessionId) ||
+          _displaySendPhaseForSession(sessionController, sessionId) !=
+              AiSendPhase.idle) {
+        return;
+      }
+      final runtimeContext = await _buildRuntimeContext(
+        workingDirectory: _programmingExpertProjectRoot(latestSession),
+        skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
+      );
+      if (!mounted ||
+          !_goalPausedForQueuedMessages(
+            _sessionForId(sessionController, sessionId),
+          ) ||
+          _hasRunnableQueuedMessagesForSession(sessionId)) {
+        return;
+      }
+      final currentSession =
+          _sessionForId(sessionController, sessionId) ?? latestSession;
+      final requireWriteConfirmation =
+          currentSession.templateId == 'android_reverse_expert'
+          ? true
+          : currentSession.fullAccessPermission == true
+          ? false
+          : settingsController.aiWriteCommandConfirmationEnabled;
+      final ok = await sessionController.resumeGoal(
+        sessionId: sessionId,
+        model: selectedModel,
+        runtimeContext: runtimeContext,
+        denyCommandRules: settingsController.aiDenyCommandRules,
+        requireWriteCommandConfirmation: requireWriteConfirmation,
+        confirmWriteCommand: (request) =>
+            _confirmWriteCommand(request, sessionId: sessionId),
+      );
+      if (!ok && mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: sessionController.lastErrorMessageForSession(sessionId),
+          fallback: AppLocalizations.of(context)!.chatRequestFailed,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _queuedGoalResumeSessionIds.remove(sessionId);
+        });
+      } else {
+        _queuedGoalResumeSessionIds.remove(sessionId);
+      }
     }
   }
 
@@ -1647,10 +1771,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted || _submittingSessionId != null) return;
 
+      var dispatchedQueuedMessage = false;
       for (final session in sessionController.sessions) {
         final sessionId = session.id;
-        if (_autoQueuedMessageDispatchSessionIds.contains(sessionId) ||
-            _queuedGuidanceSessionIds.contains(sessionId)) {
+        if (_hasQueuedMessageDispatchInFlight(sessionId)) {
           continue;
         }
         final phase = _displaySendPhaseForSession(sessionController, sessionId);
@@ -1685,8 +1809,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 guidance: false,
               ),
             );
+            dispatchedQueuedMessage = true;
             break; // Process one at a time across all sessions
           }
+        }
+      }
+      if (dispatchedQueuedMessage) {
+        return;
+      }
+      for (final session in sessionController.sessions) {
+        final sessionId = session.id;
+        if (_hasQueuedMessageDispatchInFlight(sessionId) ||
+            _hasRunnableQueuedMessagesForSession(sessionId)) {
+          continue;
+        }
+        if (_goalPausedForQueuedMessages(session) &&
+            _displaySendPhaseForSession(sessionController, sessionId) ==
+                AiSendPhase.idle) {
+          unawaited(
+            _resumeGoalAfterQueuedMessagesIfNeeded(sessionController, session),
+          );
+          break;
         }
       }
     } finally {
@@ -6140,6 +6283,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
     AiSessionGoalStartOptions? goalStartOptions,
+    bool allowQueuedGoalInterruption = false,
     bool restoreDraftOnLocalStop = true,
     bool processQueueAfterCompletion = true,
   }) async {
@@ -6299,6 +6443,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: selectedSkillMetadata,
         goalStartOptions: goalStartOptions,
+        allowQueuedGoalInterruption: allowQueuedGoalInterruption,
       );
       if (!mounted) {
         return sent || submittedUserTurnVisible()
@@ -9054,6 +9199,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         goalModeAvailable:
             currentSession != null &&
             aiSessionGoalModeAllowedForTemplate(currentSession.templateId),
+        suppressGoalControlsForQueue: _goalPausedForQueuedMessages(
+          currentSession,
+        ),
         onPauseGoal: _pauseCurrentGoal,
         onResumeGoal: _resumeCurrentGoal,
         onTerminateGoal: _terminateCurrentGoal,

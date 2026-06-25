@@ -447,6 +447,7 @@ export interface SendMessageInput {
   /// prompt builder 仅拼装 enabled 且未跳过的指令。
   skippedInstructionIds?: string[];
   goalOptions?: GoalStartOptions | null;
+  allowQueuedGoalInterruption?: boolean;
 }
 
 export interface SendMessageSelectedSkill {
@@ -482,6 +483,22 @@ export function sendMessage(
         skipped_instruction_ids: input.skippedInstructionIds ?? [],
         creation_options: input.creationOptions ?? null,
         goal_options: input.goalOptions ?? null,
+        allow_queued_goal_interruption: input.allowQueuedGoalInterruption ?? false,
+      },
+    },
+  );
+}
+
+export function syncGoalQueueYield(
+  sessionId: string,
+  hasPending: boolean,
+): Promise<{ ok: boolean; has_pending: boolean }> {
+  return apiRequest<{ ok: boolean; has_pending: boolean }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/goal/queue-yield`,
+    {
+      method: 'POST',
+      body: {
+        has_pending: hasPending,
       },
     },
   );

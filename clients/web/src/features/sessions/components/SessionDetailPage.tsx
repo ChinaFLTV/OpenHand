@@ -43,6 +43,7 @@ import {
   sendMessage,
   setMessageFeedback,
   setSessionThrottle,
+  syncGoalQueueYield,
   stopMessage,
   stopMessageTtsPlayback,
   terminateGoal,
@@ -712,6 +713,12 @@ function sessionModeLabel(mode: string): string {
 
 function isActiveGoalStatus(status: string | null | undefined): boolean {
   return status === 'running' || status === 'paused';
+}
+
+const GOAL_PAUSED_FOR_QUEUE_STATUS_REASON = 'Paused for queued user messages.';
+
+function isGoalPausedForQueuedMessages(goal: SessionGoalRecord | null | undefined): boolean {
+  return goal?.status === 'paused' && goal.status_reason === GOAL_PAUSED_FOR_QUEUE_STATUS_REASON;
 }
 
 function goalStatusLabel(status: string | null | undefined): string {
@@ -1579,6 +1586,7 @@ export function SessionDetailPage() {
   const [queuedEditText, setQueuedEditText] = useState('');
   const [queueDispatchingId, setQueueDispatchingId] = useState<string | null>(null);
   const [queueGuidanceDispatchingId, setQueueGuidanceDispatchingId] = useState<string | null>(null);
+  const [blockedQueuedMessageId, setBlockedQueuedMessageId] = useState<string | null>(null);
   const [queuedListMotionGeneration, setQueuedListMotionGeneration] = useState(0);
   const [stopping, setStopping] = useState<boolean>(false);
   const [composerCollapsed, setComposerCollapsed] = useState(readPersistedComposerCollapsed);
@@ -1638,6 +1646,7 @@ export function SessionDetailPage() {
   const queuedMessageSeqRef = useRef(0);
   const queueDispatchingRef = useRef(false);
   const queueGuidanceDispatchingRef = useRef(false);
+  const queuedGoalResumeInFlightRef = useRef(false);
   const blockedQueuedMessageIdRef = useRef<string | null>(null);
   const composerAttachmentIdsRef = useRef<string[]>([]);
   const attachmentIdSeqRef = useRef(0);
@@ -1872,11 +1881,13 @@ export function SessionDetailPage() {
 
   function blockQueuedMessageRetry(id: string): void {
     blockedQueuedMessageIdRef.current = id;
+    setBlockedQueuedMessageId(id);
   }
 
   function clearQueuedMessageRetryBlock(id?: string): void {
     if (!id || blockedQueuedMessageIdRef.current === id) {
       blockedQueuedMessageIdRef.current = null;
+      setBlockedQueuedMessageId(null);
     }
   }
 
@@ -2532,8 +2543,11 @@ export function SessionDetailPage() {
   const detailBelongsToRoute = detail?.session.id === sessionId;
   const session = detailBelongsToRoute ? detail?.session : undefined;
   const currentGoal = session?.goal_state?.current ?? null;
-  const hasActiveGoal = isActiveGoalStatus(currentGoal?.status);
+  const goalPausedForQueuedMessages = isGoalPausedForQueuedMessages(currentGoal);
+  const hasModeLockedGoal = isActiveGoalStatus(currentGoal?.status);
+  const hasActiveGoal = hasModeLockedGoal && !goalPausedForQueuedMessages;
   const goalPaused = currentGoal?.status === 'paused';
+  const hasRunnableQueuedMessages = queuedComposerMessages.length > 0 && blockedQueuedMessageId !== queuedComposerMessages[0]?.id;
   const goalModeAvailable = Boolean(session && isGoalModeAllowedForTemplate(session.template_id));
   const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
   const messageWindowView = useMemo(() => deriveMessageWindowView(routeMessages), [routeMessages]);
@@ -3342,6 +3356,7 @@ export function SessionDetailPage() {
         attachments: next.attachments,
         selectedSkill: next.selectedSkill,
         skippedInstructionIds: next.skippedInstructionIds,
+        allowQueuedGoalInterruption: true,
       });
       if (!ownsSessionAsyncResult(dispatchSessionId)) return false;
       removeQueuedMessageAfterSend(next.id);
@@ -3422,6 +3437,36 @@ export function SessionDetailPage() {
     }
   }
 
+  async function resumeQueuedDeferredGoalIfReady(): Promise<void> {
+    if (
+      !sessionId ||
+      !goalPausedForQueuedMessages ||
+      hasRunnableQueuedMessages ||
+      queuedGoalResumeInFlightRef.current ||
+      queueDispatchingRef.current ||
+      queueGuidanceDispatchingRef.current ||
+      composerSending ||
+      isRunningPhase(sendPhase)
+    ) {
+      return;
+    }
+    queuedGoalResumeInFlightRef.current = true;
+    const requestSessionId = sessionId;
+    try {
+      const res = await resumeGoal(requestSessionId, composerModelKey || detail?.session.last_model_key || undefined);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      updateSendPhaseValue(res.send_phase || 'sendingMessage');
+      void refresh();
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      setLastError(e instanceof Error ? e.message : String(e));
+    } finally {
+      queuedGoalResumeInFlightRef.current = false;
+    }
+  }
+
   useEffect(() => {
     if (!sessionId || queuedComposerMessages.length === 0) return;
     if (composerSending || queueDispatchingRef.current || queueGuidanceDispatchingRef.current || isRunningPhase(sendPhase)) return;
@@ -3430,6 +3475,23 @@ export function SessionDetailPage() {
     }, QUEUE_SEND_SETTLE_MS);
     return () => window.clearTimeout(timer);
   }, [sessionId, queuedComposerMessages, sendPhase, composerSending, queueGuidanceDispatchingId, allowedModels, allowedMessageTypes, textAllowed, sseLive]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    void syncGoalQueueYield(sessionId, hasRunnableQueuedMessages).catch(() => {});
+    return () => {
+      void syncGoalQueueYield(sessionId, false).catch(() => {});
+    };
+  }, [sessionId, hasRunnableQueuedMessages]);
+
+  useEffect(() => {
+    if (!sessionId || !goalPausedForQueuedMessages || hasRunnableQueuedMessages) return;
+    if (composerSending || queueDispatchingId || queueGuidanceDispatchingId || isRunningPhase(sendPhase)) return;
+    const timer = window.setTimeout(() => {
+      void resumeQueuedDeferredGoalIfReady();
+    }, QUEUE_SEND_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [sessionId, goalPausedForQueuedMessages, hasRunnableQueuedMessages, composerSending, queueDispatchingId, queueGuidanceDispatchingId, sendPhase, composerModelKey, detail?.session.last_model_key]);
 
   useEffect(() => {
     if (allowedModels.length === 0) return;
@@ -4001,7 +4063,7 @@ export function SessionDetailPage() {
 
   async function handleSend(): Promise<void> {
     if (composerSending) return;
-    if (hasActiveGoal) {
+    if (hasModeLockedGoal) {
       const message = t('goal.manualSend.blocked', '目标执行中，请先暂停、恢复或终止当前目标。');
       setComposerError(message);
       showSnackbar(message, { tone: 'error' });
@@ -4262,10 +4324,10 @@ export function SessionDetailPage() {
   const effectiveLoadingDetail = loadingDetail || Boolean(detail && !detailBelongsToRoute);
   const currentSessionMode: SessionMode = session?.mode === 'plan' || session?.mode === 'goal' ? session.mode : 'chat';
   const canToggleSessionMode =
-    !hasActiveGoal && sessionModeOptions.length > 1;
+    !hasModeLockedGoal && sessionModeOptions.length > 1;
   async function applySessionMode(next: SessionMode): Promise<void> {
     if (!sessionId) return;
-    if (hasActiveGoal) {
+    if (hasModeLockedGoal) {
       showSnackbar(t('goal.mode.locked', '目标执行期间不能切换会话模式'), { tone: 'error' });
       return;
     }
@@ -4653,7 +4715,7 @@ export function SessionDetailPage() {
   }
 
   const subtitle = session ? [session.template_name || session.template_id, `${totalKnown} ${t('sessions.messageUnit', '条消息')}`, session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '', session.tool_message_count ? `${session.tool_message_count} tool` : '', session.compression_point_count ? `${session.compression_point_count} compress` : ''].filter(Boolean).join(' · ') : t('detail.loading', '加载会话中…');
-  const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping || hasActiveGoal;
+  const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping || hasModeLockedGoal;
 
   return (
     <main ref={pageRootRef} class="oh-session-detail-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
@@ -4875,7 +4937,7 @@ export function SessionDetailPage() {
                       };
                     })}
                     trigger={({ open, toggle }) => (
-                      <button type="button" onClick={toggle} disabled={composerSending || !canToggleSessionMode} class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'goal' ? 'is-goal' : currentSessionMode === 'plan' ? 'is-plan' : 'is-chat'}`} aria-expanded={open} aria-pressed={currentSessionMode !== 'chat'} title={hasActiveGoal ? t('goal.mode.locked', '目标执行期间不能切换会话模式') : sessionModeLabel(currentSessionMode)}>
+                      <button type="button" onClick={toggle} disabled={composerSending || !canToggleSessionMode} class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'goal' ? 'is-goal' : currentSessionMode === 'plan' ? 'is-plan' : 'is-chat'}`} aria-expanded={open} aria-pressed={currentSessionMode !== 'chat'} title={hasModeLockedGoal ? t('goal.mode.locked', '目标执行期间不能切换会话模式') : sessionModeLabel(currentSessionMode)}>
                         <span key={`session-mode-icon-${currentSessionMode}`} class="oh-composer-control-icon oh-session-mode-icon oh-soft-replace">
                           <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
                         </span>
@@ -5291,7 +5353,7 @@ export function SessionDetailPage() {
                 onKeyDown={(e) => {
                   handleComposerKeyDown(e as unknown as KeyboardEvent);
                 }}
-                disabled={composerSending || composerCollapsed || hasActiveGoal}
+                disabled={composerSending || composerCollapsed || hasModeLockedGoal}
                 rows={4}
                 placeholder={hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
                 class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"

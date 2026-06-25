@@ -120,6 +120,8 @@ class _CachedStreamThroughputSnapshot {
   }
 }
 
+typedef AiGoalContinuationYieldPredicate = bool Function(String sessionId);
+
 class AiSessionController extends ChangeNotifier {
   AiSessionController._({
     required AiSessionStore store,
@@ -759,6 +761,8 @@ class AiSessionController extends ChangeNotifier {
       <String, Future<void> Function()>{};
   final Map<String, Completer<void>> _sessionStopSignals =
       <String, Completer<void>>{};
+  final Set<AiGoalContinuationYieldPredicate> _goalContinuationYieldPredicates =
+      <AiGoalContinuationYieldPredicate>{};
   final Set<String> _deletedSessionIds = <String>{};
   final Map<String, AiSendPhase> _approvalPreviousPhases =
       <String, AiSendPhase>{};
@@ -1190,6 +1194,27 @@ class AiSessionController extends ChangeNotifier {
   /// Read-only accessor used by the self-learning scheduler to query
   /// sessions by template without reaching into private state.
   AiSessionStore get store => _store;
+
+  void setGoalContinuationYieldPredicate(
+    AiGoalContinuationYieldPredicate? predicate,
+  ) {
+    _goalContinuationYieldPredicates.clear();
+    if (predicate != null) {
+      _goalContinuationYieldPredicates.add(predicate);
+    }
+  }
+
+  void addGoalContinuationYieldPredicate(
+    AiGoalContinuationYieldPredicate predicate,
+  ) {
+    _goalContinuationYieldPredicates.add(predicate);
+  }
+
+  void removeGoalContinuationYieldPredicate(
+    AiGoalContinuationYieldPredicate predicate,
+  ) {
+    _goalContinuationYieldPredicates.remove(predicate);
+  }
 
   AiSendPhase sendPhaseForSession(String? sessionId) => sessionId == null
       ? AiSendPhase.idle
@@ -4622,6 +4647,47 @@ class AiSessionController extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> deferGoalForQueuedMessages(String sessionId) async {
+    return _enqueueSessionOperation(sessionId, () async {
+      final session = _sessionById(sessionId);
+      if (session == null) {
+        return false;
+      }
+      final updatedSession = _deferGoalForQueuedMessages(session);
+      if (identical(updatedSession, session)) {
+        return true;
+      }
+      return _replaceSessionHeaderInMemoryAndPersist(
+        updatedSession,
+        logOperation: 'persist queued-message goal deferral',
+      );
+    });
+  }
+
+  AiSession _deferGoalForQueuedMessages(AiSession session) {
+    final activeGoal = session.activeGoal;
+    if (activeGoal == null ||
+        activeGoal.status != AiSessionGoalStatus.running) {
+      return session.mode == AiSessionMode.chat
+          ? session
+          : session.copyWith(mode: AiSessionMode.chat);
+    }
+    final now = _clock().toUtc();
+    final pausedGoal = activeGoal.copyWith(
+      status: AiSessionGoalStatus.paused,
+      updatedAt: now,
+      pausedAt: now,
+      clearCompletedAt: true,
+      clearTerminatedAt: true,
+      statusReason: aiSessionGoalPausedForQueueStatusReason,
+    );
+    return _applyGoalState(
+      session.copyWith(mode: AiSessionMode.chat),
+      session.goalState.replaceCurrent(pausedGoal),
+      updatedAt: now,
+    );
+  }
+
   Future<bool> terminateGoal(String sessionId) async {
     final session = _sessionById(sessionId);
     if (session == null) {
@@ -4788,7 +4854,7 @@ class AiSessionController extends ChangeNotifier {
       statusReason: 'Resumed by goal runtime.',
     );
     final updatedSession = _applyGoalState(
-      session,
+      session.copyWith(mode: AiSessionMode.goal),
       session.goalState.replaceCurrent(resumedGoal),
       updatedAt: now,
     );
@@ -4842,6 +4908,29 @@ class AiSessionController extends ChangeNotifier {
 
   String _buildGoalFollowUpPrompt(AiSessionGoalRecord goal) {
     return 'Continue the current goal until there is concrete evidence it is complete.\n\nGoal:\n${goal.objective.trim()}';
+  }
+
+  bool _shouldYieldGoalContinuation(String sessionId) {
+    if (_goalContinuationYieldPredicates.isEmpty) {
+      return false;
+    }
+    for (final predicate in List<AiGoalContinuationYieldPredicate>.from(
+      _goalContinuationYieldPredicates,
+    )) {
+      try {
+        if (predicate(sessionId)) {
+          return true;
+        }
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'goal continuation yield predicate',
+          error,
+          stack,
+        );
+      }
+    }
+    return false;
   }
 
   Future<({AiSession session, bool shouldContinue, String? nextUserMessageId})>
@@ -5042,6 +5131,21 @@ class AiSessionController extends ChangeNotifier {
       final committed = await _commitSessionLocked(_rebuildSession(limited));
       if (committed) {
         workingSession = _sessionById(limited.id) ?? limited;
+      }
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+
+    if (_shouldYieldGoalContinuation(workingSession.id)) {
+      final deferred = _deferGoalForQueuedMessages(workingSession);
+      final committed = await _commitSessionLocked(_rebuildSession(deferred));
+      if (committed) {
+        workingSession = _sessionById(deferred.id) ?? deferred;
+      } else {
+        workingSession = deferred;
       }
       return (
         session: workingSession,
@@ -5319,6 +5423,7 @@ class AiSessionController extends ChangeNotifier {
     bool revealUserMessageBeforePreflight = false,
     AiSessionGoalStartOptions? goalStartOptions,
     bool allowGoalContinuation = false,
+    bool allowQueuedGoalInterruption = false,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     final normalizedContent = content.trim();
@@ -5367,6 +5472,10 @@ class AiSessionController extends ChangeNotifier {
       final isGoalContinuation =
           allowGoalContinuation ||
           userMessageMetadata?[aiSessionGoalAutoFollowUpMetadataKey] == true;
+      final isQueuedGoalInterruption =
+          allowQueuedGoalInterruption &&
+          goalStartOptions == null &&
+          !isGoalContinuation;
       if (goalStartOptions != null &&
           !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
         _clearSessionExecutionState(session.id);
@@ -5397,6 +5506,26 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return false;
       }
+      if (isQueuedGoalInterruption &&
+          (session.hasActiveGoal || session.mode == AiSessionMode.goal)) {
+        final deferredSession = _deferGoalForQueuedMessages(session);
+        if (!identical(deferredSession, session)) {
+          final committed = await _replaceSessionHeaderInMemoryAndPersist(
+            deferredSession,
+            logOperation: 'persist queued-message goal interruption',
+          );
+          if (!committed) {
+            _clearSessionExecutionState(session.id);
+            _setLastSendErrorMessage(
+              session.id,
+              'Failed to prepare the queued message while a goal is active.',
+            );
+            notifyListeners();
+            return false;
+          }
+          session = _sessionById(deferredSession.id) ?? deferredSession;
+        }
+      }
       if (session.mode == AiSessionMode.goal &&
           !session.hasActiveGoal &&
           goalStartOptions == null &&
@@ -5411,7 +5540,8 @@ class AiSessionController extends ChangeNotifier {
       }
       if (session.hasActiveGoal &&
           goalStartOptions == null &&
-          !isGoalContinuation) {
+          !isGoalContinuation &&
+          !isQueuedGoalInterruption) {
         _clearSessionExecutionState(session.id);
         _setLastSendErrorMessage(
           session.id,

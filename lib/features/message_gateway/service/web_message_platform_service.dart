@@ -176,7 +176,11 @@ class WebMessagePlatformService {
            workspaceDirectoryPath ?? OpenHandPaths.applicationDirectoryPath(),
        _fileLogger = _WebGatewayRotatingLogger(
          logsDirectoryPath: logsDirectoryPath,
-       );
+       ) {
+    _sessionController.addGoalContinuationYieldPredicate(
+      _hasQueuedGoalInterruption,
+    );
+  }
 
   final AiSessionController _sessionController;
   final SettingsController _settingsController;
@@ -210,6 +214,8 @@ class WebMessagePlatformService {
       <String, _WebGatewayAuthSession>{};
   final Map<String, _WebWriteApprovalRequest> _pendingWriteApprovals =
       <String, _WebWriteApprovalRequest>{};
+  final Map<String, Map<String, DateTime>> _queuedGoalYieldLeasesBySessionId =
+      <String, Map<String, DateTime>>{};
   int _nextWriteApprovalId = 1;
 
   HttpServer? _server;
@@ -241,6 +247,7 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanMultiplier = 2;
   static const int _storedMessageWindowExpandedScanContext = 16;
   static const int _storedMessageWindowExpandedScanLimit = 96;
+  static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -307,6 +314,43 @@ class WebMessagePlatformService {
     boundPort: _server?.port,
     localIPv4Addresses: _localAddressesCache,
   );
+
+  bool _hasQueuedGoalInterruption(String sessionId) {
+    final leases = _queuedGoalYieldLeasesBySessionId[sessionId];
+    if (leases == null || leases.isEmpty) {
+      return false;
+    }
+    final cutoff = DateTime.now().toUtc().subtract(
+      _queuedGoalYieldLeaseDuration,
+    );
+    leases.removeWhere((_, updatedAt) => updatedAt.isBefore(cutoff));
+    if (leases.isEmpty) {
+      _queuedGoalYieldLeasesBySessionId.remove(sessionId);
+      return false;
+    }
+    return true;
+  }
+
+  void _setQueuedGoalInterruption({
+    required _WebGatewayAuthSession auth,
+    required String sessionId,
+    required bool hasPendingQueue,
+  }) {
+    final authKey = auth.token.trim().isEmpty ? 'anonymous' : auth.token.trim();
+    if (!hasPendingQueue) {
+      final leases = _queuedGoalYieldLeasesBySessionId[sessionId];
+      leases?.remove(authKey);
+      if (leases != null && leases.isEmpty) {
+        _queuedGoalYieldLeasesBySessionId.remove(sessionId);
+      }
+      return;
+    }
+    final leases = _queuedGoalYieldLeasesBySessionId.putIfAbsent(
+      sessionId,
+      () => <String, DateTime>{},
+    );
+    leases[authKey] = DateTime.now().toUtc();
+  }
 
   void updateTheme(WebGatewayThemeSnapshot theme) {
     _theme = theme;
@@ -417,6 +461,7 @@ class WebMessagePlatformService {
       _state = WebGatewayRuntimeState.stopped;
       _startedAt = null;
       _authSessions.clear();
+      _queuedGoalYieldLeasesBySessionId.clear();
       _log(WebGatewayLogLevel.success, 'OPS', 'Web 服务已停止');
     } catch (error, stack) {
       _state = WebGatewayRuntimeState.crashed;
@@ -447,6 +492,9 @@ class WebMessagePlatformService {
 
   Future<void> dispose() async {
     await stop();
+    _sessionController.removeGoalContinuationYieldPredicate(
+      _hasQueuedGoalInterruption,
+    );
     _translationService.dispose();
     await _ttsPlaybackService.dispose();
     await _logStreamController.close();
@@ -1304,6 +1352,13 @@ class WebMessagePlatformService {
       '/api/sessions/<sessionId>/goal/terminate',
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _terminateGoal(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/goal/queue-yield',
+      (shelf.Request r, String sessionId) => _withAuth(
+        r,
+        (req, auth) => _syncQueuedGoalYield(req, auth, sessionId),
+      ),
     );
     // 用户主动触发的会话历史压缩。复用桌面端
     // [AiSessionController.requestManualCompaction]：包含 30s 防抖、占用率
@@ -2586,6 +2641,9 @@ class WebMessagePlatformService {
       deletedByLabel: deletedBy,
       deletionSource: 'web',
     );
+    if (ok) {
+      _queuedGoalYieldLeasesBySessionId.remove(session.id);
+    }
     _log(
       WebGatewayLogLevel.warn,
       'SESSION',
@@ -2940,13 +2998,18 @@ class WebMessagePlatformService {
         'error': 'goal_mode_not_available',
       });
     }
-    if (session.hasActiveGoal) {
+    final allowQueuedGoalInterruption =
+        body['allow_queued_goal_interruption'] == true ||
+        body['allowQueuedGoalInterruption'] == true;
+    if (session.hasActiveGoal && !allowQueuedGoalInterruption) {
       return _json(HttpStatus.conflict, <String, Object?>{
         'error': 'goal_active',
         'goal_state': session.goalState.toJson(),
       });
     }
-    if (session.mode == AiSessionMode.goal && goalStartOptions == null) {
+    if (session.mode == AiSessionMode.goal &&
+        goalStartOptions == null &&
+        !allowQueuedGoalInterruption) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'goal_options_required',
       });
@@ -2994,6 +3057,7 @@ class WebMessagePlatformService {
                 : <String>[selectedSkill.reminder!],
             selectedSkillMetadata: selectedSkill.metadata,
             goalStartOptions: goalStartOptions,
+            allowQueuedGoalInterruption: allowQueuedGoalInterruption,
             userMessageMetadata:
                 _metadataForRequest(auth, request, <String, Object?>{
                   'sent_via': 'web_api',
@@ -3453,6 +3517,32 @@ class WebMessagePlatformService {
         'session': await _sessionSummaryWithStoredMessages(latest),
       },
     );
+  }
+
+  Future<shelf.Response> _syncQueuedGoalYield(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final body = await _readJsonBody(request);
+    final rawHasPending =
+        body['has_pending'] ?? body['hasPending'] ?? body['pending'];
+    final hasPendingQueue = rawHasPending == true || rawHasPending == 'true';
+    _setQueuedGoalInterruption(
+      auth: auth,
+      sessionId: session.id,
+      hasPendingQueue: hasPendingQueue,
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'has_pending': _hasQueuedGoalInterruption(session.id),
+    });
   }
 
   Future<shelf.Response> _resumeGoal(

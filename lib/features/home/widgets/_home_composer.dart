@@ -112,6 +112,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.sessionMode,
     required this.onSessionModeChanged,
     required this.goalModeAvailable,
+    required this.suppressGoalControlsForQueue,
     required this.onPauseGoal,
     required this.onResumeGoal,
     required this.onTerminateGoal,
@@ -165,6 +166,7 @@ class _ComposerPanel extends StatefulWidget {
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
   final bool goalModeAvailable;
+  final bool suppressGoalControlsForQueue;
   final Future<void> Function() onPauseGoal;
   final Future<void> Function() onResumeGoal;
   final Future<void> Function() onTerminateGoal;
@@ -1356,6 +1358,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final canStopSending = widget.canStopSending;
     final activeGoal = widget.currentSession?.activeGoal;
     final hasActiveGoal = activeGoal?.isActive == true;
+    final showGoalControls =
+        hasActiveGoal && !widget.suppressGoalControlsForQueue;
+    final manualSendLockedByGoal = hasActiveGoal && !canStopSending;
     final modeToggleEnabled =
         widget.sendPhase == AiSendPhase.idle && !hasActiveGoal;
     final runtimeStatus = widget.currentSession == null
@@ -2021,7 +2026,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               : const SizedBox(key: ValueKey<String>('creation-options-off')),
         ),
         const SizedBox(width: 10),
-        if (hasActiveGoal)
+        if (showGoalControls)
           SizedBox(
             height: 52,
             child: Row(
@@ -2074,7 +2079,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                       ? () => _sendWithReferences()
                       : canStopSending && !hasUserTextOrAttachments
                       ? () => widget.onStop()
-                      : isBusy
+                      : isBusy || manualSendLockedByGoal
                       ? null
                       : () => _sendWithReferences(),
                   icon: isQueueingAction

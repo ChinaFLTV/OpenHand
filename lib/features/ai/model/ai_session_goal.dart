@@ -11,6 +11,8 @@ const String aiSessionGoalIdMetadataKey = 'goal_id';
 const String aiSessionGoalObjectiveMetadataKey = 'goal_objective';
 const String aiSessionGoalEvaluationIdMetadataKey = 'goal_evaluation_id';
 const String aiSessionGoalAutoFollowUpMetadataKey = 'goal_auto_follow_up';
+const String aiSessionGoalPausedForQueueStatusReason =
+    'Paused for queued user messages.';
 
 enum AiSessionGoalStatus {
   running('running'),

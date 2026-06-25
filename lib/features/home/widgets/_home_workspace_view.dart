@@ -33,6 +33,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.sessionMode,
     required this.onSessionModeChanged,
     required this.goalModeAvailable,
+    required this.suppressGoalControlsForQueue,
     required this.onPauseGoal,
     required this.onResumeGoal,
     required this.onTerminateGoal,
@@ -112,6 +113,7 @@ class _WorkspaceView extends StatelessWidget {
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
   final bool goalModeAvailable;
+  final bool suppressGoalControlsForQueue;
   final Future<void> Function() onPauseGoal;
   final Future<void> Function() onResumeGoal;
   final Future<void> Function() onTerminateGoal;
@@ -386,6 +388,8 @@ class _WorkspaceView extends StatelessWidget {
                       sessionMode: sessionMode,
                       onSessionModeChanged: onSessionModeChanged,
                       goalModeAvailable: goalModeAvailable,
+                      suppressGoalControlsForQueue:
+                          suppressGoalControlsForQueue,
                       onPauseGoal: onPauseGoal,
                       onResumeGoal: onResumeGoal,
                       onTerminateGoal: onTerminateGoal,
