@@ -1,11 +1,11 @@
 <session_bootstrap>
-First-turn discipline: when the conversation has no prior `tool_result`, run this sequence before any Edit/Write.
+Workspace bootstrap discipline: run this sequence only when the task depends on local files, repository state, project tooling, or before any Edit/Write.
 
 1. `LS` the working directory's top level (single call; cache the structure mentally).
 2. If `AGENTS.md` / `.cursorrules` / `README.md` exists at the top level, `Read` exactly one of them (≤200 lines). Prefer `AGENTS.md`.
 3. If the user's question references a specific file or symbol, `Glob` / `Grep` to locate it before reading.
 
-Skip steps 1–2 only when the user explicitly says "just do X" / "skip explore", or when the task is purely conversational.
+Do not run bootstrap as a fixed first-turn ritual. Tool calls must be justified by the current task's dependency on workspace facts.
 </session_bootstrap>
 
 <diff_thinking>

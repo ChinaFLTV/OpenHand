@@ -615,6 +615,10 @@ class AiPromptBuilder {
       0,
       (sum, item) => sum + item.promptCharacterCount,
     );
+    final stablePrefixMessageCount = stablePrefixTurns.length;
+    final historyMessageCount = historyTurns.length;
+    final latestUserMessageCount = latestUserNonSystemTurns.length;
+    final volatileTailMessageCount = volatileTailTurns.length;
     final stablePrefixHash = _promptFingerprint(
       stablePrefixTurns.map(_fingerprintTurn).join('\n\n'),
     );
@@ -645,13 +649,18 @@ class AiPromptBuilder {
       ..['current_prompt_character_count'] = promptCharacterCount
       ..['stable_prefix_hash'] = stablePrefixHash
       ..['previous_stable_prefix_hash'] = previousStablePrefixHash
-      ..['stable_prefix_message_count'] = stablePrefixTurns.length
+      ..['stable_prefix_message_count'] = stablePrefixMessageCount
       ..['stable_prefix_character_count'] = stablePrefixTurns.fold<int>(
         0,
         (sum, turn) => sum + turn.promptCharacterCount,
       )
-      ..['volatile_tail_message_count'] =
-          messages.length - stablePrefixTurns.length
+      ..['history_message_count'] = historyMessageCount
+      ..['latest_user_message_count'] = latestUserMessageCount
+      ..['volatile_tail_message_count'] = volatileTailMessageCount
+      ..['non_stable_prompt_message_count'] =
+          historyMessageCount +
+          latestUserMessageCount +
+          volatileTailMessageCount
       ..['tool_catalog_hash'] = toolCatalogHash
       ..['previous_tool_catalog_hash'] =
           '${session.lastPromptMetadata['tool_catalog_hash'] ?? ''}'.trim()
@@ -671,7 +680,7 @@ class AiPromptBuilder {
       ..['cache_protocol_controlled'] =
           inputCachePolicy.injectsExplicitCacheControl
       ..['cache_provider_automatic_cache_protected'] =
-          inputCachePolicy.usesAutomaticProviderCache
+          inputCachePolicy.injectsExplicitCacheControl
       ..['cache_provider_automatic_cache_best_effort'] =
           inputCachePolicy.usesAutomaticProviderCache
       ..['cache_background_requests_deferred'] =
@@ -707,7 +716,7 @@ class AiPromptBuilder {
       metadata: metadata,
       promptCharacterCount: promptCharacterCount,
       systemMessageCount: systemMessageCount,
-      historyMessageCount: historyTurns.length,
+      historyMessageCount: historyMessageCount,
     );
   }
 
@@ -1246,20 +1255,6 @@ class AiPromptBuilder {
     if (promptSessionTitle != null &&
         runtimeContext.autoTitleFetchMode == AiAutoTitleFetchMode.synchronous) {
       staticState['session_title'] = promptSessionTitle;
-    }
-
-    // 2026-06-08 — 当前应用主题配置注入 [3s]，供所有模板的 AI 生成富文本内容
-    //（Mermaid / HTML / 图表等）时保持与当前界面亮度/配色协调一致。
-    final themeBrightness = runtimeContext.appThemeBrightness.trim();
-    final themePreset = runtimeContext.appThemePresetName.trim();
-    final themePrimary = runtimeContext.appThemePrimaryColor.trim();
-    if (themeBrightness.isNotEmpty || themePreset.isNotEmpty) {
-      final theme = <String, Object?>{
-        if (themeBrightness.isNotEmpty) 'b': themeBrightness,
-        if (themePreset.isNotEmpty) 'p': themePreset,
-        if (themePrimary.isNotEmpty) 'c': themePrimary,
-      };
-      if (theme.isNotEmpty) staticState['theme'] = theme;
     }
 
     // 2026-05-25 — git 信息迁入 [3s] Static（会话开启快照），从 [3d] Dynamic 移除。

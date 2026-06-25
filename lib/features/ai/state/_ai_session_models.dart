@@ -35,25 +35,6 @@ class _CompressionMessageGroup {
   }).length;
 }
 
-class _ClaudeCodeDocsTarget {
-  const _ClaudeCodeDocsTarget({required this.url, required this.label});
-
-  final String url;
-  final String label;
-}
-
-class _ScoredClaudeCodeDocsRoute {
-  const _ScoredClaudeCodeDocsRoute({
-    required this.route,
-    required this.score,
-    required this.priority,
-  });
-
-  final String route;
-  final int score;
-  final int priority;
-}
-
 class _RunningToolCallState {
   const _RunningToolCallState({
     required this.toolCall,

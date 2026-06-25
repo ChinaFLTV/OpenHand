@@ -8,9 +8,6 @@ const List<double> _compressionPromptTooLongDropRatios = <double>[
   0.50,
   0.65,
 ];
-const int _maxClaudeCodeDocsPrefetchTargets = 2;
-const Duration _claudeCodeDocsPrefetchTargetTimeout = Duration(seconds: 12);
-
 @visibleForTesting
 List<List<AiSessionMessage>> groupSessionMessagesForCompression(
   List<AiSessionMessage> messages,
