@@ -25,13 +25,6 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useMessageContentFormat, type MessageContentFormat } from '../hooks/useMessageContentFormat';
 import {
-  stopTtsPlayback,
-  toggleTtsPlayback,
-  useTtsPlaybackState,
-  useTtsSettings,
-  type TtsSettings,
-} from '../hooks/useTtsSettings';
-import {
   useStreamingReveal,
   useStreamingStagedText,
 } from '../hooks/useStreamingReveal';
@@ -653,32 +646,6 @@ function messageActionVisualStyle(
     : messageActionDefaultSurfaceStyle(hovered);
 }
 
-function messageTtsPlaybackSettings(settings: TtsSettings): TtsSettings {
-  const hasEnabledProvider = settings.providerPriority.some((provider) => (
-    settings.providers[provider]?.enabled === true
-  ));
-  if (settings.enabled && hasEnabledProvider) return settings;
-  const systemProvider = settings.providers.system;
-  return {
-    ...settings,
-    enabled: true,
-    providerPriority: settings.providerPriority.includes('system')
-      ? settings.providerPriority
-      : ['system', ...settings.providerPriority],
-    providers: hasEnabledProvider || systemProvider == null
-      ? settings.providers
-      : {
-        ...settings.providers,
-        system: {
-          ...systemProvider,
-          enabled: true,
-        },
-      },
-  };
-}
-
-// 自动 collapse 长正文（thinking / tool stdout）。阈值经验值，避免一屏被 5K 字符卡片占满。
-const AUTO_COLLAPSE_CHAR_LIMIT = 1200;
 // reasoning（思考）专用：超过 5-6 行文本即默认折叠到预览态。
 // 以 14px 行高 + 1.55 line-height ≈ 22px / 行换算，5-6 行约 110-130 字符的单行长度；
 // 保守取 6 行 + 一个字符容差 ≈ 260 字符作为「超长」阈值。
@@ -1218,6 +1185,8 @@ export interface MessageCardProps {
   /// 从当前消息派生新会话。
   onFork?: (m: SessionMessage) => void;
   readAloudEnabled?: boolean;
+  readAloudPlaying?: boolean;
+  textActionContentFormat?: MessageContentFormat;
   translationEnabled?: boolean;
   feedbackEnabled?: boolean;
   regenerationEnabled?: boolean;
@@ -1226,6 +1195,7 @@ export interface MessageCardProps {
   translationVisible?: boolean;
   feedbackBusy?: boolean;
   regenerating?: boolean;
+  onToggleReadAloud?: (m: SessionMessage) => void;
   onToggleTranslation?: (m: SessionMessage) => void;
   onSetFeedback?: (m: SessionMessage, feedback: SessionMessageFeedback | null) => void;
   onRegenerate?: (m: SessionMessage) => void;
@@ -1246,6 +1216,8 @@ function MessageCardImpl({
   onAudit,
   onFork,
   readAloudEnabled = true,
+  readAloudPlaying = false,
+  textActionContentFormat,
   translationEnabled = true,
   feedbackEnabled = true,
   regenerationEnabled = true,
@@ -1254,6 +1226,7 @@ function MessageCardImpl({
   translationVisible = false,
   feedbackBusy = false,
   regenerating = false,
+  onToggleReadAloud,
   onToggleTranslation,
   onSetFeedback,
   onRegenerate,
@@ -1261,8 +1234,6 @@ function MessageCardImpl({
 }: MessageCardProps) {
   const reduceMotion = useReducedMotion();
   const { format: contentFormat, htmlFallback: contentHtmlFallback } = useMessageContentFormat();
-  const ttsSettings = useTtsSettings();
-  const ttsPlayback = useTtsPlaybackState();
   const [showRawContent, setShowRawContent] = useState(false);
   const style = styleForKind(message.kind, message.role);
   const content = message.content ?? '';
@@ -1311,11 +1282,11 @@ function MessageCardImpl({
   }, [turnActive]);
   const keepExpandedDuringTurn =
     stableTurnActive && message.role === 'assistant' && !isReasoningMessage;
+  const hasCollapsibleContent = content.trim().length > 0;
   const canCollapse =
-    !useToolBody &&
     !forceExpanded &&
-    (style.collapsible || isAssistantResponseMessage(message)) &&
-    content.length > AUTO_COLLAPSE_CHAR_LIMIT;
+    !activelyStreaming &&
+    hasCollapsibleContent;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(() => (
     responseExpandedOverridesByMessageId.has(message.id)
       ? responseExpandedOverridesByMessageId.get(message.id)!
@@ -1359,7 +1330,9 @@ function MessageCardImpl({
   const staticSweepingBadgeClass =
     'oh-message-badge-toggle is-static is-sweeping inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
   const isLongReasoning = isReasoningMessage && isReasoningLong(content);
-  const defaultBadgeCollapsed = isLongReasoning;
+  const defaultBadgeCollapsed = isCollapsibleByBadge && !activelyStreaming
+    ? true
+    : isLongReasoning;
   const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(() => (
     badgeCollapsedOverridesByMessageId.has(message.id)
       ? badgeCollapsedOverridesByMessageId.get(message.id)!
@@ -1373,7 +1346,9 @@ function MessageCardImpl({
     );
   }, [message.id]);
   const badgeCollapsed = badgeCollapsedOverride ?? defaultBadgeCollapsed;
-  const badgeBodyCollapsed = (isCollapsibleByBadge && badgeCollapsed) || collapsed;
+  const bodyCollapsedByCard = !isCollapsibleByBadge && collapsed;
+  const badgeBodyCollapsed =
+    (isCollapsibleByBadge && badgeCollapsed) || bodyCollapsedByCard;
   const reasoningPreviewCollapsed =
     isReasoningMessage && isCollapsibleByBadge && badgeCollapsed;
 
@@ -1401,10 +1376,17 @@ function MessageCardImpl({
     finiteNumberOrNullFromUnknown(metadata['response_variant_index']) ??
     finiteNumberOrNullFromUnknown(metadata['responseVariantIndex']) ??
     0;
-  const collapsedBodyScrollStateKey = (isCollapsibleByBadge || isAssistantResponseBadgeMessage)
+  const scrollableCollapsedBody =
+    canCollapse || isCollapsibleByBadge || isAssistantResponseBadgeMessage;
+  const collapsedBodyKindKey = isAssistantResponseBadgeMessage
+    ? 'response'
+    : isCollapsibleByBadge
+      ? `badge:${message.kind}`
+      : `message:${message.role}:${message.kind}`;
+  const collapsedBodyScrollStateKey = scrollableCollapsedBody
     ? [
         message.id,
-        isAssistantResponseBadgeMessage ? 'response' : `badge:${message.kind}`,
+        collapsedBodyKindKey,
         responseVariantIndex,
         effectiveFormat,
         showRawContent ? 'raw' : 'rendered',
@@ -1413,9 +1395,13 @@ function MessageCardImpl({
         boundedTextHash(visibleContent),
       ].join('|')
     : undefined;
+  const textActionFallbackFormat = textActionContentFormat ?? contentFormat;
   const textFeatureFormat = isUserBubble || isReasoningMessage
     ? resolveMessageContentFormat(message.metadata?.['content_format'], 'markdown')
-    : effectiveFormat;
+    : resolveMessageContentFormat(
+      message.metadata?.['content_format'],
+      textActionFallbackFormat,
+    );
   const supportsTextActions =
     textFeatureFormat === 'markdown' || textFeatureFormat === 'plain_text';
   const supportsRenderedSourceToggle =
@@ -1436,7 +1422,7 @@ function MessageCardImpl({
       setShowRawContent(false);
     }
   }, [showRawContent, supportsRenderedSourceToggle]);
-  const ttsPlaying = ttsPlayback.playing && ttsPlayback.messageId === message.id;
+  const ttsPlaying = readAloudPlaying;
   const hasMultimediaContent = messageHasMultimedia(message);
   const isFormalAssistantResponse = isFormalAssistantResponseMessage(message);
   const textActionKindSupported =
@@ -1450,6 +1436,7 @@ function MessageCardImpl({
   const ttsUnsupported = !textMessageActionSupported;
   const canReadMessage = (
     readAloudEnabled &&
+    Boolean(onToggleReadAloud) &&
     !ttsUnsupported
   );
   const canTranslateMessage =
@@ -1466,11 +1453,6 @@ function MessageCardImpl({
     Boolean(onRegenerate) &&
     isFormalAssistantResponse &&
     !activelyStreaming;
-  useEffect(() => {
-    if (ttsPlaying && (!readAloudEnabled || ttsUnsupported)) {
-      stopTtsPlayback();
-    }
-  }, [readAloudEnabled, ttsPlaying, ttsUnsupported]);
   const hasAnyAction = Boolean(
     onCopy ||
     canReadMessage ||
@@ -1786,10 +1768,10 @@ function MessageCardImpl({
       {isUserBubble ? media : null}
       <ReasoningCollapsibleBody
         collapsed={badgeBodyCollapsed}
-        scrollableCollapsed={isCollapsibleByBadge || isAssistantResponseBadgeMessage}
+        scrollableCollapsed={scrollableCollapsedBody}
         scrollStateKey={collapsedBodyScrollStateKey}
         previewMaxHeight={
-          isCollapsibleByBadge && badgeCollapsed
+          isReasoningMessage || (isCollapsibleByBadge && badgeCollapsed)
             ? REASONING_PREVIEW_MAX_HEIGHT_PX
             : RESPONSE_PREVIEW_MAX_HEIGHT_PX
         }
@@ -1887,13 +1869,7 @@ function MessageCardImpl({
                         ? t('message.tts.stop', '停止')
                         : t('message.tts.read', '朗读')}
                       disabled={!actionPanelInteractive}
-                      onClick={() => {
-                        void toggleTtsPlayback(
-                          message.id,
-                          content,
-                          messageTtsPlaybackSettings(ttsSettings),
-                        );
-                      }}
+                      onClick={() => onToggleReadAloud?.(message)}
                     />
                   ) : null}
                   {canTranslateMessage ? (

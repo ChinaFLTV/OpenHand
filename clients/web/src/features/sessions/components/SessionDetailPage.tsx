@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, forkSessionFromMessage, getSession, listMessages, listSessionTitleSourceMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, setMessageFeedback, translateMessage, regenerateMessage, type CompactSessionResponse, type CompactSessionStatus, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionMessageFeedback, type SessionSummary } from '../../../api/sessions';
+import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, fetchMessageTtsPlayback, forkSessionFromMessage, getSession, listMessages, listSessionTitleSourceMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, stopMessageTtsPlayback, toggleMessageTtsPlayback, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, setMessageFeedback, translateMessage, regenerateMessage, type CompactSessionResponse, type CompactSessionStatus, type MessageTtsPlaybackState, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionMessageFeedback, type SessionSummary } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
@@ -50,12 +50,12 @@ import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPic
 import { PullIndicator } from '../../../components/PullIndicator';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import type { MessageContentFormat } from '../../../hooks/useMessageContentFormat';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { useDelayedVisibility } from '../../../hooks/useDelayedVisibility';
 import { useEventCallback } from '../../../hooks/useEventCallback';
-import { stopTtsPlayback } from '../../../hooks/useTtsSettings';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
@@ -116,6 +116,7 @@ const SSE_PHASE_GUARD_INTERVAL_MS = 2500;
 
 /// 单次 phase guard 请求的硬超时，避免网络层异常导致兜底轮询永久挂起。
 const SESSION_PHASE_POLL_TIMEOUT_MS = 15_000;
+const TTS_PLAYBACK_POLL_INTERVAL_MS = 1000;
 
 /// SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
 const SSE_FAIL_THRESHOLD = 3;
@@ -1296,9 +1297,53 @@ interface QueuedComposerMessage {
 
 interface MessageTranslationState {
   source: string;
+  settingsFingerprint: string;
   text: string | null;
   loading: boolean;
   visible: boolean;
+}
+
+interface MessageTtsPlaybackViewState {
+  playing: boolean;
+  messageId: string | null;
+  provider: string | null;
+}
+
+const EMPTY_TTS_PLAYBACK: MessageTtsPlaybackViewState = {
+  playing: false,
+  messageId: null,
+  provider: null,
+};
+
+function normalizeTtsPlaybackState(
+  playback: MessageTtsPlaybackState | null | undefined,
+): MessageTtsPlaybackViewState {
+  return {
+    playing: Boolean(playback?.playing),
+    messageId: typeof playback?.message_id === 'string' && playback.message_id.trim()
+      ? playback.message_id
+      : null,
+    provider: typeof playback?.provider === 'string' && playback.provider.trim()
+      ? playback.provider
+      : null,
+  };
+}
+
+function sameTtsPlaybackState(
+  a: MessageTtsPlaybackViewState,
+  b: MessageTtsPlaybackViewState,
+): boolean {
+  return a.playing === b.playing &&
+    a.messageId === b.messageId &&
+    a.provider === b.provider;
+}
+
+function normalizeMetaMessageContentFormat(
+  value: unknown,
+): MessageContentFormat | undefined {
+  return value === 'markdown' || value === 'plain_text' || value === 'html'
+    ? value
+    : undefined;
 }
 
 export interface ComposerCollapsedSummaryState {
@@ -1504,10 +1549,16 @@ export function SessionDetailPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [forkBusy, setForkBusy] = useState(false);
   const [messageTranslations, setMessageTranslations] = useState<Record<string, MessageTranslationState>>({});
+  const [ttsPlayback, setTtsPlayback] = useState<MessageTtsPlaybackViewState>(EMPTY_TTS_PLAYBACK);
   const [feedbackBusyMessageIds, setFeedbackBusyMessageIds] = useState<Set<string>>(() => new Set());
   const [regeneratingMessageIds, setRegeneratingMessageIds] = useState<Set<string>>(() => new Set());
   const [pendingSessionDelete, setPendingSessionDelete] = useState(false);
   const [sessionDeleteBusy, setSessionDeleteBusy] = useState(false);
+
+  const applyTtsPlayback = useCallback((playback: MessageTtsPlaybackState | null | undefined) => {
+    const next = normalizeTtsPlaybackState(playback);
+    setTtsPlayback((current) => (sameTtsPlaybackState(current, next) ? current : next));
+  }, []);
 
   useEffect(() => {
     detailRef.current = detail;
@@ -1529,7 +1580,10 @@ export function SessionDetailPage() {
   }, [queuedComposerMessages]);
 
   useEffect(() => {
-    stopTtsPlayback();
+    setTtsPlayback(EMPTY_TTS_PLAYBACK);
+    void stopMessageTtsPlayback()
+      .then((result) => applyTtsPlayback(result.playback))
+      .catch(() => undefined);
     queueDispatchingRef.current = false;
     setQueuedComposerMessages([]);
     setExitingQueuedMessageIds([]);
@@ -1567,9 +1621,33 @@ export function SessionDetailPage() {
     // 与 App 端 _skippedInstructionIds 一致：会话切换时清空跳过集合，
     // 避免上一会话的跳过状态泄漏到新会话。
     setSkippedInstructionIds(new Set());
-  }, [sessionId]);
+  }, [applyTtsPlayback, sessionId]);
 
-  useEffect(() => () => stopTtsPlayback(), []);
+  useEffect(() => () => {
+    void stopMessageTtsPlayback().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!ttsPlayback.playing) return;
+    let disposed = false;
+    const poll = async () => {
+      try {
+        const result = await fetchMessageTtsPlayback();
+        if (!disposed) applyTtsPlayback(result.playback);
+      } catch (e) {
+        if (disposed) return;
+        if (handleAuthError(e)) return;
+        setTtsPlayback(EMPTY_TTS_PLAYBACK);
+      }
+    };
+    const interval = window.setInterval(poll, TTS_PLAYBACK_POLL_INTERVAL_MS);
+    const initial = window.setTimeout(poll, TTS_PLAYBACK_POLL_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      window.clearTimeout(initial);
+    };
+  }, [applyTtsPlayback, ttsPlayback.playing]);
 
   useEffect(
     () => () => {
@@ -1812,9 +1890,14 @@ export function SessionDetailPage() {
   const handleToggleMessageTranslation = useCallback(async (m: SessionMessage) => {
     if (!sessionId) return;
     const source = m.content ?? '';
+    const settingsFingerprint =
+      auth.meta?.message_content_settings?.translation_settings_fingerprint ?? '';
     const current = messageTranslations[m.id];
-    if (current?.source === source && current.loading) return;
-    if (current?.source === source && current.text) {
+    const cacheMatches =
+      current?.source === source &&
+      current.settingsFingerprint === settingsFingerprint;
+    if (cacheMatches && current.loading) return;
+    if (cacheMatches && current.text) {
       setMessageTranslations((prev) => ({
         ...prev,
         [m.id]: { ...current, visible: !current.visible },
@@ -1824,7 +1907,13 @@ export function SessionDetailPage() {
     const requestSessionId = sessionId;
     setMessageTranslations((prev) => ({
       ...prev,
-      [m.id]: { source, text: null, loading: true, visible: false },
+      [m.id]: {
+        source,
+        settingsFingerprint,
+        text: null,
+        loading: true,
+        visible: false,
+      },
     }));
     try {
       const result = await translateMessage(requestSessionId, m.id);
@@ -1834,13 +1923,25 @@ export function SessionDetailPage() {
         showSnackbar(t('message.translate.empty', '未得到可展示的译文'), { tone: 'error' });
         setMessageTranslations((prev) => ({
           ...prev,
-          [m.id]: { source, text: null, loading: false, visible: false },
+          [m.id]: {
+            source,
+            settingsFingerprint,
+            text: null,
+            loading: false,
+            visible: false,
+          },
         }));
         return;
       }
       setMessageTranslations((prev) => ({
         ...prev,
-        [m.id]: { source, text: translated, loading: false, visible: true },
+        [m.id]: {
+          source,
+          settingsFingerprint: result.settings_fingerprint ?? settingsFingerprint,
+          text: translated,
+          loading: false,
+          visible: true,
+        },
       }));
       showSnackbar(t('message.translate.ok', '已翻译消息'), { tone: 'success' });
     } catch (e) {
@@ -1850,11 +1951,38 @@ export function SessionDetailPage() {
       const message = e instanceof Error ? e.message : String(e);
       setMessageTranslations((prev) => ({
         ...prev,
-        [m.id]: { source, text: null, loading: false, visible: false },
+        [m.id]: {
+          source,
+          settingsFingerprint,
+          text: null,
+          loading: false,
+          visible: false,
+        },
       }));
       showSnackbar(`${t('message.translate.failed', '翻译失败')}：${message}`, { tone: 'error' });
     }
-  }, [messageTranslations, sessionId]);
+  }, [
+    auth.meta?.message_content_settings?.translation_settings_fingerprint,
+    messageTranslations,
+    sessionId,
+  ]);
+
+  const handleToggleMessageTts = useCallback(async (m: SessionMessage) => {
+    if (!sessionId) return;
+    const requestSessionId = sessionId;
+    try {
+      const result = await toggleMessageTtsPlayback(requestSessionId, m.id);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      applyTtsPlayback(result.playback);
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      showSnackbar(`${t('message.tts.failed', '朗读失败')}：${message}`, { tone: 'error' });
+      setTtsPlayback(EMPTY_TTS_PLAYBACK);
+    }
+  }, [applyTtsPlayback, sessionId]);
 
   const handleSetMessageFeedback = useCallback(async (
     m: SessionMessage,
@@ -3968,10 +4096,28 @@ export function SessionDetailPage() {
   // 直接渲染即是「上旧下新」。如果出现倒序问题，派生视图会做一次排序兜底。
   const sortedMessages = messageWindowView.ordered;
   const webMessageFeatureConfig = auth.meta?.service;
-  const readAloudEnabled = webMessageFeatureConfig?.read_aloud_enabled !== false;
-  const translationEnabled = webMessageFeatureConfig?.translation_enabled !== false;
+  const messageContentSettings = auth.meta?.message_content_settings;
+  const readAloudEnabled =
+    webMessageFeatureConfig?.read_aloud_enabled !== false &&
+    messageContentSettings?.tts_enabled === true;
+  const translationEnabled =
+    webMessageFeatureConfig?.translation_enabled !== false &&
+    messageContentSettings?.translation_enabled === true;
+  const translationSettingsFingerprint =
+    messageContentSettings?.translation_settings_fingerprint ?? '';
+  const textActionContentFormat = normalizeMetaMessageContentFormat(
+    messageContentSettings?.message_content_format,
+  );
   const feedbackEnabled = webMessageFeatureConfig?.feedback_enabled !== false;
   const regenerationEnabled = webMessageFeatureConfig?.regeneration_enabled !== false;
+
+  useEffect(() => {
+    if (readAloudEnabled || !ttsPlayback.playing) return;
+    void stopMessageTtsPlayback()
+      .then((result) => applyTtsPlayback(result.playback))
+      .catch(() => setTtsPlayback(EMPTY_TTS_PLAYBACK));
+  }, [applyTtsPlayback, readAloudEnabled, ttsPlayback.playing]);
+
   const messageRenderWindowKey = useMemo(() => {
     return messageWindowShapeKey(sessionId, windowOffset, sortedMessages);
   }, [sessionId, windowOffset, sortedMessages]);
@@ -4221,7 +4367,9 @@ export function SessionDetailPage() {
                     <ul class="oh-session-message-list flex flex-col gap-3">
                       {visibleSortedMessages.map((m) => {
                         const translation = messageTranslations[m.id];
-                        const translationMatches = translation?.source === (m.content ?? '');
+                        const translationMatches =
+                          translation?.source === (m.content ?? '') &&
+                          translation.settingsFingerprint === translationSettingsFingerprint;
                         return (
                           <li key={m.id} class="oh-session-message-row">
                             <MessageCard
@@ -4231,6 +4379,8 @@ export function SessionDetailPage() {
                               turnActive={stableResponseRunning}
                               sessionId={sessionId}
                               readAloudEnabled={readAloudEnabled}
+                              readAloudPlaying={ttsPlayback.playing && ttsPlayback.messageId === m.id}
+                              textActionContentFormat={textActionContentFormat}
                               translationEnabled={translationEnabled}
                               feedbackEnabled={feedbackEnabled}
                               regenerationEnabled={regenerationEnabled}
@@ -4246,6 +4396,7 @@ export function SessionDetailPage() {
                               onEdit={m.role === 'user' ? handleEditMessage : undefined}
                               onAudit={handleAuditMessage}
                               onFork={handleForkMessage}
+                              onToggleReadAloud={handleToggleMessageTts}
                               onToggleTranslation={handleToggleMessageTranslation}
                               onSetFeedback={handleSetMessageFeedback}
                               onRegenerate={handleRegenerateMessage}

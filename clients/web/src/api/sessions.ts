@@ -544,6 +544,7 @@ export async function translateMessage(
   provider?: string;
   model_config_id?: string | null;
   model_id?: string | null;
+  settings_fingerprint?: string | null;
 }> {
   return apiRequest<{
     ok: boolean;
@@ -551,8 +552,47 @@ export async function translateMessage(
     provider?: string;
     model_config_id?: string | null;
     model_id?: string | null;
+    settings_fingerprint?: string | null;
   }>(
     `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/translate`,
+    { method: 'POST' },
+  );
+}
+
+export interface MessageTtsPlaybackState {
+  playing: boolean;
+  message_id?: string | null;
+  provider?: string | null;
+}
+
+export async function fetchMessageTtsPlayback(): Promise<{
+  ok: boolean;
+  playback: MessageTtsPlaybackState;
+}> {
+  return apiRequest<{ ok: boolean; playback: MessageTtsPlaybackState }>(
+    '/api/tts/playback',
+  );
+}
+
+export async function stopMessageTtsPlayback(): Promise<{
+  ok: boolean;
+  playback: MessageTtsPlaybackState;
+}> {
+  return apiRequest<{ ok: boolean; playback: MessageTtsPlaybackState }>(
+    '/api/tts/stop',
+    { method: 'POST' },
+  );
+}
+
+export async function toggleMessageTtsPlayback(
+  sessionId: string,
+  messageId: string,
+): Promise<{
+  ok: boolean;
+  playback: MessageTtsPlaybackState;
+}> {
+  return apiRequest<{ ok: boolean; playback: MessageTtsPlaybackState }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/tts/toggle`,
     { method: 'POST' },
   );
 }

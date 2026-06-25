@@ -201,6 +201,7 @@ class WebMessagePlatformService {
   _pendingWriteApprovalStreamController =
       StreamController<List<WebWriteApprovalRequest>>.broadcast(sync: true);
   final AiTranslationService _translationService = AiTranslationService();
+  final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final List<WebGatewayLogEntry> _memoryLogs = <WebGatewayLogEntry>[];
   final List<WebGatewayCleanupResult> _cleanupHistory =
       <WebGatewayCleanupResult>[];
@@ -401,6 +402,7 @@ class WebMessagePlatformService {
   }
 
   Future<void> stop() async {
+    await _ttsPlaybackService.stop();
     final server = _server;
     if (server == null) {
       _state = WebGatewayRuntimeState.stopped;
@@ -445,6 +447,7 @@ class WebMessagePlatformService {
   Future<void> dispose() async {
     await stop();
     _translationService.dispose();
+    await _ttsPlaybackService.dispose();
     await _logStreamController.close();
     await _pendingWriteApprovalStreamController.close();
   }
@@ -1211,6 +1214,14 @@ class WebMessagePlatformService {
     router.get('/api/health', _apiHealth);
     router.get('/api/meta', _apiMeta);
     router.post('/api/login', _login);
+    router.get(
+      '/api/tts/playback',
+      (shelf.Request r) => _withAuth(r, _getTtsPlaybackState),
+    );
+    router.post(
+      '/api/tts/stop',
+      (shelf.Request r) => _withAuth(r, _stopTtsPlayback),
+    );
 
     router.get(
       '/api/sessions',
@@ -1257,6 +1268,13 @@ class WebMessagePlatformService {
       (shelf.Request r, String sessionId, String messageId) => _withAuth(
         r,
         (req, auth) => _translateMessage(req, auth, sessionId, messageId),
+      ),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/messages/<messageId>/tts/toggle',
+      (shelf.Request r, String sessionId, String messageId) => _withAuth(
+        r,
+        (req, auth) => _toggleMessageTts(req, auth, sessionId, messageId),
       ),
     );
     router.post(
@@ -2063,6 +2081,15 @@ class WebMessagePlatformService {
         'session_management_enabled': _config.sessionManagementEnabled,
         'single_message_token_limit': _config.singleMessageTokenLimit,
         'max_messages_per_session': _config.maxMessagesPerSession,
+      },
+      'message_content_settings': <String, Object?>{
+        'tts_enabled': _settingsController.aiTtsSettings.enabled,
+        'translation_enabled':
+            _settingsController.aiTranslationSettings.enabled,
+        'translation_settings_fingerprint':
+            _settingsController.aiTranslationSettings.cacheFingerprint,
+        'message_content_format':
+            _settingsController.aiMessageContentFormat.storageKey,
       },
       'workspace_files': <String, Object?>{
         'enabled': true,
@@ -3035,12 +3062,18 @@ class WebMessagePlatformService {
         'error': 'translation_settings_disabled',
       });
     }
+    final text = _webTranslationMessageText(message, settings);
+    if (text == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'message_translation_not_supported',
+      });
+    }
     try {
       final fallbackModel =
           _resolveModel(_lastModelKeyForSession(session) ?? '') ??
           _settingsController.selectedAiModel;
       final result = await _translationService.translate(
-        text: message.content,
+        text: text,
         settings: settings,
         availableModels: _settingsController.aiModels,
         fallbackModel: fallbackModel,
@@ -3060,6 +3093,7 @@ class WebMessagePlatformService {
         'provider': result.provider.storageKey,
         'model_config_id': result.modelConfigId,
         'model_id': result.modelId,
+        'settings_fingerprint': settings.cacheFingerprint,
       });
     } on AiTranslationException catch (error) {
       return _json(HttpStatus.badGateway, <String, Object?>{
@@ -3076,6 +3110,103 @@ class WebMessagePlatformService {
         'message': '$error',
       });
     }
+  }
+
+  Future<shelf.Response> _getTtsPlaybackState(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+  ) async {
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'playback': _ttsPlaybackPayload(),
+    });
+  }
+
+  Future<shelf.Response> _stopTtsPlayback(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+  ) async {
+    await _ttsPlaybackService.stop();
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'playback': _ttsPlaybackPayload(),
+    });
+  }
+
+  Future<shelf.Response> _toggleMessageTts(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+    String messageId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final message = await _loadMessageForWebOperation(session, messageId);
+    if (message == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'message_not_found',
+      });
+    }
+    if (_ttsPlaybackService.isPlayingMessage(message.id)) {
+      await _ttsPlaybackService.stop();
+      return _json(HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'playback': _ttsPlaybackPayload(),
+      });
+    }
+    if (!_config.readAloudEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'message_tts_disabled',
+      });
+    }
+    if (!_messageSupportsWebTextAction(message)) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'message_tts_not_supported',
+      });
+    }
+    final settings = _settingsController.aiTtsSettings;
+    if (!settings.enabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'tts_settings_disabled',
+      });
+    }
+    final text = _webTtsMessageText(message);
+    if (text == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'message_tts_not_supported',
+      });
+    }
+    final fallbackModel =
+        _resolveModel(_lastModelKeyForSession(session) ?? '') ??
+        _settingsController.selectedAiModel;
+    unawaited(() async {
+      try {
+        await _ttsPlaybackService.speak(
+          messageId: message.id,
+          text: text,
+          settings: settings,
+          availableModels: _settingsController.aiModels,
+          fallbackModel: fallbackModel,
+        );
+      } catch (error, stack) {
+        silentLog('WebGateway', 'toggle message tts', error, stack);
+      }
+    }());
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+    _log(
+      WebGatewayLogLevel.info,
+      'MESSAGE',
+      'Web 朗读消息 ${session.id}/${message.id}',
+      <String, Object?>{'device_id': auth.deviceId},
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'playback': _ttsPlaybackPayload(),
+    });
   }
 
   Future<shelf.Response> _regenerateMessage(
@@ -4071,6 +4202,24 @@ class WebMessagePlatformService {
     r'''<(?:img|video|audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>''',
     caseSensitive: false,
   );
+  static final RegExp _heAgentAnnotationPattern = RegExp(
+    r'\[HE_AGENT:(\w+)\|([^\]]+)\]',
+  );
+  static final RegExp _hePhaseAnnotationPattern = RegExp(r'\[HE_PHASE:(\w+)\]');
+  static const Set<String> _webVideoMediaExtensions = <String>{
+    '.mp4',
+    '.webm',
+    '.mov',
+    '.m4v',
+  };
+  static const Set<String> _webAudioMediaExtensions = <String>{
+    '.mp3',
+    '.wav',
+    '.ogg',
+    '.m4a',
+    '.flac',
+    '.aac',
+  };
 
   /// 复用 _authorize，但允许从 query string 读取 token / device 信息，
   /// 兼容浏览器 EventSource 这种不能自定义 header 的场景。
@@ -4573,17 +4722,45 @@ class WebMessagePlatformService {
         message.kind == AiSessionMessageKind.assistant ||
         message.kind == AiSessionMessageKind.reasoning;
     if (!kindSupported) return false;
-    final contentFormat = _string(
-      message.metadata[aiSessionMessageContentFormatKey],
-      '',
-    ).trim();
-    if (contentFormat == 'html') return false;
-    if (contentFormat.isNotEmpty &&
-        contentFormat != 'plain_text' &&
-        contentFormat != 'markdown') {
-      return false;
-    }
+    final contentFormat = _webMessageContentFormat(message);
+    if (contentFormat == AiMessageContentFormat.html) return false;
     return !_messageHasWebMultimediaPayload(message);
+  }
+
+  AiMessageContentFormat _webMessageContentFormat(AiSessionMessage message) {
+    final storedKey = message.metadata[aiSessionMessageContentFormatKey];
+    if (storedKey is String && storedKey.trim().isNotEmpty) {
+      return AiMessageContentFormat.fromStorageKey(storedKey);
+    }
+    return _settingsController.aiMessageContentFormat;
+  }
+
+  String? _webTtsMessageText(AiSessionMessage message) {
+    final content = message.content.trim();
+    return content.isEmpty ? null : content;
+  }
+
+  String? _webTranslationMessageText(
+    AiSessionMessage message,
+    AiTranslationSettings settings,
+  ) {
+    if (!settings.enabled) return null;
+    final content = switch (message.kind) {
+      AiSessionMessageKind.assistant => _stripHeAnnotations(message.content),
+      AiSessionMessageKind.user ||
+      AiSessionMessageKind.reasoning => message.content,
+      _ => '',
+    }.trim();
+    return content.isEmpty ? null : content;
+  }
+
+  Map<String, Object?> _ttsPlaybackPayload() {
+    final snapshot = _ttsPlaybackService.state.value;
+    return <String, Object?>{
+      'playing': snapshot.playing,
+      'message_id': snapshot.messageId,
+      'provider': snapshot.provider?.storageKey,
+    };
   }
 
   bool _messageHasWebMultimediaPayload(AiSessionMessage message) {
@@ -4601,6 +4778,36 @@ class WebMessagePlatformService {
     if (creationRequest is Map) {
       final mode = _string(creationRequest['mode'], '').trim();
       if (_isMultimediaConversationMode(mode)) return true;
+    }
+    return _messageContentHasWebMultimediaLink(message.content);
+  }
+
+  bool _messageContentHasWebMultimediaLink(String content) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return false;
+    final lower = trimmed.toLowerCase();
+    if ((lower.contains('<img') ||
+            lower.contains('<video') ||
+            lower.contains('<audio')) &&
+        _htmlMediaSrcPattern.hasMatch(trimmed)) {
+      return true;
+    }
+    if (!trimmed.contains('](') && !trimmed.contains('![')) {
+      return false;
+    }
+    for (final match in _markdownMediaReferencePattern.allMatches(trimmed)) {
+      final raw = match.group(1);
+      if (raw == null) continue;
+      final destination = _normalizeMarkdownDestination(raw);
+      final extension = p
+          .extension(Uri.tryParse(destination)?.path ?? destination)
+          .toLowerCase();
+      if (match.group(0)?.startsWith('![') == true ||
+          _webVideoMediaExtensions.contains(extension) ||
+          _webAudioMediaExtensions.contains(extension) ||
+          aiAttachmentKindForPath(destination) == AiAttachmentKind.image) {
+        return true;
+      }
     }
     return false;
   }
@@ -4623,6 +4830,14 @@ class WebMessagePlatformService {
 
   bool _isMultimediaConversationMode(String mode) {
     return mode == 'image' || mode == 'video' || mode == 'audio';
+  }
+
+  String _stripHeAnnotations(String content) {
+    return content
+        .replaceAll(_heAgentAnnotationPattern, '')
+        .replaceAll(_hePhaseAnnotationPattern, '')
+        .replaceAll(RegExp(r'^\s+'), '')
+        .trim();
   }
 
   Map<String, Object?>? _pendingWriteApprovalJson(String sessionId) {

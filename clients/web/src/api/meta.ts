@@ -42,6 +42,13 @@ export interface ApiMetaPreferences {
   dialog_animation_settings?: ApiDialogAnimationSettings;
 }
 
+export interface ApiMetaMessageContentSettings {
+  tts_enabled?: boolean;
+  translation_enabled?: boolean;
+  translation_settings_fingerprint?: string;
+  message_content_format?: string;
+}
+
 export interface ApiMetaShortcutBinding {
   key_ids?: number[];
   label?: string;
@@ -113,6 +120,7 @@ export interface ApiMetaInstruction {
 
 export interface ApiMetaResponse {
   service?: ApiMetaService;
+  message_content_settings?: ApiMetaMessageContentSettings;
   workspace_files?: ApiMetaWorkspaceFiles;
   preferences?: ApiMetaPreferences;
   shortcut_bindings?: Record<string, ApiMetaShortcutBinding>;
