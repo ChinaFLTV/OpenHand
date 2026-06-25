@@ -78,6 +78,9 @@ class _TitleSummaryDialogResult {
   final AiModelConfig? model;
 }
 
+const double _kTitleSummaryDialogWidth = 456;
+const double _kTitleProgressDialogWidth = 360;
+
 /// 标题摘要消息区间与模型选择弹窗。
 class _TitleSummaryRangeDialog extends StatefulWidget {
   const _TitleSummaryRangeDialog({
@@ -129,35 +132,39 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
     final total = widget.userMessages.length;
     final selectedCount = _endIdx - _startIdx + 1;
     final isZh = openHandIsChineseLocale(context);
-    // 截取消息内容作为 tooltip 预览
-    String previewLabel(int idx) {
+    final sectionStyle = theme.textTheme.labelMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+    );
+
+    String previewLabel(int idx, {int maxLength = 26}) {
       if (idx < 0 || idx >= total) return '#${idx + 1}';
       final content = widget.userMessages[idx].content
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
-      final preview = content.length > 20
-          ? '${content.substring(0, 18)}…'
+      final preview = content.length > maxLength
+          ? '${content.substring(0, maxLength - 1)}...'
           : content;
       return preview.isEmpty ? '#${idx + 1}' : preview;
     }
 
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '获取 AI 摘要标题' : 'Generate AI Title'),
-      content: SizedBox(
-        width: 360,
+      title: Text(
+        isZh ? '获取 AI 摘要标题' : 'Generate AI Title',
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+        ),
+      ),
+      content: buildOpenHandDialogConstrainedContent(
+        width: _kTitleSummaryDialogWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              isZh
-                  ? '选择参与标题总结的用户消息区间'
-                  : 'Select user message range for title summary',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
+            Text(isZh ? '模型' : 'Model', style: sectionStyle),
+            const SizedBox(height: 8),
             OpenHandModelSelectorField(
               models: widget.availableModels,
               recentSelections: widget.recentModelSelections,
@@ -165,7 +172,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
               selectedModelId: _selectedModelId,
               labelZh: '标题生成模型',
               labelEn: 'Title Model',
-              helperZh: '默认按当前线程模型、同提供商默认标题模型、全局默认标题模型依次选择。',
+              helperZh: '未手动调整时，按当前线程模型、同提供商默认标题模型、全局默认标题模型依次选择。',
               helperEn:
                   'Defaults to the thread model, provider title fallback, then the global title model.',
               onSelected: (selection) {
@@ -175,47 +182,70 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 });
               },
             ),
+            const SizedBox(height: 18),
+            Divider(height: 1, color: colorScheme.outlineVariant),
             const SizedBox(height: 16),
+            Text(isZh ? '消息范围' : 'Message Range', style: sectionStyle),
+            const SizedBox(height: 10),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${isZh ? '起始' : 'From'}: #${_startIdx + 1}',
-                  style: theme.textTheme.labelMedium,
+                Expanded(
+                  child: _TitleSummaryRangeEndpoint(
+                    label: isZh ? '起始' : 'From',
+                    index: _startIdx,
+                    preview: previewLabel(_startIdx),
+                  ),
                 ),
-                Text(
-                  '${isZh ? '结束' : 'To'}: #${_endIdx + 1}',
-                  style: theme.textTheme.labelMedium,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TitleSummaryRangeEndpoint(
+                    label: isZh ? '结束' : 'To',
+                    index: _endIdx,
+                    preview: previewLabel(_endIdx),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            if (total > 1)
-              RangeSlider(
-                values: RangeValues(_startIdx.toDouble(), _endIdx.toDouble()),
-                max: (total - 1).toDouble(),
-                divisions: total > 1 ? total - 1 : 1,
-                labels: RangeLabels(
-                  previewLabel(_startIdx),
-                  previewLabel(_endIdx),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.format_list_bulleted_rounded,
+                  size: 16,
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                onChanged: (values) {
-                  setState(() {
-                    _startIdx = values.start.round();
-                    _endIdx = values.end.round();
-                  });
-                },
-              ),
-            const SizedBox(height: 8),
-            Text(
-              '${isZh ? '已选择' : 'Selected'} $selectedCount ${isZh ? '条用户消息' : 'user messages'}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${isZh ? '已选择' : 'Selected'} $selectedCount ${isZh ? '条用户消息' : 'user messages'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
+            if (total > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: RangeSlider(
+                  values: RangeValues(_startIdx.toDouble(), _endIdx.toDouble()),
+                  max: (total - 1).toDouble(),
+                  divisions: total > 1 ? total - 1 : 1,
+                  labels: RangeLabels('#${_startIdx + 1}', '#${_endIdx + 1}'),
+                  onChanged: (values) {
+                    setState(() {
+                      _startIdx = values.start.round();
+                      _endIdx = values.end.round();
+                    });
+                  },
+                ),
+              ),
           ],
         ),
       ),
+      actionsAlignment: MainAxisAlignment.end,
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
@@ -236,6 +266,54 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
   }
 }
 
+class _TitleSummaryRangeEndpoint extends StatelessWidget {
+  const _TitleSummaryRangeEndpoint({
+    required this.label,
+    required this.index,
+    required this.preview,
+  });
+
+  final String label;
+  final int index;
+  final String preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '#${index + 1}',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            preview,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TitleGenerationProgressDialog extends StatelessWidget {
   const _TitleGenerationProgressDialog({required this.onCancel});
 
@@ -246,43 +324,65 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isZh = openHandIsChineseLocale(context);
-    return buildOpenHandAlertDialog(
-      title: Text(isZh ? '获取 AI 摘要标题' : 'Generate AI Title'),
-      content: SizedBox(
-        width: 320,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+    return PopScope(
+      canPop: false,
+      child: buildOpenHandAlertDialog(
+        title: Text(
+          isZh ? '获取 AI 摘要标题' : 'Generate AI Title',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+        content: buildOpenHandDialogConstrainedContent(
+          width: _kTitleProgressDialogWidth,
           child: Row(
             children: [
               SizedBox(
-                width: 28,
-                height: 28,
+                width: 24,
+                height: 24,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.6,
+                  strokeWidth: 2.4,
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  isZh ? '正在生成摘要标题…' : 'Generating title…',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isZh ? '正在生成摘要标题...' : 'Generating title...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isZh
+                          ? '完成后会自动更新线程标题。'
+                          : 'The thread title updates automatically.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+        actionsAlignment: MainAxisAlignment.end,
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: onCancel,
+            icon: Icons.close_rounded,
+            label: AppLocalizations.of(context)!.commonCancel,
+          ),
+        ],
       ),
-      actions: [
-        OpenHandDialogActionButton.secondary(
-          onPressed: onCancel,
-          icon: Icons.close_rounded,
-          label: AppLocalizations.of(context)!.commonCancel,
-        ),
-      ],
     );
   }
 }

@@ -7269,8 +7269,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
         fullText: _localizedText(
           context,
-          zh: '读取线程消息失败。\n\n原因：$error',
-          en: 'Failed to load thread messages.\n\nReason: $error',
+          zh: '现象：读取线程消息失败。\n原因：$error',
+          en: 'Summary: Failed to load thread messages.\nReason: $error',
         ),
       );
       return;
@@ -7458,8 +7458,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
         fullText: _localizedText(
           context,
-          zh: '标题生成失败。\n\n原因：$error',
-          en: 'Title generation failed.\n\nReason: $error',
+          zh: '原因：$error',
+          en: 'Reason: $error',
         ),
       );
     } finally {

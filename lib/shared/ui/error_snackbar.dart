@@ -147,6 +147,8 @@ class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
   @override
   Widget build(BuildContext context) {
     final details = _FriendlyErrorDetails.parse(widget.fullText);
+    final showStructuredSections = details.sections.isNotEmpty;
+    final primaryText = details.structured ? details.summary : details.rawText;
     return PrimaryScrollController.none(
       child: OpenHandSafeScrollbar(
         controller: _scrollController,
@@ -156,24 +158,17 @@ class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ErrorSummaryBlock(text: details.summary, theme: widget.theme),
-              const SizedBox(height: 12),
-              for (final section in details.sections) ...[
-                _ErrorDetailSectionCard(section: section, theme: widget.theme),
-                const SizedBox(height: 10),
-              ],
-              _ErrorDetailSectionCard(
-                section: _FriendlyErrorSection(
-                  title: _errorLocalized(
-                    context,
-                    zh: '完整信息',
-                    en: 'Full details',
+              _ErrorSummaryBlock(text: primaryText, theme: widget.theme),
+              if (showStructuredSections) ...[
+                const SizedBox(height: 16),
+                for (var i = 0; i < details.sections.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 14),
+                  _ErrorDetailSectionBlock(
+                    section: details.sections[i],
+                    theme: widget.theme,
                   ),
-                  body: details.rawText,
-                  monospace: true,
-                ),
-                theme: widget.theme,
-              ),
+                ],
+              ],
             ],
           ),
         ),
@@ -191,38 +186,35 @@ class _ErrorSummaryBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.error.withValues(alpha: 0.22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.report_problem_rounded, color: colorScheme.error),
-            const SizedBox(width: 10),
-            Expanded(
-              child: SelectableText(
-                text,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.45,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onErrorContainer,
-                ),
-              ),
-            ),
-          ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            Icons.report_problem_rounded,
+            size: 20,
+            color: colorScheme.error,
+          ),
         ),
-      ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: SelectableText(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.48,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _ErrorDetailSectionCard extends StatelessWidget {
-  const _ErrorDetailSectionCard({required this.section, required this.theme});
+class _ErrorDetailSectionBlock extends StatelessWidget {
+  const _ErrorDetailSectionBlock({required this.section, required this.theme});
 
   final _FriendlyErrorSection section;
   final ThemeData theme;
@@ -230,38 +222,29 @@ class _ErrorDetailSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.64),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(height: 1, color: colorScheme.outlineVariant),
+        const SizedBox(height: 12),
+        Text(
+          section.title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: colorScheme.onSurface,
+            letterSpacing: 0,
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              section.title,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SelectableText(
-              section.body,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.48,
-                color: colorScheme.onSurfaceVariant,
-                fontFamily: section.monospace ? 'monospace' : null,
-              ),
-            ),
-          ],
+        const SizedBox(height: 6),
+        SelectableText(
+          section.body,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            height: 1.48,
+            color: colorScheme.onSurfaceVariant,
+            fontFamily: section.monospace ? 'monospace' : null,
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -271,23 +254,32 @@ class _FriendlyErrorDetails {
     required this.rawText,
     required this.summary,
     required this.sections,
+    required this.structured,
   });
 
   final String rawText;
   final String summary;
   final List<_FriendlyErrorSection> sections;
+  final bool structured;
 
   static _FriendlyErrorDetails parse(String raw) {
     final normalized = raw.replaceAll('\r\n', '\n').trim();
     final rawText = normalized.isEmpty ? 'unknown error' : normalized;
     final sections = <_FriendlyErrorSection>[];
     var currentTitle = '概览';
+    var structured = false;
     final buffer = <String>[];
 
     void flush() {
       final body = buffer.join('\n').trim();
       if (body.isEmpty) return;
-      sections.add(_FriendlyErrorSection(title: currentTitle, body: body));
+      sections.add(
+        _FriendlyErrorSection(
+          title: currentTitle,
+          body: body,
+          monospace: _isRawErrorSection(currentTitle),
+        ),
+      );
       buffer.clear();
     }
 
@@ -298,6 +290,7 @@ class _FriendlyErrorDetails {
         buffer.add(trimmed);
         continue;
       }
+      structured = true;
       flush();
       currentTitle = heading.title;
       if (heading.inlineBody.isNotEmpty) {
@@ -321,6 +314,7 @@ class _FriendlyErrorDetails {
       rawText: rawText,
       summary: summary.trim().isEmpty ? rawText : summary.trim(),
       sections: detailSections,
+      structured: structured,
     );
   }
 }
@@ -356,10 +350,10 @@ _ParsedErrorHeading? _errorHeading(String line) {
   );
 }
 
-String _errorLocalized(
-  BuildContext context, {
-  required String zh,
-  required String en,
-}) {
-  return Localizations.localeOf(context).languageCode == 'zh' ? zh : en;
+bool _isRawErrorSection(String title) {
+  final normalized = title.trim().toLowerCase();
+  return normalized.contains('raw') ||
+      normalized.contains('原始') ||
+      normalized.contains('响应') ||
+      normalized.contains('response');
 }
