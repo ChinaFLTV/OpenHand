@@ -5538,6 +5538,45 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  AiSessionGoalStartOptions? _rememberedGoalStartOptionsForSession(
+    AiSession? session,
+  ) {
+    if (session == null) return null;
+    final cached = _pendingGoalStartOptionsBySessionId[session.id];
+    if (cached != null) return cached;
+    final restored = _goalStartOptionsFromLatestGoal(session);
+    if (restored != null) {
+      _pendingGoalStartOptionsBySessionId[session.id] = restored;
+    }
+    return restored;
+  }
+
+  AiSessionGoalStartOptions? _goalStartOptionsFromLatestGoal(
+    AiSession session,
+  ) {
+    final goalState = session.goalState;
+    final latestGoal =
+        goalState.current ??
+        (goalState.history.isEmpty ? null : goalState.history.last);
+    if (latestGoal == null) return null;
+    final evaluatorProviderConfigId = latestGoal.evaluatorProviderConfigId
+        .trim();
+    final evaluatorModelId = latestGoal.evaluatorModelId.trim();
+    if (evaluatorProviderConfigId.isEmpty || evaluatorModelId.isEmpty) {
+      return null;
+    }
+    final evaluatorModelLabel = latestGoal.evaluatorModelLabel.trim();
+    return AiSessionGoalStartOptions(
+      evaluatorProviderConfigId: evaluatorProviderConfigId,
+      evaluatorModelId: evaluatorModelId,
+      evaluatorModelLabel: evaluatorModelLabel.isEmpty
+          ? evaluatorModelId
+          : evaluatorModelLabel,
+      maxTurns: latestGoal.maxTurns,
+      tokenBudget: latestGoal.tokenBudget,
+    );
+  }
+
   Future<void> _handleFullAccessPermissionToggle(bool enable) async {
     final sessionController = context.read<AiSessionController>();
     final currentSession = sessionController.currentSession;
@@ -5896,7 +5935,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     AiSessionGoalStartOptions? goalStartOptions;
     if (sendSession?.mode == AiSessionMode.goal) {
-      goalStartOptions = _pendingGoalStartOptionsBySessionId[targetSessionId];
+      goalStartOptions = _rememberedGoalStartOptionsForSession(sendSession);
       if (goalStartOptions == null) {
         final result = await _showGoalStartOptionsDialog(
           selectedModel: selectedModel,
@@ -5919,7 +5958,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _creationOptions = AiCreationOptions.empty;
     });
 
-    final submitOutcome = await _submitTextToSession(
+    await _submitTextToSession(
       targetSessionId,
       prompt,
       pendingAttachments,
@@ -5931,10 +5970,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       selectedSkillMetadata: skillDisplayMetadata,
       goalStartOptions: goalStartOptions,
     );
-    if (submitOutcome == _SubmitTextOutcome.submitted &&
-        goalStartOptions != null) {
-      _pendingGoalStartOptionsBySessionId.remove(targetSessionId);
-    }
   }
 
   void _beginPendingAutoStartSubmission(String sessionId) {

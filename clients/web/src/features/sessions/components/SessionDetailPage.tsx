@@ -754,6 +754,20 @@ function latestGoalRecord(goalState: SessionGoalState | null | undefined): Sessi
   return history.length > 0 ? history[history.length - 1]! : null;
 }
 
+function goalOptionsFromRecord(goal: SessionGoalRecord | null): GoalStartOptions | null {
+  const evaluatorProviderConfigId = (goal?.evaluator_provider_config_id ?? '').trim();
+  const evaluatorModelId = (goal?.evaluator_model_id ?? '').trim();
+  if (!evaluatorProviderConfigId || !evaluatorModelId) return null;
+  const evaluatorModelLabel = (goal?.evaluator_model_label ?? '').trim() || evaluatorModelId;
+  return {
+    evaluator_provider_config_id: evaluatorProviderConfigId,
+    evaluator_model_id: evaluatorModelId,
+    evaluator_model_label: evaluatorModelLabel,
+    max_turns: goal?.max_turns ?? null,
+    token_budget: goal?.token_budget ?? null,
+  };
+}
+
 type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'image' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
 
 function sessionModeIconName(mode: string): ComposerIconName {
@@ -3863,6 +3877,16 @@ export function SessionDetailPage() {
     setPendingGoalOptionsBySessionId((prev) => ({ ...prev, [targetSessionId]: options }));
   }
 
+  function rememberedGoalOptionsForSession(targetSessionId: string, summary: SessionSummary | null | undefined): GoalStartOptions | null {
+    const cached = pendingGoalOptionsBySessionId[targetSessionId];
+    if (cached) return cached;
+    const restored = goalOptionsFromRecord(latestGoalRecord(summary?.goal_state));
+    if (restored) {
+      rememberPendingGoalOptions(targetSessionId, restored);
+    }
+    return restored;
+  }
+
   function clearPendingGoalOptions(targetSessionId: string): void {
     setPendingGoalOptionsBySessionId((prev) => {
       if (!(targetSessionId in prev)) return prev;
@@ -4001,7 +4025,7 @@ export function SessionDetailPage() {
         showSnackbar(message, { tone: 'error' });
         return;
       }
-      goalOptions = pendingGoalOptionsBySessionId[sessionId] ?? null;
+      goalOptions = rememberedGoalOptionsForSession(sessionId, session ?? null);
       if (!goalOptions) {
         goalOptions = await openGoalStartOptionsDialog();
         if (!goalOptions) return;
@@ -4072,9 +4096,6 @@ export function SessionDetailPage() {
         goalOptions,
       });
       if (!ownsSessionAsyncResult(requestSessionId)) return;
-      if (goalOptions) {
-        clearPendingGoalOptions(requestSessionId);
-      }
       setComposerText('');
       setComposerAttachments([]);
       setComposerAttachmentIds([]);
