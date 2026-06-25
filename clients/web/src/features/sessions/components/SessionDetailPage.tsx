@@ -6887,6 +6887,12 @@ function SessionThrottleDialog({
 /// easeOutCubic 滑到新值）。2026-05-25 — 柱状改为 SVG 平滑曲线
 /// （Catmull-Rom → 三次贝塞尔），并新增双指捏合 / Ctrl+滚轮放缩时间区间
 /// （_zoom 1×–4×，区间始终 anchored on now）。
+const THROTTLE_CHART_VIEWBOX_WIDTH = 100;
+const THROTTLE_CHART_VIEWBOX_HEIGHT = 64;
+const THROTTLE_CHART_PAD_X = 4;
+const THROTTLE_CHART_PAD_TOP = 7;
+const THROTTLE_CHART_PAD_BOTTOM = 7;
+
 function ThroughputBars({ samples, cap, limitValue }: { samples: number[]; cap: number; limitValue: number }) {
   const fullN = samples.length === 0 ? 30 : samples.length;
   const padded = samples.length === 0 ? new Array<number>(30).fill(0) : samples;
@@ -6943,16 +6949,22 @@ function ThroughputBars({ samples, cap, limitValue }: { samples: number[]; cap: 
 
   const displayed = displayedRef.current.length === n ? displayedRef.current : targets;
 
-  // Catmull-Rom → 三次贝塞尔（张力 1/6）。viewBox 100×56，便于 svg path
-  // 坐标计算；transform: scale(横向铺满)由容器 width:100% 接管。
-  const W = 100;
-  const H = 56;
-  const stepX = n <= 1 ? W : W / (n - 1);
+  // Catmull-Rom → 三次贝塞尔（张力 1/6）。绘图区主动内缩，避免满速
+  // 平台线、0 速底线和当前秒高亮圆点贴住 SVG 边界后被裁切。
+  const W = THROTTLE_CHART_VIEWBOX_WIDTH;
+  const H = THROTTLE_CHART_VIEWBOX_HEIGHT;
+  const plotLeft = THROTTLE_CHART_PAD_X;
+  const plotRight = W - THROTTLE_CHART_PAD_X;
+  const plotTop = THROTTLE_CHART_PAD_TOP;
+  const plotBottom = H - THROTTLE_CHART_PAD_BOTTOM;
+  const plotHeight = Math.max(1, plotBottom - plotTop);
+  const plotWidth = Math.max(1, plotRight - plotLeft);
+  const stepX = n <= 1 ? plotWidth : plotWidth / (n - 1);
   // 视觉 X：sample[0] = 当前 = 右；sample[n-1] = 最老 = 左。
   const points = displayed
     .map((h, i) => ({
-      x: (n - 1 - i) * stepX,
-      y: H - h * H,
+      x: plotLeft + (n - 1 - i) * stepX,
+      y: plotBottom - h * plotHeight,
     }))
     .sort((a, b) => a.x - b.x);
 
@@ -6975,7 +6987,7 @@ function ThroughputBars({ samples, cap, limitValue }: { samples: number[]; cap: 
       const c2y = p2.y - (p3.y - p1.y) / 6;
       pathD += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)} ${c2x.toFixed(2)} ${c2y.toFixed(2)} ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
     }
-    fillD = `${pathD} L ${points[points.length - 1].x.toFixed(2)} ${H} L ${points[0].x.toFixed(2)} ${H} Z`;
+    fillD = `${pathD} L ${points[points.length - 1].x.toFixed(2)} ${plotBottom} L ${points[0].x.toFixed(2)} ${plotBottom} Z`;
   }
 
   // 当前秒（右端）的 sample[0] 坐标，用于实心圆 + 光晕。
@@ -6990,7 +7002,7 @@ function ThroughputBars({ samples, cap, limitValue }: { samples: number[]; cap: 
   };
 
   return (
-    <div class="relative" style={{ height: '56px', touchAction: 'pan-x' }} onWheel={onWheel as any} title="Ctrl + 滚轮（或触控板双指捏合）放缩时间区间">
+    <div class="relative" style={{ height: `${H}px`, touchAction: 'pan-x' }} onWheel={onWheel as any} title="Ctrl + 滚轮（或触控板双指捏合）放缩时间区间">
       <div
         class="absolute inset-0"
         style={{
