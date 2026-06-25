@@ -32,6 +32,259 @@ class _QueuedMessage {
 
 enum _SubmitTextOutcome { submitted, stoppedBeforeSubmit, failedBeforeSubmit }
 
+class _GoalStartDialogResult {
+  const _GoalStartDialogResult({
+    required this.evaluatorProviderConfigId,
+    required this.evaluatorModelId,
+    required this.evaluatorModelLabel,
+    this.maxTurns,
+    this.tokenBudget,
+  });
+
+  final String evaluatorProviderConfigId;
+  final String evaluatorModelId;
+  final String evaluatorModelLabel;
+  final int? maxTurns;
+  final int? tokenBudget;
+
+  AiSessionGoalStartOptions toStartOptions() {
+    return AiSessionGoalStartOptions(
+      evaluatorProviderConfigId: evaluatorProviderConfigId,
+      evaluatorModelId: evaluatorModelId,
+      evaluatorModelLabel: evaluatorModelLabel,
+      maxTurns: maxTurns,
+      tokenBudget: tokenBudget,
+    );
+  }
+}
+
+class _GoalStartOptionsDialog extends StatefulWidget {
+  const _GoalStartOptionsDialog({
+    required this.availableModels,
+    required this.recentSelections,
+    required this.initialModel,
+  });
+
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentSelections;
+  final AiModelConfig initialModel;
+
+  @override
+  State<_GoalStartOptionsDialog> createState() =>
+      _GoalStartOptionsDialogState();
+}
+
+class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
+  late String _selectedProviderConfigId;
+  late String _selectedModelId;
+  bool _turnLimitEnabled = false;
+  bool _tokenBudgetEnabled = false;
+  final TextEditingController _turnLimitController = TextEditingController(
+    text: '12',
+  );
+  final TextEditingController _tokenBudgetController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedProviderConfigId = widget.initialModel.id;
+    _selectedModelId = widget.initialModel.modelId.trim().isNotEmpty
+        ? widget.initialModel.modelId.trim()
+        : widget.initialModel.allModelIds.firstOrNull ?? '';
+  }
+
+  @override
+  void dispose() {
+    _turnLimitController.dispose();
+    _tokenBudgetController.dispose();
+    super.dispose();
+  }
+
+  AiModelConfig? get _selectedConfig {
+    return widget.availableModels
+        .where((item) => item.id == _selectedProviderConfigId)
+        .firstOrNull;
+  }
+
+  int? _readPositiveInt(TextEditingController controller) {
+    final parsed = int.tryParse(controller.text.trim());
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
+
+  void _submit() {
+    final config = _selectedConfig;
+    if (config == null || _selectedModelId.trim().isEmpty) {
+      return;
+    }
+    final maxTurns = _turnLimitEnabled
+        ? _readPositiveInt(_turnLimitController)
+        : null;
+    final tokenBudget = _tokenBudgetEnabled
+        ? _readPositiveInt(_tokenBudgetController)
+        : null;
+    if ((_turnLimitEnabled && maxTurns == null) ||
+        (_tokenBudgetEnabled && tokenBudget == null)) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _GoalStartDialogResult(
+        evaluatorProviderConfigId: config.id,
+        evaluatorModelId: _selectedModelId.trim(),
+        evaluatorModelLabel: _selectedModelId.trim(),
+        maxTurns: maxTurns,
+        tokenBudget: tokenBudget,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final validSelection =
+        _selectedConfig?.allModelIds.contains(_selectedModelId) == true;
+    final invalidLimit =
+        (_turnLimitEnabled && _readPositiveInt(_turnLimitController) == null) ||
+        (_tokenBudgetEnabled &&
+            _readPositiveInt(_tokenBudgetController) == null);
+    return AlertDialog(
+      title: Text(_localizedText(context, zh: '启动目标模式', en: 'Start Goal Mode')),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OpenHandModelSelectorField(
+              models: widget.availableModels,
+              recentSelections: widget.recentSelections,
+              selectedConfigId: _selectedProviderConfigId,
+              selectedModelId: _selectedModelId,
+              required: true,
+              labelZh: '评估模型',
+              labelEn: 'Evaluator model',
+              helperZh: '用于在每轮回答后验证目标是否已完成。',
+              helperEn:
+                  'Used after each assistant response to verify goal completion.',
+              onSelected: (selection) {
+                setState(() {
+                  _selectedProviderConfigId = selection.$1;
+                  _selectedModelId = selection.$2;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: _turnLimitEnabled,
+              onChanged: (value) => setState(() => _turnLimitEnabled = value),
+              title: Text(
+                _localizedText(context, zh: '轮次限制', en: 'Turn limit'),
+              ),
+              subtitle: Text(
+                _localizedText(
+                  context,
+                  zh: '开启后限制自动推进的最大对话轮次。',
+                  en: 'Limit the maximum automatic conversation rounds.',
+                ),
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
+              child: _turnLimitEnabled
+                  ? Padding(
+                      key: const ValueKey<String>('turn-limit-field'),
+                      padding: const EdgeInsets.only(top: 6, bottom: 10),
+                      child: TextField(
+                        controller: _turnLimitController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: '最大对话轮次',
+                            en: 'Maximum turns',
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(
+                      key: ValueKey<String>('turn-limit-empty'),
+                    ),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: _tokenBudgetEnabled,
+              onChanged: (value) => setState(() => _tokenBudgetEnabled = value),
+              title: Text(
+                _localizedText(context, zh: 'Token 预算', en: 'Token budget'),
+              ),
+              subtitle: Text(
+                _localizedText(
+                  context,
+                  zh: '开启后限制目标执行阶段最多消耗的 token。',
+                  en: 'Limit token usage while this goal runs.',
+                ),
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
+              child: _tokenBudgetEnabled
+                  ? Padding(
+                      key: const ValueKey<String>('token-budget-field'),
+                      padding: const EdgeInsets.only(top: 6),
+                      child: TextField(
+                        controller: _tokenBudgetController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: '最多消耗 token',
+                            en: 'Maximum tokens',
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(
+                      key: ValueKey<String>('token-budget-empty'),
+                    ),
+            ),
+            if (!validSelection || invalidLimit) ...[
+              const SizedBox(height: 12),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '请选择可用评估模型，并填写正整数限制。',
+                  en: 'Choose a valid evaluator model and enter positive limits.',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
+        ),
+        FilledButton(
+          onPressed: validSelection && !invalidLimit ? _submit : null,
+          child: Text(_localizedText(context, zh: '开始', en: 'Start')),
+        ),
+      ],
+    );
+  }
+}
+
 extension on AppSection {
   /// Returns the drawer index for this section, or -1 if this section
   /// does not correspond to a NavigationDrawerDestination (e.g. workspace

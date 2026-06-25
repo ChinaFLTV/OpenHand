@@ -374,6 +374,11 @@ class AiSessionMessage {
   final Map<String, Object?> metadata;
 
   bool get isOpenHandBackgroundInput {
+    final senderOriginValue =
+        '${metadata[aiSessionMessageSenderOriginJsonKey] ?? ''}'.trim();
+    if (senderOriginValue == aiSessionMessageSenderOriginOpenHandBackground) {
+      return true;
+    }
     return kind == AiSessionMessageKind.tool ||
         kind == AiSessionMessageKind.mcp ||
         kind == AiSessionMessageKind.skill ||
@@ -397,6 +402,11 @@ class AiSessionMessage {
   }
 
   String get senderOrigin {
+    final metadataSenderOrigin =
+        '${metadata[aiSessionMessageSenderOriginJsonKey] ?? ''}'.trim();
+    if (metadataSenderOrigin.isNotEmpty) {
+      return metadataSenderOrigin;
+    }
     if (kind == AiSessionMessageKind.user) {
       return aiSessionMessageSenderOriginExplicitUser;
     }

@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel, ApiMetaTemplate } from '../api/meta';
+import { isGoalModeAllowedForTemplate, type SessionMode } from '../api/sessions';
 import { MenuSelect } from './MenuSelect';
 import { ModelPickerDialog, pushRecentModel } from './ModelPickerDialog';
 import { Appear } from './Appear';
@@ -151,18 +152,19 @@ export interface TemplateConfigDialogProps {
   planEnabled: boolean;
   busy: boolean;
   error: string | null;
-  onSubmit: (params: { mode: 'chat' | 'plan'; title: string; modelKey: string }) => void;
+  onSubmit: (params: { mode: SessionMode; title: string; modelKey: string }) => void;
   onClose: () => void;
 }
 
 export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
   const { template, models, defaultModelKey, planEnabled, busy, error, onSubmit, onClose } = props;
   const [title, setTitle] = useState<string>('');
-  const [mode, setMode] = useState<'chat' | 'plan'>('chat');
+  const [mode, setMode] = useState<SessionMode>('chat');
   const [modelKey, setModelKey] = useState<string>(() => resolveDefaultModelKey(models, defaultModelKey));
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const selectedModel = models.find((model) => model.key === modelKey);
+  const goalModeAvailable = isGoalModeAllowedForTemplate(template.id);
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -218,13 +220,16 @@ export function TemplateConfigDialog(props: TemplateConfigDialogProps) {
             {t('sessions.create.mode', '模式')}
             <MenuSelect
               value={mode}
-              onChange={(v) => setMode(v as 'chat' | 'plan')}
+              onChange={(v) => setMode(v as SessionMode)}
               disabled={busy}
               minWidth={140}
               options={[
                 { value: 'chat', label: t('sessions.mode.chat', '聊天模式') },
                 ...(planEnabled
                   ? [{ value: 'plan', label: t('sessions.mode.plan', '计划模式') }]
+                  : []),
+                ...(goalModeAvailable
+                  ? [{ value: 'goal', label: t('sessions.mode.goal', '目标模式') }]
                   : []),
               ]}
             />

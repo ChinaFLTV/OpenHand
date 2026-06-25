@@ -33,6 +33,86 @@ export interface SessionPlanRecord {
   steps?: SessionTodoItem[];
 }
 
+export type SessionMode = 'chat' | 'plan' | 'goal' | (string & {});
+
+export const GOAL_MODE_BLOCKED_TEMPLATE_IDS = new Set([
+  'machine_expert',
+  'hardness_engineering',
+  'web_reverse_expert',
+  'android_reverse_expert',
+]);
+
+export const GOAL_DEFAULT_MAX_AUTO_TURNS = 12;
+export const GOAL_HARD_MAX_AUTO_TURNS = 60;
+
+export function isGoalModeAllowedForTemplate(templateId: string | null | undefined): boolean {
+  return !GOAL_MODE_BLOCKED_TEMPLATE_IDS.has((templateId ?? '').trim());
+}
+
+export type SessionGoalStatus =
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'terminated'
+  | 'failed'
+  | 'round_limit_reached'
+  | 'token_budget_reached'
+  | (string & {});
+
+export interface SessionGoalEvaluationRecord {
+  id: string;
+  created_at: string;
+  round_index: number;
+  passed: boolean;
+  summary: string;
+  confidence?: number | null;
+  follow_up_prompt?: string | null;
+  evidence?: string[];
+  missing?: string[];
+  raw_response?: string | null;
+  provider_config_id?: string | null;
+  model_id?: string | null;
+  model_label?: string | null;
+  usage?: SessionMessageUsage | null;
+  error?: string | null;
+}
+
+export interface SessionGoalRecord {
+  id: string;
+  objective: string;
+  status: SessionGoalStatus;
+  created_at: string;
+  updated_at: string;
+  evaluator_provider_config_id: string;
+  evaluator_model_id: string;
+  evaluator_model_label: string;
+  max_turns?: number | null;
+  token_budget?: number | null;
+  turn_count: number;
+  tokens_used: number;
+  completed_at?: string | null;
+  paused_at?: string | null;
+  terminated_at?: string | null;
+  status_reason?: string | null;
+  last_assistant_message_id?: string | null;
+  last_auto_user_message_id?: string | null;
+  evaluations?: SessionGoalEvaluationRecord[];
+}
+
+export interface SessionGoalState {
+  schema_version?: number;
+  current?: SessionGoalRecord | null;
+  history?: SessionGoalRecord[];
+}
+
+export interface GoalStartOptions {
+  evaluator_provider_config_id: string;
+  evaluator_model_id: string;
+  evaluator_model_label: string;
+  max_turns?: number | null;
+  token_budget?: number | null;
+}
+
 export interface SessionErrorRecord {
   id: string;
   created_at: string;
@@ -50,7 +130,7 @@ export interface SessionSummary {
   template_internal_version?: number;
   created_at: string;
   updated_at: string;
-  mode: 'chat' | 'plan' | string;
+  mode: SessionMode;
   full_access_permission?: boolean;
   last_used_model_id?: string | null;
   last_used_model_label?: string | null;
@@ -85,6 +165,7 @@ export interface SessionSummary {
   awaiting_plan_approval?: boolean;
   pending_plan?: string | null;
   todo_items?: SessionTodoItem[];
+  goal_state?: SessionGoalState;
 }
 
 export interface SessionListResponse {
@@ -228,7 +309,7 @@ export function listSessions(
 
 export interface CreateSessionInput {
   templateId?: string;
-  mode?: 'chat' | 'plan';
+  mode?: SessionMode;
   title?: string;
   modelKey?: string;
 }
@@ -276,7 +357,7 @@ export function renameSession(
 
 export function updateSessionMode(
   id: string,
-  mode: 'chat' | 'plan',
+  mode: SessionMode,
 ): Promise<{ ok: boolean; session: SessionSummary }> {
   return apiRequest<{ ok: boolean; session: SessionSummary }>(
     `/api/sessions/${encodeURIComponent(id)}`,
@@ -365,6 +446,7 @@ export interface SendMessageInput {
   /// `AiSessionRuntimeContext.skippedInstructionIds` 会被注入，
   /// prompt builder 仅拼装 enabled 且未跳过的指令。
   skippedInstructionIds?: string[];
+  goalOptions?: GoalStartOptions | null;
 }
 
 export interface SendMessageSelectedSkill {
@@ -399,8 +481,37 @@ export function sendMessage(
         selected_skill: input.selectedSkill ?? null,
         skipped_instruction_ids: input.skippedInstructionIds ?? [],
         creation_options: input.creationOptions ?? null,
+        goal_options: input.goalOptions ?? null,
       },
     },
+  );
+}
+
+export function pauseGoal(
+  sessionId: string,
+): Promise<{ ok: boolean; session: SessionSummary }> {
+  return apiRequest<{ ok: boolean; session: SessionSummary }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/goal/pause`,
+    { method: 'POST', body: {} },
+  );
+}
+
+export function resumeGoal(
+  sessionId: string,
+  modelKey?: string,
+): Promise<SendMessageResponse> {
+  return apiRequest<SendMessageResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/goal/resume`,
+    { method: 'POST', body: { model_key: modelKey ?? '' } },
+  );
+}
+
+export function terminateGoal(
+  sessionId: string,
+): Promise<{ ok: boolean; session: SessionSummary }> {
+  return apiRequest<{ ok: boolean; session: SessionSummary }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/goal/terminate`,
+    { method: 'POST', body: {} },
   );
 }
 

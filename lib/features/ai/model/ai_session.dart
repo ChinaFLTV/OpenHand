@@ -1,3 +1,4 @@
+import 'ai_session_goal.dart';
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
 
@@ -36,7 +37,8 @@ int _resolveMessageTotalCount(
 
 enum AiSessionMode {
   chat('chat'),
-  plan('plan');
+  plan('plan'),
+  goal('goal');
 
   const AiSessionMode(this.storageValue);
 
@@ -669,6 +671,12 @@ class AiSession {
     }
     return null;
   }
+
+  AiSessionGoalState get goalState => AiSessionGoalState.fromMetadata(metadata);
+
+  AiSessionGoalRecord? get activeGoal => goalState.current;
+
+  bool get hasActiveGoal => activeGoal?.isActive == true;
 
   List<AiSessionMessage> get activeConversationMessages {
     final latestCompressionPointIndex = this.latestCompressionPointIndex;

@@ -111,6 +111,10 @@ class _ComposerPanel extends StatefulWidget {
     required this.canStopSending,
     required this.sessionMode,
     required this.onSessionModeChanged,
+    required this.goalModeAvailable,
+    required this.onPauseGoal,
+    required this.onResumeGoal,
+    required this.onTerminateGoal,
     required this.pendingAttachments,
     required this.attachmentsEnabled,
     required this.onPickAttachments,
@@ -160,6 +164,10 @@ class _ComposerPanel extends StatefulWidget {
   final bool canStopSending;
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
+  final bool goalModeAvailable;
+  final Future<void> Function() onPauseGoal;
+  final Future<void> Function() onResumeGoal;
+  final Future<void> Function() onTerminateGoal;
   final List<_ComposerAttachmentDraft> pendingAttachments;
   final bool attachmentsEnabled;
   final Future<void> Function() onPickAttachments;
@@ -1346,7 +1354,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final isResponding = widget.sendPhase == AiSendPhase.responding;
     final isBusy = widget.sendPhase != AiSendPhase.idle;
     final canStopSending = widget.canStopSending;
-    final modeToggleEnabled = widget.sendPhase == AiSendPhase.idle;
+    final activeGoal = widget.currentSession?.activeGoal;
+    final hasActiveGoal = activeGoal?.isActive == true;
+    final modeToggleEnabled =
+        widget.sendPhase == AiSendPhase.idle && !hasActiveGoal;
     final runtimeStatus = widget.currentSession == null
         ? null
         : _runtimeToolCatalogStatus(
@@ -1847,10 +1858,14 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     runtimeStatus: runtimeStatus,
                     enabled: modeToggleEnabled,
                     onPressed: () {
+                      final modes = <AiSessionMode>[
+                        AiSessionMode.chat,
+                        AiSessionMode.plan,
+                        if (widget.goalModeAvailable) AiSessionMode.goal,
+                      ];
+                      final currentIndex = modes.indexOf(widget.sessionMode);
                       widget.onSessionModeChanged(
-                        widget.sessionMode == AiSessionMode.plan
-                            ? AiSessionMode.chat
-                            : AiSessionMode.plan,
+                        modes[(currentIndex + 1) % modes.length],
                       );
                     },
                   ),
@@ -2011,55 +2026,96 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               : const SizedBox(key: ValueKey<String>('creation-options-off')),
         ),
         const SizedBox(width: 10),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: widget.controller,
-          builder: (context, textValue, _) {
-            final hasUserTextOrAttachments =
-                textValue.text.trim().isNotEmpty ||
-                widget.pendingAttachments.isNotEmpty ||
-                _projectFileReferences.isNotEmpty;
-            final isQueueingAction = isBusy && hasUserTextOrAttachments;
-
-            return SizedBox(
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: isQueueingAction
-                    ? () => _sendWithReferences()
-                    : canStopSending && !hasUserTextOrAttachments
-                    ? () => widget.onStop()
-                    : isBusy
-                    ? null
-                    : () => _sendWithReferences(),
-                icon: isQueueingAction
-                    ? const Icon(Icons.queue_play_next_rounded)
-                    : canStopSending && !hasUserTextOrAttachments
-                    ? const Icon(Icons.stop_rounded)
-                    : isCompressing || isSendingMessage
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2.4),
-                      )
-                    : Icon(
-                        isResponding
-                            ? Icons.stop_rounded
-                            : Icons.arrow_upward_rounded,
-                      ),
-                label: Text(
-                  isQueueingAction
-                      ? _localizedText(context, zh: '提前发送', en: 'Queue Message')
-                      : canStopSending && !hasUserTextOrAttachments
-                      ? _localizedText(
-                          context,
-                          zh: '停止回答',
-                          en: 'Stop Responding',
-                        )
-                      : sendButtonLabel,
+        if (hasActiveGoal)
+          SizedBox(
+            height: 52,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FilledButton.icon(
+                  onPressed: activeGoal?.isPaused == true
+                      ? () => unawaited(widget.onResumeGoal())
+                      : () => unawaited(widget.onPauseGoal()),
+                  icon: Icon(
+                    activeGoal?.isPaused == true
+                        ? Icons.play_arrow_rounded
+                        : Icons.pause_rounded,
+                  ),
+                  label: Text(
+                    activeGoal?.isPaused == true
+                        ? _localizedText(context, zh: '继续目标', en: 'Resume Goal')
+                        : _localizedText(context, zh: '暂停目标', en: 'Pause Goal'),
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () => unawaited(widget.onTerminateGoal()),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colorScheme.error,
+                    foregroundColor: colorScheme.onError,
+                  ),
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label: Text(
+                    _localizedText(context, zh: '终止目标', en: 'Terminate Goal'),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: widget.controller,
+            builder: (context, textValue, _) {
+              final hasUserTextOrAttachments =
+                  textValue.text.trim().isNotEmpty ||
+                  widget.pendingAttachments.isNotEmpty ||
+                  _projectFileReferences.isNotEmpty;
+              final isQueueingAction = isBusy && hasUserTextOrAttachments;
+
+              return SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: isQueueingAction
+                      ? () => _sendWithReferences()
+                      : canStopSending && !hasUserTextOrAttachments
+                      ? () => widget.onStop()
+                      : isBusy
+                      ? null
+                      : () => _sendWithReferences(),
+                  icon: isQueueingAction
+                      ? const Icon(Icons.queue_play_next_rounded)
+                      : canStopSending && !hasUserTextOrAttachments
+                      ? const Icon(Icons.stop_rounded)
+                      : isCompressing || isSendingMessage
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2.4),
+                        )
+                      : Icon(
+                          isResponding
+                              ? Icons.stop_rounded
+                              : Icons.arrow_upward_rounded,
+                        ),
+                  label: Text(
+                    isQueueingAction
+                        ? _localizedText(
+                            context,
+                            zh: '提前发送',
+                            en: 'Queue Message',
+                          )
+                        : canStopSending && !hasUserTextOrAttachments
+                        ? _localizedText(
+                            context,
+                            zh: '停止回答',
+                            en: 'Stop Responding',
+                          )
+                        : sendButtonLabel,
+                  ),
+                ),
+              );
+            },
+          ),
       ],
     );
 

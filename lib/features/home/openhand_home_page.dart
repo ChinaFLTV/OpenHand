@@ -5811,6 +5811,33 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return;
     }
+    final sendSession = _sessionForId(sessionController, targetSessionId);
+    if (sendSession?.hasActiveGoal == true) {
+      final activeContext = context;
+      if (!activeContext.mounted) {
+        return;
+      }
+      final activeGoalMessage = _localizedText(
+        activeContext,
+        zh: '当前目标仍在执行中，请暂停后继续目标或终止目标。',
+        en: 'A goal is active. Resume or terminate it before sending manually.',
+      );
+      _showHomeSnackBar(
+        activeContext,
+        SnackBar(content: Text(activeGoalMessage)),
+      );
+      return;
+    }
+    AiSessionGoalStartOptions? goalStartOptions;
+    if (sendSession?.mode == AiSessionMode.goal) {
+      final result = await _showGoalStartOptionsDialog(
+        selectedModel: selectedModel,
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+      goalStartOptions = result.toStartOptions();
+    }
 
     _replaceComposerText('');
     // Capture the creation mode and reset it before sending.
@@ -5832,6 +5859,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       callerPreflightTimingsMs: submitPreflightTimingsMs,
       additionalSystemReminders: additionalSystemReminders,
       selectedSkillMetadata: skillDisplayMetadata,
+      goalStartOptions: goalStartOptions,
     );
   }
 
@@ -5925,6 +5953,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
+  Future<_GoalStartDialogResult?> _showGoalStartOptionsDialog({
+    required AiModelConfig selectedModel,
+  }) {
+    final settingsController = context.read<SettingsController>();
+    final menuAnimationSettings = settingsController.menuAnimationSettings;
+    final colorScheme = Theme.of(context).colorScheme;
+    return showAnimatedDialog<_GoalStartDialogResult>(
+      context: context,
+      settings: menuAnimationSettings,
+      barrierColor: colorScheme.scrim.withValues(alpha: 0.38),
+      builder: (dialogContext) => _GoalStartOptionsDialog(
+        availableModels: settingsController.aiModels,
+        recentSelections: settingsController.recentModelSelections,
+        initialModel: selectedModel,
+      ),
+    );
+  }
+
   /// Shows a bottom sheet that lets the user refine the creation options for
   /// the currently selected mode. Returns the picked options or `null` if the
   /// user dismissed the sheet without committing a change.
@@ -5984,6 +6030,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiCreationRequest creationRequest = AiCreationRequest.none,
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
+    AiSessionGoalStartOptions? goalStartOptions,
     bool restoreDraftOnLocalStop = true,
     bool processQueueAfterCompletion = true,
   }) async {
@@ -6142,6 +6189,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _confirmWriteCommand(request, sessionId: targetSessionId),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: selectedSkillMetadata,
+        goalStartOptions: goalStartOptions,
       );
       if (!mounted) {
         return sent || submittedUserTurnVisible()
@@ -6652,6 +6700,76 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ) {
         silentLog('openhand_home_page', 'stop responding', error, stackTrace);
       }),
+    );
+  }
+
+  Future<void> _pauseCurrentGoal() async {
+    final sessionController = context.read<AiSessionController>();
+    final sessionId = sessionController.currentSessionId;
+    if (sessionId == null) return;
+    final ok = await sessionController.pauseGoal(sessionId);
+    if (!mounted || ok) return;
+    showFriendlyErrorSnackBar(
+      context,
+      message: sessionController.lastErrorMessageForSession(sessionId),
+      fallback: AppLocalizations.of(context)!.chatRequestFailed,
+    );
+  }
+
+  Future<void> _terminateCurrentGoal() async {
+    final sessionController = context.read<AiSessionController>();
+    final sessionId = sessionController.currentSessionId;
+    if (sessionId == null) return;
+    final ok = await sessionController.terminateGoal(sessionId);
+    if (!mounted || ok) return;
+    showFriendlyErrorSnackBar(
+      context,
+      message: sessionController.lastErrorMessageForSession(sessionId),
+      fallback: AppLocalizations.of(context)!.chatRequestFailed,
+    );
+  }
+
+  Future<void> _resumeCurrentGoal() async {
+    final sessionController = context.read<AiSessionController>();
+    final settingsController = context.read<SettingsController>();
+    final currentSession = sessionController.currentSession;
+    if (currentSession == null) return;
+    final selectedModel = _effectiveModelForSession(
+      settingsController,
+      currentSession,
+    );
+    if (selectedModel == null) {
+      OpenHandSnackBar.showError(
+        context,
+        AppLocalizations.of(context)!.aiModelSelectionRequired,
+      );
+      return;
+    }
+    final runtimeContext = await _buildRuntimeContext(
+      workingDirectory: _programmingExpertProjectRoot(currentSession),
+      skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
+    );
+    if (!mounted) return;
+    final requireWriteConfirmation =
+        currentSession.templateId == 'android_reverse_expert'
+        ? true
+        : currentSession.fullAccessPermission == true
+        ? false
+        : settingsController.aiWriteCommandConfirmationEnabled;
+    final ok = await sessionController.resumeGoal(
+      sessionId: currentSession.id,
+      model: selectedModel,
+      runtimeContext: runtimeContext,
+      denyCommandRules: settingsController.aiDenyCommandRules,
+      requireWriteCommandConfirmation: requireWriteConfirmation,
+      confirmWriteCommand: (request) =>
+          _confirmWriteCommand(request, sessionId: currentSession.id),
+    );
+    if (!mounted || ok) return;
+    showFriendlyErrorSnackBar(
+      context,
+      message: sessionController.lastErrorMessageForSession(currentSession.id),
+      fallback: AppLocalizations.of(context)!.chatRequestFailed,
     );
   }
 
@@ -8824,6 +8942,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
         sessionMode: _effectiveComposerMode(sessionController),
         onSessionModeChanged: _setComposerMode,
+        goalModeAvailable:
+            currentSession != null &&
+            aiSessionGoalModeAllowedForTemplate(currentSession.templateId),
+        onPauseGoal: _pauseCurrentGoal,
+        onResumeGoal: _resumeCurrentGoal,
+        onTerminateGoal: _terminateCurrentGoal,
         fullAccessPermission:
             currentSession?.fullAccessPermission ??
             _detachedFullAccessPermission,

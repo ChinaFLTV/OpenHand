@@ -18,7 +18,52 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
-import { deleteMessage, deleteMessageCascade, deleteSession, EXPORT_SESSION_TIMEOUT_ERROR, exportSessionDownload, fetchMessageTtsPlayback, forkSessionFromMessage, getSession, listMessages, listSessionTitleSourceMessages, renameSession, respondWriteApproval, sendMessage, stopMessage, stopMessageTtsPlayback, toggleMessageTtsPlayback, updateSessionFullAccessPermission, updateSessionMode, compactSession, setSessionThrottle, clearSessionThrottle, generateSessionTitle, setMessageFeedback, translateMessage, regenerateMessage, type CompactSessionResponse, type CompactSessionStatus, type MessageTtsPlaybackState, type SendMessageAttachment, type SessionCacheHitTrendPoint, type SessionDetailResponse, type SessionMessage, type SessionMessageFeedback, type SessionSummary } from '../../../api/sessions';
+import {
+  GOAL_DEFAULT_MAX_AUTO_TURNS,
+  GOAL_HARD_MAX_AUTO_TURNS,
+  clearSessionThrottle,
+  compactSession,
+  deleteMessage,
+  deleteMessageCascade,
+  deleteSession,
+  EXPORT_SESSION_TIMEOUT_ERROR,
+  exportSessionDownload,
+  fetchMessageTtsPlayback,
+  forkSessionFromMessage,
+  generateSessionTitle,
+  getSession,
+  isGoalModeAllowedForTemplate,
+  listMessages,
+  listSessionTitleSourceMessages,
+  pauseGoal,
+  regenerateMessage,
+  renameSession,
+  respondWriteApproval,
+  resumeGoal,
+  sendMessage,
+  setMessageFeedback,
+  setSessionThrottle,
+  stopMessage,
+  stopMessageTtsPlayback,
+  terminateGoal,
+  toggleMessageTtsPlayback,
+  translateMessage,
+  updateSessionFullAccessPermission,
+  updateSessionMode,
+  type CompactSessionResponse,
+  type CompactSessionStatus,
+  type GoalStartOptions,
+  type MessageTtsPlaybackState,
+  type SendMessageAttachment,
+  type SessionCacheHitTrendPoint,
+  type SessionDetailResponse,
+  type SessionGoalRecord,
+  type SessionGoalState,
+  type SessionMessage,
+  type SessionMessageFeedback,
+  type SessionMode,
+  type SessionSummary,
+} from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
@@ -660,13 +705,67 @@ export function mergeServerWindow(prev: SessionMessage[], latest: SessionMessage
 }
 
 function sessionModeLabel(mode: string): string {
-  return mode === 'plan' ? t('sessions.mode.plan', '计划模式') : t('sessions.mode.chat', '聊天模式');
+  if (mode === 'plan') return t('sessions.mode.plan', '计划模式');
+  if (mode === 'goal') return t('sessions.mode.goal', '目标模式');
+  return t('sessions.mode.chat', '聊天模式');
 }
 
-type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'guide' | 'image' | 'model' | 'mode' | 'plan' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
+function isActiveGoalStatus(status: string | null | undefined): boolean {
+  return status === 'running' || status === 'paused';
+}
+
+function goalStatusLabel(status: string | null | undefined): string {
+  switch (status) {
+    case 'running':
+      return t('goal.status.running', '运行中');
+    case 'paused':
+      return t('goal.status.paused', '已暂停');
+    case 'completed':
+      return t('goal.status.completed', '已完成');
+    case 'terminated':
+      return t('goal.status.terminated', '已终止');
+    case 'failed':
+      return t('goal.status.failed', '失败');
+    case 'round_limit_reached':
+      return t('goal.status.roundLimitReached', '轮次耗尽');
+    case 'token_budget_reached':
+      return t('goal.status.tokenBudgetReached', '预算耗尽');
+    default:
+      return t('goal.status.unknown', '未知');
+  }
+}
+
+function goalDisplayTurnLimit(goal: SessionGoalRecord): number {
+  const configured = typeof goal.max_turns === 'number' ? Math.round(goal.max_turns) : 0;
+  return Math.max(1, Math.min(GOAL_HARD_MAX_AUTO_TURNS, configured || GOAL_DEFAULT_MAX_AUTO_TURNS));
+}
+
+function goalProgressLabel(goal: SessionGoalRecord): string {
+  const turns = `${Math.max(0, goal.turn_count ?? 0)}/${goalDisplayTurnLimit(goal)}`;
+  const budget = goal.token_budget != null
+    ? ` · ${Math.max(0, goal.tokens_used ?? 0).toLocaleString()}/${goal.token_budget.toLocaleString()} tok`
+    : '';
+  return `${goalStatusLabel(goal.status)} · ${turns}${budget}`;
+}
+
+function latestGoalRecord(goalState: SessionGoalState | null | undefined): SessionGoalRecord | null {
+  if (goalState?.current) return goalState.current;
+  const history = goalState?.history ?? [];
+  return history.length > 0 ? history[history.length - 1]! : null;
+}
+
+function nextSessionMode(current: SessionMode, options: SessionMode[]): SessionMode {
+  if (options.length === 0) return 'chat';
+  const index = options.indexOf(current);
+  return options[(index < 0 ? 0 : index + 1) % options.length] ?? 'chat';
+}
+
+type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'image' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
 
 function sessionModeIconName(mode: string): ComposerIconName {
-  return mode === 'plan' ? 'plan' : 'chat';
+  if (mode === 'plan') return 'plan';
+  if (mode === 'goal') return 'goal';
+  return 'chat';
 }
 
 function composerModeIconName(mode: string): ComposerIconName {
@@ -762,6 +861,14 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
           <path {...stroke} d="M12 5v10M8 11l4 4 4-4M5 19h14" />
         </svg>
       );
+    case 'goal':
+      return (
+        <svg {...common}>
+          <circle {...stroke} cx="12" cy="12" r="7" />
+          <circle {...stroke} cx="12" cy="12" r="3" />
+          <path {...stroke} d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+        </svg>
+      );
     case 'guide':
       return (
         <svg {...common}>
@@ -809,12 +916,25 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
           <path {...stroke} d="m9.5 12 1.7 1.7 3.6-4" />
         </svg>
       );
+    case 'pause':
+      return (
+        <svg {...common}>
+          <rect {...stroke} x="7" y="5" width="3.5" height="14" rx="1" />
+          <rect {...stroke} x="13.5" y="5" width="3.5" height="14" rx="1" />
+        </svg>
+      );
     case 'plan':
       return (
         <svg {...common}>
           <path {...stroke} d="M7 4h10a2 2 0 0 1 2 2v14H5V6a2 2 0 0 1 2-2z" />
           <path {...stroke} d="M9 8h6M9 12h6M9 16h3" />
           <path {...stroke} d="m15 16 1.2 1.2L19 14.4" />
+        </svg>
+      );
+    case 'play':
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M8 5v14l11-7z" />
         </svg>
       );
     case 'plus':
@@ -1182,6 +1302,7 @@ function mergeSessionSummary(previous: SessionDetailResponse['session'], incomin
     environment: incoming.environment ?? previous.environment,
     last_prompt_metadata: incoming.last_prompt_metadata ?? previous.last_prompt_metadata,
     plan_history: incoming.plan_history ?? previous.plan_history,
+    goal_state: incoming.goal_state ?? previous.goal_state,
     recent_errors: incoming.recent_errors ?? previous.recent_errors,
     latest_compression_point: incoming.latest_compression_point ?? previous.latest_compression_point,
   };
@@ -1491,6 +1612,7 @@ export function SessionDetailPage() {
   const skillPickerOverlayRef = useRef<HTMLDivElement | null>(null);
   const slashTriggerOffsetRef = useRef<number | null>(null);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
+  const goalStartOptionsResolverRef = useRef<((result: GoalStartOptions | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
   const sessionIdRef = useRef(sessionId);
@@ -1554,6 +1676,9 @@ export function SessionDetailPage() {
   const [sessionMetadataOpen, setSessionMetadataOpen] = useState(false);
   const [tokenStatsOpen, setTokenStatsOpen] = useState(false);
   const [contextStatsOpen, setContextStatsOpen] = useState(false);
+  const [goalDetailsOpen, setGoalDetailsOpen] = useState(false);
+  const [goalStartOptionsOpen, setGoalStartOptionsOpen] = useState(false);
+  const [goalControlBusy, setGoalControlBusy] = useState<'pause' | 'resume' | 'terminate' | null>(null);
   const [webReverseDashboardOpen, setWebReverseDashboardOpen] = useState(false);
   const [androidReverseDashboardOpen, setAndroidReverseDashboardOpen] = useState(false);
   const [imageEditorInput, setImageEditorInput] = useState<ImageEditorInput | null>(null);
@@ -1626,11 +1751,16 @@ export function SessionDetailPage() {
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
     setContextStatsOpen(false);
+    setGoalDetailsOpen(false);
+    setGoalStartOptionsOpen(false);
+    setGoalControlBusy(null);
     setThrottleDialogOpen(false);
     setWebReverseDashboardOpen(false);
     setAndroidReverseDashboardOpen(false);
     imageEditorResolverRef.current?.(null);
     imageEditorResolverRef.current = null;
+    goalStartOptionsResolverRef.current?.(null);
+    goalStartOptionsResolverRef.current = null;
     setImageEditorInput(null);
     // 与 App 端 _skippedInstructionIds 一致：会话切换时清空跳过集合，
     // 避免上一会话的跳过状态泄漏到新会话。
@@ -1667,6 +1797,8 @@ export function SessionDetailPage() {
     () => () => {
       imageEditorResolverRef.current?.(null);
       imageEditorResolverRef.current = null;
+      goalStartOptionsResolverRef.current?.(null);
+      goalStartOptionsResolverRef.current = null;
     },
     [],
   );
@@ -2389,6 +2521,11 @@ export function SessionDetailPage() {
   }, [messages]);
 
   const detailBelongsToRoute = detail?.session.id === sessionId;
+  const session = detailBelongsToRoute ? detail?.session : undefined;
+  const currentGoal = session?.goal_state?.current ?? null;
+  const hasActiveGoal = isActiveGoalStatus(currentGoal?.status);
+  const goalPaused = currentGoal?.status === 'paused';
+  const goalModeAvailable = Boolean(session && isGoalModeAllowedForTemplate(session.template_id));
   const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
   const messageWindowView = useMemo(() => deriveMessageWindowView(routeMessages), [routeMessages]);
   const messageMembershipKey = useMemo(() => {
@@ -3042,7 +3179,12 @@ export function SessionDetailPage() {
   }, [allowedModes, selectedModel]);
   const composerModeOptions = useMemo(() => allComposerModes(allowedModes), [allowedModes]);
   const allowedMessageTypes = useMemo<string[]>(() => meta?.message_types ?? ['text', 'attachment'], [meta]);
-  const sessionModeOptions = useMemo<string[]>(() => (meta?.service?.plan_mode_enabled ? ['chat', 'plan'] : ['chat']), [meta?.service?.plan_mode_enabled]);
+  const sessionModeOptions = useMemo<SessionMode[]>(() => {
+    const modes: SessionMode[] = ['chat'];
+    if (meta?.service?.plan_mode_enabled) modes.push('plan');
+    if (goalModeAvailable) modes.push('goal');
+    return modes;
+  }, [goalModeAvailable, meta?.service?.plan_mode_enabled]);
   const attachmentsAllowed = allowedMessageTypes.includes('attachment') && selectedModel?.supports_attachments !== false;
   const textAllowed = allowedMessageTypes.includes('text');
 
@@ -3707,6 +3849,21 @@ export function SessionDetailPage() {
     resolve?.(result);
   }
 
+  function openGoalStartOptionsDialog(): Promise<GoalStartOptions | null> {
+    goalStartOptionsResolverRef.current?.(null);
+    setGoalStartOptionsOpen(true);
+    return new Promise((resolve) => {
+      goalStartOptionsResolverRef.current = resolve;
+    });
+  }
+
+  function settleGoalStartOptions(result: GoalStartOptions | null): void {
+    const resolve = goalStartOptionsResolverRef.current;
+    goalStartOptionsResolverRef.current = null;
+    setGoalStartOptionsOpen(false);
+    resolve?.(result);
+  }
+
   // 从 File[] 追加附件。共用与 file input / drag-drop / paste
   async function appendFiles(files: File[]): Promise<void> {
     if (files.length === 0) return;
@@ -3812,6 +3969,12 @@ export function SessionDetailPage() {
 
   async function handleSend(): Promise<void> {
     if (composerSending) return;
+    if (hasActiveGoal) {
+      const message = t('goal.manualSend.blocked', '目标执行中，请先暂停、恢复或终止当前目标。');
+      setComposerError(message);
+      showSnackbar(message, { tone: 'error' });
+      return;
+    }
     if (isRunningPhase(sendPhase)) {
       enqueueCurrentComposerMessage();
       return;
@@ -3821,6 +3984,17 @@ export function SessionDetailPage() {
     if (validation) {
       setComposerError(validation);
       return;
+    }
+    let goalOptions: GoalStartOptions | null = null;
+    if (session?.mode === 'goal') {
+      if (!goalModeAvailable) {
+        const message = t('goal.start.unavailable', '当前线程模板暂不支持目标模式');
+        setComposerError(message);
+        showSnackbar(message, { tone: 'error' });
+        return;
+      }
+      goalOptions = await openGoalStartOptionsDialog();
+      if (!goalOptions) return;
     }
     const shouldTrackAutoTitle = shouldWatchAutoTitleAfterSend(text);
     setComposerSending(true);
@@ -3883,6 +4057,7 @@ export function SessionDetailPage() {
             }
           : null,
         skippedInstructionIds: Array.from(skippedInstructionIds),
+        goalOptions,
       });
       if (!ownsSessionAsyncResult(requestSessionId)) return;
       setComposerText('');
@@ -3980,13 +4155,87 @@ export function SessionDetailPage() {
     }
   }
 
-  const session = detailBelongsToRoute ? detail?.session : undefined;
+  async function handlePauseGoal(): Promise<void> {
+    if (!sessionId || goalControlBusy) return;
+    setGoalControlBusy('pause');
+    const requestSessionId = sessionId;
+    try {
+      const res = await pauseGoal(requestSessionId);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      setDetail((prev) => (prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev));
+      updateSendPhaseValue('idle');
+      void refresh();
+      showSnackbar(t('goal.pause.ok', '已暂停目标'), { tone: 'success' });
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('goal.pause.failed', '暂停目标失败')}：${message}`, { tone: 'error' });
+    } finally {
+      if (ownsSessionAsyncResult(requestSessionId)) setGoalControlBusy(null);
+    }
+  }
+
+  async function handleResumeGoal(): Promise<void> {
+    if (!sessionId || goalControlBusy || !currentGoal || !goalPaused) return;
+    setGoalControlBusy('resume');
+    const requestSessionId = sessionId;
+    try {
+      const res = await resumeGoal(requestSessionId, composerModelKey || detail?.session.last_model_key || undefined);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      updateSendPhaseValue(res.send_phase || 'sendingMessage');
+      void refresh();
+      showSnackbar(t('goal.resume.ok', '已恢复目标'), { tone: 'success' });
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('goal.resume.failed', '恢复目标失败')}：${message}`, { tone: 'error' });
+    } finally {
+      if (ownsSessionAsyncResult(requestSessionId)) setGoalControlBusy(null);
+    }
+  }
+
+  async function handleTerminateGoal(): Promise<void> {
+    if (!sessionId || goalControlBusy) return;
+    setGoalControlBusy('terminate');
+    const requestSessionId = sessionId;
+    try {
+      const res = await terminateGoal(requestSessionId);
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      setDetail((prev) => (prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev));
+      updateSendPhaseValue('idle');
+      void refresh();
+      showSnackbar(t('goal.terminate.ok', '已终止目标'), { tone: 'success' });
+    } catch (e) {
+      if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (handleAuthError(e)) return;
+      if (handleSessionGoneError(e)) return;
+      const message = e instanceof Error ? e.message : String(e);
+      setLastError(message);
+      showSnackbar(`${t('goal.terminate.failed', '终止目标失败')}：${message}`, { tone: 'error' });
+    } finally {
+      if (ownsSessionAsyncResult(requestSessionId)) setGoalControlBusy(null);
+    }
+  }
+
   const effectiveLoadingDetail = loadingDetail || Boolean(detail && !detailBelongsToRoute);
-  const currentSessionMode: 'chat' | 'plan' = session?.mode === 'plan' ? 'plan' : 'chat';
-  const nextSessionMode: 'chat' | 'plan' = currentSessionMode === 'plan' ? 'chat' : 'plan';
-  const canToggleSessionMode = sessionModeOptions.includes(nextSessionMode);
-  async function applySessionMode(next: 'chat' | 'plan'): Promise<void> {
+  const currentSessionMode: SessionMode = session?.mode === 'plan' || session?.mode === 'goal' ? session.mode : 'chat';
+  const nextMode = nextSessionMode(currentSessionMode, sessionModeOptions);
+  const canToggleSessionMode =
+    !hasActiveGoal &&
+    sessionModeOptions.length > 1 &&
+    sessionModeOptions.includes(nextMode);
+  async function applySessionMode(next: SessionMode): Promise<void> {
     if (!sessionId) return;
+    if (hasActiveGoal) {
+      showSnackbar(t('goal.mode.locked', '目标执行期间不能切换会话模式'), { tone: 'error' });
+      return;
+    }
     const requestSessionId = sessionId;
     try {
       const res = await updateSessionMode(requestSessionId, next);
@@ -4073,6 +4322,18 @@ export function SessionDetailPage() {
         onClick: () => setTokenStatsOpen(true),
       },
     );
+    const goal = latestGoalRecord(session.goal_state);
+    if (goal) {
+      const active = isActiveGoalStatus(goal.status);
+      capsules.push({
+        key: 'goal',
+        icon: 'goal',
+        label: `${t('goal.capsule.label', '目标')} · ${goalProgressLabel(goal)}`,
+        title: goal.objective,
+        tone: active ? (goal.status === 'paused' ? 'warning' : 'success') : 'muted',
+        onClick: () => setGoalDetailsOpen(true),
+      });
+    }
     if (lazyLoadingCapsule) capsules.push(lazyLoadingCapsule);
     if (runtimeNotices.length > 0) {
       capsules.push({
@@ -4336,7 +4597,7 @@ export function SessionDetailPage() {
   }
 
   const subtitle = session ? [session.template_name || session.template_id, `${totalKnown} ${t('sessions.messageUnit', '条消息')}`, session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '', session.tool_message_count ? `${session.tool_message_count} tool` : '', session.compression_point_count ? `${session.compression_point_count} compress` : ''].filter(Boolean).join(' · ') : t('detail.loading', '加载会话中…');
-  const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping;
+  const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping || hasActiveGoal;
 
   return (
     <main ref={pageRootRef} class="oh-session-detail-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
@@ -4542,7 +4803,7 @@ export function SessionDetailPage() {
             {!composerCollapsed ? (
               <>
                 {sessionModeOptions.length > 1 ? (
-                  <button type="button" onClick={() => void applySessionMode(nextSessionMode)} disabled={composerSending || !canToggleSessionMode} class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'plan' ? 'is-plan is-tonal' : 'is-chat'}`} aria-pressed={currentSessionMode === 'plan'} title={sessionModeLabel(currentSessionMode)}>
+                  <button type="button" onClick={() => void applySessionMode(nextMode)} disabled={composerSending || !canToggleSessionMode} class={`oh-session-mode-button oh-composer-control oh-tap-press ${currentSessionMode === 'goal' ? 'is-goal is-tonal' : currentSessionMode === 'plan' ? 'is-plan is-tonal' : 'is-chat'}`} aria-pressed={currentSessionMode !== 'chat'} title={hasActiveGoal ? t('goal.mode.locked', '目标执行期间不能切换会话模式') : sessionModeLabel(currentSessionMode)}>
                     <span key={`session-mode-icon-${currentSessionMode}`} class="oh-composer-control-icon oh-session-mode-icon oh-soft-replace">
                       <ComposerIcon name={sessionModeIconName(currentSessionMode)} />
                     </span>
@@ -4953,9 +5214,9 @@ export function SessionDetailPage() {
                 onKeyDown={(e) => {
                   handleComposerKeyDown(e as unknown as KeyboardEvent);
                 }}
-                disabled={composerSending || composerCollapsed}
+                disabled={composerSending || composerCollapsed || hasActiveGoal}
                 rows={4}
-                placeholder={t('composer.placeholder', '输入消息')}
+                placeholder={hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
                 class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
               />
               {dragOver ? <div class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up">{t('composer.attachment.drop', '松开即可添加附件')}</div> : null}
@@ -4986,7 +5247,30 @@ export function SessionDetailPage() {
                 {composerAttachments.length} {t('composer.attachment.unit', '个附件')}
               </span>
             ) : null}
-            {responseRunning ? (
+            {hasActiveGoal ? (
+              <>
+                <button type="button" onClick={() => void (goalPaused ? handleResumeGoal() : handlePauseGoal())} disabled={goalControlBusy !== null} class={`oh-tap-press oh-composer-footer-action ${goalPaused ? 'is-goal-resume' : 'is-goal-pause'} disabled:opacity-50`}>
+                  <span class={goalControlBusy === 'pause' || goalControlBusy === 'resume' ? 'oh-spin' : undefined}>
+                    <ComposerIcon name={goalControlBusy === 'pause' || goalControlBusy === 'resume' ? 'refresh' : goalPaused ? 'play' : 'pause'} size={16} />
+                  </span>
+                  <span>
+                    {goalControlBusy === 'pause'
+                      ? t('goal.pause.busy', '正在暂停…')
+                      : goalControlBusy === 'resume'
+                        ? t('goal.resume.busy', '正在恢复…')
+                        : goalPaused
+                          ? t('goal.resume.action', '恢复目标')
+                          : t('goal.pause.action', '暂停目标')}
+                  </span>
+                </button>
+                <button type="button" onClick={() => void handleTerminateGoal()} disabled={goalControlBusy !== null} class="oh-tap-press oh-composer-footer-action is-goal-terminate disabled:opacity-50">
+                  <span class={goalControlBusy === 'terminate' ? 'oh-spin' : undefined}>
+                    <ComposerIcon name={goalControlBusy === 'terminate' ? 'refresh' : 'stop'} size={16} />
+                  </span>
+                  <span>{goalControlBusy === 'terminate' ? t('goal.terminate.busy', '正在终止…') : t('goal.terminate.action', '终止目标')}</span>
+                </button>
+              </>
+            ) : responseRunning ? (
               <button type="button" onClick={handleStop} disabled={stopping} class="oh-tap-press oh-composer-footer-action is-stop disabled:opacity-50">
                 <span class={stopping ? 'oh-spin' : undefined}>
                   <ComposerIcon name={stopping ? 'refresh' : 'stop'} size={16} />
@@ -4994,12 +5278,14 @@ export function SessionDetailPage() {
                 <span>{stopping ? t('composer.stopping', '正在停止…') : t('composer.stop', '停止响应')}</span>
               </button>
             ) : null}
-            <button type="button" onClick={handleSend} disabled={composerSendDisabled} class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}>
-              <span class={composerSending ? 'oh-spin' : undefined}>
-                <ComposerIcon name={composerSending ? 'refresh' : 'send'} size={16} />
-              </span>
-              <span>{composerSending ? t('composer.sending', '发送中…') : responseRunning ? t('composer.queue.aheadSend', '提前发送') : t('composer.send', '发送')}</span>
-            </button>
+            {!hasActiveGoal ? (
+              <button type="button" onClick={handleSend} disabled={composerSendDisabled} class={`oh-tap-press oh-composer-footer-action is-send disabled:opacity-50 ${responseRunning ? 'is-queueing' : ''}`}>
+                <span class={composerSending ? 'oh-spin' : undefined}>
+                  <ComposerIcon name={composerSending ? 'refresh' : 'send'} size={16} />
+                </span>
+                <span>{composerSending ? t('composer.sending', '发送中…') : responseRunning ? t('composer.queue.aheadSend', '提前发送') : t('composer.send', '发送')}</span>
+              </button>
+            ) : null}
           </div>
         </section>
       </div>
@@ -5007,6 +5293,7 @@ export function SessionDetailPage() {
       {auditMessage ? <MessageAuditDialog message={auditMessage} onClose={() => setAuditMessage(null)} /> : null}
       {sessionAuditOpen && detail ? <SessionAuditDialog detail={detail} messages={sortedMessages} onClose={() => setSessionAuditOpen(false)} /> : null}
       {sessionMetadataOpen && detail ? <SessionMetadataDialog detail={detail} messages={sortedMessages} onClose={() => setSessionMetadataOpen(false)} /> : null}
+      {goalDetailsOpen && session ? <GoalDetailsDialog session={session} onClose={() => setGoalDetailsOpen(false)} /> : null}
       {tokenStatsOpen && detail ? <SessionTokenStatsDialog detail={detail} onClose={() => setTokenStatsOpen(false)} /> : null}
       {contextStatsOpen && detail ? (
         <SessionContextStatsDialog
@@ -5118,6 +5405,14 @@ export function SessionDetailPage() {
             pushRecentModel(key);
           }}
           onClose={() => setShowComposerModelPicker(false)}
+        />
+      ) : null}
+      {goalStartOptionsOpen ? (
+        <GoalStartOptionsDialog
+          models={allowedModels}
+          initialModelKey={composerModelKey || session?.last_model_key || meta?.active_model_key || ''}
+          onConfirm={settleGoalStartOptions}
+          onCancel={() => settleGoalStartOptions(null)}
         />
       ) : null}
       {showCreationOptions ? (
@@ -5309,6 +5604,330 @@ function ErrorBanner({ message, onRetry, onDismiss }: { message: string; onRetry
           <ComposerIcon name="close" size={14} />
         </button>
       </div>
+    </div>
+  );
+}
+
+function GoalStartOptionsDialog({
+  models,
+  initialModelKey,
+  onConfirm,
+  onCancel,
+}: {
+  models: ApiMetaModel[];
+  initialModelKey: string;
+  onConfirm: (options: GoalStartOptions) => void;
+  onCancel: () => void;
+}) {
+  const [modelKey, setModelKey] = useState(() => {
+    return models.some((model) => model.key === initialModelKey)
+      ? initialModelKey
+      : models[0]?.key ?? '';
+  });
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [turnLimitEnabled, setTurnLimitEnabled] = useState(false);
+  const [turnLimit, setTurnLimit] = useState(String(GOAL_DEFAULT_MAX_AUTO_TURNS));
+  const [tokenBudgetEnabled, setTokenBudgetEnabled] = useState(false);
+  const [tokenBudget, setTokenBudget] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const { closing, requestClose } = useDialogExitMotion(onCancel);
+
+  useEffect(() => {
+    setModelKey((current) => {
+      if (current && models.some((model) => model.key === current)) return current;
+      return models[0]?.key ?? '';
+    });
+  }, [models]);
+
+  const selectedModel = models.find((model) => model.key === modelKey);
+  const modelLabel = selectedModel
+    ? `${selectedModel.label || selectedModel.model_id}${selectedModel.provider ? ` · ${selectedModel.provider}` : ''}`
+    : t('composer.modelEmpty', '主控制台未配置模型');
+
+  const parsePositiveInt = (raw: string): number | null => {
+    const value = Number.parseInt(raw.trim(), 10);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+
+  const submit = (event?: Event) => {
+    event?.preventDefault();
+    if (!selectedModel) {
+      setError(t('composer.error.modelMissing', '请选择模型'));
+      return;
+    }
+    const turns = turnLimitEnabled ? parsePositiveInt(turnLimit) : null;
+    if (turnLimitEnabled && (turns == null || turns > GOAL_HARD_MAX_AUTO_TURNS)) {
+      setError(t('goal.start.turnLimit.invalid', '轮次限制请输入 1 到 60 的正整数'));
+      return;
+    }
+    const budget = tokenBudgetEnabled ? parsePositiveInt(tokenBudget) : null;
+    if (tokenBudgetEnabled && budget == null) {
+      setError(t('goal.start.tokenBudget.invalid', 'Token 预算请输入正整数'));
+      return;
+    }
+    onConfirm({
+      evaluator_provider_config_id: selectedModel.provider_id || selectedModel.key,
+      evaluator_model_id: selectedModel.model_id,
+      evaluator_model_label: selectedModel.label || selectedModel.model_id,
+      max_turns: turns,
+      token_budget: budget,
+    });
+  };
+
+  const SwitchButton = ({
+    checked,
+    onClick,
+    label,
+  }: {
+    checked: boolean;
+    onClick: () => void;
+    label: string;
+  }) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onClick}
+      class={`oh-goal-switch oh-tap-press ${checked ? 'is-on' : ''}`}
+      title={label}
+    >
+      <span />
+    </button>
+  );
+
+  return (
+    <>
+      <DialogFrame
+        closing={closing}
+        onRequestClose={requestClose}
+        {...createStandardDialogFrameAppearance({
+          overlayTone: 'strong',
+          panelClassName: 'rounded-m3-md p-5 max-w-lg w-full flex flex-col',
+          panelBorder: 'outline',
+          panelSurface: {
+            maxHeight: '82vh',
+          },
+        })}
+        ariaLabel={t('goal.start.title', '启动目标模式')}
+      >
+        <form onSubmit={submit} class="flex flex-col gap-4">
+          <header class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+                {t('goal.start.title', '启动目标模式')}
+              </h2>
+              <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                {t('goal.start.subtitle', '当前输入内容会成为本线程目标，由 Agent Runtime 自动推进并评估完成证据。')}
+              </p>
+            </div>
+            <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}>
+              <ComposerIcon name="close" size={14} />
+              <span>{t('common.close', '关闭')}</span>
+            </button>
+          </header>
+
+          <label class="flex flex-col gap-1 text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {t('goal.start.evaluatorModel', '评估模型')}
+            <button
+              type="button"
+              onClick={() => setModelPickerOpen(true)}
+              disabled={models.length === 0}
+              class="oh-tap-press oh-goal-model-button text-left"
+            >
+              <span class="oh-goal-model-icon" aria-hidden>
+                <ComposerIcon name="model" size={16} />
+              </span>
+              <span class="truncate">{modelLabel}</span>
+            </button>
+          </label>
+
+          <div class="oh-goal-option-row">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.turnLimit', '轮次限制')}</div>
+              <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.turnLimit.hint', '关闭时使用运行时默认安全上限。')}</div>
+            </div>
+            <SwitchButton checked={turnLimitEnabled} onClick={() => setTurnLimitEnabled((value) => !value)} label={t('goal.start.turnLimit', '轮次限制')} />
+          </div>
+          {turnLimitEnabled ? (
+            <input
+              type="number"
+              min={1}
+              max={GOAL_HARD_MAX_AUTO_TURNS}
+              value={turnLimit}
+              onInput={(event) => setTurnLimit((event.currentTarget as HTMLInputElement).value)}
+              class="oh-goal-number-input"
+              aria-label={t('goal.start.turnLimit', '轮次限制')}
+            />
+          ) : null}
+
+          <div class="oh-goal-option-row">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-semibold" style={{ color: 'var(--m3-on-surface)' }}>{t('goal.start.tokenBudget', 'Token 预算')}</div>
+              <div class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.start.tokenBudget.hint', '关闭时不额外设置预算，只保留硬性轮次保护。')}</div>
+            </div>
+            <SwitchButton checked={tokenBudgetEnabled} onClick={() => setTokenBudgetEnabled((value) => !value)} label={t('goal.start.tokenBudget', 'Token 预算')} />
+          </div>
+          {tokenBudgetEnabled ? (
+            <input
+              type="number"
+              min={1}
+              value={tokenBudget}
+              onInput={(event) => setTokenBudget((event.currentTarget as HTMLInputElement).value)}
+              class="oh-goal-number-input"
+              placeholder="128000"
+              aria-label={t('goal.start.tokenBudget', 'Token 预算')}
+            />
+          ) : null}
+
+          {error ? <p class="text-xs" style={{ color: 'var(--m3-error)' }}>{error}</p> : null}
+
+          <div class="flex items-center justify-end gap-2 pt-1">
+            <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface)', border: '1px solid var(--m3-outline)' }}>
+              {t('common.cancel', '取消')}
+            </button>
+            <button type="submit" class="oh-tap-press oh-dialog-action-button" style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}>
+              <ComposerIcon name="goal" size={14} />
+              <span>{t('goal.start.confirm', '启动目标')}</span>
+            </button>
+          </div>
+        </form>
+      </DialogFrame>
+      {modelPickerOpen ? (
+        <ModelPickerDialog
+          models={models}
+          selectedKey={modelKey}
+          onSelect={(key) => {
+            setModelKey(key);
+            pushRecentModel(key);
+          }}
+          onClose={() => setModelPickerOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onClose: () => void }) {
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  const state = session.goal_state;
+  const current = state?.current ?? null;
+  const history = [...(state?.history ?? [])].reverse();
+  const environment = recordFromUnknown(session.environment);
+
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      {...createStandardDialogFrameAppearance({
+        overlayTone: 'strong',
+        panelClassName: 'rounded-m3-md p-5 max-w-3xl w-full flex flex-col',
+        panelBorder: 'outline',
+        panelSurface: {
+          maxHeight: '86vh',
+        },
+      })}
+      ariaLabel={t('goal.details.title', '目标执行详情')}
+    >
+      <header class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
+            {t('goal.details.title', '目标执行详情')}
+          </h2>
+          <p class="text-xs mt-1" style={{ color: 'var(--m3-on-surface-variant)' }}>
+            {session.template_name || session.template_id} · {session.mode}
+          </p>
+        </div>
+        <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}>
+          <ComposerIcon name="close" size={14} />
+          <span>{t('common.close', '关闭')}</span>
+        </button>
+      </header>
+
+      <div class="oh-goal-details-scroll">
+        {current ? (
+          <GoalRecordSection goal={current} title={t('goal.details.current', '当前目标')} full />
+        ) : (
+          <section class="oh-goal-section">
+            <h3>{t('goal.details.current', '当前目标')}</h3>
+            <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.details.noCurrent', '当前没有正在执行的目标。')}</p>
+          </section>
+        )}
+
+        <section class="oh-goal-section">
+          <h3>{t('goal.details.environment', '环境信息')}</h3>
+          <div class="oh-goal-kv-grid">
+            <GoalKv label="Session" value={session.id} />
+            <GoalKv label="Template" value={session.template_name || session.template_id} />
+            <GoalKv label="Mode" value={session.mode} />
+            <GoalKv label="Messages" value={String(session.message_count ?? 0)} />
+            <GoalKv label="Platform" value={stringFromUnknown(environment['platform']) || '—'} />
+            <GoalKv label="Working Directory" value={stringFromUnknown(environment['application_directory'] ?? environment['working_directory']) || '—'} />
+          </div>
+        </section>
+
+        <section class="oh-goal-section">
+          <h3>{t('goal.details.history', '历史目标')}</h3>
+          {history.length === 0 ? (
+            <p class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>{t('goal.details.history.empty', '暂无历史目标。')}</p>
+          ) : (
+            <div class="flex flex-col gap-3">
+              {history.map((goal) => <GoalRecordSection key={goal.id} goal={goal} title={goalStatusLabel(goal.status)} />)}
+            </div>
+          )}
+        </section>
+      </div>
+    </DialogFrame>
+  );
+}
+
+function GoalRecordSection({ goal, title, full = false }: { goal: SessionGoalRecord; title: string; full?: boolean }) {
+  const evaluations = [...(goal.evaluations ?? [])].reverse().slice(0, full ? 8 : 3);
+  return (
+    <section class="oh-goal-section">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3>{title}</h3>
+        <span class={`oh-goal-status-chip ${isActiveGoalStatus(goal.status) ? 'is-active' : ''}`}>
+          {goalProgressLabel(goal)}
+        </span>
+      </div>
+      <p class="oh-goal-objective">{goal.objective}</p>
+      <div class="oh-goal-kv-grid">
+        <GoalKv label={t('goal.details.evaluator', '评估模型')} value={goal.evaluator_model_label || goal.evaluator_model_id} />
+        <GoalKv label={t('goal.details.createdAt', '创建时间')} value={formatDialogDate(goal.created_at)} />
+        <GoalKv label={t('goal.details.updatedAt', '更新时间')} value={formatDialogDate(goal.updated_at)} />
+        <GoalKv label={t('goal.details.completedAt', '完成时间')} value={formatDialogDate(goal.completed_at ?? goal.terminated_at)} />
+      </div>
+      {goal.status_reason ? (
+        <p class="oh-goal-reason">{goal.status_reason}</p>
+      ) : null}
+      {evaluations.length > 0 ? (
+        <div class="oh-goal-evaluation-list">
+          {evaluations.map((evaluation) => (
+            <div key={evaluation.id} class={`oh-goal-evaluation ${evaluation.passed ? 'is-pass' : 'is-miss'}`}>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <strong>{evaluation.passed ? t('goal.evaluation.pass', '证据通过') : t('goal.evaluation.miss', '继续推进')}</strong>
+                <span>{formatDialogDate(evaluation.created_at)} · #{evaluation.round_index}</span>
+              </div>
+              <p>{evaluation.summary || evaluation.error || '—'}</p>
+              {evaluation.evidence?.length ? (
+                <div class="oh-goal-inline-list">{evaluation.evidence.slice(0, 4).map((item, index) => <span key={`e-${index}`}>{item}</span>)}</div>
+              ) : null}
+              {evaluation.missing?.length ? (
+                <div class="oh-goal-inline-list is-missing">{evaluation.missing.slice(0, 4).map((item, index) => <span key={`m-${index}`}>{item}</span>)}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function GoalKv({ label, value }: { label: string; value: ComponentChildren }) {
+  return (
+    <div class="oh-goal-kv">
+      <span>{label}</span>
+      <strong>{value || '—'}</strong>
     </div>
   );
 }

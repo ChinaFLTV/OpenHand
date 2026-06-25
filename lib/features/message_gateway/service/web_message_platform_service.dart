@@ -1290,6 +1290,21 @@ class WebMessagePlatformService {
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _stopSendMessage(req, auth, sessionId)),
     );
+    router.post(
+      '/api/sessions/<sessionId>/goal/pause',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _pauseGoal(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/goal/resume',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _resumeGoal(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/goal/terminate',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _terminateGoal(req, auth, sessionId)),
+    );
     // 用户主动触发的会话历史压缩。复用桌面端
     // [AiSessionController.requestManualCompaction]：包含 30s 防抖、占用率
     // 过低拒绝、熔断、并发互斥等多重保护。返回值 `ok / status /
@@ -2331,9 +2346,27 @@ class WebMessagePlatformService {
       });
     }
     final requestedMode = _string(body['mode'], 'chat').trim();
-    final mode = requestedMode == 'plan' && _config.planModeEnabled
-        ? AiSessionMode.plan
-        : AiSessionMode.chat;
+    if (requestedMode == 'goal' &&
+        !aiSessionGoalModeAllowedForTemplate(templateId)) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'goal_mode_not_available',
+      });
+    }
+    if (requestedMode.isNotEmpty &&
+        requestedMode != 'chat' &&
+        requestedMode != 'plan' &&
+        requestedMode != 'goal') {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'session_mode_invalid',
+        'mode': requestedMode,
+      });
+    }
+    final mode = switch (requestedMode) {
+      'plan' when _config.planModeEnabled => AiSessionMode.plan,
+      'goal' when aiSessionGoalModeAllowedForTemplate(templateId) =>
+        AiSessionMode.goal,
+      _ => AiSessionMode.chat,
+    };
     final requestedModelKey = _string(body['model_key'], '').trim();
     final requestedModel = requestedModelKey.isEmpty
         ? null
@@ -2472,7 +2505,8 @@ class WebMessagePlatformService {
     if (hasMode) {
       final rawMode = _string(body['mode'], updated.mode.storageValue).trim();
       if (rawMode != AiSessionMode.chat.storageValue &&
-          rawMode != AiSessionMode.plan.storageValue) {
+          rawMode != AiSessionMode.plan.storageValue &&
+          rawMode != AiSessionMode.goal.storageValue) {
         return _json(HttpStatus.badRequest, <String, Object?>{
           'error': 'session_mode_invalid',
           'mode': rawMode,
@@ -2482,6 +2516,12 @@ class WebMessagePlatformService {
       if (mode == AiSessionMode.plan && !_config.planModeEnabled) {
         return _json(HttpStatus.forbidden, <String, Object?>{
           'error': 'plan_mode_disabled',
+        });
+      }
+      if (mode == AiSessionMode.goal &&
+          !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
+        return _json(HttpStatus.forbidden, <String, Object?>{
+          'error': 'goal_mode_not_available',
         });
       }
       final updatedMode = await _sessionController.updateSessionMode(
@@ -2885,6 +2925,32 @@ class WebMessagePlatformService {
       WebGatewayConversationMode.audio => const <String>['audio'],
       _ => const <String>[],
     };
+    final goalOptionsRaw = body['goal_options'] ?? body['goalOptions'];
+    final goalStartOptions = goalOptionsRaw == null
+        ? null
+        : AiSessionGoalStartOptions.fromJson(goalOptionsRaw);
+    if (goalOptionsRaw != null && goalStartOptions == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'goal_options_invalid',
+      });
+    }
+    if (goalStartOptions != null &&
+        !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'goal_mode_not_available',
+      });
+    }
+    if (session.hasActiveGoal) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'goal_active',
+        'goal_state': session.goalState.toJson(),
+      });
+    }
+    if (session.mode == AiSessionMode.goal && goalStartOptions == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'goal_options_required',
+      });
+    }
     // 单一发送通道 + 互斥：同一会话若已在 sending/responding/streaming/finalizing
     // 等任一非 idle 阶段，立刻拒绝新的 web 端发送，避免并发触发同一控制器。
     // 这与 AiSessionController._enqueueSessionOperation 内部排队一起构成两层防护：
@@ -2927,6 +2993,7 @@ class WebMessagePlatformService {
                 ? const <String>[]
                 : <String>[selectedSkill.reminder!],
             selectedSkillMetadata: selectedSkill.metadata,
+            goalStartOptions: goalStartOptions,
             userMessageMetadata:
                 _metadataForRequest(auth, request, <String, Object?>{
                   'sent_via': 'web_api',
@@ -3341,6 +3408,105 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+    });
+  }
+
+  Future<shelf.Response> _pauseGoal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final ok = await _sessionController.pauseGoal(session.id);
+    final latest = _findAuthorizedSession(auth, session.id) ?? session;
+    return _json(
+      ok ? HttpStatus.ok : HttpStatus.internalServerError,
+      <String, Object?>{
+        'ok': ok,
+        'session': await _sessionSummaryWithStoredMessages(latest),
+      },
+    );
+  }
+
+  Future<shelf.Response> _terminateGoal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final ok = await _sessionController.terminateGoal(session.id);
+    final latest = _findAuthorizedSession(auth, session.id) ?? session;
+    return _json(
+      ok ? HttpStatus.ok : HttpStatus.internalServerError,
+      <String, Object?>{
+        'ok': ok,
+        'session': await _sessionSummaryWithStoredMessages(latest),
+      },
+    );
+  }
+
+  Future<shelf.Response> _resumeGoal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) {
+      return _json(HttpStatus.notFound, <String, Object?>{
+        'error': 'session_deleted_or_not_found',
+      });
+    }
+    final body = await _readJsonBody(request);
+    final requestedModelKey = _string(body['model_key'], '').trim();
+    final model = requestedModelKey.isNotEmpty
+        ? _resolveModel(requestedModelKey)
+        : _resolveModel(_lastModelKeyForSession(session) ?? '') ??
+              _resolveModel('');
+    if (model == null) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'model_not_configured',
+      });
+    }
+    final currentPhase = _sessionController.sendPhaseForSession(session.id);
+    if (currentPhase != AiSendPhase.idle) {
+      return _json(HttpStatus.conflict, <String, Object?>{
+        'error': 'session_busy',
+        'send_phase': currentPhase.name,
+      });
+    }
+    unawaited(
+      _sessionController
+          .resumeGoal(
+            sessionId: session.id,
+            model: model,
+            runtimeContext: _buildRuntimeContext(
+              templateId: session.templateId,
+            ),
+            denyCommandRules: _settingsController.aiDenyCommandRules,
+            requireWriteCommandConfirmation: session.fullAccessPermission
+                ? false
+                : _settingsController.aiWriteCommandConfirmationEnabled,
+            confirmWriteCommand: (request) =>
+                _confirmWebWriteCommand(session.id, request),
+          )
+          .catchError((Object error, StackTrace stack) {
+            silentLog('WebGateway', 'resumeGoal.async', error, stack);
+            return false;
+          }),
+    );
+    return _json(HttpStatus.accepted, <String, Object?>{
+      'ok': true,
+      'send_phase': AiSendPhase.sendingMessage.name,
     });
   }
 
@@ -3880,9 +4046,10 @@ class WebMessagePlatformService {
           final tokenStatsSig = stats == null
               ? '0:0:0:0:0:0:0'
               : '${stats['total_prompt_tokens'] ?? 0}:${stats['total_completion_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${stats['cache_hit_trend_points'] is List ? (stats['cache_hit_trend_points'] as List).length : 0}:${stats['cache_hit_trend_excluded_count'] ?? 0}';
+          final goalStateSig = jsonEncode(sessionPayload['goal_state']);
           final messagesPayload = snapshot['messages'] as List;
           final hash =
-              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
+              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
           if (hash == lastSnapshotHash) return;
           lastSnapshotHash = hash;
           emit('snapshot', snapshot);
@@ -5437,6 +5604,7 @@ class WebMessagePlatformService {
           : _truncate(last.content.replaceAll('\n', ' '), 160),
       'last_message_kind': last?.kind.storageValue,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
+      'goal_state': session.goalState.toJson(),
       'source': context['login_source'],
       'device_id': context['device_id'],
       'metadata': includeDetails ? session.metadata : context,

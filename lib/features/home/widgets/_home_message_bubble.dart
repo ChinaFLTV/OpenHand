@@ -381,6 +381,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final colorScheme = theme.colorScheme;
     final message = widget.message;
     final isUser = message.kind == AiSessionMessageKind.user;
+    final isGoalAutoUser =
+        isUser &&
+        message.metadata[aiSessionGoalAutoFollowUpMetadataKey] == true;
     final isCompressionPoint =
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
@@ -795,6 +798,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ),
                     color: textColor,
                   )
+                else if (isGoalAutoUser)
+                  _MessageMetaRow(
+                    key: _metaCapsuleKey,
+                    icon: Icons.flag_outlined,
+                    label: _localizedText(
+                      context,
+                      zh: '目标自动推进',
+                      en: 'Goal Auto Follow-up',
+                    ),
+                    color: textColor,
+                  )
                 else if (showAssistantResponseMetaRow)
                   _ResponseMetaRow(
                     key: _metaCapsuleKey,
@@ -810,6 +824,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     isReasoning ||
                     isToolCall ||
                     isToolResult ||
+                    isGoalAutoUser ||
                     showAssistantResponseMetaRow)
                   const SizedBox(height: 10),
                 if (isCompressionPoint)

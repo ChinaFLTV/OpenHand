@@ -108,6 +108,7 @@ type MessageIconName =
   | 'fileMutation'
   | 'status'
   | 'compression'
+  | 'goal'
   | 'user'
   | 'assistant'
   | 'copy'
@@ -190,6 +191,8 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 8h.01M11 12h1v4h1" /></svg>;
     case 'compression':
       return <svg {...common}><path d="M6 4h12v5H6z" /><path d="M8 9v11h8V9" /><path d="m9 14 3 3 3-3" /></svg>;
+    case 'goal':
+      return <svg {...common}><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></svg>;
     case 'user':
       return <svg {...common}><circle cx="12" cy="8" r="4" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>;
     case 'assistant':
@@ -376,10 +379,25 @@ function messageContextChips(message: SessionMessage): MessageContextChip[] {
   const meta = recordOrNullFromUnknown(message.metadata);
   if (!meta) return [];
   return [
+    ...goalAutoFollowUpChips(message, meta),
     ...creationModeChips(meta),
     ...skillChips(meta),
     ...attachmentChips(meta),
   ];
+}
+
+function goalAutoFollowUpChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
+  const origin = nonEmptyString(message.sender_origin) || nonEmptyString(meta['sender_origin']);
+  const isGoalAutoFollowUp = meta['goal_auto_follow_up'] === true || origin === 'openhand_background';
+  if (!isGoalAutoFollowUp) return [];
+  const goalId = nonEmptyString(meta['goal_id']);
+  return [{
+    key: `goal-auto:${goalId || message.id}`,
+    icon: 'goal',
+    label: goalId
+      ? `${t('message.context.goalAutoFollowUp', '目标自动推进')} · ${goalId}`
+      : t('message.context.goalAutoFollowUp', '目标自动推进'),
+  }];
 }
 
 function creationModeChips(meta: Record<string, unknown>): MessageContextChip[] {

@@ -19,6 +19,7 @@ import {
   renameSession,
   type CreateSessionInput,
   type SessionListResponse,
+  type SessionMode,
   type SessionSummary,
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
@@ -52,6 +53,7 @@ function formatTimestamp(iso: string): string {
 
 function modeLabel(mode: string): string {
   if (mode === 'plan') return t('sessions.mode.plan', '计划模式');
+  if (mode === 'goal') return t('sessions.mode.goal', '目标模式');
   if (mode === 'chat') return t('sessions.mode.chat', '聊天模式');
   return mode;
 }
@@ -189,7 +191,7 @@ export function SessionsPage() {
     setConfigTemplate(tpl);
   }
 
-  async function onConfigSubmit(params: { mode: 'chat' | 'plan'; title: string; modelKey: string }): Promise<void> {
+  async function onConfigSubmit(params: { mode: SessionMode; title: string; modelKey: string }): Promise<void> {
     if (!configTemplate || creating) return;
     setCreating(true);
     setCreateError(null);

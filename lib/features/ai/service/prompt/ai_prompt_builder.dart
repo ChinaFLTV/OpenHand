@@ -18,6 +18,7 @@ import '../../model/ai_input_cache_policy.dart';
 import '../../model/ai_message_content_format.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_session.dart';
+import '../../model/ai_session_goal.dart';
 import '../../model/ai_session_message.dart';
 import '../../model/ai_session_runtime_context.dart';
 import '../../model/ai_thread_template.dart';
@@ -104,6 +105,9 @@ class AiPromptBuilder {
   static const int _compressionPromptToolResultHeadTailChars = 384;
   static const int _compressionPromptMaxPlanRecords = 3;
   static const int _compressionPromptMaxPlanChars = 6000;
+  static const int _promptGoalObjectiveMaxChars = 1200;
+  static const int _promptGoalEvaluationMaxChars = 800;
+  static const int _promptGoalHistoryLimit = 5;
   static const int _compressionPromptMaxTodoItems = 40;
   static const int _compressionPromptMaxTodoChars = 800;
   static const int _postCompactRestoreMaxFiles = 5;
@@ -246,6 +250,7 @@ class AiPromptBuilder {
       session: session,
       latestUserMessage: latestUserMessage,
     );
+    final goalModeReminder = _buildGoalModeReminder(session);
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
         ? const <AiChatTurn>[]
         : _mapUserMessage(
@@ -583,6 +588,11 @@ class AiPromptBuilder {
         _systemSectionTurn(
           AiPromptSectionHeaders.planModeReminder,
           planModeReminder,
+        ),
+      if (goalModeReminder != null && goalModeReminder.isNotEmpty)
+        _systemSectionTurn(
+          AiPromptSectionHeaders.systemReminder,
+          goalModeReminder,
         ),
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
@@ -1332,6 +1342,11 @@ class AiPromptBuilder {
       dynamicState['android_reverse_runtime'] = androidReverseRuntime;
     }
 
+    final goalSnapshot = _goalStatePromptSnapshot(session.goalState);
+    if (goalSnapshot.isNotEmpty) {
+      dynamicState['goal'] = goalSnapshot;
+    }
+
     if (session.todoItems.isNotEmpty) {
       dynamicState['todos'] = session.todoItems
           .map((item) => item.toJson())
@@ -1381,6 +1396,79 @@ class AiPromptBuilder {
     }
 
     return dynamicState;
+  }
+
+  Map<String, Object?> _goalStatePromptSnapshot(AiSessionGoalState state) {
+    final current = state.current;
+    final history = state.history.reversed
+        .take(_promptGoalHistoryLimit)
+        .toList(growable: false)
+        .reversed
+        .map(_goalRecordPromptSnapshot)
+        .toList(growable: false);
+    if (current == null && history.isEmpty) {
+      return const <String, Object?>{};
+    }
+    return <String, Object?>{
+      if (current != null) 'current': _goalRecordPromptSnapshot(current),
+      if (history.isNotEmpty) 'history_recent': history,
+    };
+  }
+
+  Map<String, Object?> _goalRecordPromptSnapshot(AiSessionGoalRecord goal) {
+    final lastEvaluation = goal.lastEvaluation;
+    return <String, Object?>{
+      'id': goal.id,
+      'status': goal.status.storageValue,
+      'objective': _truncate(goal.objective, _promptGoalObjectiveMaxChars),
+      'turn_count': goal.turnCount,
+      'max_turns': goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns,
+      'tokens_used': goal.tokensUsed,
+      if (goal.tokenBudget != null) 'token_budget': goal.tokenBudget,
+      'evaluator': <String, Object?>{
+        'provider_config_id': goal.evaluatorProviderConfigId,
+        'model_id': goal.evaluatorModelId,
+        'model_label': goal.evaluatorModelLabel,
+      },
+      if ((goal.statusReason ?? '').trim().isNotEmpty)
+        'status_reason': _truncate(
+          goal.statusReason!.trim(),
+          _promptGoalEvaluationMaxChars,
+        ),
+      if (lastEvaluation != null)
+        'last_evaluation': _goalEvaluationPromptSnapshot(lastEvaluation),
+      if ((goal.lastAssistantMessageId ?? '').trim().isNotEmpty)
+        'last_assistant_message_id': goal.lastAssistantMessageId,
+      if ((goal.lastAutoUserMessageId ?? '').trim().isNotEmpty)
+        'last_auto_user_message_id': goal.lastAutoUserMessageId,
+    };
+  }
+
+  Map<String, Object?> _goalEvaluationPromptSnapshot(
+    AiSessionGoalEvaluationRecord evaluation,
+  ) {
+    return <String, Object?>{
+      'id': evaluation.id,
+      'round_index': evaluation.roundIndex,
+      'passed': evaluation.passed,
+      'summary': _truncate(evaluation.summary, _promptGoalEvaluationMaxChars),
+      if (evaluation.confidence != null) 'confidence': evaluation.confidence,
+      if ((evaluation.followUpPrompt ?? '').trim().isNotEmpty)
+        'follow_up_prompt': _truncate(
+          evaluation.followUpPrompt!.trim(),
+          _promptGoalEvaluationMaxChars,
+        ),
+      if (evaluation.evidence.isNotEmpty)
+        'evidence': evaluation.evidence
+            .map((item) => _truncate(item, 240))
+            .toList(growable: false),
+      if (evaluation.missing.isNotEmpty)
+        'missing': evaluation.missing
+            .map((item) => _truncate(item, 240))
+            .toList(growable: false),
+      if ((evaluation.error ?? '').trim().isNotEmpty)
+        'error': _truncate(evaluation.error!.trim(), 240),
+    };
   }
 
   String _renderRuntimeToolCatalog(
@@ -1993,6 +2081,8 @@ class AiPromptBuilder {
       'current_todo_count': session.todoItems.length,
       if (session.todoItems.isNotEmpty)
         'current_todos': _compressionTodoListSnapshot(session.todoItems),
+      if (_goalStatePromptSnapshot(session.goalState).isNotEmpty)
+        'goal': _goalStatePromptSnapshot(session.goalState),
       if (session.mode == AiSessionMode.plan || session.awaitingPlanApproval)
         'plan_mode': <String, Object?>{
           'planning_tool_names': AiPlanModeToolGate.planningToolNames,
@@ -5690,6 +5780,20 @@ $content
       return _buildPlanApprovalExecutionReminder(session);
     }
     return AiPlanModeGuidance.planningReminder;
+  }
+
+  String? _buildGoalModeReminder(AiSession session) {
+    final goal = session.activeGoal;
+    if (goal == null) {
+      return null;
+    }
+    if (goal.status == AiSessionGoalStatus.paused) {
+      return 'Goal mode is paused. Do not continue the goal until the runtime resumes it.';
+    }
+    if (goal.status != AiSessionGoalStatus.running) {
+      return null;
+    }
+    return 'Goal mode is active. Use [3d] Dynamic Session State `goal` as the controlling objective. Work only toward that objective; when complete, report concrete evidence, otherwise continue with the next useful step.';
   }
 
   String _buildPlanApprovalExecutionReminder(AiSession session) {

@@ -100,6 +100,19 @@ class _SessionToolbar extends StatelessWidget {
                               label:
                                   '${session.templateName} · v${session.templateInternalVersion}',
                             ),
+                            if (_toolbarGoalRecord(session) != null) ...[
+                              const SizedBox(width: 8),
+                              _ToolbarPill(
+                                icon: Icons.flag_outlined,
+                                label: _goalToolbarLabel(
+                                  context,
+                                  _toolbarGoalRecord(session)!,
+                                ),
+                                onTap: () {
+                                  _showGoalDetailsDialog(context, session);
+                                },
+                              ),
+                            ],
                             if (session.templateId == 'hermes_talker')
                               const _HermesSelfLearningWarningPill(),
                             if (session.templateId == 'web_reverse_expert')
@@ -1514,6 +1527,422 @@ Future<void> _showSessionMetadataDialog(
   );
 }
 
+AiSessionGoalRecord? _toolbarGoalRecord(AiSession session) {
+  final active = session.activeGoal;
+  if (active != null) {
+    return active;
+  }
+  if (session.mode != AiSessionMode.goal || session.goalState.history.isEmpty) {
+    return null;
+  }
+  return session.goalState.history.last;
+}
+
+String _goalToolbarLabel(BuildContext context, AiSessionGoalRecord goal) {
+  final status = _goalStatusLabel(context, goal.status);
+  final maxTurns = goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns;
+  final turnText = '${goal.turnCount}/$maxTurns';
+  final budgetText = goal.tokenBudget == null
+      ? ''
+      : ' · ${goal.tokensUsed}/${goal.tokenBudget} tok';
+  return _localizedText(
+    context,
+    zh: '目标 $status · $turnText$budgetText',
+    en: 'Goal $status · $turnText$budgetText',
+  );
+}
+
+String _goalStatusLabel(BuildContext context, AiSessionGoalStatus status) {
+  return switch (status) {
+    AiSessionGoalStatus.running => _localizedText(
+      context,
+      zh: '运行中',
+      en: 'running',
+    ),
+    AiSessionGoalStatus.paused => _localizedText(
+      context,
+      zh: '已暂停',
+      en: 'paused',
+    ),
+    AiSessionGoalStatus.completed => _localizedText(
+      context,
+      zh: '已完成',
+      en: 'completed',
+    ),
+    AiSessionGoalStatus.terminated => _localizedText(
+      context,
+      zh: '已终止',
+      en: 'terminated',
+    ),
+    AiSessionGoalStatus.failed => _localizedText(
+      context,
+      zh: '失败',
+      en: 'failed',
+    ),
+    AiSessionGoalStatus.roundLimitReached => _localizedText(
+      context,
+      zh: '轮次耗尽',
+      en: 'turn limit',
+    ),
+    AiSessionGoalStatus.tokenBudgetReached => _localizedText(
+      context,
+      zh: '预算耗尽',
+      en: 'budget limit',
+    ),
+  };
+}
+
+Future<void> _showGoalDetailsDialog(BuildContext context, AiSession session) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (dialogContext) => _GoalDetailsDialog(session: session),
+  );
+}
+
+class _GoalDetailsDialog extends StatelessWidget {
+  const _GoalDetailsDialog({required this.session});
+
+  final AiSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = session.goalState;
+    final current = state.current;
+    final recentHistory = state.history.reversed
+        .take(8)
+        .toList(growable: false);
+    return AlertDialog(
+      title: Text(_localizedText(context, zh: '目标执行详情', en: 'Goal Details')),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (current != null)
+                _GoalRecordSection(
+                  title: _localizedText(
+                    context,
+                    zh: '当前目标',
+                    en: 'Current Goal',
+                  ),
+                  goal: current,
+                )
+              else
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '当前没有正在执行的目标。',
+                    en: 'No goal is currently active.',
+                  ),
+                ),
+              const SizedBox(height: 16),
+              _GoalEnvironmentSection(session: session),
+              if (recentHistory.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _localizedText(context, zh: '历史目标', en: 'Goal History'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                ...recentHistory.map(
+                  (goal) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _GoalRecordSection(
+                      title: _goalStatusLabel(context, goal.status),
+                      goal: goal,
+                      compact: true,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+        ),
+      ],
+    );
+  }
+}
+
+class _GoalRecordSection extends StatelessWidget {
+  const _GoalRecordSection({
+    required this.title,
+    required this.goal,
+    this.compact = false,
+  });
+
+  final String title;
+  final AiSessionGoalRecord goal;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final evaluations = compact
+        ? goal.evaluations.reversed.take(2).toList(growable: false)
+        : goal.evaluations.reversed.take(6).toList(growable: false);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(goal.objective, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _GoalMiniChip(
+                  label: _goalStatusLabel(context, goal.status),
+                  icon: Icons.flag_outlined,
+                ),
+                _GoalMiniChip(
+                  label:
+                      '${goal.turnCount}/${goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns}',
+                  icon: Icons.repeat_rounded,
+                ),
+                if (goal.tokenBudget != null)
+                  _GoalMiniChip(
+                    label: '${goal.tokensUsed}/${goal.tokenBudget} tok',
+                    icon: Icons.speed_rounded,
+                  ),
+                _GoalMiniChip(
+                  label: goal.evaluatorModelLabel,
+                  icon: Icons.psychology_alt_outlined,
+                ),
+              ],
+            ),
+            if ((goal.statusReason ?? '').trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                goal.statusReason!.trim(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (evaluations.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ...evaluations.map(
+                (evaluation) => Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _GoalEvaluationRow(evaluation: evaluation),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalMiniChip extends StatelessWidget {
+  const _GoalMiniChip({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: _borderRadius999,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(label, style: theme.textTheme.labelMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalEvaluationRow extends StatelessWidget {
+  const _GoalEvaluationRow({required this.evaluation});
+
+  final AiSessionGoalEvaluationRecord evaluation;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = evaluation.passed
+        ? OpenHandStatusColors.success
+        : theme.colorScheme.tertiary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  evaluation.passed
+                      ? Icons.verified_outlined
+                      : Icons.manage_search_rounded,
+                  size: 16,
+                  color: color,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    evaluation.summary,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (evaluation.evidence.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                evaluation.evidence.join(' · '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (evaluation.missing.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                evaluation.missing.join(' · '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalEnvironmentSection extends StatelessWidget {
+  const _GoalEnvironmentSection({required this.session});
+
+  final AiSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final environment = session.environment;
+    return _GoalRecordShell(
+      title: _localizedText(context, zh: '环境信息', en: 'Environment'),
+      children: [
+        _GoalKeyValue('Template', session.templateName),
+        _GoalKeyValue('Mode', session.mode.storageValue),
+        _GoalKeyValue('Platform', environment.platform),
+        _GoalKeyValue('Working Directory', environment.applicationDirectory),
+        _GoalKeyValue('Sessions Directory', environment.sessionsDirectoryPath),
+      ],
+    );
+  }
+}
+
+class _GoalRecordShell extends StatelessWidget {
+  const _GoalRecordShell({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalKeyValue extends StatelessWidget {
+  const _GoalKeyValue(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 132,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '-' : value.trim(),
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 int _metadataInt(Object? rawValue) {
   if (rawValue is int) {
     return rawValue;
@@ -1659,6 +2088,11 @@ String _runtimeModeLabel(
 }) {
   final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
   final l10n = AppLocalizations.of(context)!;
+  if (mode == AiSessionMode.goal) {
+    return compact
+        ? _localizedText(context, zh: '目标', en: 'Goal')
+        : _localizedText(context, zh: '目标模式', en: 'Goal Mode');
+  }
   if (mode != AiSessionMode.plan) {
     return compact
         ? l10n.toolbarRuntimeModeChatCompact
@@ -1727,6 +2161,9 @@ IconData _runtimeModeIcon(
   AiSessionMode? explicitMode,
 }) {
   final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
+  if (mode == AiSessionMode.goal) {
+    return Icons.flag_outlined;
+  }
   if (mode != AiSessionMode.plan) {
     return Icons.forum_outlined;
   }
@@ -1802,6 +2239,13 @@ String _composerModeTooltip(
   AiSessionMode mode,
   _RuntimeToolCatalogStatus? status,
 ) {
+  if (mode == AiSessionMode.goal) {
+    return _localizedText(
+      context,
+      zh: '目标模式已启用 · 点击切换到聊天模式',
+      en: 'Goal mode active · switch to chat mode',
+    );
+  }
   if (mode != AiSessionMode.plan) {
     if (status != null && !status.supportsToolCalls) {
       return AppLocalizations.of(

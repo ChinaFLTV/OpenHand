@@ -39,6 +39,7 @@ export interface SessionToolbarCapsule {
 
 export type SessionToolbarIconName =
   | 'mode'
+  | 'goal'
   | 'runtime'
   | 'permission'
   | 'template'
@@ -85,6 +86,8 @@ function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }
       return <svg {...common}><path d="m5 12 4 4 10-10" /></svg>;
     case 'mode':
       return <svg {...common}><path d="M5 6h14M7 12h10M5 18h14" /></svg>;
+    case 'goal':
+      return <svg {...common}><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>;
     case 'runtime':
       return <svg {...common}><path d="M4 13a8 8 0 1 0 2.1-5.4" /><path d="M4 5v5h5" /><path d="M12 8v4l2.5 2" /></svg>;
     case 'permission':

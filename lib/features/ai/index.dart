@@ -30,6 +30,7 @@ export 'model/ai_operation_routing.dart';
 export 'model/ai_realtime_config.dart';
 export 'model/ai_sandbox_settings.dart';
 export 'model/ai_session.dart';
+export 'model/ai_session_goal.dart';
 export 'model/ai_session_message.dart';
 export 'model/ai_session_runtime_context.dart';
 export 'model/ai_stream_throttle_override.dart';

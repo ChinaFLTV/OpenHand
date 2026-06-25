@@ -32,6 +32,10 @@ class _WorkspaceView extends StatelessWidget {
     required this.onPlanTimelineCollapsedChanged,
     required this.sessionMode,
     required this.onSessionModeChanged,
+    required this.goalModeAvailable,
+    required this.onPauseGoal,
+    required this.onResumeGoal,
+    required this.onTerminateGoal,
     required this.pendingAttachments,
     required this.attachmentsEnabled,
     required this.onPickAttachments,
@@ -107,6 +111,10 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
+  final bool goalModeAvailable;
+  final Future<void> Function() onPauseGoal;
+  final Future<void> Function() onResumeGoal;
+  final Future<void> Function() onTerminateGoal;
   final List<_ComposerAttachmentDraft> pendingAttachments;
   final bool attachmentsEnabled;
   final Future<void> Function() onPickAttachments;
@@ -377,6 +385,10 @@ class _WorkspaceView extends StatelessWidget {
                       canStopSending: canStopSending,
                       sessionMode: sessionMode,
                       onSessionModeChanged: onSessionModeChanged,
+                      goalModeAvailable: goalModeAvailable,
+                      onPauseGoal: onPauseGoal,
+                      onResumeGoal: onResumeGoal,
+                      onTerminateGoal: onTerminateGoal,
                       pendingAttachments: pendingAttachments,
                       attachmentsEnabled: attachmentsEnabled,
                       onPickAttachments: onPickAttachments,

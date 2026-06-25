@@ -36,6 +36,7 @@ import 'model/ai_input_cache_runtime_config.dart';
 import 'model/ai_message_content_format.dart';
 import 'model/ai_model_config.dart';
 import 'model/ai_session.dart';
+import 'model/ai_session_goal.dart';
 import 'model/ai_session_message.dart';
 import 'model/ai_session_runtime_context.dart';
 import 'model/ai_stream_throttle_override.dart';
@@ -154,6 +155,16 @@ class AiSessionController extends ChangeNotifier {
       'hidden_regenerated_response_message';
   static const String _responseRegenerationFailedGeneratedMessageKey =
       'hidden_failed_regenerated_response_message';
+  static const Duration _goalEvaluationTimeout = Duration(seconds: 90);
+  static const int _goalEvaluationRecentMessageCount = 12;
+  static const int _goalEvaluationMaxMessageChars = 2400;
+  static const int _goalEvaluationMaxFollowUpChars = 1600;
+  static const int _goalStatusReasonMaxChars = 800;
+  static final RegExp _goalJsonFencePattern = RegExp(
+    r'^```(?:json)?\s*|\s*```$',
+    caseSensitive: false,
+    multiLine: true,
+  );
   static const String _forkedFromOriginalSessionIdKey =
       'forked_from_original_session_id';
   static const String _forkedFromOriginalMessageIdKey =
@@ -1887,6 +1898,12 @@ class AiSessionController extends ChangeNotifier {
           'The thread template "${template.name}" is only available on Apple devices.';
       return false;
     }
+    if (mode == AiSessionMode.goal &&
+        !aiSessionGoalModeAllowedForTemplate(template.id)) {
+      _lastErrorMessage =
+          'Goal mode is not available for the thread template "${template.name}".';
+      return false;
+    }
     final now = _clock().toUtc();
     _lastErrorMessage = null;
     // 2026-04-14: 创建新会话时清理文件追踪器，避免跨会话的脏写检测误判
@@ -2083,6 +2100,23 @@ class AiSessionController extends ChangeNotifier {
       }
       if (session.mode == mode) {
         return true;
+      }
+      if (session.hasActiveGoal) {
+        _setLastSendErrorMessage(
+          session.id,
+          'Goal execution is active. Finish or terminate the goal before changing modes.',
+        );
+        notifyListeners();
+        return false;
+      }
+      if (mode == AiSessionMode.goal &&
+          !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
+        _setLastSendErrorMessage(
+          session.id,
+          'Goal mode is not available for this thread template.',
+        );
+        notifyListeners();
+        return false;
       }
       final clearedSession =
           session.mode == AiSessionMode.plan && mode != AiSessionMode.plan
@@ -4553,6 +4587,720 @@ class AiSessionController extends ChangeNotifier {
     unawaited(cancelHandler().catchError((Object _, StackTrace stackTrace) {}));
   }
 
+  Future<bool> pauseGoal(String sessionId) async {
+    final session = _sessionById(sessionId);
+    if (session == null) {
+      return false;
+    }
+    final activeGoal = session.activeGoal;
+    if (activeGoal == null ||
+        activeGoal.status != AiSessionGoalStatus.running) {
+      return true;
+    }
+    final now = _clock().toUtc();
+    final updatedGoal = activeGoal.copyWith(
+      status: AiSessionGoalStatus.paused,
+      updatedAt: now,
+      pausedAt: now,
+      clearCompletedAt: true,
+      clearTerminatedAt: true,
+      statusReason: 'Paused by user.',
+    );
+    final updatedSession = _applyGoalState(
+      session,
+      session.goalState.replaceCurrent(updatedGoal),
+      updatedAt: now,
+    );
+    final committed = await _replaceSessionHeaderInMemoryAndPersist(
+      updatedSession,
+      logOperation: 'persist goal pause',
+    );
+    if (!committed) {
+      return false;
+    }
+    await stopResponding(sessionId);
+    return true;
+  }
+
+  Future<bool> terminateGoal(String sessionId) async {
+    final session = _sessionById(sessionId);
+    if (session == null) {
+      return false;
+    }
+    final activeGoal = session.activeGoal;
+    if (activeGoal == null) {
+      return true;
+    }
+    final now = _clock().toUtc();
+    final terminalGoal = activeGoal.copyWith(
+      status: AiSessionGoalStatus.terminated,
+      updatedAt: now,
+      terminatedAt: now,
+      clearCompletedAt: true,
+      clearPausedAt: true,
+      statusReason: 'Terminated by user.',
+    );
+    final updatedSession = _applyGoalState(
+      session,
+      session.goalState.archiveCurrent(terminalGoal),
+      updatedAt: now,
+    );
+    final committed = await _replaceSessionHeaderInMemoryAndPersist(
+      updatedSession,
+      logOperation: 'persist goal termination',
+    );
+    if (!committed) {
+      return false;
+    }
+    await stopResponding(sessionId);
+    return true;
+  }
+
+  Future<bool> resumeGoal({
+    required String sessionId,
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+    List<String> attachmentFilePaths = const <String>[],
+    List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
+    List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
+    bool requireWriteCommandConfirmation = true,
+    WriteCommandConfirmationCallback? confirmWriteCommand,
+    List<String> additionalSystemReminders = const <String>[],
+    Map<String, Object?>? selectedSkillMetadata,
+    Map<String, Object?>? userMessageMetadata,
+  }) async {
+    final session = _sessionById(sessionId);
+    final activeGoal = session?.activeGoal;
+    if (session == null || activeGoal == null) {
+      return false;
+    }
+    final followUpPrompt = _buildGoalFollowUpPrompt(activeGoal);
+    return sendMessage(
+      sessionId: sessionId,
+      content: followUpPrompt,
+      model: model,
+      runtimeContext: runtimeContext,
+      attachmentFilePaths: attachmentFilePaths,
+      responseModalities: responseModalities,
+      creationRequest: creationRequest,
+      denyCommandRules: denyCommandRules,
+      requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+      confirmWriteCommand: confirmWriteCommand,
+      additionalSystemReminders: additionalSystemReminders,
+      selectedSkillMetadata: selectedSkillMetadata,
+      userMessageMetadata: <String, Object?>{
+        aiSessionMessageSenderOriginJsonKey:
+            aiSessionMessageSenderOriginOpenHandBackground,
+        aiSessionMessageConversationSideJsonKey:
+            aiSessionMessageConversationSideNonAi,
+        aiSessionMessageStartsConversationRoundJsonKey: true,
+        aiSessionGoalIdMetadataKey: activeGoal.id,
+        aiSessionGoalAutoFollowUpMetadataKey: true,
+        if (userMessageMetadata != null) ...userMessageMetadata,
+      },
+      allowGoalContinuation: true,
+    );
+  }
+
+  AiSession _applyGoalState(
+    AiSession session,
+    AiSessionGoalState goalState, {
+    DateTime? updatedAt,
+  }) {
+    return session.copyWith(
+      updatedAt: updatedAt ?? _clock().toUtc(),
+      metadata: <String, Object?>{
+        ...session.metadata,
+        ...goalState.toMetadataPatch(),
+      },
+    );
+  }
+
+  ({AiSession session, AiSessionGoalRecord goal}) _startGoalForSession({
+    required AiSession session,
+    required String objective,
+    required AiSessionGoalStartOptions options,
+    required AiModelConfig fallbackModel,
+  }) {
+    final now = _clock().toUtc();
+    final evaluatorModel = _resolveGoalEvaluatorModel(
+      providerConfigId: options.evaluatorProviderConfigId,
+      modelId: options.evaluatorModelId,
+      fallbackModel: fallbackModel,
+    );
+    final evaluatorProviderConfigId =
+        evaluatorModel?.id.trim().isNotEmpty == true
+        ? evaluatorModel!.id.trim()
+        : options.evaluatorProviderConfigId.trim();
+    final evaluatorModelId = evaluatorModel?.modelId.trim().isNotEmpty == true
+        ? evaluatorModel!.modelId.trim()
+        : options.evaluatorModelId.trim();
+    final evaluatorModelLabel =
+        evaluatorModel?.displayName.trim().isNotEmpty == true
+        ? evaluatorModel!.displayName.trim()
+        : options.evaluatorModelLabel.trim().isNotEmpty
+        ? options.evaluatorModelLabel.trim()
+        : evaluatorModelId;
+    var goalState = session.goalState;
+    final staleCurrent = goalState.current;
+    if (staleCurrent != null && staleCurrent.status.isTerminal) {
+      goalState = goalState.archiveCurrent(staleCurrent);
+    }
+    final goal = AiSessionGoalRecord(
+      id: _idGenerator(),
+      objective: objective.trim(),
+      status: AiSessionGoalStatus.running,
+      createdAt: now,
+      updatedAt: now,
+      evaluatorProviderConfigId: evaluatorProviderConfigId,
+      evaluatorModelId: evaluatorModelId,
+      evaluatorModelLabel: evaluatorModelLabel,
+      maxTurns: _normalizedGoalTurnLimit(options.maxTurns),
+      tokenBudget: _normalizedGoalTokenBudget(options.tokenBudget),
+    );
+    final updatedSession = _applyGoalState(
+      session.copyWith(mode: AiSessionMode.goal),
+      goalState.replaceCurrent(goal),
+      updatedAt: now,
+    );
+    return (session: updatedSession, goal: goal);
+  }
+
+  ({AiSession session, AiSessionGoalRecord goal})? _resumeGoalForContinuation(
+    AiSession session,
+  ) {
+    final activeGoal = session.activeGoal;
+    if (activeGoal == null) {
+      return null;
+    }
+    if (activeGoal.status == AiSessionGoalStatus.running) {
+      return (session: session, goal: activeGoal);
+    }
+    if (activeGoal.status != AiSessionGoalStatus.paused) {
+      return null;
+    }
+    final now = _clock().toUtc();
+    final resumedGoal = activeGoal.copyWith(
+      status: AiSessionGoalStatus.running,
+      updatedAt: now,
+      clearPausedAt: true,
+      statusReason: 'Resumed by goal runtime.',
+    );
+    final updatedSession = _applyGoalState(
+      session,
+      session.goalState.replaceCurrent(resumedGoal),
+      updatedAt: now,
+    );
+    return (session: updatedSession, goal: resumedGoal);
+  }
+
+  int? _normalizedGoalTurnLimit(int? value) {
+    if (value == null || value <= 0) {
+      return null;
+    }
+    return value.clamp(1, aiSessionGoalHardMaxAutoTurns).toInt();
+  }
+
+  int? _normalizedGoalTokenBudget(int? value) {
+    if (value == null || value <= 0) {
+      return null;
+    }
+    return value;
+  }
+
+  AiModelConfig? _resolveGoalEvaluatorModel({
+    required String providerConfigId,
+    required String modelId,
+    AiModelConfig? fallbackModel,
+  }) {
+    final provider = providerConfigId.trim();
+    final model = modelId.trim();
+    if (provider.isNotEmpty && model.isNotEmpty) {
+      for (final config in _cachedAvailableModels) {
+        if (config.id == provider && config.allModelIds.contains(model)) {
+          return config.copyWith(modelId: model);
+        }
+      }
+    }
+    if (model.isNotEmpty) {
+      for (final config in _cachedAvailableModels) {
+        if (config.allModelIds.contains(model)) {
+          return config.copyWith(modelId: model);
+        }
+      }
+    }
+    if (provider.isNotEmpty) {
+      for (final config in _cachedAvailableModels) {
+        if (config.id == provider) {
+          return model.isEmpty ? config : config.copyWith(modelId: model);
+        }
+      }
+    }
+    return fallbackModel;
+  }
+
+  String _buildGoalFollowUpPrompt(AiSessionGoalRecord goal) {
+    return 'Continue the current goal until there is concrete evidence it is complete.\n\nGoal:\n${goal.objective.trim()}';
+  }
+
+  Future<({AiSession session, bool shouldContinue, String? nextUserMessageId})>
+  _advanceGoalAfterAssistantResponse({
+    required AiSession session,
+    required AiModelConfig conversationModel,
+    required AiTokenUsage? assistantUsage,
+    required String? assistantMessageId,
+  }) async {
+    var workingSession = _sessionById(session.id) ?? session;
+    final activeGoal = workingSession.activeGoal;
+    if (activeGoal == null ||
+        activeGoal.status != AiSessionGoalStatus.running) {
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+    var goal = activeGoal;
+    final assistantTokens = _tokenCountFromUsage(assistantUsage);
+    final now = _clock().toUtc();
+    goal = goal.copyWith(
+      updatedAt: now,
+      turnCount: goal.turnCount + 1,
+      tokensUsed: goal.tokensUsed + assistantTokens,
+      lastAssistantMessageId: assistantMessageId,
+      clearPausedAt: true,
+      clearStatusReason: true,
+    );
+    workingSession = _applyGoalState(
+      workingSession,
+      workingSession.goalState.replaceCurrent(goal),
+      updatedAt: now,
+    );
+    if (_goalTokenBudgetReached(goal)) {
+      final limited = _finalizeGoal(
+        workingSession,
+        goal.copyWith(
+          status: AiSessionGoalStatus.tokenBudgetReached,
+          updatedAt: now,
+          statusReason: 'Token budget reached before evaluation.',
+        ),
+      );
+      final committed = await _commitSessionLocked(_rebuildSession(limited));
+      if (committed) {
+        workingSession = _sessionById(limited.id) ?? limited;
+      }
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+
+    final evaluatorModel = _resolveGoalEvaluatorModel(
+      providerConfigId: goal.evaluatorProviderConfigId,
+      modelId: goal.evaluatorModelId,
+      fallbackModel: conversationModel,
+    );
+    if (evaluatorModel == null) {
+      final failed = _finalizeGoal(
+        workingSession,
+        goal.copyWith(
+          status: AiSessionGoalStatus.failed,
+          updatedAt: now,
+          statusReason: 'No evaluator model is configured.',
+        ),
+      );
+      final committed = await _commitSessionLocked(_rebuildSession(failed));
+      if (committed) {
+        workingSession = _sessionById(failed.id) ?? failed;
+      }
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+
+    AiSessionGoalEvaluationRecord evaluation;
+    try {
+      final completion = await _backgroundChatClient.sendMessage(
+        model: evaluatorModel,
+        messages: _buildGoalEvaluationMessages(
+          session: workingSession,
+          goal: goal,
+        ),
+        timeout: _goalEvaluationTimeout,
+        cancelSignal: _stopSignalForSession(workingSession.id),
+      );
+      if (_isStopRequestedForSession(workingSession.id)) {
+        final latest = _sessionById(workingSession.id) ?? workingSession;
+        return (
+          session: latest,
+          shouldContinue: false,
+          nextUserMessageId: null,
+        );
+      }
+      evaluation = _parseGoalEvaluationRecord(
+        completion.reply,
+        goal: goal,
+        evaluatorModel: evaluatorModel,
+        usage: completion.usage,
+      );
+      final evaluatorTokens = _tokenCountFromUsage(completion.usage);
+      goal = goal
+          .copyWith(
+            updatedAt: _clock().toUtc(),
+            tokensUsed: goal.tokensUsed + evaluatorTokens,
+          )
+          .appendEvaluation(evaluation, updatedAt: _clock().toUtc());
+    } catch (error) {
+      if (_isStopRequestedForSession(workingSession.id)) {
+        final latest = _sessionById(workingSession.id) ?? workingSession;
+        return (
+          session: latest,
+          shouldContinue: false,
+          nextUserMessageId: null,
+        );
+      }
+      final failedAt = _clock().toUtc();
+      evaluation = AiSessionGoalEvaluationRecord(
+        id: _idGenerator(),
+        createdAt: failedAt,
+        roundIndex: goal.turnCount,
+        passed: false,
+        summary: 'Evaluator failed.',
+        rawResponse: '$error',
+        providerConfigId: evaluatorModel.id,
+        modelId: evaluatorModel.modelId,
+        modelLabel: evaluatorModel.displayName,
+        error: '$error',
+      );
+      goal = goal.appendEvaluation(evaluation, updatedAt: failedAt);
+      final failed = _finalizeGoal(
+        workingSession,
+        goal.copyWith(
+          status: AiSessionGoalStatus.failed,
+          updatedAt: failedAt,
+          statusReason: _boundedGoalText('$error', _goalStatusReasonMaxChars),
+        ),
+      );
+      final committed = await _commitSessionLocked(_rebuildSession(failed));
+      if (committed) {
+        workingSession = _sessionById(failed.id) ?? failed;
+      }
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+
+    workingSession = _applyGoalState(
+      workingSession,
+      workingSession.goalState.replaceCurrent(goal),
+      updatedAt: goal.updatedAt,
+    );
+    if (evaluation.passed) {
+      final completedAt = _clock().toUtc();
+      final completed = _finalizeGoal(
+        workingSession,
+        goal.copyWith(
+          status: AiSessionGoalStatus.completed,
+          updatedAt: completedAt,
+          completedAt: completedAt,
+          statusReason: _boundedGoalText(
+            evaluation.summary,
+            _goalStatusReasonMaxChars,
+          ),
+        ),
+      );
+      final committed = await _commitSessionLocked(_rebuildSession(completed));
+      if (committed) {
+        workingSession = _sessionById(completed.id) ?? completed;
+      }
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+
+    final limitStatus = _goalLimitStatusAfterFailedEvaluation(goal);
+    if (limitStatus != null) {
+      final limitedAt = _clock().toUtc();
+      final limited = _finalizeGoal(
+        workingSession,
+        goal.copyWith(
+          status: limitStatus,
+          updatedAt: limitedAt,
+          statusReason: limitStatus == AiSessionGoalStatus.roundLimitReached
+              ? 'Round limit reached before evidence was sufficient.'
+              : 'Token budget reached before evidence was sufficient.',
+        ),
+      );
+      final committed = await _commitSessionLocked(_rebuildSession(limited));
+      if (committed) {
+        workingSession = _sessionById(limited.id) ?? limited;
+      }
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+
+    final followUpPrompt = _boundedGoalText(
+      (evaluation.followUpPrompt ?? '').trim().isEmpty
+          ? _buildGoalFollowUpPrompt(goal)
+          : evaluation.followUpPrompt!.trim(),
+      _goalEvaluationMaxFollowUpChars,
+    );
+    final userMessageId = _idGenerator();
+    final createdAt = _clock().toUtc();
+    final autoUserMessage = AiSessionMessage.user(
+      id: userMessageId,
+      content: followUpPrompt,
+      createdAt: createdAt,
+      metadata: <String, Object?>{
+        aiSessionMessageSenderOriginJsonKey:
+            aiSessionMessageSenderOriginOpenHandBackground,
+        aiSessionMessageConversationSideJsonKey:
+            aiSessionMessageConversationSideNonAi,
+        aiSessionMessageStartsConversationRoundJsonKey: true,
+        aiSessionGoalIdMetadataKey: goal.id,
+        aiSessionGoalEvaluationIdMetadataKey: evaluation.id,
+        aiSessionGoalAutoFollowUpMetadataKey: true,
+      },
+    );
+    final followedGoal = goal.copyWith(
+      updatedAt: createdAt,
+      lastAutoUserMessageId: userMessageId,
+    );
+    workingSession = _applyGoalState(
+      workingSession.copyWith(
+        updatedAt: createdAt,
+        messages: <AiSessionMessage>[
+          ...workingSession.messages,
+          autoUserMessage,
+        ],
+      ),
+      workingSession.goalState.replaceCurrent(followedGoal),
+      updatedAt: createdAt,
+    );
+    final committed = await _commitSessionLocked(
+      _rebuildSession(workingSession),
+    );
+    if (!committed) {
+      return (
+        session: workingSession,
+        shouldContinue: false,
+        nextUserMessageId: null,
+      );
+    }
+    workingSession = _sessionById(workingSession.id) ?? workingSession;
+    return (
+      session: workingSession,
+      shouldContinue: true,
+      nextUserMessageId: userMessageId,
+    );
+  }
+
+  List<AiChatTurn> _buildGoalEvaluationMessages({
+    required AiSession session,
+    required AiSessionGoalRecord goal,
+  }) {
+    final payload = <String, Object?>{
+      'goal': <String, Object?>{
+        'id': goal.id,
+        'objective': goal.objective,
+        'status': goal.status.storageValue,
+        'turn_count': goal.turnCount,
+        'max_turns': goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns,
+        'tokens_used': goal.tokensUsed,
+        if (goal.tokenBudget != null) 'token_budget': goal.tokenBudget,
+      },
+      'recent_messages': _recentGoalEvaluationMessages(session),
+    };
+    return <AiChatTurn>[
+      const AiChatTurn(
+        role: AiChatRole.system,
+        content:
+            'You evaluate whether a threaded coding goal is complete. Return JSON only. Require concrete evidence from the transcript, not intent or promises.',
+      ),
+      AiChatTurn(
+        role: AiChatRole.user,
+        content:
+            'Assess the goal against the transcript payload. Return exactly this JSON shape: {"passed":boolean,"confidence":number,"summary":string,"evidence":string[],"missing":string[],"follow_up_prompt":string}.\n\n${jsonEncode(payload)}',
+      ),
+    ];
+  }
+
+  List<Map<String, Object?>> _recentGoalEvaluationMessages(AiSession session) {
+    return session.messages
+        .where((message) => !message.isDeleted && message.isConversationTurn)
+        .toList(growable: false)
+        .reversed
+        .take(_goalEvaluationRecentMessageCount)
+        .toList(growable: false)
+        .reversed
+        .map(
+          (message) => <String, Object?>{
+            'role': message.role.storageValue,
+            'kind': message.kind.storageValue,
+            'sender_origin': message.senderOrigin,
+            'created_at': message.createdAt.toUtc().toIso8601String(),
+            'content': _boundedGoalText(
+              message.content,
+              _goalEvaluationMaxMessageChars,
+            ),
+          },
+        )
+        .toList(growable: false);
+  }
+
+  AiSessionGoalEvaluationRecord _parseGoalEvaluationRecord(
+    String rawReply, {
+    required AiSessionGoalRecord goal,
+    required AiModelConfig evaluatorModel,
+    required AiTokenUsage? usage,
+  }) {
+    final decoded = _decodeGoalEvaluationJson(rawReply);
+    final createdAt = _clock().toUtc();
+    if (decoded == null) {
+      return AiSessionGoalEvaluationRecord(
+        id: _idGenerator(),
+        createdAt: createdAt,
+        roundIndex: goal.turnCount,
+        passed: false,
+        summary: 'Evaluator returned invalid JSON.',
+        rawResponse: _boundedGoalText(rawReply, _goalStatusReasonMaxChars),
+        providerConfigId: evaluatorModel.id,
+        modelId: evaluatorModel.modelId,
+        modelLabel: evaluatorModel.displayName,
+        usage: usage,
+        error: 'invalid_json',
+      );
+    }
+    final passed = decoded['passed'] == true;
+    final summary = '${decoded['summary'] ?? ''}'.trim();
+    return AiSessionGoalEvaluationRecord(
+      id: _idGenerator(),
+      createdAt: createdAt,
+      roundIndex: goal.turnCount,
+      passed: passed,
+      summary: summary.isEmpty
+          ? (passed ? 'Goal is complete.' : 'Goal is not complete yet.')
+          : _boundedGoalText(summary, _goalStatusReasonMaxChars),
+      confidence: _readGoalDouble(decoded['confidence']),
+      followUpPrompt: _boundedGoalText(
+        '${decoded['follow_up_prompt'] ?? ''}'.trim(),
+        _goalEvaluationMaxFollowUpChars,
+      ),
+      evidence: _readStringList(
+        decoded['evidence'],
+      ).map((item) => _boundedGoalText(item, 300)).toList(growable: false),
+      missing: _readStringList(
+        decoded['missing'],
+      ).map((item) => _boundedGoalText(item, 300)).toList(growable: false),
+      rawResponse: _boundedGoalText(rawReply, _goalStatusReasonMaxChars),
+      providerConfigId: evaluatorModel.id,
+      modelId: evaluatorModel.modelId,
+      modelLabel: evaluatorModel.displayName,
+      usage: usage,
+    );
+  }
+
+  Map<String, Object?>? _decodeGoalEvaluationJson(String rawReply) {
+    final trimmed = rawReply.trim();
+    if (trimmed.isEmpty) return null;
+    final stripped = trimmed.replaceAll(_goalJsonFencePattern, '').trim();
+    for (final candidate in <String>[
+      stripped,
+      _firstJsonObjectCandidate(stripped),
+    ]) {
+      if (candidate.trim().isEmpty) continue;
+      try {
+        final decoded = jsonDecode(candidate);
+        if (decoded is Map<String, Object?>) {
+          return decoded;
+        }
+        if (decoded is Map) {
+          return Map<String, Object?>.from(decoded);
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  String _firstJsonObjectCandidate(String value) {
+    final start = value.indexOf('{');
+    final end = value.lastIndexOf('}');
+    if (start == -1 || end == -1 || end <= start) {
+      return '';
+    }
+    return value.substring(start, end + 1);
+  }
+
+  double? _readGoalDouble(Object? value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse('${value ?? ''}'.trim());
+  }
+
+  int _tokenCountFromUsage(AiTokenUsage? usage) {
+    if (usage == null || usage.isEmpty) return 0;
+    final total = usage.totalTokens;
+    if (total != null && total > 0) return total;
+    return <int?>[
+      usage.promptTokens,
+      usage.completionTokens,
+      usage.cacheCreationTokens,
+      usage.cacheReadTokens,
+    ].fold<int>(0, (sum, item) => sum + math.max(0, item ?? 0));
+  }
+
+  bool _goalTokenBudgetReached(AiSessionGoalRecord goal) {
+    return goal.tokenBudget != null && goal.tokensUsed >= goal.tokenBudget!;
+  }
+
+  AiSessionGoalStatus? _goalLimitStatusAfterFailedEvaluation(
+    AiSessionGoalRecord goal,
+  ) {
+    final maxTurns = _effectiveGoalMaxTurns(goal);
+    if (goal.turnCount >= maxTurns) {
+      return AiSessionGoalStatus.roundLimitReached;
+    }
+    if (_goalTokenBudgetReached(goal)) {
+      return AiSessionGoalStatus.tokenBudgetReached;
+    }
+    return null;
+  }
+
+  int _effectiveGoalMaxTurns(AiSessionGoalRecord goal) {
+    return (goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns)
+        .clamp(1, aiSessionGoalHardMaxAutoTurns)
+        .toInt();
+  }
+
+  AiSession _finalizeGoal(AiSession session, AiSessionGoalRecord terminalGoal) {
+    return _applyGoalState(
+      session,
+      session.goalState.archiveCurrent(terminalGoal),
+      updatedAt: terminalGoal.updatedAt,
+    );
+  }
+
+  String _boundedGoalText(String value, int maxCharacters) {
+    final normalized = value.trim();
+    if (maxCharacters <= 0 || normalized.characters.length <= maxCharacters) {
+      return normalized;
+    }
+    return '${normalized.characters.take(maxCharacters).toString()}...';
+  }
+
   Future<bool> sendMessage({
     String? sessionId,
     required String content,
@@ -4569,6 +5317,8 @@ class AiSessionController extends ChangeNotifier {
     Map<String, Object?>? selectedSkillMetadata,
     Map<String, Object?>? userMessageMetadata,
     bool revealUserMessageBeforePreflight = false,
+    AiSessionGoalStartOptions? goalStartOptions,
+    bool allowGoalContinuation = false,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     final normalizedContent = content.trim();
@@ -4613,6 +5363,62 @@ class AiSessionController extends ChangeNotifier {
         _clearSessionExecutionState(session.id);
         notifyListeners();
         return true;
+      }
+      final isGoalContinuation =
+          allowGoalContinuation ||
+          userMessageMetadata?[aiSessionGoalAutoFollowUpMetadataKey] == true;
+      if (goalStartOptions != null &&
+          !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(
+          session.id,
+          'Goal mode is not available for this thread template.',
+        );
+        notifyListeners();
+        return false;
+      }
+      if (goalStartOptions != null &&
+          normalizedContent.characters.length >
+              aiSessionGoalObjectiveMaxCharacters) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(
+          session.id,
+          'Goal objective is too long. Keep it under $aiSessionGoalObjectiveMaxCharacters characters.',
+        );
+        notifyListeners();
+        return false;
+      }
+      if (goalStartOptions != null && session.hasActiveGoal) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(
+          session.id,
+          'A goal is already running in this session.',
+        );
+        notifyListeners();
+        return false;
+      }
+      if (session.mode == AiSessionMode.goal &&
+          !session.hasActiveGoal &&
+          goalStartOptions == null &&
+          !isGoalContinuation) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(
+          session.id,
+          'Goal mode requires goal options before the first message is sent.',
+        );
+        notifyListeners();
+        return false;
+      }
+      if (session.hasActiveGoal &&
+          goalStartOptions == null &&
+          !isGoalContinuation) {
+        _clearSessionExecutionState(session.id);
+        _setLastSendErrorMessage(
+          session.id,
+          'Goal execution is active. Pause or terminate the goal before sending a manual message.',
+        );
+        notifyListeners();
+        return false;
       }
 
       _sessionPendingSendOperationIds.remove(session.id);
@@ -4743,6 +5549,47 @@ class AiSessionController extends ChangeNotifier {
         }
         if (userMessageMetadata != null && userMessageMetadata.isNotEmpty) {
           nextUserMessageMetadata.addAll(userMessageMetadata);
+        }
+        nextUserMessageMetadata.putIfAbsent(
+          aiSessionMessageSenderOriginJsonKey,
+          () => isGoalContinuation
+              ? aiSessionMessageSenderOriginOpenHandBackground
+              : aiSessionMessageSenderOriginExplicitUser,
+        );
+        nextUserMessageMetadata.putIfAbsent(
+          aiSessionMessageConversationSideJsonKey,
+          () => aiSessionMessageConversationSideNonAi,
+        );
+        nextUserMessageMetadata.putIfAbsent(
+          aiSessionMessageStartsConversationRoundJsonKey,
+          () => true,
+        );
+        if (goalStartOptions != null) {
+          final started = _startGoalForSession(
+            session: session,
+            objective: normalizedContent,
+            options: goalStartOptions,
+            fallbackModel: model,
+          );
+          session = started.session;
+          nextUserMessageMetadata
+            ..[aiSessionGoalIdMetadataKey] = started.goal.id
+            ..[aiSessionGoalObjectiveMetadataKey] = true;
+        } else if (isGoalContinuation) {
+          final resumed = _resumeGoalForContinuation(session);
+          if (resumed == null) {
+            _setLastSendErrorMessage(
+              session.id,
+              'No paused or running goal is available for continuation.',
+            );
+            return false;
+          }
+          session = resumed.session;
+          nextUserMessageMetadata.putIfAbsent(
+            aiSessionGoalIdMetadataKey,
+            () => resumed.goal.id,
+          );
+          nextUserMessageMetadata[aiSessionGoalAutoFollowUpMetadataKey] = true;
         }
         if (_shouldResetPlanStateForNewTask(
           session: session,
@@ -6703,13 +7550,6 @@ class AiSessionController extends ChangeNotifier {
           }
           workingSession = settledPlanSession;
         }
-        await _emitStopHooks(
-          sessionId: workingSession.id,
-          reason: workingSession.awaitingPlanApproval
-              ? 'plan_approval'
-              : 'completed',
-          awaitingUserInput: true,
-        );
         // 阶段⑰：助手刚产出最终自然回复且本轮存在工具调用 → 反查 ledger
         // 合成单卡「本轮文件变动汇总」状态消息。仅在 plan-approval 等待
         // 之外的真正完成态发射，避免每次 plan 中转都重复刷卡。
@@ -6724,6 +7564,45 @@ class AiSessionController extends ChangeNotifier {
             workingSession = summarySession;
           }
         }
+        if (!workingSession.awaitingPlanApproval) {
+          final goalDecision = await _advanceGoalAfterAssistantResponse(
+            session: workingSession,
+            conversationModel: model,
+            assistantUsage: effectiveUsage,
+            assistantMessageId: assistantMessageId,
+          );
+          workingSession = goalDecision.session;
+          if (goalDecision.shouldContinue &&
+              goalDecision.nextUserMessageId != null) {
+            activeLatestUserMessageId = goalDecision.nextUserMessageId;
+            activeRoundAnchorMessageId = goalDecision.nextUserMessageId;
+            roundToolCallIds.clear();
+            roundToolCallSeen.clear();
+            toolRoundCount = 0;
+            toolCallCount = 0;
+            planModeRecoveryInspectionRequired =
+                _shouldRequirePlanModeRecoveryInspection(
+                  session: workingSession,
+                  latestUserMessageId: activeLatestUserMessageId,
+                );
+            planModeExecutionApprovedForSend =
+                _shouldAllowPlanModeExecutionTools(
+                  session: workingSession,
+                  latestUserMessageId: activeLatestUserMessageId,
+                );
+            if (_isStopRequestedForSession(workingSession.id)) {
+              return true;
+            }
+            continue;
+          }
+        }
+        await _emitStopHooks(
+          sessionId: workingSession.id,
+          reason: workingSession.awaitingPlanApproval
+              ? 'plan_approval'
+              : 'completed',
+          awaitingUserInput: true,
+        );
         return true;
       }
       // Model produced tool calls — reset the truncation counter since
@@ -10101,11 +10980,23 @@ $tail''';
     if (!identical(liveSession.metadata, nextSession.metadata)) {
       final mergedMetadata = Map<String, Object?>.from(nextSession.metadata);
       var hasMetadataDifferences = false;
+      final resolvedGoalState = _resolveMergedGoalStateMetadata(
+        nextSession.metadata[aiSessionGoalStateMetadataKey],
+        liveSession.metadata[aiSessionGoalStateMetadataKey],
+      );
       for (final entry in liveSession.metadata.entries) {
+        if (entry.key == aiSessionGoalStateMetadataKey) {
+          continue;
+        }
         if (mergedMetadata[entry.key] != entry.value) {
           mergedMetadata[entry.key] = entry.value;
           hasMetadataDifferences = true;
         }
+      }
+      if (resolvedGoalState != null &&
+          mergedMetadata[aiSessionGoalStateMetadataKey] != resolvedGoalState) {
+        mergedMetadata[aiSessionGoalStateMetadataKey] = resolvedGoalState;
+        hasMetadataDifferences = true;
       }
       if (hasMetadataDifferences) {
         nextSession = nextSession.copyWith(metadata: mergedMetadata);
@@ -10139,6 +11030,33 @@ $tail''';
       return nextSession.copyWith(autoTitleAcquired: true);
     }
     return nextSession;
+  }
+
+  Object? _resolveMergedGoalStateMetadata(Object? nextRaw, Object? liveRaw) {
+    if (nextRaw == null) {
+      return liveRaw;
+    }
+    if (liveRaw == null) {
+      return nextRaw;
+    }
+    final nextUpdatedAt = _goalStateMetadataUpdatedAt(nextRaw);
+    final liveUpdatedAt = _goalStateMetadataUpdatedAt(liveRaw);
+    if (liveUpdatedAt != null &&
+        (nextUpdatedAt == null || liveUpdatedAt.isAfter(nextUpdatedAt))) {
+      return liveRaw;
+    }
+    return nextRaw;
+  }
+
+  DateTime? _goalStateMetadataUpdatedAt(Object? raw) {
+    final state = AiSessionGoalState.fromJson(raw);
+    DateTime? latest = state.current?.updatedAt;
+    for (final goal in state.history) {
+      if (latest == null || goal.updatedAt.isAfter(latest)) {
+        latest = goal.updatedAt;
+      }
+    }
+    return latest;
   }
 
   AiSession _appendError(
