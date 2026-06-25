@@ -650,6 +650,8 @@ function messageActionVisualStyle(
 // 以 14px 行高 + 1.55 line-height ≈ 22px / 行换算，5-6 行约 110-130 字符的单行长度；
 // 保守取 6 行 + 一个字符容差 ≈ 260 字符作为「超长」阈值。
 const REASONING_AUTO_COLLAPSE_CHAR_LIMIT = 260;
+const GENERAL_AUTO_COLLAPSE_CHAR_LIMIT = 1200;
+const GENERAL_AUTO_COLLAPSE_LINE_LIMIT = 12;
 // 折叠预览容器 max-height，像素值。≈ 6 行 × 22px = 132px，多给 10px 呼吸量，
 // 对应 APP 端 _MarkdownPreviewBody maxHeight: 142。
 const REASONING_PREVIEW_MAX_HEIGHT_PX = 142;
@@ -769,6 +771,18 @@ function isReasoningLong(content: string): boolean {
     if (content.charCodeAt(i) === 10) {
       lineBreaks += 1;
       if (lineBreaks >= 5) return true;
+    }
+  }
+  return false;
+}
+
+function isGeneralMessageLong(content: string): boolean {
+  if (content.length > GENERAL_AUTO_COLLAPSE_CHAR_LIMIT) return true;
+  let lineBreaks = 0;
+  for (let i = 0; i < content.length; i++) {
+    if (content.charCodeAt(i) === 10) {
+      lineBreaks += 1;
+      if (lineBreaks >= GENERAL_AUTO_COLLAPSE_LINE_LIMIT) return true;
     }
   }
   return false;
@@ -1283,10 +1297,18 @@ function MessageCardImpl({
   const keepExpandedDuringTurn =
     stableTurnActive && message.role === 'assistant' && !isReasoningMessage;
   const hasCollapsibleContent = content.trim().length > 0;
+  const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
+  const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
+  const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
+  const contentExceedsCollapseThreshold = hasCollapsibleContent && (
+    isReasoningMessage
+      ? isReasoningLong(content)
+      : isGeneralMessageLong(content)
+  );
   const canCollapse =
     !forceExpanded &&
     !activelyStreaming &&
-    hasCollapsibleContent;
+    contentExceedsCollapseThreshold;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(() => (
     responseExpandedOverridesByMessageId.has(message.id)
       ? responseExpandedOverridesByMessageId.get(message.id)!
@@ -1315,9 +1337,6 @@ function MessageCardImpl({
   // - 流式期间始终展开，便于实时观察
   // - 流式结束后，超过 5-6 行的 reasoning 默认折叠（用 max-height 预览态）
   // - 用户一旦手动切换，记住其选择，不被流式结束事件回撤
-  const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
-  const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
-  const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
   const isAssistantResponseBadgeMessage =
     isAssistantResponseMessage(message) && !isCollapsibleByBadge;
   const responseBadgeStreaming = isAssistantResponseBadgeMessage && activelyStreaming;
@@ -1329,10 +1348,11 @@ function MessageCardImpl({
     'oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
   const staticSweepingBadgeClass =
     'oh-message-badge-toggle is-static is-sweeping inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
-  const isLongReasoning = isReasoningMessage && isReasoningLong(content);
-  const defaultBadgeCollapsed = isCollapsibleByBadge && !activelyStreaming
-    ? true
-    : isLongReasoning;
+  const badgeCanCollapse =
+    isCollapsibleByBadge &&
+    !activelyStreaming &&
+    contentExceedsCollapseThreshold;
+  const defaultBadgeCollapsed = badgeCanCollapse;
   const [badgeCollapsedOverride, setBadgeCollapsedOverride] = useState<boolean | null>(() => (
     badgeCollapsedOverridesByMessageId.has(message.id)
       ? badgeCollapsedOverridesByMessageId.get(message.id)!
@@ -1348,9 +1368,9 @@ function MessageCardImpl({
   const badgeCollapsed = badgeCollapsedOverride ?? defaultBadgeCollapsed;
   const bodyCollapsedByCard = !isCollapsibleByBadge && collapsed;
   const badgeBodyCollapsed =
-    (isCollapsibleByBadge && badgeCollapsed) || bodyCollapsedByCard;
+    (badgeCanCollapse && badgeCollapsed) || bodyCollapsedByCard;
   const reasoningPreviewCollapsed =
-    isReasoningMessage && isCollapsibleByBadge && badgeCollapsed;
+    isReasoningMessage && badgeCanCollapse && badgeCollapsed;
 
   // ── 入场动画：仅首次挂载时播放，防止流式更新重播 ──
   const [shouldAnimate] = useState(() => !appearedMessageIds.has(message.id));
@@ -1377,7 +1397,7 @@ function MessageCardImpl({
     finiteNumberOrNullFromUnknown(metadata['responseVariantIndex']) ??
     0;
   const scrollableCollapsedBody =
-    canCollapse || isCollapsibleByBadge || isAssistantResponseBadgeMessage;
+    canCollapse || badgeCanCollapse || responseBadgeCanToggle;
   const collapsedBodyKindKey = isAssistantResponseBadgeMessage
     ? 'response'
     : isCollapsibleByBadge
@@ -1672,7 +1692,7 @@ function MessageCardImpl({
         <header class="oh-message-card-header flex items-center gap-3 text-xs mb-2 opacity-90">
           <span class="oh-message-card-meta flex items-center gap-2 min-w-0">
             {style.badge ? (
-              isCollapsibleByBadge ? (
+              badgeCanCollapse ? (
                 <button
                   type="button"
                   class={`${badgeToggleClass}${reasoningBadgeSweeping ? ' is-sweeping' : ''}`}
