@@ -54,7 +54,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   List<String> _availableModelIds = const <String>[];
   String? _activeModelId;
   String? _defaultTitleModelId;
-  late bool _isGlobalDefaultTitleModel;
   late Map<String, AiModelProfile> _modelProfiles;
   late List<_HeaderEntry> _customHeaderEntries;
   final ScrollController _chipScrollController = ScrollController();
@@ -175,11 +174,19 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         widget.initialModel?.defaultTitleModelId.trim().isNotEmpty == true
         ? widget.initialModel!.defaultTitleModelId.trim()
         : null;
-    _isGlobalDefaultTitleModel =
-        widget.initialModel?.isGlobalDefaultTitleModel ?? false;
     _modelProfiles = Map<String, AiModelProfile>.of(
       widget.initialModel?.modelProfiles ?? const <String, AiModelProfile>{},
     );
+    final legacyGlobalTitleModelId = _legacyGlobalDefaultTitleModelId(
+      widget.initialModel,
+    );
+    if (legacyGlobalTitleModelId != null) {
+      final existing =
+          _modelProfiles[legacyGlobalTitleModelId] ?? const AiModelProfile();
+      _modelProfiles[legacyGlobalTitleModelId] = existing.copyWith(
+        isGlobalDefaultTitleModel: true,
+      );
+    }
     _customHeaderEntries = <_HeaderEntry>[];
     final existingHeaders =
         widget.initialModel?.customHeaders ?? const <String, String>{};
@@ -376,6 +383,18 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     });
   }
 
+  String? _legacyGlobalDefaultTitleModelId(AiModelConfig? model) {
+    if (model?.isGlobalDefaultTitleModel != true) {
+      return null;
+    }
+    final providerDefaultModelId = model!.defaultTitleModelId.trim();
+    if (providerDefaultModelId.isNotEmpty) {
+      return providerDefaultModelId;
+    }
+    final activeModelId = model.modelId.trim();
+    return activeModelId.isEmpty ? null : activeModelId;
+  }
+
   Future<void> _editModelProfile(String modelId) async {
     final existing = _modelProfiles[modelId] ?? const AiModelProfile();
     final effectiveModel = AiModelConfig(
@@ -403,11 +422,24 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     );
     if (result == null || !mounted) return;
     setState(() {
-      if (result.hasUserOverrides) {
-        _modelProfiles[modelId] = result;
-      } else {
-        _modelProfiles.remove(modelId);
+      final nextProfiles = <String, AiModelProfile>{};
+      for (final entry in _modelProfiles.entries) {
+        var profile = entry.value;
+        if (result.isGlobalDefaultTitleModel &&
+            entry.key != modelId &&
+            profile.isGlobalDefaultTitleModel) {
+          profile = profile.copyWith(isGlobalDefaultTitleModel: false);
+        }
+        if (profile.hasUserOverrides) {
+          nextProfiles[entry.key] = profile;
+        }
       }
+      if (result.hasUserOverrides) {
+        nextProfiles[modelId] = result;
+      } else {
+        nextProfiles.remove(modelId);
+      }
+      _modelProfiles = nextProfiles;
     });
   }
 
@@ -739,56 +771,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
               }
               onChanged(value);
             },
-    );
-  }
-
-  Widget _buildGlobalDefaultTitleModelControl() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(0, 2, 0, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '全局默认标题生成模型',
-                    en: 'Global Default Title Model',
-                  ),
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '开启后，本提供商会作为所有线程标题生成的全局兜底；保存时其他提供商的同名开关会自动关闭。',
-                    en: 'When enabled, this provider becomes the app-wide fallback for title generation; saving turns off the same switch on other providers.',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Switch(
-            value: _isGlobalDefaultTitleModel,
-            onChanged: _isSaving
-                ? null
-                : (value) {
-                    setState(() {
-                      _isGlobalDefaultTitleModel = value;
-                    });
-                  },
-          ),
-        ],
-      ),
     );
   }
 
@@ -1171,8 +1153,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 allowUnset: true,
                                 onChanged: _selectDefaultTitleModelId,
                               ),
-                              const SizedBox(height: 16),
-                              _buildGlobalDefaultTitleModelControl(),
                               const SizedBox(height: 16),
                               TextFormField(
                                 controller: _maxContextTokensController,
@@ -2005,7 +1985,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       ),
       availableModelIds: _availableModelIds,
       defaultTitleModelId: _defaultTitleModelId?.trim() ?? '',
-      isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
       customHeaders: _collectCustomHeaders(),
       requestMethod: _requestMethod,
       maxTokens: _parseOptionalPositiveInt(_maxTokensController.text),
@@ -2167,6 +2146,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   bool? _isMultimodal;
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
+  late bool _isGlobalDefaultTitleModel;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
 
@@ -2176,6 +2156,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final p = widget.initialProfile;
     final effective = widget.effectiveProfile;
     final hasExisting = p.hasUserOverrides;
+    _isGlobalDefaultTitleModel = p.isGlobalDefaultTitleModel;
 
     // Display name: pre-fill with model ID when creating a fresh profile.
     _displayNameController = TextEditingController(
@@ -2409,12 +2390,58 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       expirationDate: _expirationDateController.text.trim().isNotEmpty
           ? _expirationDateController.text.trim()
           : null,
+      isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
     );
     Navigator.of(context).pop(profile);
   }
 
   void _reset() {
     Navigator.of(context).pop(const AiModelProfile());
+  }
+
+  Widget _buildGlobalDefaultTitleModelControl() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _localizedText(
+                  context,
+                  zh: '全局默认标题生成模型',
+                  en: 'Global Default Title Model',
+                ),
+                style: theme.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '开启后，该模型会作为所有线程标题生成的全局兜底；请选择可生成文本标题的模型，保存时其他模型的同名开关会自动关闭。',
+                  en: 'When enabled, this model becomes the app-wide title fallback. Use a text-capable model; saving turns off the same switch on other models.',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Switch(
+          value: _isGlobalDefaultTitleModel,
+          onChanged: (value) {
+            setState(() {
+              _isGlobalDefaultTitleModel = value;
+            });
+          },
+        ),
+      ],
+    );
   }
 
   @override
@@ -2470,6 +2497,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 maxLines: 2,
               ),
+              const SizedBox(height: 16),
+
+              _buildGlobalDefaultTitleModelControl(),
               const SizedBox(height: 16),
 
               // Multimodal toggle (tri-state)

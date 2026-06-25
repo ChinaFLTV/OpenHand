@@ -1984,24 +1984,19 @@ class SettingsController extends ChangeNotifier {
       } else {
         updatedModels[index] = normalizedValue;
       }
-      if (normalizedValue.isGlobalDefaultTitleModel) {
-        for (var i = 0; i < updatedModels.length; i++) {
-          final item = updatedModels[i];
-          if (item.id != normalizedValue.id && item.isGlobalDefaultTitleModel) {
-            updatedModels[i] = item.copyWith(isGlobalDefaultTitleModel: false);
-          }
-        }
-      }
       final nextSelectedModelId = _selectedAiModelId ?? normalizedValue.id;
-      _aiModels = AiTitleModelResolver.normalizeProviders(updatedModels);
+      final normalizedModels = AiTitleModelResolver.normalizeProviders(
+        updatedModels,
+      );
+      _aiModels = normalizedModels;
       _cachedAiModelsView = null;
       _recentModelSelections = _sanitizeRecentModelSelections(
         _recentModelSelections,
-        updatedModels,
+        normalizedModels,
       );
       _cachedRecentModelSelectionsView = null;
       _selectedAiModelId =
-          updatedModels.any((item) => item.id == nextSelectedModelId)
+          normalizedModels.any((item) => item.id == nextSelectedModelId)
           ? nextSelectedModelId
           : normalizedValue.id;
       return _MutationDisposition.apply;

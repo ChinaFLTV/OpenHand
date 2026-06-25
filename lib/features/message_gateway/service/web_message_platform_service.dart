@@ -5088,7 +5088,7 @@ class WebMessagePlatformService {
               provider.allModelIds.contains(providerDefaultTitleModelId)
           ? _modelKey(provider.id, providerDefaultTitleModelId)
           : null;
-      final globalDefaultTitleModelId = provider.isGlobalDefaultTitleModel
+      final legacyGlobalDefaultTitleModelId = provider.isGlobalDefaultTitleModel
           ? (providerDefaultTitleModelId.isNotEmpty
                 ? providerDefaultTitleModelId
                 : provider.modelId.trim())
@@ -5100,6 +5100,7 @@ class WebMessagePlatformService {
           continue;
         }
         final resolved = provider.copyWith(modelId: modelId);
+        final profile = provider.profileFor(modelId);
         result.add(
           _AllowedWebModel(
             key: key,
@@ -5125,8 +5126,9 @@ class WebMessagePlatformService {
                 AiTitleModelResolver.supportsTextTitleGeneration(resolved),
             providerDefaultTitleModelKey: providerDefaultTitleModelKey,
             isGlobalDefaultTitleModel:
-                globalDefaultTitleModelId.isNotEmpty &&
-                modelId == globalDefaultTitleModelId,
+                profile.isGlobalDefaultTitleModel ||
+                (legacyGlobalDefaultTitleModelId.isNotEmpty &&
+                    modelId == legacyGlobalDefaultTitleModelId),
           ),
         );
       }

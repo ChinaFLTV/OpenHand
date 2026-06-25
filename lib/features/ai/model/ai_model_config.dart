@@ -261,6 +261,7 @@ class AiModelProfile {
     this.knowledgeCutoff,
     this.expirationDate,
     this.links,
+    this.isGlobalDefaultTitleModel = false,
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -308,8 +309,13 @@ class AiModelProfile {
               Map<String, Object?>.from(json['links'] as Map),
             )
           : null,
+      isGlobalDefaultTitleModel:
+          _readBool(json[_globalDefaultTitleModelJsonKey]) ?? false,
     );
   }
+
+  static const String _globalDefaultTitleModelJsonKey =
+      'is_global_default_title_model';
 
   /// User-friendly display name (e.g. "GPT-4o" instead of "gpt-4o-2024-11-20").
   final String? displayName;
@@ -365,6 +371,12 @@ class AiModelProfile {
   final String? expirationDate;
   final AiModelLinksMetadata? links;
 
+  /// Whether this concrete model is the app-wide title-generation fallback.
+  ///
+  /// This belongs to the per-model profile because one provider can expose
+  /// text, image, video, and audio models at the same time.
+  final bool isGlobalDefaultTitleModel;
+
   /// Whether user explicitly configured this profile (not just empty defaults).
   bool get hasUserOverrides =>
       displayName != null ||
@@ -391,7 +403,8 @@ class AiModelProfile {
       supportedVoices.isNotEmpty ||
       knowledgeCutoff != null ||
       expirationDate != null ||
-      links != null;
+      links != null ||
+      isGlobalDefaultTitleModel;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -439,6 +452,7 @@ class AiModelProfile {
     bool clearExpirationDate = false,
     AiModelLinksMetadata? links,
     bool clearLinks = false,
+    bool? isGlobalDefaultTitleModel,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -498,6 +512,8 @@ class AiModelProfile {
           ? null
           : expirationDate ?? this.expirationDate,
       links: clearLinks ? null : links ?? this.links,
+      isGlobalDefaultTitleModel:
+          isGlobalDefaultTitleModel ?? this.isGlobalDefaultTitleModel,
     );
   }
 
@@ -539,6 +555,7 @@ class AiModelProfile {
       if (knowledgeCutoff != null) 'knowledge_cutoff': knowledgeCutoff,
       if (expirationDate != null) 'expiration_date': expirationDate,
       if (links != null && !links!.isEmpty) 'links': links!.toJson(),
+      if (isGlobalDefaultTitleModel) _globalDefaultTitleModelJsonKey: true,
     };
   }
 
@@ -609,6 +626,20 @@ class AiModelProfile {
     }
     if (d == null || !d.isFinite || d.isNaN || d < 0) return null;
     return d;
+  }
+
+  static bool? _readBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+      return false;
+    }
+    return null;
   }
 }
 
@@ -758,9 +789,11 @@ class AiModelConfig {
   /// text-capable sibling model from the same provider.
   final String defaultTitleModelId;
 
-  /// Whether this provider contributes the app-wide title-generation fallback.
-  /// At most one provider should have this true; SettingsController enforces
-  /// uniqueness on save and settings load sanitizes older duplicated values.
+  /// Legacy provider-level app-wide title fallback marker.
+  ///
+  /// New UI writes this setting to [AiModelProfile.isGlobalDefaultTitleModel]
+  /// because the fallback belongs to one concrete text-capable model. This
+  /// field remains readable so older settings files keep working.
   final bool isGlobalDefaultTitleModel;
 
   /// User-defined custom HTTP headers to include in API requests.
@@ -843,6 +876,7 @@ class AiModelConfig {
       knowledgeCutoff: override.knowledgeCutoff,
       expirationDate: override.expirationDate,
       links: override.links,
+      isGlobalDefaultTitleModel: override.isGlobalDefaultTitleModel,
     );
   }
 

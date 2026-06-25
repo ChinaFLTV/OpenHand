@@ -26,8 +26,7 @@ class AiTitleModelResolver {
     addCandidate(currentModel);
     addCandidate(_providerDefaultTitleModel(sourceProvider));
 
-    final globalProvider = _globalDefaultTitleProvider(models);
-    addCandidate(_globalDefaultTitleModel(globalProvider));
+    addCandidate(_globalDefaultTitleModel(models));
 
     return candidates.toList(growable: false);
   }
@@ -43,9 +42,7 @@ class AiTitleModelResolver {
       );
       return chain.isNotEmpty ? chain.first : null;
     }
-    final global = _globalDefaultTitleModel(
-      _globalDefaultTitleProvider(models),
-    );
+    final global = _globalDefaultTitleModel(models);
     if (global != null && supportsTextTitleGeneration(global)) {
       return global;
     }
@@ -111,15 +108,39 @@ class AiTitleModelResolver {
   static List<AiModelConfig> normalizeProviders(
     Iterable<AiModelConfig> models,
   ) {
-    var hasGlobalDefault = false;
-    final normalized = <AiModelConfig>[];
+    var hasProfileGlobalDefault = false;
+    final staged = <AiModelConfig>[];
     for (final model in models) {
       var next = normalizeProviderTitleDefaults(model);
+      final visibleModelIds = next.allModelIds.toSet();
+      final profiles = <String, AiModelProfile>{};
+      for (final entry in next.modelProfiles.entries) {
+        final modelId = entry.key.trim();
+        if (modelId.isEmpty) continue;
+        var profile = entry.value;
+        if (profile.isGlobalDefaultTitleModel) {
+          if (!visibleModelIds.contains(modelId) || hasProfileGlobalDefault) {
+            profile = profile.copyWith(isGlobalDefaultTitleModel: false);
+          } else {
+            hasProfileGlobalDefault = true;
+          }
+        }
+        if (profile.hasUserOverrides) {
+          profiles[modelId] = profile;
+        }
+      }
+      next = next.copyWith(modelProfiles: profiles);
+      staged.add(next);
+    }
+
+    var hasLegacyGlobalDefault = false;
+    final normalized = <AiModelConfig>[];
+    for (var next in staged) {
       if (next.isGlobalDefaultTitleModel) {
-        if (hasGlobalDefault) {
+        if (hasProfileGlobalDefault || hasLegacyGlobalDefault) {
           next = next.copyWith(isGlobalDefaultTitleModel: false);
         } else {
-          hasGlobalDefault = true;
+          hasLegacyGlobalDefault = true;
         }
       }
       normalized.add(next);
@@ -153,30 +174,58 @@ class AiTitleModelResolver {
     );
   }
 
-  static AiModelConfig? _globalDefaultTitleProvider(
-    List<AiModelConfig> models,
-  ) {
-    for (final model in models) {
-      if (model.isGlobalDefaultTitleModel) {
-        return model;
-      }
+  static AiModelConfig? _globalDefaultTitleModel(List<AiModelConfig> models) {
+    final profileDefault = _profileGlobalDefaultTitleModel(models);
+    if (profileDefault.configured) {
+      return profileDefault.model;
     }
-    return null;
+    return _legacyGlobalDefaultTitleModel(models);
   }
 
-  static AiModelConfig? _globalDefaultTitleModel(AiModelConfig? provider) {
-    if (provider == null) return null;
-    final modelId = provider.defaultTitleModelId.trim().isNotEmpty
-        ? provider.defaultTitleModelId.trim()
-        : provider.modelId.trim();
-    if (modelId.isEmpty) return null;
-    return provider.copyWith(
-      modelId: modelId,
-      availableModelIds: AiModelConfig.normalizeModelIds(<String>[
-        ...provider.availableModelIds,
-        modelId,
-      ]),
-    );
+  static ({bool configured, AiModelConfig? model})
+  _profileGlobalDefaultTitleModel(List<AiModelConfig> models) {
+    for (final provider in models) {
+      for (final modelId in provider.allModelIds) {
+        if (!provider.profileFor(modelId).isGlobalDefaultTitleModel) {
+          continue;
+        }
+        final candidate = provider.copyWith(
+          modelId: modelId,
+          availableModelIds: AiModelConfig.normalizeModelIds(<String>[
+            ...provider.availableModelIds,
+            modelId,
+          ]),
+        );
+        return (
+          configured: true,
+          model: supportsTextTitleGeneration(candidate) ? candidate : null,
+        );
+      }
+    }
+    return (configured: false, model: null);
+  }
+
+  static AiModelConfig? _legacyGlobalDefaultTitleModel(
+    List<AiModelConfig> models,
+  ) {
+    for (final provider in models) {
+      if (!provider.isGlobalDefaultTitleModel) {
+        continue;
+      }
+      final modelId = provider.defaultTitleModelId.trim().isNotEmpty
+          ? provider.defaultTitleModelId.trim()
+          : provider.modelId.trim();
+      if (modelId.isEmpty) return null;
+      final candidate = provider.copyWith(
+        modelId: modelId,
+        availableModelIds: AiModelConfig.normalizeModelIds(<String>[
+          ...provider.availableModelIds,
+          modelId,
+        ]),
+      );
+      return supportsTextTitleGeneration(candidate) ? candidate : null;
+    }
+    return null;
   }
 
   static String _candidateKey(AiModelConfig model) {
