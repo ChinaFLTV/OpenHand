@@ -31,6 +31,7 @@ import {
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
+import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -1097,29 +1098,6 @@ function textLayoutMotionSignal(
   return `${lineBreaks}:${Math.floor(value.length / bucketChars)}`;
 }
 
-function boundedTextHash(value: string): string {
-  let hash = 0x811c9dc5;
-  const headEnd = Math.min(value.length, 4096);
-  const tailStart = value.length > 8192 ? value.length - 4096 : headEnd;
-  for (let index = 0; index < headEnd; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  if (tailStart < value.length) {
-    hash ^= 0x9e3779b9;
-    hash = Math.imul(hash, 0x01000193);
-    for (let index = tailStart; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 0x01000193);
-    }
-  }
-  if (value.length > headEnd) {
-    hash ^= value.length;
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(36);
-}
-
 function numberLayoutMotionSignal(value: number | undefined): string {
   return value == null ? '' : String(Math.floor(value / SIZE_MOTION_TEXT_BUCKET_CHARS));
 }
@@ -1678,7 +1656,7 @@ function MessageCardImpl({
       : `message:${message.role}:${message.kind}`;
   const collapsedBodyContentKey = activelyStreaming || recentlyUpdatedContent
     ? 'streaming'
-    : `${visibleContent.length}|${boundedTextHash(visibleContent)}`;
+    : `${visibleContent.length}|${boundedFnv1aHashBase36(visibleContent)}`;
   const collapsedBodyScrollStateKey = scrollableCollapsedBody
     ? [
         message.id,

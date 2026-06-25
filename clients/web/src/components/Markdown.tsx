@@ -20,6 +20,7 @@ import { memo } from 'preact/compat';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { fnv1aHashBase36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
@@ -126,17 +127,8 @@ const HTML_COMPLEX_TAG_COUNT = 96;
 const HTML_COMPLEX_RENDER_COST = 18;
 const HTML_COMPLEX_PREVIEW_MAX_CHARS = 1400;
 
-function fnv1aHash(value: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(36);
-}
-
 function contentCacheKey(prefix: string, content: string): string {
-  return `${prefix}:${content.length}:${fnv1aHash(content)}`;
+  return `${prefix}:${content.length}:${fnv1aHashBase36(content)}`;
 }
 
 function rememberLru<K, V>(cache: Map<K, V>, key: K, value: V, limit: number): void {

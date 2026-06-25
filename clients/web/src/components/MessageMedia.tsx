@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { rollingHash31Base36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { clampNumber } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
@@ -319,12 +320,8 @@ function collectMarkdownMedia(message: SessionMessage, out: MediaItem[]): void {
     // 如果文件名过长或不含扩展名, 生成友好名称。
     if (name.length > 60 || (!name.includes('.') && kind === 'image')) {
       const ext = kind === 'image' ? '.png' : kind === 'video' ? '.mp4' : '.mp3';
-      // 使用 URL hash 的前 16 字符作为稳定标识, 避免每次渲染生成不同名称。
-      let hash = 0;
-      for (let i = 0; i < rawPath.length; i++) {
-        hash = ((hash << 5) - hash + rawPath.charCodeAt(i)) | 0;
-      }
-      name = `${kind}_${(hash >>> 0).toString(36)}${ext}`;
+      // 使用 URL hash 作为稳定标识, 避免每次渲染生成不同名称。
+      name = `${kind}_${rollingHash31Base36(rawPath)}${ext}`;
     }
     out.push({ path: rawPath, name, kind, isDirectUrl: true });
   }

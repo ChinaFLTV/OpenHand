@@ -2431,7 +2431,7 @@ class SettingsController extends ChangeNotifier {
   }
 
   /// 调整 Harness ToolSearch 历史 LRU 桶上限。超出 [1, 64] 会被
-  /// clamp；快递中快递重复写入只会走 successNoChange 路径。
+  /// clamp；快速重复写入只会走 successNoChange 路径。
   Future<bool> updateHardnessToolSearchHistoryMaxPhases(int value) async {
     final clamped = value.clamp(
       AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases,

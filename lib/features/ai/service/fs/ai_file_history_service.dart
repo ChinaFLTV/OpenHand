@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/rolling_hash.dart';
 
 /// 文件编辑历史版本服务
 ///
@@ -16,6 +17,11 @@ import '../../../../shared/db/atomic_file_operations.dart';
 class AiFileHistoryService {
   AiFileHistoryService({String? historyDirectory, this.maxVersionsPerFile = 10})
     : _historyDirectory = historyDirectory;
+
+  static final RegExp _unsafeHistoryPathBasenamePattern = RegExp(
+    r'[^a-zA-Z0-9_-]',
+  );
+  static const int _historyPathBasenamePrefixLength = 20;
 
   final String? _historyDirectory;
   final int maxVersionsPerFile;
@@ -212,18 +218,21 @@ class AiFileHistoryService {
 
   /// 生成路径哈希（用于创建子目录）
   String _hashPath(String path) {
-    var hash = 0;
-    for (var i = 0; i < path.length; i++) {
-      hash = ((hash << 5) - hash) + path.codeUnitAt(i);
-      hash = hash & 0x7FFFFFFF; // 保持正数
-    }
-    // 返回路径最后一段 + hash，便于人工识别
+    final hash = rollingHashPositive31Bit(
+      path.codeUnits,
+      (codeUnit) => codeUnit,
+    );
     final basename = p.basenameWithoutExtension(path);
-    final safeBasename = basename.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    // 修复边界条件 - 当 basename 为空时使用 'file' 作为前缀
+    final safeBasename = basename.replaceAll(
+      _unsafeHistoryPathBasenamePattern,
+      '_',
+    );
     final prefix = safeBasename.isEmpty
         ? 'file'
-        : safeBasename.substring(0, safeBasename.length.clamp(0, 20));
+        : safeBasename.substring(
+            0,
+            safeBasename.length.clamp(0, _historyPathBasenamePrefixLength),
+          );
     return '${prefix}_$hash';
   }
 

@@ -394,23 +394,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     );
   }
 
-  // tab id 顺序 / 标题指纹：Object.hashAll 会构造临时 list，这里手拆 31 hash
-  // 节省 60fps 帧率下的 GC。任一变化即 rebuild，让 `_TabStrip` 立刻拿到
-  // 新顺序 / 新标题。
   static int _hashTargetsOrder(List<CdpPageTargetSnapshot> targets) {
-    var h = 0;
-    for (final t in targets) {
-      h = (h * 31 + t.id.hashCode) & 0x3fffffff;
-    }
-    return h;
+    return rollingHash30(targets, (target) => target.id.hashCode);
   }
 
   static int _hashTargetsTitle(List<CdpPageTargetSnapshot> targets) {
-    var h = 0;
-    for (final t in targets) {
-      h = (h * 31 + t.title.hashCode) & 0x3fffffff;
-    }
-    return h;
+    return rollingHash30(targets, (target) => target.title.hashCode);
   }
 
   void _scheduleViewportSync(Size logical, double dpr) {

@@ -28,11 +28,6 @@ class AiPromptTemplateRepository {
     Future<String> Function(String assetPath)? loader,
   }) : _loader = loader ?? rootBundle.loadString;
 
-  static const String _systemInstructionsFile = 'system_instructions.md';
-  static const String _developerInstructionsFile = 'developer_instructions.md';
-  static const String _compressionSummaryInstructionsFile =
-      'compression_summary_instructions.md';
-
   final Future<String> Function(String assetPath) _loader;
   final Map<String, Future<AiPromptTemplateBundle>> _bundleCache =
       <String, Future<AiPromptTemplateBundle>>{};
@@ -103,21 +98,20 @@ class AiPromptTemplateRepository {
     final catalogEntry = AiPromptTemplatePolicies.resolveEntry(templateId);
     final template = resolveTemplate(catalogEntry.id);
     final policy = catalogEntry.policy;
-    final assetDirectory = policy.promptAssetDirectory;
     final fallback = _TemplatePromptFallbacks.resolve(policy.templateId);
     final systemInstructions = await _loadTemplateAsset(
-      assetDirectory,
-      _systemInstructionsFile,
+      policy,
+      AiPromptTemplateAssetFiles.systemInstructions,
       fallback: fallback.systemInstructions,
     );
     final developerInstructions = await _loadTemplateAsset(
-      assetDirectory,
-      _developerInstructionsFile,
+      policy,
+      AiPromptTemplateAssetFiles.developerInstructions,
       fallback: fallback.developerInstructions,
     );
     final compressionSummaryInstructions = await _loadTemplateAsset(
-      assetDirectory,
-      _compressionSummaryInstructionsFile,
+      policy,
+      AiPromptTemplateAssetFiles.compressionSummaryInstructions,
       fallback: fallback.compressionSummaryInstructions,
     );
     final systemWithSharedSections = await _appendSectionsIfAbsent(
@@ -143,11 +137,11 @@ class AiPromptTemplateRepository {
   }
 
   Future<String> _loadTemplateAsset(
-    String assetDirectory,
+    AiPromptTemplatePolicy policy,
     String fileName, {
     required String fallback,
   }) {
-    return _loadTemplateSection('$assetDirectory/$fileName', fallback);
+    return _loadTemplateSection(policy.promptAssetPathFor(fileName), fallback);
   }
 
   Future<String> _appendSectionsIfAbsent(

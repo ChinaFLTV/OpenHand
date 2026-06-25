@@ -28,6 +28,7 @@ import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/rolling_hash.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'lsp/web_reverse_lsp_client.dart';
@@ -258,11 +259,8 @@ class _WebReverseDashboardDialogState
   // 即让 _BrowserBody 整体 rebuild 拿到新 tab strip。
   int _lastTabsLen = 0;
   String? _lastCurTabId;
-  // tab 页面上的调整“顺序”与“标题”不改变 length / current，请务必用
-  // 指纹重新触发 dashboard rebuild，否则 `_TabStrip` 不会拿到新 list
-  // → `ReorderableListView` 拖放后会视觉弹回（主要 BUG）；Page 标题
-  // 变动同理。hash 采用 Object.hashAll(id串)，静态手拆避免
-  // 创建临时 list。
+  // tab 页面上的调整“顺序”与“标题”不改变 length / current，需要用轻量
+  // 指纹触发 dashboard rebuild，否则 `_TabStrip` 不会拿到新 list。
   int _lastTabsOrderHash = 0;
   int _lastTabsTitleHash = 0;
   final GlobalKey<AnimatedListState> _networkListKey =
@@ -506,22 +504,12 @@ class _WebReverseDashboardDialogState
     if (dashboardDirty) setState(() {});
   }
 
-  // tab id 顺序 / title 指纹计算：Object.hashAll 避免创建临时 list，
-  // 60fps screencast 频率下也昔点 GC。
   static int _computeTabsOrderHash(List<CdpPageTargetSnapshot> targets) {
-    var h = 0;
-    for (final t in targets) {
-      h = (h * 31 + t.id.hashCode) & 0x3fffffff;
-    }
-    return h;
+    return rollingHash30(targets, (target) => target.id.hashCode);
   }
 
   static int _computeTabsTitleHash(List<CdpPageTargetSnapshot> targets) {
-    var h = 0;
-    for (final t in targets) {
-      h = (h * 31 + t.title.hashCode) & 0x3fffffff;
-    }
-    return h;
+    return rollingHash30(targets, (target) => target.title.hashCode);
   }
 
   /// 让 part 文件能从外部触发 dashboard 重建（part 文件不能直接调 setState）。

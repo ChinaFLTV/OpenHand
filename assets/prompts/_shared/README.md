@@ -14,6 +14,13 @@
 | `tone.md` | 表达风格 / 格式化纪律 |
 | `workflow.md` | 四阶段 Research → Synthesis → Implementation → Verification 循环 |
 
+## 当前资源继承
+
+`siri_helper` 仅覆盖 `system_instructions.md`；`developer_instructions.md`
+与 `compression_summary_instructions.md` 通过
+`AiPromptTemplatePolicy.promptAssetFileOverrides` 继承 `default`，避免复制同
+一份 prompt。
+
 ## 后续 manifest 工作
 
 未来引入 `assets/prompts/manifest.yaml`：

@@ -10,11 +10,8 @@ import 'dart:io';
 
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 
-List<({String id, String dir})> get _templates => AiPromptTemplatePolicies
-    .byId
-    .values
-    .map((policy) => (id: policy.templateId, dir: policy.promptAssetDirectory))
-    .toList(growable: false);
+List<AiPromptTemplatePolicy> get _templates =>
+    AiPromptTemplatePolicies.byId.values.toList(growable: false);
 
 String _appendSectionsIfAbsent(
   String instructions,
@@ -72,17 +69,27 @@ void main() {
   print('Dry-run preview output: ${outRoot.absolute.path}');
   print('');
 
-  for (final t in _templates) {
-    final outDir = Directory('${outRoot.path}/${t.id}')..createSync();
-    final system = _readOrEmpty('${t.dir}/system_instructions.md');
-    final developer = _readOrEmpty('${t.dir}/developer_instructions.md');
+  for (final policy in _templates) {
+    final outDir = Directory('${outRoot.path}/${policy.templateId}')
+      ..createSync();
+    final system = _readOrEmpty(
+      policy.promptAssetPathFor(AiPromptTemplateAssetFiles.systemInstructions),
+    );
+    final developer = _readOrEmpty(
+      policy.promptAssetPathFor(
+        AiPromptTemplateAssetFiles.developerInstructions,
+      ),
+    );
     final compression = _readOrEmpty(
-      '${t.dir}/compression_summary_instructions.md',
+      policy.promptAssetPathFor(
+        AiPromptTemplateAssetFiles.compressionSummaryInstructions,
+      ),
     );
 
     if (system.isEmpty || developer.isEmpty || compression.isEmpty) {
       print(
-        '⚠️  ${t.id}: missing one or more prompt files in ${t.dir} '
+        '⚠️  ${policy.templateId}: missing one or more prompt files in '
+        '${policy.promptAssetDirectory} '
         '(system=${system.isNotEmpty}, dev=${developer.isNotEmpty}, '
         'compression=${compression.isNotEmpty})',
       );
@@ -95,7 +102,7 @@ void main() {
 
     final assembled = _appendMemoryTonePolicyIfAbsent(
       _appendV4DisciplineIfAbsent(
-        _appendTemplateSectionsIfAbsent(system, t.id),
+        _appendTemplateSectionsIfAbsent(system, policy.templateId),
       ),
     );
 
@@ -110,7 +117,7 @@ void main() {
       '${outDir.path}/compression_summary_instructions.md',
     ).writeAsStringSync(compression);
 
-    print('• ${t.id}');
+    print('• ${policy.templateId}');
     print(
       '    raw chars     : sys=${system.length} dev=${developer.length} '
       'comp=${compression.length}',

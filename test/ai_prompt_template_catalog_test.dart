@@ -51,6 +51,32 @@ void main() {
     expect(resolved.id, AiPromptTemplatePolicies.defaultTemplateId);
   });
 
+  test('siri helper inherits default developer and compression prompts', () {
+    final policy = AiPromptTemplatePolicies.resolve(
+      AiPromptTemplatePolicies.siriHelperTemplateId,
+    );
+
+    expect(
+      policy.promptAssetPathFor(AiPromptTemplateAssetFiles.systemInstructions),
+      '${AiPromptTemplatePolicies.siriHelperPromptAssetDirectory}/'
+      '${AiPromptTemplateAssetFiles.systemInstructions}',
+    );
+    expect(
+      policy.promptAssetPathFor(
+        AiPromptTemplateAssetFiles.developerInstructions,
+      ),
+      '${AiPromptTemplatePolicies.defaultPromptAssetDirectory}/'
+      '${AiPromptTemplateAssetFiles.developerInstructions}',
+    );
+    expect(
+      policy.promptAssetPathFor(
+        AiPromptTemplateAssetFiles.compressionSummaryInstructions,
+      ),
+      '${AiPromptTemplatePolicies.defaultPromptAssetDirectory}/'
+      '${AiPromptTemplateAssetFiles.compressionSummaryInstructions}',
+    );
+  });
+
   test('template icon names resolve through a safe catalog', () {
     expect(
       AiThreadTemplateIcons.resolve(AiThreadTemplateIcons.codeRounded),

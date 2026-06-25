@@ -14,6 +14,15 @@ class AiPromptLoadedSection {
   final String content;
 }
 
+class AiPromptTemplateAssetFiles {
+  const AiPromptTemplateAssetFiles._();
+
+  static const String systemInstructions = 'system_instructions.md';
+  static const String developerInstructions = 'developer_instructions.md';
+  static const String compressionSummaryInstructions =
+      'compression_summary_instructions.md';
+}
+
 enum AiPromptToolCatalogProfile {
   generic,
   machineExpert,
@@ -31,6 +40,7 @@ class AiPromptTemplatePolicy {
     required this.sharedSections,
     required this.extensionSections,
     required this.compressionIdentity,
+    this.promptAssetFileOverrides = const <String, String>{},
     this.compressionPayloadStyle = AiPromptCompressionPayloadStyle.standard,
     this.includesWebReverseRuntime = false,
   });
@@ -41,8 +51,14 @@ class AiPromptTemplatePolicy {
   final List<AiPromptSharedSectionSpec> sharedSections;
   final List<AiPromptSharedSectionSpec> extensionSections;
   final String compressionIdentity;
+  final Map<String, String> promptAssetFileOverrides;
   final AiPromptCompressionPayloadStyle compressionPayloadStyle;
   final bool includesWebReverseRuntime;
+
+  String promptAssetPathFor(String fileName) {
+    return promptAssetFileOverrides[fileName] ??
+        '$promptAssetDirectory/$fileName';
+  }
 
   bool get usesMinimalCompressionPayload =>
       compressionPayloadStyle == AiPromptCompressionPayloadStyle.minimal;
@@ -264,6 +280,12 @@ class AiPromptTemplatePolicies {
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:
             'You are OpenHand Siri Helper. Produce a relay-safe assistant checkpoint with grounded facts and user-visible context preserved.',
+        promptAssetFileOverrides: <String, String>{
+          AiPromptTemplateAssetFiles.developerInstructions:
+              '$defaultPromptAssetDirectory/${AiPromptTemplateAssetFiles.developerInstructions}',
+          AiPromptTemplateAssetFiles.compressionSummaryInstructions:
+              '$defaultPromptAssetDirectory/${AiPromptTemplateAssetFiles.compressionSummaryInstructions}',
+        },
       ),
     ),
     AiPromptTemplateCatalogEntry(

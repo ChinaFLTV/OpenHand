@@ -26,6 +26,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/rolling_hash.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
@@ -2011,11 +2012,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
   }
 
   int _logFingerprint(List<WebGatewayLogEntry> logs) {
-    var hash = logs.length;
-    for (final entry in logs) {
-      hash = 0x3fffffff & (hash * 31 + entry.id);
-    }
-    return hash;
+    return rollingHash30(logs, (entry) => entry.id, seed: logs.length);
   }
 
   void _scheduleRenderedSync(List<WebGatewayLogEntry> target) {
@@ -5212,11 +5209,11 @@ class _TrendLineChartState extends State<_TrendLineChart> {
 }
 
 int _seriesFingerprint(List<double> values) {
-  var hash = values.length;
-  for (final value in values) {
-    hash = 0x3fffffff & (hash * 31 + (value * 1000).round());
-  }
-  return hash;
+  return rollingHash30(
+    values,
+    (value) => (value * 1000).round(),
+    seed: values.length,
+  );
 }
 
 List<double> _lerpSeries(List<double> from, List<double> to, double progress) {
