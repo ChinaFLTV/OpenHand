@@ -224,6 +224,27 @@ class _MessageBubbleState extends State<_MessageBubble> {
         previous.content != next.content;
   }
 
+  Widget _withLayoutChangeTracking({
+    required Widget child,
+    required bool enabled,
+  }) {
+    if (!enabled) return child;
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (notification) {
+        if (_layoutChangeThrottleTimer?.isActive ?? false) {
+          return false;
+        }
+        _layoutChangeThrottleTimer = startSafeTimer(
+          const Duration(milliseconds: 200),
+          () {},
+        );
+        widget.onLayoutChanged();
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(child: child),
+    );
+  }
+
   void _armResponseVariantSizeMotion(
     AiSessionMessage previous,
     AiSessionMessage next,
@@ -433,13 +454,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
         (isStatus && message.metadata['round_file_mutation_summary'] == true);
     // 「本轮文件变动汇总」状态卡走专属 Widget，跳过通用 bubble 流。
     if (isRoundFileMutationSummary) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
-            child: _RoundFileMutationSummaryCard(message: message),
+      return _withLayoutChangeTracking(
+        enabled: widget.trackLayoutChanges,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: _messageBubbleMaxWidth,
+              ),
+              child: _RoundFileMutationSummaryCard(message: message),
+            ),
           ),
         ),
       );
@@ -1298,22 +1324,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
     );
     final shouldTrackLayoutChanges =
         widget.trackLayoutChanges && !isGoalRuntimeMessage;
-    final messageContent = shouldTrackLayoutChanges
-        ? NotificationListener<SizeChangedLayoutNotification>(
-            onNotification: (notification) {
-              if (_layoutChangeThrottleTimer?.isActive ?? false) {
-                return false;
-              }
-              _layoutChangeThrottleTimer = startSafeTimer(
-                const Duration(milliseconds: 200),
-                () {},
-              );
-              widget.onLayoutChanged();
-              return false;
-            },
-            child: SizeChangedLayoutNotifier(child: messageLayout),
-          )
-        : messageLayout;
+    final messageContent = _withLayoutChangeTracking(
+      enabled: shouldTrackLayoutChanges,
+      child: messageLayout,
+    );
 
     return Listener(
       behavior: HitTestBehavior.translucent,

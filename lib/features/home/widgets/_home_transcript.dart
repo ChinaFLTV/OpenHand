@@ -726,6 +726,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _initialMaterializationPending = false;
           _replaceRenderEntries(allVisibleMessages, animate: false);
         });
+        widget.onLayoutChanged();
         return;
       }
       setState(() {
@@ -733,6 +734,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             nextVisibleMessages.length < allVisibleMessages.length;
         _replaceRenderEntries(nextVisibleMessages, animate: false);
       });
+      widget.onLayoutChanged();
       if (_initialMaterializationPending) {
         _queueMaterializationCompletionStep();
       }

@@ -159,6 +159,9 @@ const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
 const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 1;
 const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 900;
+const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
+const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
+const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
 
 /// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -1843,6 +1846,8 @@ export function SessionDetailPage() {
   const lastUserScrollIntentAtRef = useRef<number>(0);
   const followFrameRef = useRef<number | null>(null);
   const followSettleFrameRef = useRef<number | null>(null);
+  const followSettleRemainingRef = useRef(0);
+  const followSettleStableFramesRef = useRef(0);
   const resizeFollowFrameRef = useRef<number | null>(null);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailSignatureRef = useRef<string>('');
@@ -2020,6 +2025,8 @@ export function SessionDetailPage() {
         window.cancelAnimationFrame(followSettleFrameRef.current);
         followSettleFrameRef.current = null;
       }
+      followSettleRemainingRef.current = 0;
+      followSettleStableFramesRef.current = 0;
       if (resizeFollowFrameRef.current != null) {
         window.cancelAnimationFrame(resizeFollowFrameRef.current);
         resizeFollowFrameRef.current = null;
@@ -2123,6 +2130,26 @@ export function SessionDetailPage() {
     setUnreadCount((count) => (count === 0 ? count : 0));
   };
 
+  function extendProgrammaticScrollWindow(durationMs: number): void {
+    programmaticScrollUntilRef.current = Math.max(
+      programmaticScrollUntilRef.current,
+      Date.now() + durationMs,
+    );
+  }
+
+  function cancelFollowSettle(): void {
+    if (followFrameRef.current != null) {
+      window.cancelAnimationFrame(followFrameRef.current);
+      followFrameRef.current = null;
+    }
+    if (followSettleFrameRef.current != null) {
+      window.cancelAnimationFrame(followSettleFrameRef.current);
+      followSettleFrameRef.current = null;
+    }
+    followSettleRemainingRef.current = 0;
+    followSettleStableFramesRef.current = 0;
+  }
+
   const pinMessagesToBottom = () => {
     const el = mainRef.current;
     if (!el) return;
@@ -2135,7 +2162,7 @@ export function SessionDetailPage() {
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
     if (!el) return;
-    programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 700 : 220);
+    extendProgrammaticScrollWindow(behavior === 'smooth' ? 700 : 220);
     if (behavior === 'smooth') {
       el.scrollTo({
         top: Math.max(0, el.scrollHeight - el.clientHeight),
@@ -2146,32 +2173,72 @@ export function SessionDetailPage() {
     }
   };
 
+  function queueFollowSettlePass(): void {
+    if (followSettleFrameRef.current != null) return;
+    if (followSettleRemainingRef.current <= 0) return;
+    followSettleFrameRef.current = requestAnimationFrame(() => {
+      followSettleFrameRef.current = null;
+      const el = mainRef.current;
+      if (!el || !shouldFollowPinnedMessages()) {
+        followSettleRemainingRef.current = 0;
+        followSettleStableFramesRef.current = 0;
+        return;
+      }
+
+      followSettleRemainingRef.current = Math.max(
+        0,
+        followSettleRemainingRef.current - 1,
+      );
+      const beforeTop = el.scrollTop;
+      const beforeBottomTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      extendProgrammaticScrollWindow(220);
+      pinMessagesToBottom();
+      const afterBottomTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      const changed =
+        Math.abs(el.scrollTop - beforeTop) > AUTO_FOLLOW_SETTLE_EPSILON_PX ||
+        Math.abs(afterBottomTop - beforeBottomTop) >
+          AUTO_FOLLOW_SETTLE_EPSILON_PX ||
+        Math.abs(afterBottomTop - el.scrollTop) >
+          AUTO_FOLLOW_SETTLE_EPSILON_PX;
+      followSettleStableFramesRef.current = changed
+        ? 0
+        : followSettleStableFramesRef.current + 1;
+      if (
+        followSettleRemainingRef.current > 0 &&
+        followSettleStableFramesRef.current < AUTO_FOLLOW_SETTLE_STABLE_FRAMES
+      ) {
+        queueFollowSettlePass();
+      } else {
+        followSettleRemainingRef.current = 0;
+        followSettleStableFramesRef.current = 0;
+      }
+    });
+  }
+
   const scheduleFollowToBottom = (behavior: ScrollBehavior = 'auto') => {
     const el = mainRef.current;
     if (!el) return;
-    programmaticScrollUntilRef.current = Date.now() + (behavior === 'smooth' ? 900 : 260);
+    extendProgrammaticScrollWindow(behavior === 'smooth' ? 900 : 260);
     scrollMessagesToBottom(behavior);
     isNearBottomRef.current = true;
     setAutoFollowPausedValue(false);
     clearUnreadCount();
-    if (behavior === 'auto') {
-      if (followFrameRef.current != null) {
-        window.cancelAnimationFrame(followFrameRef.current);
-      }
-      if (followSettleFrameRef.current != null) {
-        window.cancelAnimationFrame(followSettleFrameRef.current);
-        followSettleFrameRef.current = null;
-      }
-      followFrameRef.current = requestAnimationFrame(() => {
-        followFrameRef.current = null;
-        if (!shouldFollowPinnedMessages()) return;
-        pinMessagesToBottom();
-        followSettleFrameRef.current = requestAnimationFrame(() => {
-          followSettleFrameRef.current = null;
-          if (shouldFollowPinnedMessages()) pinMessagesToBottom();
-        });
-      });
+    if (followFrameRef.current != null) {
+      window.cancelAnimationFrame(followFrameRef.current);
     }
+    if (followSettleFrameRef.current != null) {
+      window.cancelAnimationFrame(followSettleFrameRef.current);
+      followSettleFrameRef.current = null;
+    }
+    followSettleRemainingRef.current = Math.max(
+      followSettleRemainingRef.current,
+      AUTO_FOLLOW_SETTLE_MAX_FRAMES,
+    );
+    followSettleStableFramesRef.current = 0;
+    followFrameRef.current = requestAnimationFrame(() => {
+      followFrameRef.current = null;
+      queueFollowSettlePass();
+    });
   };
 
   const shouldFollowPinnedMessages = () => {
@@ -2620,16 +2687,23 @@ export function SessionDetailPage() {
       return event.clientX <= rect.right && event.clientX >= rect.right - hitInset;
     };
     const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY < -AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX) markUserScrollIntent();
+      if (event.deltaY < -AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX) {
+        markUserScrollIntent();
+        cancelFollowSettle();
+      }
     };
     const handlePointerDown = (event: PointerEvent) => {
       const el = mainRef.current;
-      if (el && isScrollbarPointerIntent(event, el)) markUserScrollIntent();
+      if (el && isScrollbarPointerIntent(event, el)) {
+        markUserScrollIntent();
+        cancelFollowSettle();
+      }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isEditableShortcutTarget(event.target)) return;
       if (upwardScrollKeys.has(event.key) || (event.key === ' ' && event.shiftKey)) {
         markUserScrollIntent();
+        cancelFollowSettle();
       }
     };
 
@@ -2649,6 +2723,7 @@ export function SessionDetailPage() {
         return;
       }
       if (!autoFollow) {
+        cancelFollowSettle();
         if (autoFollowPaused) setAutoFollowPausedValue(false);
         return;
       }
@@ -2659,6 +2734,7 @@ export function SessionDetailPage() {
         // 仅在用户近期有明确滚动意图且 scrollTop 确实向上时暂停跟随。
         // 浏览器滚动锚点、代码高亮、Markdown/工具卡片测高等流式布局变化也可能
         // 让 scrollTop 回退；这些内容增长场景不能自动取消用户开启的贴底跟随。
+        cancelFollowSettle();
         setAutoFollowPausedValue(true);
       }
     }

@@ -253,6 +253,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _transcriptLayoutAutoFollowQueued = false;
   bool _scrollToBottomAwaitingPosition = false;
   int _scrollToBottomPositionRetryCounter = 0;
+  bool _scrollToBottomSettleQueued = false;
+  int _scrollToBottomSettleFramesRemaining = 0;
+  int _scrollToBottomStableFrames = 0;
   bool _composerScrollCompensationInProgress = false;
   DateTime? _lastPointerSignalScrollAt;
   // 2026-05-17：trackpad / 鼠标滚轮等 pointer-signal 滚动每个 tick 都会
@@ -943,6 +946,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _pendingAnimatedScrollToBottom = false;
     _scrollToBottomAwaitingPosition = false;
     _scrollToBottomPositionRetryCounter = 0;
+    _scrollToBottomSettleFramesRemaining = 0;
+    _scrollToBottomStableFrames = 0;
   }
 
   bool _isProgrammaticMessageScrollInProgress() {
@@ -2382,10 +2387,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (notification.scrollDelta ?? 0) < -0.5;
     final explicitUserScrollUpward =
         explicitUserScrollUpdate && (notification.scrollDelta ?? 0) < -0.5;
-    if (userScrolledAwayFromBottom ||
+    final userScrolledUpward =
         userScrolledUpwardFromBottom ||
         pointerSignalScrolledUpwardFromBottom ||
-        explicitUserScrollUpward) {
+        explicitUserScrollUpward;
+    if (_autoFollowEnabled &&
+        userScrollActivity &&
+        !userScrolledUpward &&
+        distanceToBottom <= _autoFollowResumeDistance) {
+      _shouldAutoFollowMessages = true;
+      _syncAutoFollowPausedState();
+      return false;
+    }
+    if (userScrolledAwayFromBottom || userScrolledUpward) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
@@ -7079,6 +7093,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _shouldAutoFollowMessages = true;
       _queuedForcedScrollToBottom = true;
     }
+    if (allowSettlePasses) {
+      _scrollToBottomSettleFramesRemaining = math.max(
+        _scrollToBottomSettleFramesRemaining,
+        _scrollToBottomSettleFrameLimit,
+      );
+      _scrollToBottomStableFrames = 0;
+    }
     _pendingAnimatedScrollToBottom = _pendingAnimatedScrollToBottom || animated;
     if (_isProgrammaticMessageScrollInProgress()) {
       return;
@@ -7141,7 +7162,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _scheduleScrollToBottom(
             force: shouldForce,
             animated: shouldAnimate,
-            allowSettlePasses: false,
+            allowSettlePasses: allowSettlePasses,
           );
         });
         return;
@@ -7159,7 +7180,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
 
       void scheduleSettlePass() {
-        return;
+        if (allowSettlePasses) {
+          _queueScrollToBottomSettlePass();
+        }
       }
 
       if (distance >= 1) {
@@ -7175,8 +7198,79 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
+  void _queueScrollToBottomSettlePass() {
+    if (_scrollToBottomSettleQueued ||
+        _scrollToBottomSettleFramesRemaining <= 0) {
+      return;
+    }
+    _scrollToBottomSettleQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottomSettleQueued = false;
+      if (!mounted) {
+        _scrollToBottomSettleFramesRemaining = 0;
+        _scrollToBottomStableFrames = 0;
+        return;
+      }
+      if (!_autoFollowEnabled ||
+          !_shouldAutoFollowMessages ||
+          _shouldDeferAutoFollowScheduling()) {
+        _scrollToBottomSettleFramesRemaining = 0;
+        _scrollToBottomStableFrames = 0;
+        return;
+      }
+      final positions = _messageScrollController.positions.toList(
+        growable: false,
+      );
+      if (positions.length != 1) {
+        _scrollToBottomSettleFramesRemaining = math.max(
+          0,
+          _scrollToBottomSettleFramesRemaining - 1,
+        );
+        _queueScrollToBottomSettlePass();
+        return;
+      }
+      final position = positions.single;
+      if (position.isScrollingNotifier.value || _hasRecentScrollActivity()) {
+        _scrollToBottomSettleFramesRemaining = 0;
+        _scrollToBottomStableFrames = 0;
+        return;
+      }
+      final targetOffset = position.maxScrollExtent
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      final distance = (targetOffset - position.pixels).abs();
+      _scrollToBottomSettleFramesRemaining = math.max(
+        0,
+        _scrollToBottomSettleFramesRemaining - 1,
+      );
+      if (distance > _scrollToBottomSettleTolerance) {
+        _scrollToBottomStableFrames = 0;
+        _programmaticAutoFollowScrollInProgress = true;
+        position.jumpTo(targetOffset);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          _programmaticAutoFollowScrollInProgress = false;
+          _queueScrollToBottomSettlePass();
+        });
+        return;
+      }
+      _scrollToBottomStableFrames += 1;
+      if (_scrollToBottomSettleFramesRemaining > 0 &&
+          _scrollToBottomStableFrames < _scrollToBottomSettleStableFrameLimit) {
+        _queueScrollToBottomSettlePass();
+        return;
+      }
+      _scrollToBottomSettleFramesRemaining = 0;
+      _scrollToBottomStableFrames = 0;
+    });
+  }
+
   void _cancelProgrammaticAutoFollowScroll({double? keepPixels}) {
     _programmaticAutoFollowScrollInProgress = false;
+    _scrollToBottomSettleFramesRemaining = 0;
+    _scrollToBottomStableFrames = 0;
   }
 
   void _maybeAutoFollowSession(AiSession? session) {
@@ -7348,7 +7442,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (position.isScrollingNotifier.value || _hasRecentScrollActivity()) {
         return;
       }
-      _scheduleScrollToBottom(allowSettlePasses: false);
+      _scheduleScrollToBottom();
     });
   }
 

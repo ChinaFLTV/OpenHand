@@ -56,7 +56,11 @@ const int _responseVariantAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 const Duration _transcriptHistoryRevealCooldown = Duration(milliseconds: 120);
 const int _scrollToBottomPositionRetryLimit = 16;
+const int _scrollToBottomSettleFrameLimit = 36;
+const int _scrollToBottomSettleStableFrameLimit = 4;
+const double _scrollToBottomSettleTolerance = 0.75;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
+const double _autoFollowResumeDistance = 24;
 // Frame-driven reveal keeps long transcript switches smooth without a fixed
 // blank delay.
 const int _transcriptPreparationFrameBudget = 6;

@@ -2049,6 +2049,13 @@ bool _shouldTrackMessageLayout({
   required AiSendPhase sendPhase,
   required bool isLastVisibleMessage,
 }) {
+  final isRoundFileMutationSummary =
+      message.kind == AiSessionMessageKind.fileMutationSummary ||
+      (message.kind == AiSessionMessageKind.status &&
+          message.metadata['round_file_mutation_summary'] == true);
+  if (isLastVisibleMessage && isRoundFileMutationSummary) {
+    return true;
+  }
   if (_isStreamingReasoningMessage(message)) {
     return true;
   }
