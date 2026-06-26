@@ -955,10 +955,13 @@ class AiModelConfig {
       embeddingDimensions: override.embeddingDimensions,
       embeddingMaxInputTokens: override.embeddingMaxInputTokens,
       embeddingSupportsCustomDimensions:
-          override.embeddingSupportsCustomDimensions,
+          override.embeddingSupportsCustomDimensions ||
+          catalog.embeddingSupportsCustomDimensions,
       embeddingEndpointPath: override.embeddingEndpointPath,
       embeddingBatchSize: override.embeddingBatchSize,
-      embeddingRequiresSpecialBody: override.embeddingRequiresSpecialBody,
+      embeddingRequiresSpecialBody:
+          override.embeddingRequiresSpecialBody ||
+          catalog.embeddingRequiresSpecialBody,
     );
   }
 

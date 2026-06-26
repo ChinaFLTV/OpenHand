@@ -30,27 +30,40 @@ class KnowledgeEmbeddingService {
         embeddingModelId: settings.modelId,
       ),
     );
-    final result = await _embeddings.createEmbeddings(
-      model: embeddingModel,
-      input: inputs,
-      dimensions: profile.embeddingSupportsCustomDimensions
-          ? settings.dimensions
-          : null,
-      timeout: Duration(seconds: settings.requestTimeoutSeconds),
-    );
-    if (result.vectors.length != inputs.length) {
-      throw StateError(
-        'Embedding 返回数量 ${result.vectors.length} 与输入数量 ${inputs.length} 不一致。',
+    final configuredBatchSize = profile.embeddingBatchSize;
+    final batchSize = configuredBatchSize == null || configuredBatchSize <= 0
+        ? inputs.length
+        : configuredBatchSize > inputs.length
+        ? inputs.length
+        : configuredBatchSize;
+    final vectors = <List<double>>[];
+    for (var start = 0; start < inputs.length; start += batchSize) {
+      final nextEnd = start + batchSize;
+      final end = nextEnd > inputs.length ? inputs.length : nextEnd;
+      final batch = inputs.sublist(start, end);
+      final result = await _embeddings.createEmbeddings(
+        model: embeddingModel,
+        input: batch,
+        dimensions: profile.embeddingSupportsCustomDimensions
+            ? settings.dimensions
+            : null,
+        timeout: Duration(seconds: settings.requestTimeoutSeconds),
       );
+      if (result.vectors.length != batch.length) {
+        throw StateError(
+          'Embedding 返回数量 ${result.vectors.length} 与输入数量 ${batch.length} 不一致。',
+        );
+      }
+      vectors.addAll(result.vectors);
     }
-    for (final vector in result.vectors) {
+    for (final vector in vectors) {
       if (vector.length != settings.dimensions) {
         throw StateError(
           'Embedding 维度 ${vector.length} 与知识库配置 ${settings.dimensions} 不一致。',
         );
       }
     }
-    return result.vectors;
+    return vectors;
   }
 
   void dispose() => _embeddings.dispose();
