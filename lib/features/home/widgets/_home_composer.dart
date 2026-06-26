@@ -18,6 +18,8 @@ const int _atMentionDeepSearchResultLimit = 80;
 const int _atMentionDeepSearchMaxDepth = 8;
 final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
 
+enum _AtMentionOverlayMode { projectFiles, localFiles }
+
 bool _isComposerTriggerWhitespaceCodeUnit(int codeUnit) {
   return codeUnit == 0x20 ||
       codeUnit == 0x09 ||
@@ -215,6 +217,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   bool _atMentionLoading = false;
   bool _atMentionSuppressListener = false;
   int _atMentionSearchGeneration = 0;
+  _AtMentionOverlayMode _atMentionOverlayMode =
+      _AtMentionOverlayMode.projectFiles;
   // Remembers the active '@query' prefix that the user explicitly dismissed,
   // so continuing to type within the same trigger cycle will not immediately
   // reopen the overlay.
@@ -305,7 +309,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   // ── @ mention detection ──
 
-  ({int triggerOffset, String query})? _computeAtMentionTrigger() {
+  ({int triggerOffset, int tokenEnd, String query})?
+  _computeAtMentionTrigger() {
     final text = widget.controller.text;
     final selection = widget.controller.selection;
     if (!selection.isValid || !selection.isCollapsed) return null;
@@ -326,11 +331,19 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         !_isComposerTriggerWhitespaceCodeUnit(text.codeUnitAt(atIndex - 1))) {
       return null;
     }
-    final query = text.substring(atIndex + 1, cursor);
+    var tokenEnd = text.length;
+    for (var i = atIndex + 1; i < text.length; i++) {
+      if (_isComposerTriggerWhitespaceCodeUnit(text.codeUnitAt(i))) {
+        tokenEnd = i;
+        break;
+      }
+    }
+    if (cursor > tokenEnd) return null;
+    final query = text.substring(atIndex + 1, tokenEnd);
     if (_shouldSuppressAtMentionPickerQuery(query)) {
       return null;
     }
-    return (triggerOffset: atIndex, query: query);
+    return (triggerOffset: atIndex, tokenEnd: tokenEnd, query: query);
   }
 
   void _invalidateAtMentionSearch() {
@@ -442,12 +455,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   void _handleTextChangedForAtMention() {
     if (_atMentionSuppressListener) return;
-    final root = widget.projectRoot;
-    if (root == null || root.isEmpty) {
-      _atMentionDismissal = null;
-      _dismissAtMentionOverlay();
-      return;
-    }
     final trigger = _computeAtMentionTrigger();
     if (trigger == null) {
       if (_atMentionTriggerOffset >= 0) {
@@ -459,6 +466,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _dismissAtMentionOverlay();
       return;
     }
+    final root = widget.projectRoot;
     if (_atMentionDismissalSuppresses(trigger.triggerOffset)) {
       _dismissAtMentionOverlay();
       return;
@@ -469,7 +477,26 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
     _atMentionDismissal = null;
     _atMentionTriggerOffset = trigger.triggerOffset;
+    if (root == null || root.isEmpty) {
+      _showAtMentionLocalFileOverlay();
+      return;
+    }
     _performAtMentionSearch(root, trigger.query);
+  }
+
+  void _showAtMentionLocalFileOverlay() {
+    _invalidateAtMentionSearch();
+    setState(() {
+      _atMentionOverlayMode = _AtMentionOverlayMode.localFiles;
+      _atMentionCurrentDirectory = '';
+      _atMentionBreadcrumbs = const [];
+      _atMentionResults = widget.attachmentsEnabled
+          ? const <_AtMentionItem>[_AtMentionItem.localFileAction()]
+          : const <_AtMentionItem>[];
+      _atMentionSelectedIndex = 0;
+      _atMentionLoading = false;
+    });
+    _showAtMentionOverlay();
   }
 
   Future<void> _performAtMentionSearch(String rootPath, String query) async {
@@ -479,6 +506,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final currentDirectory = _atMentionCurrentDirectory;
     final restoreSelectionRelativePath = _atMentionRestoreSelectionRelativePath;
     setState(() => _atMentionLoading = true);
+    _atMentionOverlayMode = _AtMentionOverlayMode.projectFiles;
     final basePath = currentDirectory.isEmpty
         ? rootPath
         : p.join(rootPath, currentDirectory);
@@ -706,6 +734,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           selectedIndex: _atMentionSelectedIndex,
           loading: _atMentionLoading,
           breadcrumbs: _atMentionBreadcrumbs,
+          mode: _atMentionOverlayMode,
+          attachmentsEnabled: widget.attachmentsEnabled,
           onSelect: _handleAtMentionSelect,
           onDrillDown: _handleAtMentionDrillDown,
           onBreadcrumbTap: _handleAtMentionBreadcrumbTap,
@@ -768,6 +798,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _handleAtMentionSelect(_AtMentionItem item) {
+    if (item.isLocalFileAction) {
+      unawaited(_handleAtMentionLocalFileSelect());
+      return;
+    }
     // Add to project file/directory references as a capsule chip.
     if (_projectFileReferences.any((r) => r.path == item.path)) {
       // Already referenced — just dismiss.
@@ -779,30 +813,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       });
       return;
     }
-    // Remove the '@query' text from the input.
-    if (_atMentionTriggerOffset >= 0 &&
-        _atMentionTriggerOffset <= widget.controller.text.length) {
-      final cursor = widget.controller.selection.baseOffset.clamp(
-        0,
-        widget.controller.text.length,
-      );
-      // 改用一次 value 写入，避免 text/selection 分两次
-      // 推到 IME 时陈旧 composing 与新 selection 之间产生间隙，触发
-      // `Range start ... is out of text of length ...` 断言。
-      _atMentionSuppressListener = true;
-      try {
-        widget.controller.value = TextEditingValue(
-          text: widget.controller.text.replaceRange(
-            _atMentionTriggerOffset,
-            cursor,
-            '',
-          ),
-          selection: TextSelection.collapsed(offset: _atMentionTriggerOffset),
-        );
-      } finally {
-        _atMentionSuppressListener = false;
-      }
-    }
+    _removeAtMentionTriggerText();
     setState(() {
       _projectFileReferences = [..._projectFileReferences, item];
     });
@@ -812,6 +823,47 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       if (!mounted) return;
       widget.focusNode.requestFocus();
     });
+  }
+
+  Future<void> _handleAtMentionLocalFileSelect() async {
+    _removeAtMentionTriggerText();
+    _atMentionDismissal = null;
+    _dismissAtMentionOverlay();
+    if (widget.attachmentsEnabled) {
+      await widget.onPickAttachments();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.focusNode.requestFocus();
+    });
+  }
+
+  void _removeAtMentionTriggerText() {
+    if (_atMentionTriggerOffset < 0 ||
+        _atMentionTriggerOffset > widget.controller.text.length) {
+      return;
+    }
+    final cursor = widget.controller.selection.baseOffset.clamp(
+      0,
+      widget.controller.text.length,
+    );
+    if (cursor < _atMentionTriggerOffset) return;
+    final trigger = _computeAtMentionTrigger();
+    final removeEnd = trigger?.tokenEnd ?? cursor;
+    _atMentionSuppressListener = true;
+    try {
+      final nextText = widget.controller.text.replaceRange(
+        _atMentionTriggerOffset,
+        removeEnd,
+        '',
+      );
+      widget.controller.value = TextEditingValue(
+        text: nextText,
+        selection: TextSelection.collapsed(offset: _atMentionTriggerOffset),
+      );
+    } finally {
+      _atMentionSuppressListener = false;
+    }
   }
 
   void _handleAtMentionDrillDown(_AtMentionItem item) {
@@ -832,11 +884,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       final cursor = widget.controller.selection.baseOffset.clamp(0, textLen);
       final start = _atMentionTriggerOffset + 1;
       if (start <= cursor) {
+        final trigger = _computeAtMentionTrigger();
+        final replaceEnd = trigger?.tokenEnd ?? cursor;
         // 同样合并为单次 value 写入。
         _atMentionSuppressListener = true;
         try {
           widget.controller.value = TextEditingValue(
-            text: widget.controller.text.replaceRange(start, cursor, ''),
+            text: widget.controller.text.replaceRange(start, replaceEnd, ''),
             selection: TextSelection.collapsed(offset: start),
           );
         } finally {
@@ -3200,13 +3254,25 @@ class _AtMentionItem {
     required this.path,
     required this.relativePath,
     required this.isDirectory,
-  });
+  }) : kind = _AtMentionItemKind.projectEntry;
+
+  const _AtMentionItem.localFileAction()
+    : name = '选择本地文件',
+      path = '__openhand_local_file_action__',
+      relativePath = '',
+      isDirectory = false,
+      kind = _AtMentionItemKind.localFileAction;
 
   final String name;
   final String path;
   final String relativePath;
   final bool isDirectory;
+  final _AtMentionItemKind kind;
+
+  bool get isLocalFileAction => kind == _AtMentionItemKind.localFileAction;
 }
+
+enum _AtMentionItemKind { projectEntry, localFileAction }
 
 class _AtMentionOverlayPanel extends StatefulWidget {
   const _AtMentionOverlayPanel({
@@ -3215,6 +3281,8 @@ class _AtMentionOverlayPanel extends StatefulWidget {
     required this.selectedIndex,
     required this.loading,
     required this.breadcrumbs,
+    required this.mode,
+    required this.attachmentsEnabled,
     required this.onSelect,
     required this.onDrillDown,
     required this.onBreadcrumbTap,
@@ -3229,6 +3297,8 @@ class _AtMentionOverlayPanel extends StatefulWidget {
   final int selectedIndex;
   final bool loading;
   final List<String> breadcrumbs;
+  final _AtMentionOverlayMode mode;
+  final bool attachmentsEnabled;
   final void Function(_AtMentionItem item) onSelect;
   final void Function(_AtMentionItem item) onDrillDown;
   final void Function(int depth) onBreadcrumbTap;
@@ -3338,6 +3408,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     final isDark = theme.brightness == Brightness.dark;
     final isZh = openHandIsChineseLocale(context);
     final disableAnim = MediaQuery.disableAnimationsOf(context);
+    final isLocalFileMode = widget.mode == _AtMentionOverlayMode.localFiles;
 
     final content = Stack(
       children: [
@@ -3367,10 +3438,34 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isLocalFileMode
+                                ? Icons.attach_file_rounded
+                                : Icons.folder_open_rounded,
+                            size: 16,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isLocalFileMode
+                                ? (isZh ? '选择文件' : 'Select Files')
+                                : (isZh ? '选择项目文件' : 'Select Project Files'),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     // Breadcrumb row.
-                    if (widget.breadcrumbs.isNotEmpty)
+                    if (!isLocalFileMode && widget.breadcrumbs.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                        padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
@@ -3425,9 +3520,13 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                         padding: const EdgeInsets.all(16),
                         child: Center(
                           child: Text(
-                            isZh
-                                ? '未找到匹配文件或目录'
-                                : 'No matching files or directories',
+                            isLocalFileMode && !widget.attachmentsEnabled
+                                ? (isZh
+                                      ? '当前模型不支持附件'
+                                      : 'The selected model does not support attachments')
+                                : (isZh
+                                      ? '未找到匹配文件或目录'
+                                      : 'No matching files or directories'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant.withValues(
                                 alpha: 0.6,
@@ -3476,7 +3575,11 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              item.name,
+                                              item.isLocalFileAction
+                                                  ? (isZh
+                                                        ? '选择本地文件'
+                                                        : 'Choose Local Files')
+                                                  : item.name,
                                               style: theme.textTheme.bodySmall
                                                   ?.copyWith(
                                                     fontWeight: FontWeight.w600,
@@ -3485,7 +3588,11 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             Text(
-                                              item.relativePath,
+                                              item.isLocalFileAction
+                                                  ? (isZh
+                                                        ? '添加图片、文本、代码、表格或 PDF 附件'
+                                                        : 'Add images, text, code, spreadsheets, or PDFs')
+                                                  : item.relativePath,
                                               style: theme.textTheme.labelSmall
                                                   ?.copyWith(
                                                     color: colorScheme
@@ -3554,6 +3661,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
   }
 
   static IconData _atMentionIcon(_AtMentionItem item) {
+    if (item.isLocalFileAction) return Icons.attach_file_rounded;
     if (item.isDirectory) return Icons.folder_rounded;
     final ext = p.extension(item.name).toLowerCase();
     return switch (ext) {

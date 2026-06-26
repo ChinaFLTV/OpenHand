@@ -190,6 +190,20 @@ interface SlashTriggerInfo {
   token: string;
 }
 
+interface AtMentionTriggerInfo {
+  triggerOffset: number;
+  tokenEnd: number;
+  query: string;
+  token: string;
+}
+
+interface ComposerPickerAnchor {
+  bottomGap: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+}
+
 interface SessionMessageWindowView {
   ordered: SessionMessage[];
   tail: SessionMessage | null;
@@ -217,10 +231,28 @@ function shouldSuppressSlashSkillQuery(query: string): boolean {
   return isComposerPathLikeQuery(query) || query.startsWith('*');
 }
 
+function shouldSuppressAtMentionFileQuery(query: string): boolean {
+  return isComposerPathLikeQuery(query);
+}
+
 function shouldSuppressDismissedComposerTrigger(dismissedQuery: string, currentQuery: string): boolean {
   const dismissed = dismissedQuery.trim().toLowerCase();
   const current = currentQuery.trim().toLowerCase();
   return current.length >= dismissed.length && current.startsWith(dismissed);
+}
+
+function computeComposerPickerAnchor(node: HTMLElement | null, maxWidth = 480): ComposerPickerAnchor | null {
+  if (!node || typeof window === 'undefined') return null;
+  const rect = node.getBoundingClientRect();
+  const viewportW = window.innerWidth;
+  const viewportH = window.innerHeight;
+  const width = Math.min(maxWidth, Math.max(220, rect.width));
+  return {
+    bottomGap: Math.max(8, viewportH - rect.top + 10),
+    left: Math.max(12, Math.min(rect.left, viewportW - width - 12)),
+    width,
+    maxHeight: Math.max(160, Math.min(360, rect.top - 16)),
+  };
 }
 
 function readComposerTriggerQueryAtOffset(text: string, triggerOffset: number, triggerChar: string, requireWhitespaceBefore: boolean): string | null {
@@ -1563,12 +1595,16 @@ export function SessionDetailPage() {
     show: showSkillPicker,
     hide: hideSkillPicker,
   } = useDelayedVisibility();
-  const [skillPickerAnchor, setSkillPickerAnchor] = useState<{
-    bottomGap: number;
-    left: number;
-    width: number;
-    maxHeight: number;
-  } | null>(null);
+  const [skillPickerAnchor, setSkillPickerAnchor] = useState<ComposerPickerAnchor | null>(null);
+  const [atMentionFilePickerOpen, setAtMentionFilePickerOpen] = useState(false);
+  const [atMentionFilePickerQuery, setAtMentionFilePickerQuery] = useState('');
+  const {
+    visible: atMentionFilePickerVisible,
+    closing: atMentionFilePickerClosing,
+    show: showAtMentionFilePicker,
+    hide: hideAtMentionFilePicker,
+  } = useDelayedVisibility();
+  const [atMentionFilePickerAnchor, setAtMentionFilePickerAnchor] = useState<ComposerPickerAnchor | null>(null);
 
   // 附件预览 (image/* → dataURL); key 与 composerAttachments 同序
   const [attachmentPreviews, setAttachmentPreviews] = useState<{ mime: string; dataUrl: string; size: number }[]>([]);
@@ -1620,9 +1656,13 @@ export function SessionDetailPage() {
   const olderMessagesAbortRef = useRef<AbortController | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const composerFileInputRef = useRef<HTMLInputElement | null>(null);
   const slashDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
   const skillPickerOverlayRef = useRef<HTMLDivElement | null>(null);
   const slashTriggerOffsetRef = useRef<number | null>(null);
+  const atMentionFilePickerOverlayRef = useRef<HTMLDivElement | null>(null);
+  const atMentionDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
+  const atMentionTriggerOffsetRef = useRef<number | null>(null);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
   const goalStartOptionsResolverRef = useRef<((result: GoalStartOptions | null) => void) | null>(null);
   const skillsLoadedRef = useRef(false);
@@ -1632,6 +1672,11 @@ export function SessionDetailPage() {
   function resetSlashTriggerState(): void {
     slashDismissalRef.current = null;
     slashTriggerOffsetRef.current = null;
+  }
+
+  function resetAtMentionTriggerState(): void {
+    atMentionDismissalRef.current = null;
+    atMentionTriggerOffsetRef.current = null;
   }
   const mountedRef = useRef(true);
   const editingDraftMessageRef = useRef<SessionMessage | null>(null);
@@ -1760,6 +1805,9 @@ export function SessionDetailPage() {
     setSessionAuditOpen(false);
     setAuditMessage(null);
     resetSlashTriggerState();
+    resetAtMentionTriggerState();
+    setAtMentionFilePickerOpen(false);
+    setAtMentionFilePickerQuery('');
     setSessionMetadataOpen(false);
     setTokenStatsOpen(false);
     setContextStatsOpen(false);
@@ -3257,7 +3305,9 @@ export function SessionDetailPage() {
     setAttachmentPreviews([]);
     setSelectedSkill(null);
     setSkillPickerOpen(false);
+    setAtMentionFilePickerOpen(false);
     resetSlashTriggerState();
+    resetAtMentionTriggerState();
     if (!composerCollapsed) {
       requestAnimationFrame(() => composerTextareaRef.current?.focus());
     }
@@ -3630,16 +3680,13 @@ export function SessionDetailPage() {
   // —— 浮窗坐标：position: fixed 直接锚到 textarea 矩形之上，避免被 oh-composer-body
   // 的 overflow: clip 截断；同时无视祖先 transform 而成为新 containing block 的尴尬。
   const recomputeSkillPickerAnchor = useCallback(() => {
-    const node = composerTextareaRef.current;
-    if (!node || typeof window === 'undefined') return;
-    const rect = node.getBoundingClientRect();
-    const viewportW = window.innerWidth;
-    const viewportH = window.innerHeight;
-    const width = Math.min(480, Math.max(220, rect.width));
-    const left = Math.max(12, Math.min(rect.left, viewportW - width - 12));
-    const bottomGap = Math.max(8, viewportH - rect.top + 10);
-    const maxHeight = Math.max(160, Math.min(360, rect.top - 16));
-    setSkillPickerAnchor({ bottomGap, left, width, maxHeight });
+    const anchor = computeComposerPickerAnchor(composerTextareaRef.current);
+    if (anchor) setSkillPickerAnchor(anchor);
+  }, []);
+
+  const recomputeAtMentionFilePickerAnchor = useCallback(() => {
+    const anchor = computeComposerPickerAnchor(composerTextareaRef.current);
+    if (anchor) setAtMentionFilePickerAnchor(anchor);
   }, []);
 
   // 浮窗 open ↔ visible 同步：退场生命周期由 useDelayedVisibility 统一管理。
@@ -3652,6 +3699,20 @@ export function SessionDetailPage() {
     hideSkillPicker();
   }, [hideSkillPicker, recomputeSkillPickerAnchor, showSkillPicker, skillPickerOpen]);
 
+  useEffect(() => {
+    if (atMentionFilePickerOpen) {
+      recomputeAtMentionFilePickerAnchor();
+      showAtMentionFilePicker();
+      return;
+    }
+    hideAtMentionFilePicker();
+  }, [
+    atMentionFilePickerOpen,
+    hideAtMentionFilePicker,
+    recomputeAtMentionFilePickerAnchor,
+    showAtMentionFilePicker,
+  ]);
+
   // 滚动 / resize 时让浮窗锚点跟随 textarea。
   useEffect(() => {
     if (!skillPickerVisible || typeof window === 'undefined') return;
@@ -3663,6 +3724,17 @@ export function SessionDetailPage() {
       window.removeEventListener('resize', handler);
     };
   }, [skillPickerVisible, recomputeSkillPickerAnchor]);
+
+  useEffect(() => {
+    if (!atMentionFilePickerVisible || typeof window === 'undefined') return;
+    const handler = () => recomputeAtMentionFilePickerAnchor();
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler, true);
+      window.removeEventListener('resize', handler);
+    };
+  }, [atMentionFilePickerVisible, recomputeAtMentionFilePickerAnchor]);
 
   useEffect(() => {
     if (!skillPickerVisible || typeof document === 'undefined') return;
@@ -3679,6 +3751,22 @@ export function SessionDetailPage() {
       document.removeEventListener('pointerdown', handlePointerDown, true);
     };
   }, [skillPickerVisible]);
+
+  useEffect(() => {
+    if (!atMentionFilePickerVisible || typeof document === 'undefined') return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      const textarea = composerTextareaRef.current;
+      const overlay = atMentionFilePickerOverlayRef.current;
+      if (!(target instanceof Node)) return;
+      if (textarea?.contains(target) || overlay?.contains(target)) return;
+      dismissAtMentionFilePicker(true);
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [atMentionFilePickerVisible]);
 
   async function ensureSkillsLoadedForPicker(): Promise<void> {
     if (skillsLoadedRef.current || skillPickerLoading) return;
@@ -3719,6 +3807,130 @@ export function SessionDetailPage() {
       return;
     }
     setSelectedSkill(skillSummaryFromSelection(selection, source));
+  }
+
+  function computeAtMentionTrigger(text: string, cursor: number): AtMentionTriggerInfo | null {
+    const safeCursor = Math.max(0, Math.min(cursor, text.length));
+    let atIndex = -1;
+    for (let i = safeCursor - 1; i >= 0; i -= 1) {
+      const code = text.charCodeAt(i);
+      if (code === 0x40) {
+        atIndex = i;
+        break;
+      }
+      if (isComposerTriggerWhitespaceCode(code)) break;
+    }
+    if (atIndex < 0) return null;
+    if (atIndex > 0 && !isComposerTriggerWhitespaceCode(text.charCodeAt(atIndex - 1))) {
+      return null;
+    }
+    let tokenEnd = text.length;
+    for (let i = atIndex + 1; i < text.length; i += 1) {
+      if (isComposerTriggerWhitespaceCode(text.charCodeAt(i))) {
+        tokenEnd = i;
+        break;
+      }
+    }
+    if (safeCursor > tokenEnd) return null;
+    const query = text.slice(atIndex + 1, tokenEnd);
+    if (shouldSuppressAtMentionFileQuery(query)) return null;
+    return {
+      triggerOffset: atIndex,
+      tokenEnd,
+      query,
+      token: text.slice(atIndex, tokenEnd),
+    };
+  }
+
+  function pruneAtMentionDismissalForText(text: string): void {
+    const dismissal = atMentionDismissalRef.current;
+    if (!dismissal) return;
+    const currentQuery = readComposerTriggerQueryAtOffset(text, dismissal.offset, '@', true);
+    if (currentQuery == null || !shouldSuppressDismissedComposerTrigger(dismissal.query, currentQuery)) {
+      atMentionDismissalRef.current = null;
+    }
+  }
+
+  function readAtMentionDismissalAtOffset(text: string, offset: number): ComposerTriggerDismissal | null {
+    const query = readComposerTriggerQueryAtOffset(text, offset, '@', true);
+    return query == null ? null : { offset, query };
+  }
+
+  function atMentionDismissalSuppresses(text: string, offset: number): boolean {
+    pruneAtMentionDismissalForText(text);
+    const dismissal = atMentionDismissalRef.current;
+    if (!dismissal || dismissal.offset !== offset) return false;
+    const current = readAtMentionDismissalAtOffset(text, offset);
+    return current != null && shouldSuppressDismissedComposerTrigger(dismissal.query, current.query);
+  }
+
+  function updateAtMentionFilePickerForText(text: string, cursor: number): void {
+    const trigger = computeAtMentionTrigger(text, cursor);
+    if (!trigger) {
+      if (atMentionTriggerOffsetRef.current != null) {
+        atMentionDismissalRef.current =
+          readAtMentionDismissalAtOffset(text, atMentionTriggerOffsetRef.current) ??
+          atMentionDismissalRef.current;
+      }
+      setAtMentionFilePickerOpen(false);
+      setAtMentionFilePickerQuery('');
+      pruneAtMentionDismissalForText(text);
+      return;
+    }
+    if (atMentionDismissalSuppresses(text, trigger.triggerOffset)) {
+      setAtMentionFilePickerOpen(false);
+      return;
+    }
+    atMentionDismissalRef.current = null;
+    atMentionTriggerOffsetRef.current = trigger.triggerOffset;
+    setAtMentionFilePickerQuery(trigger.query);
+    setAtMentionFilePickerOpen(true);
+    setSkillPickerOpen(false);
+  }
+
+  function removeAtMentionTriggerText(): void {
+    const textarea = composerTextareaRef.current;
+    const text = textarea?.value ?? composerText;
+    const cursor = textarea?.selectionStart ?? text.length;
+    const trigger =
+      computeAtMentionTrigger(text, cursor) ??
+      (atMentionTriggerOffsetRef.current == null
+        ? null
+        : (() => {
+            const query = readComposerTriggerQueryAtOffset(text, atMentionTriggerOffsetRef.current!, '@', true);
+            if (query == null) return null;
+            const tokenStart = atMentionTriggerOffsetRef.current!;
+            return {
+              triggerOffset: tokenStart,
+              tokenEnd: tokenStart + query.length + 1,
+              query,
+              token: text.slice(tokenStart, tokenStart + query.length + 1),
+            };
+          })());
+    if (!trigger) return;
+    const removeEnd =
+      trigger.tokenEnd < text.length && /[ \t]/.test(text.charAt(trigger.tokenEnd))
+        ? trigger.tokenEnd + 1
+        : trigger.tokenEnd;
+    const nextText = text.slice(0, trigger.triggerOffset) + text.slice(removeEnd);
+    const caret = Math.min(trigger.triggerOffset, nextText.length);
+    setComposerText(nextText);
+    requestAnimationFrame(() => {
+      const node = composerTextareaRef.current;
+      node?.focus();
+      node?.setSelectionRange(caret, caret);
+    });
+  }
+
+  function openLocalFilePickerFromAtMention(): void {
+    if (!attachmentsAllowed) {
+      setComposerError(t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件'));
+      dismissAtMentionFilePicker(true);
+      return;
+    }
+    removeAtMentionTriggerText();
+    dismissAtMentionFilePicker(false);
+    composerFileInputRef.current?.click();
   }
 
   function computeSlashTrigger(text: string, cursor: number): SlashTriggerInfo | null {
@@ -3788,6 +4000,7 @@ export function SessionDetailPage() {
     slashTriggerOffsetRef.current = trigger.triggerOffset;
     setSkillPickerQuery(trigger.query);
     setSkillPickerOpen(true);
+    setAtMentionFilePickerOpen(false);
     setSkillPickerSelectedIndex(0);
     void ensureSkillsLoadedForPicker();
   }
@@ -3826,7 +4039,42 @@ export function SessionDetailPage() {
     setSkillPickerOpen(false);
   }
 
+  function dismissAtMentionFilePicker(remember = false): void {
+    const textarea = composerTextareaRef.current;
+    const text = textarea?.value ?? composerText;
+    const cursor = textarea?.selectionStart ?? text.length;
+    const trigger = computeAtMentionTrigger(text, cursor);
+    if (remember && trigger) {
+      atMentionDismissalRef.current = readAtMentionDismissalAtOffset(text, trigger.triggerOffset) ?? {
+        offset: trigger.triggerOffset,
+        query: trigger.query,
+      };
+    } else if (remember && atMentionTriggerOffsetRef.current != null) {
+      atMentionDismissalRef.current =
+        readAtMentionDismissalAtOffset(text, atMentionTriggerOffsetRef.current) ??
+        atMentionDismissalRef.current;
+    }
+    setAtMentionFilePickerOpen(false);
+    if (!remember) setAtMentionFilePickerQuery('');
+  }
+
   function handleComposerKeyDown(e: KeyboardEvent): void {
+    if (atMentionFilePickerOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        openLocalFilePickerFromAtMention();
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        dismissAtMentionFilePicker(true);
+        return;
+      }
+    }
     if (skillPickerOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -4192,7 +4440,9 @@ export function SessionDetailPage() {
       editingDraftMessageRef.current = null;
       setEditingDraftMessage(null);
       setSkillPickerOpen(false);
+      setAtMentionFilePickerOpen(false);
       resetSlashTriggerState();
+      resetAtMentionTriggerState();
       updateSendPhaseValue(res.send_phase || 'sendingMessage');
       // SSE 通道在 service 端立即推送 user 消息落库；若 SSE 不可用，refresh()
       // 兜底拉一次让 user 消息出现在尾部。
@@ -5210,110 +5460,177 @@ export function SessionDetailPage() {
                 if (files.length > 0) void appendFiles(files);
               }}
             >
-              {skillPickerVisible && skillPickerAnchor ? (
-                <OverlayPortal>
-                  <div
-                    ref={skillPickerOverlayRef}
-                    class={`oh-skill-picker ${skillPickerClosing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
-                    role="listbox"
-                    style={{
-                      position: 'fixed',
-                      bottom: `${skillPickerAnchor.bottomGap}px`,
-                      left: `${skillPickerAnchor.left}px`,
-                      width: `${skillPickerAnchor.width}px`,
-                      maxHeight: `${skillPickerAnchor.maxHeight}px`,
-                      zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
-                    }}
-                  >
-                    <div class="oh-skill-picker-title">
-                      <span aria-hidden>
-                        <ComposerIcon name="spark" size={16} />
-                      </span>
-                      {t('composer.skill.pick', '选择一个技能')}
-                    </div>
-                    {skillPickerLoading ? (
-                      <div class="oh-skill-picker-empty">{t('common.loading', '加载中…')}</div>
-                    ) : skillPickerResults.length === 0 ? (
-                      <div class="oh-skill-picker-empty">{t('composer.skill.empty', '未找到匹配技能')}</div>
-                    ) : (
-                      <ul class="oh-skill-picker-list">
-                        {skillPickerResults.map((skill, index) => (
-                          <li key={`${skill.relative_directory_path}-${skill.name}`}>
+                {atMentionFilePickerVisible && atMentionFilePickerAnchor ? (
+                  <OverlayPortal>
+                    <div
+                      ref={atMentionFilePickerOverlayRef}
+                      class={`oh-file-picker oh-skill-picker ${atMentionFilePickerClosing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
+                      role="listbox"
+                      style={{
+                        position: 'fixed',
+                        bottom: `${atMentionFilePickerAnchor.bottomGap}px`,
+                        left: `${atMentionFilePickerAnchor.left}px`,
+                        width: `${atMentionFilePickerAnchor.width}px`,
+                        maxHeight: `${atMentionFilePickerAnchor.maxHeight}px`,
+                        zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
+                      }}
+                    >
+                      <div class="oh-skill-picker-title">
+                        <span aria-hidden>
+                          <ComposerIcon name="attachment" size={16} />
+                        </span>
+                        {t('composer.file.pick', '选择文件')}
+                      </div>
+                      {!attachmentsAllowed ? (
+                        <div class="oh-skill-picker-empty">{t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件')}</div>
+                      ) : (
+                        <ul class="oh-skill-picker-list">
+                          <li>
                             <button
                               type="button"
                               role="option"
-                              aria-selected={index === skillPickerSelectedIndex}
+                              aria-selected="true"
                               class="oh-skill-picker-item"
-                              data-active={index === skillPickerSelectedIndex ? 'true' : 'false'}
-                              onMouseEnter={() => setSkillPickerSelectedIndex(index)}
+                              data-active="true"
                               onPointerDown={(event) => {
                                 if (event.button !== 0) return;
                                 event.preventDefault();
-                                selectSkillForComposer(skill);
+                                openLocalFilePickerFromAtMention();
                               }}
                               onClick={(event) => {
-                                if (event.detail === 0) selectSkillForComposer(skill);
+                                if (event.detail === 0) openLocalFilePickerFromAtMention();
                               }}
                             >
                               <span class="oh-skill-picker-leading" aria-hidden>
-                                {skill.emoji_icon || <ComposerIcon name="spark" size={16} />}
+                                <ComposerIcon name="file" size={16} />
                               </span>
                               <span class="min-w-0 flex-1 text-left">
-                                <span class="block truncate font-semibold">{skill.name}</span>
-                                {(skill.description ?? '').trim() ? <span class="block truncate text-[11px] opacity-70">{skill.description}</span> : null}
+                                <span class="block truncate font-semibold">{t('composer.file.local', '添加本地文件')}</span>
+                                <span class="block truncate text-[11px] opacity-70">
+                                  {atMentionFilePickerQuery.trim()
+                                    ? atMentionFilePickerQuery.trim()
+                                    : t('composer.file.localKinds', '图片、文本、代码、表格、PDF')}
+                                </span>
                               </span>
                             </button>
                           </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </OverlayPortal>
-              ) : null}
-              <textarea
-                ref={composerTextareaRef}
-                value={composerText}
-                onBlur={(e) => {
-                  const nextFocusTarget = e.relatedTarget;
-                  const overlay = skillPickerOverlayRef.current;
-                  if (!(nextFocusTarget instanceof Node) || !overlay?.contains(nextFocusTarget)) {
-                    dismissSkillPicker(true);
-                  }
-                }}
-                onInput={(e) => {
-                  const target = e.currentTarget as HTMLTextAreaElement;
-                  setComposerText(target.value);
-                  updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
-                }}
-                onSelect={(e) => {
-                  const target = e.currentTarget as HTMLTextAreaElement;
-                  updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
-                }}
-                onPaste={(e) => {
-                  if (!attachmentsAllowed) return;
-                  const items = e.clipboardData?.items;
-                  if (!items) return;
-                  const files: File[] = [];
-                  for (const it of Array.from(items)) {
-                    if (it.kind === 'file') {
-                      const f = it.getAsFile();
-                      if (f) files.push(f);
+                        </ul>
+                      )}
+                    </div>
+                  </OverlayPortal>
+                ) : null}
+                {skillPickerVisible && skillPickerAnchor ? (
+                  <OverlayPortal>
+                    <div
+                      ref={skillPickerOverlayRef}
+                      class={`oh-skill-picker ${skillPickerClosing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
+                      role="listbox"
+                      style={{
+                        position: 'fixed',
+                        bottom: `${skillPickerAnchor.bottomGap}px`,
+                        left: `${skillPickerAnchor.left}px`,
+                        width: `${skillPickerAnchor.width}px`,
+                        maxHeight: `${skillPickerAnchor.maxHeight}px`,
+                        zIndex: DIALOG_OVERLAY_LOW_Z_INDEX,
+                      }}
+                    >
+                      <div class="oh-skill-picker-title">
+                        <span aria-hidden>
+                          <ComposerIcon name="spark" size={16} />
+                        </span>
+                        {t('composer.skill.pick', '选择一个技能')}
+                      </div>
+                      {skillPickerLoading ? (
+                        <div class="oh-skill-picker-empty">{t('common.loading', '加载中…')}</div>
+                      ) : skillPickerResults.length === 0 ? (
+                        <div class="oh-skill-picker-empty">{t('composer.skill.empty', '未找到匹配技能')}</div>
+                      ) : (
+                        <ul class="oh-skill-picker-list">
+                          {skillPickerResults.map((skill, index) => (
+                            <li key={`${skill.relative_directory_path}-${skill.name}`}>
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={index === skillPickerSelectedIndex}
+                                class="oh-skill-picker-item"
+                                data-active={index === skillPickerSelectedIndex ? 'true' : 'false'}
+                                onMouseEnter={() => setSkillPickerSelectedIndex(index)}
+                                onPointerDown={(event) => {
+                                  if (event.button !== 0) return;
+                                  event.preventDefault();
+                                  selectSkillForComposer(skill);
+                                }}
+                                onClick={(event) => {
+                                  if (event.detail === 0) selectSkillForComposer(skill);
+                                }}
+                              >
+                                <span class="oh-skill-picker-leading" aria-hidden>
+                                  {skill.emoji_icon || <ComposerIcon name="spark" size={16} />}
+                                </span>
+                                <span class="min-w-0 flex-1 text-left">
+                                  <span class="block truncate font-semibold">{skill.name}</span>
+                                  {(skill.description ?? '').trim() ? <span class="block truncate text-[11px] opacity-70">{skill.description}</span> : null}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </OverlayPortal>
+                ) : null}
+                <textarea
+                  ref={composerTextareaRef}
+                  value={composerText}
+                  onBlur={(e) => {
+                    const nextFocusTarget = e.relatedTarget;
+                    const skillOverlay = skillPickerOverlayRef.current;
+                    const fileOverlay = atMentionFilePickerOverlayRef.current;
+                    if (
+                      !(nextFocusTarget instanceof Node) ||
+                      (!skillOverlay?.contains(nextFocusTarget) &&
+                        !fileOverlay?.contains(nextFocusTarget))
+                    ) {
+                      dismissSkillPicker(true);
+                      dismissAtMentionFilePicker(true);
                     }
-                  }
-                  if (files.length > 0) {
-                    e.preventDefault();
-                    void appendFiles(files);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  handleComposerKeyDown(e as unknown as KeyboardEvent);
-                }}
-                disabled={composerSending || composerCollapsed || hasModeLockedGoal}
-                rows={4}
-                placeholder={hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
-                class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
-              />
-              {dragOver ? <div class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up">{t('composer.attachment.drop', '松开即可添加附件')}</div> : null}
+                  }}
+                  onInput={(e) => {
+                    const target = e.currentTarget as HTMLTextAreaElement;
+                    setComposerText(target.value);
+                    updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
+                    updateAtMentionFilePickerForText(target.value, target.selectionStart ?? target.value.length);
+                  }}
+                  onSelect={(e) => {
+                    const target = e.currentTarget as HTMLTextAreaElement;
+                    updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
+                    updateAtMentionFilePickerForText(target.value, target.selectionStart ?? target.value.length);
+                  }}
+                  onPaste={(e) => {
+                    if (!attachmentsAllowed) return;
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    const files: File[] = [];
+                    for (const it of Array.from(items)) {
+                      if (it.kind === 'file') {
+                        const f = it.getAsFile();
+                        if (f) files.push(f);
+                      }
+                    }
+                    if (files.length > 0) {
+                      e.preventDefault();
+                      void appendFiles(files);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    handleComposerKeyDown(e as unknown as KeyboardEvent);
+                  }}
+                  disabled={composerSending || composerCollapsed || hasModeLockedGoal}
+                  rows={4}
+                  placeholder={hasActiveGoal ? t('goal.composer.placeholder', '目标模式由 Agent Runtime 接管中') : t('composer.placeholder', '输入消息')}
+                  class="oh-composer-textarea w-full px-3 py-2 rounded-md text-sm"
+                />
+                {dragOver ? <div class="oh-composer-drop-overlay absolute inset-0 rounded-md flex items-center justify-center text-sm pointer-events-none oh-appear-up">{t('composer.attachment.drop', '松开即可添加附件')}</div> : null}
             </div>
 
             {composerError ? (
@@ -5330,7 +5647,7 @@ export function SessionDetailPage() {
                   <ComposerIcon name="attachment" size={16} />
                 </span>
                 {t('composer.attachment.add', '添加附件')}
-                <input type="file" multiple onChange={handleAttachmentInput} style={{ display: 'none' }} />
+                <input ref={composerFileInputRef} type="file" multiple onChange={handleAttachmentInput} style={{ display: 'none' }} />
               </label>
             ) : null}
             <span class="text-xs flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
