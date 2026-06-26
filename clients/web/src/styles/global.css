@@ -2682,8 +2682,6 @@ html, body, #root {
 }
 .oh-session-message-row {
   overflow-anchor: none;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 220px;
 }
 .oh-session-message-content,
 .oh-session-message-content > * {

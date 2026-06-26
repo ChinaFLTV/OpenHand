@@ -94,7 +94,6 @@ import {
 import { SessionTopBar, type SessionToolbarCapsule } from '../../../components/SessionTopBar';
 import { ModelPickerDialog, pushRecentModel } from '../../../components/ModelPickerDialog';
 import { PullIndicator } from '../../../components/PullIndicator';
-import { estimateHtmlRenderCost, looksLikeRenderableHtml } from '../../../components/Markdown';
 import { usePullToRefresh } from '../../../hooks/usePullToRefresh';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import type { MessageContentFormat } from '../../../hooks/useMessageContentFormat';
@@ -124,18 +123,8 @@ import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '../../../components/MediaGeneratingPlaceholder';
 
 const PAGE_SIZE = 24;
-// 首屏只取最近少量消息；历史按 PAGE_SIZE 增量补齐，避免打开存量会话时
-// 浏览器一次挂载几十张复杂消息卡。
+// 首屏加载最近一页消息；更早历史只在用户点击“加载更早”时进入当前滚动范围。
 const INITIAL_PAGE_SIZE = 12;
-const MESSAGE_RENDER_INITIAL_MIN_COUNT = 2;
-const MESSAGE_RENDER_INITIAL_MAX_COUNT = 8;
-const MESSAGE_RENDER_INITIAL_COST_BUDGET = 18;
-const MESSAGE_RENDER_STEP_MAX_COUNT = 8;
-const MESSAGE_RENDER_STEP_COST_BUDGET = 12;
-const MESSAGE_RENDER_STEADY_COST_BUDGET = 150;
-const MESSAGE_RENDER_REVEAL_MAX_COUNT = 32;
-const MESSAGE_RENDER_REVEAL_COST_BUDGET = 48;
-const MESSAGE_RENDER_STEADY_WINDOW_LIMIT = 96;
 
 function supportsTitleGeneration(model: ApiMetaModel | undefined): boolean {
   return !!model && model.supports_text_title_generation !== false;
@@ -154,7 +143,6 @@ function resolveDefaultTitleModelKey(models: ApiMetaModel[], currentKey: string)
   if (current) return '';
   return models.find((model) => supportsTitleGeneration(model))?.key ?? '';
 }
-const MESSAGE_RENDER_IDLE_TIMEOUT_MS = 180;
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
 const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 1;
@@ -322,175 +310,6 @@ function persistComposerCollapsed(value: boolean): void {
   } else {
     removeBrowserStorage(COMPOSER_COLLAPSED_STORAGE_KEY);
   }
-}
-
-function scheduleProgressiveMessageRenderStep(task: () => void): () => void {
-  let cancelled = false;
-  const run = () => {
-    if (!cancelled) task();
-  };
-  const scheduler = globalThis as {
-    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
-    cancelIdleCallback?: (handle: number) => void;
-  };
-  if (typeof scheduler.requestIdleCallback === 'function') {
-    const handle = scheduler.requestIdleCallback(run, {
-      timeout: MESSAGE_RENDER_IDLE_TIMEOUT_MS,
-    });
-    return () => {
-      cancelled = true;
-      scheduler.cancelIdleCallback?.(handle);
-    };
-  }
-  if (typeof requestAnimationFrame === 'function') {
-    const handle = requestAnimationFrame(run);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(handle);
-    };
-  }
-  const handle = window.setTimeout(run, 16);
-  return () => {
-    cancelled = true;
-    window.clearTimeout(handle);
-  };
-}
-
-interface MessageRenderCostCacheEntry {
-  signature: string;
-  cost: number;
-}
-
-const messageRenderCostCache = new WeakMap<SessionMessage, MessageRenderCostCacheEntry>();
-const MESSAGE_RENDER_FENCED_CODE_RE = /(^|\n)[ \t]*```/;
-const MESSAGE_RENDER_MARKDOWN_TABLE_RE = /(^|\n)\s*\|.+\|\s*\n\s*\|[\s:-]+\|/;
-
-function messageRenderContentFormat(message: SessionMessage): string {
-  return stringFromUnknown(recordOrNullFromUnknown(message.metadata)?.['content_format']);
-}
-
-function messageRenderCostSignature(message: SessionMessage): string {
-  const content = message.content ?? '';
-  const meta = recordOrNullFromUnknown(message.metadata);
-  return [
-    message.id,
-    message.kind,
-    message.role,
-    content.length,
-    content.slice(0, 48),
-    content.slice(-24),
-    messageRenderContentFormat(message),
-    metadataTextLength(meta?.['tool_execution_stdout']),
-    metadataTextLength(meta?.['tool_execution_stderr']),
-    metadataTextLength(meta?.['tool_execution_result'] ?? meta?.['result_text']),
-    metadataTextLength(meta?.['attachments']),
-  ].join('|');
-}
-
-function estimateMessageRenderCost(message: SessionMessage): number {
-  const signature = messageRenderCostSignature(message);
-  const cached = messageRenderCostCache.get(message);
-  if (cached?.signature === signature) return cached.cost;
-
-  const content = message.content ?? '';
-  const meta = recordOrNullFromUnknown(message.metadata);
-  let cost = 1 + Math.min(12, Math.ceil(content.length / 2600));
-  if (message.role === 'assistant') cost += 1;
-  if (message.role === 'system' || message.role === 'tool') cost += 2;
-  if (message.kind === 'reasoning') cost += 3;
-  if (message.kind === 'tool_call' || message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'hook') {
-    cost += 4;
-  }
-  if (message.kind === 'file_mutation_summary' || message.kind === 'compression_point') {
-    cost += 3;
-  }
-  if (MESSAGE_RENDER_FENCED_CODE_RE.test(content)) cost += 4;
-  if (MESSAGE_RENDER_MARKDOWN_TABLE_RE.test(content)) cost += 3;
-
-  const contentFormat = messageRenderContentFormat(message);
-  if (contentFormat === 'html' || (content.includes('<') && looksLikeRenderableHtml(content))) {
-    cost += estimateHtmlRenderCost(content);
-  }
-
-  const toolOutputLength =
-    metadataTextLength(meta?.['tool_execution_stdout']) +
-    metadataTextLength(meta?.['tool_execution_stderr']) +
-    metadataTextLength(meta?.['tool_execution_result'] ?? meta?.['result_text']);
-  if (toolOutputLength > 0) {
-    cost += Math.min(18, Math.ceil(toolOutputLength / 3600));
-  }
-  const attachments = meta?.['attachments'];
-  if (Array.isArray(attachments) && attachments.length > 0) {
-    cost += Math.min(8, attachments.length * 2);
-  }
-  if (messageMetadataStreaming(message)) cost += 2;
-
-  const normalized = Math.max(1, Math.min(80, cost));
-  messageRenderCostCache.set(message, { signature, cost: normalized });
-  return normalized;
-}
-
-function renderedTailCountForBudget(
-  messages: SessionMessage[],
-  budget: number,
-  minCount: number,
-  maxCount: number,
-): number {
-  const total = messages.length;
-  if (total <= 0) return 0;
-  const boundedMin = Math.min(total, Math.max(1, minCount));
-  const boundedMax = Math.min(total, Math.max(boundedMin, maxCount));
-  let count = 0;
-  let cost = 0;
-  for (let index = total - 1; index >= 0 && count < boundedMax; index -= 1) {
-    const nextCost = estimateMessageRenderCost(messages[index]!);
-    if (count >= boundedMin && cost + nextCost > budget) break;
-    cost += nextCost;
-    count += 1;
-  }
-  return Math.max(boundedMin, count);
-}
-
-function initialRenderedMessageCount(messages: SessionMessage[]): number {
-  return renderedTailCountForBudget(
-    messages,
-    MESSAGE_RENDER_INITIAL_COST_BUDGET,
-    MESSAGE_RENDER_INITIAL_MIN_COUNT,
-    MESSAGE_RENDER_INITIAL_MAX_COUNT,
-  );
-}
-
-function nextRenderedTailCount(
-  messages: SessionMessage[],
-  currentCount: number,
-  targetCount: number,
-  budget: number,
-  maxIncrement: number,
-): number {
-  const total = messages.length;
-  if (currentCount >= targetCount || currentCount >= total) return currentCount;
-  const boundedTarget = Math.min(total, targetCount, currentCount + Math.max(1, maxIncrement));
-  let nextCount = currentCount;
-  let cost = 0;
-  for (let index = total - currentCount - 1; index >= 0 && nextCount < boundedTarget; index -= 1) {
-    const nextCost = estimateMessageRenderCost(messages[index]!);
-    if (nextCount > currentCount && cost + nextCost > budget) break;
-    cost += nextCost;
-    nextCount += 1;
-  }
-  return Math.max(currentCount + 1, nextCount);
-}
-
-function targetRenderedMessageCount(messages: SessionMessage[], currentCount: number): number {
-  const total = messages.length;
-  if (total <= 0) return 0;
-  const budgetCount = renderedTailCountForBudget(
-    messages,
-    MESSAGE_RENDER_STEADY_COST_BUDGET,
-    MESSAGE_RENDER_INITIAL_MIN_COUNT,
-    MESSAGE_RENDER_STEADY_WINDOW_LIMIT,
-  );
-  return Math.min(total, Math.max(currentCount, budgetCount));
 }
 
 async function copyJsonWithFeedback(json: string): Promise<void> {
@@ -1852,14 +1671,10 @@ export function SessionDetailPage() {
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailSignatureRef = useRef<string>('');
   const lastFollowSignatureRef = useRef<string>('');
-  const renderedMessageCountRef = useRef(0);
-  const messageRenderGenerationRef = useRef(0);
-  const messageRenderSessionRef = useRef('');
   const olderRenderSettlingRef = useRef(false);
   const lastLocalSendAtRef = useRef<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
-  const [renderedMessageCount, setRenderedMessageCount] = useState(0);
 
   // 消息操作栏：审计弹窗 + 删除确认。
   const [auditMessage, setAuditMessage] = useState<SessionMessage | null>(null);
@@ -2810,16 +2625,12 @@ export function SessionDetailPage() {
   }, [messageMembershipKey]);
 
   useEffect(() => {
-    renderedMessageCountRef.current = renderedMessageCount;
-  }, [renderedMessageCount]);
-
-  useEffect(() => {
     if (!olderRenderSettling) return;
     const handle = window.setTimeout(() => {
       setOlderRenderSettlingValue(false);
     }, LOAD_OLDER_RENDER_SETTLE_MS);
     return () => window.clearTimeout(handle);
-  }, [olderRenderSettling, renderedMessageCount]);
+  }, [olderRenderSettling]);
 
   useEffect(() => {
     windowOffsetRef.current = windowOffset;
@@ -3152,8 +2963,6 @@ export function SessionDetailPage() {
     setOlderRenderSettlingValue(false);
     setError(null);
     replaceMessageWindow([], 0);
-    renderedMessageCountRef.current = 0;
-    setRenderedMessageCount(0);
     updateTotalKnown(0);
     setActiveMessageId(null);
     setComposerModelKey('');
@@ -3229,43 +3038,12 @@ export function SessionDetailPage() {
     }
   }
 
-  function revealBufferedOlderMessages(): void {
-    const total = messagesRef.current.length;
-    const current = renderedMessageCountRef.current;
-    if (current >= total) return;
-    const requestSessionId = sessionId;
-    const scroller = mainRef.current;
-    const beforeHeight = scroller?.scrollHeight ?? 0;
-    const beforeY = scroller?.scrollTop ?? 0;
-    const next = nextRenderedTailCount(
-      messagesRef.current,
-      current,
-      total,
-      MESSAGE_RENDER_REVEAL_COST_BUDGET,
-      MESSAGE_RENDER_REVEAL_MAX_COUNT,
-    );
-    renderedMessageCountRef.current = next;
-    setOlderRenderSettlingValue(true);
-    setRenderedMessageCount(next);
-    requestAnimationFrame(() => {
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      const el = mainRef.current;
-      if (!el) return;
-      const delta = el.scrollHeight - beforeHeight;
-      el.scrollTo({ top: beforeY + delta, behavior: 'auto' });
-    });
-  }
-
   async function loadOlder(): Promise<void> {
     if (
       loadingOlder ||
       olderRenderSettlingRef.current ||
       olderMessagesAbortRef.current
     ) {
-      return;
-    }
-    if (renderedMessageCountRef.current < messagesRef.current.length) {
-      revealBufferedOlderMessages();
       return;
     }
     if (windowOffset <= 0) return;
@@ -3290,17 +3068,6 @@ export function SessionDetailPage() {
       setOlderRenderSettlingValue(incoming.length > 0);
       const nextMessages = [...incoming, ...currentMessages];
       replaceMessageWindow(nextMessages, m.offset);
-      if (incoming.length > 0) {
-        const nextRenderedCount = nextRenderedTailCount(
-          nextMessages,
-          renderedMessageCountRef.current,
-          nextMessages.length,
-          MESSAGE_RENDER_REVEAL_COST_BUDGET,
-          MESSAGE_RENDER_REVEAL_MAX_COUNT,
-        );
-        renderedMessageCountRef.current = nextRenderedCount;
-        setRenderedMessageCount(nextRenderedCount);
-      }
       updateTotalKnown(m.total);
       updateSendPhaseValue(m.send_phase);
       updateLastErrorValue(m.last_error);
@@ -4822,8 +4589,7 @@ export function SessionDetailPage() {
     enabled:
       !effectiveLoadingDetail &&
       !loadingOlder &&
-      !olderRenderSettling &&
-      renderedMessageCount >= routeMessages.length,
+      !olderRenderSettling,
     onRefresh: async () => {
       if (remainingOlder > 0) {
         await loadOlder();
@@ -4869,78 +4635,7 @@ export function SessionDetailPage() {
       .catch(() => setTtsPlayback(EMPTY_TTS_PLAYBACK));
   }, [applyTtsPlayback, readAloudEnabled, ttsPlayback.playing]);
 
-  const messageRenderWindowKey = useMemo(() => {
-    return messageWindowShapeKey(sessionId, windowOffset, sortedMessages);
-  }, [sessionId, windowOffset, sortedMessages]);
-
-  useEffect(() => {
-    messageRenderGenerationRef.current += 1;
-    const generation = messageRenderGenerationRef.current;
-    const total = sortedMessages.length;
-    const sessionChanged = messageRenderSessionRef.current !== sessionId;
-    messageRenderSessionRef.current = sessionId;
-    if (total === 0) {
-      renderedMessageCountRef.current = 0;
-      setRenderedMessageCount(0);
-      return;
-    }
-
-    const initialCount = initialRenderedMessageCount(sortedMessages);
-    const currentCount = renderedMessageCountRef.current;
-    const targetCount = targetRenderedMessageCount(sortedMessages, currentCount);
-    const isSmallTailAppend =
-      !sessionChanged &&
-      currentCount > 0 &&
-      total <= currentCount + 1;
-    const startCount =
-      total <= initialCount || isSmallTailAppend
-        ? total
-        : sessionChanged || currentCount <= 0
-        ? initialCount
-        : Math.min(targetCount, Math.max(currentCount, initialCount));
-    renderedMessageCountRef.current = startCount;
-    setRenderedMessageCount(startCount);
-
-    let cancelStep: (() => void) | null = null;
-    const scheduleNext = () => {
-      cancelStep = scheduleProgressiveMessageRenderStep(() => {
-        cancelStep = null;
-        if (generation !== messageRenderGenerationRef.current) return;
-        const next = nextRenderedTailCount(
-          sortedMessages,
-          renderedMessageCountRef.current,
-          targetCount,
-          MESSAGE_RENDER_STEP_COST_BUDGET,
-          MESSAGE_RENDER_STEP_MAX_COUNT,
-        );
-        if (next <= renderedMessageCountRef.current) return;
-        renderedMessageCountRef.current = next;
-        setRenderedMessageCount(next);
-        if (next < targetCount) {
-          scheduleNext();
-        }
-      });
-    };
-    if (startCount < targetCount) {
-      scheduleNext();
-    }
-    return () => {
-      cancelStep?.();
-    };
-  }, [messageRenderWindowKey, sessionId, sortedMessages.length]);
-
-  const visibleMessageStartIndex = Math.max(
-    0,
-    sortedMessages.length - Math.min(renderedMessageCount, sortedMessages.length),
-  );
-  const deferredLocalMessageCount = visibleMessageStartIndex;
-  const visibleSortedMessages = useMemo(
-    () =>
-      visibleMessageStartIndex > 0
-        ? sortedMessages.slice(visibleMessageStartIndex)
-        : sortedMessages,
-    [sortedMessages, visibleMessageStartIndex],
-  );
+  const visibleSortedMessages = sortedMessages;
 
   const resumeToLatest = () => {
     setAutoFollowEnabled(true);
@@ -5091,7 +4786,7 @@ export function SessionDetailPage() {
             ) : (
               <>
                 {/* 加载更早 */}
-                {deferredLocalMessageCount > 0 || remainingOlder > 0 ? (
+                {remainingOlder > 0 ? (
                   <div class="text-center mb-3">
                     <button type="button" onClick={loadOlder} disabled={loadingOlder || olderRenderSettling} class="oh-session-load-older-button oh-tap-press disabled:opacity-50">
                       <span class={loadingOlder || olderRenderSettling ? 'oh-spin' : undefined} aria-hidden>
@@ -5101,8 +4796,6 @@ export function SessionDetailPage() {
                         ? t('detail.preparingEarlier', '正在准备更早消息…')
                         : loadingOlder
                         ? t('detail.loadingOlder', '加载中…')
-                        : deferredLocalMessageCount > 0
-                        ? t('detail.revealBufferedOlder', '显示更早 ') + `(${deferredLocalMessageCount})`
                         : t('detail.loadOlder', '加载更早 ') + `(${remainingOlder})`}
                     </button>
                   </div>

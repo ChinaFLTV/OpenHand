@@ -397,9 +397,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   final Set<String> _dismissedErrorIds = <String>{};
   int _windowStartIndex = 0;
   bool _loadingOlderMessages = false;
-  bool _initialMaterializationPending = false;
-  bool _materializationTaskQueued = false;
-  int _materializationGeneration = 0;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
   // F2 memoize: visibleMessages 的 id→index 映射在 build 路径上每帧重建一次，
@@ -436,7 +433,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   final Set<String> _animatedMessageIds = <String>{};
   int _messageActionPanelMotionKey = 0;
   int _consumedMessageActionPanelMotionKey = 0;
-  // 保存每条消息的【显示原始】状态，避免 ListView.builder 回收重建后状态丢失。
+  // 保存每条消息的【显示原始】状态，避免会话窗口刷新后状态丢失。
   final Map<String, bool> _rawContentVisibleByMessageId = <String, bool>{};
   final Map<String, _MessageTranslationEntry> _translationCacheByMessageId =
       <String, _MessageTranslationEntry>{};
@@ -445,7 +442,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   _TranscriptViewportAnchor? _pendingPrependAnchor;
   int _pendingPrependAnchorFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
-  bool _historyRevealCacheBoost = false;
   TranscriptScrollActivity? _scrollActivity;
   _PendingRevealRestore? _pendingRevealRestore;
   Future<void>? _activeRevealOlderFuture;
@@ -465,36 +461,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
     _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
-    // First-open jank fix: when the user picks an existing thread for the
-    // first time, the workspace pane and the transcript both mount in the
-    // same frame. We materialise the visible window's render entries
-    // immediately on this frame — they are pure data classes and the heavy
-    // widget work (markdown parse / syntax highlight) is throttled to
-    // ~1 task / frame by [_MarkdownFrameScheduler] + [_HighlightFrameScheduler].
-    // Combined with the ListView's narrow base cache band (which only mounts
-    // bubbles inside the actual viewport + a small buffer), the heavy work
-    // naturally spreads across post-mount frames without any drip wrapper.
-    //
-    // 首帧只取窗口底部几条消息，保证打开长会话时先落到最新内容；
-    // 下一帧再补齐常规窗口，避免同步物化与外壳切换挤在同一帧。
-    _replaceRenderEntries(
-      _initialVisibleMessagesForFirstFrame(),
-      animate: false,
-    );
-    _scheduleInitialMaterializationCompletionIfNeeded();
+    // Materialise the current window immediately so Scrollbar gets the real
+    // maxScrollExtent from the first layout. Markdown parsing / syntax
+    // highlighting remains frame-throttled by the warmup schedulers.
+    _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
     _syncVisibleError();
-    // Immediately jump to the bottom on the first rendered frame, before the
-    // parent's postFrameCallback chain fires. This prevents the user from ever
-    // seeing the list start at scroll-offset 0 while a forced scroll-to-bottom
-    // is pending, which manifests as a jarring flash/jump animation.
-    // 单 shot jumpTo 在长会话首屏并不可靠：ListView.builder 在
-    // markdown 异步解析期间会陆续完成 lazy layout，maxScrollExtent
-    // 会在 mount 后 ~10 帧内持续增大；首帧 jump 之后视口虽然贴底，但
-    // 第 N 个 bubble 解析完成、高度从轻量占位扩张到富文本时，贴底
-    // 状态会被打破而无法恢复（因为父级 settle 通常 8 帧内已耗尽）。
-    // 线程会话窗口已下线所有 settle 循环（弹跳源头），首屏贴底由调用方
-    // jumpToBottomOnInit 路径在 ListView 挂载后做单帧 jumpTo，不再走
-    // 多帧 addPostFrameCallback 链 + lastAdjustedOffset 比较。
+    // 首屏贴底由调用方 jumpToBottomOnInit 路径在滚动视图挂载后做单帧
+    // jumpTo；这里保持当前窗口真实布局，避免依赖惰性列表估算高度。
   }
 
   @override
@@ -518,12 +491,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
-      _materializationGeneration += 1;
       _warmupGeneration += 1;
       _warmupScheduler.clear();
       _clearWarmupSignatures();
       _resetSessionScopedState();
-      _historyRevealCacheBoost = false;
       _messageActionPanelMotionKey += 1;
       _consumedMessageActionPanelMotionKey = _messageActionPanelMotionKey;
       _TranscriptScrollDispatcher.instance.unregister(
@@ -534,15 +505,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       // Switching sessions used to rebuild the full transcript synchronously
       // inside `didUpdateWidget`, which on large sessions blocked the frame
       // that paints the new toolbar / shell. We reset to an empty list
-      // immediately so the cross-fade can start, then materialise the
-      // visible window on the next frame; the markdown / highlight work
-      // is throttled by [_MarkdownFrameScheduler] / [_HighlightFrameScheduler]
-      // and the ListView's narrow base cache band keeps off-viewport mounts cheap.
-      // 切换会话时同样先绘制底部小窗口，再补齐常规窗口。
+      // immediately so the cross-fade can start, then materialise the complete
+      // current window on the next frame; expensive rich rendering is still
+      // throttled by the warmup schedulers.
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
-      _initialMaterializationPending = false;
-      _materializationTaskQueued = false;
       // 双兜底物化：在 mount 状态变化或父级帧抢占
       // `addPostFrameCallback` 时，仅 build 阶段 fallback 仍可能错过
       // 第一帧（同步赋值发生在 Element rebuild，但首帧是当前 frame
@@ -552,23 +519,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
-          _replaceRenderEntries(
-            _initialVisibleMessagesForFirstFrame(),
-            animate: false,
-          );
+          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         });
-        _scheduleInitialMaterializationCompletionIfNeeded();
       });
       WidgetsBinding.instance.endOfFrame.then((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
         setState(() {
-          _replaceRenderEntries(
-            _initialVisibleMessagesForFirstFrame(),
-            animate: false,
-          );
+          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
         });
-        _scheduleInitialMaterializationCompletionIfNeeded();
       });
       // jumpToBottomOnInit 由父级 jumpTo 单独保证；这里不再做多帧 settle。
     } else if (oldWidget.session.messages != widget.session.messages ||
@@ -670,172 +629,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return displayMessages;
     }
     return displayMessages.sublist(clampedWindowStartIndex);
-  }
-
-  List<AiSessionMessage> _initialVisibleMessagesForFirstFrame() {
-    final visibleMessages = _visibleMessagesForWindow();
-    final firstFrameCount = _tailMessageCountForRenderBudget(
-      visibleMessages,
-      minMessages: _transcriptFirstFrameMinMessages,
-      maxMessages: _transcriptFirstFrameMaxMessages,
-      renderCostBudget: _transcriptFirstFrameRenderCostBudget,
-    );
-    _initialMaterializationPending =
-        firstFrameCount < visibleMessages.length &&
-        widget.session.statistics.totalMessageCount >=
-            _transcriptStagedMaterializationThreshold;
-    if (!_initialMaterializationPending) {
-      return visibleMessages;
-    }
-    return visibleMessages.sublist(visibleMessages.length - firstFrameCount);
-  }
-
-  void _scheduleInitialMaterializationCompletionIfNeeded() {
-    if (!_initialMaterializationPending) {
-      return;
-    }
-    _queueMaterializationCompletionStep();
-  }
-
-  void _queueMaterializationCompletionStep() {
-    if (_materializationTaskQueued || !_initialMaterializationPending) {
-      return;
-    }
-    _materializationTaskQueued = true;
-    final generation = ++_materializationGeneration;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _materializationTaskQueued = false;
-      if (!mounted ||
-          !_initialMaterializationPending ||
-          generation != _materializationGeneration) {
-        return;
-      }
-      final allVisibleMessages = _visibleMessagesForWindow();
-      if (allVisibleMessages.isEmpty) {
-        setState(() {
-          _initialMaterializationPending = false;
-          _renderEntries = const <_TranscriptRenderEntry>[];
-        });
-        return;
-      }
-      final nextVisibleMessages = _nextMaterializedMessageBatch(
-        allVisibleMessages,
-      );
-      if (nextVisibleMessages.length <= _renderEntries.length) {
-        setState(() {
-          _initialMaterializationPending = false;
-          _replaceRenderEntries(allVisibleMessages, animate: false);
-        });
-        widget.onLayoutChanged();
-        return;
-      }
-      setState(() {
-        _initialMaterializationPending =
-            nextVisibleMessages.length < allVisibleMessages.length;
-        _replaceRenderEntries(nextVisibleMessages, animate: false);
-      });
-      widget.onLayoutChanged();
-      if (_initialMaterializationPending) {
-        _queueMaterializationCompletionStep();
-      }
-    });
-  }
-
-  List<AiSessionMessage> _nextMaterializedMessageBatch(
-    List<AiSessionMessage> allVisibleMessages,
-  ) {
-    final currentCount = _renderEntries.length;
-    if (currentCount <= 0) {
-      return _initialVisibleMessagesForFirstFrame();
-    }
-    final remainingStartIndex = math.max(
-      0,
-      allVisibleMessages.length - currentCount,
-    );
-    final remainingPrefix = allVisibleMessages.sublist(0, remainingStartIndex);
-    final prependCount = _tailMessageCountForRenderBudget(
-      remainingPrefix,
-      minMessages: _transcriptMaterializationMinMessagesPerFrame,
-      maxMessages: _transcriptMaterializationMaxMessagesPerFrame,
-      renderCostBudget: _transcriptMaterializationRenderCostBudget,
-    );
-    final targetCount = math.min(
-      allVisibleMessages.length,
-      currentCount + prependCount,
-    );
-    return allVisibleMessages.sublist(allVisibleMessages.length - targetCount);
-  }
-
-  int _tailMessageCountForRenderBudget(
-    List<AiSessionMessage> messages, {
-    required int minMessages,
-    required int maxMessages,
-    required int renderCostBudget,
-  }) {
-    if (messages.isEmpty) {
-      return 0;
-    }
-    final effectiveMin = minMessages.clamp(1, messages.length).toInt();
-    final effectiveMax = maxMessages
-        .clamp(effectiveMin, messages.length)
-        .toInt();
-    var selected = 0;
-    var renderCost = 0;
-    for (var index = messages.length - 1; index >= 0; index -= 1) {
-      final cost = _estimatedTranscriptMessageRenderCost(messages[index]);
-      final mustMeetMinimum = selected < effectiveMin;
-      final withinBudget = renderCost + cost <= renderCostBudget;
-      if (!mustMeetMinimum && (!withinBudget || selected >= effectiveMax)) {
-        break;
-      }
-      selected += 1;
-      renderCost += cost;
-      if (selected >= effectiveMax) {
-        break;
-      }
-    }
-    return selected.clamp(effectiveMin, effectiveMax).toInt();
-  }
-
-  int _estimatedTranscriptMessageRenderCost(AiSessionMessage message) {
-    var cost = 1;
-    final kind = message.kind;
-    final content = message.content;
-    final length = content.length;
-    if (kind == AiSessionMessageKind.assistant ||
-        kind == AiSessionMessageKind.reasoning ||
-        kind == AiSessionMessageKind.compressionPoint) {
-      cost += 1;
-    }
-    if (kind == AiSessionMessageKind.tool ||
-        kind == AiSessionMessageKind.mcp ||
-        kind == AiSessionMessageKind.skill ||
-        kind == AiSessionMessageKind.toolCall ||
-        kind == AiSessionMessageKind.hook) {
-      cost += 2;
-    }
-    if (_looksLikeHtml(content) || _hasHtmlTagStructure(content)) {
-      cost += length > _htmlProgressiveRenderCharThreshold ? 9 : 6;
-    } else if (_containsMarkdownCodeFence(content)) {
-      cost += 3;
-    } else if (_markdownStructuralPattern.hasMatch(content)) {
-      cost += 1;
-    }
-    if (length > 32000) {
-      cost += 5;
-    } else if (length > 12000) {
-      cost += 3;
-    } else if (length > 4000) {
-      cost += 1;
-    }
-    if (message.metadata.isNotEmpty) {
-      final attachments =
-          message.metadata[aiSessionMessageAttachmentsMetadataKey];
-      if (attachments is Iterable && attachments.isNotEmpty) {
-        cost += 2;
-      }
-    }
-    return cost.clamp(1, 18).toInt();
   }
 
   void _replaceRenderEntries(
@@ -1309,7 +1102,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _retiringCreationPlaceholderTimer?.cancel();
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = null;
-    _materializationGeneration += 1;
     _warmupGeneration += 1;
     _activeRevealOlderFuture = null;
     _warmupScheduler.clear();
@@ -1318,11 +1110,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.dispose();
   }
 
-  /// 按 messageId 渐进式滚动到目标气泡。若已物化在视窗
-  /// 或 cacheExtent 内则直接 `Scrollable.ensureVisible`；若目标
-  /// 早于 `_windowStartIndex`（被「Load earlier」窗口剪掉），就
-  /// 循环 reveal-older 一段一段把窗口往前推开，直到目标进入物化
-  /// 范围再丝滑滚到 alignment=0.18。返回是否成功。
+  /// 按 messageId 滚动到目标气泡。若目标早于 `_windowStartIndex`
+  /// （被「Load earlier」窗口剪掉），就循环 reveal-older 一段一段
+  /// 把窗口往前推开，直到目标进入当前布局窗口再精确滚到 alignment=0.18。
+  /// 返回是否成功。
   ///
   /// 防抖：同一时刻只允许一次 in-flight 的滚动。重复点击在已有
   /// 任务进行时直接复用其 future，杜绝多次 reveal-older + ensureVisible
@@ -1382,120 +1173,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     if (await tryEnsureVisible()) return true;
 
-    // 目标已落在 render entries 内，但 ListView.builder 因 cacheExtent 限制
-    // 尚未构建对应 bubble（GlobalObjectKey.currentContext 为 null）。
-    // 通过当前可见 bubble 估算平均高度 → 计算目标 index 的近似 offset →
-    // 一次平滑 animateTo 把目标拉入 cacheExtent → 再 ensureVisible 精修。
-    // 全程单段动画，杜绝多次 jumpTo / setState 引起的"上下抽搐"。
     final renderIndex = _renderEntries.indexWhere((e) => e.id == messageId);
     if (renderIndex < 0) return false;
-    final scrollController = widget.controller;
-    if (!scrollController.hasClients) return false;
-
-    final approached = await _approachRenderIndexBySingleAnimation(
-      renderIndex: renderIndex,
-      duration: Duration.zero,
-      curve: Curves.linear,
-    );
-    if (!mounted) return false;
-    if (approached) {
-      // animateTo 完成后等待一帧让 ListView.builder 物化新进入 cacheExtent
-      // 的 bubble，注册其 GlobalObjectKey。
+    // 当前窗口使用确定性布局；目标进入 render entries 后，只需要等待
+    // 有限帧让 registrar 完成注册，再用 ensureVisible 精确定位。
+    for (var attempt = 0; attempt < 3; attempt += 1) {
       await WidgetsBinding.instance.endOfFrame;
       if (await tryEnsureVisible()) return true;
-      // 个别情况：估算偏差较大、目标仍未进入 cacheExtent。再做最多 3 次
-      // 渐进逼近，每次步长减半。
-      for (var attempt = 0; attempt < 3; attempt++) {
-        if (!mounted || !scrollController.hasClients) return false;
-        final stepped = await _approachRenderIndexBySingleAnimation(
-          renderIndex: renderIndex,
-          duration: Duration.zero,
-          curve: Curves.linear,
-        );
-        if (!mounted) return false;
-        if (!stepped) break;
-        await WidgetsBinding.instance.endOfFrame;
-        if (await tryEnsureVisible()) return true;
-      }
+      if (!mounted) return false;
     }
-    return tryEnsureVisible();
-  }
-
-  /// 估算 [renderIndex] 对应 bubble 的近似滚动 offset，并一次性平滑
-  /// `animateTo` 过去。使用当前已构建 bubble 的真实高度均值作为基准，
-  /// 比硬编码"平均高度"更贴合实际内容。返回 true 表示有发起动画。
-  Future<bool> _approachRenderIndexBySingleAnimation({
-    required int renderIndex,
-    required Duration duration,
-    required Curve curve,
-    double dampening = 1.0,
-  }) async {
-    final scrollController = widget.controller;
-    if (!scrollController.hasClients) return false;
-    final position = scrollController.position;
-    final viewportExtent = position.viewportDimension;
-    final maxExtent = position.maxScrollExtent;
-    final currentOffset = position.pixels;
-
-    // 收集已构建 bubble 的真实高度，估算每条平均高度，并取最近的
-    // 一个已采样 bubble 作为锚点，计算目标 offset。
-    var sampledTotalHeight = 0.0;
-    var sampledCount = 0;
-    int? anchorRenderIndex;
-    double? anchorTopOffset;
-    RenderBox? scrollableBox;
-    for (var i = 0; i < _renderEntries.length; i++) {
-      final id = _renderEntries[i].id;
-      final bubbleContext = _bubbleRegistry.contextOf(id);
-      if (bubbleContext == null) continue;
-      final box = bubbleContext.findRenderObject() as RenderBox?;
-      if (box == null || !box.attached || !box.hasSize) continue;
-      sampledTotalHeight += box.size.height;
-      sampledCount += 1;
-      // 取 viewport 的 RenderBox（来自任一已渲染 bubble 的 Scrollable 祖先）。
-      scrollableBox ??= () {
-        final scrollable = Scrollable.maybeOf(bubbleContext);
-        return scrollable?.context.findRenderObject() as RenderBox?;
-      }();
-      if (scrollableBox != null && scrollableBox.attached) {
-        final localOffset = box.localToGlobal(
-          Offset.zero,
-          ancestor: scrollableBox,
-        );
-        final topOffset = currentOffset + localOffset.dy;
-        // 选最接近 renderIndex 的锚点：误差最小，估算最准。
-        if (anchorRenderIndex == null ||
-            (i - renderIndex).abs() < (anchorRenderIndex - renderIndex).abs()) {
-          anchorRenderIndex = i;
-          anchorTopOffset = topOffset;
-        }
-      }
-    }
-    if (sampledCount == 0) return false;
-    final avgHeight = sampledTotalHeight / sampledCount;
-    const verticalGap = 14.0;
-    final perEntry = avgHeight + verticalGap;
-
-    double targetOffset;
-    if (anchorRenderIndex != null && anchorTopOffset != null) {
-      final delta = (renderIndex - anchorRenderIndex) * perEntry;
-      targetOffset = anchorTopOffset + delta;
-    } else {
-      targetOffset = renderIndex * perEntry;
-    }
-    // 让目标位于视窗 18% 处，与 ensureVisible(alignment: 0.18) 对齐。
-    targetOffset -= viewportExtent * 0.18;
-    targetOffset = targetOffset.clamp(0.0, maxExtent);
-
-    // dampening：渐进逼近时只走差距的一部分，避免一次性过冲。
-    final rawDelta = targetOffset - currentOffset;
-    if (rawDelta.abs() < 8.0) return false;
-    final goal = (currentOffset + rawDelta * dampening).clamp(0.0, maxExtent);
-    if ((goal - currentOffset).abs() < 8.0) return false;
-    if (scrollController.positions.length > 1) return false;
-    // 线程会话窗口已下线所有滚动动画（用户明确要求），统一用 jumpTo。
-    scrollController.jumpTo(goal);
-    return true;
+    return false;
   }
 
   Future<bool>? _activeScrollFuture;
@@ -2050,7 +1737,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     var revealStarted = false;
     setState(() {
       _loadingOlderMessages = true;
-      _historyRevealCacheBoost = false;
     });
     revealStarted = true;
 
@@ -2080,10 +1766,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (!mounted) {
         return;
       }
-      if (!_historyRevealCacheBoost) {
-        setState(() => _historyRevealCacheBoost = true);
-      }
-
       if (preserveTriggerOffset && hadClients) {
         final position = scrollController.positions.isNotEmpty
             ? scrollController.positions.last
@@ -2435,18 +2117,320 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return last;
   }
 
+  Widget _buildTranscriptListItem({
+    required BuildContext context,
+    required int index,
+    required AiSession session,
+    required int listItemCount,
+    required int hiddenLoadMoreCount,
+    required int hiddenMessageCount,
+    required int pendingPlaceholderCount,
+    required int retiringPlaceholderCount,
+    required int failureCardCount,
+    required AiCreationRequest? pendingCreationRequest,
+    required AiCreationRequest? retiringCreationRequest,
+    required AiCreationRequest? failedCreationRequest,
+    required AiSessionErrorRecord? userVisibleError,
+    required bool showSelfLearningMessages,
+    required List<AiSessionMessage> visibleMessages,
+    required Map<String, int> visibleMessageIndexById,
+    required AiTtsPlaybackSnapshot ttsSnapshot,
+    required AiTtsSettings ttsSettings,
+    required AiTranslationSettings translationSettings,
+    required SettingsController settingsController,
+    required bool transcriptScrollActive,
+    required bool telemetryDebugEnabled,
+    required AiSessionController aiSessionController,
+  }) {
+    if (hiddenLoadMoreCount > 0 && index == 0) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: listItemCount == 1 ? 0 : 14),
+        child: _TranscriptLoadEarlierButton(
+          hiddenMessageCount: hiddenMessageCount,
+          loading: _loadingOlderMessages,
+          onPressed: _revealOlderMessages,
+        ),
+      );
+    }
+    final messageIndex = index - hiddenLoadMoreCount;
+    if (messageIndex >= _renderEntries.length) {
+      final afterMessagesIndex = messageIndex - _renderEntries.length;
+      if (afterMessagesIndex < pendingPlaceholderCount) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: _PendingCreationPlaceholderCard(
+            request: pendingCreationRequest!,
+          ),
+        );
+      }
+      if (afterMessagesIndex <
+          pendingPlaceholderCount + retiringPlaceholderCount) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: _PendingCreationPlaceholderCard(
+            request: retiringCreationRequest!,
+            exiting: true,
+          ),
+        );
+      }
+      if (afterMessagesIndex <
+          pendingPlaceholderCount +
+              retiringPlaceholderCount +
+              failureCardCount) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 360),
+            curve: Curves.easeOutBack,
+            builder: (_, t, child) {
+              final clamped = t.clamp(0.0, 1.0);
+              return Opacity(
+                opacity: clamped,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - clamped) * -8),
+                  child: Transform.scale(
+                    scale: 0.94 + 0.06 * clamped,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: _CreationFailureCard(
+              request: failedCreationRequest!,
+              error: userVisibleError!,
+              onDismiss: () async {
+                _dismissedErrorIds.add(userVisibleError.id);
+                setState(() {
+                  if (_visibleErrorId == userVisibleError.id) {
+                    _visibleErrorId = null;
+                  }
+                  if (_pendingPresentedErrorId == userVisibleError.id) {
+                    _pendingPresentedErrorId = null;
+                  }
+                });
+                await widget.onDismissError(userVisibleError);
+              },
+            ),
+          ),
+        );
+      }
+      return _SessionErrorBanner(
+        error: userVisibleError!,
+        onDismiss: () async {
+          _dismissedErrorIds.add(userVisibleError.id);
+          setState(() {
+            if (_visibleErrorId == userVisibleError.id) {
+              _visibleErrorId = null;
+            }
+            if (_pendingPresentedErrorId == userVisibleError.id) {
+              _pendingPresentedErrorId = null;
+            }
+          });
+          await widget.onDismissError(userVisibleError);
+        },
+      );
+    }
+    final entry = _renderEntries[messageIndex];
+    final message = entry.message;
+    if (!showSelfLearningMessages &&
+        message.kind == AiSessionMessageKind.selfLearning) {
+      return const SizedBox.shrink();
+    }
+    final visibleMessageIndex = visibleMessageIndexById[message.id];
+    final isSelected = !entry.exiting && _selectedMessageId == message.id;
+    final isLastVisibleMessage =
+        visibleMessageIndex != null &&
+        visibleMessageIndex == visibleMessages.length - 1;
+    final hasLaterVisibleMessages =
+        visibleMessageIndex != null &&
+        visibleMessageIndex < visibleMessages.length - 1;
+    final shouldAnimateAppearance =
+        !entry.exiting &&
+        widget.sendPhase != AiSendPhase.idle &&
+        isLastVisibleMessage &&
+        !_animatedMessageIds.contains(message.id);
+    final hasMultimediaContent = _messageHasMultimediaContent(message);
+    final speechEnabled =
+        ttsSettings.enabled &&
+        !hasMultimediaContent &&
+        _messageSupportsSpeech(message, settingsController);
+    final speechPlaying =
+        speechEnabled &&
+        ttsSnapshot.playing &&
+        ttsSnapshot.messageId == message.id;
+    final translationEntry = _translationCacheByMessageId[message.id];
+    final translationFingerprint = _translationRequestFingerprint(
+      translationSettings,
+      _translationFallbackModel(settingsController),
+    );
+    final translationVisible =
+        !hasMultimediaContent &&
+        translationEntry != null &&
+        _translationVisibleMessageIds.contains(message.id) &&
+        translationEntry.sourceText ==
+            _translatableMessageText(message, translationSettings) &&
+        translationEntry.settingsFingerprint == translationFingerprint;
+    final translationLoading =
+        !hasMultimediaContent &&
+        _translationLoadingMessageIds.contains(message.id);
+    final translationEnabled =
+        translationSettings.enabled &&
+        !hasMultimediaContent &&
+        _isMessageTranslatable(message, settingsController);
+    final keepHtmlBubbleAlive =
+        !entry.exiting &&
+        isSelected &&
+        _messageUsesHtmlRenderer(message, settingsController);
+    final bubble = _TranscriptBubbleRegistrar(
+      messageId: message.id,
+      registry: _bubbleRegistry,
+      child: _MessageBubble(
+        key: ValueKey<String>(message.id),
+        message: message,
+        sessionTitle: session.title,
+        sessionEnvironment: session.environment,
+        showReasoningSweep:
+            !entry.exiting &&
+            widget.sendPhase == AiSendPhase.responding &&
+            _isStreamingReasoningMessage(message),
+        trackLayoutChanges:
+            !entry.exiting &&
+            _shouldTrackMessageLayout(
+              message: message,
+              sendPhase: widget.sendPhase,
+              isLastVisibleMessage: isLastVisibleMessage,
+            ),
+        onLayoutChanged: widget.onLayoutChanged,
+        transcriptScrollActive: transcriptScrollActive,
+        isSelected: isSelected,
+        actionPanelEntranceMotionKey: _messageActionPanelMotionKey,
+        animateActionPanelEntrance:
+            isSelected &&
+            _consumedMessageActionPanelMotionKey !=
+                _messageActionPanelMotionKey,
+        onActionPanelEntranceConsumed: (motionKey) {
+          if (!mounted ||
+              motionKey != _messageActionPanelMotionKey ||
+              _consumedMessageActionPanelMotionKey == motionKey) {
+            return;
+          }
+          _consumedMessageActionPanelMotionKey = motionKey;
+        },
+        isScrollHighlighted: _highlightedMessageId == message.id,
+        onSelect: () {
+          if (_selectedMessageId == message.id) {
+            return;
+          }
+          setState(() {
+            _selectedMessageId = message.id;
+            _messageActionPanelMotionKey += 1;
+          });
+        },
+        onDeselect: () {
+          if (_selectedMessageId != message.id) {
+            return;
+          }
+          setState(() {
+            _selectedMessageId = null;
+          });
+        },
+        onEdit: !entry.exiting && message.kind == AiSessionMessageKind.user
+            ? () => widget.onEditMessage(message)
+            : null,
+        onCopy: () => widget.onCopyMessage(message),
+        onFork: () => widget.onForkMessage(message),
+        onSetFeedback: (feedback) =>
+            _setMessageFeedbackAnchored(message, feedback),
+        onRegenerateResponse: () => widget.onRegenerateMessage(message),
+        onSelectResponseVariant: (index) =>
+            _selectMessageResponseVariantAnchored(message, index),
+        speechEnabled: speechEnabled,
+        speechPlaying: speechPlaying,
+        onToggleSpeech: speechEnabled
+            ? () => widget.ttsPlaybackService.toggleMessage(
+                messageId: message.id,
+                text: message.content,
+                settings: ttsSettings,
+                availableModels: settingsController.aiModels,
+                fallbackModel: _translationFallbackModel(settingsController),
+              )
+            : null,
+        translationEnabled: translationEnabled,
+        translationLoading: translationLoading,
+        translationVisible: translationVisible,
+        translatedContent: translationEntry?.translatedText,
+        onToggleTranslation: translationEnabled
+            ? () => _toggleMessageTranslation(message, translationSettings)
+            : null,
+        onDelete: () async {
+          if (entry.exiting) {
+            return;
+          }
+          await _runDeleteAction(message, widget.onDeleteMessage);
+        },
+        onDeleteFromHere: !entry.exiting && hasLaterVisibleMessages
+            ? () => _runDeleteAction(message, widget.onDeleteMessageFromHere)
+            : null,
+        onAudit: telemetryDebugEnabled
+            ? () {
+                _showMessageAuditDialog(
+                  context,
+                  message: message,
+                  session: session,
+                  controller: aiSessionController,
+                  claudeStyle: widget.claudeStyle,
+                );
+              }
+            : null,
+        initiallyShowRawContent:
+            _rawContentVisibleByMessageId[message.id] ?? false,
+        onShowRawContentChanged: (visible) {
+          _rawContentVisibleByMessageId[message.id] = visible;
+        },
+      ),
+    );
+    final stableBubble = keepHtmlBubbleAlive
+        ? _TranscriptHtmlKeepAlive(child: bubble)
+        : bubble;
+    final content = shouldAnimateAppearance
+        ? SettingsAwareAppearOnce(
+            child: Builder(
+              builder: (context) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _animatedMessageIds.add(message.id);
+                });
+                return stableBubble;
+              },
+            ),
+          )
+        : stableBubble;
+    const entrySizeDuration = Duration.zero;
+    return maybeAnimatedSize(
+      key: ValueKey<String>('transcript-entry-${message.id}'),
+      duration: entrySizeDuration,
+      curve: kCardMotionCurve,
+      alignment: isSelected ? Alignment.topLeft : Alignment.bottomLeft,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
+        ),
+        child: content,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
     final displayMessages = session.displayMessages;
     // Read these provider values once here, at the transcript scope, instead
-    // of re-subscribing inside ListView.builder's itemBuilder.  Calling
-    // `context.watch()` inside itemBuilder registers the ListView element
-    // itself as a listener, causing the full visible message window to
-    // rebuild on any unrelated SettingsController change (theme, language,
-    // tool toggles, etc.).  `select` narrows the subscription to just the
-    // telemetry flag so most settings changes no longer invalidate the
-    // transcript at all.
+    // of re-subscribing inside every message item. Calling `context.watch()`
+    // per item would make the full visible message window rebuild on unrelated
+    // SettingsController changes (theme, language, tool toggles, etc.).
+    // `select` keeps each subscription scoped to the actual fields used here.
     final telemetryDebugEnabled = context.select<SettingsController, bool>(
       (controller) => controller.telemetryDebugEnabled,
     );
@@ -2476,11 +2460,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 字段赋值（与 didUpdateWidget 内的同名调用一致），赋值后
     // 当前帧即拿到新 `_renderEntries` 用于绘制，不破坏 build 不变量。
     if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
-      _replaceRenderEntries(
-        _initialVisibleMessagesForFirstFrame(),
-        animate: false,
-      );
-      _scheduleInitialMaterializationCompletionIfNeeded();
+      _replaceRenderEntries(visibleMessages, animate: false);
     }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
       // Header-only 会话正在按需水合消息时，显示加载占位而非空会话。
@@ -2526,10 +2506,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       );
     }
     final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
-    final renderEntryIndexById = <String, int>{
-      for (var index = 0; index < _renderEntries.length; index += 1)
-        _renderEntries[index].id: index,
-    };
     // When the session is actively awaiting the assistant and the most
     // recent user message asked for a multimedia creation (image / video /
     // audio / deep research), we slot in a shimmering placeholder card
@@ -2579,12 +2555,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         pendingPlaceholderCount +
         retiringPlaceholderCount +
         failureCardCount;
-    final listCacheExtent = _historyRevealCacheBoost
-        ? math.max(
-            _transcriptHistoryRevealListCacheExtent,
-            MediaQuery.sizeOf(context).height * 1.15,
-          )
-        : _transcriptListCacheExtent;
     final transcriptScrollActive = context
         .select<TranscriptScrollActivity, bool>((activity) => activity.value);
     return Column(
@@ -2622,374 +2592,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               }
               return NotificationListener<ScrollNotification>(
                 onNotification: widget.onScrollNotification,
-                child: ListView.builder(
+                child: SingleChildScrollView(
                   key: const ValueKey<String>('session-transcript-list'),
                   controller: widget.controller,
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.only(bottom: 12),
-                  // Long transcripts keep regular markdown/code bubbles cheap
-                  // through parser/highlight caches. HTML platform views are
-                  // heavier, so only the selected HTML bubble requests explicit
-                  // keep-alive; off-screen HTML cards release their WebView
-                  // permit and remount through the global limiter when needed.
-                  // Repaint boundaries are essential for a message list: without
-                  // them a single bubble's internal animation (e.g. streaming
-                  // reasoning shimmer, tool-call progress) dirties the entire
-                  // visible window and repaints every neighbour on every frame,
-                  // which is the dominant source of first-paint jank when a
-                  // session has many tool-call / code-block bubbles.
-                  // (Leaving this at the framework default, which is already
-                  // `true`, keeps the call site lint-clean and the intent
-                  // explicit via the comment above.)
-                  // Keep the cache band narrow on first open. After the user
-                  // explicitly reveals earlier history, widen it so Flutter can
-                  // lay out nearby variable-height bubbles before slow upward
-                  // scrolling reaches them; this keeps maxScrollExtent and the
-                  // desktop scrollbar thumb stable.
-                  cacheExtent: listCacheExtent,
                   physics: kOpenHandClampingPhysics,
-                  itemCount: listItemCount,
-                  findChildIndexCallback: (key) {
-                    if (key is! ValueKey<String>) return null;
-                    const entryKeyPrefix = 'transcript-entry-';
-                    final value = key.value;
-                    if (!value.startsWith(entryKeyPrefix)) return null;
-                    final messageId = value.substring(entryKeyPrefix.length);
-                    final entryIndex = renderEntryIndexById[messageId];
-                    return entryIndex == null
-                        ? null
-                        : hiddenLoadMoreCount + entryIndex;
-                  },
-                  itemBuilder: (context, index) {
-                    if (hiddenLoadMoreCount > 0 && index == 0) {
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: listItemCount == 1 ? 0 : 14,
-                        ),
-                        child: _TranscriptLoadEarlierButton(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var index = 0; index < listItemCount; index += 1)
+                        _buildTranscriptListItem(
+                          context: context,
+                          index: index,
+                          session: session,
+                          listItemCount: listItemCount,
+                          hiddenLoadMoreCount: hiddenLoadMoreCount,
                           hiddenMessageCount: hiddenMessageCount,
-                          loading: _loadingOlderMessages,
-                          onPressed: _revealOlderMessages,
+                          pendingPlaceholderCount: pendingPlaceholderCount,
+                          retiringPlaceholderCount: retiringPlaceholderCount,
+                          failureCardCount: failureCardCount,
+                          pendingCreationRequest: pendingCreationRequest,
+                          retiringCreationRequest: retiringCreationRequest,
+                          failedCreationRequest: failedCreationRequest,
+                          userVisibleError: userVisibleError,
+                          showSelfLearningMessages: showSelfLearningMessages,
+                          visibleMessages: visibleMessages,
+                          visibleMessageIndexById: visibleMessageIndexById,
+                          ttsSnapshot: ttsSnapshot,
+                          ttsSettings: ttsSettings,
+                          translationSettings: translationSettings,
+                          settingsController: settingsController,
+                          transcriptScrollActive: transcriptScrollActive,
+                          telemetryDebugEnabled: telemetryDebugEnabled,
+                          aiSessionController: aiSessionController,
                         ),
-                      );
-                    }
-                    final messageIndex = index - hiddenLoadMoreCount;
-                    if (messageIndex >= _renderEntries.length) {
-                      final afterMessagesIndex =
-                          messageIndex - _renderEntries.length;
-                      if (afterMessagesIndex < pendingPlaceholderCount) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _PendingCreationPlaceholderCard(
-                            request: pendingCreationRequest!,
-                          ),
-                        );
-                      }
-                      if (afterMessagesIndex <
-                          pendingPlaceholderCount + retiringPlaceholderCount) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _PendingCreationPlaceholderCard(
-                            request: retiringCreationRequest!,
-                            exiting: true,
-                          ),
-                        );
-                      }
-                      if (afterMessagesIndex <
-                          pendingPlaceholderCount +
-                              retiringPlaceholderCount +
-                              failureCardCount) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(begin: 0, end: 1),
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : const Duration(milliseconds: 360),
-                            curve: Curves.easeOutBack,
-                            builder: (_, t, child) {
-                              final clamped = t.clamp(0.0, 1.0);
-                              return Opacity(
-                                opacity: clamped,
-                                child: Transform.translate(
-                                  offset: Offset(0, (1 - clamped) * -8),
-                                  child: Transform.scale(
-                                    scale: 0.94 + 0.06 * clamped,
-                                    child: child,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: _CreationFailureCard(
-                              request: failedCreationRequest!,
-                              error: userVisibleError!,
-                              onDismiss: () async {
-                                _dismissedErrorIds.add(userVisibleError.id);
-                                setState(() {
-                                  if (_visibleErrorId == userVisibleError.id) {
-                                    _visibleErrorId = null;
-                                  }
-                                  if (_pendingPresentedErrorId ==
-                                      userVisibleError.id) {
-                                    _pendingPresentedErrorId = null;
-                                  }
-                                });
-                                await widget.onDismissError(userVisibleError);
-                              },
-                            ),
-                          ),
-                        );
-                      }
-                      return _SessionErrorBanner(
-                        error: userVisibleError!,
-                        onDismiss: () async {
-                          _dismissedErrorIds.add(userVisibleError.id);
-                          setState(() {
-                            if (_visibleErrorId == userVisibleError.id) {
-                              _visibleErrorId = null;
-                            }
-                            if (_pendingPresentedErrorId ==
-                                userVisibleError.id) {
-                              _pendingPresentedErrorId = null;
-                            }
-                          });
-                          await widget.onDismissError(userVisibleError);
-                        },
-                      );
-                    }
-                    final entry = _renderEntries[messageIndex];
-                    final message = entry.message;
-                    // Optional UI filter (independent of background learning):
-                    // the 'Show self-learning messages' setting hides these cards
-                    // in the transcript while keeping them persisted for audit.
-                    if (!showSelfLearningMessages &&
-                        message.kind == AiSessionMessageKind.selfLearning) {
-                      return const SizedBox.shrink();
-                    }
-                    final visibleMessageIndex =
-                        visibleMessageIndexById[message.id];
-                    final isSelected =
-                        !entry.exiting && _selectedMessageId == message.id;
-                    final isLastVisibleMessage =
-                        visibleMessageIndex != null &&
-                        visibleMessageIndex == visibleMessages.length - 1;
-                    final hasLaterVisibleMessages =
-                        visibleMessageIndex != null &&
-                        visibleMessageIndex < visibleMessages.length - 1;
-                    final shouldAnimateAppearance =
-                        !entry.exiting &&
-                        widget.sendPhase != AiSendPhase.idle &&
-                        isLastVisibleMessage &&
-                        !_animatedMessageIds.contains(message.id);
-                    final hasMultimediaContent = _messageHasMultimediaContent(
-                      message,
-                    );
-                    final speechEnabled =
-                        ttsSettings.enabled &&
-                        !hasMultimediaContent &&
-                        _messageSupportsSpeech(message, settingsController);
-                    final speechPlaying =
-                        speechEnabled &&
-                        ttsSnapshot.playing &&
-                        ttsSnapshot.messageId == message.id;
-                    final translationEntry =
-                        _translationCacheByMessageId[message.id];
-                    final translationFingerprint =
-                        _translationRequestFingerprint(
-                          translationSettings,
-                          _translationFallbackModel(settingsController),
-                        );
-                    final translationVisible =
-                        !hasMultimediaContent &&
-                        translationEntry != null &&
-                        _translationVisibleMessageIds.contains(message.id) &&
-                        translationEntry.sourceText ==
-                            _translatableMessageText(
-                              message,
-                              translationSettings,
-                            ) &&
-                        translationEntry.settingsFingerprint ==
-                            translationFingerprint;
-                    final translationLoading =
-                        !hasMultimediaContent &&
-                        _translationLoadingMessageIds.contains(message.id);
-                    final translationEnabled =
-                        translationSettings.enabled &&
-                        !hasMultimediaContent &&
-                        _isMessageTranslatable(message, settingsController);
-                    final keepHtmlBubbleAlive =
-                        !entry.exiting &&
-                        isSelected &&
-                        _messageUsesHtmlRenderer(message, settingsController);
-                    final bubble = _TranscriptBubbleRegistrar(
-                      messageId: message.id,
-                      registry: _bubbleRegistry,
-                      child: _MessageBubble(
-                        key: ValueKey<String>(message.id),
-                        message: message,
-                        sessionTitle: session.title,
-                        sessionEnvironment: session.environment,
-                        showReasoningSweep:
-                            !entry.exiting &&
-                            widget.sendPhase == AiSendPhase.responding &&
-                            _isStreamingReasoningMessage(message),
-                        trackLayoutChanges:
-                            !entry.exiting &&
-                            _shouldTrackMessageLayout(
-                              message: message,
-                              sendPhase: widget.sendPhase,
-                              isLastVisibleMessage: isLastVisibleMessage,
-                            ),
-                        onLayoutChanged: widget.onLayoutChanged,
-                        transcriptScrollActive: transcriptScrollActive,
-                        isSelected: isSelected,
-                        actionPanelEntranceMotionKey:
-                            _messageActionPanelMotionKey,
-                        animateActionPanelEntrance:
-                            isSelected &&
-                            _consumedMessageActionPanelMotionKey !=
-                                _messageActionPanelMotionKey,
-                        onActionPanelEntranceConsumed: (motionKey) {
-                          if (!mounted ||
-                              motionKey != _messageActionPanelMotionKey ||
-                              _consumedMessageActionPanelMotionKey ==
-                                  motionKey) {
-                            return;
-                          }
-                          _consumedMessageActionPanelMotionKey = motionKey;
-                        },
-                        isScrollHighlighted:
-                            _highlightedMessageId == message.id,
-                        onSelect: () {
-                          if (_selectedMessageId == message.id) {
-                            return;
-                          }
-                          setState(() {
-                            _selectedMessageId = message.id;
-                            _messageActionPanelMotionKey += 1;
-                          });
-                        },
-                        onDeselect: () {
-                          if (_selectedMessageId != message.id) {
-                            return;
-                          }
-                          setState(() {
-                            _selectedMessageId = null;
-                          });
-                        },
-                        onEdit:
-                            !entry.exiting &&
-                                message.kind == AiSessionMessageKind.user
-                            ? () => widget.onEditMessage(message)
-                            : null,
-                        onCopy: () => widget.onCopyMessage(message),
-                        onFork: () => widget.onForkMessage(message),
-                        onSetFeedback: (feedback) =>
-                            _setMessageFeedbackAnchored(message, feedback),
-                        onRegenerateResponse: () =>
-                            widget.onRegenerateMessage(message),
-                        onSelectResponseVariant: (index) =>
-                            _selectMessageResponseVariantAnchored(
-                              message,
-                              index,
-                            ),
-                        speechEnabled: speechEnabled,
-                        speechPlaying: speechPlaying,
-                        onToggleSpeech: speechEnabled
-                            ? () => widget.ttsPlaybackService.toggleMessage(
-                                messageId: message.id,
-                                text: message.content,
-                                settings: ttsSettings,
-                                availableModels: settingsController.aiModels,
-                                fallbackModel: _translationFallbackModel(
-                                  settingsController,
-                                ),
-                              )
-                            : null,
-                        translationEnabled: translationEnabled,
-                        translationLoading: translationLoading,
-                        translationVisible: translationVisible,
-                        translatedContent: translationEntry?.translatedText,
-                        onToggleTranslation: translationEnabled
-                            ? () => _toggleMessageTranslation(
-                                message,
-                                translationSettings,
-                              )
-                            : null,
-                        onDelete: () async {
-                          if (entry.exiting) {
-                            return;
-                          }
-                          await _runDeleteAction(
-                            message,
-                            widget.onDeleteMessage,
-                          );
-                        },
-                        onDeleteFromHere:
-                            !entry.exiting && hasLaterVisibleMessages
-                            ? () => _runDeleteAction(
-                                message,
-                                widget.onDeleteMessageFromHere,
-                              )
-                            : null,
-                        onAudit: telemetryDebugEnabled
-                            ? () {
-                                _showMessageAuditDialog(
-                                  context,
-                                  message: message,
-                                  session: session,
-                                  controller: aiSessionController,
-                                  claudeStyle: widget.claudeStyle,
-                                );
-                              }
-                            : null,
-                        initiallyShowRawContent:
-                            _rawContentVisibleByMessageId[message.id] ?? false,
-                        onShowRawContentChanged: (visible) {
-                          _rawContentVisibleByMessageId[message.id] = visible;
-                        },
-                      ),
-                    );
-                    final stableBubble = keepHtmlBubbleAlive
-                        ? _TranscriptHtmlKeepAlive(child: bubble)
-                        : bubble;
-                    final content = shouldAnimateAppearance
-                        ? SettingsAwareAppearOnce(
-                            child: Builder(
-                              builder: (context) {
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  _animatedMessageIds.add(message.id);
-                                });
-                                return stableBubble;
-                              },
-                            ),
-                          )
-                        : stableBubble;
-                    // The selected action panel owns its height transition.
-                    // Wrapping the whole transcript entry in another
-                    // AnimatedSize makes media cards relayout twice and can
-                    // show as a brief flicker on video/image previews.
-                    const entrySizeDuration = Duration.zero;
-                    return maybeAnimatedSize(
-                      key: ValueKey<String>('transcript-entry-${message.id}'),
-                      duration: entrySizeDuration,
-                      curve: kCardMotionCurve,
-                      alignment: isSelected
-                          ? Alignment.topLeft
-                          : Alignment.bottomLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          bottom: messageIndex == _renderEntries.length - 1
-                              ? 0
-                              : 14,
-                        ),
-                        child: content,
-                      ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
               );
             },

@@ -27,26 +27,16 @@ const double _composerMaxHeight = 440;
 // after history prepend.
 const double _autoFollowPauseHysteresis = 96;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
-// First-open jank mitigation: mount only the latest handful of message bubbles
-// and let older history expand on demand. The transcript stays complete in
-// memory; this only limits initial widget materialisation.
+// Long transcripts expose the latest window first; older history expands only
+// when the user asks for it, keeping the active scroll extent stable.
 const int _transcriptInitialWindowSize = 12;
-const int _transcriptFirstFrameMinMessages = 4;
-const int _transcriptFirstFrameMaxMessages = 8;
-const int _transcriptFirstFrameRenderCostBudget = 14;
-const int _transcriptMaterializationMinMessagesPerFrame = 2;
-const int _transcriptMaterializationMaxMessagesPerFrame = 8;
-const int _transcriptMaterializationRenderCostBudget = 24;
 const int _transcriptWindowIncrement = 8;
 const int _transcriptWindowingThreshold = 16;
 const int _transcriptPreparationThreshold = 16;
-const int _transcriptStagedMaterializationThreshold = 24;
 const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;
 const int _transcriptWarmupCharacterBudget = 24000;
 const int _transcriptHtmlWarmupMaxPerPass = 1;
-const double _transcriptListCacheExtent = 120;
-const double _transcriptHistoryRevealListCacheExtent = 900;
 const int _htmlWebViewMaxMountedCount = 3;
 const Duration _htmlWebViewColdMountDelay = Duration(milliseconds: 180);
 const Duration _htmlWebViewPermitWaitTimeout = Duration(seconds: 3);
