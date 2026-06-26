@@ -57,6 +57,9 @@ export const dict_en: Record<string, string> = {
   'common.duration.minute': 'm',
   'common.duration.second': 's',
   'common.duration.millisecond': 'ms',
+  'message.goal.metric.tokens': 'tokens',
+  'message.goal.metric.totalDuration': 'Total time',
+  'message.goal.metric.totalTokens': 'Total tokens',
   // Plural example: cleanup result file / directory counts
   'ops.cleanup.files.one': '{count} file',
   'ops.cleanup.files.other': '{count} files',

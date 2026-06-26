@@ -57,6 +57,9 @@ export const dict_ja: Record<string, string> = {
   'common.duration.minute': '分',
   'common.duration.second': '秒',
   'common.duration.millisecond': 'ミリ秒',
+  'message.goal.metric.tokens': 'トークン',
+  'message.goal.metric.totalDuration': '総時間',
+  'message.goal.metric.totalTokens': '総トークン',
   // 複数例：クリーンアップ結果のファイル / ディレクトリ件数（日本語は単複同形）
   'ops.cleanup.files.other': '{count} ファイル',
   'ops.cleanup.dirs.other': '{count} ディレクトリ',

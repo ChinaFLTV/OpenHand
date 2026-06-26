@@ -5965,6 +5965,8 @@ class _GoalMessageViewData {
     this.recentMessageCount,
     this.passed,
     this.confidence,
+    this.totalTokens,
+    this.elapsedMs,
     this.evidence = const <String>[],
     this.missing = const <String>[],
   });
@@ -5984,6 +5986,8 @@ class _GoalMessageViewData {
   final int? recentMessageCount;
   final bool? passed;
   final double? confidence;
+  final int? totalTokens;
+  final int? elapsedMs;
   final List<String> evidence;
   final List<String> missing;
 
@@ -6048,6 +6052,8 @@ class _GoalMessageViewData {
             decoded?['passed'] == true ||
             metadata[aiSessionGoalEvaluationPassedMetadataKey] == true,
         confidence: _readDouble(decoded?['confidence']),
+        totalTokens: _readInt(metadata[aiSessionGoalTotalTokensMetadataKey]),
+        elapsedMs: _readInt(metadata[aiSessionGoalElapsedMsMetadataKey]),
         evidence: _readStringList(decoded?['evidence']),
         missing: _readStringList(decoded?['missing']),
       );
@@ -6128,7 +6134,7 @@ class _GoalMessageViewData {
     return value
         .map(_readString)
         .where((item) => item.isNotEmpty)
-        .take(4)
+        .take(aiSessionGoalEvaluationMaxEvidenceItems)
         .toList(growable: false);
   }
 
@@ -6285,17 +6291,19 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         ],
         if (data.evidence.isNotEmpty) ...[
           const SizedBox(height: 12),
-          _GoalMessageInlineList(
+          _GoalMessageBulletList(
             label: _localizedText(context, zh: '证据', en: 'Evidence'),
             values: data.evidence,
+            textColor: textColor,
             accent: OpenHandStatusColors.success,
           ),
         ],
         if (data.missing.isNotEmpty) ...[
           const SizedBox(height: 12),
-          _GoalMessageInlineList(
+          _GoalMessageBulletList(
             label: _localizedText(context, zh: '缺口', en: 'Missing'),
             values: data.missing,
+            textColor: textColor,
             accent: theme.colorScheme.tertiary,
           ),
         ],
@@ -6325,7 +6333,10 @@ class _GoalMessageStructuredBody extends StatelessWidget {
     }
     if (data.tokensUsed != null) {
       final budget = data.tokenBudget == null ? '' : '/${data.tokenBudget}';
-      add(Icons.speed_rounded, '${data.tokensUsed}$budget tok');
+      add(
+        Icons.speed_rounded,
+        '${data.tokensUsed}$budget ${_localizedText(context, zh: '令牌', en: 'tokens')}',
+      );
     }
     if (data.recentMessageCount != null) {
       add(
@@ -6341,6 +6352,18 @@ class _GoalMessageStructuredBody extends StatelessWidget {
       add(
         Icons.query_stats_rounded,
         '${(data.confidence!.clamp(0, 1) * 100).round()}%',
+      );
+    }
+    if (data.passed == true && data.elapsedMs != null) {
+      add(
+        Icons.timer_outlined,
+        '${_localizedText(context, zh: '总耗时', en: 'Total time')} ${formatCompactDurationMs(data.elapsedMs!)}',
+      );
+    }
+    if (data.passed == true && data.totalTokens != null) {
+      add(
+        Icons.speed_rounded,
+        '${_localizedText(context, zh: '总令牌', en: 'Total tokens')} ${data.totalTokens}',
       );
     }
     return chips;
@@ -6385,15 +6408,17 @@ class _GoalMessageField extends StatelessWidget {
   }
 }
 
-class _GoalMessageInlineList extends StatelessWidget {
-  const _GoalMessageInlineList({
+class _GoalMessageBulletList extends StatelessWidget {
+  const _GoalMessageBulletList({
     required this.label,
     required this.values,
+    required this.textColor,
     required this.accent,
   });
 
   final String label;
   final List<String> values;
+  final Color textColor;
   final Color accent;
 
   @override
@@ -6410,12 +6435,37 @@ class _GoalMessageInlineList extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final value in values)
-              _GoalMessageMetricChip(label: value, accent: accent),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '•',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: accent,
+                        height: 1.45,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: textColor,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ],
@@ -6424,7 +6474,7 @@ class _GoalMessageInlineList extends StatelessWidget {
 }
 
 class _GoalMessageMetricChip extends StatelessWidget {
-  const _GoalMessageMetricChip({required this.label, this.icon, this.accent});
+  const _GoalMessageMetricChip({required this.label, this.icon});
 
   static const double _fallbackMaxWidth = 520;
   static const double _viewportWidthFactor = 0.72;
@@ -6433,12 +6483,11 @@ class _GoalMessageMetricChip extends StatelessWidget {
 
   final String label;
   final IconData? icon;
-  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = accent ?? theme.colorScheme.primary;
+    final color = theme.colorScheme.primary;
     return LayoutBuilder(
       builder: (context, constraints) {
         final viewportWidth = MediaQuery.sizeOf(context).width;

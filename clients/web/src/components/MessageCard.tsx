@@ -11,7 +11,7 @@
 
 import type { SessionMessage, SessionMessageFeedback } from '../api/sessions';
 import type { ComponentChildren } from 'preact';
-import { t } from '../i18n';
+import { t, tDuration, tNumber } from '../i18n';
 import { Markdown, looksLikeHtml, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import { MediaPreviewDialog, MessageMedia, messageHasMultimedia, stripCollectedNetworkMedia } from './MessageMedia';
@@ -494,8 +494,8 @@ function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | n
       followUpPrompt: nonEmptyString(decoded?.['follow_up_prompt']),
       passed,
       confidence,
-      evidence: stringListFromUnknown(decoded?.['evidence']).slice(0, 4),
-      missing: stringListFromUnknown(decoded?.['missing']).slice(0, 4),
+      evidence: stringListFromUnknown(decoded?.['evidence']).slice(0, 8),
+      missing: stringListFromUnknown(decoded?.['missing']).slice(0, 8),
       metrics: [
         ...goalMetricsFromMeta(meta),
         ...(confidence != null ? [{
@@ -503,6 +503,7 @@ function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | n
           icon: 'audit' as const,
           label: `${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}%`,
         }] : []),
+        ...goalCompletionMetricsFromMeta(meta, passed),
       ],
     };
   }
@@ -561,7 +562,25 @@ function goalMetricsFromGoal(goal: Record<string, unknown> | null): MessageConte
     ...(tokensUsed != null ? [{
       key: 'tokens',
       icon: 'model' as const,
-      label: `${Math.round(tokensUsed)}${tokenBudget != null ? `/${Math.round(tokenBudget)}` : ''} tok`,
+      label: `${tNumber(Math.round(tokensUsed))}${tokenBudget != null ? `/${tNumber(Math.round(tokenBudget))}` : ''} ${t('message.goal.metric.tokens', '令牌')}`,
+    }] : []),
+  ];
+}
+
+function goalCompletionMetricsFromMeta(meta: Record<string, unknown>, passed: boolean): MessageContextChip[] {
+  if (!passed) return [];
+  const elapsedMs = finiteNumberOrNullFromUnknown(meta['goal_elapsed_ms']);
+  const totalTokens = finiteNumberOrNullFromUnknown(meta['goal_total_tokens']);
+  return [
+    ...(elapsedMs != null ? [{
+      key: 'total-duration',
+      icon: 'clock' as const,
+      label: `${t('message.goal.metric.totalDuration', '总耗时')} ${tDuration(Math.max(0, elapsedMs))}`,
+    }] : []),
+    ...(totalTokens != null ? [{
+      key: 'total-tokens',
+      icon: 'model' as const,
+      label: `${t('message.goal.metric.totalTokens', '总令牌')} ${tNumber(Math.round(Math.max(0, totalTokens)))}`,
     }] : []),
   ];
 }
@@ -1380,10 +1399,10 @@ function GoalMessageBody({ view }: { view: GoalMessageViewModel }) {
         <GoalMessageField label={t('message.goal.field.nextStep', '下一步')} value={view.followUpPrompt} />
       ) : null}
       {view.evidence.length > 0 ? (
-        <GoalMessageTagList label={t('message.goal.field.evidence', '证据')} values={view.evidence} tone="pass" />
+        <GoalMessageBulletList label={t('message.goal.field.evidence', '证据')} values={view.evidence} tone="pass" />
       ) : null}
       {view.missing.length > 0 ? (
-        <GoalMessageTagList label={t('message.goal.field.missing', '缺口')} values={view.missing} tone="missing" />
+        <GoalMessageBulletList label={t('message.goal.field.missing', '缺口')} values={view.missing} tone="missing" />
       ) : null}
       {view.metrics.length > 0 ? (
         <div class="oh-goal-message-metrics">
@@ -1403,7 +1422,7 @@ function GoalMessageField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function GoalMessageTagList({
+function GoalMessageBulletList({
   label,
   values,
   tone,
@@ -1413,11 +1432,11 @@ function GoalMessageTagList({
   tone: 'pass' | 'missing';
 }) {
   return (
-    <div class={`oh-goal-message-tags is-${tone}`}>
+    <div class={`oh-goal-message-list is-${tone}`}>
       <span>{label}</span>
-      <div>
-        {values.map((value, index) => <em key={`${tone}-${index}`}>{value}</em>)}
-      </div>
+      <ul>
+        {values.map((value, index) => <li key={`${tone}-${index}`}>{value}</li>)}
+      </ul>
     </div>
   );
 }

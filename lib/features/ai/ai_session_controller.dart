@@ -4927,6 +4927,10 @@ class AiSessionController extends ChangeNotifier {
     required String type,
     required int roundIndex,
     bool? passed,
+    int? totalTokens,
+    int? elapsedMs,
+    DateTime? startedAt,
+    DateTime? completedAt,
   }) {
     return <String, Object?>{
       aiSessionMessageSenderOriginJsonKey:
@@ -4939,6 +4943,16 @@ class AiSessionController extends ChangeNotifier {
       aiSessionGoalEvaluationIdMetadataKey: evaluationId,
       aiSessionGoalEvaluationRoundIndexMetadataKey: roundIndex,
       if (passed != null) aiSessionGoalEvaluationPassedMetadataKey: passed,
+      if (totalTokens != null && totalTokens >= 0)
+        aiSessionGoalTotalTokensMetadataKey: totalTokens,
+      if (elapsedMs != null && elapsedMs >= 0)
+        aiSessionGoalElapsedMsMetadataKey: elapsedMs,
+      if (startedAt != null)
+        aiSessionGoalStartedAtMetadataKey: startedAt.toUtc().toIso8601String(),
+      if (completedAt != null)
+        aiSessionGoalCompletedAtMetadataKey: completedAt
+            .toUtc()
+            .toIso8601String(),
     };
   }
 
@@ -5105,6 +5119,12 @@ class AiSessionController extends ChangeNotifier {
         evaluatorModel: evaluatorModel,
         usage: completion.usage,
       );
+      final evaluatorTokens = _tokenCountFromUsage(completion.usage);
+      final goalTokensAfterEvaluation = goal.tokensUsed + evaluatorTokens;
+      final goalCompletedAt = evaluation.passed ? evaluationResponseAt : null;
+      final goalElapsedMs = goalCompletedAt
+          ?.difference(goal.createdAt)
+          .inMilliseconds;
       workingSession = _appendGoalEvaluationMessage(
         workingSession,
         AiSessionMessage.assistant(
@@ -5123,11 +5143,14 @@ class AiSessionController extends ChangeNotifier {
             type: aiSessionGoalEvaluationMessageTypeResponse,
             roundIndex: evaluation.roundIndex,
             passed: evaluation.passed,
+            totalTokens: evaluation.passed ? goalTokensAfterEvaluation : null,
+            elapsedMs: goalElapsedMs,
+            startedAt: evaluation.passed ? goal.createdAt : null,
+            completedAt: goalCompletedAt,
           ),
         ),
         updatedAt: evaluationResponseAt,
       );
-      final evaluatorTokens = _tokenCountFromUsage(completion.usage);
       goal = goal
           .copyWith(
             updatedAt: evaluationResponseAt,
@@ -5203,7 +5226,7 @@ class AiSessionController extends ChangeNotifier {
       updatedAt: goal.updatedAt,
     );
     if (evaluation.passed) {
-      final completedAt = _clock().toUtc();
+      final completedAt = evaluation.createdAt;
       final completed = _finalizeGoal(
         workingSession,
         goal.copyWith(

@@ -57,6 +57,9 @@ export const dict_zhHant: Record<string, string> = {
   'common.duration.minute': '分',
   'common.duration.second': '秒',
   'common.duration.millisecond': '毫秒',
+  'message.goal.metric.tokens': '令牌',
+  'message.goal.metric.totalDuration': '總耗時',
+  'message.goal.metric.totalTokens': '總令牌',
   // 複數示例：清理結果中的檔案 / 目錄數量
   'ops.cleanup.files.other': '{count} 個檔案',
   'ops.cleanup.dirs.other': '{count} 個目錄',

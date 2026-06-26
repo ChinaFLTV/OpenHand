@@ -73,6 +73,10 @@ const String aiSessionGoalEvaluationRoundIndexMetadataKey =
     'goal_evaluation_round_index';
 const String aiSessionGoalEvaluationPassedMetadataKey =
     'goal_evaluation_passed';
+const String aiSessionGoalTotalTokensMetadataKey = 'goal_total_tokens';
+const String aiSessionGoalElapsedMsMetadataKey = 'goal_elapsed_ms';
+const String aiSessionGoalStartedAtMetadataKey = 'goal_started_at';
+const String aiSessionGoalCompletedAtMetadataKey = 'goal_completed_at';
 const String aiSessionMessageFeedbackMetadataKey = 'message_feedback';
 const String aiSessionMessageResponseVariantsMetadataKey = 'response_variants';
 const String aiSessionMessageResponseVariantIndexMetadataKey =

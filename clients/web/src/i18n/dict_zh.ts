@@ -58,6 +58,9 @@ export const dict_zh: Record<string, string> = {
   'common.duration.minute': '分',
   'common.duration.second': '秒',
   'common.duration.millisecond': '毫秒',
+  'message.goal.metric.tokens': '令牌',
+  'message.goal.metric.totalDuration': '总耗时',
+  'message.goal.metric.totalTokens': '总令牌',
   // 复数示例：清理结果中的文件 / 目录数量
   'ops.cleanup.files.other': '{count} 个文件',
   'ops.cleanup.dirs.other': '{count} 个目录',
