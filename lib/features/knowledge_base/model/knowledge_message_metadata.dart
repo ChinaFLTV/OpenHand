@@ -99,12 +99,29 @@ class KnowledgeMessageMetadata {
   }
 
   static bool hasReferences(Map<String, Object?> metadata) {
-    final kb = object(metadata[knowledgeBaseMessageMetadataKey]);
+    final kb = fromMessageMetadata(metadata);
     if (kb == null) return false;
     return kb['enabled'] == true &&
         '${kb['status'] ?? ''}' == 'success' &&
         (kb['results'] is List) &&
         (kb['results'] as List).isNotEmpty;
+  }
+
+  static Map<String, Object?>? fromMessageMetadata(
+    Map<String, Object?> metadata,
+  ) {
+    return object(metadata[knowledgeBaseMessageMetadataKey]) ??
+        object(metadata);
+  }
+
+  static String promptAppendContent(Map<String, Object?> metadata) {
+    final kb = fromMessageMetadata(metadata);
+    return '${kb?[knowledgeBasePromptAppendMetadataKey] ?? ''}'.trim();
+  }
+
+  static Map<String, Object?>? promptAppendInfo(Map<String, Object?> metadata) {
+    final kb = fromMessageMetadata(metadata);
+    return object(kb?['prompt_append']);
   }
 
   static Map<String, Object?>? object(Object? value) {

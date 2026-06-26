@@ -3175,12 +3175,8 @@ $identity''';
           );
       }
     }
-    final knowledgeBaseMetadata = KnowledgeMessageMetadata.object(
-      message.metadata[knowledgeBaseMessageMetadataKey],
-    );
     final knowledgeBasePromptAppend =
-        '${knowledgeBaseMetadata?[knowledgeBasePromptAppendMetadataKey] ?? ''}'
-            .trim();
+        KnowledgeMessageMetadata.promptAppendContent(message.metadata);
     if (knowledgeBasePromptAppend.isNotEmpty) {
       buffer
         ..writeln()

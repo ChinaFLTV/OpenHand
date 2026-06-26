@@ -108,6 +108,12 @@ void main() {
         metadata[knowledgeBasePromptAppendMetadataKey],
         result.promptAppend,
       );
+      expect(
+        KnowledgeMessageMetadata.promptAppendContent(<String, Object?>{
+          knowledgeBaseMessageMetadataKey: metadata,
+        }),
+        result.promptAppend,
+      );
       expect((metadata['results'] as List), hasLength(1));
 
       final parsed = KnowledgeMessageMetadata.object(jsonEncode(metadata));

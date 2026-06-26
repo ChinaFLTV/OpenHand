@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'knowledge_model_codec.dart';
+
 class KnowledgeChunk {
   const KnowledgeChunk({
     required this.id,
@@ -104,7 +106,7 @@ class KnowledgeChunk {
       id: '${row['id'] ?? ''}',
       sourceId: '${row['source_id'] ?? ''}',
       chunkIndex: (row['chunk_index'] as num?)?.toInt() ?? 0,
-      parentChunkId: _nullableString(row['parent_chunk_id']),
+      parentChunkId: knowledgeNullableString(row['parent_chunk_id']),
       title: '${row['title'] ?? ''}',
       headingPath: '${row['heading_path'] ?? ''}',
       content: '${row['content'] ?? ''}',
@@ -114,31 +116,11 @@ class KnowledgeChunk {
       startOffset: (row['start_offset'] as num?)?.toInt(),
       endOffset: (row['end_offset'] as num?)?.toInt(),
       pageNumber: (row['page_number'] as num?)?.toInt(),
-      documentTime: _date(row['document_time']),
-      createdAt: _date(row['created_at']) ?? DateTime.now().toUtc(),
-      updatedAt: _date(row['updated_at']) ?? DateTime.now().toUtc(),
-      metadata: _jsonMap(row['metadata_json']),
+      documentTime: knowledgeDate(row['document_time']),
+      createdAt: knowledgeDate(row['created_at']) ?? DateTime.now().toUtc(),
+      updatedAt: knowledgeDate(row['updated_at']) ?? DateTime.now().toUtc(),
+      metadata: knowledgeJsonMap(row['metadata_json']),
       tags: tags,
     );
-  }
-
-  static String? _nullableString(Object? value) {
-    final text = '${value ?? ''}'.trim();
-    return text.isEmpty || text == 'null' ? null : text;
-  }
-
-  static DateTime? _date(Object? value) {
-    final text = '${value ?? ''}'.trim();
-    if (text.isEmpty || text == 'null') return null;
-    return DateTime.tryParse(text)?.toUtc();
-  }
-
-  static Map<String, Object?> _jsonMap(Object? value) {
-    if (value is! String || value.trim().isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(value);
-      if (decoded is Map) return Map<String, Object?>.from(decoded);
-    } catch (_) {}
-    return const {};
   }
 }

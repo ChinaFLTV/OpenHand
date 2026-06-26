@@ -3,7 +3,6 @@ import 'package:sqflite_common/sqlite_api.dart';
 import '../../../shared/db/database_service.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
-import '../model/knowledge_tag.dart';
 
 class KnowledgeBaseStore {
   KnowledgeBaseStore({Database? database})
@@ -83,16 +82,6 @@ class KnowledgeBaseStore {
     return rows.map(KnowledgeChunk.fromRow).toList(growable: false);
   }
 
-  Future<KnowledgeChunk?> loadChunk(String chunkId) async {
-    final rows = await _db.query(
-      'knowledge_chunks',
-      where: 'id = ?',
-      whereArgs: <Object?>[chunkId],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : KnowledgeChunk.fromRow(rows.first);
-  }
-
   Future<Map<String, KnowledgeChunk>> loadChunksByIds(
     Iterable<String> ids,
   ) async {
@@ -133,11 +122,6 @@ class KnowledgeBaseStore {
         if (row['id'] is String)
           row['id'] as String: KnowledgeSource.fromRow(row),
     };
-  }
-
-  Future<List<KnowledgeTag>> loadTags() async {
-    final rows = await _db.query('knowledge_tags', orderBy: 'name ASC');
-    return rows.map(KnowledgeTag.fromRow).toList(growable: false);
   }
 
   Future<({int sourceCount, int chunkCount, int pendingJobs, int failedJobs})>

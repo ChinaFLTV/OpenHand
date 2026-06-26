@@ -27,13 +27,10 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
     final kb =
-        KnowledgeMessageMetadata.object(
-          metadata[knowledgeBaseMessageMetadataKey],
-        ) ??
-        KnowledgeMessageMetadata.object(metadata) ??
+        KnowledgeMessageMetadata.fromMessageMetadata(metadata) ??
         const <String, Object?>{};
     final results = _listOfMaps(kb['results']);
-    final prompt = '${kb[knowledgeBasePromptAppendMetadataKey] ?? ''}'.trim();
+    final prompt = KnowledgeMessageMetadata.promptAppendContent(metadata);
     return buildOpenHandAlertDialog(
       title: Text(isZh ? '引用知识库详情' : 'Knowledge Base References'),
       content: buildOpenHandDialogConstrainedContent(

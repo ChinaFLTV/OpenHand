@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'knowledge_model_codec.dart';
+
 class KnowledgeSource {
   const KnowledgeSource({
     required this.id,
@@ -101,27 +103,12 @@ class KnowledgeSource {
       contentHash: '${row['content_hash'] ?? ''}',
       status: '${row['status'] ?? 'pending'}',
       errorMessage: '${row['error_message'] ?? ''}',
-      documentTime: _date(row['document_time']),
-      importedAt: _date(row['imported_at']) ?? DateTime.now().toUtc(),
-      indexedAt: _date(row['indexed_at']),
-      createdAt: _date(row['created_at']) ?? DateTime.now().toUtc(),
-      updatedAt: _date(row['updated_at']) ?? DateTime.now().toUtc(),
-      metadata: _jsonMap(row['metadata_json']),
+      documentTime: knowledgeDate(row['document_time']),
+      importedAt: knowledgeDate(row['imported_at']) ?? DateTime.now().toUtc(),
+      indexedAt: knowledgeDate(row['indexed_at']),
+      createdAt: knowledgeDate(row['created_at']) ?? DateTime.now().toUtc(),
+      updatedAt: knowledgeDate(row['updated_at']) ?? DateTime.now().toUtc(),
+      metadata: knowledgeJsonMap(row['metadata_json']),
     );
-  }
-
-  static DateTime? _date(Object? value) {
-    final text = '${value ?? ''}'.trim();
-    if (text.isEmpty || text == 'null') return null;
-    return DateTime.tryParse(text)?.toUtc();
-  }
-
-  static Map<String, Object?> _jsonMap(Object? value) {
-    if (value is! String || value.trim().isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(value);
-      if (decoded is Map) return Map<String, Object?>.from(decoded);
-    } catch (_) {}
-    return const {};
   }
 }

@@ -7016,15 +7016,15 @@ class _SelectedMessageContextRow extends StatelessWidget {
       message.metadata[AiCreationRequest.metadataKey],
     );
     final skillMetadata = message.metadata[aiUserSkillSelectionMetadataKey];
-    final knowledgeBaseMetadata = KnowledgeMessageMetadata.object(
-      message.metadata[knowledgeBaseMessageMetadataKey],
+    final knowledgeBaseMetadata = KnowledgeMessageMetadata.fromMessageMetadata(
+      message.metadata,
     );
     final knowledgeBaseResults = knowledgeBaseMetadata?['results'];
     final knowledgeBaseHitCount = knowledgeBaseResults is List
         ? knowledgeBaseResults.length
         : 0;
-    final knowledgeBasePromptAppend = KnowledgeMessageMetadata.object(
-      knowledgeBaseMetadata?['prompt_append'],
+    final knowledgeBasePromptAppend = KnowledgeMessageMetadata.promptAppendInfo(
+      message.metadata,
     );
     final knowledgeBaseTokens =
         knowledgeBasePromptAppend?['token_estimate'] is num
