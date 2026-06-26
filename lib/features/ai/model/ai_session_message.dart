@@ -81,6 +81,10 @@ const String aiSessionMessageFeedbackMetadataKey = 'message_feedback';
 const String aiSessionMessageResponseVariantsMetadataKey = 'response_variants';
 const String aiSessionMessageResponseVariantIndexMetadataKey =
     'response_variant_index';
+const String aiSessionMachineExpertRequestCardMetadataKey =
+    'machine_expert_request_card';
+const int aiSessionMachineExpertRequestCardSchemaVersion = 1;
+const int aiSessionMachineExpertRequestCardMaxFieldCharacters = 1600;
 
 enum AiSessionMessageFeedback {
   liked('liked'),
@@ -579,6 +583,188 @@ class AiSessionMessage {
     }
     return text;
   }
+}
+
+class AiMachineExpertRequestCard {
+  const AiMachineExpertRequestCard({
+    required this.terminalApplication,
+    required this.terminalLocation,
+    required this.taskRequirement,
+    this.appleScriptTarget,
+    this.truncated = false,
+  });
+
+  final String terminalApplication;
+  final String terminalLocation;
+  final String? appleScriptTarget;
+  final String taskRequirement;
+  final bool truncated;
+
+  bool get isEmpty =>
+      terminalApplication.trim().isEmpty &&
+      terminalLocation.trim().isEmpty &&
+      (appleScriptTarget ?? '').trim().isEmpty &&
+      taskRequirement.trim().isEmpty;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'schema_version': aiSessionMachineExpertRequestCardSchemaVersion,
+      'terminal_application': terminalApplication,
+      'terminal_location': terminalLocation,
+      if ((appleScriptTarget ?? '').trim().isNotEmpty)
+        'applescript_target': appleScriptTarget!.trim(),
+      'task_requirement': taskRequirement,
+      if (truncated) 'truncated': true,
+    };
+  }
+
+  static AiMachineExpertRequestCard? fromMetadata(Object? raw) {
+    final map = _object(raw);
+    if (map == null) {
+      return null;
+    }
+    final card = AiMachineExpertRequestCard(
+      terminalApplication: _readString(map['terminal_application']),
+      terminalLocation: _readString(map['terminal_location']),
+      appleScriptTarget: _readString(map['applescript_target']).ifEmpty(null),
+      taskRequirement: _readString(map['task_requirement']),
+      truncated: map['truncated'] == true,
+    );
+    return card.isEmpty ? null : card;
+  }
+
+  static AiMachineExpertRequestCard? fromPrompt(String content) {
+    final terminalApplication = _readPromptField(content, '终端应用');
+    final terminalLocation = _readPromptField(content, '打开的终端位置');
+    final appleScriptTarget = _readPromptField(content, 'AppleScript 精确定位');
+    final taskRequirement = _readPromptField(content, '需求内容');
+    final rawFields = <String>[
+      terminalApplication,
+      terminalLocation,
+      appleScriptTarget,
+      taskRequirement,
+    ];
+    if (taskRequirement.trim().isEmpty ||
+        (terminalApplication.trim().isEmpty &&
+            terminalLocation.trim().isEmpty) ||
+        rawFields.every((field) => field.trim().isEmpty)) {
+      return null;
+    }
+    final card = AiMachineExpertRequestCard(
+      terminalApplication: _boundedDisplayField(terminalApplication),
+      terminalLocation: _boundedDisplayField(terminalLocation),
+      appleScriptTarget: _boundedDisplayField(appleScriptTarget).ifEmpty(null),
+      taskRequirement: _boundedDisplayField(taskRequirement),
+      truncated: rawFields.any(_fieldNeedsTruncation),
+    );
+    return card.isEmpty ? null : card;
+  }
+
+  static Map<String, Object?>? _object(Object? value) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    return null;
+  }
+
+  static String _readString(Object? value) {
+    final text = '${value ?? ''}'.trim();
+    if (text.isEmpty || text == 'null') {
+      return '';
+    }
+    return text;
+  }
+
+  static String _readPromptField(String content, String label) {
+    final lines = content.split(RegExp(r'\r?\n'));
+    for (var i = 0; i < lines.length; i++) {
+      final normalized = _stripPromptBullet(lines[i]);
+      if (!normalized.startsWith(label)) {
+        continue;
+      }
+      final buffer = <String>[normalized];
+      for (var j = i + 1; j < lines.length; j++) {
+        if (_containsClosedCjkBracket(buffer.join('\n'))) {
+          break;
+        }
+        final nextLine = lines[j];
+        final nextNormalized = _stripPromptBullet(nextLine);
+        if (_looksLikeMachinePromptField(nextNormalized)) {
+          break;
+        }
+        buffer.add(nextLine);
+      }
+      final value = _extractCjkBracketValue(buffer.join('\n'));
+      if (value.isNotEmpty) {
+        return value;
+      }
+      return _readAfterSeparator(normalized);
+    }
+    return '';
+  }
+
+  static String _stripPromptBullet(String line) {
+    return line.trim().replaceFirst(RegExp(r'^[-*]\s*'), '');
+  }
+
+  static bool _looksLikeMachinePromptField(String line) {
+    return line.startsWith('终端应用') ||
+        line.startsWith('打开的终端位置') ||
+        line.startsWith('AppleScript 精确定位') ||
+        line.startsWith('需求内容');
+  }
+
+  static bool _containsClosedCjkBracket(String value) {
+    final separator = value.indexOf('：【');
+    final start = separator >= 0 ? separator + 1 : value.indexOf('【');
+    final end = value.lastIndexOf('】');
+    return start >= 0 && end > start;
+  }
+
+  static String _extractCjkBracketValue(String value) {
+    final separator = value.indexOf('：【');
+    final start = separator >= 0 ? separator + 1 : value.indexOf('【');
+    final end = value.lastIndexOf('】');
+    if (start < 0 || end <= start) {
+      return '';
+    }
+    return value.substring(start + 1, end).trim();
+  }
+
+  static String _readAfterSeparator(String value) {
+    final colon = value.indexOf('：');
+    final asciiColon = value.indexOf(':');
+    final index = colon >= 0
+        ? colon
+        : asciiColon >= 0
+        ? asciiColon
+        : -1;
+    if (index < 0 || index + 1 >= value.length) {
+      return '';
+    }
+    return value.substring(index + 1).trim();
+  }
+
+  static bool _fieldNeedsTruncation(String value) {
+    return value.trim().characters.length >
+        aiSessionMachineExpertRequestCardMaxFieldCharacters;
+  }
+
+  static String _boundedDisplayField(String value) {
+    final normalized = value.trim();
+    if (normalized.characters.length <=
+        aiSessionMachineExpertRequestCardMaxFieldCharacters) {
+      return normalized;
+    }
+    return '${normalized.characters.take(aiSessionMachineExpertRequestCardMaxFieldCharacters).toString().trimRight()}...';
+  }
+}
+
+extension _AiMachineExpertRequestCardString on String {
+  String? ifEmpty(String? fallback) => trim().isEmpty ? fallback : this;
 }
 
 class AiSessionMessageResponseVariant {

@@ -371,18 +371,165 @@ interface MessageContextChip {
   emoji?: string;
 }
 
+interface MachineExpertRequestViewModel {
+  terminalApplication?: string;
+  terminalLocation?: string;
+  appleScriptTarget?: string;
+  taskRequirement?: string;
+  truncated: boolean;
+}
+
+const MACHINE_EXPERT_REQUEST_CARD_METADATA_KEY = 'machine_expert_request_card';
+const MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS = 1600;
+
 function nonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
   const meta = recordOrNullFromUnknown(message.metadata);
-  if (!meta) return [];
+  const machineChips = message.role === 'user'
+    ? machineExpertRequestChips(message)
+    : [];
+  if (!meta) return machineChips;
   return [
+    ...machineChips,
     ...(message.role === 'user' ? creationModeChips(meta) : []),
     ...(message.role === 'user' ? skillChips(meta) : []),
     ...(message.role === 'user' ? attachmentChips(meta) : []),
   ];
+}
+
+function machineExpertRequestViewModel(message: SessionMessage): MachineExpertRequestViewModel | null {
+  if (message.role !== 'user') return null;
+  const meta = recordOrNullFromUnknown(message.metadata);
+  const fromMeta = machineExpertRequestFromMetadata(meta?.[MACHINE_EXPERT_REQUEST_CARD_METADATA_KEY]);
+  if (fromMeta) return fromMeta;
+  return machineExpertRequestFromPrompt(message.content ?? '');
+}
+
+function machineExpertRequestChips(message: SessionMessage): MessageContextChip[] {
+  const view = machineExpertRequestViewModel(message);
+  if (!view) return [];
+  return [
+    {
+      key: 'machine-expert-request',
+      icon: 'tool',
+      label: t('message.machineRequest.chip.request', '机器专家请求'),
+    },
+    ...(view.appleScriptTarget ? [{
+      key: 'machine-expert-precise',
+      icon: 'globe' as const,
+      label: t('message.machineRequest.chip.precise', '精确定位'),
+    }] : []),
+  ];
+}
+
+function machineExpertRequestFromMetadata(raw: unknown): MachineExpertRequestViewModel | null {
+  const card = recordOrNullFromUnknown(raw);
+  if (!card) return null;
+  const view: MachineExpertRequestViewModel = {
+    terminalApplication: nonEmptyString(card['terminal_application']) || undefined,
+    terminalLocation: nonEmptyString(card['terminal_location']) || undefined,
+    appleScriptTarget: nonEmptyString(card['applescript_target']) || undefined,
+    taskRequirement: nonEmptyString(card['task_requirement']) || undefined,
+    truncated: card['truncated'] === true,
+  };
+  return machineExpertRequestIsEmpty(view) ? null : view;
+}
+
+function machineExpertRequestFromPrompt(content: string): MachineExpertRequestViewModel | null {
+  const fields = {
+    terminalApplication: readMachineExpertPromptField(content, '终端应用'),
+    terminalLocation: readMachineExpertPromptField(content, '打开的终端位置'),
+    appleScriptTarget: readMachineExpertPromptField(content, 'AppleScript 精确定位'),
+    taskRequirement: readMachineExpertPromptField(content, '需求内容'),
+  };
+  if (
+    !fields.taskRequirement.trim() ||
+    (!fields.terminalApplication.trim() && !fields.terminalLocation.trim()) ||
+    Object.values(fields).every((value) => !value.trim())
+  ) {
+    return null;
+  }
+  const view: MachineExpertRequestViewModel = {
+    terminalApplication: boundedMachineExpertField(fields.terminalApplication) || undefined,
+    terminalLocation: boundedMachineExpertField(fields.terminalLocation) || undefined,
+    appleScriptTarget: boundedMachineExpertField(fields.appleScriptTarget) || undefined,
+    taskRequirement: boundedMachineExpertField(fields.taskRequirement) || undefined,
+    truncated: Object.values(fields).some((value) => fieldNeedsMachineExpertTruncation(value)),
+  };
+  return machineExpertRequestIsEmpty(view) ? null : view;
+}
+
+function machineExpertRequestIsEmpty(view: MachineExpertRequestViewModel): boolean {
+  return !view.terminalApplication &&
+    !view.terminalLocation &&
+    !view.appleScriptTarget &&
+    !view.taskRequirement;
+}
+
+function readMachineExpertPromptField(content: string, label: string): string {
+  const lines = content.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const normalized = stripPromptBullet(lines[i]);
+    if (!normalized.startsWith(label)) continue;
+    const buffer = [normalized];
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (containsClosedCjkBracket(buffer.join('\n'))) break;
+      const nextNormalized = stripPromptBullet(lines[j]);
+      if (looksLikeMachinePromptField(nextNormalized)) break;
+      buffer.push(lines[j]);
+    }
+    const joined = buffer.join('\n');
+    return extractCjkBracketValue(joined) || readAfterSeparator(joined);
+  }
+  return '';
+}
+
+function stripPromptBullet(line: string): string {
+  return line.trim().replace(/^[-*]\s*/, '');
+}
+
+function looksLikeMachinePromptField(line: string): boolean {
+  return line.startsWith('终端应用') ||
+    line.startsWith('打开的终端位置') ||
+    line.startsWith('AppleScript 精确定位') ||
+    line.startsWith('需求内容');
+}
+
+function containsClosedCjkBracket(value: string): boolean {
+  const separator = value.indexOf('：【');
+  const start = separator >= 0 ? separator + 1 : value.indexOf('【');
+  const end = value.lastIndexOf('】');
+  return start >= 0 && end > start;
+}
+
+function extractCjkBracketValue(value: string): string {
+  const separator = value.indexOf('：【');
+  const start = separator >= 0 ? separator + 1 : value.indexOf('【');
+  const end = value.lastIndexOf('】');
+  if (start < 0 || end <= start) return '';
+  return value.slice(start + 1, end).trim();
+}
+
+function readAfterSeparator(value: string): string {
+  const cjk = value.indexOf('：');
+  const ascii = value.indexOf(':');
+  const index = cjk >= 0 ? cjk : ascii;
+  return index >= 0 ? value.slice(index + 1).trim() : '';
+}
+
+function fieldNeedsMachineExpertTruncation(value: string): boolean {
+  return [...value.trim()].length > MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS;
+}
+
+function boundedMachineExpertField(value: string): string {
+  const normalized = value.trim();
+  if ([...normalized].length <= MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS) {
+    return normalized;
+  }
+  return `${[...normalized].slice(0, MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS).join('').trimEnd()}...`;
 }
 
 function isGoalEvaluationMessage(message: SessionMessage): boolean {
@@ -1377,6 +1524,66 @@ function StreamingMarkdownReveal({
   );
 }
 
+function MachineExpertRequestBody({ view }: { view: MachineExpertRequestViewModel }) {
+  const chips: MessageContextChip[] = [
+    { key: 'first', icon: 'refresh', label: '#1' },
+    {
+      key: 'template',
+      icon: 'tool',
+      label: t('message.machineRequest.chip.template', '机器专家'),
+    },
+    ...(view.appleScriptTarget ? [{
+      key: 'precise',
+      icon: 'globe' as const,
+      label: t('message.machineRequest.chip.precise', '精确定位'),
+    }] : []),
+  ];
+  return (
+    <div class="oh-machine-request-body">
+      <div class="oh-machine-request-heading">
+        <span class="oh-machine-request-icon" aria-hidden>
+          <MessageIcon name="tool" size={16} />
+        </span>
+        <div class="min-w-0">
+          <div class="oh-machine-request-title">{t('message.machineRequest.title', '机器专家执行请求')}</div>
+          <div class="oh-machine-request-description">
+            {t('message.machineRequest.description', '已绑定目标终端，会在指定会话中执行任务。')}
+          </div>
+        </div>
+      </div>
+      <div class="oh-machine-request-metrics">
+        {chips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
+      </div>
+      {view.terminalApplication ? (
+        <MachineExpertRequestField label={t('message.machineRequest.field.terminal', '终端应用')} value={view.terminalApplication} />
+      ) : null}
+      {view.terminalLocation ? (
+        <MachineExpertRequestField label={t('message.machineRequest.field.location', '打开位置')} value={view.terminalLocation} />
+      ) : null}
+      {view.appleScriptTarget ? (
+        <MachineExpertRequestField label={t('message.machineRequest.field.applescript', '精确定位')} value={view.appleScriptTarget} />
+      ) : null}
+      {view.taskRequirement ? (
+        <MachineExpertRequestField label={t('message.machineRequest.field.task', '需求')} value={view.taskRequirement} />
+      ) : null}
+      {view.truncated ? (
+        <div class="oh-machine-request-note">
+          {t('message.machineRequest.truncated', '卡片内容已截断，完整原文仍保留在消息审计与复制内容中。')}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MachineExpertRequestField({ label, value }: { label: string; value: string }) {
+  return (
+    <div class="oh-machine-request-field">
+      <span>{label}</span>
+      <p>{value}</p>
+    </div>
+  );
+}
+
 function GoalMessageBody({ view }: { view: GoalMessageViewModel }) {
   return (
     <div class={`oh-goal-message-body is-${view.kind}`}>
@@ -1522,6 +1729,7 @@ function MessageCardImpl({
   const content = message.content ?? '';
   const isUserBubble = message.role === 'user';
   const goalMessageView = goalMessageViewModel(message);
+  const machineExpertRequestView = machineExpertRequestViewModel(message);
   const useStructuredToolBody =
     message.kind === 'tool' ||
     message.kind === 'tool_call' ||
@@ -1778,6 +1986,7 @@ function MessageCardImpl({
       message.kind !== 'reasoning' &&
       message.kind !== 'file_mutation_summary' &&
       effectiveFormat === 'html');
+  const isMachineExpertRequestCard = machineExpertRequestView != null;
   const isWideSystemCard =
     useToolBody ||
     message.kind === 'reasoning' ||
@@ -1788,6 +1997,8 @@ function MessageCardImpl({
     ? 'min(92%, 820px)'
     : isHtmlAssistantCard
       ? 'min(92%, 860px)'
+      : isMachineExpertRequestCard
+      ? 'min(88%, 760px)'
       : isUserBubble
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
@@ -1866,7 +2077,7 @@ function MessageCardImpl({
           style={{ transformOrigin: isUserBubble ? 'right top' : 'left top' }}
         >
           <article
-            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
+            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${isMachineExpertRequestCard ? 'is-machine-request' : ''} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
             style={{
               display: 'block',
               width: isHtmlAssistantCard ? bubbleMaxWidth : 'fit-content',
@@ -2079,6 +2290,8 @@ function MessageCardImpl({
           content.length > 0 ? <ToolResultBody content={content} autoFollow={streamingContent || stableTurnActive} /> : null
         ) : goalMessageView ? (
           <GoalMessageBody view={goalMessageView} />
+        ) : machineExpertRequestView ? (
+          <MachineExpertRequestBody view={machineExpertRequestView} />
         ) : (
           // 思考卡在流式阶段强制使用纯文本，避免 Markdown/代码块逐 token
           // 成型时反复重排，把下方 pending tool-call 卡片顶上顶下。流式结束

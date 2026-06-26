@@ -10036,6 +10036,44 @@ $tail''';
 - Exact source messages remain persisted in the session before this checkpoint.''';
   }
 
+  AiMachineExpertRequestCard? _machineExpertInitialRequestCardForNewTurn({
+    required AiSession session,
+    required String content,
+    required bool isFirstVisibleUserMessage,
+  }) {
+    if (!isFirstVisibleUserMessage ||
+        session.templateId !=
+            AiPromptTemplatePolicies.machineExpertTemplateId) {
+      return null;
+    }
+    return AiMachineExpertRequestCard.fromPrompt(content);
+  }
+
+  AiMachineExpertRequestCard? _machineExpertInitialRequestCardForMessage({
+    required AiSession session,
+    required String messageId,
+    required String content,
+  }) {
+    if (!_isMachineExpertInitialUserMessage(session, messageId)) {
+      return null;
+    }
+    return AiMachineExpertRequestCard.fromPrompt(content);
+  }
+
+  bool _isMachineExpertInitialUserMessage(AiSession session, String messageId) {
+    if (session.templateId !=
+        AiPromptTemplatePolicies.machineExpertTemplateId) {
+      return false;
+    }
+    for (final message in session.messages) {
+      if (message.isDeleted || message.kind != AiSessionMessageKind.user) {
+        continue;
+      }
+      return message.id == messageId;
+    }
+    return false;
+  }
+
   Future<_PreparedUserTurn> _prepareUserTurn({
     required AiSession session,
     required String content,
@@ -10058,6 +10096,25 @@ $tail''';
       );
       if (messageIndex != -1) {
         final original = session.messages[messageIndex];
+        final machineExpertRequestCard =
+            _machineExpertInitialRequestCardForMessage(
+              session: session,
+              messageId: original.id,
+              content: content,
+            );
+        final editedMetadata = <String, Object?>{
+          ...original.metadata,
+          ...userMessageMetadata,
+          'edited_at': now.toIso8601String(),
+        };
+        if (_isMachineExpertInitialUserMessage(session, original.id)) {
+          if (machineExpertRequestCard == null) {
+            editedMetadata.remove(aiSessionMachineExpertRequestCardMetadataKey);
+          } else {
+            editedMetadata[aiSessionMachineExpertRequestCardMetadataKey] =
+                machineExpertRequestCard.toJson();
+          }
+        }
         final updatedMessages = <AiSessionMessage>[
           for (final message in session.messages)
             (() {
@@ -10079,11 +10136,7 @@ $tail''';
               original.metadata[aiSessionMessageAttachmentsMetadataKey],
             ),
           ),
-          metadata: <String, Object?>{
-            ...original.metadata,
-            ...userMessageMetadata,
-            'edited_at': now.toIso8601String(),
-          },
+          metadata: editedMetadata,
         );
         updatedMessages[messageIndex] = editedMessage;
         _editingMessageId = null;
@@ -10124,6 +10177,12 @@ $tail''';
             aiSessionMessageAttachmentsMetadataKey:
                 AiMessageAttachment.listToMetadata(attachments),
           };
+    final isFirstVisibleUserMessage = visibleUserMessageCount == 0;
+    final machineExpertRequestCard = _machineExpertInitialRequestCardForNewTurn(
+      session: session,
+      content: content,
+      isFirstVisibleUserMessage: isFirstVisibleUserMessage,
+    );
     final userMessage =
         AiSessionMessage.user(
           id: userMessageId,
@@ -10131,6 +10190,9 @@ $tail''';
           createdAt: now,
           metadata: <String, Object?>{
             ...userMessageMetadata,
+            if (machineExpertRequestCard != null)
+              aiSessionMachineExpertRequestCardMetadataKey:
+                  machineExpertRequestCard.toJson(),
             ...attachmentMetadata,
           },
         ).copyWith(
@@ -10139,7 +10201,6 @@ $tail''';
             attachments: attachments,
           ),
         );
-    final isFirstVisibleUserMessage = visibleUserMessageCount == 0;
     final shouldKeepDefaultTitle =
         isFirstVisibleUserMessage &&
         !session.isTitleManuallyEdited &&

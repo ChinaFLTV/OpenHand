@@ -394,6 +394,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
         isGoalEvaluationRequest || isGoalEvaluationResponse;
     final goalMessageView = _GoalMessageViewData.fromMessage(message);
     final isGoalRuntimeMessage = goalMessageView != null;
+    final machineExpertRequestCard = isUser
+        ? AiMachineExpertRequestCard.fromMetadata(
+                message.metadata[aiSessionMachineExpertRequestCardMetadataKey],
+              ) ??
+              AiMachineExpertRequestCard.fromPrompt(message.content)
+        : null;
     final isCompressionPoint =
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
@@ -894,6 +900,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 else if (goalMessageView != null)
                   _GoalMessageStructuredBody(
                     data: goalMessageView,
+                    textColor: textColor,
+                  )
+                else if (machineExpertRequestCard != null)
+                  _MachineExpertRequestStructuredBody(
+                    data: machineExpertRequestCard,
                     textColor: textColor,
                   )
                 else if (isUser)
@@ -6175,6 +6186,148 @@ extension _GoalNullableString on String {
   String? ifEmpty(String? fallback) => isEmpty ? fallback : this;
 }
 
+class _MachineExpertRequestStructuredBody extends StatelessWidget {
+  const _MachineExpertRequestStructuredBody({
+    required this.data,
+    required this.textColor,
+  });
+
+  final AiMachineExpertRequestCard data;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.terminal_rounded, size: 18, color: accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '机器专家执行请求',
+                      en: 'Machine Expert Request',
+                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '已绑定目标终端，会在指定会话中执行任务。',
+                      en: 'The target terminal is bound for this task.',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: textColor.withValues(alpha: 0.78),
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            const _GoalMessageMetricChip(
+              icon: Icons.looks_one_rounded,
+              label: '#1',
+            ),
+            _GoalMessageMetricChip(
+              icon: Icons.memory_rounded,
+              label: _localizedText(context, zh: '机器专家', en: 'Machine Expert'),
+            ),
+            if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
+              _GoalMessageMetricChip(
+                icon: Icons.my_location_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '精确定位',
+                  en: 'Precise Target',
+                ),
+              ),
+          ],
+        ),
+        if (data.terminalApplication.trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageField(
+            label: _localizedText(context, zh: '终端应用', en: 'Terminal'),
+            value: data.terminalApplication.trim(),
+            textColor: textColor,
+          ),
+        ],
+        if (data.terminalLocation.trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageField(
+            label: _localizedText(context, zh: '打开位置', en: 'Location'),
+            value: data.terminalLocation.trim(),
+            textColor: textColor,
+          ),
+        ],
+        if ((data.appleScriptTarget ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageField(
+            label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+            value: data.appleScriptTarget!.trim(),
+            textColor: textColor,
+          ),
+        ],
+        if (data.taskRequirement.trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _GoalMessageField(
+            label: _localizedText(context, zh: '需求', en: 'Request'),
+            value: data.taskRequirement.trim(),
+            textColor: textColor,
+          ),
+        ],
+        if (data.truncated) ...[
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 15,
+                color: textColor.withValues(alpha: 0.70),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '卡片内容已截断，完整原文仍保留在消息审计与复制内容中。',
+                    en: 'Card content is shortened; the full source remains available for audit and copy.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: textColor.withValues(alpha: 0.70),
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _GoalMessageStructuredBody extends StatelessWidget {
   const _GoalMessageStructuredBody({
     required this.data,
@@ -6573,6 +6726,11 @@ class _SelectedMessageContextRow extends StatelessWidget {
           textColor: textColor,
           onSelect: onSelectResponseVariant,
         ),
+      ..._MachineExpertRequestContextCapsules.build(
+        context,
+        message: message,
+        textColor: textColor,
+      ),
       ..._GoalMessageContextCapsules.build(
         context,
         message: message,
@@ -6695,6 +6853,45 @@ class _GoalMessageContextCapsules {
         label: label,
         textColor: textColor,
       ),
+    ];
+  }
+}
+
+class _MachineExpertRequestContextCapsules {
+  const _MachineExpertRequestContextCapsules._();
+
+  static List<Widget> build(
+    BuildContext context, {
+    required AiSessionMessage message,
+    required Color textColor,
+  }) {
+    if (message.kind != AiSessionMessageKind.user) {
+      return const <Widget>[];
+    }
+    final data =
+        AiMachineExpertRequestCard.fromMetadata(
+          message.metadata[aiSessionMachineExpertRequestCardMetadataKey],
+        ) ??
+        AiMachineExpertRequestCard.fromPrompt(message.content);
+    if (data == null) {
+      return const <Widget>[];
+    }
+    return <Widget>[
+      _MessageContextCapsule(
+        icon: Icons.terminal_rounded,
+        label: _localizedText(
+          context,
+          zh: '机器专家请求',
+          en: 'Machine Expert Request',
+        ),
+        textColor: textColor,
+      ),
+      if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
+        _MessageContextCapsule(
+          icon: Icons.my_location_rounded,
+          label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+          textColor: textColor,
+        ),
     ];
   }
 }
