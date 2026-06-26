@@ -7025,6 +7025,11 @@ class _SelectedMessageContextRow extends StatelessWidget {
         message: message,
         textColor: textColor,
       ),
+      ..._GoalObjectiveContextCapsules.build(
+        context,
+        message: message,
+        textColor: textColor,
+      ),
       if (creationRequest.isActive)
         _CreationModeChip(request: creationRequest, textColor: textColor),
       if (_UserSkillSelectionChip.nameFromMetadata(skillMetadata).isNotEmpty)
@@ -7143,6 +7148,55 @@ class _GoalMessageContextCapsules {
         textColor: textColor,
       ),
     ];
+  }
+}
+
+class _GoalObjectiveContextCapsules {
+  const _GoalObjectiveContextCapsules._();
+
+  static List<Widget> build(
+    BuildContext context, {
+    required AiSessionMessage message,
+    required Color textColor,
+  }) {
+    if (message.kind != AiSessionMessageKind.user) {
+      return const <Widget>[];
+    }
+    final metadata = message.metadata;
+    if (metadata[aiSessionGoalAutoFollowUpMetadataKey] == true ||
+        metadata[aiSessionGoalEvaluationMessageMetadataKey] == true) {
+      return const <Widget>[];
+    }
+    final senderOrigin =
+        '${metadata[aiSessionMessageSenderOriginJsonKey] ?? ''}'.trim();
+    if (senderOrigin.isNotEmpty &&
+        senderOrigin != aiSessionMessageSenderOriginExplicitUser) {
+      return const <Widget>[];
+    }
+    final goalId = _readString(metadata[aiSessionGoalIdMetadataKey]);
+    final goalObjective = metadata[aiSessionGoalObjectiveMetadataKey];
+    final hasGoalObjective =
+        goalObjective == true || _readString(goalObjective).isNotEmpty;
+    if (goalId.isEmpty || !hasGoalObjective) {
+      return const <Widget>[];
+    }
+    return <Widget>[
+      _MessageContextCapsule(
+        icon: Icons.flag_rounded,
+        label:
+            '${_localizedText(context, zh: '目标', en: 'Goal')} · ${_shortGoalId(goalId)}',
+        textColor: textColor,
+        maxLabelWidth: 180,
+      ),
+    ];
+  }
+
+  static String _shortGoalId(String goalId) {
+    return goalId.length <= 8 ? goalId : goalId.substring(0, 8);
+  }
+
+  static String _readString(Object? value) {
+    return value is String ? value.trim() : '';
   }
 }
 

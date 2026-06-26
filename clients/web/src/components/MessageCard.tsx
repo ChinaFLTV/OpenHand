@@ -869,6 +869,22 @@ function goalAutoFollowUpChips(message: SessionMessage, meta: Record<string, unk
   }];
 }
 
+function goalObjectiveChips(message: SessionMessage, meta: Record<string, unknown>): MessageContextChip[] {
+  if (message.role !== 'user') return [];
+  if (meta['goal_evaluation_message'] === true || meta['goal_auto_follow_up'] === true) return [];
+  const senderOrigin = nonEmptyString(meta['sender_origin']);
+  if (senderOrigin && senderOrigin !== 'explicit_user') return [];
+  const goalId = nonEmptyString(meta['goal_id']);
+  const goalObjective = meta['goal_objective'];
+  const hasGoalObjective = goalObjective === true || nonEmptyString(goalObjective).length > 0;
+  if (!goalId || !hasGoalObjective) return [];
+  return [{
+    key: `goal-objective:${goalId}`,
+    icon: 'goal',
+    label: `${t('message.context.goalObjective', '目标')} · ${shortGoalId(goalId)}`,
+  }];
+}
+
 type GoalMessageKind = 'auto_follow_up' | 'evaluation_request' | 'evaluation_response';
 
 interface GoalMessageViewModel {
@@ -1517,6 +1533,7 @@ function selectedMessageInfoChips(message: SessionMessage): MessageContextChip[]
   const chips: MessageContextChip[] = [];
   const meta = recordOrNullFromUnknown(message.metadata);
   if (meta) {
+    chips.push(...goalObjectiveChips(message, meta));
     chips.push(...goalEvaluationChips(message, meta));
     chips.push(...goalAutoFollowUpChips(message, meta));
   }
