@@ -1296,7 +1296,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
         selectedActionPanel,
       ],
     );
-    final messageContent = widget.trackLayoutChanges
+    final shouldTrackLayoutChanges =
+        widget.trackLayoutChanges && !isGoalRuntimeMessage;
+    final messageContent = shouldTrackLayoutChanges
         ? NotificationListener<SizeChangedLayoutNotification>(
             onNotification: (notification) {
               if (_layoutChangeThrottleTimer?.isActive ?? false) {

@@ -1508,10 +1508,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   void _handleRevealScrollActivityChanged() {
     final activity = _scrollActivity;
-    final pending = _pendingRevealRestore;
-    if (!mounted || activity == null || pending == null || activity.value) {
+    if (!mounted || activity == null) {
       return;
     }
+    if (activity.value) {
+      _pendingRevealRestore = null;
+      _pendingPrependAnchor = null;
+      _pendingPrependAnchorFrames = 0;
+      return;
+    }
+    final pending = _pendingRevealRestore;
+    if (pending == null) return;
     if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
       return;
     }
@@ -2141,7 +2148,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         if (mounted) {
           setState(() {
             _loadingOlderMessages = false;
-            _historyRevealCacheBoost = false;
           });
         }
       }
@@ -2518,6 +2524,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       );
     }
     final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
+    final renderEntryIndexById = <String, int>{
+      for (var index = 0; index < _renderEntries.length; index += 1)
+        _renderEntries[index].id: index,
+    };
     // When the session is actively awaiting the assistant and the most
     // recent user message asked for a multimedia creation (image / video /
     // audio / deep research), we slot in a shimmering placeholder card
@@ -2638,6 +2648,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   cacheExtent: listCacheExtent,
                   physics: kOpenHandClampingPhysics,
                   itemCount: listItemCount,
+                  findChildIndexCallback: (key) {
+                    if (key is! ValueKey<String>) return null;
+                    const entryKeyPrefix = 'transcript-entry-';
+                    final value = key.value;
+                    if (!value.startsWith(entryKeyPrefix)) return null;
+                    final messageId = value.substring(entryKeyPrefix.length);
+                    final entryIndex = renderEntryIndexById[messageId];
+                    return entryIndex == null
+                        ? null
+                        : hiddenLoadMoreCount + entryIndex;
+                  },
                   itemBuilder: (context, index) {
                     if (hiddenLoadMoreCount > 0 && index == 0) {
                       return Padding(
