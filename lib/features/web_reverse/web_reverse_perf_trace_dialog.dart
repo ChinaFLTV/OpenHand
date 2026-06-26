@@ -108,7 +108,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
         earlyStop: earlyStop.future,
       );
     } catch (e, s) {
-      silentLog('web-reverse', 'perf-trace.record', e, s);
+      silentLog('web_reverse_perf_trace_dialog', 'perf-trace.record', e, s);
     }
     _ticker?.cancel();
     _ticker = null;
@@ -164,7 +164,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
     try {
       copied = await setWebReverseClipboardText(_lastSaved);
     } catch (e, s) {
-      silentLog('web-reverse', 'perf-trace.clipboard', e, s);
+      silentLog('web_reverse_perf_trace_dialog', 'perf-trace.clipboard', e, s);
       return;
     }
     if (!mounted) return;

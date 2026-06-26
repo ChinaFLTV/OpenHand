@@ -20,8 +20,7 @@ Controller-bearing。作为跨 feature 协调器，构造时强依赖 ai/crons/i
 
 ## 依赖
 - `data/message_gateway_store.dart` / `service/web_message_platform_service.dart`（feature 内私有）
-- 跨 feature：features/ai/* 仍有 4 条 deep import（P1 ai 拆解后清）
-- 其它 feature：通过 barrel 注入
+- 跨 feature 依赖通过对应 feature barrel 注入；`scripts/check_imports.dart` 会在 Web 构建脚本中强制检查。
 
 ## 不变量
 - 构造同步完成；首次 `initialize()` 触发持久化加载与 web socket 连接

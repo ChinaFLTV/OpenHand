@@ -13,7 +13,7 @@
 
 ## 依赖
 - `data/mcp_store.dart`（JSON 文件持久化，路径由 main.dart 通过 OpenHandPaths 注入）
-- 跨 feature：widgets/service 内仍残留对 features/ai/* 的若干 deep import，P1 ai 拆解后清
+- 跨 feature 依赖必须通过对应 feature barrel；`scripts/check_imports.dart` 会在 Web 构建脚本中强制检查。
 
 ## 不变量
 - 同一 server id 在 servers 内唯一

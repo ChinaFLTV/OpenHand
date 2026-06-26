@@ -13,7 +13,7 @@
 ## 依赖
 - `service/plugin_scanner_service.dart`（feature 内私有）
 - `service/plugin_lifecycle_service.dart`（feature 内私有）
-- 跨 feature：当前 widgets 仍直接 import mcp 控制器与模型（Plan-3 mcp barrel 上线后切走）
+- 跨 feature 依赖必须通过对应 feature barrel；`scripts/check_imports.dart` 会在 Web 构建脚本中强制检查。
 
 ## 不变量
 - plugins 列表按扫描顺序稳定

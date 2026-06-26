@@ -78,7 +78,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
             'Tracking — interact with the page, then click "Stop & Tally".';
       });
     } catch (e, s) {
-      silentLog('web-reverse', 'css-cov.start', e, s);
+      silentLog('web_reverse_css_coverage_dialog', 'css-cov.start', e, s);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -99,7 +99,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
         method: 'CSS.stopRuleUsageTracking',
       );
     } catch (e, s) {
-      silentLog('web-reverse', 'css-cov.stop', e, s);
+      silentLog('web_reverse_css_coverage_dialog', 'css-cov.stop', e, s);
     }
     if (!mounted) return;
     if (r == null || r['error'] != null) {
@@ -147,7 +147,12 @@ class _CssCovDialogState extends State<_CssCovDialog> {
           // 这里把 styleSheetId 截短作为标签。
         }
       } catch (e, st) {
-        silentLog('web-reverse', 'css-cov.sheet-text', e, st);
+        silentLog(
+          'web_reverse_css_coverage_dialog',
+          'css-cov.sheet-text',
+          e,
+          st,
+        );
       }
     }
     final list = map.values.toList()
@@ -196,7 +201,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
         ),
       );
     } catch (e, st) {
-      silentLog('web-reverse', 'css-cov.copy', e, st);
+      silentLog('web_reverse_css_coverage_dialog', 'css-cov.copy', e, st);
     }
   }
 

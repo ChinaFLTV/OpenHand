@@ -1499,10 +1499,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   Future<bool>? _activeScrollFuture;
   String? _activeScrollTargetId;
 
-  /// 删除消息后无需回调 —— 顶层 _runDeleteAction 已直接从
-  /// `widget.session.messages` 移除，watch 触发 _syncRenderEntries
-  /// 重建本 list 时被自然剔除。保留空函数防止上游调用残留。
-
   int _initialWindowStartIndex(int messageCount) {
     if (messageCount <= _transcriptWindowingThreshold) {
       return 0;

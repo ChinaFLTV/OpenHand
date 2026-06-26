@@ -68,7 +68,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
     try {
       return await widget.controller.setDeviceMetricsPreset(preset);
     } catch (error, stack) {
-      silentLog('web-reverse', action, error, stack);
+      silentLog('web_reverse_device_emulation_dialog', action, error, stack);
       return false;
     }
   }
@@ -161,7 +161,12 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
         return;
       }
     } catch (error, stack) {
-      silentLog('web-reverse', 'device-emu.custom', error, stack);
+      silentLog(
+        'web_reverse_device_emulation_dialog',
+        'device-emu.custom',
+        error,
+        stack,
+      );
       if (!mounted) return;
       _showApplyFailed(loc);
       return;

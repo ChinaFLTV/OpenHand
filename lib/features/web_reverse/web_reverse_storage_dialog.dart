@@ -199,7 +199,7 @@ class _StorageDialogState extends State<_StorageDialog>
         const JsonEncoder.withIndent('  ').convert(data),
       );
     } catch (err, st) {
-      silentLog('web-reverse', 'storage.copy', err, st);
+      silentLog('web_reverse_storage_dialog', 'storage.copy', err, st);
       return;
     }
     if (!mounted) return;

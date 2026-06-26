@@ -74,7 +74,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
     try {
       r = await widget.controller.sendRawCdp(method: 'Page.getFrameTree');
     } catch (e, s) {
-      silentLog('web-reverse', 'frame-tree.load', e, s);
+      silentLog('web_reverse_frame_tree_dialog', 'frame-tree.load', e, s);
     }
     if (!mounted) return;
     if (r == null || r['error'] != null) {
@@ -124,7 +124,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
     try {
       copied = await setWebReverseClipboardText(s);
     } catch (e, st) {
-      silentLog('web-reverse', 'frame-tree.copy', e, st);
+      silentLog('web_reverse_frame_tree_dialog', 'frame-tree.copy', e, st);
       return;
     }
     if (!mounted) return;

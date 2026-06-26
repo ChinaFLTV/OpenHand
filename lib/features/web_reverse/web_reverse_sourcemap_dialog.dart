@@ -218,7 +218,7 @@ class _SmDialogState extends State<_SmDialog> {
         _status = loc?.webReverseSmResolved ?? 'Resolved';
       });
     } catch (e, st) {
-      silentLog('web-reverse', 'sourcemap.resolve', e, st);
+      silentLog('web_reverse_sourcemap_dialog', 'sourcemap.resolve', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -290,7 +290,7 @@ class _SmDialogState extends State<_SmDialog> {
     try {
       copied = await setWebReverseClipboardText(text);
     } catch (e, st) {
-      silentLog('web-reverse', 'sourcemap.copy', e, st);
+      silentLog('web_reverse_sourcemap_dialog', 'sourcemap.copy', e, st);
       return;
     }
     if (!mounted) return;

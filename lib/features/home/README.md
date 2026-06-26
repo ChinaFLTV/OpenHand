@@ -20,10 +20,10 @@ widget-bundle。无自身全局 Controller — 状态分布在：
 
 ```
 lib/features/home/
-  openhand_home_page.dart        # 7294 行主页面（含 20 个 part 引用 widgets/_home_*.dart）
+  openhand_home_page.dart        # 主页面 library（含多个 widgets/_home_*.dart part）
   index.dart
   README.md
-  widgets/                       # 21 子文件：20 个 _home_*.part.dart + machine_expert_dialog
+  widgets/                       # 页面 part、独立 dialog 与局部组件
     _home_navigation.dart        # part of '../openhand_home_page.dart'
     _home_transcript.dart        # 同上
     _home_composer.dart          # 同上（3.7k 行）
@@ -32,13 +32,13 @@ lib/features/home/
     _home_file_mutation_widgets.dart  # 同上（4.1k 行）
     _home_programming_expert_file_explorer.dart  # 同上（14.4k 行，文件浏览器）
     ... 13 其他 _home_*.dart
-    machine_expert_dialog.dart   # 819 行独立 dialog
+    machine_expert_dialog.dart   # 独立 dialog
   util/                          # 4 个工具：
     editor_indentation.dart      # 编辑器缩进推断
     slash_command_parser.dart    # /command 解析
     tool_call_argument_parser.dart # 工具调用参数解析
     message_path_linking.dart    # 消息内文件路径链接（含 markdown 语法）
-  model / data / service / state # 占位（home 当前无自有 model/service）
+  model/                         # home 自有轻量模型
 ```
 
 ## 不变量
@@ -50,6 +50,6 @@ lib/features/home/
 - 入向：openhand_app.dart 通过 `import '../features/home/openhand_home_page.dart'` 注入到 MaterialApp.home
 - 出向（通过 sibling barrel）：ai / mcp / hardness / settings / crons / hooks / instructions / memory / skills / plugin_service / message_gateway
 
-## 拆分历史
-- P2 完成：22 widget 部件归 widgets/，4 工具归 util/，model/data/service/state 占位
-- 未拆：openhand_home_page.dart 7294 行（含整个 _OpenHandHomePageState）— 行数大但是 part files 已承担 90% 实现，主文件主要是 state 字段与 build() 流水线
+## 拆分边界
+- 页面部件归 `widgets/`，工具归 `util/`，轻量模型归 `model/`。
+- `openhand_home_page.dart` 仍是 home 的唯一 library 入口；主 state 字段与 build 流水线保留在该文件，细节由 part 文件承载。

@@ -9,7 +9,7 @@ Controller-bearing。`AiModule.bootstrap()` 注入 hooks executor / skills dir p
 入口：`features/ai/index.dart`。
 
 - **Module**：`AiModule.bootstrap()` / `AiModule.providers(m)`
-- **Controller**：`AiSessionController`（8870 行单文件，状态机心脏，P1-extension 待拆）
+- **Controller**：`AiSessionController`（状态机心脏）
 - **Model**（19 个）：`AiSession / AiSessionMessage / AiSessionRuntimeContext / AiModelConfig / AiThreadTemplate / AiAttachment / AiAllowCommandRule / AiDenyCommandRule / AiBuiltinToolConfig / AiCostBreakdown / AiCreationMode / AiInputCacheRuntimeConfig / AiLspBackendCatalog / AiLspLanguageSettings / AiModelCatalog / AiSandboxSettings / AiTokenUsage / AiWebFetchSettings / AiWebSearchSettings`
 - **Service**（按职责分 17 子目录，41 文件 + web_fetch/ + web_search/ 各 7）
 - **Tool**（按类型分 9 子目录，26 文件 + 4 infra 基类）
@@ -20,7 +20,7 @@ Controller-bearing。`AiModule.bootstrap()` 注入 hooks executor / skills dir p
 ```
 lib/features/ai/
   ai_module.dart                  # 装配入口
-  ai_session_controller.dart      # 8870 行状态机心脏（P1-extension 待拆）
+  ai_session_controller.dart      # 状态机心脏
   _ai_session_models.dart         # part of controller
   _ai_session_utils.dart          # part of controller
   index.dart                      # barrel
@@ -74,8 +74,6 @@ lib/features/ai/
 - 入向：hooks executor / skills dir / memory controller provider 通过 `AiModule.bootstrap()` 注入
 - 出向（通过对应 sibling 的 barrel）：mcp / memory / skills / hardness / crons
 
-## 拆分历史
-- P0 Plan-5 Task 1+2：建立 barrel + AiModule + 全仓 caller sweep（130 → 14 violations）
-- P0 Plan-5 Task 3：service/ 41 文件分 17 子目录
-- P0 Plan-5 Task 4：tools/ 26 文件分 9 子目录
-- 待 P1-extension（Plan-7）：拆 `ai_session_controller.dart` 8870 行，需先做 fixture 冻结测试
+## 拆分边界
+- `service/` 与 `tools/` 已按职责分层；新增能力优先落到对应子目录。
+- `ai_session_controller.dart` 仍是会话状态机入口；继续拆分前需先补齐会话 fixture 回归测试。

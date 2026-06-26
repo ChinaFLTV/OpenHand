@@ -2264,7 +2264,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       _safeNotify();
     } catch (e, st) {
-      silentLog('web_reverse', '_refreshPageTitle', e, st);
+      silentLog('web_reverse_session_controller', '_refreshPageTitle', e, st);
     }
   }
 

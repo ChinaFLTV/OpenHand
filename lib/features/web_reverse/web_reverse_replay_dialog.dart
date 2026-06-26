@@ -101,7 +101,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
           ok: r != null && r.status >= 200 && r.status < 400,
         );
       } catch (err, st) {
-        silentLog('web-reverse', 'replay.batch', err, st);
+        silentLog('web_reverse_replay_dialog', 'replay.batch', err, st);
         _results[e.requestId] = _ReplayResult(
           requestId: e.requestId,
           url: e.url,
@@ -161,7 +161,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
         );
       }
     } catch (e, st) {
-      silentLog('web-reverse', 'replay.export', e, st);
+      silentLog('web_reverse_replay_dialog', 'replay.export', e, st);
     }
   }
 

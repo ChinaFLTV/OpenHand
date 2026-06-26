@@ -52,7 +52,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     try {
       r = await widget.controller.takeHeapSnapshot();
     } catch (e, s) {
-      silentLog('web-reverse', 'heap-snapshot.take', e, s);
+      silentLog('web_reverse_heap_snapshot_dialog', 'heap-snapshot.take', e, s);
     }
     if (!mounted) return;
     if (r == null || r.json.isEmpty) {
@@ -91,7 +91,12 @@ class _HeapDialogState extends State<_HeapDialog> {
     try {
       copied = await setWebReverseClipboardText(_lastSaved);
     } catch (e, s) {
-      silentLog('web-reverse', 'heap-snapshot.clipboard', e, s);
+      silentLog(
+        'web_reverse_heap_snapshot_dialog',
+        'heap-snapshot.clipboard',
+        e,
+        s,
+      );
       return;
     }
     if (!mounted) return;

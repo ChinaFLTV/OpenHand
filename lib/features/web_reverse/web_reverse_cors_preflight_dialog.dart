@@ -147,7 +147,7 @@ class _CorsDialogState extends State<_CorsDialog> {
         _result = res;
       });
     } catch (err, st) {
-      silentLog('web-reverse', 'cors.run', err, st);
+      silentLog('web_reverse_cors_preflight_dialog', 'cors.run', err, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -246,7 +246,7 @@ class _CorsDialogState extends State<_CorsDialog> {
         const JsonEncoder.withIndent('  ').convert(res),
       );
     } catch (err, st) {
-      silentLog('web-reverse', 'cors.copy', err, st);
+      silentLog('web_reverse_cors_preflight_dialog', 'cors.copy', err, st);
       return;
     }
     if (!mounted) return;

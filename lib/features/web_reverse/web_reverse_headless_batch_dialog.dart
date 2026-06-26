@@ -135,7 +135,12 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
     try {
       results = await runner.run();
     } catch (error, stack) {
-      silentLog('web-reverse', 'headless-batch.run', error, stack);
+      silentLog(
+        'web_reverse_headless_batch_dialog',
+        'headless-batch.run',
+        error,
+        stack,
+      );
       if (!mounted) return;
       setState(() {
         _running = false;

@@ -136,7 +136,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
         );
       }
     } catch (err, st) {
-      silentLog('web-reverse', 'cdp-console.send', err, st);
+      silentLog('web_reverse_cdp_console_dialog', 'cdp-console.send', err, st);
       entry.error = '$err';
     }
     _cdpConsoleHistory.insert(0, entry);
@@ -216,7 +216,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
     try {
       copied = await setWebReverseClipboardText(t);
     } catch (err, st) {
-      silentLog('web-reverse', 'cdp-console.copy', err, st);
+      silentLog('web_reverse_cdp_console_dialog', 'cdp-console.copy', err, st);
       return;
     }
     if (!mounted) return;

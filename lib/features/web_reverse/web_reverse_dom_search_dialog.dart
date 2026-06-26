@@ -159,7 +159,12 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
               .join(' ');
           hits.add(_Hit(nodeId: id, label: label.toString(), detail: detail));
         } catch (e, st) {
-          silentLog('web-reverse', 'dom-search.describe', e, st);
+          silentLog(
+            'web_reverse_dom_search_dialog',
+            'dom-search.describe',
+            e,
+            st,
+          );
         }
       }
       if (!mounted) return;
@@ -171,7 +176,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
             'Matched $_resultCount, showing top ${hits.length}';
       });
     } catch (e, st) {
-      silentLog('web-reverse', 'dom-search.run', e, st);
+      silentLog('web_reverse_dom_search_dialog', 'dom-search.run', e, st);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -185,7 +190,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
       await widget.controller.sendRawCdp(method: 'Overlay.enable');
       await widget.controller.domHighlightNode(id);
     } catch (e, st) {
-      silentLog('web-reverse', 'dom-search.highlight', e, st);
+      silentLog('web_reverse_dom_search_dialog', 'dom-search.highlight', e, st);
     }
   }
 

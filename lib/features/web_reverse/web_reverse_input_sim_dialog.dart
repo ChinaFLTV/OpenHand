@@ -118,7 +118,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
         modifiers: _modifiers,
       );
     } catch (e, st) {
-      silentLog('web-reverse', 'input-sim.mouse', e, st);
+      silentLog('web_reverse_input_sim_dialog', 'input-sim.mouse', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
@@ -144,7 +144,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
         modifiers: _modifiers,
       );
     } catch (e, st) {
-      silentLog('web-reverse', 'input-sim.wheel', e, st);
+      silentLog('web_reverse_input_sim_dialog', 'input-sim.wheel', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
@@ -180,7 +180,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
         modifiers: _modifiers,
       );
     } catch (e, st) {
-      silentLog('web-reverse', 'input-sim.key', e, st);
+      silentLog('web_reverse_input_sim_dialog', 'input-sim.key', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);
@@ -202,7 +202,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
     try {
       await widget.controller.insertText(t);
     } catch (e, st) {
-      silentLog('web-reverse', 'input-sim.insert', e, st);
+      silentLog('web_reverse_input_sim_dialog', 'input-sim.insert', e, st);
     }
     if (!mounted) return;
     final loc1 = AppLocalizations.of(context);

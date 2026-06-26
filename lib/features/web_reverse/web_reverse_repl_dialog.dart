@@ -88,7 +88,7 @@ class _ReplDialogState extends State<_ReplDialog> {
         result = r;
       }
     } catch (e, s) {
-      silentLog('web-reverse', 'repl.run', e, s);
+      silentLog('web_reverse_repl_dialog', 'repl.run', e, s);
       error = true;
       result = e.toString();
     }
@@ -154,7 +154,7 @@ class _ReplDialogState extends State<_ReplDialog> {
     try {
       copied = await setWebReverseClipboardText(s);
     } catch (e, st) {
-      silentLog('web-reverse', 'repl.copy', e, st);
+      silentLog('web_reverse_repl_dialog', 'repl.copy', e, st);
       return;
     }
     if (!mounted) return;

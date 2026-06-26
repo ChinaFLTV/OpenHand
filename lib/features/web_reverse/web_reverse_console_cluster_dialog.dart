@@ -109,7 +109,12 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
         const JsonEncoder.withIndent('  ').convert(payload),
       );
     } catch (err, st) {
-      silentLog('web-reverse', 'console.cluster.copy', err, st);
+      silentLog(
+        'web_reverse_console_cluster_dialog',
+        'console.cluster.copy',
+        err,
+        st,
+      );
       return;
     }
     if (!mounted) return;
