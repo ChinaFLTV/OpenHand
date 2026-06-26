@@ -194,7 +194,11 @@ class AiPromptBuilder {
     );
     final latestCompressionPoint = session.latestCompressionPoint;
     final visibleSessionMessages = sessionMessages
-        .where((item) => !item.isDeleted)
+        .where(
+          (item) =>
+              !item.isDeleted &&
+              !_shouldOmitPausedGoalQueueMessageFromPrompt(session, item),
+        )
         .toList(growable: false);
     AiSessionMessage? latestUserMessage;
     final historyMessages = <AiSessionMessage>[];
@@ -5782,10 +5786,48 @@ $content
     return AiPlanModeGuidance.planningReminder;
   }
 
+  bool _isGoalPausedForQueuedMessages(AiSession session) {
+    final goal = session.activeGoal;
+    if (session.mode != AiSessionMode.chat ||
+        goal == null ||
+        goal.status != AiSessionGoalStatus.paused) {
+      return false;
+    }
+    return (goal.statusReason ?? '').trim() ==
+        aiSessionGoalPausedForQueueStatusReason;
+  }
+
+  bool _shouldOmitPausedGoalQueueMessageFromPrompt(
+    AiSession session,
+    AiSessionMessage message,
+  ) {
+    if (!_isGoalPausedForQueuedMessages(session)) {
+      return false;
+    }
+    if (message.kind != AiSessionMessageKind.user) {
+      return false;
+    }
+    final goalId = session.activeGoal?.id.trim();
+    if (goalId == null || goalId.isEmpty) {
+      return false;
+    }
+    final messageGoalId =
+        '${message.metadata[aiSessionGoalIdMetadataKey] ?? ''}'.trim();
+    if (messageGoalId != goalId) {
+      return false;
+    }
+    return message.metadata[aiSessionGoalObjectiveMetadataKey] == true ||
+        message.metadata[aiSessionGoalAutoFollowUpMetadataKey] == true ||
+        message.metadata[aiSessionGoalEvaluationMessageMetadataKey] == true;
+  }
+
   String? _buildGoalModeReminder(AiSession session) {
     final goal = session.activeGoal;
     if (goal == null) {
       return null;
+    }
+    if (_isGoalPausedForQueuedMessages(session)) {
+      return 'A goal is paused for queued user messages. For this round, handle only the latest explicit user message. Do not continue, respond to, or evaluate the paused goal; the runtime will resume it after the queue drains.';
     }
     if (goal.status == AiSessionGoalStatus.paused) {
       return 'Goal mode is paused. Do not continue the goal until the runtime resumes it.';
