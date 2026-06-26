@@ -28,6 +28,18 @@ class AiEmbeddingsService {
       'v1beta/models/{model_id}:embedContent';
   static const String _geminiDefaultBatchEmbeddingPath =
       'v1beta/models/{model_id}:batchEmbedContents';
+  static const AiEmbeddingResult _emptyResult = AiEmbeddingResult(
+    vectors: <List<double>>[],
+    rawResponse: '',
+    payload: <String, Object?>{'data': <Object?>[]},
+  );
+  static const List<_EmbeddingRequestStrategy> _requestStrategies =
+      <_EmbeddingRequestStrategy>[
+        _GeminiEmbeddingStrategy(),
+        _DashScopeMultimodalEmbeddingStrategy(),
+        _MistralEmbeddingStrategy(),
+        _OpenAiCompatibleEmbeddingStrategy(),
+      ];
 
   final AiEndpointRouter _router;
   final AiTransportClient _transport;
@@ -58,6 +70,7 @@ class AiEmbeddingsService {
     String? encodingFormat,
     String? user,
   }) async {
+    if (input is List && input.isEmpty) return _emptyResult;
     final plan = _buildRequestPlan(
       model: model,
       input: input,
@@ -115,12 +128,14 @@ class AiEmbeddingsService {
     String taskType = '',
     String title = '',
   }) async {
-    final plan = _buildGeminiRequestPlan(
-      model: model,
-      input: content,
-      taskType: taskType,
-      title: title,
-      forceSingle: true,
+    final plan = const _GeminiEmbeddingStrategy().build(
+      _EmbeddingRequestContext(
+        model: model,
+        input: content,
+        taskType: taskType,
+        title: title,
+        forceSingle: true,
+      ),
     );
     return _sendPlan(model: model, plan: plan, timeout: timeout);
   }
@@ -132,237 +147,17 @@ class AiEmbeddingsService {
     String? encodingFormat,
     String? user,
   }) {
-    if (_usesGeminiEmbeddingApi(model)) {
-      return _buildGeminiRequestPlan(
-        model: model,
-        input: input,
-        dimensions: dimensions,
-      );
-    }
-    if (_usesDashScopeMultimodalEmbeddingApi(model)) {
-      return _buildDashScopeMultimodalRequestPlan(
-        model: model,
-        input: input,
-        dimensions: dimensions,
-      );
-    }
-    if (_usesMistralEmbeddingApi(model)) {
-      return _buildMistralRequestPlan(
-        model: model,
-        input: input,
-        dimensions: dimensions,
-      );
-    }
-    return _buildOpenAiCompatibleRequestPlan(
+    final context = _EmbeddingRequestContext(
       model: model,
       input: input,
       dimensions: dimensions,
       encodingFormat: encodingFormat,
       user: user,
     );
-  }
-
-  _EmbeddingRequestPlan _buildDashScopeMultimodalRequestPlan({
-    required AiModelConfig model,
-    required Object input,
-    int? dimensions,
-  }) {
-    const family = AiApiFamily.embeddings;
-    final modelId = model.resolveOperationModelId(family);
-    final profile = model.profileFor(modelId);
-    final contents = _dashScopeMultimodalContents(input);
-    final parameters = <String, Object?>{
-      if (modelId.toLowerCase().contains('vl-embedding')) 'enable_fusion': true,
-      if (dimensions != null && dimensions > 0) 'dimension': dimensions,
-    };
-    final body = AiOperationHttp.mergeBodyExtras(
-      model,
-      family,
-      <String, Object?>{
-        'model': modelId,
-        'input': <String, Object?>{'contents': contents},
-        if (parameters.isNotEmpty) 'parameters': parameters,
-      },
-    );
-    return _EmbeddingRequestPlan(
-      body: body,
-      fallbackPath:
-          _trimmedOrNull(profile.embeddingEndpointPath) ??
-          'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
-      contextHint: 'embeddings/dashscope/multimodal',
-    );
-  }
-
-  _EmbeddingRequestPlan _buildOpenAiCompatibleRequestPlan({
-    required AiModelConfig model,
-    required Object input,
-    int? dimensions,
-    String? encodingFormat,
-    String? user,
-  }) {
-    const family = AiApiFamily.embeddings;
-    final profile = model.profileFor(model.resolveOperationModelId(family));
-    final body =
-        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
-          'model': model.resolveOperationModelId(family),
-          'input': input,
-          if (dimensions != null && dimensions > 0) 'dimensions': dimensions,
-          if (encodingFormat?.trim().isNotEmpty == true)
-            'encoding_format': encodingFormat!.trim(),
-          if (user?.trim().isNotEmpty == true) 'user': user!.trim(),
-        });
-    return _EmbeddingRequestPlan(
-      body: body,
-      fallbackPath: _trimmedOrNull(profile.embeddingEndpointPath),
-      contextHint: 'embeddings',
-    );
-  }
-
-  _EmbeddingRequestPlan _buildMistralRequestPlan({
-    required AiModelConfig model,
-    required Object input,
-    int? dimensions,
-  }) {
-    const family = AiApiFamily.embeddings;
-    final profile = model.profileFor(model.resolveOperationModelId(family));
-    final body =
-        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
-          'model': model.resolveOperationModelId(family),
-          'input': input,
-          if (dimensions != null && dimensions > 0)
-            'output_dimension': dimensions,
-        });
-    return _EmbeddingRequestPlan(
-      body: body,
-      fallbackPath: _trimmedOrNull(profile.embeddingEndpointPath),
-      contextHint: 'embeddings/mistral',
-    );
-  }
-
-  _EmbeddingRequestPlan _buildGeminiRequestPlan({
-    required AiModelConfig model,
-    required Object input,
-    int? dimensions,
-    String taskType = '',
-    String title = '',
-    bool forceSingle = false,
-  }) {
-    const family = AiApiFamily.embeddings;
-    final modelId = model.resolveOperationModelId(family);
-    final profile = model.profileFor(modelId);
-    final modelName = 'models/$modelId';
-    final trimmedTaskType = taskType.trim();
-    final trimmedTitle = title.trim();
-    final textBatch = forceSingle ? null : _stringBatchOrNull(input);
-    final isBatch = textBatch != null && textBatch.length > 1;
-    final fallbackPath = _trimmedOrNull(profile.embeddingEndpointPath);
-    final Map<String, Object?> body;
-    if (isBatch) {
-      body = <String, Object?>{
-        'requests': textBatch
-            .map(
-              (text) => <String, Object?>{
-                'model': modelName,
-                'content': _geminiContentPayload(text),
-                if (trimmedTaskType.isNotEmpty) 'taskType': trimmedTaskType,
-                if (trimmedTitle.isNotEmpty) 'title': trimmedTitle,
-                if (dimensions != null && dimensions > 0)
-                  'outputDimensionality': dimensions,
-              },
-            )
-            .toList(growable: false),
-      };
-    } else {
-      final content = textBatch == null || textBatch.isEmpty
-          ? input
-          : textBatch.first;
-      body = <String, Object?>{
-        'model': modelName,
-        'content': _geminiContentPayload(content),
-        if (trimmedTaskType.isNotEmpty) 'taskType': trimmedTaskType,
-        if (trimmedTitle.isNotEmpty) 'title': trimmedTitle,
-        if (dimensions != null && dimensions > 0)
-          'outputDimensionality': dimensions,
-      };
+    for (final strategy in _requestStrategies) {
+      if (strategy.matches(context)) return strategy.build(context);
     }
-    return _EmbeddingRequestPlan(
-      body: AiOperationHttp.mergeBodyExtras(model, family, body),
-      fallbackPath:
-          fallbackPath ??
-          (isBatch
-              ? _geminiDefaultBatchEmbeddingPath
-              : _geminiDefaultEmbeddingPath),
-      contextHint: isBatch ? 'embeddings/gemini/batch' : 'embeddings/gemini',
-    );
-  }
-
-  bool _usesGeminiEmbeddingApi(AiModelConfig model) {
-    return model.protocolType == AiProtocolType.gemini ||
-        model.apiDialect == AiApiDialect.geminiNative;
-  }
-
-  bool _usesDashScopeMultimodalEmbeddingApi(AiModelConfig model) {
-    final rawModelId = model.resolveOperationModelId(AiApiFamily.embeddings);
-    final modelId = rawModelId.toLowerCase();
-    final profile = model.profileFor(rawModelId);
-    final endpointPath = profile.embeddingEndpointPath?.toLowerCase() ?? '';
-    return model.protocolType == AiProtocolType.qwen &&
-        (endpointPath.contains('multimodal-embedding') ||
-            modelId.contains('vl-embedding') ||
-            modelId.contains('embedding-vision') ||
-            modelId.contains('multimodal-embedding'));
-  }
-
-  bool _usesMistralEmbeddingApi(AiModelConfig model) {
-    final modelId = model
-        .resolveOperationModelId(AiApiFamily.embeddings)
-        .toLowerCase();
-    final baseUrl = model.baseUrl.toLowerCase();
-    return modelId.startsWith('mistral-embed') ||
-        modelId.startsWith('codestral-embed') ||
-        baseUrl.contains('api.mistral.ai');
-  }
-
-  Map<String, Object?> _geminiContentPayload(Object content) {
-    if (content is Map<String, Object?>) return content;
-    if (content is Map) return Map<String, Object?>.from(content);
-    if (content is List) {
-      return <String, Object?>{'parts': content};
-    }
-    return <String, Object?>{
-      'parts': <Map<String, Object?>>[
-        <String, Object?>{'text': '$content'},
-      ],
-    };
-  }
-
-  List<Map<String, Object?>> _dashScopeMultimodalContents(Object input) {
-    if (input is List) {
-      if (input.length > 1) {
-        throw ArgumentError(
-          'DashScope multimodal embedding API only supports one fused input per request.',
-        );
-      }
-      if (input.isEmpty) return const <Map<String, Object?>>[];
-      return _dashScopeMultimodalContents(input.first);
-    }
-    if (input is Map<String, Object?>) return <Map<String, Object?>>[input];
-    if (input is Map) {
-      return <Map<String, Object?>>[Map<String, Object?>.from(input)];
-    }
-    return <Map<String, Object?>>[
-      <String, Object?>{'text': '$input'},
-    ];
-  }
-
-  List<String>? _stringBatchOrNull(Object input) {
-    if (input is! List) return null;
-    final values = <String>[];
-    for (final item in input) {
-      if (item is! String) return null;
-      values.add(item);
-    }
-    return values;
+    throw StateError('No embedding request strategy matched.');
   }
 
   List<List<double>> _parseVectors(Map<String, Object?> payload) {
@@ -469,11 +264,6 @@ class AiEmbeddingsService {
         .toList(growable: false);
   }
 
-  String? _trimmedOrNull(String? value) {
-    final trimmed = value?.trim() ?? '';
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
   void dispose() {
     _transport.dispose();
   }
@@ -489,4 +279,263 @@ class _EmbeddingRequestPlan {
   final Map<String, Object?> body;
   final String contextHint;
   final String? fallbackPath;
+}
+
+class _EmbeddingRequestContext {
+  _EmbeddingRequestContext({
+    required this.model,
+    required this.input,
+    this.dimensions,
+    this.encodingFormat,
+    this.user,
+    this.taskType = '',
+    this.title = '',
+    this.forceSingle = false,
+  }) : modelId = model.resolveOperationModelId(AiApiFamily.embeddings),
+       profile = model.profileFor(
+         model.resolveOperationModelId(AiApiFamily.embeddings),
+       );
+
+  final AiModelConfig model;
+  final Object input;
+  final int? dimensions;
+  final String? encodingFormat;
+  final String? user;
+  final String taskType;
+  final String title;
+  final bool forceSingle;
+  final String modelId;
+  final AiModelProfile profile;
+
+  int? get positiveDimensions =>
+      dimensions == null || dimensions! <= 0 ? null : dimensions;
+  String get normalizedModelId => modelId.toLowerCase();
+  String? get trimmedEncodingFormat => _trimmedOrNull(encodingFormat);
+  String? get trimmedUser => _trimmedOrNull(user);
+  String? get trimmedTaskType => _trimmedOrNull(taskType);
+  String? get trimmedTitle => _trimmedOrNull(title);
+  String? get profileEndpointPath =>
+      _trimmedOrNull(profile.embeddingEndpointPath);
+}
+
+abstract class _EmbeddingRequestStrategy {
+  const _EmbeddingRequestStrategy();
+
+  bool matches(_EmbeddingRequestContext context);
+
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context);
+}
+
+class _OpenAiCompatibleEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _OpenAiCompatibleEmbeddingStrategy();
+
+  @override
+  bool matches(_EmbeddingRequestContext context) => true;
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      <String, Object?>{
+        'model': context.modelId,
+        'input': context.input,
+        if (context.positiveDimensions != null)
+          'dimensions': context.positiveDimensions,
+        if (context.trimmedEncodingFormat != null)
+          'encoding_format': context.trimmedEncodingFormat,
+        if (context.trimmedUser != null) 'user': context.trimmedUser,
+      },
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      fallbackPath: context.profileEndpointPath,
+      contextHint: 'embeddings',
+    );
+  }
+}
+
+class _MistralEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _MistralEmbeddingStrategy();
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    final baseUrl = context.model.baseUrl.toLowerCase();
+    return context.normalizedModelId.startsWith('mistral-embed') ||
+        context.normalizedModelId.startsWith('codestral-embed') ||
+        baseUrl.contains('api.mistral.ai');
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      <String, Object?>{
+        'model': context.modelId,
+        'input': context.input,
+        if (context.positiveDimensions != null)
+          'output_dimension': context.positiveDimensions,
+      },
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      fallbackPath: context.profileEndpointPath,
+      contextHint: 'embeddings/mistral',
+    );
+  }
+}
+
+class _GeminiEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _GeminiEmbeddingStrategy();
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    return context.model.protocolType == AiProtocolType.gemini ||
+        context.model.apiDialect == AiApiDialect.geminiNative;
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final modelName = 'models/${context.modelId}';
+    final textBatch = context.forceSingle
+        ? null
+        : _stringBatchOrNull(context.input);
+    final isBatch = textBatch != null && textBatch.length > 1;
+    final Map<String, Object?> body;
+    if (isBatch) {
+      body = <String, Object?>{
+        'requests': textBatch
+            .map(
+              (text) => <String, Object?>{
+                'model': modelName,
+                'content': _geminiContentPayload(text),
+                if (context.trimmedTaskType != null)
+                  'taskType': context.trimmedTaskType,
+                if (context.trimmedTitle != null) 'title': context.trimmedTitle,
+                if (context.positiveDimensions != null)
+                  'outputDimensionality': context.positiveDimensions,
+              },
+            )
+            .toList(growable: false),
+      };
+    } else {
+      final content = textBatch == null || textBatch.isEmpty
+          ? context.input
+          : textBatch.first;
+      body = <String, Object?>{
+        'model': modelName,
+        'content': _geminiContentPayload(content),
+        if (context.trimmedTaskType != null)
+          'taskType': context.trimmedTaskType,
+        if (context.trimmedTitle != null) 'title': context.trimmedTitle,
+        if (context.positiveDimensions != null)
+          'outputDimensionality': context.positiveDimensions,
+      };
+    }
+    return _EmbeddingRequestPlan(
+      body: AiOperationHttp.mergeBodyExtras(context.model, family, body),
+      fallbackPath:
+          context.profileEndpointPath ??
+          (isBatch
+              ? AiEmbeddingsService._geminiDefaultBatchEmbeddingPath
+              : AiEmbeddingsService._geminiDefaultEmbeddingPath),
+      contextHint: isBatch ? 'embeddings/gemini/batch' : 'embeddings/gemini',
+    );
+  }
+}
+
+class _DashScopeMultimodalEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _DashScopeMultimodalEmbeddingStrategy();
+
+  static const String _fallbackPath =
+      'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding';
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    final endpointPath =
+        context.profile.embeddingEndpointPath?.toLowerCase() ?? '';
+    return context.model.protocolType == AiProtocolType.qwen &&
+        (endpointPath.contains('multimodal-embedding') ||
+            context.normalizedModelId.contains('vl-embedding') ||
+            context.normalizedModelId.contains('embedding-vision') ||
+            context.normalizedModelId.contains('multimodal-embedding'));
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final parameters = <String, Object?>{
+      if (context.normalizedModelId.contains('vl-embedding'))
+        'enable_fusion': true,
+      if (context.positiveDimensions != null)
+        'dimension': context.positiveDimensions,
+    };
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      <String, Object?>{
+        'model': context.modelId,
+        'input': <String, Object?>{
+          'contents': _dashScopeMultimodalContents(context.input),
+        },
+        if (parameters.isNotEmpty) 'parameters': parameters,
+      },
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      fallbackPath: context.profileEndpointPath ?? _fallbackPath,
+      contextHint: 'embeddings/dashscope/multimodal',
+    );
+  }
+}
+
+Map<String, Object?> _geminiContentPayload(Object content) {
+  if (content is Map<String, Object?>) return content;
+  if (content is Map) return Map<String, Object?>.from(content);
+  if (content is List) {
+    return <String, Object?>{'parts': content};
+  }
+  return <String, Object?>{
+    'parts': <Map<String, Object?>>[
+      <String, Object?>{'text': '$content'},
+    ],
+  };
+}
+
+List<Map<String, Object?>> _dashScopeMultimodalContents(Object input) {
+  if (input is List) {
+    if (input.length > 1) {
+      throw ArgumentError(
+        'DashScope multimodal embedding API only supports one fused input per request.',
+      );
+    }
+    if (input.isEmpty) return const <Map<String, Object?>>[];
+    return _dashScopeMultimodalContents(input.first);
+  }
+  if (input is Map<String, Object?>) return <Map<String, Object?>>[input];
+  if (input is Map) {
+    return <Map<String, Object?>>[Map<String, Object?>.from(input)];
+  }
+  return <Map<String, Object?>>[
+    <String, Object?>{'text': '$input'},
+  ];
+}
+
+List<String>? _stringBatchOrNull(Object input) {
+  if (input is! List) return null;
+  final values = <String>[];
+  for (final item in input) {
+    if (item is! String) return null;
+    values.add(item);
+  }
+  return values;
+}
+
+String? _trimmedOrNull(String? value) {
+  final trimmed = value?.trim() ?? '';
+  return trimmed.isEmpty ? null : trimmed;
 }

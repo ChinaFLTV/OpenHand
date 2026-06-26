@@ -131,6 +131,97 @@ void main() {
       expect(client.bodies.single['output_dimension'], 256);
       expect(client.bodies.single.containsKey('dimensions'), isFalse);
     });
+
+    test('returns an empty result without network for empty batches', () async {
+      final client = _RecordingHttpClient(
+        responseBody: const <String, Object?>{},
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.openai.com',
+          modelId: 'text-embedding-3-small',
+        ),
+        input: const <String>[],
+      );
+
+      expect(client.requests, isEmpty);
+      expect(result.vectors, isEmpty);
+      expect(result.payload['data'], isEmpty);
+    });
+
+    test('sends DashScope multimodal embedding requests', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'output': <String, Object?>{
+            'embeddings': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[0.5, 0.6],
+              },
+            ],
+          },
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.qwen,
+          baseUrl: 'https://dashscope.aliyuncs.com',
+          modelId: 'qwen3-vl-embedding',
+        ),
+        input: const <String>['find a similar image'],
+        dimensions: 1024,
+      );
+
+      expect(
+        client.requests.single.url.path,
+        '/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
+      );
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'qwen3-vl-embedding',
+        'input': <String, Object?>{
+          'contents': <Object?>[
+            <String, Object?>{'text': 'find a similar image'},
+          ],
+        },
+        'parameters': <String, Object?>{
+          'enable_fusion': true,
+          'dimension': 1024,
+        },
+      });
+      expect(result.vectors, <List<double>>[
+        <double>[0.5, 0.6],
+      ]);
+    });
+
+    test('rejects multiple DashScope fused multimodal inputs', () async {
+      final client = _RecordingHttpClient(
+        responseBody: const <String, Object?>{},
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      await expectLater(
+        service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.qwen,
+            baseUrl: 'https://dashscope.aliyuncs.com',
+            modelId: 'qwen3-vl-embedding',
+          ),
+          input: const <String>['first', 'second'],
+        ),
+        throwsArgumentError,
+      );
+      expect(client.requests, isEmpty);
+    });
   });
 
   group('AiModelCatalog embedding profiles', () {

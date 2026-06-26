@@ -120,6 +120,58 @@ class AiModelCatalog {
     AiModelCapability.embeddingGeneration,
   };
 
+  static const _openAiEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'dimensions',
+    'encoding_format',
+    'user',
+  ];
+
+  static const _openAiLegacyEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'encoding_format',
+    'user',
+  ];
+
+  static const _openAiCompatibleEmbeddingParameters = <String>[
+    'input',
+    'model',
+  ];
+
+  static const _qwenTextEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'dimensions',
+  ];
+
+  static const _qwenMultimodalEmbeddingParameters = <String>[
+    'input',
+    'parameters.enable_fusion',
+    'parameters.dimension',
+  ];
+
+  static const _geminiEmbeddingParameters = <String>[
+    'content',
+    'taskType',
+    'title',
+    'outputDimensionality',
+  ];
+
+  static const _geminiLegacyEmbeddingParameters = <String>[
+    'content',
+    'taskType',
+    'title',
+  ];
+
+  static const _mistralEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'output_dimension',
+    'output_dtype',
+  ];
+
   static final Map<String, AiModelProfile> _exactModelProfiles =
       openRouterExactModelProfiles;
 
@@ -178,6 +230,39 @@ class AiModelCatalog {
     );
   }
 
+  static AiModelProfile _embeddingP({
+    required String name,
+    String? desc,
+    bool multimodal = false,
+    Set<AiModelModality> modalities = const <AiModelModality>{
+      AiModelModality.text,
+    },
+    int? context,
+    required int dimensions,
+    int? maxInputTokens,
+    bool customDimensions = false,
+    String? endpointPath,
+    int? batchSize,
+    bool specialBody = false,
+    List<String> supportedParameters = _openAiCompatibleEmbeddingParameters,
+  }) {
+    return _p(
+      name: name,
+      desc: desc,
+      multimodal: multimodal,
+      modalities: modalities,
+      context: context ?? maxInputTokens,
+      capabilities: _embeddingGen,
+      supportedParameters: supportedParameters,
+      embeddingDimensions: dimensions,
+      embeddingMaxInputTokens: maxInputTokens ?? context,
+      embeddingSupportsCustomDimensions: customDimensions,
+      embeddingEndpointPath: endpointPath,
+      embeddingBatchSize: batchSize,
+      embeddingRequiresSpecialBody: specialBody,
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // OpenAI
   // ═══════════════════════════════════════════════════════════════════════════
@@ -231,77 +316,50 @@ class AiModelCatalog {
 
     // ── Embedding ────────────────────────────────────────────────────────
     if (id.startsWith('text-embedding-3-large')) {
-      return _p(
+      return _embeddingP(
         name: 'text-embedding-3-large',
         desc: 'OpenAI large text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'input',
-          'model',
-          'dimensions',
-          'encoding_format',
-          'user',
-        ],
-        embeddingDimensions: 3072,
-        embeddingMaxInputTokens: 8192,
-        embeddingSupportsCustomDimensions: true,
-        embeddingBatchSize: 128,
+        dimensions: 3072,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 128,
+        supportedParameters: _openAiEmbeddingParameters,
       );
     }
     if (id.startsWith('text-embedding-3-small')) {
-      return _p(
+      return _embeddingP(
         name: 'text-embedding-3-small',
         desc: 'OpenAI compact text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'input',
-          'model',
-          'dimensions',
-          'encoding_format',
-          'user',
-        ],
-        embeddingDimensions: 1536,
-        embeddingMaxInputTokens: 8192,
-        embeddingSupportsCustomDimensions: true,
-        embeddingBatchSize: 128,
+        dimensions: 1536,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 128,
+        supportedParameters: _openAiEmbeddingParameters,
       );
     }
     if (id.startsWith('text-embedding-ada-002')) {
-      return _p(
+      return _embeddingP(
         name: 'text-embedding-ada-002',
         desc: 'OpenAI legacy text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'input',
-          'model',
-          'encoding_format',
-          'user',
-        ],
-        embeddingDimensions: 1536,
-        embeddingMaxInputTokens: 8192,
-        embeddingBatchSize: 128,
+        dimensions: 1536,
+        maxInputTokens: 8192,
+        batchSize: 128,
+        supportedParameters: _openAiLegacyEmbeddingParameters,
       );
     }
     if (id.startsWith('text-embedding-')) {
-      return _p(
+      return _embeddingP(
         name: 'OpenAI Embedding',
         desc: 'OpenAI text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'input',
-          'model',
-          'dimensions',
-          'encoding_format',
-          'user',
-        ],
-        embeddingDimensions: 1536,
-        embeddingMaxInputTokens: 8192,
-        embeddingSupportsCustomDimensions: true,
-        embeddingBatchSize: 128,
+        dimensions: 1536,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 128,
+        supportedParameters: _openAiEmbeddingParameters,
       );
     }
 
@@ -654,54 +712,41 @@ class AiModelCatalog {
   static AiModelProfile? _gemini(String id) {
     // ── Embedding ────────────────────────────────────────────────────────
     if (id.startsWith('gemini-embedding')) {
-      return _p(
+      return _embeddingP(
         name: 'Gemini Embedding',
         desc: 'Google Gemini text embedding model',
         context: 2048,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'content',
-          'taskType',
-          'title',
-          'outputDimensionality',
-        ],
-        embeddingDimensions: 3072,
-        embeddingMaxInputTokens: 2048,
-        embeddingSupportsCustomDimensions: true,
-        embeddingBatchSize: 100,
-        embeddingRequiresSpecialBody: true,
+        dimensions: 3072,
+        maxInputTokens: 2048,
+        customDimensions: true,
+        batchSize: 100,
+        specialBody: true,
+        supportedParameters: _geminiEmbeddingParameters,
       );
     }
     if (id.startsWith('text-embedding-004')) {
-      return _p(
+      return _embeddingP(
         name: 'text-embedding-004',
         desc: 'Google text embedding model',
         context: 2048,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'content',
-          'taskType',
-          'title',
-          'outputDimensionality',
-        ],
-        embeddingDimensions: 768,
-        embeddingMaxInputTokens: 2048,
-        embeddingSupportsCustomDimensions: true,
-        embeddingBatchSize: 100,
-        embeddingRequiresSpecialBody: true,
+        dimensions: 768,
+        maxInputTokens: 2048,
+        customDimensions: true,
+        batchSize: 100,
+        specialBody: true,
+        supportedParameters: _geminiEmbeddingParameters,
       );
     }
     if (id == 'embedding-001' || id.startsWith('embedding-001')) {
-      return _p(
+      return _embeddingP(
         name: 'embedding-001',
         desc: 'Google legacy text embedding model',
         context: 2048,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>['content', 'taskType', 'title'],
-        embeddingDimensions: 768,
-        embeddingMaxInputTokens: 2048,
-        embeddingBatchSize: 100,
-        embeddingRequiresSpecialBody: true,
+        dimensions: 768,
+        maxInputTokens: 2048,
+        batchSize: 100,
+        specialBody: true,
+        supportedParameters: _geminiLegacyEmbeddingParameters,
       );
     }
 
@@ -938,86 +983,76 @@ class AiModelCatalog {
 
     // ── Embedding ────────────────────────────────────────────────────────
     if (id.startsWith('text-embedding-v4')) {
-      return _p(
+      return _embeddingP(
         name: 'text-embedding-v4',
         desc: 'Qwen3 text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>['input', 'model', 'dimensions'],
-        embeddingDimensions: 1024,
-        embeddingMaxInputTokens: 8192,
-        embeddingSupportsCustomDimensions: true,
-        embeddingEndpointPath: 'compatible-mode/v1/embeddings',
-        embeddingBatchSize: 10,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        endpointPath: 'compatible-mode/v1/embeddings',
+        batchSize: 10,
+        supportedParameters: _qwenTextEmbeddingParameters,
       );
     }
     if (id.startsWith('text-embedding-v3')) {
-      return _p(
+      return _embeddingP(
         name: 'text-embedding-v3',
         desc: 'Qwen text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>['input', 'model', 'dimensions'],
-        embeddingDimensions: 1024,
-        embeddingMaxInputTokens: 8192,
-        embeddingSupportsCustomDimensions: true,
-        embeddingEndpointPath: 'compatible-mode/v1/embeddings',
-        embeddingBatchSize: 10,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        endpointPath: 'compatible-mode/v1/embeddings',
+        batchSize: 10,
+        supportedParameters: _qwenTextEmbeddingParameters,
       );
     }
     if (id.startsWith('text-embedding-')) {
-      return _p(
+      return _embeddingP(
         name: 'Qwen Text Embedding',
         desc: 'DashScope text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>['input', 'model'],
-        embeddingDimensions: 1024,
-        embeddingMaxInputTokens: 8192,
-        embeddingEndpointPath: 'compatible-mode/v1/embeddings',
-        embeddingBatchSize: 10,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        endpointPath: 'compatible-mode/v1/embeddings',
+        batchSize: 10,
       );
     }
     if (id.startsWith('qwen3-vl-embedding')) {
-      return _p(
+      return _embeddingP(
         name: 'Qwen3-VL Embedding',
         desc: 'DashScope multimodal fused embedding model',
         multimodal: true,
         modalities: _textImageVideo,
         context: 32000,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'input',
-          'parameters.enable_fusion',
-          'parameters.dimension',
-        ],
-        embeddingDimensions: 2560,
-        embeddingMaxInputTokens: 32000,
-        embeddingSupportsCustomDimensions: true,
-        embeddingEndpointPath:
+        dimensions: 2560,
+        maxInputTokens: 32000,
+        customDimensions: true,
+        endpointPath:
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
-        embeddingBatchSize: 1,
+        batchSize: 1,
+        supportedParameters: _qwenMultimodalEmbeddingParameters,
       );
     }
     if (id.startsWith('tongyi-embedding-vision-plus')) {
-      return _p(
+      return _embeddingP(
         name: 'Tongyi Embedding Vision Plus',
         desc: 'DashScope independent multimodal embedding model',
         multimodal: true,
         modalities: _textImageVideo,
         context: 1024,
-        capabilities: _embeddingGen,
-        embeddingDimensions: 1152,
-        embeddingMaxInputTokens: 1024,
-        embeddingSupportsCustomDimensions: true,
-        embeddingEndpointPath:
+        dimensions: 1152,
+        maxInputTokens: 1024,
+        customDimensions: true,
+        endpointPath:
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
-        embeddingBatchSize: 1,
+        batchSize: 1,
       );
     }
     if (id.startsWith('tongyi-embedding-vision-flash') ||
         id.startsWith('multimodal-embedding-v1')) {
-      return _p(
+      return _embeddingP(
         name: id.startsWith('tongyi-embedding-vision-flash')
             ? 'Tongyi Embedding Vision Flash'
             : 'multimodal-embedding-v1',
@@ -1025,17 +1060,12 @@ class AiModelCatalog {
         multimodal: true,
         modalities: _textImageVideo,
         context: id.startsWith('multimodal-embedding-v1') ? 512 : 1024,
-        capabilities: _embeddingGen,
-        embeddingDimensions: id.startsWith('multimodal-embedding-v1')
-            ? 1024
-            : 768,
-        embeddingMaxInputTokens: id.startsWith('multimodal-embedding-v1')
-            ? 512
-            : 1024,
-        embeddingSupportsCustomDimensions: true,
-        embeddingEndpointPath:
+        dimensions: id.startsWith('multimodal-embedding-v1') ? 1024 : 768,
+        maxInputTokens: id.startsWith('multimodal-embedding-v1') ? 512 : 1024,
+        customDimensions: true,
+        endpointPath:
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
-        embeddingBatchSize: 1,
+        batchSize: 1,
       );
     }
 
@@ -1365,29 +1395,25 @@ class AiModelCatalog {
   static AiModelProfile? _glm(String id) {
     // ── Embedding ────────────────────────────────────────────────────────
     if (id.startsWith('embedding-3')) {
-      return _p(
+      return _embeddingP(
         name: 'Embedding-3',
         desc: 'Zhipu AI text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>['input', 'model'],
-        embeddingDimensions: 1024,
-        embeddingMaxInputTokens: 8192,
-        embeddingEndpointPath: 'api/paas/v4/embeddings',
-        embeddingBatchSize: 64,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        endpointPath: 'api/paas/v4/embeddings',
+        batchSize: 64,
       );
     }
     if (id.startsWith('embedding-2') || id.startsWith('embedding')) {
-      return _p(
+      return _embeddingP(
         name: 'GLM Embedding',
         desc: 'Zhipu AI text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>['input', 'model'],
-        embeddingDimensions: 1024,
-        embeddingMaxInputTokens: 8192,
-        embeddingEndpointPath: 'api/paas/v4/embeddings',
-        embeddingBatchSize: 64,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        endpointPath: 'api/paas/v4/embeddings',
+        batchSize: 64,
       );
     }
 
@@ -1839,16 +1865,14 @@ class AiModelCatalog {
 
     // ── Embedding ────────────────────────────────────────────────────────
     if (id.contains('embedding')) {
-      return _p(
+      return _embeddingP(
         name: 'Doubao Embedding',
         desc: 'Text/multimodal embedding model',
         context: 128000,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>['input', 'model'],
-        embeddingDimensions: 2048,
-        embeddingMaxInputTokens: 128000,
-        embeddingEndpointPath: 'api/v3/embeddings',
-        embeddingBatchSize: 64,
+        dimensions: 2048,
+        maxInputTokens: 128000,
+        endpointPath: 'api/v3/embeddings',
+        batchSize: 64,
       );
     }
 
@@ -1996,39 +2020,27 @@ class AiModelCatalog {
 
   static AiModelProfile? _mistral(String id) {
     if (id.startsWith('codestral-embed')) {
-      return _p(
+      return _embeddingP(
         name: 'Codestral Embed',
         desc: 'Mistral code embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'input',
-          'model',
-          'output_dimension',
-          'output_dtype',
-        ],
-        embeddingDimensions: 1536,
-        embeddingMaxInputTokens: 8192,
-        embeddingSupportsCustomDimensions: true,
-        embeddingBatchSize: 64,
+        dimensions: 1536,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _mistralEmbeddingParameters,
       );
     }
     if (id.startsWith('mistral-embed')) {
-      return _p(
+      return _embeddingP(
         name: 'Mistral Embed',
         desc: 'Mistral text embedding model',
         context: 8192,
-        capabilities: _embeddingGen,
-        supportedParameters: const <String>[
-          'input',
-          'model',
-          'output_dimension',
-          'output_dtype',
-        ],
-        embeddingDimensions: 1024,
-        embeddingMaxInputTokens: 8192,
-        embeddingSupportsCustomDimensions: true,
-        embeddingBatchSize: 64,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _mistralEmbeddingParameters,
       );
     }
     return null;
