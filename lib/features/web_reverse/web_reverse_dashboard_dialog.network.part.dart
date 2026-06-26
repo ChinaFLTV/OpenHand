@@ -1106,77 +1106,57 @@ class _PendingFetchBanner extends StatelessWidget {
     final headersCtrl = TextEditingController(); // 一行 key:value
     final bodyCtrl = TextEditingController();
     try {
-      final result = await showAnimatedDialog<bool>(
+      final result = await showOpenHandFormDialog<bool>(
         context: context,
-        builder: (dialogContext) => buildOpenHandAlertDialog(
-          title: Text(isZh ? '修改请求后放行' : 'Modify and continue'),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: urlCtrl,
-                    decoration: const InputDecoration(labelText: 'URL'),
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
+        title: isZh ? '修改请求后放行' : 'Modify and continue',
+        submitLabel: isZh ? '放行' : 'Send',
+        cancelLabel: isZh ? '取消' : 'Cancel',
+        maxWidth: 560,
+        onSubmit: (_) => true,
+        contentBuilder: (_) => SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: urlCtrl,
+                  decoration: const InputDecoration(labelText: 'URL'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: methodCtrl,
+                  decoration: const InputDecoration(labelText: 'Method'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: headersCtrl,
+                  maxLines: 6,
+                  minLines: 3,
+                  decoration: InputDecoration(
+                    labelText: isZh
+                        ? 'Headers（每行 Key: Value，留空则保持原样）'
+                        : 'Headers (Key: Value per line; empty = keep original)',
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: methodCtrl,
-                    decoration: const InputDecoration(labelText: 'Method'),
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: bodyCtrl,
+                  maxLines: 6,
+                  minLines: 3,
+                  decoration: InputDecoration(
+                    labelText: isZh
+                        ? 'Body（留空则保持原样）'
+                        : 'Body (empty = keep original)',
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: headersCtrl,
-                    maxLines: 6,
-                    minLines: 3,
-                    decoration: InputDecoration(
-                      labelText: isZh
-                          ? 'Headers（每行 Key: Value，留空则保持原样）'
-                          : 'Headers (Key: Value per line; empty = keep original)',
-                    ),
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: bodyCtrl,
-                    maxLines: 6,
-                    minLines: 3,
-                    decoration: InputDecoration(
-                      labelText: isZh
-                          ? 'Body（留空则保持原样）'
-                          : 'Body (empty = keep original)',
-                    ),
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ],
             ),
           ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: isZh ? '取消' : 'Cancel',
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: isZh ? '放行' : 'Send',
-            ),
-          ],
         ),
       );
       if (result != true) return;

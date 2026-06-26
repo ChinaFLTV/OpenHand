@@ -2676,55 +2676,45 @@ Future<Map<String, Object?>?> _showCookieEditor(
   final domain = TextEditingController(text: '${initial['domain'] ?? ''}');
   final path = TextEditingController(text: '${initial['path'] ?? '/'}');
   try {
-    return await showAnimatedDialog<Map<String, Object?>>(
+    return await showOpenHandFormDialog<Map<String, Object?>>(
       context: context,
-      builder: (dialogContext) => buildOpenHandAlertDialog(
-        title: Text(
-          isZh ? (initial.isEmpty ? '新增 cookie' : '编辑 cookie') : 'Cookie',
+      title: isZh ? (initial.isEmpty ? '新增 cookie' : '编辑 cookie') : 'Cookie',
+      submitLabel: isZh ? '保存' : 'Save',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      maxWidth: 360,
+      onSubmit: (_) => <String, Object?>{
+        'name': name.text.trim(),
+        'value': value.text,
+        'domain': domain.text.trim(),
+        'path': path.text.trim(),
+      },
+      contentBuilder: (_) => SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: value,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Value'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: domain,
+              decoration: const InputDecoration(labelText: 'Domain'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: path,
+              decoration: const InputDecoration(labelText: 'Path'),
+            ),
+          ],
         ),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: value,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Value'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: domain,
-                decoration: const InputDecoration(labelText: 'Domain'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: path,
-                decoration: const InputDecoration(labelText: 'Path'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(<String, Object?>{
-              'name': name.text.trim(),
-              'value': value.text,
-              'domain': domain.text.trim(),
-              'path': path.text.trim(),
-            }),
-            label: isZh ? '保存' : 'Save',
-          ),
-        ],
       ),
     );
   } finally {
@@ -2981,41 +2971,31 @@ Future<({String key, String value})?> _showStorageEditor(
   final keyCtrl = TextEditingController(text: initialKey);
   final valueCtrl = TextEditingController(text: initialValue);
   try {
-    return await showAnimatedDialog<({String key, String value})>(
+    return await showOpenHandFormDialog<({String key, String value})>(
       context: context,
-      builder: (dialogContext) => buildOpenHandAlertDialog(
-        title: Text(isZh ? '存储条目' : 'Storage entry'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: keyCtrl,
-                decoration: const InputDecoration(labelText: 'Key'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: valueCtrl,
-                maxLines: 6,
-                minLines: 2,
-                decoration: const InputDecoration(labelText: 'Value'),
-              ),
-            ],
-          ),
+      title: isZh ? '存储条目' : 'Storage entry',
+      submitLabel: isZh ? '保存' : 'Save',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      maxWidth: 380,
+      onSubmit: (_) => (key: keyCtrl.text.trim(), value: valueCtrl.text),
+      contentBuilder: (_) => SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: keyCtrl,
+              decoration: const InputDecoration(labelText: 'Key'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: valueCtrl,
+              maxLines: 6,
+              minLines: 2,
+              decoration: const InputDecoration(labelText: 'Value'),
+            ),
+          ],
         ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(
-              dialogContext,
-            ).pop((key: keyCtrl.text.trim(), value: valueCtrl.text)),
-            label: isZh ? '保存' : 'Save',
-          ),
-        ],
       ),
     );
   } finally {
@@ -4251,49 +4231,39 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     final selectorCtrl = TextEditingController();
     final expectedCtrl = TextEditingController();
     try {
-      final result = await showAnimatedDialog<bool>(
+      final result = await showOpenHandFormDialog<bool>(
         context: context,
-        builder: (dialogContext) => buildOpenHandAlertDialog(
-          title: Text(
-            kind == 'assertText'
-                ? (isZh ? '断言：元素文本包含' : 'Assert: element text contains')
-                : (isZh ? '断言：元素可见' : 'Assert: element visible'),
-          ),
-          content: SizedBox(
-            width: 420,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+        title: kind == 'assertText'
+            ? (isZh ? '断言：元素文本包含' : 'Assert: element text contains')
+            : (isZh ? '断言：元素可见' : 'Assert: element visible'),
+        submitLabel: isZh ? '添加' : 'Add',
+        cancelLabel: isZh ? '取消' : 'Cancel',
+        maxWidth: 420,
+        onSubmit: (_) => true,
+        contentBuilder: (_) => SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: selectorCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: isZh ? 'CSS 选择器' : 'CSS Selector',
+                  hintText: '#login-btn / .header > h1',
+                ),
+              ),
+              if (kind == 'assertText') ...[
+                const SizedBox(height: 12),
                 TextField(
-                  controller: selectorCtrl,
-                  autofocus: true,
+                  controller: expectedCtrl,
                   decoration: InputDecoration(
-                    labelText: isZh ? 'CSS 选择器' : 'CSS Selector',
-                    hintText: '#login-btn / .header > h1',
+                    labelText: isZh ? '期望包含的文本' : 'Expected text',
                   ),
                 ),
-                if (kind == 'assertText') ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: expectedCtrl,
-                    decoration: InputDecoration(
-                      labelText: isZh ? '期望包含的文本' : 'Expected text',
-                    ),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: isZh ? '取消' : 'Cancel',
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: isZh ? '添加' : 'Add',
-            ),
-          ],
         ),
       );
       if (!mounted || result != true) return;

@@ -225,15 +225,17 @@ class _StorageDialogState extends State<_StorageDialog>
     final pathCtl = TextEditingController(text: '/');
     bool secure = false;
     bool httpOnly = false;
-    final ok = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) {
-          return buildOpenHandDialogFormShell(
-            context: ctx,
-            title: loc?.webReverseStorageAddCookie ?? 'Add Cookie',
-            maxWidth: 480,
-            content: Column(
+    try {
+      final ok = await showOpenHandFormDialog<bool>(
+        context: context,
+        title: loc?.webReverseStorageAddCookie ?? 'Add Cookie',
+        submitLabel: loc?.webReverseStorageSave ?? 'Save',
+        cancelLabel: loc?.webReverseStorageCancel ?? 'Cancel',
+        maxWidth: 480,
+        onSubmit: (_) => true,
+        contentBuilder: (_) {
+          return StatefulBuilder(
+            builder: (ctx, setS) => Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -290,49 +292,44 @@ class _StorageDialogState extends State<_StorageDialog>
                 ),
               ],
             ),
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                label: loc?.webReverseStorageCancel ?? 'Cancel',
-                onPressed: () => Navigator.of(ctx).pop(false),
-              ),
-              OpenHandDialogActionButton.primary(
-                label: loc?.webReverseStorageSave ?? 'Save',
-                onPressed: () => Navigator.of(ctx).pop(true),
-              ),
-            ],
           );
         },
-      ),
-    );
-    if (ok != true) return;
-    final name = nameCtl.text.trim();
-    if (name.isEmpty) return;
-    final success = await widget.controller.setCookie(
-      name: name,
-      value: valueCtl.text,
-      domain: domainCtl.text.trim().isEmpty ? null : domainCtl.text.trim(),
-      path: pathCtl.text.trim().isEmpty ? null : pathCtl.text.trim(),
-      secure: secure,
-      httpOnly: httpOnly,
-    );
-    if (!mounted) return;
-    final m = ScaffoldMessenger.maybeOf(context);
-    if (m != null) {
-      if (success) {
-        OpenHandSnackBar.showSuccessOn(
-          context,
-          m,
-          loc?.webReverseStorageCookieSaved ?? 'Cookie saved',
-        );
-      } else {
-        OpenHandSnackBar.showErrorOn(
-          context,
-          m,
-          loc?.webReverseStorageSaveFailed ?? 'Save failed',
-        );
+      );
+      if (ok != true) return;
+      final name = nameCtl.text.trim();
+      if (name.isEmpty) return;
+      final success = await widget.controller.setCookie(
+        name: name,
+        value: valueCtl.text,
+        domain: domainCtl.text.trim().isEmpty ? null : domainCtl.text.trim(),
+        path: pathCtl.text.trim().isEmpty ? null : pathCtl.text.trim(),
+        secure: secure,
+        httpOnly: httpOnly,
+      );
+      if (!mounted) return;
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m != null) {
+        if (success) {
+          OpenHandSnackBar.showSuccessOn(
+            context,
+            m,
+            loc?.webReverseStorageCookieSaved ?? 'Cookie saved',
+          );
+        } else {
+          OpenHandSnackBar.showErrorOn(
+            context,
+            m,
+            loc?.webReverseStorageSaveFailed ?? 'Save failed',
+          );
+        }
       }
+      await _refreshActive();
+    } finally {
+      nameCtl.dispose();
+      valueCtl.dispose();
+      domainCtl.dispose();
+      pathCtl.dispose();
     }
-    await _refreshActive();
   }
 
   Future<void> _editStorageDialog({
@@ -345,16 +342,18 @@ class _StorageDialogState extends State<_StorageDialog>
     if (origin == null) return;
     final keyCtl = TextEditingController(text: key0 ?? '');
     final valueCtl = TextEditingController(text: value0 ?? '');
-    final ok = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return buildOpenHandDialogFormShell(
-          context: ctx,
-          title: key0 == null
-              ? (loc?.webReverseStorageAddEntry ?? 'Add entry')
-              : (loc?.webReverseStorageEditEntry ?? 'Edit entry'),
-          maxWidth: 520,
-          content: Column(
+    try {
+      final ok = await showOpenHandFormDialog<bool>(
+        context: context,
+        title: key0 == null
+            ? (loc?.webReverseStorageAddEntry ?? 'Add entry')
+            : (loc?.webReverseStorageEditEntry ?? 'Edit entry'),
+        submitLabel: loc?.webReverseStorageSave ?? 'Save',
+        cancelLabel: loc?.webReverseStorageCancel ?? 'Cancel',
+        maxWidth: 520,
+        onSubmit: (_) => true,
+        contentBuilder: (_) {
+          return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -377,30 +376,23 @@ class _StorageDialogState extends State<_StorageDialog>
                 ),
               ),
             ],
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              label: loc?.webReverseStorageCancel ?? 'Cancel',
-              onPressed: () => Navigator.of(ctx).pop(false),
-            ),
-            OpenHandDialogActionButton.primary(
-              label: loc?.webReverseStorageSave ?? 'Save',
-              onPressed: () => Navigator.of(ctx).pop(true),
-            ),
-          ],
-        );
-      },
-    );
-    if (ok != true) return;
-    final key = keyCtl.text.trim();
-    if (key.isEmpty) return;
-    await widget.controller.setDomStorageItem(
-      origin: origin,
-      isLocalStorage: isLocal,
-      key: key,
-      value: valueCtl.text,
-    );
-    await _refreshActive();
+          );
+        },
+      );
+      if (ok != true) return;
+      final key = keyCtl.text.trim();
+      if (key.isEmpty) return;
+      await widget.controller.setDomStorageItem(
+        origin: origin,
+        isLocalStorage: isLocal,
+        key: key,
+        value: valueCtl.text,
+      );
+      await _refreshActive();
+    } finally {
+      keyCtl.dispose();
+      valueCtl.dispose();
+    }
   }
 
   Widget _cookiesView() {

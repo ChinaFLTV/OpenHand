@@ -482,63 +482,52 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         server.type == McpServerType.stdio && _isPackageManagerCommand(server);
     final npxPackageName = isNpxService ? _extractPackageName(server) : null;
 
-    final confirmed = await showAnimatedDialog<bool>(
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return buildOpenHandAlertDialog(
-              title: Text(l10n.mcpDeleteConfirmTitle),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${l10n.mcpDeleteConfirmBody}\n\n${server.name}'),
-                  if (isNpxService && npxPackageName != null) ...[
-                    const SizedBox(height: 16),
-                    CheckboxListTile(
-                      value: shouldCleanupDeps,
-                      onChanged: (value) {
-                        setDialogState(() {
-                          shouldCleanupDeps = value ?? false;
-                        });
-                      },
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: Text(
-                        isZh
-                            ? '同时卸载底层包 ($npxPackageName)'
-                            : 'Also uninstall package ($npxPackageName)',
-                        style: Theme.of(ctx).textTheme.bodySmall,
-                      ),
-                      subtitle: Text(
-                        isZh
-                            ? '将卸载全局包并清理隔离缓存'
-                            : 'Will uninstall global package and clean isolated cache',
-                        style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+      title: l10n.mcpDeleteConfirmTitle,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
+      destructive: true,
+      content: StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${l10n.mcpDeleteConfirmBody}\n\n${server.name}'),
+              if (isNpxService && npxPackageName != null) ...[
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  value: shouldCleanupDeps,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      shouldCleanupDeps = value ?? false;
+                    });
+                  },
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(
+                    isZh
+                        ? '同时卸载底层包 ($npxPackageName)'
+                        : 'Also uninstall package ($npxPackageName)',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                  subtitle: Text(
+                    isZh
+                        ? '将卸载全局包并清理隔离缓存'
+                        : 'Will uninstall global package and clean isolated cache',
+                    style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                     ),
-                  ],
-                ],
-              ),
-              actions: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  label: l10n.commonCancel,
-                ),
-                OpenHandDialogActionButton.destructive(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  label: l10n.commonDelete,
+                  ),
                 ),
               ],
-            );
-          },
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
 

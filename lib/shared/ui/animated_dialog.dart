@@ -384,6 +384,54 @@ Future<String?> showOpenHandTextInputDialog({
   }
 }
 
+typedef OpenHandDialogFormContentBuilder =
+    Widget Function(BuildContext dialogContext);
+typedef OpenHandDialogFormSubmit<T> = T Function(BuildContext dialogContext);
+
+Future<T?> showOpenHandFormDialog<T>({
+  required BuildContext context,
+  required String title,
+  required OpenHandDialogFormContentBuilder contentBuilder,
+  required OpenHandDialogFormSubmit<T> onSubmit,
+  required String submitLabel,
+  String? cancelLabel,
+  double? maxWidth,
+  bool destructive = false,
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+}) {
+  return showAnimatedDialog<T>(
+    context: context,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    builder: (dialogContext) => buildOpenHandDialogFormShell(
+      context: dialogContext,
+      title: title,
+      maxWidth: maxWidth,
+      content: contentBuilder(dialogContext),
+      actions: <Widget>[
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          label:
+              cancelLabel ??
+              MaterialLocalizations.of(context).cancelButtonLabel,
+        ),
+        destructive
+            ? OpenHandDialogActionButton.destructive(
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop(onSubmit(dialogContext)),
+                label: submitLabel,
+              )
+            : OpenHandDialogActionButton.primary(
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop(onSubmit(dialogContext)),
+                label: submitLabel,
+              ),
+      ],
+    ),
+  );
+}
+
 /// Shows a dialog with configurable entrance and exit animations.
 ///
 /// When [settings] is null, the animation configuration is automatically

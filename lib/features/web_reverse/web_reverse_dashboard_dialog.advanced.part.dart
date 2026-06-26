@@ -808,43 +808,35 @@ Future<void> _showExtraHeadersDialog(
   );
   final messenger = ScaffoldMessenger.of(context);
   try {
-    final ok = await showAnimatedDialog<bool>(
+    final ok = await showOpenHandFormDialog<bool>(
       context: context,
-      builder: (dialogContext) => buildOpenHandAlertDialog(
-        title: Text(isZh ? '持久注入 Headers' : 'Persistent Headers'),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isZh
-                    ? '每行一个 Key: Value；保存后所有请求自动附带，留空则清空。'
-                    : 'One header per line in `Key: Value` form; empty to clear.',
-                style: Theme.of(dialogContext).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: ctrlText,
-                maxLines: 10,
-                minLines: 5,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-              ),
-            ],
-          ),
+      title: isZh ? '持久注入 Headers' : 'Persistent Headers',
+      submitLabel: isZh ? '保存' : 'Save',
+      cancelLabel: isZh ? '取消' : 'Cancel',
+      maxWidth: 520,
+      onSubmit: (_) => true,
+      contentBuilder: (dialogContext) => SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isZh
+                  ? '每行一个 Key: Value；保存后所有请求自动附带，留空则清空。'
+                  : 'One header per line in `Key: Value` form; empty to clear.',
+              style: Theme.of(dialogContext).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ctrlText,
+              maxLines: 10,
+              minLines: 5,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+          ],
         ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: isZh ? '保存' : 'Save',
-          ),
-        ],
       ),
     );
     if (ok != true) return;
