@@ -3,9 +3,9 @@ import 'dart:io';
 
 /// Runtime types for the Web 通用消息平台 service.
 ///
-/// 这些类原先内联在 [service/web_message_platform_service.dart]，Stage 1 抽出
-/// 到独立模型文件以便 Stage 2/3 拆分基础设施时复用，同时保持 view 的公共 API
-/// 表面不变。service 仍会 re-export 这些类型，view 的现有 import 无需调整。
+/// 这些类从 [service/web_message_platform_service.dart] 抽出到独立模型文件，
+/// 供服务、控制器与视图复用。service 仍会 re-export 这些类型，view 的现有
+/// import 无需调整。
 
 /// 主题快照——发往 Web 端用于让前端配色与 OpenHand 主色保持一致。
 class WebGatewayThemeSnapshot {

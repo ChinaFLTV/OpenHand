@@ -4346,18 +4346,6 @@ abstract class AppLocalizations {
   /// **'管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。'**
   String get settingsMessageGatewayDescription;
 
-  /// No description provided for @settingsMessageGatewayComingSoon.
-  ///
-  /// In zh_Hans, this message translates to:
-  /// **'即将推出'**
-  String get settingsMessageGatewayComingSoon;
-
-  /// No description provided for @settingsMessageGatewayComingSoonSubtitle.
-  ///
-  /// In zh_Hans, this message translates to:
-  /// **'消息网关详细配置将在下一个迭代中提供。'**
-  String get settingsMessageGatewayComingSoonSubtitle;
-
   /// No description provided for @tsmRowUnknown.
   ///
   /// In zh_Hans, this message translates to:

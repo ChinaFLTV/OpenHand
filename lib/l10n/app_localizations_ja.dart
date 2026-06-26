@@ -2304,13 +2304,6 @@ class AppLocalizationsJa extends AppLocalizations {
       '内蔵 Web 汎用メッセージプラットフォームのリスナー、認証、セッション、Web チャット、ヘルスチェック、ログ、運用機能を設定します。';
 
   @override
-  String get settingsMessageGatewayComingSoon => '近日公開';
-
-  @override
-  String get settingsMessageGatewayComingSoonSubtitle =>
-      'メッセージゲートウェイの詳細設定は次のイテレーションで提供予定です。';
-
-  @override
   String get tsmRowUnknown => '不明';
 
   @override

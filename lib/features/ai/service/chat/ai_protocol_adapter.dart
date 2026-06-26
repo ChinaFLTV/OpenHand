@@ -269,11 +269,7 @@ abstract class AiProtocolAdapter {
     return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
 
-  Future<String> parseAssistantMessage(String rawResponse) {
-    throw UnimplementedError(
-      'parseAssistantMessage must be implemented by subclasses.',
-    );
-  }
+  Future<String> parseAssistantMessage(String rawResponse);
 
   String extractErrorMessage(String rawResponse) {
     final trimmed = rawResponse.trim();

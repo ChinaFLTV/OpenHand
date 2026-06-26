@@ -2394,13 +2394,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Configure the built-in Web General Message Platform, including listener, auth, sessions, web chat, health checks, logs, and operations.';
 
   @override
-  String get settingsMessageGatewayComingSoon => 'Coming soon';
-
-  @override
-  String get settingsMessageGatewayComingSoonSubtitle =>
-      'Detailed message-gateway configuration is planned for the next iteration.';
-
-  @override
   String get tsmRowUnknown => 'unknown';
 
   @override

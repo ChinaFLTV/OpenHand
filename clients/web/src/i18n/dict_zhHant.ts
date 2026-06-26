@@ -215,7 +215,6 @@ export const dict_zhHant: Record<string, string> = {
   'detail.empty': '此工作階段尚無訊息。',
   'detail.loadOlder': '載入更早 ',
   'detail.loadingOlder': '載入中…',
-  'detail.stage4Placeholder': 'Stage 4 即將上線：訊息傳送（多型別 + 串流）。',
   'message.context.kind.mode': '模式',
   'message.context.kind.attachment': '附件',
   'message.context.mode.image': '圖片生成',

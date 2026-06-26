@@ -216,7 +216,6 @@ export const dict_zh: Record<string, string> = {
   'detail.empty': '该会话尚无消息。',
   'detail.loadOlder': '加载更早 ',
   'detail.loadingOlder': '加载中…',
-  'detail.stage4Placeholder': 'Stage 4 即将上线：消息发送（多类型 + 流式）。',
   'message.context.kind.mode': '模式',
   'message.context.kind.attachment': '附件',
   'message.context.mode.image': '图片生成',

@@ -1079,8 +1079,6 @@
   "settingsThreadSessionManagementOpen": "開啟管理視窗",
   "settingsMessageGatewayTitle": "訊息閘道",
   "settingsMessageGatewayDescription": "管理內建 Web通用訊息平台的監聽、驗證、會話、Web 聊天、健康檢查、日誌與維運能力。",
-  "settingsMessageGatewayComingSoon": "即將推出",
-  "settingsMessageGatewayComingSoonSubtitle": "訊息閘道的詳細設定將於下一個迭代提供。",
   "tsmRowUnknown": "未知",
   "tsmRowCreated": "建立",
   "tsmRowUpdated": "更新",

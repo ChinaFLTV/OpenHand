@@ -2423,13 +2423,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Konfigurieren Sie die integrierte allgemeine Web-Nachrichtenplattform mit Listener, Authentifizierung, Sitzungen, Web-Chat, Integritätsprüfungen, Protokollen und Betrieb.';
 
   @override
-  String get settingsMessageGatewayComingSoon => 'Demnächst verfügbar';
-
-  @override
-  String get settingsMessageGatewayComingSoonSubtitle =>
-      'Detaillierte Konfiguration des Nachrichten-Gateways ist für die nächste Iteration geplant.';
-
-  @override
   String get tsmRowUnknown => 'unbekannt';
 
   @override

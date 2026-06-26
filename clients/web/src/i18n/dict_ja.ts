@@ -215,7 +215,6 @@ export const dict_ja: Record<string, string> = {
   'detail.empty': 'このセッションにはまだメッセージがありません。',
   'detail.loadOlder': '過去を読み込む ',
   'detail.loadingOlder': '読み込み中…',
-  'detail.stage4Placeholder': 'Stage 4 まもなく公開：メッセージ送信（多種＋ストリーミング）。',
   'message.context.kind.mode': 'モード',
   'message.context.kind.attachment': '添付',
   'message.context.mode.image': '画像生成',

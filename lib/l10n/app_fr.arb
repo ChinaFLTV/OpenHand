@@ -1079,8 +1079,6 @@
   "settingsThreadSessionManagementOpen": "Ouvrir le gestionnaire",
   "settingsMessageGatewayTitle": "Passerelle de messages",
   "settingsMessageGatewayDescription": "Configurez la plateforme Web générale de messages intégrée : écoute, authentification, sessions, chat Web, contrôles de santé, journaux et opérations.",
-  "settingsMessageGatewayComingSoon": "Bientôt disponible",
-  "settingsMessageGatewayComingSoonSubtitle": "La configuration détaillée de la passerelle de messages est prévue pour la prochaine itération.",
   "tsmRowUnknown": "inconnu",
   "tsmRowCreated": "Créé",
   "tsmRowUpdated": "Mis à jour",

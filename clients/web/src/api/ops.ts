@@ -18,7 +18,7 @@ export interface OpsRuntimeProcess {
   disk_log_bytes: number;
   platform: string;
   platform_version: string;
-  // 由后端 Stage 8 起补充：用于在面板上展示运行时身份。
+  // 后端补充的运行时身份字段，用于在面板上展示当前宿主信息。
   dart_version?: string;
   host_name?: string;
 }
@@ -63,7 +63,7 @@ export interface OpsRuntimeSnapshot {
   process: OpsRuntimeProcess;
   open_session_count: number;
   last_error: string;
-  // 扩展观测面（后端 Stage 8 起补充，老服务端缺字段时一律按 undefined 处理）。
+  // 扩展观测面；老服务端缺字段时一律按 undefined 处理。
   status_code_breakdown?: Record<string, number>;
   method_breakdown?: Record<string, number>;
   top_routes?: OpsTopRoute[];

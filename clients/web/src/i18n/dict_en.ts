@@ -217,7 +217,6 @@ export const dict_en: Record<string, string> = {
   'detail.empty': 'No messages in this session yet.',
   'detail.loadOlder': 'Load older ',
   'detail.loadingOlder': 'Loading…',
-  'detail.stage4Placeholder': 'Stage 4 coming soon: message sending (multi-type + streaming).',
   'message.context.kind.mode': 'Mode',
   'message.context.kind.attachment': 'Attachment',
   'message.context.mode.image': 'Image generation',

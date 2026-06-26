@@ -1079,8 +1079,6 @@
   "settingsThreadSessionManagementOpen": "Open Manager",
   "settingsMessageGatewayTitle": "Message Gateway",
   "settingsMessageGatewayDescription": "Configure the built-in Web General Message Platform, including listener, auth, sessions, web chat, health checks, logs, and operations.",
-  "settingsMessageGatewayComingSoon": "Coming soon",
-  "settingsMessageGatewayComingSoonSubtitle": "Detailed message-gateway configuration is planned for the next iteration.",
   "tsmRowUnknown": "unknown",
   "tsmRowCreated": "Created",
   "tsmRowUpdated": "Updated",

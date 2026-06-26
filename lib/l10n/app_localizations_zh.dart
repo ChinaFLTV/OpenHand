@@ -2276,12 +2276,6 @@ class AppLocalizationsZh extends AppLocalizations {
       '管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。';
 
   @override
-  String get settingsMessageGatewayComingSoon => '即将推出';
-
-  @override
-  String get settingsMessageGatewayComingSoonSubtitle => '消息网关详细配置将在下一个迭代中提供。';
-
-  @override
   String get tsmRowUnknown => '未知';
 
   @override
@@ -10113,12 +10107,6 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。';
 
   @override
-  String get settingsMessageGatewayComingSoon => '即将推出';
-
-  @override
-  String get settingsMessageGatewayComingSoonSubtitle => '消息网关详细配置将在下一个迭代中提供。';
-
-  @override
   String get tsmRowUnknown => '未知';
 
   @override
@@ -17947,12 +17935,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get settingsMessageGatewayDescription =>
       '管理內建 Web通用訊息平台的監聽、驗證、會話、Web 聊天、健康檢查、日誌與維運能力。';
-
-  @override
-  String get settingsMessageGatewayComingSoon => '即將推出';
-
-  @override
-  String get settingsMessageGatewayComingSoonSubtitle => '訊息閘道的詳細設定將於下一個迭代提供。';
 
   @override
   String get tsmRowUnknown => '未知';

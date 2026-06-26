@@ -2,7 +2,7 @@ import '../../app/support/app_runtime_context.dart';
 import '../../l10n/app_localizations.dart';
 
 abstract final class StructuredErrorText {
-  static const List<String> legacyAnchors = <String>[
+  static const List<String> _legacyAnchors = <String>[
     '原因 / Why:',
     '建议 / Try:',
     '服务端原文 / Server says:',
@@ -30,7 +30,7 @@ abstract final class StructuredErrorText {
         raw.contains(tryLabel()) ||
         raw.contains(serverSaysLabel()) ||
         raw.contains(rawLabel()) ||
-        legacyAnchors.any(raw.contains);
+        _legacyAnchors.any(raw.contains);
   }
 
   static String format({

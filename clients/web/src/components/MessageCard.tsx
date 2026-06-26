@@ -1436,10 +1436,10 @@ function stopNestedMessageScrollPropagation(event: Event): void {
   event.stopPropagation();
 }
 
-/// W3 优化：打开历史会话时一次性把已加载的全部 message id 标记为"已入场"。
-/// 历史消息没必要再跑 CSS 入场动画 + useLayoutEffect 高度量动画，避免长会话
-/// 首屏 N 张卡片并发 getBoundingClientRect / element.animate 撑爆主线程。
-/// 仅"新到达"的消息（流式 / SSE 推送）会继续走入场。
+// 打开历史会话时一次性把已加载的全部 message id 标记为"已入场"。
+// 历史消息没必要再跑 CSS 入场动画 + useLayoutEffect 高度量动画，避免长会话
+// 首屏 N 张卡片并发 getBoundingClientRect / element.animate 撑爆主线程。
+// 仅"新到达"的消息（流式 / SSE 推送）会继续走入场。
 export function markMessagesAsAppeared(ids: readonly string[]): void {
   for (const id of ids) {
     if (id) appearedMessageIds.add(id);

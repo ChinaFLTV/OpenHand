@@ -37,7 +37,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   bool _lspEnabled = false;
   String? _lastSentUri;
 
-  // 2026-05-24 — Stage F 深化：自动 hover + 行尾浮窗 + 跳转定义滚动。
+  // 自动 hover + 行尾浮窗 + 跳转定义滚动。
   // _hoverDebounce 在用户停留 300ms 后才触发 LSP hover，避免每个鼠标
   // 移动事件都打 server 一次。_hoverLine / _hoverColumn / _hoverMarkdown
   // 联动 _SourceHoverBubble 在行尾贴一张浮窗显示 markdown。

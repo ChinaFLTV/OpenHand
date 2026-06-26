@@ -1079,8 +1079,6 @@
   "settingsThreadSessionManagementOpen": "Verwaltung öffnen",
   "settingsMessageGatewayTitle": "Nachrichten-Gateway",
   "settingsMessageGatewayDescription": "Konfigurieren Sie die integrierte allgemeine Web-Nachrichtenplattform mit Listener, Authentifizierung, Sitzungen, Web-Chat, Integritätsprüfungen, Protokollen und Betrieb.",
-  "settingsMessageGatewayComingSoon": "Demnächst verfügbar",
-  "settingsMessageGatewayComingSoonSubtitle": "Detaillierte Konfiguration des Nachrichten-Gateways ist für die nächste Iteration geplant.",
   "tsmRowUnknown": "unbekannt",
   "tsmRowCreated": "Erstellt",
   "tsmRowUpdated": "Aktualisiert",

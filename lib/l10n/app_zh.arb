@@ -1079,8 +1079,6 @@
   "settingsThreadSessionManagementOpen": "打开管理弹窗",
   "settingsMessageGatewayTitle": "消息网关",
   "settingsMessageGatewayDescription": "管理内建 Web通用消息平台的监听、鉴权、会话、Web 聊天、健康检查、日志与运维能力。",
-  "settingsMessageGatewayComingSoon": "即将推出",
-  "settingsMessageGatewayComingSoonSubtitle": "消息网关详细配置将在下一个迭代中提供。",
   "tsmRowUnknown": "未知",
   "tsmRowCreated": "创建",
   "tsmRowUpdated": "更新",

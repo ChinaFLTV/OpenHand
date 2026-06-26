@@ -2438,13 +2438,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Configurez la plateforme Web générale de messages intégrée : écoute, authentification, sessions, chat Web, contrôles de santé, journaux et opérations.';
 
   @override
-  String get settingsMessageGatewayComingSoon => 'Bientôt disponible';
-
-  @override
-  String get settingsMessageGatewayComingSoonSubtitle =>
-      'La configuration détaillée de la passerelle de messages est prévue pour la prochaine itération.';
-
-  @override
   String get tsmRowUnknown => 'inconnu';
 
   @override

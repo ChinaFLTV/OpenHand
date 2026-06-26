@@ -91,13 +91,13 @@ const CONTENT_TOO_BIG_BYTES = 120 * 1024;
 /// 表格或代码块；打开长会话时将这类卡片推迟到空闲帧解析，能明显降低
 /// 首屏主线程尖峰，同时短消息仍保持同步渲染，避免闪烁。
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
-/// W1 流式节流：parseReady=true 后的内容变更，若增量很小且距上次 flush 不久，
-/// 短期 coalesce 到一帧。覆盖 SSE 80ms 一 tick 期间内容追加只增几字符的场景，
-/// 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。
+// 流式节流：parseReady=true 后的内容变更，若增量很小且距上次 flush 不久，
+// 短期 coalesce 到一帧。覆盖 SSE 80ms 一 tick 期间内容追加只增几字符的场景，
+// 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。
 const MARKDOWN_STREAM_FLUSH_MS = 80;
 const MARKDOWN_STREAM_FLUSH_DELTA = 64;
-/// W2 跳过 highlight：无 ``` 代码块的消息没必要把 rehype-highlight (内置
-/// highlight.js 子集) 跑一遍。大段中文/英文纯文本消息全跳过，主线程压力骤降。
+// 跳过 highlight：无 ``` 代码块的消息没必要把 rehype-highlight (内置
+// highlight.js 子集) 跑一遍。大段中文/英文纯文本消息全跳过，主线程压力骤降。
 const FENCED_CODE_RE = /(^|\n)[ \t]*```/;
 const MATH_DELIMITER_RE = /\\\(|\\\[|\$\$/;
 const FENCED_CODE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
@@ -1173,7 +1173,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     return cancel;
   }, [shouldDeferParse, content, parseReady, markdownReadyKey]);
 
-  // W1 流式节流：parseReady=true 之后的内容变更走 coalesce —— 增量较小
+  // 流式节流：parseReady=true 之后的内容变更走 coalesce —— 增量较小
   // 且距上次 flush 不到 80ms 时延迟到本批结束再 setState，避免 SSE 每 tick
   // 触发整棵 react-markdown re-parse。增量大 / 内容回退 / 距离够久立即 flush，
   // 保证视觉响应不延迟。非流式（不变更）路径完全无影响。
@@ -1211,7 +1211,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     [renderedMarkdownContent],
   );
 
-  // W2 无 ``` 代码块直接跳过 rehype-highlight，省一次 hast 遍历 + highlight.js
+  // 无 ``` 代码块直接跳过 rehype-highlight，省一次 hast 遍历 + highlight.js
   // auto-detect。中长文本（占绝大多数 AI 消息）受益最大。
   const hasFencedCode = useMemo(() => FENCED_CODE_RE.test(renderedContent), [renderedContent]);
   const hasMath = useMemo(() => MATH_DELIMITER_RE.test(markdownContent), [markdownContent]);

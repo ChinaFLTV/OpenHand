@@ -1079,8 +1079,6 @@
   "settingsThreadSessionManagementOpen": "管理画面を開く",
   "settingsMessageGatewayTitle": "メッセージゲートウェイ",
   "settingsMessageGatewayDescription": "内蔵 Web 汎用メッセージプラットフォームのリスナー、認証、セッション、Web チャット、ヘルスチェック、ログ、運用機能を設定します。",
-  "settingsMessageGatewayComingSoon": "近日公開",
-  "settingsMessageGatewayComingSoonSubtitle": "メッセージゲートウェイの詳細設定は次のイテレーションで提供予定です。",
   "tsmRowUnknown": "不明",
   "tsmRowCreated": "作成",
   "tsmRowUpdated": "更新",

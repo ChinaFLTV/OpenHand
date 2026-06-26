@@ -1,4 +1,4 @@
-// 单会话详情页：会话头 / 消息分页 / Composer 发送（Stage 4 接入）。
+// 单会话详情页：会话头、消息分页、Composer 发送、SSE 实时同步与停止控制。
 //
 // 设计要点：
 // 1. 首屏拿最新一页（tail=1, limit=INITIAL_PAGE_SIZE）；列表按 created_at 升序展示。
@@ -151,21 +151,20 @@ const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
 const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
 
-/// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
+// 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
 
-/// SSE 正常时仍保留一个低频 phase guard，专门兜底最后一次 idle 状态丢失。
+// SSE 正常时仍保留一个低频 phase guard，专门兜底最后一次 idle 状态丢失。
 const SSE_PHASE_GUARD_INTERVAL_MS = 2500;
 
-/// 单次 phase guard 请求的硬超时，避免网络层异常导致兜底轮询永久挂起。
+// 单次 phase guard 请求的硬超时，避免网络层异常导致兜底轮询永久挂起。
 const SESSION_PHASE_POLL_TIMEOUT_MS = 15_000;
 const TTS_PLAYBACK_POLL_INTERVAL_MS = 1000;
 
-/// SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
+// SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
 const SSE_FAIL_THRESHOLD = 3;
 
-/// 单条附件最大字节数（沿用 service singleMessageTokenLimit 的语义留 1 MiB 兜底）；
-/// 真正的硬上限以 service 端响应为准。
+// 单条附件最大字节数；真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
 const COMPOSER_CHIP_EXIT_MS = 190;
@@ -1598,19 +1597,19 @@ export function SessionDetailPage() {
   const [pendingFullAccess, setPendingFullAccess] = useState<boolean | null>(null);
   const [pendingWriteApproval, setPendingWriteApproval] = useState<PendingWriteApproval | null>(null);
 
-  /// 2026-05-17 — 当前会话的有效流式节流状态（来自 SSE snapshot）。用于
-  /// TopBar 节流胶囊渲染绿/灰色与字符/卡片速率。
+  // 当前会话的有效流式节流状态（来自 SSE snapshot）。用于
+  // TopBar 节流胶囊渲染绿/灰色与字符/卡片速率。
   const [streamThrottle, setStreamThrottle] = useState<{
     chars: number;
     cards: number;
     hasOverride: boolean;
     durationExpired: boolean;
-    /// 2026-05-19 — 当前生效的「启用节流」状态：会话级覆盖 > 全局。
-    /// 关闭时胶囊渲染为灰色，Dialog 中的 Switch 同步显示关闭态。
+    // 当前生效的「启用节流」状态：会话级覆盖 > 全局。
+    // 关闭时胶囊渲染为灰色，Dialog 中的 Switch 同步显示关闭态。
     enabled: boolean;
-    /// 2026-05-19 — 会话历史上是否曾节流；用于胶囊可见性兜底。
+    // 会话历史上是否曾节流；用于胶囊可见性兜底。
     wasInitiallyThrottled: boolean;
-    /// 2026-05-24 — 字符吞吐 30s 桶（桶 0 = 当前秒）。
+    // 字符吞吐 30s 桶（桶 0 = 当前秒）。
     throughputBuckets?: number[];
   } | null>(null);
   const [throttleDialogOpen, setThrottleDialogOpen] = useState(false);
@@ -2982,7 +2981,7 @@ export function SessionDetailPage() {
       .then(([d, m]) => {
         if (ctrl.signal.aborted || !ownsSessionAsyncResult(requestSessionId)) return;
         setDetail(m.session ? { ...d, session: mergeSessionSummary(d.session, m.session) } : d);
-        // W3：历史会话首批消息直接标记为已入场，绕过 CSS 入场 + 高度量动画的
+        // 历史会话首批消息直接标记为已入场，绕过 CSS 入场 + 高度量动画的
         // 并发开销；后续流式 / SSE 真正新增的消息仍会正常入场。
         markMessagesAsAppeared(m.items.map((it) => it.id));
         replaceMessageWindow([...m.items], m.offset);
@@ -3121,7 +3120,7 @@ export function SessionDetailPage() {
     const eventSessionId = sessionId;
     sseFailRef.current = 0;
     setSseLive(false);
-    // W4 SSE 指纹短路：服务端 80ms 一次推全窗口 snapshot，但很多 tick 期间
+    // SSE 指纹短路：服务端 80ms 一次推全窗口 snapshot，但很多 tick 期间
     // 内容其实没变化（idle 心跳 / 与本地相同的回放）。先用一个轻量指纹
     // (窗口内消息内容/metadata 签名 + send_phase + last_error 长度)
     // 比对，相等直接 return，省掉 applyServerMessageWindow + mergeSessionSummary
@@ -3135,8 +3134,8 @@ export function SessionDetailPage() {
       },
       onSnapshot: (snap) => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
-        // 2026-06-08 — 将 token 统计（cache_hit_ratio / cache_hit_trend_points）
-        // 纳入 fingerprint，避免会话侧仅 token 计数器变化时客户端把快照当成
+        // 将 token 统计（cache_hit_ratio / cache_hit_trend_points）纳入 fingerprint，
+        // 避免会话侧仅 token 计数器变化时客户端把快照当成
         // 重复帧丢掉，导致 Token 弹窗不实时刷新。
         const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
         const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
@@ -4431,7 +4430,7 @@ export function SessionDetailPage() {
     const lazyLoadingCapsule = mcpLazyLoadingCapsule(runtimeNotices);
     const contextBudgetLabel = contextBudgetToolbarLabel(lastPromptMetadata);
     const tokens = session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : t('topbar.tokens.empty', 'Token 暂无');
-    // 2026-06-08 — WEB 端纯只读：缓存命中率从后端 metadata 实时取得，
+    // WEB 端纯只读：缓存命中率从后端 metadata 实时取得，
     // 不做任何客户端计算。后端 _patchedStatistics + _resolveCacheHitTrend
     // 已保证任何有 cache 数据的会话都返回非零值。
     const tokenStats = recordFromUnknown(session.statistics);
@@ -4517,10 +4516,10 @@ export function SessionDetailPage() {
         onClick: () => setContextStatsOpen(true),
       });
     }
-    // 2026-05-17 — TopBar 节流指示胶囊：绿色 = 字符与卡片限速都开着；
+    // TopBar 节流指示胶囊：绿色 = 字符与卡片限速都开着；
     // 灰色 = 任一被关闭或当前生效值为 0；duration_expired 时也变灰，
     // 表示节流时长已耗尽、剩余响应正按 AI 真实速率追加。
-    // 2026-05-19 — 可见性闸：只有会话曾/正节流（hasOverride / wasInitiallyThrottled
+    // 可见性闸：只有会话曾/正节流（hasOverride / wasInitiallyThrottled
     // 或 chars+cards > 0）才显示胶囊；从未节流过的会话不放胶囊。
     if (streamThrottle) {
       const enabledOff = streamThrottle.enabled === false;
@@ -6128,7 +6127,7 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
   const totalMessageCount = readStatNumber(stats['total_message_count'], session.message_count);
   const promptBuildCount = readStatNumber(stats['prompt_build_count'], 0);
   const totalPromptCharacters = readStatNumber(stats['total_prompt_characters'], 0);
-  // 2026-06-08 — WEB 端纯只读：缓存命中率 / 走势数据均从后端 metadata
+  // WEB 端纯只读：缓存命中率 / 走势数据均从后端 metadata
   // 实时取得，不做任何客户端计算。后端 _patchedStatistics 保证不存在 stale
   // 0 值，_resolveCacheHitTrend 保证逐消息缺失时有累积统计兜底。
   const cacheHit = buildSessionCacheHitDisplay(session, stats);
@@ -6712,7 +6711,7 @@ function shouldShowSessionCacheHitMetrics({
     trendPointCount > 0;
 }
 
-// 2026-06-08 — WEB 端纯只读：所有缓存命中率元数据从后端 metadata 实时取得，
+// WEB 端纯只读：所有缓存命中率元数据从后端 metadata 实时取得，
 // 此处仅保留 usesClaudeStyleCacheMath（用于 TopBar 分母展示，不参与计算）和
 // TrendPoint 接口（走势图渲染）。
 
@@ -7572,15 +7571,14 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
   );
 }
 
-/// 「会话级节流」弹窗。
-///
-/// 覆盖写入会话 metadata，重启后仍保留；用户可分别为字符 / 卡片速率指定
-/// 0..上限内的整数；留空 = 沿用全局值；0 = 该方向关闭节流并展示禁
-/// 用提示。"恢复默认"清除全部覆盖。
-///
-/// 2026-05-24 — UI 1:1 对齐 App 端：弹窗顶部贴 30s 字符吞吐柱状图（桶 0
-/// = 当前秒，超阈值红、当前秒高亮），底部三按钮居中。后端 SSE snapshot
-/// 已带 throughput_buckets，组件每次 props 变更直接拿 buckets 重绘。
+// 「会话级节流」弹窗。
+//
+// 覆盖写入会话 metadata，重启后仍保留；用户可分别为字符 / 卡片速率指定
+// 0..上限内的整数；留空 = 沿用全局值；0 = 该方向关闭节流并展示禁
+// 用提示。"恢复默认"清除全部覆盖。
+//
+// 弹窗顶部贴 30s 字符吞吐柱状图（桶 0 = 当前秒，超阈值红、当前秒高亮）；
+// 后端 SSE snapshot 已带 throughput_buckets，组件每次 props 变更直接拿 buckets 重绘。
 function SessionThrottleDialog({
   sessionId,
   current,
@@ -7602,7 +7600,7 @@ function SessionThrottleDialog({
   const initialCards = current?.hasOverride ? String(current.cards) : '';
   const [chars, setChars] = useState(initialChars);
   const [cards, setCards] = useState(initialCards);
-  // 2026-05-19 — 会话级启用开关：undefined = 沿用全局；true/false = 强制
+  // 会话级启用开关：undefined = 沿用全局；true/false = 强制
   // 覆盖。Switch 切换会立即 PUT，让流式响应在下一帧就感受到差异。
   const [enabledOverride, setEnabledOverride] = useState<boolean>(current?.enabled !== false);
   const [busy, setBusy] = useState(false);
@@ -7665,7 +7663,7 @@ function SessionThrottleDialog({
   };
 
   const buckets = current?.throughputBuckets ?? [];
-  // 2026-05-19 — 本地墙钟自滑动：SSE 仅在控制器 notifyListeners 时推快照，
+  // 本地墙钟自滑动：SSE 仅在控制器 notifyListeners 时推快照，
   // 模型沉默期间柱状图会僵在 0/s。这里每秒 tick 一次，按 (now-lastUpdate)
   // 把 buckets 整体左移，前端永远能看到「秒级别更新」的吞吐曲线。
   const lastUpdateRef = useRef<number>(Date.now());
@@ -7743,7 +7741,7 @@ function SessionThrottleDialog({
         </div>
         <ThroughputBars samples={displayedBuckets} cap={cap} limitValue={current?.chars ?? 0} />
       </div>
-      {/* 2026-05-19 — 会话级启用节流开关：切换会立即 PUT，让正在输出
+      {/* 会话级启用节流开关：切换会立即 PUT，让正在输出
             的响应消息一帧内感受到差异；关闭后 TopBar 胶囊会变灰展示
             「节流·关」，但只要会话历史曾节流过，胶囊就不会消失。 */}
       <div
@@ -7881,12 +7879,10 @@ function SessionThrottleDialog({
   );
 }
 
-/// 30 秒字符吞吐曲线图。bucket 0 = 当前秒（最右），越往左越旧。
-///
-/// 2026-05-24 — RAF 平滑（SSE 每秒推一次新桶，先把每根 sample 从旧值
-/// easeOutCubic 滑到新值）。2026-05-25 — 柱状改为 SVG 平滑曲线
-/// （Catmull-Rom → 三次贝塞尔），并新增双指捏合 / Ctrl+滚轮放缩时间区间
-/// （_zoom 1×–4×，区间始终 anchored on now）。
+// 30 秒字符吞吐曲线图。bucket 0 = 当前秒（最右），越往左越旧。
+//
+// SSE 每秒推一次新桶，先把每根 sample 从旧值 easeOutCubic 滑到新值。
+// SVG 曲线使用 Catmull-Rom → 三次贝塞尔，并支持双指捏合 / Ctrl+滚轮放缩时间区间。
 const THROTTLE_CHART_VIEWBOX_WIDTH = 100;
 const THROTTLE_CHART_VIEWBOX_HEIGHT = 64;
 const THROTTLE_CHART_PAD_X = 4;
