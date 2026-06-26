@@ -355,336 +355,307 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.animation_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseAnimationsTitle ?? 'Animations',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseAnimationsSubtitle ??
-                              'CDP Animation.setPlaybackRate + document.getAnimations() snapshot',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _rows.isEmpty ? null : _copyJson,
-                    icon: const Icon(Icons.copy_rounded),
-                    tooltip: loc?.webReverseAnimationsCopyJson ?? 'Copy JSON',
-                  ),
-                  IconButton(
-                    onPressed: _busy ? null : _refresh,
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: loc?.webReverseAnimationsRefresh ?? 'Refresh',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 880,
+      maxHeight: 760,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.animation_rounded,
+            title: loc?.webReverseAnimationsTitle ?? 'Animations',
+            subtitle:
+                loc?.webReverseAnimationsSubtitle ??
+                'CDP Animation.setPlaybackRate + document.getAnimations() snapshot',
+            actions: [
+              IconButton(
+                onPressed: _rows.isEmpty ? null : _copyJson,
+                icon: const Icon(Icons.copy_rounded),
+                tooltip: loc?.webReverseAnimationsCopyJson ?? 'Copy JSON',
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Row(
-                children: [
-                  Text(
-                    loc?.webReverseAnimationsGlobalRate ?? 'Global rate',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '${_playbackRate.toStringAsFixed(2)}x',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: cs.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  for (final preset in const <double>[0, 0.1, 0.25, 0.5, 1, 2])
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: OutlinedButton(
-                        onPressed: _busy
-                            ? null
-                            : () => _setPlaybackRate(preset),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(46, 30),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          backgroundColor: (_playbackRate - preset).abs() < 1e-3
-                              ? cs.primaryContainer
-                              : null,
-                        ),
-                        child: Text(
-                          preset == 0
-                              ? (loc?.webReverseAnimationsPauseSymbol ??
-                                    'Pause')
-                              : '${preset}x',
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+              IconButton(
+                onPressed: _busy ? null : _refresh,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: loc?.webReverseAnimationsRefresh ?? 'Refresh',
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-              child: Slider(
-                value: _playbackRate.clamp(0.0, 2.0),
-                max: 2.0,
-                divisions: 40,
-                label: '${_playbackRate.toStringAsFixed(2)}x',
-                onChanged: _busy
-                    ? null
-                    : (v) => setState(() => _playbackRate = v),
-                onChangeEnd: _busy ? null : (v) => _setPlaybackRate(v),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  TextButton.icon(
-                    onPressed: _busy ? null : () => _bulkCommand('pause'),
-                    icon: const Icon(Icons.pause_rounded, size: 16),
-                    label: Text(
-                      loc?.webReverseAnimationsBulkPause ?? 'Pause all',
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _busy ? null : () => _bulkCommand('play'),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                    label: Text(
-                      loc?.webReverseAnimationsBulkResume ?? 'Resume all',
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _busy ? null : () => _bulkCommand('cancel'),
-                    icon: const Icon(Icons.stop_circle_outlined, size: 16),
-                    label: Text(
-                      loc?.webReverseAnimationsBulkCancel ?? 'Cancel all',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_busy) const LinearProgressIndicator(minHeight: 3),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.surfaceContainerHigh,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Row(
+              children: [
+                Text(
+                  loc?.webReverseAnimationsGlobalRate ?? 'Global rate',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-            Expanded(
-              child: _rows.isEmpty
-                  ? Center(
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${_playbackRate.toStringAsFixed(2)}x',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                for (final preset in const <double>[0, 0.1, 0.25, 0.5, 1, 2])
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: OutlinedButton(
+                      onPressed: _busy ? null : () => _setPlaybackRate(preset),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(46, 30),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        backgroundColor: (_playbackRate - preset).abs() < 1e-3
+                            ? cs.primaryContainer
+                            : null,
+                      ),
                       child: Text(
-                        loc?.webReverseAnimationsEmptyState ??
-                            'No active animations. Trigger one and refresh.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                        preset == 0
+                            ? (loc?.webReverseAnimationsPauseSymbol ?? 'Pause')
+                            : '${preset}x',
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
                         ),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                      itemCount: _rows.length,
-                      itemBuilder: (_, i) {
-                        final r = _rows[i];
-                        final pct = r.duration <= 0
-                            ? 0.0
-                            : ((r.currentTime % r.duration) / r.duration).clamp(
-                                0.0,
-                                1.0,
-                              );
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: cs.outlineVariant),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Slider(
+              value: _playbackRate.clamp(0.0, 2.0),
+              max: 2.0,
+              divisions: 40,
+              label: '${_playbackRate.toStringAsFixed(2)}x',
+              onChanged: _busy
+                  ? null
+                  : (v) => setState(() => _playbackRate = v),
+              onChangeEnd: _busy ? null : (v) => _setPlaybackRate(v),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                TextButton.icon(
+                  onPressed: _busy ? null : () => _bulkCommand('pause'),
+                  icon: const Icon(Icons.pause_rounded, size: 16),
+                  label: Text(
+                    loc?.webReverseAnimationsBulkPause ?? 'Pause all',
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : () => _bulkCommand('play'),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                  label: Text(
+                    loc?.webReverseAnimationsBulkResume ?? 'Resume all',
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : () => _bulkCommand('cancel'),
+                  icon: const Icon(Icons.stop_circle_outlined, size: 16),
+                  label: Text(
+                    loc?.webReverseAnimationsBulkCancel ?? 'Cancel all',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: cs.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          Expanded(
+            child: _rows.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseAnimationsEmptyState ??
+                          'No active animations. Trigger one and refresh.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    itemCount: _rows.length,
+                    itemBuilder: (_, i) {
+                      final r = _rows[i];
+                      final pct = r.duration <= 0
+                          ? 0.0
+                          : ((r.currentTime % r.duration) / r.duration).clamp(
+                              0.0,
+                              1.0,
+                            );
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: r.playState == 'running'
+                                        ? cs.primaryContainer
+                                        : r.playState == 'paused'
+                                        ? cs.tertiaryContainer
+                                        : cs.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    r.playState,
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
                                       color: r.playState == 'running'
-                                          ? cs.primaryContainer
+                                          ? cs.onPrimaryContainer
                                           : r.playState == 'paused'
-                                          ? cs.tertiaryContainer
-                                          : cs.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      r.playState,
-                                      style: TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: r.playState == 'running'
-                                            ? cs.onPrimaryContainer
-                                            : r.playState == 'paused'
-                                            ? cs.onTertiaryContainer
-                                            : cs.onSurfaceVariant,
-                                      ),
+                                          ? cs.onTertiaryContainer
+                                          : cs.onSurfaceVariant,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: SelectableText(
-                                      r.animationName.isNotEmpty
-                                          ? r.animationName
-                                          : (r.id.isNotEmpty
-                                                ? r.id
-                                                : '<anonymous>'),
-                                      maxLines: 1,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    tooltip:
-                                        loc?.webReverseAnimationsRowPause ??
-                                        'Pause',
-                                    icon: const Icon(
-                                      Icons.pause_rounded,
-                                      size: 16,
-                                    ),
-                                    onPressed: _busy
-                                        ? null
-                                        : () => _rowCommand(r.handle, 'pause'),
-                                  ),
-                                  IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    tooltip:
-                                        loc?.webReverseAnimationsRowPlay ??
-                                        'Play',
-                                    icon: const Icon(
-                                      Icons.play_arrow_rounded,
-                                      size: 16,
-                                    ),
-                                    onPressed: _busy
-                                        ? null
-                                        : () => _rowCommand(r.handle, 'play'),
-                                  ),
-                                  IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    tooltip:
-                                        loc?.webReverseAnimationsRowCancel ??
-                                        'Cancel',
-                                    icon: const Icon(
-                                      Icons.cancel_outlined,
-                                      size: 16,
-                                    ),
-                                    onPressed: _busy
-                                        ? null
-                                        : () => _rowCommand(r.handle, 'cancel'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(3),
-                                child: LinearProgressIndicator(
-                                  value: pct,
-                                  minHeight: 5,
-                                  backgroundColor: cs.surfaceContainerHighest,
                                 ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: SelectableText(
+                                    r.animationName.isNotEmpty
+                                        ? r.animationName
+                                        : (r.id.isNotEmpty
+                                              ? r.id
+                                              : '<anonymous>'),
+                                    maxLines: 1,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip:
+                                      loc?.webReverseAnimationsRowPause ??
+                                      'Pause',
+                                  icon: const Icon(
+                                    Icons.pause_rounded,
+                                    size: 16,
+                                  ),
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _rowCommand(r.handle, 'pause'),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip:
+                                      loc?.webReverseAnimationsRowPlay ??
+                                      'Play',
+                                  icon: const Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 16,
+                                  ),
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _rowCommand(r.handle, 'play'),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip:
+                                      loc?.webReverseAnimationsRowCancel ??
+                                      'Cancel',
+                                  icon: const Icon(
+                                    Icons.cancel_outlined,
+                                    size: 16,
+                                  ),
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _rowCommand(r.handle, 'cancel'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: LinearProgressIndicator(
+                                value: pct,
+                                minHeight: 5,
+                                backgroundColor: cs.surfaceContainerHighest,
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${r.currentTime.toStringAsFixed(0)} / ${r.duration.toStringAsFixed(0)} ms · rate ${r.playbackRate.toStringAsFixed(2)} · iter ${r.iterations.isInfinite ? '∞' : r.iterations.toStringAsFixed(0)}',
-                                style: theme.textTheme.labelSmall?.copyWith(
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${r.currentTime.toStringAsFixed(0)} / ${r.duration.toStringAsFixed(0)} ms · rate ${r.playbackRate.toStringAsFixed(2)} · iter ${r.iterations.isInfinite ? '∞' : r.iterations.toStringAsFixed(0)}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                            if (r.targetSelector.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              SelectableText(
+                                r.targetSelector,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 10.5,
                                   color: cs.onSurfaceVariant,
                                 ),
                               ),
-                              if (r.targetSelector.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                SelectableText(
-                                  r.targetSelector,
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 10.5,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
                             ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseAnimationsClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: loc?.webReverseAnimationsClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

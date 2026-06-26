@@ -352,286 +352,255 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
     final selected = _graphs.where((g) => g.url == _selectedUrl).firstOrNull;
     final callerHits = _findCallers(_searchCtrl.text);
 
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 1200,
+      maxHeight: 800,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.account_tree_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.account_tree_rounded,
+            title: loc?.webReverseCallgraphTitle ?? 'JS Callgraph',
+            subtitle:
+                loc?.webReverseCallgraphSubtitle ??
+                'Heuristic regex parsing (noisy for minified bundles)',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            child: Row(
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: _scanning ? null : _scan,
+                  icon: _scanning
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(loc?.webReverseCallgraphScanBtn ?? 'Scan'),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
+                  style: theme.textTheme.labelSmall,
+                ),
+                const SizedBox(width: 6),
+                WebReverseSelectButton<int>(
+                  value: _scriptLimit,
+                  dense: true,
+                  minWidth: 64,
+                  tooltip:
+                      loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
+                  options: const [
+                    WebReverseSelectOption(value: 10, label: '10'),
+                    WebReverseSelectOption(value: 20, label: '20'),
+                    WebReverseSelectOption(value: 30, label: '30'),
+                    WebReverseSelectOption(value: 50, label: '50'),
+                  ],
+                  onChanged: _scanning
+                      ? null
+                      : (v) => setState(() => _scriptLimit = v),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  loc?.webReverseCallgraphPerScriptKb ?? 'Per script (KB)',
+                  style: theme.textTheme.labelSmall,
+                ),
+                const SizedBox(width: 6),
+                WebReverseSelectButton<int>(
+                  value: _maxScriptKb,
+                  dense: true,
+                  minWidth: 72,
+                  tooltip:
+                      loc?.webReverseCallgraphPerScriptKb ?? 'Per script (KB)',
+                  options: const [
+                    WebReverseSelectOption(value: 100, label: '100'),
+                    WebReverseSelectOption(value: 200, label: '200'),
+                    WebReverseSelectOption(value: 400, label: '400'),
+                    WebReverseSelectOption(value: 800, label: '800'),
+                  ],
+                  onChanged: _scanning
+                      ? null
+                      : (v) => setState(() => _maxScriptKb = v),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    _status,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                hintText:
+                    loc?.webReverseCallgraphReverseHint ??
+                    'Reverse lookup: who calls …',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: _graphs.isEmpty
+                  ? Center(
+                      child: Text(
+                        loc?.webReverseCallgraphEmptyHint ??
+                            'Click Scan to parse current page JS',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : Row(
                       children: [
-                        Text(
-                          loc?.webReverseCallgraphTitle ?? 'JS Callgraph',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                        SizedBox(
+                          width: 340,
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    loc?.webReverseCallgraphScriptsCount(
+                                          _graphs.length,
+                                        ) ??
+                                        'Scripts (${_graphs.length})',
+                                    style: theme.textTheme.labelMedium
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                              ),
+                              Divider(height: 1, color: cs.outlineVariant),
+                              Expanded(
+                                child: ListView.separated(
+                                  itemCount: _graphs.length,
+                                  separatorBuilder: (_, _) => Divider(
+                                    height: 1,
+                                    color: cs.outlineVariant,
+                                  ),
+                                  itemBuilder: (_, i) {
+                                    final g = _graphs[i];
+                                    final isSel = g.url == _selectedUrl;
+                                    return Material(
+                                      color: isSel
+                                          ? cs.primaryContainer.withValues(
+                                              alpha: 0.5,
+                                            )
+                                          : Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () => setState(
+                                          () => _selectedUrl = g.url,
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                _shortUrl(g.url),
+                                                style: const TextStyle(
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${g.functions.length} ${loc?.webReverseCallgraphFnsSuffix ?? 'fns'}',
+                                                style: theme
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color:
+                                                          cs.onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          loc?.webReverseCallgraphSubtitle ??
-                              'Heuristic regex parsing (noisy for minified bundles)',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                        VerticalDivider(width: 1, color: cs.outlineVariant),
+                        Expanded(
+                          child: callerHits.isNotEmpty
+                              ? _buildCallerHits(
+                                  theme,
+                                  cs,
+                                  callerHits,
+                                  messenger,
+                                  loc,
+                                )
+                              : selected == null
+                              ? Center(
+                                  child: Text(
+                                    loc?.webReverseCallgraphPickScript ??
+                                        'Pick a script',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                              : _buildScriptDetail(
+                                  theme,
+                                  cs,
+                                  selected,
+                                  messenger,
+                                  loc,
+                                ),
                         ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: Row(
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _scanning ? null : _scan,
-                    icon: _scanning
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: Text(loc?.webReverseCallgraphScanBtn ?? 'Scan'),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
-                    style: theme.textTheme.labelSmall,
-                  ),
-                  const SizedBox(width: 6),
-                  WebReverseSelectButton<int>(
-                    value: _scriptLimit,
-                    dense: true,
-                    minWidth: 64,
-                    tooltip:
-                        loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
-                    options: const [
-                      WebReverseSelectOption(value: 10, label: '10'),
-                      WebReverseSelectOption(value: 20, label: '20'),
-                      WebReverseSelectOption(value: 30, label: '30'),
-                      WebReverseSelectOption(value: 50, label: '50'),
-                    ],
-                    onChanged: _scanning
-                        ? null
-                        : (v) => setState(() => _scriptLimit = v),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    loc?.webReverseCallgraphPerScriptKb ?? 'Per script (KB)',
-                    style: theme.textTheme.labelSmall,
-                  ),
-                  const SizedBox(width: 6),
-                  WebReverseSelectButton<int>(
-                    value: _maxScriptKb,
-                    dense: true,
-                    minWidth: 72,
-                    tooltip:
-                        loc?.webReverseCallgraphPerScriptKb ??
-                        'Per script (KB)',
-                    options: const [
-                      WebReverseSelectOption(value: 100, label: '100'),
-                      WebReverseSelectOption(value: 200, label: '200'),
-                      WebReverseSelectOption(value: 400, label: '400'),
-                      WebReverseSelectOption(value: 800, label: '800'),
-                    ],
-                    onChanged: _scanning
-                        ? null
-                        : (v) => setState(() => _maxScriptKb = v),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      _status,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                  hintText:
-                      loc?.webReverseCallgraphReverseHint ??
-                      'Reverse lookup: who calls …',
-                  border: const OutlineInputBorder(),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseCallgraphClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ),
+              ],
             ),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
-                child: _graphs.isEmpty
-                    ? Center(
-                        child: Text(
-                          loc?.webReverseCallgraphEmptyHint ??
-                              'Click Scan to parse current page JS',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : Row(
-                        children: [
-                          SizedBox(
-                            width: 340,
-                            child: Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      loc?.webReverseCallgraphScriptsCount(
-                                            _graphs.length,
-                                          ) ??
-                                          'Scripts (${_graphs.length})',
-                                      style: theme.textTheme.labelMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                                Divider(height: 1, color: cs.outlineVariant),
-                                Expanded(
-                                  child: ListView.separated(
-                                    itemCount: _graphs.length,
-                                    separatorBuilder: (_, _) => Divider(
-                                      height: 1,
-                                      color: cs.outlineVariant,
-                                    ),
-                                    itemBuilder: (_, i) {
-                                      final g = _graphs[i];
-                                      final isSel = g.url == _selectedUrl;
-                                      return Material(
-                                        color: isSel
-                                            ? cs.primaryContainer.withValues(
-                                                alpha: 0.5,
-                                              )
-                                            : Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () => setState(
-                                            () => _selectedUrl = g.url,
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 8,
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  _shortUrl(g.url),
-                                                  style: const TextStyle(
-                                                    fontFamily: 'monospace',
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  '${g.functions.length} ${loc?.webReverseCallgraphFnsSuffix ?? 'fns'}',
-                                                  style: theme
-                                                      .textTheme
-                                                      .labelSmall
-                                                      ?.copyWith(
-                                                        color:
-                                                            cs.onSurfaceVariant,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          VerticalDivider(width: 1, color: cs.outlineVariant),
-                          Expanded(
-                            child: callerHits.isNotEmpty
-                                ? _buildCallerHits(
-                                    theme,
-                                    cs,
-                                    callerHits,
-                                    messenger,
-                                    loc,
-                                  )
-                                : selected == null
-                                ? Center(
-                                    child: Text(
-                                      loc?.webReverseCallgraphPickScript ??
-                                          'Pick a script',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: cs.onSurfaceVariant,
-                                          ),
-                                    ),
-                                  )
-                                : _buildScriptDetail(
-                                    theme,
-                                    cs,
-                                    selected,
-                                    messenger,
-                                    loc,
-                                  ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseCallgraphClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

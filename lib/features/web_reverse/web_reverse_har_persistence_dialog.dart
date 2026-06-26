@@ -326,324 +326,291 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         remaining = '0s';
       }
     }
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 760,
+      maxHeight: 780,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 780),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.save_as_rounded,
+            title: loc?.webReverseHarTitle ?? 'HAR Persistence',
+            subtitle:
+                loc?.webReverseHarSubtitle ??
+                'Save now / Load back / Periodic rotation',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.save_as_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: cs.outlineVariant),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          loc?.webReverseHarTitle ?? 'HAR Persistence',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                          loc?.webReverseHarSessionStatus ?? 'Session status',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                        const SizedBox(height: 6),
                         Text(
-                          loc?.webReverseHarSubtitle ??
-                              'Save now / Load back / Periodic rotation',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                          loc?.webReverseHarCapturedEntries(entryCount) ??
+                              'Captured entries: $entryCount',
+                          style: theme.textTheme.bodySmall,
                         ),
+                        if (lastHar != null && lastHar.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              (loc?.webReverseHarLastHarPrefix ??
+                                      'Last HAR: ') +
+                                  lastHar,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc?.webReverseHarManual ?? 'Manual',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: _busy ? null : _saveNow,
+                        icon: _busy
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.download_rounded, size: 18),
+                        label: Text(
+                          loc?.webReverseHarSaveNow ?? 'Save HAR now',
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _loadHar,
+                        icon: const Icon(Icons.upload_file_rounded, size: 18),
+                        label: Text(
+                          loc?.webReverseHarLoadExternal ?? 'Load external HAR',
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Checkbox(
+                            value: _mergeOnLoad,
+                            onChanged: (v) =>
+                                setState(() => _mergeOnLoad = v ?? false),
+                          ),
+                          Text(
+                            loc?.webReverseHarMergeLabel ?? 'Merge (no clear)',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    loc?.webReverseHarAutoRotate ?? 'Auto-rotate',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(loc?.webReverseHarIntervalLabel ?? 'Interval:'),
+                      const SizedBox(width: 8),
+                      WebReverseSelectButton<Duration>(
+                        value: _interval,
+                        dense: true,
+                        minWidth: 96,
+                        tooltip: loc?.webReverseHarIntervalLabel ?? 'Interval',
+                        onChanged: running
+                            ? null
+                            : (v) => setState(() => _interval = v),
+                        options: const [
+                          WebReverseSelectOption(
+                            value: Duration(minutes: 5),
+                            label: '5 min',
+                          ),
+                          WebReverseSelectOption(
+                            value: Duration(minutes: 15),
+                            label: '15 min',
+                          ),
+                          WebReverseSelectOption(
+                            value: Duration(minutes: 30),
+                            label: '30 min',
+                          ),
+                          WebReverseSelectOption(
+                            value: Duration(minutes: 60),
+                            label: '60 min',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: running ? null : _pickFolder,
+                        icon: const Icon(Icons.folder_rounded, size: 18),
+                        label: Text(
+                          loc?.webReverseHarChooseFolder ?? 'Choose folder',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _folder ??
+                              (loc?.webReverseHarFolderNotChosen ??
+                                  '(not chosen)'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: cs.onSurfaceVariant,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      if (!running)
+                        FilledButton.icon(
+                          onPressed: _startAutoRotate,
+                          icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                          label: Text(loc?.webReverseHarStart ?? 'Start'),
+                        )
+                      else
+                        FilledButton.icon(
+                          onPressed: _stopAutoRotate,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: cs.errorContainer,
+                            foregroundColor: cs.onErrorContainer,
+                          ),
+                          icon: const Icon(Icons.stop_rounded, size: 18),
+                          label: Text(loc?.webReverseHarStop ?? 'Stop'),
+                        ),
+                    ],
+                  ),
+                  if (running) ...[
+                    const SizedBox(height: 12),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(10),
+                        color: cs.primaryContainer.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: cs.outlineVariant),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            loc?.webReverseHarSessionStatus ?? 'Session status',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            loc?.webReverseHarCapturedEntries(entryCount) ??
-                                'Captured entries: $entryCount',
+                            loc?.webReverseHarRunningInfo(
+                                  _autoRotate.rotations,
+                                  remaining,
+                                ) ??
+                                'Running · ${_autoRotate.rotations} rotations · next in $remaining',
                             style: theme.textTheme.bodySmall,
                           ),
-                          if (lastHar != null && lastHar.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                (loc?.webReverseHarLastHarPrefix ??
-                                        'Last HAR: ') +
-                                    lastHar,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
-                                  color: cs.onSurfaceVariant,
-                                ),
+                          if (_autoRotate.lastFile != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              (loc?.webReverseHarLastFilePrefix ?? 'Last: ') +
+                                  _autoRotate.lastFile!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                color: cs.onSurfaceVariant,
                               ),
                             ),
+                          ],
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      loc?.webReverseHarManual ?? 'Manual',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                  ],
+                  if (_status.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: cs.outlineVariant),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        FilledButton.tonalIcon(
-                          onPressed: _busy ? null : _saveNow,
-                          icon: _busy
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.download_rounded, size: 18),
-                          label: Text(
-                            loc?.webReverseHarSaveNow ?? 'Save HAR now',
-                          ),
+                      child: Text(
+                        _status,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
                         ),
-                        OutlinedButton.icon(
-                          onPressed: _busy ? null : _loadHar,
-                          icon: const Icon(Icons.upload_file_rounded, size: 18),
-                          label: Text(
-                            loc?.webReverseHarLoadExternal ??
-                                'Load external HAR',
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Checkbox(
-                              value: _mergeOnLoad,
-                              onChanged: (v) =>
-                                  setState(() => _mergeOnLoad = v ?? false),
-                            ),
-                            Text(
-                              loc?.webReverseHarMergeLabel ??
-                                  'Merge (no clear)',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      loc?.webReverseHarAutoRotate ?? 'Auto-rotate',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(loc?.webReverseHarIntervalLabel ?? 'Interval:'),
-                        const SizedBox(width: 8),
-                        WebReverseSelectButton<Duration>(
-                          value: _interval,
-                          dense: true,
-                          minWidth: 96,
-                          tooltip:
-                              loc?.webReverseHarIntervalLabel ?? 'Interval',
-                          onChanged: running
-                              ? null
-                              : (v) => setState(() => _interval = v),
-                          options: const [
-                            WebReverseSelectOption(
-                              value: Duration(minutes: 5),
-                              label: '5 min',
-                            ),
-                            WebReverseSelectOption(
-                              value: Duration(minutes: 15),
-                              label: '15 min',
-                            ),
-                            WebReverseSelectOption(
-                              value: Duration(minutes: 30),
-                              label: '30 min',
-                            ),
-                            WebReverseSelectOption(
-                              value: Duration(minutes: 60),
-                              label: '60 min',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: running ? null : _pickFolder,
-                          icon: const Icon(Icons.folder_rounded, size: 18),
-                          label: Text(
-                            loc?.webReverseHarChooseFolder ?? 'Choose folder',
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _folder ??
-                                (loc?.webReverseHarFolderNotChosen ??
-                                    '(not chosen)'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
-                              color: cs.onSurfaceVariant,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        if (!running)
-                          FilledButton.icon(
-                            onPressed: _startAutoRotate,
-                            icon: const Icon(
-                              Icons.play_arrow_rounded,
-                              size: 18,
-                            ),
-                            label: Text(loc?.webReverseHarStart ?? 'Start'),
-                          )
-                        else
-                          FilledButton.icon(
-                            onPressed: _stopAutoRotate,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: cs.errorContainer,
-                              foregroundColor: cs.onErrorContainer,
-                            ),
-                            icon: const Icon(Icons.stop_rounded, size: 18),
-                            label: Text(loc?.webReverseHarStop ?? 'Stop'),
-                          ),
-                      ],
-                    ),
-                    if (running) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.primaryContainer.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              loc?.webReverseHarRunningInfo(
-                                    _autoRotate.rotations,
-                                    remaining,
-                                  ) ??
-                                  'Running · ${_autoRotate.rotations} rotations · next in $remaining',
-                              style: theme.textTheme.bodySmall,
-                            ),
-                            if (_autoRotate.lastFile != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                (loc?.webReverseHarLastFilePrefix ?? 'Last: ') +
-                                    _autoRotate.lastFile!,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFamily: 'monospace',
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (_status.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
-                        child: Text(
-                          _status,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Text(
-                      loc?.webReverseHarNotes ?? 'Notes',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      loc?.webReverseHarNotesBody ??
-                          '· Save now: copy internal HAR draft to chosen .har path.\n'
-                              '· Load external HAR: parse HAR 1.2 and write back to networkRequests; merge optional.\n'
-                              '· Auto-rotate: writes current snapshot to folder with ISO-timestamped .har every N minutes; survives dialog close — stop manually.',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseHarClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc?.webReverseHarNotes ?? 'Notes',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    loc?.webReverseHarNotesBody ??
+                        '· Save now: copy internal HAR draft to chosen .har path.\n'
+                            '· Load external HAR: parse HAR 1.2 and write back to networkRequests; merge optional.\n'
+                            '· Auto-rotate: writes current snapshot to folder with ISO-timestamped .har every N minutes; survives dialog close — stop manually.',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseHarClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

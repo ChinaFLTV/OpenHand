@@ -695,90 +695,72 @@ class _AdvancedMenuDialog extends StatelessWidget {
         },
       ),
     ];
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 560,
+      maxHeight: 600,
       insetPadding: const EdgeInsets.all(28),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-              child: Row(
-                children: [
-                  Icon(Icons.tune_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      isZh ? '高级工具' : 'Advanced tools',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.tune_rounded,
+            title: isZh ? '高级工具' : 'Advanced tools',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Flexible(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(8),
+              itemCount: entries.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 4),
+              itemBuilder: (_, idx) {
+                final e = entries[idx];
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: e.onTap,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(e.icon, size: 20, color: cs.primary),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  e.title,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  e.subtitle,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Flexible(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(8),
-                itemCount: entries.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 4),
-                itemBuilder: (_, idx) {
-                  final e = entries[idx];
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: e.onTap,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Icon(e.icon, size: 20, color: cs.primary),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    e.title,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    e.subtitle,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1224,33 +1206,28 @@ class _DiffViewerDialog extends StatelessWidget {
         ),
       ),
     );
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 720),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    col('A', a),
-                    const SizedBox(width: 12),
-                    col('B', b),
-                  ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 1080,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
                 ),
+              ],
+            ),
+            Expanded(
+              child: Row(
+                children: [col('A', a), const SizedBox(width: 12), col('B', b)],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1645,125 +1622,106 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880, maxHeight: 620),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 14, 8),
-              child: Row(
-                children: [
-                  Icon(Icons.video_camera_back_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Text(
-                    isZh ? 'WebRTC 实时面板' : 'WebRTC live panel',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isZh
-                          ? '${_series.length} 连接 · 1s 采样'
-                          : '${_series.length} pc · 1s sample',
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 880,
+      maxHeight: 620,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.video_camera_back_rounded,
+            title: isZh ? 'WebRTC 实时面板' : 'WebRTC live panel',
+            actions: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  isZh
+                      ? '${_series.length} 连接 · 1s 采样'
+                      : '${_series.length} pc · 1s sample',
+                  style: theme.textTheme.labelSmall,
+                ),
               ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(
+              children: [
+                _RtcTab(
+                  label: isZh ? '实时图表' : 'Live charts',
+                  selected: _tab == 0,
+                  onTap: () => setState(() => _tab = 0),
+                ),
+                const SizedBox(width: 8),
+                _RtcTab(
+                  label: isZh ? 'ICE 拓扑' : 'ICE topology',
+                  selected: _tab == 1,
+                  onTap: () => setState(() => _tab = 1),
+                ),
+                const SizedBox(width: 8),
+                _RtcTab(
+                  label: isZh ? 'SDP Diff' : 'SDP diff',
+                  selected: _tab == 2,
+                  onTap: () => setState(() => _tab = 2),
+                ),
+                const SizedBox(width: 8),
+                _RtcTab(
+                  label: isZh ? '事件流' : 'Events',
+                  selected: _tab == 3,
+                  onTap: () => setState(() => _tab = 3),
+                ),
+                const Spacer(),
+                if (_tab == 0 && _series.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: _exportSeriesCsv,
+                    icon: const Icon(Icons.download_rounded, size: 16),
+                    label: Text(isZh ? '导出 CSV' : 'Export CSV'),
+                  ),
+                if (_tab == 3 && _events.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final copied = await setWebReverseClipboardText(
+                        const JsonEncoder.withIndent('  ').convert(_events),
+                      );
+                      if (!context.mounted) return;
+                      OpenHandSnackBar.showSuccessOn(
+                        context,
+                        messenger,
+                        webReverseClipboardSnackMessage(
+                          isZh: isZh,
+                          base: isZh ? '已复制' : 'Copied',
+                          result: copied,
+                        ),
+                        duration: const Duration(seconds: 1),
+                      );
+                    },
+                    icon: const Icon(Icons.copy_all_rounded, size: 16),
+                    label: Text(isZh ? '复制事件' : 'Copy events'),
+                  ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                children: [
-                  _RtcTab(
-                    label: isZh ? '实时图表' : 'Live charts',
-                    selected: _tab == 0,
-                    onTap: () => setState(() => _tab = 0),
-                  ),
-                  const SizedBox(width: 8),
-                  _RtcTab(
-                    label: isZh ? 'ICE 拓扑' : 'ICE topology',
-                    selected: _tab == 1,
-                    onTap: () => setState(() => _tab = 1),
-                  ),
-                  const SizedBox(width: 8),
-                  _RtcTab(
-                    label: isZh ? 'SDP Diff' : 'SDP diff',
-                    selected: _tab == 2,
-                    onTap: () => setState(() => _tab = 2),
-                  ),
-                  const SizedBox(width: 8),
-                  _RtcTab(
-                    label: isZh ? '事件流' : 'Events',
-                    selected: _tab == 3,
-                    onTap: () => setState(() => _tab = 3),
-                  ),
-                  const Spacer(),
-                  if (_tab == 0 && _series.isNotEmpty)
-                    OutlinedButton.icon(
-                      onPressed: _exportSeriesCsv,
-                      icon: const Icon(Icons.download_rounded, size: 16),
-                      label: Text(isZh ? '导出 CSV' : 'Export CSV'),
-                    ),
-                  if (_tab == 3 && _events.isNotEmpty)
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        final copied = await setWebReverseClipboardText(
-                          const JsonEncoder.withIndent('  ').convert(_events),
-                        );
-                        if (!context.mounted) return;
-                        OpenHandSnackBar.showSuccessOn(
-                          context,
-                          messenger,
-                          webReverseClipboardSnackMessage(
-                            isZh: isZh,
-                            base: isZh ? '已复制' : 'Copied',
-                            result: copied,
-                          ),
-                          duration: const Duration(seconds: 1),
-                        );
-                      },
-                      icon: const Icon(Icons.copy_all_rounded, size: 16),
-                      label: Text(isZh ? '复制事件' : 'Copy events'),
-                    ),
-                ],
-              ),
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1),
+          Flexible(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: switch (_tab) {
+                0 => _buildChartsTab(theme),
+                1 => _buildIceTab(theme),
+                2 => _buildSdpDiffTab(theme),
+                _ => _buildEventsTab(theme),
+              },
             ),
-            const SizedBox(height: 8),
-            const Divider(height: 1),
-            Flexible(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: switch (_tab) {
-                  0 => _buildChartsTab(theme),
-                  1 => _buildIceTab(theme),
-                  2 => _buildSdpDiffTab(theme),
-                  _ => _buildEventsTab(theme),
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2609,145 +2567,132 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Row(
-                children: [
-                  Icon(Icons.alt_route_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 720,
+      maxHeight: 600,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.alt_route_rounded,
+            title: isZh ? '网络拦截规则' : 'Network intercept rules',
+            actions: [
+              TextButton.icon(
+                onPressed: () => _editRule(null),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text(isZh ? '新增规则' : 'Add rule'),
+              ),
+            ],
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: _rules.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text(
-                      isZh ? '网络拦截规则' : 'Network intercept rules',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                      isZh
+                          ? '无规则。点「新增规则」开始：URL 通配 → block / 改写。\n命中规则的请求会自动放行/改写，不再走拦截队列。'
+                          : 'No rules. Click Add rule to start: URL pattern → block / rewrite.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () => _editRule(null),
-                    icon: const Icon(Icons.add_rounded, size: 16),
-                    label: Text(isZh ? '新增规则' : 'Add rule'),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Flexible(
-              child: _rules.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        isZh
-                            ? '无规则。点「新增规则」开始：URL 通配 → block / 改写。\n命中规则的请求会自动放行/改写，不再走拦截队列。'
-                            : 'No rules. Click Add rule to start: URL pattern → block / rewrite.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                  )
+                : ListView.separated(
+                    itemCount: _rules.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: cs.outlineVariant),
+                    itemBuilder: (_, i) {
+                      final r = _rules[i];
+                      return ListTile(
+                        dense: true,
+                        leading: Switch(
+                          value: r.enabled,
+                          onChanged: (v) {
+                            setState(() {
+                              _rules[i] = r.copyWith(enabled: v);
+                            });
+                          },
                         ),
-                      ),
-                    )
-                  : ListView.separated(
-                      itemCount: _rules.length,
-                      separatorBuilder: (_, _) =>
-                          Divider(height: 1, color: cs.outlineVariant),
-                      itemBuilder: (_, i) {
-                        final r = _rules[i];
-                        return ListTile(
-                          dense: true,
-                          leading: Switch(
-                            value: r.enabled,
-                            onChanged: (v) {
-                              setState(() {
-                                _rules[i] = r.copyWith(enabled: v);
-                              });
-                            },
-                          ),
-                          title: Text(
-                            r.urlPattern,
-                            style: const TextStyle(fontFamily: 'monospace'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            r.block
-                                ? (isZh ? '动作: 屏蔽' : 'Action: block')
-                                : r.replaceUrl != null &&
-                                      r.replaceUrl!.isNotEmpty
-                                ? (isZh
-                                      ? '动作: 重定向到 ${r.replaceUrl}'
-                                      : 'Action: redirect → ${r.replaceUrl}')
-                                : r.headerOverrides.isEmpty
-                                ? (isZh ? '动作: 仅标记' : 'Action: tag only')
-                                : (isZh
-                                      ? '动作: 注入 ${r.headerOverrides.length} 个 header'
-                                      : 'Action: inject ${r.headerOverrides.length} headers'),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: isZh ? '编辑' : 'Edit',
-                                visualDensity: VisualDensity.compact,
-                                iconSize: 18,
-                                padding: const EdgeInsets.all(6),
-                                constraints: const BoxConstraints(
-                                  minWidth: 30,
-                                  minHeight: 30,
-                                ),
-                                icon: const Icon(Icons.edit_rounded),
-                                onPressed: () => _editRule(i),
+                        title: Text(
+                          r.urlPattern,
+                          style: const TextStyle(fontFamily: 'monospace'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          r.block
+                              ? (isZh ? '动作: 屏蔽' : 'Action: block')
+                              : r.replaceUrl != null && r.replaceUrl!.isNotEmpty
+                              ? (isZh
+                                    ? '动作: 重定向到 ${r.replaceUrl}'
+                                    : 'Action: redirect → ${r.replaceUrl}')
+                              : r.headerOverrides.isEmpty
+                              ? (isZh ? '动作: 仅标记' : 'Action: tag only')
+                              : (isZh
+                                    ? '动作: 注入 ${r.headerOverrides.length} 个 header'
+                                    : 'Action: inject ${r.headerOverrides.length} headers'),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: isZh ? '编辑' : 'Edit',
+                              visualDensity: VisualDensity.compact,
+                              iconSize: 18,
+                              padding: const EdgeInsets.all(6),
+                              constraints: const BoxConstraints(
+                                minWidth: 30,
+                                minHeight: 30,
                               ),
-                              const SizedBox(width: 4),
-                              IconButton(
-                                tooltip: isZh ? '删除' : 'Delete',
-                                visualDensity: VisualDensity.compact,
-                                iconSize: 18,
-                                padding: const EdgeInsets.all(6),
-                                constraints: const BoxConstraints(
-                                  minWidth: 30,
-                                  minHeight: 30,
-                                ),
-                                icon: Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: cs.error,
-                                ),
-                                onPressed: () {
-                                  setState(() => _rules.removeAt(i));
-                                },
+                              icon: const Icon(Icons.edit_rounded),
+                              onPressed: () => _editRule(i),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              tooltip: isZh ? '删除' : 'Delete',
+                              visualDensity: VisualDensity.compact,
+                              iconSize: 18,
+                              padding: const EdgeInsets.all(6),
+                              constraints: const BoxConstraints(
+                                minWidth: 30,
+                                minHeight: 30,
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: isZh ? '取消' : 'Cancel',
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: cs.error,
+                              ),
+                              onPressed: () {
+                                setState(() => _rules.removeAt(i));
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _save,
-                    label: isZh ? '保存' : 'Save',
-                  ),
-                ],
-              ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(context).pop(),
+                  label: isZh ? '取消' : 'Cancel',
+                ),
+                const SizedBox(width: 8),
+                OpenHandDialogActionButton.primary(
+                  onPressed: _save,
+                  label: isZh ? '保存' : 'Save',
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

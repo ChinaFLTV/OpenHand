@@ -621,82 +621,78 @@ print(resp.text[:2000])''';
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(theme, cs, loc),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildUrlRow(theme, cs, loc),
-                    const SizedBox(height: 14),
-                    _buildTransportRow(theme, cs, loc),
-                    const SizedBox(height: 14),
-                    _buildHeadersBlock(theme, cs, loc),
-                    const SizedBox(height: 14),
-                    _buildBodyBlock(theme, cs, loc),
-                    const SizedBox(height: 14),
-                    _buildExportBlock(theme, cs, loc),
-                    const SizedBox(height: 14),
-                    AnimatedSwitcher(
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 220),
-                      switchInCurve: Curves.easeOutCubic,
-                      child: _buildResultBlock(theme, cs, loc),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
-              child: Row(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildHeader(loc),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    _transport == _ReplayTransport.browser
-                        ? (widget.isZh
-                              ? '通过 CDP 在页面上下文重放请求'
-                              : 'Replays through CDP in the page context')
-                        : (loc?.webReverseResendRequestFooterNote ??
-                              'Direct mode uses Dart HttpClient and bypasses the browser.'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                  _buildUrlRow(theme, cs, loc),
+                  const SizedBox(height: 14),
+                  _buildTransportRow(theme, cs, loc),
+                  const SizedBox(height: 14),
+                  _buildHeadersBlock(theme, cs, loc),
+                  const SizedBox(height: 14),
+                  _buildBodyBlock(theme, cs, loc),
+                  const SizedBox(height: 14),
+                  _buildExportBlock(theme, cs, loc),
+                  const SizedBox(height: 14),
+                  AnimatedSwitcher(
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    child: _buildResultBlock(theme, cs, loc),
                   ),
-                  const Spacer(),
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: loc?.webReverseResendRequestClose ?? 'Close',
-                  ),
-                  const SizedBox(width: 8),
-                  _sending
-                      ? OpenHandDialogActionButton.destructive(
-                          onPressed: _abort,
-                          icon: Icons.stop_rounded,
-                          label: loc?.webReverseResendRequestAbort ?? 'Abort',
-                        )
-                      : OpenHandDialogActionButton.primary(
-                          onPressed: _send,
-                          icon: Icons.send_rounded,
-                          label: loc?.webReverseResendRequestSend ?? 'Send',
-                        ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+            child: Row(
+              children: [
+                Text(
+                  _transport == _ReplayTransport.browser
+                      ? (widget.isZh
+                            ? '通过 CDP 在页面上下文重放请求'
+                            : 'Replays through CDP in the page context')
+                      : (loc?.webReverseResendRequestFooterNote ??
+                            'Direct mode uses Dart HttpClient and bypasses the browser.'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(context).pop(),
+                  label: loc?.webReverseResendRequestClose ?? 'Close',
+                ),
+                const SizedBox(width: 8),
+                _sending
+                    ? OpenHandDialogActionButton.destructive(
+                        onPressed: _abort,
+                        icon: Icons.stop_rounded,
+                        label: loc?.webReverseResendRequestAbort ?? 'Abort',
+                      )
+                    : OpenHandDialogActionButton.primary(
+                        onPressed: _send,
+                        icon: Icons.send_rounded,
+                        label: loc?.webReverseResendRequestSend ?? 'Send',
+                      ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -761,27 +757,12 @@ print(resp.text[:2000])''';
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, AppLocalizations? loc) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 12, 12),
-      child: Row(
-        children: [
-          Icon(Icons.replay_circle_filled_rounded, color: cs.primary),
-          const SizedBox(width: 10),
-          Text(
-            loc?.webReverseResendRequestTitle ?? 'Resend / Edit',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.close_rounded),
-            tooltip: loc?.webReverseResendRequestClose ?? 'Close',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
+  Widget _buildHeader(AppLocalizations? loc) {
+    return buildOpenHandToolDialogHeader(
+      context: context,
+      icon: Icons.replay_circle_filled_rounded,
+      title: loc?.webReverseResendRequestTitle ?? 'Resend / Edit',
+      closeTooltip: loc?.webReverseResendRequestClose ?? 'Close',
     );
   }
 

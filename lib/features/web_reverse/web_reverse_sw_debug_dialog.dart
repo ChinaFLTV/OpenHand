@@ -72,10 +72,12 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
   List<_SwVersion> _versions = const [];
   String _status = '';
 
-  final TextEditingController _pushData =
-      TextEditingController(text: '{"hello":"world"}');
-  final TextEditingController _syncTag =
-      TextEditingController(text: 'oh-debug-sync');
+  final TextEditingController _pushData = TextEditingController(
+    text: '{"hello":"world"}',
+  );
+  final TextEditingController _syncTag = TextEditingController(
+    text: 'oh-debug-sync',
+  );
 
   @override
   void initState() {
@@ -108,7 +110,8 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     final loc = AppLocalizations.of(context);
     setState(() {
       _loading = true;
-      _status = loc?.webReverseSwDebugFetchingRegs ?? 'Fetching registrations...';
+      _status =
+          loc?.webReverseSwDebugFetchingRegs ?? 'Fetching registrations...';
     });
     try {
       final r = await widget.controller.sendRawCdp(
@@ -141,24 +144,25 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
           final id = '${info['targetId']}';
           final url = '${info['url']}';
           final attached = info['attached'] == true;
-          regs.add(_SwReg(
-            registrationId: id,
-            scopeURL: url,
-            isDeleted: false,
-          ));
-          vers.add(_SwVersion(
-            versionId: id,
-            registrationId: id,
-            scriptURL: url,
-            runningStatus: attached ? 'attached' : 'detached',
-            status: 'activated',
-          ));
+          regs.add(_SwReg(registrationId: id, scopeURL: url, isDeleted: false));
+          vers.add(
+            _SwVersion(
+              versionId: id,
+              registrationId: id,
+              scriptURL: url,
+              runningStatus: attached ? 'attached' : 'detached',
+              status: 'activated',
+            ),
+          );
         }
       }
       _regs = regs;
       _versions = vers;
-      setState(() => _status = loc?.webReverseSwDebugWorkersCount(regs.length) ??
-          '${regs.length} Service Workers');
+      setState(
+        () => _status =
+            loc?.webReverseSwDebugWorkersCount(regs.length) ??
+            '${regs.length} Service Workers',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -173,17 +177,25 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     );
     if (!mounted) return;
     if (r == null || r['error'] != null) {
-      _toast(loc?.webReverseSwDebugToggleFailed ?? 'Toggle failed', error: true);
+      _toast(
+        loc?.webReverseSwDebugToggleFailed ?? 'Toggle failed',
+        error: true,
+      );
       return;
     }
     setState(() => _forceUpdate = v);
-    _toast(v
-        ? (loc?.webReverseSwDebugForceUpdateOn ?? 'Force-update on')
-        : (loc?.webReverseSwDebugForceUpdateOff ?? 'Force-update off'));
+    _toast(
+      v
+          ? (loc?.webReverseSwDebugForceUpdateOn ?? 'Force-update on')
+          : (loc?.webReverseSwDebugForceUpdateOff ?? 'Force-update off'),
+    );
   }
 
-  Future<void> _runForScope(String method, String scope,
-      {Map<String, Object?>? extra}) async {
+  Future<void> _runForScope(
+    String method,
+    String scope, {
+    Map<String, Object?>? extra,
+  }) async {
     final loc = AppLocalizations.of(context);
     final params = <String, Object?>{'scopeURL': scope, ...?extra};
     final r = await widget.controller.sendRawCdp(
@@ -194,9 +206,13 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     if (!mounted) return;
     if (r == null || r['error'] != null) {
       _toast(
-          loc?.webReverseSwDebugMethodFailed(method, '${r?['error'] ?? 'unknown'}') ??
-              '$method failed: ${r?['error'] ?? 'unknown'}',
-          error: true);
+        loc?.webReverseSwDebugMethodFailed(
+              method,
+              '${r?['error'] ?? 'unknown'}',
+            ) ??
+            '$method failed: ${r?['error'] ?? 'unknown'}',
+        error: true,
+      );
       return;
     }
     _toast(loc?.webReverseSwDebugMethodOk(method) ?? '$method ok');
@@ -213,9 +229,13 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     if (!mounted) return;
     if (r == null || r['error'] != null) {
       _toast(
-          loc?.webReverseSwDebugMethodFailed(method, '${r?['error'] ?? 'unknown'}') ??
-              '$method failed: ${r?['error'] ?? 'unknown'}',
-          error: true);
+        loc?.webReverseSwDebugMethodFailed(
+              method,
+              '${r?['error'] ?? 'unknown'}',
+            ) ??
+            '$method failed: ${r?['error'] ?? 'unknown'}',
+        error: true,
+      );
       return;
     }
     _toast(loc?.webReverseSwDebugMethodOk(method) ?? '$method ok');
@@ -237,180 +257,177 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 760,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.miscellaneous_services_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseSwDebugTitle ?? 'Service Worker Debug',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        Text(
-                          loc?.webReverseSwDebugSubtitle ??
-                              'ServiceWorker domain: start/stop/update/unregister/sync/push',
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.miscellaneous_services_rounded,
+            title: loc?.webReverseSwDebugTitle ?? 'Service Worker Debug',
+            subtitle:
+                loc?.webReverseSwDebugSubtitle ??
+                'ServiceWorker domain: start/stop/update/unregister/sync/push',
+            actions: [
+              IconButton(
+                tooltip: loc?.webReverseSwDebugRefresh ?? 'Refresh',
+                onPressed: _loading ? null : _refresh,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Row(
+              children: [
+                Switch(
+                  value: _forceUpdate,
+                  onChanged: _loading ? null : _setForceUpdate,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  loc?.webReverseSwDebugForceUpdateLabel ??
+                      'Force update SW on every navigation',
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: _loading && _regs.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : _regs.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseSwDebugEmptyList ?? 'No service workers',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: loc?.webReverseSwDebugRefresh ?? 'Refresh',
-                    onPressed: _loading ? null : _refresh,
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-              child: Row(
-                children: [
-                  Switch(
-                    value: _forceUpdate,
-                    onChanged: _loading ? null : _setForceUpdate,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(loc?.webReverseSwDebugForceUpdateLabel ??
-                      'Force update SW on every navigation'),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: _loading && _regs.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : _regs.isEmpty
-                      ? Center(
-                          child: Text(
-                            loc?.webReverseSwDebugEmptyList ?? 'No service workers',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          itemCount: _regs.length,
-                          separatorBuilder: (_, _) =>
-                              Divider(height: 1, color: cs.outlineVariant),
-                          itemBuilder: (_, i) {
-                            final reg = _regs[i];
-                            final v = _versions.firstWhere(
-                              (x) => x.registrationId == reg.registrationId,
-                              orElse: () => _SwVersion(
-                                versionId: '',
-                                registrationId: reg.registrationId,
-                                scriptURL: '',
-                                runningStatus: '',
-                                status: '',
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    itemCount: _regs.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: cs.outlineVariant),
+                    itemBuilder: (_, i) {
+                      final reg = _regs[i];
+                      final v = _versions.firstWhere(
+                        (x) => x.registrationId == reg.registrationId,
+                        orElse: () => _SwVersion(
+                          versionId: '',
+                          registrationId: reg.registrationId,
+                          scriptURL: '',
+                          runningStatus: '',
+                          status: '',
+                        ),
+                      );
+                      return _RegTile(
+                        reg: reg,
+                        ver: v,
+                        loc: loc,
+                        onStart: () => _runForScope(
+                          'ServiceWorker.startWorker',
+                          reg.scopeURL,
+                        ),
+                        onStop: v.versionId.isEmpty
+                            ? null
+                            : () => _runForVersion(
+                                'ServiceWorker.stopWorker',
+                                v.versionId,
                               ),
-                            );
-                            return _RegTile(
-                              reg: reg,
-                              ver: v,
-                              loc: loc,
-                              onStart: () => _runForScope(
-                                  'ServiceWorker.startWorker', reg.scopeURL),
-                              onStop: v.versionId.isEmpty
-                                  ? null
-                                  : () => _runForVersion(
-                                      'ServiceWorker.stopWorker', v.versionId),
-                              onUpdate: () => _runForScope(
-                                  'ServiceWorker.updateRegistration',
-                                  reg.scopeURL),
-                              onUnregister: () => _runForScope(
-                                  'ServiceWorker.unregister', reg.scopeURL),
-                              onSync: () => _runForScope(
-                                'ServiceWorker.dispatchSyncEvent',
-                                reg.scopeURL,
-                                extra: {
-                                  'registrationId': reg.registrationId,
-                                  'tag': _syncTag.text.trim(),
-                                  'lastChance': false,
-                                },
-                              ),
-                              onPush: () => _runForScope(
-                                'ServiceWorker.deliverPushMessage',
-                                reg.scopeURL,
-                                extra: {
-                                  'origin': Uri.tryParse(reg.scopeURL)?.origin ??
-                                      reg.scopeURL,
-                                  'registrationId': reg.registrationId,
-                                  'data': _pushData.text,
-                                },
-                              ),
-                            );
+                        onUpdate: () => _runForScope(
+                          'ServiceWorker.updateRegistration',
+                          reg.scopeURL,
+                        ),
+                        onUnregister: () => _runForScope(
+                          'ServiceWorker.unregister',
+                          reg.scopeURL,
+                        ),
+                        onSync: () => _runForScope(
+                          'ServiceWorker.dispatchSyncEvent',
+                          reg.scopeURL,
+                          extra: {
+                            'registrationId': reg.registrationId,
+                            'tag': _syncTag.text.trim(),
+                            'lastChance': false,
                           },
                         ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 200,
-                    child: TextField(
-                      controller: _syncTag,
-                      decoration: const InputDecoration(
-                        labelText: 'sync tag',
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                      ),
-                      style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 12.5),
+                        onPush: () => _runForScope(
+                          'ServiceWorker.deliverPushMessage',
+                          reg.scopeURL,
+                          extra: {
+                            'origin':
+                                Uri.tryParse(reg.scopeURL)?.origin ??
+                                reg.scopeURL,
+                            'registrationId': reg.registrationId,
+                            'data': _pushData.text,
+                          },
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 200,
+                  child: TextField(
+                    controller: _syncTag,
+                    decoration: const InputDecoration(
+                      labelText: 'sync tag',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12.5,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _pushData,
-                      decoration: InputDecoration(
-                        labelText: loc?.webReverseSwDebugPushDataLabel ?? 'push data (string)',
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                      style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 12.5),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _pushData,
+                    decoration: InputDecoration(
+                      labelText:
+                          loc?.webReverseSwDebugPushDataLabel ??
+                          'push data (string)',
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12.5,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                color: cs.surfaceContainerHigh,
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              color: cs.surfaceContainerHigh,
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -464,14 +481,17 @@ class _RegTile extends StatelessWidget {
                 child: Text(
                   reg.scopeURL,
                   style: const TextStyle(
-                      fontFamily: 'monospace', fontWeight: FontWeight.w700),
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w700,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 '${ver.status} · ${ver.runningStatus}',
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -480,8 +500,9 @@ class _RegTile extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16),
             child: Text(
               'id: ${reg.registrationId}',
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -491,22 +512,37 @@ class _RegTile extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _btn(loc?.webReverseSwDebugBtnStart ?? 'Start', Icons.play_arrow_rounded, onStart),
-                _btn(loc?.webReverseSwDebugBtnStop ?? 'Stop', Icons.stop_rounded, onStop),
-                _btn(loc?.webReverseSwDebugBtnUpdate ?? 'Update', Icons.refresh_rounded, onUpdate),
                 _btn(
-                    loc?.webReverseSwDebugBtnSync ?? 'Dispatch sync',
-                    Icons.sync_rounded,
-                    onSync),
+                  loc?.webReverseSwDebugBtnStart ?? 'Start',
+                  Icons.play_arrow_rounded,
+                  onStart,
+                ),
                 _btn(
-                    loc?.webReverseSwDebugBtnPush ?? 'Deliver push',
-                    Icons.notifications_active_rounded,
-                    onPush),
+                  loc?.webReverseSwDebugBtnStop ?? 'Stop',
+                  Icons.stop_rounded,
+                  onStop,
+                ),
                 _btn(
-                    loc?.webReverseSwDebugBtnUnregister ?? 'Unregister',
-                    Icons.delete_outline_rounded,
-                    onUnregister,
-                    destructive: true),
+                  loc?.webReverseSwDebugBtnUpdate ?? 'Update',
+                  Icons.refresh_rounded,
+                  onUpdate,
+                ),
+                _btn(
+                  loc?.webReverseSwDebugBtnSync ?? 'Dispatch sync',
+                  Icons.sync_rounded,
+                  onSync,
+                ),
+                _btn(
+                  loc?.webReverseSwDebugBtnPush ?? 'Deliver push',
+                  Icons.notifications_active_rounded,
+                  onPush,
+                ),
+                _btn(
+                  loc?.webReverseSwDebugBtnUnregister ?? 'Unregister',
+                  Icons.delete_outline_rounded,
+                  onUnregister,
+                  destructive: true,
+                ),
               ],
             ),
           ),
@@ -515,15 +551,20 @@ class _RegTile extends StatelessWidget {
     );
   }
 
-  Widget _btn(String label, IconData icon, VoidCallback? onPressed,
-      {bool destructive = false}) {
+  Widget _btn(
+    String label,
+    IconData icon,
+    VoidCallback? onPressed, {
+    bool destructive = false,
+  }) {
     return FilledButton.tonalIcon(
       onPressed: onPressed,
       icon: Icon(icon, size: 16),
       label: Text(label, style: const TextStyle(fontSize: 12)),
       style: ButtonStyle(
         padding: WidgetStateProperty.all(
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ),
         foregroundColor: destructive
             ? WidgetStateProperty.all(Colors.red.shade400)
             : null,

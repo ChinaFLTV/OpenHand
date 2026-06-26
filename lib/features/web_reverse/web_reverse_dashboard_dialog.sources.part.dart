@@ -1609,121 +1609,119 @@ class _SourcesGlobalSearchDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(Icons.travel_explore_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _qCtrl,
-                      autofocus: true,
-                      onSubmitted: (_) => _run(),
-                      decoration: InputDecoration(
-                        hintText: isZh
-                            ? '在所有已加载脚本里搜索…'
-                            : 'Search across loaded scripts…',
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 720,
+      maxHeight: 600,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.travel_explore_rounded, color: cs.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _qCtrl,
+                    autofocus: true,
+                    onSubmitted: (_) => _run(),
+                    decoration: InputDecoration(
+                      hintText: isZh
+                          ? '在所有已加载脚本里搜索…'
+                          : 'Search across loaded scripts…',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _searching ? null : _run,
-                    icon: Icon(
-                      _searching
-                          ? Icons.hourglass_top_rounded
-                          : Icons.search_rounded,
-                      size: 16,
-                    ),
-                    label: Text(
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _searching ? null : _run,
+                  icon: Icon(
+                    _searching
+                        ? Icons.hourglass_top_rounded
+                        : Icons.search_rounded,
+                    size: 16,
+                  ),
+                  label: Text(
+                    _searching
+                        ? (isZh ? '搜索中…' : 'Searching…')
+                        : (isZh ? '搜索' : 'Search'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: _hits.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
                       _searching
                           ? (isZh ? '搜索中…' : 'Searching…')
-                          : (isZh ? '搜索' : 'Search'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Flexible(
-              child: _hits.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        _searching
-                            ? (isZh ? '搜索中…' : 'Searching…')
-                            : (isZh
-                                  ? '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。'
-                                  : 'Type a query and press Enter; click a hit to jump.'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
+                          : (isZh
+                                ? '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。'
+                                : 'Type a query and press Enter; click a hit to jump.'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                    )
-                  : ListView.separated(
-                      itemCount: _hits.length,
-                      separatorBuilder: (_, _) =>
-                          Divider(height: 1, color: cs.outlineVariant),
-                      itemBuilder: (_, i) {
-                        final h = _hits[i];
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            h.url,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontFamily: 'monospace'),
-                          ),
-                          subtitle: Text(
-                            'L${h.line + 1}: ${h.preview}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pop((scriptId: h.scriptId, line: h.line)),
-                        );
-                      },
                     ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    isZh
-                        ? '命中 ${_hits.length} 条（上限 200）'
-                        : '${_hits.length} hits (cap 200)',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _hits.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: cs.outlineVariant),
+                    itemBuilder: (_, i) {
+                      final h = _hits[i];
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          h.url,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
+                        subtitle: Text(
+                          'L${h.line + 1}: ${h.preview}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pop((scriptId: h.scriptId, line: h.line)),
+                      );
+                    },
                   ),
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: isZh ? '关闭' : 'Close',
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isZh
+                      ? '命中 ${_hits.length} 条（上限 200）'
+                      : '${_hits.length} hits (cap 200)',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
                   ),
-                ],
-              ),
+                ),
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(context).pop(),
+                  label: isZh ? '关闭' : 'Close',
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

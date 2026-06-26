@@ -65,9 +65,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
     try {
       final res = await widget.controller.sendRawCdp(
         method: method,
-        paramsJson: params == null
-            ? null
-            : _encodeParams(params),
+        paramsJson: params == null ? null : _encodeParams(params),
       );
       if (!mounted) return res;
       final err = res?['error'];
@@ -104,7 +102,9 @@ class _RenderingDialogState extends State<_RenderingDialog> {
           if (item is Map) {
             buf.write(_encodeParams(item.cast<String, Object?>()));
           } else if (item is String) {
-            buf.write('"${item.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"');
+            buf.write(
+              '"${item.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"',
+            );
           } else {
             buf.write('$item');
           }
@@ -176,17 +176,18 @@ class _RenderingDialogState extends State<_RenderingDialog> {
     await _send('Overlay.setShowFPSCounter', params: {'show': false});
     await _send('Overlay.setShowWebVitals', params: {'show': false});
     await _send('Emulation.setCPUThrottlingRate', params: {'rate': 1.0});
-    await _send('Emulation.setEmulatedMedia', params: {
-      'media': '',
-      'features': const <Map<String, Object?>>[],
-    });
+    await _send(
+      'Emulation.setEmulatedMedia',
+      params: {'media': '', 'features': const <Map<String, Object?>>[]},
+    );
     if (mounted) {
       final m = ScaffoldMessenger.maybeOf(context);
       if (m != null) {
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
-          AppLocalizations.of(context)?.webReverseRenderingResetSuccess ?? 'Rendering overrides reset',
+          AppLocalizations.of(context)?.webReverseRenderingResetSuccess ??
+              'Rendering overrides reset',
         );
       }
     }
@@ -196,228 +197,251 @@ class _RenderingDialogState extends State<_RenderingDialog> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-              child: Row(
-                children: [
-                  Icon(Icons.layers_rounded, color: cs.primary, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppLocalizations.of(context)?.webReverseRenderingTitle ?? 'Rendering',
-                          style: tt.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          AppLocalizations.of(context)?.webReverseRenderingSubtitle ??
-                              'Paint · Layout shift · Layers · FPS · media · CPU throttle',
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: AppLocalizations.of(context)?.webReverseRenderingResetAll ?? 'Reset all',
-                    onPressed: _busy ? null : _resetAll,
-                    icon: const Icon(Icons.restart_alt_rounded),
-                  ),
-                  IconButton(
-                    tooltip: AppLocalizations.of(context)?.webReverseRenderingClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+    final loc = AppLocalizations.of(context);
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 760,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.layers_rounded,
+            iconSize: 22,
+            title: loc?.webReverseRenderingTitle ?? 'Rendering',
+            subtitle:
+                loc?.webReverseRenderingSubtitle ??
+                'Paint · Layout shift · Layers · FPS · media · CPU throttle',
+            closeTooltip: loc?.webReverseRenderingClose ?? 'Close',
+            actions: [
+              IconButton(
+                tooltip: loc?.webReverseRenderingResetAll ?? 'Reset all',
+                onPressed: _busy ? null : _resetAll,
+                icon: const Icon(Icons.restart_alt_rounded),
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-                children: [
-                  _sectionTitle(AppLocalizations.of(context)?.webReverseRenderingSectionOverlays ?? 'Overlays'),
-                  _switchTile(
-                    icon: Icons.brush_rounded,
-                    title: 'Paint flashing',
-                    subtitle: AppLocalizations.of(context)?.webReverseRenderingPaintFlashingDesc ??
-                        'Highlight repainted regions',
-                    value: _paintRects,
-                    onChanged: (v) => _toggleOverlay(
-                      'Overlay.setShowPaintRects',
-                      v,
-                      localApply: (b) => _paintRects = b,
-                    ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              children: [
+                _sectionTitle(
+                  AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingSectionOverlays ??
+                      'Overlays',
+                ),
+                _switchTile(
+                  icon: Icons.brush_rounded,
+                  title: 'Paint flashing',
+                  subtitle:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingPaintFlashingDesc ??
+                      'Highlight repainted regions',
+                  value: _paintRects,
+                  onChanged: (v) => _toggleOverlay(
+                    'Overlay.setShowPaintRects',
+                    v,
+                    localApply: (b) => _paintRects = b,
                   ),
-                  _switchTile(
-                    icon: Icons.swap_vert_rounded,
-                    title: 'Layout shift regions',
-                    subtitle: AppLocalizations.of(context)?.webReverseRenderingLayoutShiftDesc ??
-                        'Visualize CLS regions',
-                    value: _layoutShift,
-                    onChanged: (v) => _toggleOverlay(
-                      'Overlay.setShowLayoutShiftRegions',
-                      v,
-                      localApply: (b) => _layoutShift = b,
-                    ),
+                ),
+                _switchTile(
+                  icon: Icons.swap_vert_rounded,
+                  title: 'Layout shift regions',
+                  subtitle:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingLayoutShiftDesc ??
+                      'Visualize CLS regions',
+                  value: _layoutShift,
+                  onChanged: (v) => _toggleOverlay(
+                    'Overlay.setShowLayoutShiftRegions',
+                    v,
+                    localApply: (b) => _layoutShift = b,
                   ),
-                  _switchTile(
-                    icon: Icons.grid_4x4_rounded,
-                    title: 'Layer borders',
-                    subtitle: AppLocalizations.of(context)?.webReverseRenderingLayerBordersDesc ??
-                        'Composited layer borders',
-                    value: _layerBorders,
-                    onChanged: (v) => _toggleOverlay(
-                      'Overlay.setShowDebugBorders',
-                      v,
-                      localApply: (b) => _layerBorders = b,
-                    ),
+                ),
+                _switchTile(
+                  icon: Icons.grid_4x4_rounded,
+                  title: 'Layer borders',
+                  subtitle:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingLayerBordersDesc ??
+                      'Composited layer borders',
+                  value: _layerBorders,
+                  onChanged: (v) => _toggleOverlay(
+                    'Overlay.setShowDebugBorders',
+                    v,
+                    localApply: (b) => _layerBorders = b,
                   ),
-                  _switchTile(
-                    icon: Icons.swipe_rounded,
-                    title: 'Scroll bottleneck regions',
-                    subtitle: AppLocalizations.of(context)?.webReverseRenderingScrollBottleneckDesc ??
-                        'Slow-scroll regions',
-                    value: _scrollBottleneck,
-                    onChanged: (v) async {
-                      setState(() => _scrollBottleneck = v);
-                      await _send(
-                        'Overlay.setShowScrollBottleneckRects',
-                        params: {'show': v},
-                      );
-                    },
-                  ),
-                  _switchTile(
-                    icon: Icons.touch_app_rounded,
-                    title: 'Hit-test borders',
-                    subtitle: AppLocalizations.of(context)?.webReverseRenderingHitTestDesc ??
-                        'Element hit-test borders',
-                    value: _hitTest,
-                    onChanged: (v) async {
-                      setState(() => _hitTest = v);
-                      await _send(
-                        'Overlay.setShowHitTestBorders',
-                        params: {'show': v},
-                      );
-                    },
-                  ),
-                  _switchTile(
-                    icon: Icons.speed_rounded,
-                    title: 'FPS meter',
-                    subtitle: AppLocalizations.of(context)?.webReverseRenderingFpsDesc ??
-                        'Live FPS overlay',
-                    value: _fps,
-                    onChanged: (v) async {
-                      setState(() => _fps = v);
-                      await _send(
-                        'Overlay.setShowFPSCounter',
-                        params: {'show': v},
-                      );
-                    },
-                  ),
-                  _switchTile(
-                    icon: Icons.insights_rounded,
-                    title: 'Web Vitals overlay',
-                    subtitle: AppLocalizations.of(context)?.webReverseRenderingWebVitalsDesc ??
-                        'LCP / CLS / INP floating layer',
-                    value: _webVitals,
-                    onChanged: (v) async {
-                      setState(() => _webVitals = v);
-                      await _send(
-                        'Overlay.setShowWebVitals',
-                        params: {'show': v},
-                      );
-                    },
-                  ),
+                ),
+                _switchTile(
+                  icon: Icons.swipe_rounded,
+                  title: 'Scroll bottleneck regions',
+                  subtitle:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingScrollBottleneckDesc ??
+                      'Slow-scroll regions',
+                  value: _scrollBottleneck,
+                  onChanged: (v) async {
+                    setState(() => _scrollBottleneck = v);
+                    await _send(
+                      'Overlay.setShowScrollBottleneckRects',
+                      params: {'show': v},
+                    );
+                  },
+                ),
+                _switchTile(
+                  icon: Icons.touch_app_rounded,
+                  title: 'Hit-test borders',
+                  subtitle:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingHitTestDesc ??
+                      'Element hit-test borders',
+                  value: _hitTest,
+                  onChanged: (v) async {
+                    setState(() => _hitTest = v);
+                    await _send(
+                      'Overlay.setShowHitTestBorders',
+                      params: {'show': v},
+                    );
+                  },
+                ),
+                _switchTile(
+                  icon: Icons.speed_rounded,
+                  title: 'FPS meter',
+                  subtitle:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingFpsDesc ??
+                      'Live FPS overlay',
+                  value: _fps,
+                  onChanged: (v) async {
+                    setState(() => _fps = v);
+                    await _send(
+                      'Overlay.setShowFPSCounter',
+                      params: {'show': v},
+                    );
+                  },
+                ),
+                _switchTile(
+                  icon: Icons.insights_rounded,
+                  title: 'Web Vitals overlay',
+                  subtitle:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingWebVitalsDesc ??
+                      'LCP / CLS / INP floating layer',
+                  value: _webVitals,
+                  onChanged: (v) async {
+                    setState(() => _webVitals = v);
+                    await _send(
+                      'Overlay.setShowWebVitals',
+                      params: {'show': v},
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _sectionTitle(
+                  AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingSectionPerf ??
+                      'Performance emulation',
+                ),
+                _cpuThrottleRow(cs, tt),
+                const SizedBox(height: 12),
+                _sectionTitle(
+                  AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingSectionMedia ??
+                      'Media emulation',
+                ),
+                _segmentRow(
+                  label:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingLabelColorScheme ??
+                      'Color scheme',
+                  value: _colorScheme,
+                  options: const ['auto', 'light', 'dark'],
+                  onChanged: (v) {
+                    setState(() => _colorScheme = v);
+                    _applyEmulatedMedia();
+                  },
+                ),
+                _segmentRow(
+                  label:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingLabelReducedMotion ??
+                      'Reduced motion',
+                  value: _reducedMotion,
+                  options: const ['auto', 'reduce', 'no-preference'],
+                  onChanged: (v) {
+                    setState(() => _reducedMotion = v);
+                    _applyEmulatedMedia();
+                  },
+                ),
+                _segmentRow(
+                  label:
+                      AppLocalizations.of(
+                        context,
+                      )?.webReverseRenderingLabelMediaType ??
+                      'Media type',
+                  value: _mediaType,
+                  options: const ['auto', 'screen', 'print'],
+                  onChanged: (v) {
+                    setState(() => _mediaType = v);
+                    _applyEmulatedMedia();
+                  },
+                ),
+                if (_status.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _sectionTitle(AppLocalizations.of(context)?.webReverseRenderingSectionPerf ?? 'Performance emulation'),
-                  _cpuThrottleRow(cs, tt),
-                  const SizedBox(height: 12),
-                  _sectionTitle(AppLocalizations.of(context)?.webReverseRenderingSectionMedia ?? 'Media emulation'),
-                  _segmentRow(
-                    label: AppLocalizations.of(context)?.webReverseRenderingLabelColorScheme ?? 'Color scheme',
-                    value: _colorScheme,
-                    options: const ['auto', 'light', 'dark'],
-                    onChanged: (v) {
-                      setState(() => _colorScheme = v);
-                      _applyEmulatedMedia();
-                    },
-                  ),
-                  _segmentRow(
-                    label: AppLocalizations.of(context)?.webReverseRenderingLabelReducedMotion ?? 'Reduced motion',
-                    value: _reducedMotion,
-                    options: const ['auto', 'reduce', 'no-preference'],
-                    onChanged: (v) {
-                      setState(() => _reducedMotion = v);
-                      _applyEmulatedMedia();
-                    },
-                  ),
-                  _segmentRow(
-                    label: AppLocalizations.of(context)?.webReverseRenderingLabelMediaType ?? 'Media type',
-                    value: _mediaType,
-                    options: const ['auto', 'screen', 'print'],
-                    onChanged: (v) {
-                      setState(() => _mediaType = v);
-                      _applyEmulatedMedia();
-                    },
-                  ),
-                  if (_status.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.errorContainer.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        _status,
-                        style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
-                      ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                  ],
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-              child: Row(
-                children: [
-                  if (_busy)
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: cs.primary,
-                      ),
+                    decoration: BoxDecoration(
+                      color: cs.errorContainer.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  const Spacer(),
-                  OpenHandDialogActionButton.primary(
-                    label: AppLocalizations.of(context)?.webReverseRenderingClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      _status,
+                      style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+            child: Row(
+              children: [
+                if (_busy)
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: cs.primary,
+                    ),
+                  ),
+                const Spacer(),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.webReverseRenderingClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -479,10 +503,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: _busy ? null : onChanged,
-          ),
+          Switch(value: value, onChanged: _busy ? null : onChanged),
         ],
       ),
     );
@@ -505,7 +526,10 @@ class _RenderingDialogState extends State<_RenderingDialog> {
               Icon(Icons.memory_rounded, size: 20, color: cs.onSurfaceVariant),
               const SizedBox(width: 10),
               Text(
-                AppLocalizations.of(context)?.webReverseRenderingCpuThrottling ?? 'CPU throttling',
+                AppLocalizations.of(
+                      context,
+                    )?.webReverseRenderingCpuThrottling ??
+                    'CPU throttling',
                 style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),

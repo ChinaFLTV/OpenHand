@@ -498,248 +498,222 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 980,
+      maxHeight: 780,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 980, maxHeight: 780),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.lock_open_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseAiCryptoTitle ??
-                              'AI Crypto Param Recover',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.lock_open_rounded,
+            title: loc?.webReverseAiCryptoTitle ?? 'AI Crypto Param Recover',
+            subtitle:
+                loc?.webReverseAiCryptoSubtitle ??
+                'Group endpoint → diff vars → locate in JS → copy prompt',
+            actions: [
+              IconButton(
+                onPressed: _reloadGroups,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: loc?.webReverseAiCryptoRefresh ?? 'Refresh',
+              ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 320,
+                  child: Container(
+                    color: cs.surfaceContainerLow,
+                    child: _groups.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                loc?.webReverseAiCryptoEmpty ??
+                                    'No analyzable endpoint (need ≥2 hits per endpoint)',
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(8),
+                            itemCount: _groups.length,
+                            itemBuilder: (_, i) {
+                              final g = _groups[i];
+                              final selected = g.key == _selected?.key;
+                              return Material(
+                                color: selected
+                                    ? cs.primaryContainer
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () => setState(() {
+                                    _selected = g;
+                                    _suspects = const <String>[];
+                                    _prompt = '';
+                                  }),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          g.key,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 11,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          loc?.webReverseAiCryptoHits(
+                                                g.entries.length,
+                                              ) ??
+                                              '${g.entries.length} hits',
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
+                  ),
+                ),
+                VerticalDivider(width: 1, color: cs.outlineVariant),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            FilledButton.tonalIcon(
+                              onPressed: (_busy || _selected == null)
+                                  ? null
+                                  : _analyze,
+                              icon: const Icon(Icons.psychology_rounded),
+                              label: Text(
+                                loc?.webReverseAiCryptoAnalyze ?? 'Analyze',
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            FilledButton.tonalIcon(
+                              onPressed: _prompt.isEmpty ? null : _copy,
+                              icon: const Icon(Icons.copy_all_rounded),
+                              label: Text(
+                                loc?.webReverseAiCryptoCopyPrompt ??
+                                    'Copy prompt',
+                              ),
+                            ),
+                            const Spacer(),
+                            if (_status != null)
+                              Text(
+                                _status!,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                          ],
                         ),
-                        Text(
-                          loc?.webReverseAiCryptoSubtitle ??
-                              'Group endpoint → diff vars → locate in JS → copy prompt',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
+                        if (_suspects.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                loc?.webReverseAiCryptoSuspectsLabel ??
+                                    'Suspects:',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              for (final k in _suspects)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: cs.primaryContainer,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    k,
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: cs.outlineVariant),
+                            ),
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(10),
+                              child: SelectableText(
+                                _prompt.isEmpty
+                                    ? (loc?.webReverseAiCryptoPromptHint ??
+                                          'Click Analyze to generate the prompt.')
+                                    : _prompt,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  color: _prompt.isEmpty
+                                      ? cs.onSurfaceVariant
+                                      : cs.onSurface,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: _reloadGroups,
-                    icon: const Icon(Icons.refresh_rounded),
-                    tooltip: loc?.webReverseAiCryptoRefresh ?? 'Refresh',
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    width: 320,
-                    child: Container(
-                      color: cs.surfaceContainerLow,
-                      child: _groups.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text(
-                                  loc?.webReverseAiCryptoEmpty ??
-                                      'No analyzable endpoint (need ≥2 hits per endpoint)',
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(8),
-                              itemCount: _groups.length,
-                              itemBuilder: (_, i) {
-                                final g = _groups[i];
-                                final selected = g.key == _selected?.key;
-                                return Material(
-                                  color: selected
-                                      ? cs.primaryContainer
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(8),
-                                    onTap: () => setState(() {
-                                      _selected = g;
-                                      _suspects = const <String>[];
-                                      _prompt = '';
-                                    }),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            g.key,
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 11,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Text(
-                                            loc?.webReverseAiCryptoHits(
-                                                  g.entries.length,
-                                                ) ??
-                                                '${g.entries.length} hits',
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  color: cs.onSurfaceVariant,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: cs.outlineVariant),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              FilledButton.tonalIcon(
-                                onPressed: (_busy || _selected == null)
-                                    ? null
-                                    : _analyze,
-                                icon: const Icon(Icons.psychology_rounded),
-                                label: Text(
-                                  loc?.webReverseAiCryptoAnalyze ?? 'Analyze',
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              FilledButton.tonalIcon(
-                                onPressed: _prompt.isEmpty ? null : _copy,
-                                icon: const Icon(Icons.copy_all_rounded),
-                                label: Text(
-                                  loc?.webReverseAiCryptoCopyPrompt ??
-                                      'Copy prompt',
-                                ),
-                              ),
-                              const Spacer(),
-                              if (_status != null)
-                                Text(
-                                  _status!,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                            ],
-                          ),
-                          if (_suspects.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: [
-                                Text(
-                                  loc?.webReverseAiCryptoSuspectsLabel ??
-                                      'Suspects:',
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                for (final k in _suspects)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: cs.primaryContainer,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      k,
-                                      style: const TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: cs.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: cs.outlineVariant),
-                              ),
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.all(10),
-                                child: SelectableText(
-                                  _prompt.isEmpty
-                                      ? (loc?.webReverseAiCryptoPromptHint ??
-                                            'Click Analyze to generate the prompt.')
-                                      : _prompt,
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
-                                    color: _prompt.isEmpty
-                                        ? cs.onSurfaceVariant
-                                        : cs.onSurface,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseAiCryptoClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseAiCryptoClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -318,338 +318,310 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
 
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 880,
+      maxHeight: 700,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880, maxHeight: 700),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.wifi_tethering_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseWsInjectTitle ?? 'WebSocket Inject',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseWsInjectSubtitle ??
-                              'All page-created WebSockets are proxied → pick one → inject any text frame',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.wifi_tethering_rounded,
+            title: loc?.webReverseWsInjectTitle ?? 'WebSocket Inject',
+            subtitle:
+                loc?.webReverseWsInjectSubtitle ??
+                'All page-created WebSockets are proxied → pick one → inject any text frame',
+            actions: [
+              if (_installed)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                  if (_installed)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.primaryContainer,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        loc?.webReverseWsInjectProxyOn ?? 'PROXY ON',
-                        style: TextStyle(
-                          color: cs.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            if (_installError != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: cs.errorContainer,
+                    color: cs.primaryContainer,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${loc?.webReverseWsInjectInstallFailed ?? 'Install failed'}: $_installError',
-                    style: TextStyle(color: cs.onErrorContainer, fontSize: 12),
+                    loc?.webReverseWsInjectProxyOn ?? 'PROXY ON',
+                    style: TextStyle(
+                      color: cs.onPrimaryContainer,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
-              ),
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          if (_installError != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-              child: Row(
-                children: [
-                  Text(
-                    loc?.webReverseWsInjectLiveCount(_rows.length) ??
-                        '${_rows.length} live WebSocket(s)',
-                    style: theme.textTheme.labelMedium,
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: _busy ? null : _refresh,
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: Text(loc?.webReverseWsInjectRefresh ?? 'Refresh'),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${loc?.webReverseWsInjectInstallFailed ?? 'Install failed'}: $_installError',
+                  style: TextStyle(color: cs.onErrorContainer, fontSize: 12),
+                ),
               ),
             ),
-            SizedBox(
-              height: 160,
-              child: _rows.isEmpty
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Row(
+              children: [
+                Text(
+                  loc?.webReverseWsInjectLiveCount(_rows.length) ??
+                      '${_rows.length} live WebSocket(s)',
+                  style: theme.textTheme.labelMedium,
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _busy ? null : _refresh,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: Text(loc?.webReverseWsInjectRefresh ?? 'Refresh'),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 160,
+            child: _rows.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseWsInjectNoLive ??
+                          'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _rows.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    itemBuilder: (_, i) {
+                      final row = _rows[i];
+                      final selected = row.id == _selectedId;
+                      return Material(
+                        color: selected
+                            ? cs.primaryContainer.withValues(alpha: 0.4)
+                            : cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => setState(() => _selectedId = row.id),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  row.readyState == 1
+                                      ? Icons.radio_button_checked_rounded
+                                      : Icons.radio_button_off_rounded,
+                                  size: 16,
+                                  color: row.readyState == 1
+                                      ? Colors.green
+                                      : cs.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 24,
+                                  child: Text(
+                                    '#${row.id}',
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    row.url,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  row.readyStateLabel,
+                                  style: TextStyle(
+                                    color: row.readyState == 1
+                                        ? Colors.green
+                                        : cs.onSurfaceVariant,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Divider(height: 16, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              controller: _payloadCtrl,
+              minLines: 4,
+              maxLines: 8,
+              maxLength: _kWsInjectMaxPayloadChars,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: _hideWsInjectCounter,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              decoration: InputDecoration(
+                labelText:
+                    loc?.webReverseWsInjectPayloadLabel ?? 'Text frame / JSON',
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () async {
+                    final clippedSnackBar = OpenHandSnackBar.info(
+                      context,
+                      'Pasted payload clipped to $_kWsInjectMaxPayloadChars chars',
+                    );
+                    final data = await Clipboard.getData('text/plain');
+                    if (!mounted) return;
+                    if (data?.text != null) {
+                      final raw = data!.text!;
+                      final clipped = raw.length > _kWsInjectMaxPayloadChars;
+                      setState(
+                        () => _payloadCtrl.text = _capWsInjectText(
+                          raw,
+                          _kWsInjectMaxPayloadChars,
+                        ),
+                      );
+                      if (clipped) {
+                        OpenHandGlobalSnackBarHost.showSnackBar(
+                          clippedSnackBar,
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.paste_rounded, size: 16),
+                  label: Text(loc?.webReverseWsInjectPaste ?? 'Paste'),
+                ),
+                const Spacer(),
+                Text(
+                  _selectedId == null
+                      ? (loc?.webReverseWsInjectPickTarget ?? 'Pick a target')
+                      : '${loc?.webReverseWsInjectTargetLabel ?? 'Target'}: #$_selectedId',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: cs.outlineVariant),
+              ),
+              child: _log.isEmpty
                   ? Center(
                       child: Text(
-                        loc?.webReverseWsInjectNoLive ??
-                            'No live WebSockets.\nRefresh the page to let the proxy intercept new ones.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        loc?.webReverseWsInjectLogEmpty ??
+                            'Inject log appears here',
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _rows.length,
+                      padding: const EdgeInsets.all(8),
+                      itemCount: _log.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 4),
                       itemBuilder: (_, i) {
-                        final row = _rows[i];
-                        final selected = row.id == _selectedId;
-                        return Material(
-                          color: selected
-                              ? cs.primaryContainer.withValues(alpha: 0.4)
-                              : cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(8),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () => setState(() => _selectedId = row.id),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    row.readyState == 1
-                                        ? Icons.radio_button_checked_rounded
-                                        : Icons.radio_button_off_rounded,
-                                    size: 16,
-                                    color: row.readyState == 1
-                                        ? Colors.green
-                                        : cs.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 24,
-                                    child: Text(
-                                      '#${row.id}',
+                        final e = _log[i];
+                        return Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: e.ok
+                                ? cs.primaryContainer.withValues(alpha: 0.2)
+                                : cs.errorContainer.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                e.ok
+                                    ? Icons.check_circle_rounded
+                                    : Icons.error_rounded,
+                                size: 14,
+                                color: e.ok ? Colors.green : cs.error,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${_fmt(e.at)} · ${e.summary}',
+                                      style: theme.textTheme.labelSmall,
+                                    ),
+                                    Text(
+                                      e.payload.length > 200
+                                          ? '${e.payload.substring(0, 200)}…'
+                                          : e.payload,
                                       style: const TextStyle(
                                         fontFamily: 'monospace',
+                                        fontSize: 11,
                                       ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      row.url,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(fontFamily: 'monospace'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    row.readyStateLabel,
-                                    style: TextStyle(
-                                      color: row.readyState == 1
-                                          ? Colors.green
-                                          : cs.onSurfaceVariant,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         );
                       },
                     ),
             ),
-            Divider(height: 16, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: TextField(
-                controller: _payloadCtrl,
-                minLines: 4,
-                maxLines: 8,
-                maxLength: _kWsInjectMaxPayloadChars,
-                maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                buildCounter: _hideWsInjectCounter,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                decoration: InputDecoration(
-                  labelText:
-                      loc?.webReverseWsInjectPayloadLabel ??
-                      'Text frame / JSON',
-                  border: const OutlineInputBorder(),
-                  isDense: true,
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReverseWsInjectClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: () async {
-                      final clippedSnackBar = OpenHandSnackBar.info(
-                        context,
-                        'Pasted payload clipped to $_kWsInjectMaxPayloadChars chars',
-                      );
-                      final data = await Clipboard.getData('text/plain');
-                      if (!mounted) return;
-                      if (data?.text != null) {
-                        final raw = data!.text!;
-                        final clipped = raw.length > _kWsInjectMaxPayloadChars;
-                        setState(
-                          () => _payloadCtrl.text = _capWsInjectText(
-                            raw,
-                            _kWsInjectMaxPayloadChars,
-                          ),
-                        );
-                        if (clipped) {
-                          OpenHandGlobalSnackBarHost.showSnackBar(
-                            clippedSnackBar,
-                          );
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.paste_rounded, size: 16),
-                    label: Text(loc?.webReverseWsInjectPaste ?? 'Paste'),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _selectedId == null
-                        ? (loc?.webReverseWsInjectPickTarget ?? 'Pick a target')
-                        : '${loc?.webReverseWsInjectTargetLabel ?? 'Target'}: #$_selectedId',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: cs.outlineVariant),
+                const SizedBox(width: 8),
+                OpenHandDialogActionButton.primary(
+                  label: loc?.webReverseWsInjectSend ?? 'Send',
+                  onPressed:
+                      _selectedId == null || _payloadCtrl.text.isEmpty || _busy
+                      ? null
+                      : _send,
                 ),
-                child: _log.isEmpty
-                    ? Center(
-                        child: Text(
-                          loc?.webReverseWsInjectLogEmpty ??
-                              'Inject log appears here',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: _log.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 4),
-                        itemBuilder: (_, i) {
-                          final e = _log[i];
-                          return Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: e.ok
-                                  ? cs.primaryContainer.withValues(alpha: 0.2)
-                                  : cs.errorContainer.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  e.ok
-                                      ? Icons.check_circle_rounded
-                                      : Icons.error_rounded,
-                                  size: 14,
-                                  color: e.ok ? Colors.green : cs.error,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${_fmt(e.at)} · ${e.summary}',
-                                        style: theme.textTheme.labelSmall,
-                                      ),
-                                      Text(
-                                        e.payload.length > 200
-                                            ? '${e.payload.substring(0, 200)}…'
-                                            : e.payload,
-                                        style: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
+              ],
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReverseWsInjectClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    label: loc?.webReverseWsInjectSend ?? 'Send',
-                    onPressed:
-                        _selectedId == null ||
-                            _payloadCtrl.text.isEmpty ||
-                            _busy
-                        ? null
-                        : _send,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

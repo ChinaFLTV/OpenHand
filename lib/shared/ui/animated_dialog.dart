@@ -18,6 +18,7 @@ const double kOpenHandDialogActionSpacing = 8;
 const double kOpenHandToolDialogRadius = 20;
 const double kOpenHandToolDialogDefaultMaxWidth = 900;
 const double kOpenHandToolDialogDefaultMaxHeight = 720;
+const double kOpenHandToolDialogHeaderCompactBreakpoint = 520;
 const double kOpenHandModalSheetMaxWidth = 980;
 const double kOpenHandModalSheetDragHandleWidth = 36;
 const double kOpenHandModalSheetDragHandleHeight = 4;
@@ -834,50 +835,80 @@ Widget buildOpenHandToolDialogHeader({
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
   final effectiveSubtitle = subtitle?.trim();
-  return Padding(
-    padding: padding,
-    child: Row(
+  final closeButton = showCloseButton
+      ? IconButton(
+          tooltip:
+              closeTooltip ??
+              MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: closeEnabled
+              ? (onClose ?? () => Navigator.of(context).maybePop())
+              : null,
+          icon: const Icon(Icons.close_rounded),
+        )
+      : null;
+  final actionWidgets = <Widget>[
+    ...actions,
+    if (closeButton != null) closeButton,
+  ];
+  final titleBlock = Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        iconWidget ??
-            Icon(icon, size: iconSize, color: iconColor ?? colorScheme.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (effectiveSubtitle != null && effectiveSubtitle.isNotEmpty)
-                Text(
-                  effectiveSubtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-            ],
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
           ),
         ),
-        ...actions,
-        if (showCloseButton)
-          IconButton(
-            tooltip:
-                closeTooltip ??
-                MaterialLocalizations.of(context).closeButtonTooltip,
-            onPressed: closeEnabled
-                ? (onClose ?? () => Navigator.of(context).maybePop())
-                : null,
-            icon: const Icon(Icons.close_rounded),
+        if (effectiveSubtitle != null && effectiveSubtitle.isNotEmpty)
+          Text(
+            effectiveSubtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
       ],
+    ),
+  );
+  final leading = <Widget>[
+    iconWidget ??
+        Icon(icon, size: iconSize, color: iconColor ?? colorScheme.primary),
+    const SizedBox(width: 10),
+    titleBlock,
+  ];
+  return Padding(
+    padding: padding,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            constraints.hasBoundedWidth &&
+            constraints.maxWidth < kOpenHandToolDialogHeaderCompactBreakpoint &&
+            actionWidgets.length > 1;
+        if (compact) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: leading),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: actionWidgets,
+                ),
+              ),
+            ],
+          );
+        }
+        return Row(children: [...leading, ...actionWidgets]);
+      },
     ),
   );
 }

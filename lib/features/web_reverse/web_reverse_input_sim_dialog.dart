@@ -436,86 +436,56 @@ class _InputSimDialogState extends State<_InputSimDialog>
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 6),
-              child: Row(
-                children: [
-                  Icon(Icons.ads_click_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseInputSimTitle ??
-                              'Input Event Simulator',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Input.dispatchMouseEvent / dispatchKeyEvent / insertText',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            TabBar(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 720,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.ads_click_rounded,
+            title: loc?.webReverseInputSimTitle ?? 'Input Event Simulator',
+            subtitle:
+                'Input.dispatchMouseEvent / dispatchKeyEvent / insertText',
+          ),
+          TabBar(
+            controller: _tab,
+            tabs: [
+              Tab(text: loc?.webReverseInputSimTabMouse ?? 'Mouse'),
+              Tab(text: loc?.webReverseInputSimTabKey ?? 'Key'),
+              Tab(text: loc?.webReverseInputSimTabText ?? 'Text'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
               controller: _tab,
-              tabs: [
-                Tab(text: loc?.webReverseInputSimTabMouse ?? 'Mouse'),
-                Tab(text: loc?.webReverseInputSimTabKey ?? 'Key'),
-                Tab(text: loc?.webReverseInputSimTabText ?? 'Text'),
-              ],
+              children: [_mouseTab(), _keyTab(), _textTab()],
             ),
-            Expanded(
-              child: TabBarView(
-                controller: _tab,
-                children: [_mouseTab(), _keyTab(), _textTab()],
-              ),
-            ),
-            if (_busy) const LinearProgressIndicator(minHeight: 3),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.surfaceContainerHigh,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseInputSimCloseBtn ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
+          ),
+          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: cs.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: loc?.webReverseInputSimCloseBtn ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -4652,166 +4652,144 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
       for (var i = 0; i < _events.length; i++) (i, _events[i]),
     ]..sort((a, b) => b.$2.dur.compareTo(a.$2.dur));
     final top = indexed.take(30).toList();
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1280, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(Icons.local_fire_department_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 1280,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.local_fire_department_rounded,
+            title: isZh
+                ? '火焰图（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）'
+                : 'Flame graph (${_events.length} ev · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: _events.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text(
                       isZh
-                          ? '火焰图（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）'
-                          : 'Flame graph (${_events.length} ev · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                          ? '没有可视化的完整事件（trace 内可能只含 metadata）。'
+                          : 'No X-phase events to plot.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Flexible(
-              child: _events.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        isZh
-                            ? '没有可视化的完整事件（trace 内可能只含 metadata）。'
-                            : 'No X-phase events to plot.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // 火焰图主体 + 时间轴。
-                        Expanded(
-                          flex: 4,
-                          child: InteractiveViewer(
-                            maxScale: 8,
-                            minScale: 0.5,
-                            child: SizedBox(
-                              width: 1600,
-                              height: 540,
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTapDown: (d) {
-                                  final hit = _hitTest(
-                                    d.localPosition,
-                                    const Size(1600, 540),
-                                  );
-                                  if (hit != null) _showEventDetail(hit);
-                                },
-                                child: CustomPaint(
-                                  painter: _FlamePainter(
-                                    events: _events,
-                                    minTs: _minTs,
-                                    maxTs: _maxTs,
-                                    primary: cs.primary,
-                                    tertiary: cs.tertiary,
-                                    onSurface: cs.onSurface,
-                                    grid: cs.outlineVariant,
-                                    hitIndex: _hitIndex,
-                                  ),
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 火焰图主体 + 时间轴。
+                      Expanded(
+                        flex: 4,
+                        child: InteractiveViewer(
+                          maxScale: 8,
+                          minScale: 0.5,
+                          child: SizedBox(
+                            width: 1600,
+                            height: 540,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapDown: (d) {
+                                final hit = _hitTest(
+                                  d.localPosition,
+                                  const Size(1600, 540),
+                                );
+                                if (hit != null) _showEventDetail(hit);
+                              },
+                              child: CustomPaint(
+                                painter: _FlamePainter(
+                                  events: _events,
+                                  minTs: _minTs,
+                                  maxTs: _maxTs,
+                                  primary: cs.primary,
+                                  tertiary: cs.tertiary,
+                                  onSurface: cs.onSurface,
+                                  grid: cs.outlineVariant,
+                                  hitIndex: _hitIndex,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const VerticalDivider(width: 1),
-                        // 右侧 Top dur 列表。
-                        SizedBox(
-                          width: 280,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(10, 12, 8, 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isZh ? '按耗时排序 Top 30' : 'Top 30 by duration',
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                      ),
+                      const VerticalDivider(width: 1),
+                      // 右侧 Top dur 列表。
+                      SizedBox(
+                        width: 280,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 12, 8, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isZh ? '按耗时排序 Top 30' : 'Top 30 by duration',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(height: 6),
-                                Expanded(
-                                  child: ListView.builder(
-                                    itemCount: top.length,
-                                    itemBuilder: (_, i) {
-                                      final (idx, e) = top[i];
-                                      final ms = e.dur / 1000;
-                                      return InkWell(
-                                        onTap: () => _highlightFromTopList(idx),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                            vertical: 4,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              SizedBox(
-                                                width: 60,
-                                                child: Text(
-                                                  '${ms.toStringAsFixed(2)}ms',
-                                                  style: theme
-                                                      .textTheme
-                                                      .labelSmall
-                                                      ?.copyWith(
-                                                        fontFamily: 'monospace',
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: ms > 50
-                                                            ? cs.error
-                                                            : cs.primary,
-                                                      ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Text(
-                                                  e.name,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: theme
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        fontFamily: 'monospace',
-                                                      ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                              ),
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: top.length,
+                                  itemBuilder: (_, i) {
+                                    final (idx, e) = top[i];
+                                    final ms = e.dur / 1000;
+                                    return InkWell(
+                                      onTap: () => _highlightFromTopList(idx),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 4,
                                         ),
-                                      );
-                                    },
-                                  ),
+                                        child: Row(
+                                          children: [
+                                            SizedBox(
+                                              width: 60,
+                                              child: Text(
+                                                '${ms.toStringAsFixed(2)}ms',
+                                                style: theme
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      fontFamily: 'monospace',
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: ms > 50
+                                                          ? cs.error
+                                                          : cs.primary,
+                                                    ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                e.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                      fontFamily: 'monospace',
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -5216,239 +5194,218 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
     final dBytes = widget.bytesB - widget.bytesA;
     final dNodes = result.nodesB - result.nodesA;
     final dSelf = result.totalSelfB - result.totalSelfA;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1280, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 14, 8),
-              child: Row(
-                children: [
-                  Icon(Icons.compare_arrows_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Text(
-                    isZh ? '堆快照对比' : 'Heap snapshot diff',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 1280,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.compare_arrows_rounded,
+            title: isZh ? '堆快照对比' : 'Heap snapshot diff',
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'A: ${widget.whenA.toLocal().toIso8601String().split(".").first}'
+                  '   →   '
+                  'B: ${widget.whenB.toLocal().toIso8601String().split(".").first}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 10),
+                _DiffRow(
+                  label: isZh ? '原始字节' : 'Raw bytes',
+                  a: _SnapshotDiffDialog._fmtBytes(widget.bytesA),
+                  b: _SnapshotDiffDialog._fmtBytes(widget.bytesB),
+                  delta: dBytes,
+                ),
+                _DiffRow(
+                  label: isZh ? '节点数' : 'Nodes',
+                  a: '${result.nodesA}',
+                  b: '${result.nodesB}',
+                  delta: dNodes,
+                ),
+                _DiffRow(
+                  label: isZh ? '自有大小' : 'Self size',
+                  a: _SnapshotDiffDialog._fmtBytes(result.totalSelfA),
+                  b: _SnapshotDiffDialog._fmtBytes(result.totalSelfB),
+                  delta: dSelf,
+                ),
+              ],
             ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'A: ${widget.whenA.toLocal().toIso8601String().split(".").first}'
-                    '   →   '
-                    'B: ${widget.whenB.toLocal().toIso8601String().split(".").first}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                    ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+            child: Row(
+              children: [
+                Text(
+                  isZh ? '构造器增长 Top 40' : 'Top 40 constructor growth',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(height: 10),
-                  _DiffRow(
-                    label: isZh ? '原始字节' : 'Raw bytes',
-                    a: _SnapshotDiffDialog._fmtBytes(widget.bytesA),
-                    b: _SnapshotDiffDialog._fmtBytes(widget.bytesB),
-                    delta: dBytes,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  isZh
+                      ? '点击任一行 → 右侧显示保持者链'
+                      : 'Click row → retainer chain on the right',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
                   ),
-                  _DiffRow(
-                    label: isZh ? '节点数' : 'Nodes',
-                    a: '${result.nodesA}',
-                    b: '${result.nodesB}',
-                    delta: dNodes,
-                  ),
-                  _DiffRow(
-                    label: isZh ? '自有大小' : 'Self size',
-                    a: _SnapshotDiffDialog._fmtBytes(result.totalSelfA),
-                    b: _SnapshotDiffDialog._fmtBytes(result.totalSelfB),
-                    delta: dSelf,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
-              child: Row(
-                children: [
-                  Text(
-                    isZh ? '构造器增长 Top 40' : 'Top 40 constructor growth',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
+                ),
+                const Spacer(),
+                if (result.error != null)
                   Text(
                     isZh
-                        ? '点击任一行 → 右侧显示保持者链'
-                        : 'Click row → retainer chain on the right',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                        ? '解析失败：${result.error}'
+                        : 'Parse error: ${result.error}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
                   ),
-                  const Spacer(),
-                  if (result.error != null)
-                    Text(
-                      isZh
-                          ? '解析失败：${result.error}'
-                          : 'Parse error: ${result.error}',
+              ],
+            ),
+          ),
+          Flexible(
+            child: result.growth.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      isZh ? '无可见增长' : 'No growth detected',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.error,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: result.growth.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        isZh ? '无可见增长' : 'No growth detected',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Scrollbar(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 12, 16),
+                            child: DataTable(
+                              headingRowHeight: 32,
+                              dataRowMinHeight: 28,
+                              dataRowMaxHeight: 32,
+                              columnSpacing: 24,
+                              showCheckboxColumn: false,
+                              columns: [
+                                DataColumn(
+                                  label: Text(isZh ? '构造器' : 'Constructor'),
+                                ),
+                                DataColumn(
+                                  label: Text(isZh ? '字节增量' : 'Δ bytes'),
+                                  numeric: true,
+                                ),
+                                DataColumn(
+                                  label: Text(isZh ? '节点增量' : 'Δ count'),
+                                  numeric: true,
+                                ),
+                                DataColumn(
+                                  label: Text(isZh ? 'A 字节' : 'A bytes'),
+                                  numeric: true,
+                                ),
+                                DataColumn(
+                                  label: Text(isZh ? 'B 字节' : 'B bytes'),
+                                  numeric: true,
+                                ),
+                              ],
+                              rows: [
+                                for (final g in result.growth)
+                                  DataRow(
+                                    selected: g.label == _selectedLabel,
+                                    onSelectChanged: (_) => _onRowTap(g.label),
+                                    cells: [
+                                      DataCell(
+                                        SelectableText(
+                                          g.label,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          _SnapshotDiffDialog._fmtSignedBytes(
+                                            g.bytesDelta,
+                                          ),
+                                          style: TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                            color: g.bytesDelta > 0
+                                                ? cs.error
+                                                : (g.bytesDelta < 0
+                                                      ? Colors.green
+                                                      : cs.onSurfaceVariant),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          _SnapshotDiffDialog._fmtSigned(
+                                            g.countDelta,
+                                          ),
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          _SnapshotDiffDialog._fmtBytes(
+                                            g.bytesA,
+                                          ),
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          _SnapshotDiffDialog._fmtBytes(
+                                            g.bytesB,
+                                          ),
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Scrollbar(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 12, 16),
-                              child: DataTable(
-                                headingRowHeight: 32,
-                                dataRowMinHeight: 28,
-                                dataRowMaxHeight: 32,
-                                columnSpacing: 24,
-                                showCheckboxColumn: false,
-                                columns: [
-                                  DataColumn(
-                                    label: Text(isZh ? '构造器' : 'Constructor'),
-                                  ),
-                                  DataColumn(
-                                    label: Text(isZh ? '字节增量' : 'Δ bytes'),
-                                    numeric: true,
-                                  ),
-                                  DataColumn(
-                                    label: Text(isZh ? '节点增量' : 'Δ count'),
-                                    numeric: true,
-                                  ),
-                                  DataColumn(
-                                    label: Text(isZh ? 'A 字节' : 'A bytes'),
-                                    numeric: true,
-                                  ),
-                                  DataColumn(
-                                    label: Text(isZh ? 'B 字节' : 'B bytes'),
-                                    numeric: true,
-                                  ),
-                                ],
-                                rows: [
-                                  for (final g in result.growth)
-                                    DataRow(
-                                      selected: g.label == _selectedLabel,
-                                      onSelectChanged: (_) =>
-                                          _onRowTap(g.label),
-                                      cells: [
-                                        DataCell(
-                                          SelectableText(
-                                            g.label,
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _SnapshotDiffDialog._fmtSignedBytes(
-                                              g.bytesDelta,
-                                            ),
-                                            style: TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 12,
-                                              color: g.bytesDelta > 0
-                                                  ? cs.error
-                                                  : (g.bytesDelta < 0
-                                                        ? Colors.green
-                                                        : cs.onSurfaceVariant),
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _SnapshotDiffDialog._fmtSigned(
-                                              g.countDelta,
-                                            ),
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _SnapshotDiffDialog._fmtBytes(
-                                              g.bytesA,
-                                            ),
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            _SnapshotDiffDialog._fmtBytes(
-                                              g.bytesB,
-                                            ),
-                                            style: const TextStyle(
-                                              fontFamily: 'monospace',
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              ),
-                            ),
+                      if (_selectedLabel != null) ...[
+                        const VerticalDivider(width: 1),
+                        SizedBox(
+                          width: 360,
+                          child: _RetainerSidePanel(
+                            ctorLabel: _selectedLabel!,
+                            loading: _retainerLoading,
+                            result: _retainerResult,
+                            isZh: isZh,
                           ),
                         ),
-                        if (_selectedLabel != null) ...[
-                          const VerticalDivider(width: 1),
-                          SizedBox(
-                            width: 360,
-                            child: _RetainerSidePanel(
-                              ctorLabel: _selectedLabel!,
-                              loading: _retainerLoading,
-                              result: _retainerResult,
-                              isZh: isZh,
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
-            ),
-          ],
-        ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }

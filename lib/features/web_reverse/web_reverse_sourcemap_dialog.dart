@@ -314,199 +314,169 @@ class _SmDialogState extends State<_SmDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final r = _result;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.alt_route_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 820,
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.alt_route_rounded,
+            title: loc?.webReverseSmTitle ?? 'SourceMap Resolver',
+            subtitle:
+                loc?.webReverseSmSubtitle ??
+                'min file:line:col → original source:line:col',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _url,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: loc?.webReverseSmUrlLabel ?? 'Minified file URL',
+                    hintText: 'https://.../app.min.js',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _line,
+                        decoration: InputDecoration(
+                          labelText:
+                              loc?.webReverseSmLineLabel ?? 'Line (1-based)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _col,
+                        decoration: InputDecoration(
+                          labelText:
+                              loc?.webReverseSmColLabel ?? 'Column (0-based)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _resolve,
+                      icon: const Icon(Icons.search_rounded),
+                      label: Text(loc?.webReverseSmResolve ?? 'Resolve'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_busy) const LinearProgressIndicator(minHeight: 3),
+          Expanded(
+            child: r == null
+                ? Center(
+                    child: Text(
+                      _status.isEmpty
+                          ? (loc?.webReverseSmEmptyHint ??
+                                'Enter URL + position, then resolve')
+                          : _status,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          loc?.webReverseSmTitle ?? 'SourceMap Resolver',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SelectableText(
+                                '${r.source}:${r.line + 1}:${r.column + 1}',
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.primary,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _copy,
+                              icon: const Icon(Icons.copy_rounded),
+                              tooltip: loc?.webReverseSmCopyTooltip ?? 'Copy',
+                            ),
+                          ],
                         ),
-                        Text(
-                          loc?.webReverseSmSubtitle ??
-                              'min file:line:col → original source:line:col',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
+                        if (r.name != null && r.name!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '${loc?.webReverseSmNameLabel ?? 'name'}: ${r.name}',
+                              style: theme.textTheme.labelMedium,
+                            ),
                           ),
-                        ),
+                        if (r.snippet.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: cs.outlineVariant),
+                            ),
+                            child: SelectableText(
+                              r.snippet,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _url,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      labelText:
-                          loc?.webReverseSmUrlLabel ?? 'Minified file URL',
-                      hintText: 'https://.../app.min.js',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _line,
-                          decoration: InputDecoration(
-                            labelText:
-                                loc?.webReverseSmLineLabel ?? 'Line (1-based)',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _col,
-                          decoration: InputDecoration(
-                            labelText:
-                                loc?.webReverseSmColLabel ?? 'Column (0-based)',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      FilledButton.icon(
-                        onPressed: _busy ? null : _resolve,
-                        icon: const Icon(Icons.search_rounded),
-                        label: Text(loc?.webReverseSmResolve ?? 'Resolve'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_busy) const LinearProgressIndicator(minHeight: 3),
-            Expanded(
-              child: r == null
-                  ? Center(
-                      child: Text(
-                        _status.isEmpty
-                            ? (loc?.webReverseSmEmptyHint ??
-                                  'Enter URL + position, then resolve')
-                            : _status,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SelectableText(
-                                  '${r.source}:${r.line + 1}:${r.column + 1}',
-                                  style: TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: cs.primary,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: _copy,
-                                icon: const Icon(Icons.copy_rounded),
-                                tooltip: loc?.webReverseSmCopyTooltip ?? 'Copy',
-                              ),
-                            ],
-                          ),
-                          if (r.name != null && r.name!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                '${loc?.webReverseSmNameLabel ?? 'name'}: ${r.name}',
-                                style: theme.textTheme.labelMedium,
-                              ),
-                            ),
-                          if (r.snippet.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: cs.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: cs.outlineVariant),
-                              ),
-                              child: SelectableText(
-                                r.snippet,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-            ),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                color: cs.surfaceContainerHigh,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseSmClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
+          ),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: cs.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OpenHandDialogActionButton.primary(
+                label: loc?.webReverseSmClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

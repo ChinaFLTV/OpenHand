@@ -326,251 +326,219 @@ class _PmDialogState extends State<_PmDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final filtered = _filtered();
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 760,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 760),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.swap_horiz_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReversePmTitle ?? 'postMessage Trace',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReversePmSubtitle ??
-                              'Inject hook → ring buffer → drain every 800ms (incl. iframe)',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.swap_horiz_rounded,
+            title: loc?.webReversePmTitle ?? 'postMessage Trace',
+            subtitle:
+                loc?.webReversePmSubtitle ??
+                'Inject hook → ring buffer → drain every 800ms (incl. iframe)',
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: _busy ? null : _toggleHook,
+                  icon: Icon(
+                    _hooked ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  ),
+                  label: Text(
+                    _hooked
+                        ? (loc?.webReversePmStop ?? 'Stop')
+                        : (loc?.webReversePmInject ?? 'Inject'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton.tonalIcon(
+                  onPressed: _records.isEmpty ? null : _clear,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: Text(loc?.webReversePmClear ?? 'Clear'),
+                ),
+                const SizedBox(width: 10),
+                FilledButton.tonalIcon(
+                  onPressed: filtered.isEmpty ? null : _copy,
+                  icon: const Icon(Icons.copy_all_rounded),
+                  label: Text(loc?.webReversePmCopyJson ?? 'Copy JSON'),
+                ),
+                const Spacer(),
+                Text(
+                  '${filtered.length}/${_records.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _filterCtrl,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      hintText:
+                          loc?.webReversePmFilterHint ?? 'filter by substring',
+                      border: const OutlineInputBorder(),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                ),
+                const SizedBox(width: 12),
+                FilterChip(
+                  label: Text(loc?.webReversePmChipSend ?? 'Send'),
+                  selected: _showSend,
+                  onSelected: (v) => setState(() => _showSend = v),
+                ),
+                const SizedBox(width: 6),
+                FilterChip(
+                  label: Text(loc?.webReversePmChipRecv ?? 'Recv'),
+                  selected: _showRecv,
+                  onSelected: (v) => setState(() => _showRecv = v),
+                ),
+              ],
+            ),
+          ),
+          if (_status != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _status!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontFamily: 'monospace',
                   ),
-                ],
+                ),
               ),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _busy ? null : _toggleHook,
-                    icon: Icon(
-                      _hooked ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                    ),
-                    label: Text(
-                      _hooked
-                          ? (loc?.webReversePmStop ?? 'Stop')
-                          : (loc?.webReversePmInject ?? 'Inject'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton.tonalIcon(
-                    onPressed: _records.isEmpty ? null : _clear,
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    label: Text(loc?.webReversePmClear ?? 'Clear'),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton.tonalIcon(
-                    onPressed: filtered.isEmpty ? null : _copy,
-                    icon: const Icon(Icons.copy_all_rounded),
-                    label: Text(loc?.webReversePmCopyJson ?? 'Copy JSON'),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${filtered.length}/${_records.length}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 6),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.outlineVariant),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _filterCtrl,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        hintText:
-                            loc?.webReversePmFilterHint ??
-                            'filter by substring',
-                        border: const OutlineInputBorder(),
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        _hooked
+                            ? (loc?.webReversePmWaiting ??
+                                  'Waiting for postMessage…')
+                            : (loc?.webReversePmClickToCapture ??
+                                  'Click Inject to start capturing'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilterChip(
-                    label: Text(loc?.webReversePmChipSend ?? 'Send'),
-                    selected: _showSend,
-                    onSelected: (v) => setState(() => _showSend = v),
-                  ),
-                  const SizedBox(width: 6),
-                  FilterChip(
-                    label: Text(loc?.webReversePmChipRecv ?? 'Recv'),
-                    selected: _showRecv,
-                    onSelected: (v) => setState(() => _showRecv = v),
-                  ),
-                ],
-              ),
-            ),
-            if (_status != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _status!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
-                child: filtered.isEmpty
-                    ? Center(
-                        child: Text(
-                          _hooked
-                              ? (loc?.webReversePmWaiting ??
-                                    'Waiting for postMessage…')
-                              : (loc?.webReversePmClickToCapture ??
-                                    'Click Inject to start capturing'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: filtered.length,
-                        reverse: true,
-                        separatorBuilder: (_, _) =>
-                            Divider(height: 1, color: cs.outlineVariant),
-                        itemBuilder: (_, i) {
-                          final r = filtered[filtered.length - 1 - i];
-                          final isSend = r.dir == 'send';
-                          final accent = isSend ? cs.tertiary : cs.primary;
-                          return Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: accent.withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        isSend
-                                            ? (loc?.webReversePmTagSend ??
-                                                  'SEND')
-                                            : (loc?.webReversePmTagRecv ??
-                                                  'RECV'),
-                                        style: TextStyle(
-                                          color: accent,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 10,
-                                        ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: filtered.length,
+                      reverse: true,
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: cs.outlineVariant),
+                      itemBuilder: (_, i) {
+                        final r = filtered[filtered.length - 1 - i];
+                        final isSend = r.dir == 'send';
+                        final accent = isSend ? cs.tertiary : cs.primary;
+                        return Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: accent.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      isSend
+                                          ? (loc?.webReversePmTagSend ?? 'SEND')
+                                          : (loc?.webReversePmTagRecv ??
+                                                'RECV'),
+                                      style: TextStyle(
+                                        color: accent,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 10,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _fmtTime(r.at),
-                                      style: const TextStyle(
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _fmtTime(r.at),
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      isSend
+                                          ? '${r.origin}  →  ${r.target}'
+                                          : '${r.origin}  →  (this)',
+                                      style: TextStyle(
                                         fontFamily: 'monospace',
                                         fontSize: 11,
+                                        color: cs.onSurfaceVariant,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        isSend
-                                            ? '${r.origin}  →  ${r.target}'
-                                            : '${r.origin}  →  (this)',
-                                        style: TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
-                                          color: cs.onSurfaceVariant,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                SelectableText(
-                                  r.data,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 11,
                                   ),
-                                  maxLines: 6,
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              SelectableText(
+                                r.data,
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
+                                maxLines: 6,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    label: loc?.webReversePmClose ?? 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: loc?.webReversePmClose ?? 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

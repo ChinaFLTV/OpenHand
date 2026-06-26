@@ -210,186 +210,159 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
     final list = _visible;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 920,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 720),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
-                children: [
-                  Icon(Icons.cookie_rounded, color: cs.primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          loc?.webReverseCookieEditorTitle ?? 'Cookie Editor',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          loc?.webReverseCookieEditorSubtitle ??
-                              'Network.getCookies / setCookie / deleteCookies — full CRUD',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: loc?.webReverseCookieEditorRefresh ?? 'Refresh',
-                    onPressed: _loading ? null : _refresh,
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                  IconButton(
-                    tooltip: loc?.webReverseCookieEditorCopyJson ?? 'Copy JSON',
-                    onPressed: list.isEmpty ? null : _copyJson,
-                    icon: const Icon(Icons.copy_all_rounded),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+      child: Column(
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: Icons.cookie_rounded,
+            title: loc?.webReverseCookieEditorTitle ?? 'Cookie Editor',
+            subtitle:
+                loc?.webReverseCookieEditorSubtitle ??
+                'Network.getCookies / setCookie / deleteCookies — full CRUD',
+            actions: [
+              IconButton(
+                tooltip: loc?.webReverseCookieEditorRefresh ?? 'Refresh',
+                onPressed: _loading ? null : _refresh,
+                icon: const Icon(Icons.refresh_rounded),
               ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText:
-                            loc?.webReverseCookieEditorFilterHint ??
-                            'Filter name / domain / value',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                      onChanged: (v) => setState(() => _filter = v),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: _loading ? null : () => _edit(null),
-                    icon: const Icon(Icons.add_rounded),
-                    label: Text(loc?.webReverseCookieEditorNewBtn ?? 'New'),
-                  ),
-                ],
+              IconButton(
+                tooltip: loc?.webReverseCookieEditorCopyJson ?? 'Copy JSON',
+                onPressed: list.isEmpty ? null : _copyJson,
+                icon: const Icon(Icons.copy_all_rounded),
               ),
-            ),
-            Expanded(
-              child: _loading && list.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : list.isEmpty
-                  ? Center(
-                      child: Text(
-                        loc?.webReverseCookieEditorEmptyCookies ?? 'No cookies',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) =>
-                          Divider(height: 1, color: cs.outlineVariant),
-                      itemBuilder: (_, i) {
-                        final c = list[i];
-                        return ListTile(
-                          dense: true,
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  c.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontFamily: 'monospace',
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                c.domain,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              c.value,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (c.httpOnly)
-                                _badge(theme, 'HttpOnly', cs.tertiary),
-                              if (c.secure) _badge(theme, 'Secure', cs.primary),
-                              if (c.sameSite.isNotEmpty)
-                                _badge(theme, c.sameSite, cs.secondary),
-                              IconButton(
-                                tooltip:
-                                    loc?.webReverseCookieEditorEdit ?? 'Edit',
-                                onPressed: () => _edit(c),
-                                icon: const Icon(Icons.edit_rounded, size: 16),
-                              ),
-                              IconButton(
-                                tooltip:
-                                    loc?.webReverseCookieEditorDelete ??
-                                    'Delete',
-                                onPressed: () => _delete(c),
-                                icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          onTap: () => _edit(c),
-                        );
-                      },
+            ],
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText:
+                          loc?.webReverseCookieEditorFilterHint ??
+                          'Filter name / domain / value',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      isDense: true,
+                      border: const OutlineInputBorder(),
                     ),
-            ),
-            if (_status.isNotEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                color: cs.surfaceContainerHigh,
-                child: Text(
-                  _status,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                    onChanged: (v) => setState(() => _filter = v),
                   ),
                 ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: _loading ? null : () => _edit(null),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(loc?.webReverseCookieEditorNewBtn ?? 'New'),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _loading && list.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : list.isEmpty
+                ? Center(
+                    child: Text(
+                      loc?.webReverseCookieEditorEmptyCookies ?? 'No cookies',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    itemCount: list.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: cs.outlineVariant),
+                    itemBuilder: (_, i) {
+                      final c = list[i];
+                      return ListTile(
+                        dense: true,
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                c.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'monospace',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              c.domain,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            c.value,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (c.httpOnly)
+                              _badge(theme, 'HttpOnly', cs.tertiary),
+                            if (c.secure) _badge(theme, 'Secure', cs.primary),
+                            if (c.sameSite.isNotEmpty)
+                              _badge(theme, c.sameSite, cs.secondary),
+                            IconButton(
+                              tooltip:
+                                  loc?.webReverseCookieEditorEdit ?? 'Edit',
+                              onPressed: () => _edit(c),
+                              icon: const Icon(Icons.edit_rounded, size: 16),
+                            ),
+                            IconButton(
+                              tooltip:
+                                  loc?.webReverseCookieEditorDelete ?? 'Delete',
+                              onPressed: () => _delete(c),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: () => _edit(c),
+                      );
+                    },
+                  ),
+          ),
+          if (_status.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              color: cs.surfaceContainerHigh,
+              child: Text(
+                _status,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -494,154 +467,128 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    final title = widget.row == null
+        ? (loc?.webReverseCookieEditorNewCookie ?? 'New Cookie')
+        : (loc?.webReverseCookieEditorEditCookie(widget.row!.name) ??
+              'Edit ${widget.row!.name}');
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 560,
+      maxHeight: 680,
       insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 680),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          buildOpenHandToolDialogHeader(
+            context: context,
+            icon: widget.row == null
+                ? Icons.add_circle_outline_rounded
+                : Icons.edit_rounded,
+            title: title,
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    widget.row == null
-                        ? Icons.add_circle_outline_rounded
-                        : Icons.edit_rounded,
-                    color: cs.primary,
+                  _field(
+                    loc?.webReverseCookieEditorFieldName ?? 'name *',
+                    _name,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.row == null
-                          ? (loc?.webReverseCookieEditorNewCookie ??
-                                'New Cookie')
-                          : (loc?.webReverseCookieEditorEditCookie(
-                                  widget.row!.name,
-                                ) ??
-                                'Edit ${widget.row!.name}'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                  _field(
+                    loc?.webReverseCookieEditorFieldValue ?? 'value',
+                    _value,
+                    maxLines: 4,
+                  ),
+                  _field(
+                    loc?.webReverseCookieEditorFieldDomain ?? 'domain',
+                    _domain,
+                    hint: '.example.com',
+                  ),
+                  _field(loc?.webReverseCookieEditorFieldPath ?? 'path', _path),
+                  _field(
+                    loc?.webReverseCookieEditorFieldUrl ?? 'URL (optional)',
+                    _url,
+                    hint: 'https://...',
+                  ),
+                  _field(
+                    loc?.webReverseCookieEditorFieldExpires ??
+                        'expires (unix sec)',
+                    _expires,
+                    hint: '1700000000',
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CheckboxListTile(
+                          value: _httpOnly,
+                          onChanged: (v) =>
+                              setState(() => _httpOnly = v ?? false),
+                          title: const Text('HttpOnly'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
                       ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _field(
-                      loc?.webReverseCookieEditorFieldName ?? 'name *',
-                      _name,
-                    ),
-                    _field(
-                      loc?.webReverseCookieEditorFieldValue ?? 'value',
-                      _value,
-                      maxLines: 4,
-                    ),
-                    _field(
-                      loc?.webReverseCookieEditorFieldDomain ?? 'domain',
-                      _domain,
-                      hint: '.example.com',
-                    ),
-                    _field(
-                      loc?.webReverseCookieEditorFieldPath ?? 'path',
-                      _path,
-                    ),
-                    _field(
-                      loc?.webReverseCookieEditorFieldUrl ?? 'URL (optional)',
-                      _url,
-                      hint: 'https://...',
-                    ),
-                    _field(
-                      loc?.webReverseCookieEditorFieldExpires ??
-                          'expires (unix sec)',
-                      _expires,
-                      hint: '1700000000',
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CheckboxListTile(
-                            value: _httpOnly,
-                            onChanged: (v) =>
-                                setState(() => _httpOnly = v ?? false),
-                            title: const Text('HttpOnly'),
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            controlAffinity: ListTileControlAffinity.leading,
-                          ),
+                      Expanded(
+                        child: CheckboxListTile(
+                          value: _secure,
+                          onChanged: (v) =>
+                              setState(() => _secure = v ?? false),
+                          title: const Text('Secure'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
                         ),
-                        Expanded(
-                          child: CheckboxListTile(
-                            value: _secure,
-                            onChanged: (v) =>
-                                setState(() => _secure = v ?? false),
-                            title: const Text('Secure'),
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            controlAffinity: ListTileControlAffinity.leading,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text('SameSite', style: theme.textTheme.labelMedium),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      children: ['', 'Strict', 'Lax', 'None']
-                          .map(
-                            (s) => ChoiceChip(
-                              label: Text(
-                                s.isEmpty
-                                    ? (loc?.webReverseCookieEditorSameSiteUnset ??
-                                          'unset')
-                                    : s,
-                              ),
-                              selected: _sameSite == s,
-                              onSelected: (_) => setState(() => _sameSite = s),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text('SameSite', style: theme.textTheme.labelMedium),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    children: ['', 'Strict', 'Lax', 'None']
+                        .map(
+                          (s) => ChoiceChip(
+                            label: Text(
+                              s.isEmpty
+                                  ? (loc?.webReverseCookieEditorSameSiteUnset ??
+                                        'unset')
+                                  : s,
                             ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Divider(height: 1, color: cs.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: loc?.webReverseCookieEditorCancel ?? 'Cancel',
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: _submit,
-                    label: loc?.webReverseCookieEditorSave ?? 'Save',
+                            selected: _sameSite == s,
+                            onSelected: (_) => setState(() => _sameSite = s),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Divider(height: 1, color: cs.outlineVariant),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(context).pop(),
+                  label: loc?.webReverseCookieEditorCancel ?? 'Cancel',
+                ),
+                const SizedBox(width: 8),
+                OpenHandDialogActionButton.primary(
+                  onPressed: _submit,
+                  label: loc?.webReverseCookieEditorSave ?? 'Save',
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

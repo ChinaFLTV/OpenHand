@@ -103,102 +103,83 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final img = _decoded;
-    return Dialog(
-      backgroundColor: cs.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(theme, cs),
-            Divider(height: 1, color: cs.outlineVariant),
-            _buildToolbar(theme, cs),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(
-              child: Container(
-                color: const Color(0xFF1E1E1E),
-                alignment: Alignment.center,
-                child: img == null
-                    ? const CircularProgressIndicator()
-                    : InteractiveViewer(
-                        maxScale: 4,
-                        child: RepaintBoundary(
-                          key: _boundary,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onPanStart: _onPanStart,
-                            onPanUpdate: _onPanUpdate,
-                            onPanEnd: _onPanEnd,
-                            onTapUp: (d) {
-                              if (_tool == _MarkupTool.text) {
-                                _addText(d.localPosition);
-                              }
-                            },
-                            child: SizedBox(
-                              width: img.width.toDouble(),
-                              height: img.height.toDouble(),
-                              child: CustomPaint(
-                                painter: _MarkupPainter(
-                                  baseImage: img,
-                                  strokes: _strokes,
-                                  rects: _rects,
-                                  texts: _texts,
-                                  activeStroke: _activeStroke,
-                                  activeRect: _activeRect,
-                                ),
+    return buildOpenHandToolDialogShell(
+      context: context,
+      maxWidth: 1200,
+      maxHeight: 800,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildHeader(),
+          Divider(height: 1, color: cs.outlineVariant),
+          _buildToolbar(theme, cs),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: Container(
+              color: const Color(0xFF1E1E1E),
+              alignment: Alignment.center,
+              child: img == null
+                  ? const CircularProgressIndicator()
+                  : InteractiveViewer(
+                      maxScale: 4,
+                      child: RepaintBoundary(
+                        key: _boundary,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: _onPanStart,
+                          onPanUpdate: _onPanUpdate,
+                          onPanEnd: _onPanEnd,
+                          onTapUp: (d) {
+                            if (_tool == _MarkupTool.text) {
+                              _addText(d.localPosition);
+                            }
+                          },
+                          child: SizedBox(
+                            width: img.width.toDouble(),
+                            height: img.height.toDouble(),
+                            child: CustomPaint(
+                              painter: _MarkupPainter(
+                                baseImage: img,
+                                strokes: _strokes,
+                                rects: _rects,
+                                texts: _texts,
+                                activeStroke: _activeStroke,
+                                activeRect: _activeRect,
                               ),
                             ),
                           ),
                         ),
                       ),
-              ),
+                    ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildHeader(ThemeData theme, ColorScheme cs) {
+  Widget _buildHeader() {
     final loc = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-      child: Row(
-        children: [
-          Icon(Icons.draw_rounded, size: 22, color: cs.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              loc?.webReverseMarkupTitle ?? 'Screenshot Markup',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).pop(widget.image),
-            label: loc?.webReverseMarkupSaveWithout ?? 'Save without markup',
-          ),
-          const SizedBox(width: 8),
-          OpenHandDialogActionButton.primary(
-            onPressed: _exporting ? null : _export,
-            icon: _exporting
-                ? Icons.hourglass_top_rounded
-                : Icons.check_rounded,
-            label: _exporting
-                ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
-                : (loc?.webReverseMarkupDone ?? 'Done'),
-          ),
-          const SizedBox(width: 6),
-          IconButton(
-            tooltip: loc?.commonCancel ?? 'Cancel',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded),
-          ),
-        ],
-      ),
+    return buildOpenHandToolDialogHeader(
+      context: context,
+      icon: Icons.draw_rounded,
+      iconSize: 22,
+      title: loc?.webReverseMarkupTitle ?? 'Screenshot Markup',
+      closeTooltip: loc?.commonCancel ?? 'Cancel',
+      onClose: () => Navigator.of(context).pop(),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(widget.image),
+          label: loc?.webReverseMarkupSaveWithout ?? 'Save without markup',
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: _exporting ? null : _export,
+          icon: _exporting ? Icons.hourglass_top_rounded : Icons.check_rounded,
+          label: _exporting
+              ? (loc?.webReverseMarkupExporting ?? 'Exporting…')
+              : (loc?.webReverseMarkupDone ?? 'Done'),
+        ),
+      ],
     );
   }
 
