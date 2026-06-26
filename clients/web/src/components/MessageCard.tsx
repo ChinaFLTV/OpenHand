@@ -379,8 +379,92 @@ interface MachineExpertRequestViewModel {
   truncated: boolean;
 }
 
+interface WebReverseRequestViewModel {
+  targetUrl?: string;
+  reverseTarget?: string;
+  triggerActions?: string;
+  loginState?: string;
+  browser?: string;
+  cdpPort?: string;
+  cdpMcp?: string;
+  proxy?: string;
+  keywords?: string;
+  evidenceDiscipline?: string;
+  deliverables?: string;
+  acceptanceCriteria?: string;
+  truncated: boolean;
+}
+
+interface AndroidReverseRequestViewModel {
+  reverseTarget?: string;
+  packageName?: string;
+  apkPath?: string;
+  device?: string;
+  deviceSerial?: string;
+  analysisMode?: string;
+  authorizationScope?: string;
+  adbMcp?: string;
+  fridaMcp?: string;
+  keywords?: string;
+  notes?: string;
+  evidenceDiscipline?: string;
+  acceptanceCriteria?: string;
+  truncated: boolean;
+}
+
+interface ExpertRequestFieldViewModel {
+  label: string;
+  value: string;
+}
+
+interface ExpertRequestBodyViewModel {
+  icon: MessageIconName;
+  title: string;
+  description: string;
+  chips: MessageContextChip[];
+  fields: ExpertRequestFieldViewModel[];
+  truncated: boolean;
+}
+
 const MACHINE_EXPERT_REQUEST_CARD_METADATA_KEY = 'machine_expert_request_card';
-const MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS = 1600;
+const WEB_REVERSE_REQUEST_CARD_METADATA_KEY = 'web_reverse_request_card';
+const ANDROID_REVERSE_REQUEST_CARD_METADATA_KEY = 'android_reverse_request_card';
+const EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS = 1600;
+const MACHINE_EXPERT_PROMPT_FIELD_LABELS = [
+  '终端应用',
+  '打开的终端位置',
+  'AppleScript 精确定位',
+  '需求内容',
+] as const;
+const WEB_REVERSE_PROMPT_FIELD_LABELS = [
+  '目标 URL',
+  '逆向目标',
+  '触发动作',
+  '登录态',
+  '浏览器',
+  'CDP 端口',
+  'AI 侧 CDP MCP',
+  '代理',
+  '关键字',
+  '取证纪律',
+  '任务产物',
+  '验收标准',
+] as const;
+const ANDROID_REVERSE_PROMPT_FIELD_LABELS = [
+  '逆向目标',
+  '目标包名',
+  'APK 路径',
+  '设备',
+  '设备序列号',
+  '分析模式',
+  '授权范围',
+  'ADB MCP',
+  'Frida MCP',
+  '关键字',
+  '备注',
+  '取证纪律',
+  '验收标准',
+] as const;
 
 function nonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -388,12 +472,16 @@ function nonEmptyString(value: unknown): string {
 
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
   const meta = recordOrNullFromUnknown(message.metadata);
-  const machineChips = message.role === 'user'
-    ? machineExpertRequestChips(message)
+  const expertRequestChips = message.role === 'user'
+    ? [
+      ...machineExpertRequestChips(message),
+      ...webReverseRequestChips(message),
+      ...androidReverseRequestChips(message),
+    ]
     : [];
-  if (!meta) return machineChips;
+  if (!meta) return expertRequestChips;
   return [
-    ...machineChips,
+    ...expertRequestChips,
     ...(message.role === 'user' ? creationModeChips(meta) : []),
     ...(message.role === 'user' ? skillChips(meta) : []),
     ...(message.role === 'user' ? attachmentChips(meta) : []),
@@ -440,10 +528,10 @@ function machineExpertRequestFromMetadata(raw: unknown): MachineExpertRequestVie
 
 function machineExpertRequestFromPrompt(content: string): MachineExpertRequestViewModel | null {
   const fields = {
-    terminalApplication: readMachineExpertPromptField(content, '终端应用'),
-    terminalLocation: readMachineExpertPromptField(content, '打开的终端位置'),
-    appleScriptTarget: readMachineExpertPromptField(content, 'AppleScript 精确定位'),
-    taskRequirement: readMachineExpertPromptField(content, '需求内容'),
+    terminalApplication: readPromptField(content, '终端应用', MACHINE_EXPERT_PROMPT_FIELD_LABELS),
+    terminalLocation: readPromptField(content, '打开的终端位置', MACHINE_EXPERT_PROMPT_FIELD_LABELS),
+    appleScriptTarget: readPromptField(content, 'AppleScript 精确定位', MACHINE_EXPERT_PROMPT_FIELD_LABELS),
+    taskRequirement: readPromptField(content, '需求内容', MACHINE_EXPERT_PROMPT_FIELD_LABELS),
   };
   if (
     !fields.taskRequirement.trim() ||
@@ -453,11 +541,11 @@ function machineExpertRequestFromPrompt(content: string): MachineExpertRequestVi
     return null;
   }
   const view: MachineExpertRequestViewModel = {
-    terminalApplication: boundedMachineExpertField(fields.terminalApplication) || undefined,
-    terminalLocation: boundedMachineExpertField(fields.terminalLocation) || undefined,
-    appleScriptTarget: boundedMachineExpertField(fields.appleScriptTarget) || undefined,
-    taskRequirement: boundedMachineExpertField(fields.taskRequirement) || undefined,
-    truncated: Object.values(fields).some((value) => fieldNeedsMachineExpertTruncation(value)),
+    terminalApplication: boundedExpertRequestField(fields.terminalApplication) || undefined,
+    terminalLocation: boundedExpertRequestField(fields.terminalLocation) || undefined,
+    appleScriptTarget: boundedExpertRequestField(fields.appleScriptTarget) || undefined,
+    taskRequirement: boundedExpertRequestField(fields.taskRequirement) || undefined,
+    truncated: Object.values(fields).some((value) => fieldNeedsExpertRequestTruncation(value)),
   };
   return machineExpertRequestIsEmpty(view) ? null : view;
 }
@@ -469,16 +557,224 @@ function machineExpertRequestIsEmpty(view: MachineExpertRequestViewModel): boole
     !view.taskRequirement;
 }
 
-function readMachineExpertPromptField(content: string, label: string): string {
+function webReverseRequestViewModel(message: SessionMessage): WebReverseRequestViewModel | null {
+  if (message.role !== 'user') return null;
+  const meta = recordOrNullFromUnknown(message.metadata);
+  const fromMeta = webReverseRequestFromMetadata(meta?.[WEB_REVERSE_REQUEST_CARD_METADATA_KEY]);
+  if (fromMeta) return fromMeta;
+  return webReverseRequestFromPrompt(message.content ?? '');
+}
+
+function webReverseRequestChips(message: SessionMessage): MessageContextChip[] {
+  const view = webReverseRequestViewModel(message);
+  if (!view) return [];
+  return [
+    {
+      key: 'web-reverse-request',
+      icon: 'globe',
+      label: t('message.webReverseRequest.chip.request', 'Web 逆向请求'),
+    },
+    ...(view.cdpPort ? [{
+      key: 'web-reverse-cdp',
+      icon: 'tool' as const,
+      label: `CDP ${view.cdpPort}`,
+    }] : []),
+  ];
+}
+
+function webReverseRequestFromMetadata(raw: unknown): WebReverseRequestViewModel | null {
+  const card = recordOrNullFromUnknown(raw);
+  if (!card) return null;
+  const view: WebReverseRequestViewModel = {
+    targetUrl: nonEmptyString(card['target_url']) || undefined,
+    reverseTarget: nonEmptyString(card['reverse_target']) || undefined,
+    triggerActions: nonEmptyString(card['trigger_actions']) || undefined,
+    loginState: nonEmptyString(card['login_state']) || undefined,
+    browser: nonEmptyString(card['browser']) || undefined,
+    cdpPort: nonEmptyString(card['cdp_port']) || undefined,
+    cdpMcp: nonEmptyString(card['cdp_mcp']) || undefined,
+    proxy: nonEmptyString(card['proxy']) || undefined,
+    keywords: nonEmptyString(card['keywords']) || undefined,
+    evidenceDiscipline: nonEmptyString(card['evidence_discipline']) || undefined,
+    deliverables: nonEmptyString(card['deliverables']) || undefined,
+    acceptanceCriteria: nonEmptyString(card['acceptance_criteria']) || undefined,
+    truncated: card['truncated'] === true,
+  };
+  return webReverseRequestIsEmpty(view) ? null : view;
+}
+
+function webReverseRequestFromPrompt(content: string): WebReverseRequestViewModel | null {
+  if (!hasPromptHeading(content, '请求模板')) return null;
+  const fields = {
+    targetUrl: readPromptField(content, '目标 URL', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    reverseTarget: readPromptField(content, '逆向目标', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    triggerActions: readPromptField(content, '触发动作', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    loginState: readPromptField(content, '登录态', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    browser: readPromptField(content, '浏览器', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    cdpPort: readPromptField(content, 'CDP 端口', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    cdpMcp: readPromptField(content, 'AI 侧 CDP MCP', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    proxy: readPromptField(content, '代理', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    keywords: readPromptField(content, '关键字', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    evidenceDiscipline: readPromptField(content, '取证纪律', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    deliverables: readPromptField(content, '任务产物', WEB_REVERSE_PROMPT_FIELD_LABELS),
+    acceptanceCriteria: readPromptField(content, '验收标准', WEB_REVERSE_PROMPT_FIELD_LABELS),
+  };
+  if (
+    !fields.targetUrl.trim() ||
+    !fields.reverseTarget.trim() ||
+    (!fields.browser.trim() && !fields.cdpPort.trim() && !fields.cdpMcp.trim())
+  ) {
+    return null;
+  }
+  const view: WebReverseRequestViewModel = {
+    targetUrl: boundedExpertRequestField(fields.targetUrl) || undefined,
+    reverseTarget: boundedExpertRequestField(fields.reverseTarget) || undefined,
+    triggerActions: boundedExpertRequestField(fields.triggerActions) || undefined,
+    loginState: boundedExpertRequestField(fields.loginState) || undefined,
+    browser: boundedExpertRequestField(fields.browser) || undefined,
+    cdpPort: boundedExpertRequestField(fields.cdpPort) || undefined,
+    cdpMcp: boundedExpertRequestField(fields.cdpMcp) || undefined,
+    proxy: boundedExpertRequestField(fields.proxy) || undefined,
+    keywords: boundedExpertRequestField(fields.keywords) || undefined,
+    evidenceDiscipline: boundedExpertRequestField(fields.evidenceDiscipline) || undefined,
+    deliverables: boundedExpertRequestField(fields.deliverables) || undefined,
+    acceptanceCriteria: boundedExpertRequestField(fields.acceptanceCriteria) || undefined,
+    truncated: Object.values(fields).some((value) => fieldNeedsExpertRequestTruncation(value)),
+  };
+  return webReverseRequestIsEmpty(view) ? null : view;
+}
+
+function webReverseRequestIsEmpty(view: WebReverseRequestViewModel): boolean {
+  return !view.targetUrl &&
+    !view.reverseTarget &&
+    !view.loginState &&
+    !view.browser &&
+    !view.cdpPort &&
+    !view.cdpMcp &&
+    !view.evidenceDiscipline &&
+    !view.deliverables &&
+    !view.acceptanceCriteria;
+}
+
+function androidReverseRequestViewModel(message: SessionMessage): AndroidReverseRequestViewModel | null {
+  if (message.role !== 'user') return null;
+  const meta = recordOrNullFromUnknown(message.metadata);
+  const fromMeta = androidReverseRequestFromMetadata(meta?.[ANDROID_REVERSE_REQUEST_CARD_METADATA_KEY]);
+  if (fromMeta) return fromMeta;
+  return androidReverseRequestFromPrompt(message.content ?? '');
+}
+
+function androidReverseRequestChips(message: SessionMessage): MessageContextChip[] {
+  const view = androidReverseRequestViewModel(message);
+  if (!view) return [];
+  return [
+    {
+      key: 'android-reverse-request',
+      icon: 'model',
+      label: t('message.androidReverseRequest.chip.request', 'Android 逆向请求'),
+    },
+    ...(view.packageName ? [{
+      key: 'android-reverse-package',
+      icon: 'tool' as const,
+      label: view.packageName,
+    }] : []),
+  ];
+}
+
+function androidReverseRequestFromMetadata(raw: unknown): AndroidReverseRequestViewModel | null {
+  const card = recordOrNullFromUnknown(raw);
+  if (!card) return null;
+  const view: AndroidReverseRequestViewModel = {
+    reverseTarget: nonEmptyString(card['reverse_target']) || undefined,
+    packageName: nonEmptyString(card['package_name']) || undefined,
+    apkPath: nonEmptyString(card['apk_path']) || undefined,
+    device: nonEmptyString(card['device']) || undefined,
+    deviceSerial: nonEmptyString(card['device_serial']) || undefined,
+    analysisMode: nonEmptyString(card['analysis_mode']) || undefined,
+    authorizationScope: nonEmptyString(card['authorization_scope']) || undefined,
+    adbMcp: nonEmptyString(card['adb_mcp']) || undefined,
+    fridaMcp: nonEmptyString(card['frida_mcp']) || undefined,
+    keywords: nonEmptyString(card['keywords']) || undefined,
+    notes: nonEmptyString(card['notes']) || undefined,
+    evidenceDiscipline: nonEmptyString(card['evidence_discipline']) || undefined,
+    acceptanceCriteria: nonEmptyString(card['acceptance_criteria']) || undefined,
+    truncated: card['truncated'] === true,
+  };
+  return androidReverseRequestIsEmpty(view) ? null : view;
+}
+
+function androidReverseRequestFromPrompt(content: string): AndroidReverseRequestViewModel | null {
+  if (!hasPromptHeading(content, 'Android 逆向请求')) return null;
+  const fields = {
+    reverseTarget: readPromptField(content, '逆向目标', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    packageName: readPromptField(content, '目标包名', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    apkPath: readPromptField(content, 'APK 路径', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    device: readPromptField(content, '设备', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    deviceSerial: readPromptField(content, '设备序列号', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    analysisMode: readPromptField(content, '分析模式', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    authorizationScope: readPromptField(content, '授权范围', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    adbMcp: readPromptField(content, 'ADB MCP', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    fridaMcp: readPromptField(content, 'Frida MCP', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    keywords: readPromptField(content, '关键字', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    notes: readPromptField(content, '备注', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    evidenceDiscipline: readPromptField(content, '取证纪律', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+    acceptanceCriteria: readPromptField(content, '验收标准', ANDROID_REVERSE_PROMPT_FIELD_LABELS),
+  };
+  if (
+    !fields.reverseTarget.trim() ||
+    (
+      !fields.packageName.trim() &&
+      !fields.apkPath.trim() &&
+      !fields.device.trim() &&
+      !fields.deviceSerial.trim() &&
+      !fields.analysisMode.trim()
+    )
+  ) {
+    return null;
+  }
+  const view: AndroidReverseRequestViewModel = {
+    reverseTarget: boundedExpertRequestField(fields.reverseTarget) || undefined,
+    packageName: boundedExpertRequestField(fields.packageName) || undefined,
+    apkPath: boundedExpertRequestField(fields.apkPath) || undefined,
+    device: boundedExpertRequestField(fields.device) || undefined,
+    deviceSerial: boundedExpertRequestField(fields.deviceSerial) || undefined,
+    analysisMode: boundedExpertRequestField(fields.analysisMode) || undefined,
+    authorizationScope: boundedExpertRequestField(fields.authorizationScope) || undefined,
+    adbMcp: boundedExpertRequestField(fields.adbMcp) || undefined,
+    fridaMcp: boundedExpertRequestField(fields.fridaMcp) || undefined,
+    keywords: boundedExpertRequestField(fields.keywords) || undefined,
+    notes: boundedExpertRequestField(fields.notes) || undefined,
+    evidenceDiscipline: boundedExpertRequestField(fields.evidenceDiscipline) || undefined,
+    acceptanceCriteria: boundedExpertRequestField(fields.acceptanceCriteria) || undefined,
+    truncated: Object.values(fields).some((value) => fieldNeedsExpertRequestTruncation(value)),
+  };
+  return androidReverseRequestIsEmpty(view) ? null : view;
+}
+
+function androidReverseRequestIsEmpty(view: AndroidReverseRequestViewModel): boolean {
+  return !view.reverseTarget &&
+    !view.packageName &&
+    !view.apkPath &&
+    !view.device &&
+    !view.deviceSerial &&
+    !view.analysisMode &&
+    !view.authorizationScope &&
+    !view.adbMcp &&
+    !view.fridaMcp &&
+    !view.evidenceDiscipline &&
+    !view.acceptanceCriteria;
+}
+
+function readPromptField(content: string, label: string, knownLabels: readonly string[]): string {
   const lines = content.split(/\r?\n/);
   for (let i = 0; i < lines.length; i += 1) {
     const normalized = stripPromptBullet(lines[i]);
-    if (!normalized.startsWith(label)) continue;
+    if (!isPromptFieldLabel(normalized, label)) continue;
     const buffer = [normalized];
     for (let j = i + 1; j < lines.length; j += 1) {
       if (containsClosedCjkBracket(buffer.join('\n'))) break;
       const nextNormalized = stripPromptBullet(lines[j]);
-      if (looksLikeMachinePromptField(nextNormalized)) break;
+      if (looksLikePromptField(nextNormalized, knownLabels)) break;
       buffer.push(lines[j]);
     }
     const joined = buffer.join('\n');
@@ -491,11 +787,21 @@ function stripPromptBullet(line: string): string {
   return line.trim().replace(/^[-*]\s*/, '');
 }
 
-function looksLikeMachinePromptField(line: string): boolean {
-  return line.startsWith('终端应用') ||
-    line.startsWith('打开的终端位置') ||
-    line.startsWith('AppleScript 精确定位') ||
-    line.startsWith('需求内容');
+function looksLikePromptField(line: string, knownLabels: readonly string[]): boolean {
+  return knownLabels.some((label) => isPromptFieldLabel(line, label));
+}
+
+function isPromptFieldLabel(line: string, label: string): boolean {
+  if (line === label) return true;
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped}(?:\\s*[:：]|\\s*[（(])`).test(line);
+}
+
+function hasPromptHeading(content: string, heading: string): boolean {
+  return content.split(/\r?\n/).some((line) => {
+    const normalized = stripPromptBullet(line);
+    return normalized === heading || normalized === `${heading}：` || normalized === `${heading}:`;
+  });
 }
 
 function containsClosedCjkBracket(value: string): boolean {
@@ -520,16 +826,16 @@ function readAfterSeparator(value: string): string {
   return index >= 0 ? value.slice(index + 1).trim() : '';
 }
 
-function fieldNeedsMachineExpertTruncation(value: string): boolean {
-  return [...value.trim()].length > MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS;
+function fieldNeedsExpertRequestTruncation(value: string): boolean {
+  return [...value.trim()].length > EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS;
 }
 
-function boundedMachineExpertField(value: string): string {
+function boundedExpertRequestField(value: string): string {
   const normalized = value.trim();
-  if ([...normalized].length <= MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS) {
+  if ([...normalized].length <= EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS) {
     return normalized;
   }
-  return `${[...normalized].slice(0, MACHINE_EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS).join('').trimEnd()}...`;
+  return `${[...normalized].slice(0, EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS).join('').trimEnd()}...`;
 }
 
 function isGoalEvaluationMessage(message: SessionMessage): boolean {
@@ -1525,59 +1831,114 @@ function StreamingMarkdownReveal({
 }
 
 function MachineExpertRequestBody({ view }: { view: MachineExpertRequestViewModel }) {
-  const chips: MessageContextChip[] = [
-    { key: 'first', icon: 'refresh', label: '#1' },
-    {
-      key: 'template',
-      icon: 'tool',
-      label: t('message.machineRequest.chip.template', '机器专家'),
-    },
-    ...(view.appleScriptTarget ? [{
-      key: 'precise',
-      icon: 'globe' as const,
-      label: t('message.machineRequest.chip.precise', '精确定位'),
-    }] : []),
-  ];
+  const fields: ExpertRequestFieldViewModel[] = [];
+  if (view.terminalApplication) fields.push({ label: t('message.machineRequest.field.terminal', '终端应用'), value: view.terminalApplication });
+  if (view.terminalLocation) fields.push({ label: t('message.machineRequest.field.location', '打开位置'), value: view.terminalLocation });
+  if (view.appleScriptTarget) fields.push({ label: t('message.machineRequest.field.applescript', '精确定位'), value: view.appleScriptTarget });
+  if (view.taskRequirement) fields.push({ label: t('message.machineRequest.field.task', '需求'), value: view.taskRequirement });
+  return <ExpertRequestBody view={{
+    icon: 'tool',
+    title: t('message.machineRequest.title', '机器专家执行请求'),
+    description: t('message.machineRequest.description', '已绑定目标终端，会在指定会话中执行任务。'),
+    chips: [
+      { key: 'first', icon: 'refresh', label: '#1' },
+      { key: 'template', icon: 'tool', label: t('message.machineRequest.chip.template', '机器专家') },
+      ...(view.appleScriptTarget ? [{ key: 'precise', icon: 'globe' as const, label: t('message.machineRequest.chip.precise', '精确定位') }] : []),
+    ],
+    fields,
+    truncated: view.truncated,
+  }} />;
+}
+
+function WebReverseRequestBody({ view }: { view: WebReverseRequestViewModel }) {
+  const fields: ExpertRequestFieldViewModel[] = [];
+  if (view.targetUrl) fields.push({ label: t('message.webReverseRequest.field.targetUrl', '目标 URL'), value: view.targetUrl });
+  if (view.reverseTarget) fields.push({ label: t('message.webReverseRequest.field.objective', '逆向目标'), value: view.reverseTarget });
+  if (view.triggerActions) fields.push({ label: t('message.webReverseRequest.field.triggerActions', '触发动作'), value: view.triggerActions });
+  if (view.browser) fields.push({ label: t('message.webReverseRequest.field.browser', '浏览器'), value: view.browser });
+  if (view.cdpMcp) fields.push({ label: t('message.webReverseRequest.field.cdpMcp', 'AI 侧 CDP MCP'), value: view.cdpMcp });
+  if (view.proxy) fields.push({ label: t('message.webReverseRequest.field.proxy', '代理'), value: view.proxy });
+  if (view.keywords) fields.push({ label: t('message.webReverseRequest.field.keywords', '关键字'), value: view.keywords });
+  if (view.evidenceDiscipline) fields.push({ label: t('message.webReverseRequest.field.evidence', '取证纪律'), value: view.evidenceDiscipline });
+  if (view.deliverables) fields.push({ label: t('message.webReverseRequest.field.deliverables', '任务产物'), value: view.deliverables });
+  if (view.acceptanceCriteria) fields.push({ label: t('message.webReverseRequest.field.acceptance', '验收标准'), value: view.acceptanceCriteria });
+  return <ExpertRequestBody view={{
+    icon: 'globe',
+    title: t('message.webReverseRequest.title', 'Web 逆向请求'),
+    description: t('message.webReverseRequest.description', '已绑定目标页面与 CDP 环境，按浏览器取证流程推进。'),
+    chips: [
+      { key: 'first', icon: 'refresh', label: '#1' },
+      { key: 'template', icon: 'globe', label: t('message.webReverseRequest.chip.template', 'Web 逆向') },
+      ...(view.cdpPort ? [{ key: 'cdp', icon: 'tool' as const, label: `CDP ${view.cdpPort}` }] : []),
+      ...(view.loginState ? [{ key: 'login', icon: 'audit' as const, label: view.loginState }] : []),
+    ],
+    fields,
+    truncated: view.truncated,
+  }} />;
+}
+
+function AndroidReverseRequestBody({ view }: { view: AndroidReverseRequestViewModel }) {
+  const fields: ExpertRequestFieldViewModel[] = [];
+  const device = view.deviceSerial || view.device;
+  if (view.reverseTarget) fields.push({ label: t('message.androidReverseRequest.field.objective', '逆向目标'), value: view.reverseTarget });
+  if (view.packageName) fields.push({ label: t('message.androidReverseRequest.field.package', '目标包名'), value: view.packageName });
+  if (view.apkPath) fields.push({ label: t('message.androidReverseRequest.field.apkPath', 'APK 路径'), value: view.apkPath });
+  if (device) fields.push({ label: t('message.androidReverseRequest.field.device', '设备'), value: device });
+  if (view.analysisMode) fields.push({ label: t('message.androidReverseRequest.field.analysisMode', '分析模式'), value: view.analysisMode });
+  if (view.authorizationScope) fields.push({ label: t('message.androidReverseRequest.field.authorization', '授权范围'), value: view.authorizationScope });
+  if (view.adbMcp) fields.push({ label: t('message.androidReverseRequest.field.adbMcp', 'ADB MCP'), value: view.adbMcp });
+  if (view.fridaMcp) fields.push({ label: t('message.androidReverseRequest.field.fridaMcp', 'Frida MCP'), value: view.fridaMcp });
+  if (view.keywords) fields.push({ label: t('message.androidReverseRequest.field.keywords', '关键字'), value: view.keywords });
+  if (view.notes) fields.push({ label: t('message.androidReverseRequest.field.notes', '备注'), value: view.notes });
+  if (view.evidenceDiscipline) fields.push({ label: t('message.androidReverseRequest.field.evidence', '取证纪律'), value: view.evidenceDiscipline });
+  if (view.acceptanceCriteria) fields.push({ label: t('message.androidReverseRequest.field.acceptance', '验收标准'), value: view.acceptanceCriteria });
+  return <ExpertRequestBody view={{
+    icon: 'model',
+    title: t('message.androidReverseRequest.title', 'Android 逆向请求'),
+    description: t('message.androidReverseRequest.description', '已绑定目标应用与分析边界，按静态优先取证流程推进。'),
+    chips: [
+      { key: 'first', icon: 'refresh', label: '#1' },
+      { key: 'template', icon: 'model', label: t('message.androidReverseRequest.chip.template', 'Android 逆向') },
+      ...(view.packageName ? [{ key: 'package', icon: 'tool' as const, label: view.packageName }] : []),
+      ...(view.apkPath ? [{ key: 'apk', icon: 'attachmentFile' as const, label: t('message.androidReverseRequest.chip.apk', 'APK') }] : []),
+    ],
+    fields,
+    truncated: view.truncated,
+  }} />;
+}
+
+function ExpertRequestBody({ view }: { view: ExpertRequestBodyViewModel }) {
   return (
-    <div class="oh-machine-request-body">
-      <div class="oh-machine-request-heading">
-        <span class="oh-machine-request-icon" aria-hidden>
-          <MessageIcon name="tool" size={16} />
+    <div class="oh-expert-request-body">
+      <div class="oh-expert-request-heading">
+        <span class="oh-expert-request-icon" aria-hidden>
+          <MessageIcon name={view.icon} size={16} />
         </span>
         <div class="min-w-0">
-          <div class="oh-machine-request-title">{t('message.machineRequest.title', '机器专家执行请求')}</div>
-          <div class="oh-machine-request-description">
-            {t('message.machineRequest.description', '已绑定目标终端，会在指定会话中执行任务。')}
-          </div>
+          <div class="oh-expert-request-title">{view.title}</div>
+          <div class="oh-expert-request-description">{view.description}</div>
         </div>
       </div>
-      <div class="oh-machine-request-metrics">
-        {chips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
-      </div>
-      {view.terminalApplication ? (
-        <MachineExpertRequestField label={t('message.machineRequest.field.terminal', '终端应用')} value={view.terminalApplication} />
+      {view.chips.length > 0 ? (
+        <div class="oh-expert-request-metrics">
+          {view.chips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
+        </div>
       ) : null}
-      {view.terminalLocation ? (
-        <MachineExpertRequestField label={t('message.machineRequest.field.location', '打开位置')} value={view.terminalLocation} />
-      ) : null}
-      {view.appleScriptTarget ? (
-        <MachineExpertRequestField label={t('message.machineRequest.field.applescript', '精确定位')} value={view.appleScriptTarget} />
-      ) : null}
-      {view.taskRequirement ? (
-        <MachineExpertRequestField label={t('message.machineRequest.field.task', '需求')} value={view.taskRequirement} />
-      ) : null}
+      {view.fields.map((field) => (
+        <ExpertRequestField key={field.label} label={field.label} value={field.value} />
+      ))}
       {view.truncated ? (
-        <div class="oh-machine-request-note">
-          {t('message.machineRequest.truncated', '卡片内容已截断，完整原文仍保留在消息审计与复制内容中。')}
+        <div class="oh-expert-request-note">
+          {t('message.expertRequest.truncated', '卡片内容已截断，完整原文仍保留在消息审计与复制内容中。')}
         </div>
       ) : null}
     </div>
   );
 }
 
-function MachineExpertRequestField({ label, value }: { label: string; value: string }) {
+function ExpertRequestField({ label, value }: { label: string; value: string }) {
   return (
-    <div class="oh-machine-request-field">
+    <div class="oh-expert-request-field">
       <span>{label}</span>
       <p>{value}</p>
     </div>
@@ -1730,6 +2091,8 @@ function MessageCardImpl({
   const isUserBubble = message.role === 'user';
   const goalMessageView = goalMessageViewModel(message);
   const machineExpertRequestView = machineExpertRequestViewModel(message);
+  const webReverseRequestView = webReverseRequestViewModel(message);
+  const androidReverseRequestView = androidReverseRequestViewModel(message);
   const useStructuredToolBody =
     message.kind === 'tool' ||
     message.kind === 'tool_call' ||
@@ -1987,6 +2350,12 @@ function MessageCardImpl({
       message.kind !== 'file_mutation_summary' &&
       effectiveFormat === 'html');
   const isMachineExpertRequestCard = machineExpertRequestView != null;
+  const isWebReverseRequestCard = webReverseRequestView != null;
+  const isAndroidReverseRequestCard = androidReverseRequestView != null;
+  const isExpertRequestCard =
+    isMachineExpertRequestCard ||
+    isWebReverseRequestCard ||
+    isAndroidReverseRequestCard;
   const isWideSystemCard =
     useToolBody ||
     message.kind === 'reasoning' ||
@@ -1997,7 +2366,7 @@ function MessageCardImpl({
     ? 'min(92%, 820px)'
     : isHtmlAssistantCard
       ? 'min(92%, 860px)'
-      : isMachineExpertRequestCard
+      : isExpertRequestCard
       ? 'min(88%, 760px)'
       : isUserBubble
       ? 'min(78%, 640px)'
@@ -2077,7 +2446,7 @@ function MessageCardImpl({
           style={{ transformOrigin: isUserBubble ? 'right top' : 'left top' }}
         >
           <article
-            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${isMachineExpertRequestCard ? 'is-machine-request' : ''} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
+            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${isExpertRequestCard ? 'is-expert-request' : ''} ${isMachineExpertRequestCard ? 'is-machine-request' : ''} ${isWebReverseRequestCard ? 'is-web-reverse-request' : ''} ${isAndroidReverseRequestCard ? 'is-android-reverse-request' : ''} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
             style={{
               display: 'block',
               width: isHtmlAssistantCard ? bubbleMaxWidth : 'fit-content',
@@ -2292,6 +2661,10 @@ function MessageCardImpl({
           <GoalMessageBody view={goalMessageView} />
         ) : machineExpertRequestView ? (
           <MachineExpertRequestBody view={machineExpertRequestView} />
+        ) : webReverseRequestView ? (
+          <WebReverseRequestBody view={webReverseRequestView} />
+        ) : androidReverseRequestView ? (
+          <AndroidReverseRequestBody view={androidReverseRequestView} />
         ) : (
           // 思考卡在流式阶段强制使用纯文本，避免 Markdown/代码块逐 token
           // 成型时反复重排，把下方 pending tool-call 卡片顶上顶下。流式结束

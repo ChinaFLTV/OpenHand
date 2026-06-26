@@ -10036,33 +10036,72 @@ $tail''';
 - Exact source messages remain persisted in the session before this checkpoint.''';
   }
 
-  AiMachineExpertRequestCard? _machineExpertInitialRequestCardForNewTurn({
+  Map<String, Object?> _expertInitialRequestCardMetadataForNewTurn({
     required AiSession session,
     required String content,
     required bool isFirstVisibleUserMessage,
   }) {
-    if (!isFirstVisibleUserMessage ||
-        session.templateId !=
-            AiPromptTemplatePolicies.machineExpertTemplateId) {
-      return null;
+    if (!isFirstVisibleUserMessage) {
+      return const <String, Object?>{};
     }
-    return AiMachineExpertRequestCard.fromPrompt(content);
+    return _expertInitialRequestCardMetadataForTemplate(
+      session.templateId,
+      content,
+    );
   }
 
-  AiMachineExpertRequestCard? _machineExpertInitialRequestCardForMessage({
+  Map<String, Object?> _expertInitialRequestCardMetadataForMessage({
     required AiSession session,
     required String messageId,
     required String content,
   }) {
-    if (!_isMachineExpertInitialUserMessage(session, messageId)) {
-      return null;
+    if (!_isExpertInitialRequestUserMessage(session, messageId)) {
+      return const <String, Object?>{};
     }
-    return AiMachineExpertRequestCard.fromPrompt(content);
+    return _expertInitialRequestCardMetadataForTemplate(
+      session.templateId,
+      content,
+    );
   }
 
-  bool _isMachineExpertInitialUserMessage(AiSession session, String messageId) {
+  Map<String, Object?> _expertInitialRequestCardMetadataForTemplate(
+    String? templateId,
+    String content,
+  ) {
+    if (templateId == AiPromptTemplatePolicies.machineExpertTemplateId) {
+      final card = AiMachineExpertRequestCard.fromPrompt(content);
+      return card == null
+          ? const <String, Object?>{}
+          : <String, Object?>{
+              aiSessionMachineExpertRequestCardMetadataKey: card.toJson(),
+            };
+    }
+    if (templateId == AiPromptTemplatePolicies.webReverseExpertTemplateId) {
+      final card = AiWebReverseRequestCard.fromPrompt(content);
+      return card == null
+          ? const <String, Object?>{}
+          : <String, Object?>{
+              aiSessionWebReverseRequestCardMetadataKey: card.toJson(),
+            };
+    }
+    if (templateId == AiPromptTemplatePolicies.androidReverseExpertTemplateId) {
+      final card = AiAndroidReverseRequestCard.fromPrompt(content);
+      return card == null
+          ? const <String, Object?>{}
+          : <String, Object?>{
+              aiSessionAndroidReverseRequestCardMetadataKey: card.toJson(),
+            };
+    }
+    return const <String, Object?>{};
+  }
+
+  bool _isExpertInitialRequestUserMessage(AiSession session, String messageId) {
     if (session.templateId !=
-        AiPromptTemplatePolicies.machineExpertTemplateId) {
+            AiPromptTemplatePolicies.machineExpertTemplateId &&
+        session.templateId !=
+            AiPromptTemplatePolicies.webReverseExpertTemplateId &&
+        session.templateId !=
+            AiPromptTemplatePolicies.androidReverseExpertTemplateId) {
       return false;
     }
     for (final message in session.messages) {
@@ -10072,6 +10111,13 @@ $tail''';
       return message.id == messageId;
     }
     return false;
+  }
+
+  void _removeExpertInitialRequestCardMetadata(Map<String, Object?> metadata) {
+    metadata
+      ..remove(aiSessionMachineExpertRequestCardMetadataKey)
+      ..remove(aiSessionWebReverseRequestCardMetadataKey)
+      ..remove(aiSessionAndroidReverseRequestCardMetadataKey);
   }
 
   Future<_PreparedUserTurn> _prepareUserTurn({
@@ -10096,8 +10142,8 @@ $tail''';
       );
       if (messageIndex != -1) {
         final original = session.messages[messageIndex];
-        final machineExpertRequestCard =
-            _machineExpertInitialRequestCardForMessage(
+        final initialRequestCardMetadata =
+            _expertInitialRequestCardMetadataForMessage(
               session: session,
               messageId: original.id,
               content: content,
@@ -10107,13 +10153,9 @@ $tail''';
           ...userMessageMetadata,
           'edited_at': now.toIso8601String(),
         };
-        if (_isMachineExpertInitialUserMessage(session, original.id)) {
-          if (machineExpertRequestCard == null) {
-            editedMetadata.remove(aiSessionMachineExpertRequestCardMetadataKey);
-          } else {
-            editedMetadata[aiSessionMachineExpertRequestCardMetadataKey] =
-                machineExpertRequestCard.toJson();
-          }
+        if (_isExpertInitialRequestUserMessage(session, original.id)) {
+          _removeExpertInitialRequestCardMetadata(editedMetadata);
+          editedMetadata.addAll(initialRequestCardMetadata);
         }
         final updatedMessages = <AiSessionMessage>[
           for (final message in session.messages)
@@ -10178,11 +10220,12 @@ $tail''';
                 AiMessageAttachment.listToMetadata(attachments),
           };
     final isFirstVisibleUserMessage = visibleUserMessageCount == 0;
-    final machineExpertRequestCard = _machineExpertInitialRequestCardForNewTurn(
-      session: session,
-      content: content,
-      isFirstVisibleUserMessage: isFirstVisibleUserMessage,
-    );
+    final initialRequestCardMetadata =
+        _expertInitialRequestCardMetadataForNewTurn(
+          session: session,
+          content: content,
+          isFirstVisibleUserMessage: isFirstVisibleUserMessage,
+        );
     final userMessage =
         AiSessionMessage.user(
           id: userMessageId,
@@ -10190,9 +10233,7 @@ $tail''';
           createdAt: now,
           metadata: <String, Object?>{
             ...userMessageMetadata,
-            if (machineExpertRequestCard != null)
-              aiSessionMachineExpertRequestCardMetadataKey:
-                  machineExpertRequestCard.toJson(),
+            ...initialRequestCardMetadata,
             ...attachmentMetadata,
           },
         ).copyWith(

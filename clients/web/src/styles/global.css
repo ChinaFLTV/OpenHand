@@ -834,7 +834,7 @@ html, body, #root {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.oh-machine-request-body {
+.oh-expert-request-body {
   min-width: 0;
   width: 100%;
   max-width: 100%;
@@ -842,15 +842,15 @@ html, body, #root {
   flex-direction: column;
   gap: 11px;
 }
-.oh-machine-request-heading {
+.oh-expert-request-heading {
   display: flex;
   align-items: flex-start;
   gap: 9px;
 }
-.oh-machine-request-heading > div {
+.oh-expert-request-heading > div {
   min-width: 0;
 }
-.oh-machine-request-icon {
+.oh-expert-request-icon {
   width: 26px;
   height: 26px;
   display: inline-grid;
@@ -859,29 +859,29 @@ html, body, #root {
   border-radius: 10px;
   background: color-mix(in srgb, currentColor 13%, transparent);
 }
-.oh-machine-request-title {
+.oh-expert-request-title {
   color: currentColor;
   font-size: 13px;
   font-weight: 820;
   line-height: 1.35;
 }
-.oh-machine-request-description,
-.oh-machine-request-note {
+.oh-expert-request-description,
+.oh-expert-request-note {
   color: color-mix(in srgb, currentColor 76%, transparent);
   font-size: 12px;
   line-height: 1.5;
 }
-.oh-machine-request-description {
+.oh-expert-request-description {
   margin-top: 3px;
 }
-.oh-machine-request-field > span {
+.oh-expert-request-field > span {
   display: block;
   margin-bottom: 5px;
   color: color-mix(in srgb, currentColor 62%, transparent);
   font-size: 11px;
   font-weight: 820;
 }
-.oh-machine-request-field > p {
+.oh-expert-request-field > p {
   margin: 0;
   color: currentColor;
   font-size: 13px;
@@ -890,7 +890,7 @@ html, body, #root {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.oh-machine-request-metrics {
+.oh-expert-request-metrics {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

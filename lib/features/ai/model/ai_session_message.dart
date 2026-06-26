@@ -83,8 +83,16 @@ const String aiSessionMessageResponseVariantIndexMetadataKey =
     'response_variant_index';
 const String aiSessionMachineExpertRequestCardMetadataKey =
     'machine_expert_request_card';
-const int aiSessionMachineExpertRequestCardSchemaVersion = 1;
-const int aiSessionMachineExpertRequestCardMaxFieldCharacters = 1600;
+const String aiSessionWebReverseRequestCardMetadataKey =
+    'web_reverse_request_card';
+const String aiSessionAndroidReverseRequestCardMetadataKey =
+    'android_reverse_request_card';
+const int aiSessionExpertRequestCardSchemaVersion = 1;
+const int aiSessionExpertRequestCardMaxFieldCharacters = 1600;
+const int aiSessionMachineExpertRequestCardSchemaVersion =
+    aiSessionExpertRequestCardSchemaVersion;
+const int aiSessionMachineExpertRequestCardMaxFieldCharacters =
+    aiSessionExpertRequestCardMaxFieldCharacters;
 
 enum AiSessionMessageFeedback {
   liked('liked'),
@@ -585,6 +593,177 @@ class AiSessionMessage {
   }
 }
 
+const Set<String> _machineExpertRequestFieldLabels = <String>{
+  '终端应用',
+  '打开的终端位置',
+  'AppleScript 精确定位',
+  '需求内容',
+};
+
+const Set<String> _webReverseRequestFieldLabels = <String>{
+  '目标 URL',
+  '逆向目标',
+  '触发动作',
+  '登录态',
+  '浏览器',
+  'CDP 端口',
+  'AI 侧 CDP MCP',
+  '代理',
+  '关键字',
+  '取证纪律',
+  '任务产物',
+  '验收标准',
+};
+
+const Set<String> _androidReverseRequestFieldLabels = <String>{
+  '逆向目标',
+  '目标包名',
+  'APK 路径',
+  '设备',
+  '设备序列号',
+  '分析模式',
+  '授权范围',
+  'ADB MCP',
+  'Frida MCP',
+  '关键字',
+  '备注',
+  '取证纪律',
+  '验收标准',
+};
+
+class _AiRequestCardCodec {
+  const _AiRequestCardCodec._();
+
+  static Map<String, Object?>? object(Object? value) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    return null;
+  }
+
+  static String readString(Object? value) {
+    final text = '${value ?? ''}'.trim();
+    if (text.isEmpty || text == 'null') {
+      return '';
+    }
+    return text;
+  }
+
+  static bool hasHeading(String content, String heading) {
+    for (final line in content.split(RegExp(r'\r?\n'))) {
+      final normalized = stripPromptBullet(line);
+      if (normalized == heading ||
+          normalized == '$heading：' ||
+          normalized == '$heading:') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static String readPromptField(
+    String content,
+    String label,
+    Set<String> knownLabels,
+  ) {
+    final lines = content.split(RegExp(r'\r?\n'));
+    for (var i = 0; i < lines.length; i++) {
+      final normalized = stripPromptBullet(lines[i]);
+      if (!isPromptFieldLabel(normalized, label)) {
+        continue;
+      }
+      final buffer = <String>[normalized];
+      for (var j = i + 1; j < lines.length; j++) {
+        if (containsClosedCjkBracket(buffer.join('\n'))) {
+          break;
+        }
+        final nextLine = lines[j];
+        final nextNormalized = stripPromptBullet(nextLine);
+        if (looksLikePromptField(nextNormalized, knownLabels)) {
+          break;
+        }
+        buffer.add(nextLine);
+      }
+      final value = extractCjkBracketValue(buffer.join('\n'));
+      if (value.isNotEmpty) {
+        return value;
+      }
+      return readAfterSeparator(normalized);
+    }
+    return '';
+  }
+
+  static String stripPromptBullet(String line) {
+    return line.trim().replaceFirst(RegExp(r'^[-*]\s*'), '');
+  }
+
+  static bool looksLikePromptField(String line, Set<String> knownLabels) {
+    for (final label in knownLabels) {
+      if (isPromptFieldLabel(line, label)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool isPromptFieldLabel(String line, String label) {
+    if (line == label) {
+      return true;
+    }
+    return RegExp(
+      '^${RegExp.escape(label)}(?:\\s*[:：]|\\s*[（(])',
+    ).hasMatch(line);
+  }
+
+  static bool containsClosedCjkBracket(String value) {
+    final separator = value.indexOf('：【');
+    final start = separator >= 0 ? separator + 1 : value.indexOf('【');
+    final end = value.lastIndexOf('】');
+    return start >= 0 && end > start;
+  }
+
+  static String extractCjkBracketValue(String value) {
+    final separator = value.indexOf('：【');
+    final start = separator >= 0 ? separator + 1 : value.indexOf('【');
+    final end = value.lastIndexOf('】');
+    if (start < 0 || end <= start) {
+      return '';
+    }
+    return value.substring(start + 1, end).trim();
+  }
+
+  static String readAfterSeparator(String value) {
+    final colon = value.indexOf('：');
+    final asciiColon = value.indexOf(':');
+    final index = colon >= 0
+        ? colon
+        : asciiColon >= 0
+        ? asciiColon
+        : -1;
+    if (index < 0 || index + 1 >= value.length) {
+      return '';
+    }
+    return value.substring(index + 1).trim();
+  }
+
+  static bool fieldNeedsTruncation(String value) {
+    return value.trim().characters.length >
+        aiSessionExpertRequestCardMaxFieldCharacters;
+  }
+
+  static String boundedDisplayField(String value) {
+    final normalized = value.trim();
+    if (normalized.characters.length <=
+        aiSessionExpertRequestCardMaxFieldCharacters) {
+      return normalized;
+    }
+    return '${normalized.characters.take(aiSessionExpertRequestCardMaxFieldCharacters).toString().trimRight()}...';
+  }
+}
+
 class AiMachineExpertRequestCard {
   const AiMachineExpertRequestCard({
     required this.terminalApplication,
@@ -619,25 +798,47 @@ class AiMachineExpertRequestCard {
   }
 
   static AiMachineExpertRequestCard? fromMetadata(Object? raw) {
-    final map = _object(raw);
+    final map = _AiRequestCardCodec.object(raw);
     if (map == null) {
       return null;
     }
     final card = AiMachineExpertRequestCard(
-      terminalApplication: _readString(map['terminal_application']),
-      terminalLocation: _readString(map['terminal_location']),
-      appleScriptTarget: _readString(map['applescript_target']).ifEmpty(null),
-      taskRequirement: _readString(map['task_requirement']),
+      terminalApplication: _AiRequestCardCodec.readString(
+        map['terminal_application'],
+      ),
+      terminalLocation: _AiRequestCardCodec.readString(
+        map['terminal_location'],
+      ),
+      appleScriptTarget: _AiRequestCardCodec.readString(
+        map['applescript_target'],
+      ).ifEmpty(null),
+      taskRequirement: _AiRequestCardCodec.readString(map['task_requirement']),
       truncated: map['truncated'] == true,
     );
     return card.isEmpty ? null : card;
   }
 
   static AiMachineExpertRequestCard? fromPrompt(String content) {
-    final terminalApplication = _readPromptField(content, '终端应用');
-    final terminalLocation = _readPromptField(content, '打开的终端位置');
-    final appleScriptTarget = _readPromptField(content, 'AppleScript 精确定位');
-    final taskRequirement = _readPromptField(content, '需求内容');
+    final terminalApplication = _AiRequestCardCodec.readPromptField(
+      content,
+      '终端应用',
+      _machineExpertRequestFieldLabels,
+    );
+    final terminalLocation = _AiRequestCardCodec.readPromptField(
+      content,
+      '打开的终端位置',
+      _machineExpertRequestFieldLabels,
+    );
+    final appleScriptTarget = _AiRequestCardCodec.readPromptField(
+      content,
+      'AppleScript 精确定位',
+      _machineExpertRequestFieldLabels,
+    );
+    final taskRequirement = _AiRequestCardCodec.readPromptField(
+      content,
+      '需求内容',
+      _machineExpertRequestFieldLabels,
+    );
     final rawFields = <String>[
       terminalApplication,
       terminalLocation,
@@ -651,119 +852,451 @@ class AiMachineExpertRequestCard {
       return null;
     }
     final card = AiMachineExpertRequestCard(
-      terminalApplication: _boundedDisplayField(terminalApplication),
-      terminalLocation: _boundedDisplayField(terminalLocation),
-      appleScriptTarget: _boundedDisplayField(appleScriptTarget).ifEmpty(null),
-      taskRequirement: _boundedDisplayField(taskRequirement),
-      truncated: rawFields.any(_fieldNeedsTruncation),
+      terminalApplication: _AiRequestCardCodec.boundedDisplayField(
+        terminalApplication,
+      ),
+      terminalLocation: _AiRequestCardCodec.boundedDisplayField(
+        terminalLocation,
+      ),
+      appleScriptTarget: _AiRequestCardCodec.boundedDisplayField(
+        appleScriptTarget,
+      ).ifEmpty(null),
+      taskRequirement: _AiRequestCardCodec.boundedDisplayField(taskRequirement),
+      truncated: rawFields.any(_AiRequestCardCodec.fieldNeedsTruncation),
+    );
+    return card.isEmpty ? null : card;
+  }
+}
+
+class AiWebReverseRequestCard {
+  const AiWebReverseRequestCard({
+    required this.targetUrl,
+    required this.reverseTarget,
+    this.triggerActions,
+    required this.loginState,
+    required this.browser,
+    required this.cdpPort,
+    required this.cdpMcp,
+    this.proxy,
+    this.keywords,
+    required this.evidenceDiscipline,
+    required this.deliverables,
+    required this.acceptanceCriteria,
+    this.truncated = false,
+  });
+
+  final String targetUrl;
+  final String reverseTarget;
+  final String? triggerActions;
+  final String loginState;
+  final String browser;
+  final String cdpPort;
+  final String cdpMcp;
+  final String? proxy;
+  final String? keywords;
+  final String evidenceDiscipline;
+  final String deliverables;
+  final String acceptanceCriteria;
+  final bool truncated;
+
+  bool get isEmpty =>
+      targetUrl.trim().isEmpty &&
+      reverseTarget.trim().isEmpty &&
+      loginState.trim().isEmpty &&
+      browser.trim().isEmpty &&
+      cdpPort.trim().isEmpty &&
+      cdpMcp.trim().isEmpty &&
+      evidenceDiscipline.trim().isEmpty &&
+      deliverables.trim().isEmpty &&
+      acceptanceCriteria.trim().isEmpty;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'schema_version': aiSessionExpertRequestCardSchemaVersion,
+      'target_url': targetUrl,
+      'reverse_target': reverseTarget,
+      if ((triggerActions ?? '').trim().isNotEmpty)
+        'trigger_actions': triggerActions!.trim(),
+      'login_state': loginState,
+      'browser': browser,
+      'cdp_port': cdpPort,
+      'cdp_mcp': cdpMcp,
+      if ((proxy ?? '').trim().isNotEmpty) 'proxy': proxy!.trim(),
+      if ((keywords ?? '').trim().isNotEmpty) 'keywords': keywords!.trim(),
+      'evidence_discipline': evidenceDiscipline,
+      'deliverables': deliverables,
+      'acceptance_criteria': acceptanceCriteria,
+      if (truncated) 'truncated': true,
+    };
+  }
+
+  static AiWebReverseRequestCard? fromMetadata(Object? raw) {
+    final map = _AiRequestCardCodec.object(raw);
+    if (map == null) {
+      return null;
+    }
+    final card = AiWebReverseRequestCard(
+      targetUrl: _AiRequestCardCodec.readString(map['target_url']),
+      reverseTarget: _AiRequestCardCodec.readString(map['reverse_target']),
+      triggerActions: _AiRequestCardCodec.readString(
+        map['trigger_actions'],
+      ).ifEmpty(null),
+      loginState: _AiRequestCardCodec.readString(map['login_state']),
+      browser: _AiRequestCardCodec.readString(map['browser']),
+      cdpPort: _AiRequestCardCodec.readString(map['cdp_port']),
+      cdpMcp: _AiRequestCardCodec.readString(map['cdp_mcp']),
+      proxy: _AiRequestCardCodec.readString(map['proxy']).ifEmpty(null),
+      keywords: _AiRequestCardCodec.readString(map['keywords']).ifEmpty(null),
+      evidenceDiscipline: _AiRequestCardCodec.readString(
+        map['evidence_discipline'],
+      ),
+      deliverables: _AiRequestCardCodec.readString(map['deliverables']),
+      acceptanceCriteria: _AiRequestCardCodec.readString(
+        map['acceptance_criteria'],
+      ),
+      truncated: map['truncated'] == true,
     );
     return card.isEmpty ? null : card;
   }
 
-  static Map<String, Object?>? _object(Object? value) {
-    if (value is Map<String, Object?>) {
-      return value;
+  static AiWebReverseRequestCard? fromPrompt(String content) {
+    if (!_AiRequestCardCodec.hasHeading(content, '请求模板')) {
+      return null;
     }
-    if (value is Map) {
-      return Map<String, Object?>.from(value);
+    final targetUrl = _AiRequestCardCodec.readPromptField(
+      content,
+      '目标 URL',
+      _webReverseRequestFieldLabels,
+    );
+    final reverseTarget = _AiRequestCardCodec.readPromptField(
+      content,
+      '逆向目标',
+      _webReverseRequestFieldLabels,
+    );
+    final triggerActions = _AiRequestCardCodec.readPromptField(
+      content,
+      '触发动作',
+      _webReverseRequestFieldLabels,
+    );
+    final loginState = _AiRequestCardCodec.readPromptField(
+      content,
+      '登录态',
+      _webReverseRequestFieldLabels,
+    );
+    final browser = _AiRequestCardCodec.readPromptField(
+      content,
+      '浏览器',
+      _webReverseRequestFieldLabels,
+    );
+    final cdpPort = _AiRequestCardCodec.readPromptField(
+      content,
+      'CDP 端口',
+      _webReverseRequestFieldLabels,
+    );
+    final cdpMcp = _AiRequestCardCodec.readPromptField(
+      content,
+      'AI 侧 CDP MCP',
+      _webReverseRequestFieldLabels,
+    );
+    final proxy = _AiRequestCardCodec.readPromptField(
+      content,
+      '代理',
+      _webReverseRequestFieldLabels,
+    );
+    final keywords = _AiRequestCardCodec.readPromptField(
+      content,
+      '关键字',
+      _webReverseRequestFieldLabels,
+    );
+    final evidenceDiscipline = _AiRequestCardCodec.readPromptField(
+      content,
+      '取证纪律',
+      _webReverseRequestFieldLabels,
+    );
+    final deliverables = _AiRequestCardCodec.readPromptField(
+      content,
+      '任务产物',
+      _webReverseRequestFieldLabels,
+    );
+    final acceptanceCriteria = _AiRequestCardCodec.readPromptField(
+      content,
+      '验收标准',
+      _webReverseRequestFieldLabels,
+    );
+    final rawFields = <String>[
+      targetUrl,
+      reverseTarget,
+      triggerActions,
+      loginState,
+      browser,
+      cdpPort,
+      cdpMcp,
+      proxy,
+      keywords,
+      evidenceDiscipline,
+      deliverables,
+      acceptanceCriteria,
+    ];
+    if (targetUrl.trim().isEmpty ||
+        reverseTarget.trim().isEmpty ||
+        (browser.trim().isEmpty &&
+            cdpPort.trim().isEmpty &&
+            cdpMcp.trim().isEmpty)) {
+      return null;
     }
-    return null;
-  }
-
-  static String _readString(Object? value) {
-    final text = '${value ?? ''}'.trim();
-    if (text.isEmpty || text == 'null') {
-      return '';
-    }
-    return text;
-  }
-
-  static String _readPromptField(String content, String label) {
-    final lines = content.split(RegExp(r'\r?\n'));
-    for (var i = 0; i < lines.length; i++) {
-      final normalized = _stripPromptBullet(lines[i]);
-      if (!normalized.startsWith(label)) {
-        continue;
-      }
-      final buffer = <String>[normalized];
-      for (var j = i + 1; j < lines.length; j++) {
-        if (_containsClosedCjkBracket(buffer.join('\n'))) {
-          break;
-        }
-        final nextLine = lines[j];
-        final nextNormalized = _stripPromptBullet(nextLine);
-        if (_looksLikeMachinePromptField(nextNormalized)) {
-          break;
-        }
-        buffer.add(nextLine);
-      }
-      final value = _extractCjkBracketValue(buffer.join('\n'));
-      if (value.isNotEmpty) {
-        return value;
-      }
-      return _readAfterSeparator(normalized);
-    }
-    return '';
-  }
-
-  static String _stripPromptBullet(String line) {
-    return line.trim().replaceFirst(RegExp(r'^[-*]\s*'), '');
-  }
-
-  static bool _looksLikeMachinePromptField(String line) {
-    return line.startsWith('终端应用') ||
-        line.startsWith('打开的终端位置') ||
-        line.startsWith('AppleScript 精确定位') ||
-        line.startsWith('需求内容');
-  }
-
-  static bool _containsClosedCjkBracket(String value) {
-    final separator = value.indexOf('：【');
-    final start = separator >= 0 ? separator + 1 : value.indexOf('【');
-    final end = value.lastIndexOf('】');
-    return start >= 0 && end > start;
-  }
-
-  static String _extractCjkBracketValue(String value) {
-    final separator = value.indexOf('：【');
-    final start = separator >= 0 ? separator + 1 : value.indexOf('【');
-    final end = value.lastIndexOf('】');
-    if (start < 0 || end <= start) {
-      return '';
-    }
-    return value.substring(start + 1, end).trim();
-  }
-
-  static String _readAfterSeparator(String value) {
-    final colon = value.indexOf('：');
-    final asciiColon = value.indexOf(':');
-    final index = colon >= 0
-        ? colon
-        : asciiColon >= 0
-        ? asciiColon
-        : -1;
-    if (index < 0 || index + 1 >= value.length) {
-      return '';
-    }
-    return value.substring(index + 1).trim();
-  }
-
-  static bool _fieldNeedsTruncation(String value) {
-    return value.trim().characters.length >
-        aiSessionMachineExpertRequestCardMaxFieldCharacters;
-  }
-
-  static String _boundedDisplayField(String value) {
-    final normalized = value.trim();
-    if (normalized.characters.length <=
-        aiSessionMachineExpertRequestCardMaxFieldCharacters) {
-      return normalized;
-    }
-    return '${normalized.characters.take(aiSessionMachineExpertRequestCardMaxFieldCharacters).toString().trimRight()}...';
+    final card = AiWebReverseRequestCard(
+      targetUrl: _AiRequestCardCodec.boundedDisplayField(targetUrl),
+      reverseTarget: _AiRequestCardCodec.boundedDisplayField(reverseTarget),
+      triggerActions: _AiRequestCardCodec.boundedDisplayField(
+        triggerActions,
+      ).ifEmpty(null),
+      loginState: _AiRequestCardCodec.boundedDisplayField(loginState),
+      browser: _AiRequestCardCodec.boundedDisplayField(browser),
+      cdpPort: _AiRequestCardCodec.boundedDisplayField(cdpPort),
+      cdpMcp: _AiRequestCardCodec.boundedDisplayField(cdpMcp),
+      proxy: _AiRequestCardCodec.boundedDisplayField(proxy).ifEmpty(null),
+      keywords: _AiRequestCardCodec.boundedDisplayField(keywords).ifEmpty(null),
+      evidenceDiscipline: _AiRequestCardCodec.boundedDisplayField(
+        evidenceDiscipline,
+      ),
+      deliverables: _AiRequestCardCodec.boundedDisplayField(deliverables),
+      acceptanceCriteria: _AiRequestCardCodec.boundedDisplayField(
+        acceptanceCriteria,
+      ),
+      truncated: rawFields.any(_AiRequestCardCodec.fieldNeedsTruncation),
+    );
+    return card.isEmpty ? null : card;
   }
 }
 
-extension _AiMachineExpertRequestCardString on String {
+class AiAndroidReverseRequestCard {
+  const AiAndroidReverseRequestCard({
+    required this.reverseTarget,
+    this.packageName,
+    this.apkPath,
+    this.device,
+    this.deviceSerial,
+    required this.analysisMode,
+    required this.authorizationScope,
+    required this.adbMcp,
+    required this.fridaMcp,
+    this.keywords,
+    this.notes,
+    required this.evidenceDiscipline,
+    required this.acceptanceCriteria,
+    this.truncated = false,
+  });
+
+  final String reverseTarget;
+  final String? packageName;
+  final String? apkPath;
+  final String? device;
+  final String? deviceSerial;
+  final String analysisMode;
+  final String authorizationScope;
+  final String adbMcp;
+  final String fridaMcp;
+  final String? keywords;
+  final String? notes;
+  final String evidenceDiscipline;
+  final String acceptanceCriteria;
+  final bool truncated;
+
+  String get deviceDisplay => (deviceSerial ?? '').trim().isNotEmpty
+      ? deviceSerial!.trim()
+      : device ?? '';
+
+  bool get isEmpty =>
+      reverseTarget.trim().isEmpty &&
+      (packageName ?? '').trim().isEmpty &&
+      (apkPath ?? '').trim().isEmpty &&
+      deviceDisplay.trim().isEmpty &&
+      analysisMode.trim().isEmpty &&
+      authorizationScope.trim().isEmpty &&
+      adbMcp.trim().isEmpty &&
+      fridaMcp.trim().isEmpty &&
+      evidenceDiscipline.trim().isEmpty &&
+      acceptanceCriteria.trim().isEmpty;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'schema_version': aiSessionExpertRequestCardSchemaVersion,
+      'reverse_target': reverseTarget,
+      if ((packageName ?? '').trim().isNotEmpty)
+        'package_name': packageName!.trim(),
+      if ((apkPath ?? '').trim().isNotEmpty) 'apk_path': apkPath!.trim(),
+      if ((device ?? '').trim().isNotEmpty) 'device': device!.trim(),
+      if ((deviceSerial ?? '').trim().isNotEmpty)
+        'device_serial': deviceSerial!.trim(),
+      'analysis_mode': analysisMode,
+      'authorization_scope': authorizationScope,
+      'adb_mcp': adbMcp,
+      'frida_mcp': fridaMcp,
+      if ((keywords ?? '').trim().isNotEmpty) 'keywords': keywords!.trim(),
+      if ((notes ?? '').trim().isNotEmpty) 'notes': notes!.trim(),
+      'evidence_discipline': evidenceDiscipline,
+      'acceptance_criteria': acceptanceCriteria,
+      if (truncated) 'truncated': true,
+    };
+  }
+
+  static AiAndroidReverseRequestCard? fromMetadata(Object? raw) {
+    final map = _AiRequestCardCodec.object(raw);
+    if (map == null) {
+      return null;
+    }
+    final card = AiAndroidReverseRequestCard(
+      reverseTarget: _AiRequestCardCodec.readString(map['reverse_target']),
+      packageName: _AiRequestCardCodec.readString(
+        map['package_name'],
+      ).ifEmpty(null),
+      apkPath: _AiRequestCardCodec.readString(map['apk_path']).ifEmpty(null),
+      device: _AiRequestCardCodec.readString(map['device']).ifEmpty(null),
+      deviceSerial: _AiRequestCardCodec.readString(
+        map['device_serial'],
+      ).ifEmpty(null),
+      analysisMode: _AiRequestCardCodec.readString(map['analysis_mode']),
+      authorizationScope: _AiRequestCardCodec.readString(
+        map['authorization_scope'],
+      ),
+      adbMcp: _AiRequestCardCodec.readString(map['adb_mcp']),
+      fridaMcp: _AiRequestCardCodec.readString(map['frida_mcp']),
+      keywords: _AiRequestCardCodec.readString(map['keywords']).ifEmpty(null),
+      notes: _AiRequestCardCodec.readString(map['notes']).ifEmpty(null),
+      evidenceDiscipline: _AiRequestCardCodec.readString(
+        map['evidence_discipline'],
+      ),
+      acceptanceCriteria: _AiRequestCardCodec.readString(
+        map['acceptance_criteria'],
+      ),
+      truncated: map['truncated'] == true,
+    );
+    return card.isEmpty ? null : card;
+  }
+
+  static AiAndroidReverseRequestCard? fromPrompt(String content) {
+    if (!_AiRequestCardCodec.hasHeading(content, 'Android 逆向请求')) {
+      return null;
+    }
+    final reverseTarget = _AiRequestCardCodec.readPromptField(
+      content,
+      '逆向目标',
+      _androidReverseRequestFieldLabels,
+    );
+    final packageName = _AiRequestCardCodec.readPromptField(
+      content,
+      '目标包名',
+      _androidReverseRequestFieldLabels,
+    );
+    final apkPath = _AiRequestCardCodec.readPromptField(
+      content,
+      'APK 路径',
+      _androidReverseRequestFieldLabels,
+    );
+    final device = _AiRequestCardCodec.readPromptField(
+      content,
+      '设备',
+      _androidReverseRequestFieldLabels,
+    );
+    final deviceSerial = _AiRequestCardCodec.readPromptField(
+      content,
+      '设备序列号',
+      _androidReverseRequestFieldLabels,
+    );
+    final analysisMode = _AiRequestCardCodec.readPromptField(
+      content,
+      '分析模式',
+      _androidReverseRequestFieldLabels,
+    );
+    final authorizationScope = _AiRequestCardCodec.readPromptField(
+      content,
+      '授权范围',
+      _androidReverseRequestFieldLabels,
+    );
+    final adbMcp = _AiRequestCardCodec.readPromptField(
+      content,
+      'ADB MCP',
+      _androidReverseRequestFieldLabels,
+    );
+    final fridaMcp = _AiRequestCardCodec.readPromptField(
+      content,
+      'Frida MCP',
+      _androidReverseRequestFieldLabels,
+    );
+    final keywords = _AiRequestCardCodec.readPromptField(
+      content,
+      '关键字',
+      _androidReverseRequestFieldLabels,
+    );
+    final notes = _AiRequestCardCodec.readPromptField(
+      content,
+      '备注',
+      _androidReverseRequestFieldLabels,
+    );
+    final evidenceDiscipline = _AiRequestCardCodec.readPromptField(
+      content,
+      '取证纪律',
+      _androidReverseRequestFieldLabels,
+    );
+    final acceptanceCriteria = _AiRequestCardCodec.readPromptField(
+      content,
+      '验收标准',
+      _androidReverseRequestFieldLabels,
+    );
+    final rawFields = <String>[
+      reverseTarget,
+      packageName,
+      apkPath,
+      device,
+      deviceSerial,
+      analysisMode,
+      authorizationScope,
+      adbMcp,
+      fridaMcp,
+      keywords,
+      notes,
+      evidenceDiscipline,
+      acceptanceCriteria,
+    ];
+    if (reverseTarget.trim().isEmpty ||
+        (packageName.trim().isEmpty &&
+            apkPath.trim().isEmpty &&
+            device.trim().isEmpty &&
+            deviceSerial.trim().isEmpty &&
+            analysisMode.trim().isEmpty)) {
+      return null;
+    }
+    final card = AiAndroidReverseRequestCard(
+      reverseTarget: _AiRequestCardCodec.boundedDisplayField(reverseTarget),
+      packageName: _AiRequestCardCodec.boundedDisplayField(
+        packageName,
+      ).ifEmpty(null),
+      apkPath: _AiRequestCardCodec.boundedDisplayField(apkPath).ifEmpty(null),
+      device: _AiRequestCardCodec.boundedDisplayField(device).ifEmpty(null),
+      deviceSerial: _AiRequestCardCodec.boundedDisplayField(
+        deviceSerial,
+      ).ifEmpty(null),
+      analysisMode: _AiRequestCardCodec.boundedDisplayField(analysisMode),
+      authorizationScope: _AiRequestCardCodec.boundedDisplayField(
+        authorizationScope,
+      ),
+      adbMcp: _AiRequestCardCodec.boundedDisplayField(adbMcp),
+      fridaMcp: _AiRequestCardCodec.boundedDisplayField(fridaMcp),
+      keywords: _AiRequestCardCodec.boundedDisplayField(keywords).ifEmpty(null),
+      notes: _AiRequestCardCodec.boundedDisplayField(notes).ifEmpty(null),
+      evidenceDiscipline: _AiRequestCardCodec.boundedDisplayField(
+        evidenceDiscipline,
+      ),
+      acceptanceCriteria: _AiRequestCardCodec.boundedDisplayField(
+        acceptanceCriteria,
+      ),
+      truncated: rawFields.any(_AiRequestCardCodec.fieldNeedsTruncation),
+    );
+    return card.isEmpty ? null : card;
+  }
+}
+
+extension _AiRequestCardString on String {
   String? ifEmpty(String? fallback) => trim().isEmpty ? fallback : this;
 }
 

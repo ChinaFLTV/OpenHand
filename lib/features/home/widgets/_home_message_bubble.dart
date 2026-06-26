@@ -400,6 +400,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
               ) ??
               AiMachineExpertRequestCard.fromPrompt(message.content)
         : null;
+    final webReverseRequestCard = isUser
+        ? AiWebReverseRequestCard.fromMetadata(
+                message.metadata[aiSessionWebReverseRequestCardMetadataKey],
+              ) ??
+              AiWebReverseRequestCard.fromPrompt(message.content)
+        : null;
+    final androidReverseRequestCard = isUser
+        ? AiAndroidReverseRequestCard.fromMetadata(
+                message.metadata[aiSessionAndroidReverseRequestCardMetadataKey],
+              ) ??
+              AiAndroidReverseRequestCard.fromPrompt(message.content)
+        : null;
     final isCompressionPoint =
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
@@ -905,6 +917,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 else if (machineExpertRequestCard != null)
                   _MachineExpertRequestStructuredBody(
                     data: machineExpertRequestCard,
+                    textColor: textColor,
+                  )
+                else if (webReverseRequestCard != null)
+                  _WebReverseRequestStructuredBody(
+                    data: webReverseRequestCard,
+                    textColor: textColor,
+                  )
+                else if (androidReverseRequestCard != null)
+                  _AndroidReverseRequestStructuredBody(
+                    data: androidReverseRequestCard,
                     textColor: textColor,
                   )
                 else if (isUser)
@@ -6197,6 +6219,298 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _ExpertRequestStructuredBody(
+      icon: Icons.terminal_rounded,
+      title: _localizedText(
+        context,
+        zh: '机器专家执行请求',
+        en: 'Machine Expert Request',
+      ),
+      description: _localizedText(
+        context,
+        zh: '已绑定目标终端，会在指定会话中执行任务。',
+        en: 'The target terminal is bound for this task.',
+      ),
+      textColor: textColor,
+      chips: [
+        const _ExpertRequestChipData(
+          icon: Icons.looks_one_rounded,
+          label: '#1',
+        ),
+        _ExpertRequestChipData(
+          icon: Icons.memory_rounded,
+          label: _localizedText(context, zh: '机器专家', en: 'Machine Expert'),
+        ),
+        if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
+          _ExpertRequestChipData(
+            icon: Icons.my_location_rounded,
+            label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+          ),
+      ],
+      fields: [
+        if (data.terminalApplication.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '终端应用', en: 'Terminal'),
+            value: data.terminalApplication.trim(),
+          ),
+        if (data.terminalLocation.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '打开位置', en: 'Location'),
+            value: data.terminalLocation.trim(),
+          ),
+        if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+            value: data.appleScriptTarget!.trim(),
+          ),
+        if (data.taskRequirement.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '需求', en: 'Request'),
+            value: data.taskRequirement.trim(),
+          ),
+      ],
+      truncated: data.truncated,
+    );
+  }
+}
+
+class _WebReverseRequestStructuredBody extends StatelessWidget {
+  const _WebReverseRequestStructuredBody({
+    required this.data,
+    required this.textColor,
+  });
+
+  final AiWebReverseRequestCard data;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ExpertRequestStructuredBody(
+      icon: Icons.language_rounded,
+      title: _localizedText(context, zh: 'Web 逆向请求', en: 'Web Reverse Request'),
+      description: _localizedText(
+        context,
+        zh: '已绑定目标页面与 CDP 环境，按浏览器取证流程推进。',
+        en: 'The target page and CDP environment are bound for this task.',
+      ),
+      textColor: textColor,
+      chips: [
+        const _ExpertRequestChipData(
+          icon: Icons.looks_one_rounded,
+          label: '#1',
+        ),
+        _ExpertRequestChipData(
+          icon: Icons.travel_explore_rounded,
+          label: _localizedText(context, zh: 'Web 逆向', en: 'Web Reverse'),
+        ),
+        if (data.cdpPort.trim().isNotEmpty)
+          _ExpertRequestChipData(
+            icon: Icons.settings_ethernet_rounded,
+            label: 'CDP ${data.cdpPort.trim()}',
+          ),
+        if (data.loginState.trim().isNotEmpty)
+          _ExpertRequestChipData(
+            icon: Icons.verified_user_outlined,
+            label: data.loginState.trim(),
+          ),
+      ],
+      fields: [
+        if (data.targetUrl.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '目标 URL', en: 'Target URL'),
+            value: data.targetUrl.trim(),
+          ),
+        if (data.reverseTarget.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '逆向目标', en: 'Objective'),
+            value: data.reverseTarget.trim(),
+          ),
+        if ((data.triggerActions ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '触发动作', en: 'Trigger Actions'),
+            value: data.triggerActions!.trim(),
+          ),
+        if (data.browser.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '浏览器', en: 'Browser'),
+            value: data.browser.trim(),
+          ),
+        if (data.cdpMcp.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: 'AI 侧 CDP MCP', en: 'CDP MCP'),
+            value: data.cdpMcp.trim(),
+          ),
+        if ((data.proxy ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '代理', en: 'Proxy'),
+            value: data.proxy!.trim(),
+          ),
+        if ((data.keywords ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '关键字', en: 'Keywords'),
+            value: data.keywords!.trim(),
+          ),
+        if (data.evidenceDiscipline.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '取证纪律', en: 'Evidence Rules'),
+            value: data.evidenceDiscipline.trim(),
+          ),
+        if (data.deliverables.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '任务产物', en: 'Deliverables'),
+            value: data.deliverables.trim(),
+          ),
+        if (data.acceptanceCriteria.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '验收标准', en: 'Acceptance'),
+            value: data.acceptanceCriteria.trim(),
+          ),
+      ],
+      truncated: data.truncated,
+    );
+  }
+}
+
+class _AndroidReverseRequestStructuredBody extends StatelessWidget {
+  const _AndroidReverseRequestStructuredBody({
+    required this.data,
+    required this.textColor,
+  });
+
+  final AiAndroidReverseRequestCard data;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ExpertRequestStructuredBody(
+      icon: Icons.android_rounded,
+      title: _localizedText(
+        context,
+        zh: 'Android 逆向请求',
+        en: 'Android Reverse Request',
+      ),
+      description: _localizedText(
+        context,
+        zh: '已绑定目标应用与分析边界，按静态优先取证流程推进。',
+        en: 'The target app and analysis boundary are bound for this task.',
+      ),
+      textColor: textColor,
+      chips: [
+        const _ExpertRequestChipData(
+          icon: Icons.looks_one_rounded,
+          label: '#1',
+        ),
+        _ExpertRequestChipData(
+          icon: Icons.android_rounded,
+          label: _localizedText(
+            context,
+            zh: 'Android 逆向',
+            en: 'Android Reverse',
+          ),
+        ),
+        if ((data.packageName ?? '').trim().isNotEmpty)
+          _ExpertRequestChipData(
+            icon: Icons.apps_rounded,
+            label: data.packageName!.trim(),
+          ),
+        if ((data.apkPath ?? '').trim().isNotEmpty)
+          _ExpertRequestChipData(
+            icon: Icons.inventory_2_outlined,
+            label: _localizedText(context, zh: 'APK', en: 'APK'),
+          ),
+      ],
+      fields: [
+        if (data.reverseTarget.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '逆向目标', en: 'Objective'),
+            value: data.reverseTarget.trim(),
+          ),
+        if ((data.packageName ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '目标包名', en: 'Package'),
+            value: data.packageName!.trim(),
+          ),
+        if ((data.apkPath ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: 'APK 路径', en: 'APK Path'),
+            value: data.apkPath!.trim(),
+          ),
+        if (data.deviceDisplay.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '设备', en: 'Device'),
+            value: data.deviceDisplay.trim(),
+          ),
+        if (data.analysisMode.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '分析模式', en: 'Analysis Mode'),
+            value: data.analysisMode.trim(),
+          ),
+        if (data.authorizationScope.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(
+              context,
+              zh: '授权范围',
+              en: 'Authorization Scope',
+            ),
+            value: data.authorizationScope.trim(),
+          ),
+        if (data.adbMcp.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: 'ADB MCP', en: 'ADB MCP'),
+            value: data.adbMcp.trim(),
+          ),
+        if (data.fridaMcp.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: 'Frida MCP', en: 'Frida MCP'),
+            value: data.fridaMcp.trim(),
+          ),
+        if ((data.keywords ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '关键字', en: 'Keywords'),
+            value: data.keywords!.trim(),
+          ),
+        if ((data.notes ?? '').trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '备注', en: 'Notes'),
+            value: data.notes!.trim(),
+          ),
+        if (data.evidenceDiscipline.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '取证纪律', en: 'Evidence Rules'),
+            value: data.evidenceDiscipline.trim(),
+          ),
+        if (data.acceptanceCriteria.trim().isNotEmpty)
+          _ExpertRequestFieldData(
+            label: _localizedText(context, zh: '验收标准', en: 'Acceptance'),
+            value: data.acceptanceCriteria.trim(),
+          ),
+      ],
+      truncated: data.truncated,
+    );
+  }
+}
+
+class _ExpertRequestStructuredBody extends StatelessWidget {
+  const _ExpertRequestStructuredBody({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.textColor,
+    required this.chips,
+    required this.fields,
+    required this.truncated,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color textColor;
+  final List<_ExpertRequestChipData> chips;
+  final List<_ExpertRequestFieldData> fields;
+  final bool truncated;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
     return Column(
@@ -6205,18 +6519,14 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.terminal_rounded, size: 18, color: accent),
+            Icon(icon, size: 18, color: accent),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _localizedText(
-                      context,
-                      zh: '机器专家执行请求',
-                      en: 'Machine Expert Request',
-                    ),
+                    title,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: textColor,
                       fontWeight: FontWeight.w800,
@@ -6225,11 +6535,7 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _localizedText(
-                      context,
-                      zh: '已绑定目标终端，会在指定会话中执行任务。',
-                      en: 'The target terminal is bound for this task.',
-                    ),
+                    description,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: textColor.withValues(alpha: 0.78),
                       height: 1.45,
@@ -6240,63 +6546,26 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            const _GoalMessageMetricChip(
-              icon: Icons.looks_one_rounded,
-              label: '#1',
-            ),
-            _GoalMessageMetricChip(
-              icon: Icons.memory_rounded,
-              label: _localizedText(context, zh: '机器专家', en: 'Machine Expert'),
-            ),
-            if ((data.appleScriptTarget ?? '').trim().isNotEmpty)
-              _GoalMessageMetricChip(
-                icon: Icons.my_location_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '精确定位',
-                  en: 'Precise Target',
-                ),
-              ),
-          ],
-        ),
-        if (data.terminalApplication.trim().isNotEmpty) ...[
+        if (chips.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final chip in chips)
+                _GoalMessageMetricChip(icon: chip.icon, label: chip.label),
+            ],
+          ),
+        ],
+        for (final field in fields) ...[
           const SizedBox(height: 12),
           _GoalMessageField(
-            label: _localizedText(context, zh: '终端应用', en: 'Terminal'),
-            value: data.terminalApplication.trim(),
+            label: field.label,
+            value: field.value,
             textColor: textColor,
           ),
         ],
-        if (data.terminalLocation.trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _GoalMessageField(
-            label: _localizedText(context, zh: '打开位置', en: 'Location'),
-            value: data.terminalLocation.trim(),
-            textColor: textColor,
-          ),
-        ],
-        if ((data.appleScriptTarget ?? '').trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _GoalMessageField(
-            label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
-            value: data.appleScriptTarget!.trim(),
-            textColor: textColor,
-          ),
-        ],
-        if (data.taskRequirement.trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _GoalMessageField(
-            label: _localizedText(context, zh: '需求', en: 'Request'),
-            value: data.taskRequirement.trim(),
-            textColor: textColor,
-          ),
-        ],
-        if (data.truncated) ...[
+        if (truncated) ...[
           const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -6326,6 +6595,20 @@ class _MachineExpertRequestStructuredBody extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ExpertRequestChipData {
+  const _ExpertRequestChipData({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+}
+
+class _ExpertRequestFieldData {
+  const _ExpertRequestFieldData({required this.label, required this.value});
+
+  final String label;
+  final String value;
 }
 
 class _GoalMessageStructuredBody extends StatelessWidget {
@@ -6731,6 +7014,11 @@ class _SelectedMessageContextRow extends StatelessWidget {
         message: message,
         textColor: textColor,
       ),
+      ..._ReverseExpertRequestContextCapsules.build(
+        context,
+        message: message,
+        textColor: textColor,
+      ),
       ..._GoalMessageContextCapsules.build(
         context,
         message: message,
@@ -6890,6 +7178,69 @@ class _MachineExpertRequestContextCapsules {
         _MessageContextCapsule(
           icon: Icons.my_location_rounded,
           label: _localizedText(context, zh: '精确定位', en: 'Precise Target'),
+          textColor: textColor,
+        ),
+    ];
+  }
+}
+
+class _ReverseExpertRequestContextCapsules {
+  const _ReverseExpertRequestContextCapsules._();
+
+  static List<Widget> build(
+    BuildContext context, {
+    required AiSessionMessage message,
+    required Color textColor,
+  }) {
+    if (message.kind != AiSessionMessageKind.user) {
+      return const <Widget>[];
+    }
+    final webData =
+        AiWebReverseRequestCard.fromMetadata(
+          message.metadata[aiSessionWebReverseRequestCardMetadataKey],
+        ) ??
+        AiWebReverseRequestCard.fromPrompt(message.content);
+    if (webData != null) {
+      return <Widget>[
+        _MessageContextCapsule(
+          icon: Icons.travel_explore_rounded,
+          label: _localizedText(
+            context,
+            zh: 'Web 逆向请求',
+            en: 'Web Reverse Request',
+          ),
+          textColor: textColor,
+        ),
+        if (webData.cdpPort.trim().isNotEmpty)
+          _MessageContextCapsule(
+            icon: Icons.settings_ethernet_rounded,
+            label: 'CDP ${webData.cdpPort.trim()}',
+            textColor: textColor,
+          ),
+      ];
+    }
+    final androidData =
+        AiAndroidReverseRequestCard.fromMetadata(
+          message.metadata[aiSessionAndroidReverseRequestCardMetadataKey],
+        ) ??
+        AiAndroidReverseRequestCard.fromPrompt(message.content);
+    if (androidData == null) {
+      return const <Widget>[];
+    }
+    return <Widget>[
+      _MessageContextCapsule(
+        icon: Icons.android_rounded,
+        label: _localizedText(
+          context,
+          zh: 'Android 逆向请求',
+          en: 'Android Reverse Request',
+        ),
+        textColor: textColor,
+      ),
+      if ((androidData.packageName ?? '').trim().isNotEmpty)
+        _MessageContextCapsule(
+          icon: Icons.apps_rounded,
+          label: androidData.packageName!.trim(),
           textColor: textColor,
         ),
     ];
