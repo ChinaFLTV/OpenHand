@@ -2268,7 +2268,8 @@ function MessageCardImpl({
   const supportsTextActions =
     textFeatureFormat === 'markdown' || textFeatureFormat === 'plain_text';
   const supportsRenderedSourceToggle =
-    effectiveFormat === 'html' || effectiveFormat === 'markdown';
+    !goalMessageView &&
+    (effectiveFormat === 'html' || effectiveFormat === 'markdown');
   const contentLooksHtml = looksLikeRenderableHtml(visibleContent);
   const htmlRenderableMessage =
     !isUserBubble &&
@@ -2841,7 +2842,7 @@ function MessageCardImpl({
                       onClick={() => setShowRawContent((v) => !v)}
                     />
                   ) : null}
-                  {!isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && canOpenHtmlInBrowser ? (
+                  {!goalMessageView && !isUserBubble && !useToolBody && message.kind !== 'reasoning' && message.kind !== 'file_mutation_summary' && canOpenHtmlInBrowser ? (
                     <ActionBtn
                       icon="globe"
                       label={t('message.openInBrowser', '浏览器打开')}

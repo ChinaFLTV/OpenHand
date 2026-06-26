@@ -1243,7 +1243,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             !isSelfLearning &&
             !isCompressionPoint &&
             !isStatus &&
-            !isGoalEvaluationMessage &&
+            !isGoalRuntimeMessage &&
             resolvedMessageContentFormat != AiMessageContentFormat.plainText)
           _MessageActionSpec(
             id: 'raw-toggle',
@@ -1263,6 +1263,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             !isSelfLearning &&
             !isCompressionPoint &&
             !isStatus &&
+            !isGoalRuntimeMessage &&
             resolvedMessageContentFormat == AiMessageContentFormat.html &&
             _looksLikeHtml(effectiveContent))
           _MessageActionSpec(
