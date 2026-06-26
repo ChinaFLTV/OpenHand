@@ -707,37 +707,24 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                 ),
                 // 渐进式展开。views 多时只构造前 _revealedCount 条，
                 // 余下用一行「展开剩余 N 条」按钮兜底，按需 +30 / 全展开。
-                // ≥6 行时给主卡首批行加一次 60ms 步进的 drip-in
-                // 入场，与 inspector 同源 _DelayedAppear；reduceMotion 下退化。
+                // 文件条目不做独立入场；跟随消息卡片一次性出现。
                 for (int i = 0; i < views.length && i < _revealedCount; i++)
-                  Builder(
-                    builder: (rowCtx) {
-                      final reduceMotion =
-                          MediaQuery.maybeDisableAnimationsOf(rowCtx) ?? false;
-                      final shouldDrip = !reduceMotion && views.length >= 6;
-                      final row = _FileMutationCardRow(
-                        view: views[i],
-                        expanded: _expandedRecordIds.contains(
-                          views[i].record.recordId,
-                        ),
-                        busy: _busyRecordIds.contains(views[i].record.recordId),
-                        onToggleExpand: () =>
-                            _toggleExpand(views[i].record.recordId),
-                        onUndo: () => _undo(views[i]),
-                        onRedo: () => _redo(views[i]),
-                        onOpenLegacyDialog: () => _showLegacyDiff(
-                          views[i].record.filePath,
-                          _fileMutationKind(widget.message),
-                        ),
-                        onCopyDiff: () => _copyAllDiff([views[i]]),
-                        onOpenInspector: _openHistoryInspector,
-                      );
-                      if (!shouldDrip) return row;
-                      return _DelayedAppear(
-                        delay: Duration(milliseconds: (i * 60).clamp(0, 720)),
-                        child: row,
-                      );
-                    },
+                  _FileMutationCardRow(
+                    view: views[i],
+                    expanded: _expandedRecordIds.contains(
+                      views[i].record.recordId,
+                    ),
+                    busy: _busyRecordIds.contains(views[i].record.recordId),
+                    onToggleExpand: () =>
+                        _toggleExpand(views[i].record.recordId),
+                    onUndo: () => _undo(views[i]),
+                    onRedo: () => _redo(views[i]),
+                    onOpenLegacyDialog: () => _showLegacyDiff(
+                      views[i].record.filePath,
+                      _fileMutationKind(widget.message),
+                    ),
+                    onCopyDiff: () => _copyAllDiff([views[i]]),
+                    onOpenInspector: _openHistoryInspector,
                   ),
                 if (views.length > _revealedCount)
                   _RevealMoreRow(
@@ -3270,9 +3257,9 @@ class _BulkUndoOverlay extends StatelessWidget {
 // - 行级 dedup 单元 = (filePath × toolCallId)；同一文件被多次 Edit/Write
 //   会出现多行，每行带独立「跳转到来源消息」按钮，跳转通过
 //   `_TranscriptBubbleRegistry` 反查 BuildContext + `Scrollable
-//   .ensureVisible(alignment:0.18)` 实现 Q 弹丝滑滚动；目标在大会话里
-//   被 ListView 释放时回退到滚轨估算。
-// - reduceMotion 下所有过渡退化为瞬时；Drip-in 入场不超过 6 行的延迟。
+//   .ensureVisible(alignment:0.18)` 实现 Q 弹丝滑滚动；目标早于当前窗口时
+//   由 dispatcher 先 reveal-older，再精确定位。
+// - 文件条目跟随消息卡片一次性出现，不再做行级 drip-in 入场。
 // - 不支持 undo/redo（信息聚合卡，避免与每个工具调用卡的 ledger 操作
 //   重复 / 并发竞态）。
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4011,16 +3998,12 @@ class _RoundFileMutationSummaryCardState
     final msgKey = widget.message.id;
     final showAll = _expandedFullList.contains(msgKey);
     final children = <Widget>[];
-    var globalIndex = 0;
     var rendered = 0;
     var truncated = false;
 
-    Widget buildTile(_RoundSummaryRow r, int idx) {
+    Widget buildTile(_RoundSummaryRow r) {
       return _RoundSummaryRowTile(
         row: r,
-        entranceDelay: (!reduceMotion && rows.length >= 6)
-            ? Duration(milliseconds: (idx * 55).clamp(0, 660).toInt())
-            : Duration.zero,
         onJump: () => _jumpToSourceMessage(r.sourceMessageId),
         isDiffExpanded: _expandedDiffRows.contains(
           _diffKey(r.view.record.recordId),
@@ -4045,8 +4028,6 @@ class _RoundFileMutationSummaryCardState
         showAll: showAll,
         reduceMotion: reduceMotion,
         children: children,
-        globalIndex: () => globalIndex,
-        bumpIndex: () => globalIndex += 1,
         renderedAdd: (n) {
           rendered += n;
           if (capReached()) truncated = true;
@@ -4079,7 +4060,6 @@ class _RoundFileMutationSummaryCardState
           ),
         );
         if (collapsed) {
-          globalIndex += entry.value.length;
           continue;
         }
         _emitRowsWithOptionalPathSubgroups(
@@ -4090,8 +4070,6 @@ class _RoundFileMutationSummaryCardState
           showAll: showAll,
           reduceMotion: reduceMotion,
           children: children,
-          globalIndex: () => globalIndex,
-          bumpIndex: () => globalIndex += 1,
           renderedAdd: (n) {
             rendered += n;
             if (capReached()) truncated = true;
@@ -4185,17 +4163,14 @@ class _RoundFileMutationSummaryCardState
     required bool showAll,
     required bool reduceMotion,
     required List<Widget> children,
-    required int Function() globalIndex,
-    required VoidCallback bumpIndex,
     required void Function(int n) renderedAdd,
     required bool Function() capReached,
-    required Widget Function(_RoundSummaryRow, int) buildTile,
+    required Widget Function(_RoundSummaryRow) buildTile,
   }) {
     if (groupRows.length < _pathSubgroupThreshold) {
       for (final r in groupRows) {
         if (capReached()) return;
-        children.add(buildTile(r, globalIndex()));
-        bumpIndex();
+        children.add(buildTile(r));
         renderedAdd(1);
       }
       return;
@@ -4209,8 +4184,7 @@ class _RoundFileMutationSummaryCardState
     if (dirBuckets.length <= 1) {
       for (final r in groupRows) {
         if (capReached()) return;
-        children.add(buildTile(r, globalIndex()));
-        bumpIndex();
+        children.add(buildTile(r));
         renderedAdd(1);
       }
       return;
@@ -4238,8 +4212,7 @@ class _RoundFileMutationSummaryCardState
       if (pathCollapsed) continue;
       for (final r in entry.value) {
         if (capReached()) return;
-        children.add(buildTile(r, globalIndex()));
-        bumpIndex();
+        children.add(buildTile(r));
         renderedAdd(1);
       }
     }
@@ -4271,14 +4244,12 @@ class _RoundSummaryRow {
 class _RoundSummaryRowTile extends StatelessWidget {
   const _RoundSummaryRowTile({
     required this.row,
-    required this.entranceDelay,
     required this.onJump,
     required this.isDiffExpanded,
     required this.onToggleDiff,
   });
 
   final _RoundSummaryRow row;
-  final Duration entranceDelay;
   final VoidCallback onJump;
   final bool isDiffExpanded;
   final VoidCallback onToggleDiff;
@@ -4414,8 +4385,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
         ],
       ),
     );
-    if (entranceDelay == Duration.zero) return wrapped;
-    return _DelayedAppear(delay: entranceDelay, child: wrapped);
+    return wrapped;
   }
 }
 
