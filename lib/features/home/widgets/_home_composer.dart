@@ -113,6 +113,8 @@ class _ComposerPanel extends StatefulWidget {
     required this.canStopSending,
     required this.sessionMode,
     required this.onSessionModeChanged,
+    required this.knowledgeBaseReferenceEnabled,
+    required this.onKnowledgeBaseReferenceChanged,
     required this.goalModeAvailable,
     required this.suppressGoalControlsForQueue,
     required this.onPauseGoal,
@@ -167,6 +169,8 @@ class _ComposerPanel extends StatefulWidget {
   final bool canStopSending;
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
+  final bool knowledgeBaseReferenceEnabled;
+  final ValueChanged<bool> onKnowledgeBaseReferenceChanged;
   final bool goalModeAvailable;
   final bool suppressGoalControlsForQueue;
   final Future<void> Function() onPauseGoal;
@@ -1925,6 +1929,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ),
                 ),
                 const SizedBox(width: 10),
+                _ComposerKnowledgeBaseButton(
+                  enabled: widget.knowledgeBaseReferenceEnabled,
+                  onChanged: widget.onKnowledgeBaseReferenceChanged,
+                ),
+                const SizedBox(width: 10),
               ],
             ),
           ),
@@ -2524,6 +2533,84 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
             color: foregroundColor,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ComposerKnowledgeBaseButton extends StatelessWidget {
+  const _ComposerKnowledgeBaseButton({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final label = _localizedText(context, zh: '引用知识库', en: 'Knowledge Base');
+    final backgroundColor = enabled
+        ? colorScheme.secondaryContainer
+        : colorScheme.surfaceContainerHighest;
+    final foregroundColor = enabled
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onSurfaceVariant;
+    final borderColor = enabled
+        ? colorScheme.secondary.withValues(alpha: 0.45)
+        : colorScheme.outlineVariant;
+    return Tooltip(
+      message: enabled
+          ? _localizedText(
+              context,
+              zh: '已开启：之后发送的消息会检索知识库',
+              en: 'Enabled: future messages will retrieve from Knowledge Base',
+            )
+          : _localizedText(
+              context,
+              zh: '已关闭：发送消息不检索知识库',
+              en: 'Disabled: messages are sent without Knowledge Base retrieval',
+            ),
+      child: OutlinedButton(
+        onPressed: () => onChanged(!enabled),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+          side: BorderSide(color: borderColor),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedSwitcher(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
+              child: Icon(
+                enabled
+                    ? Icons.library_books_rounded
+                    : Icons.library_books_outlined,
+                key: ValueKey<bool>(enabled),
+                size: 18,
+                color: foregroundColor,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: foregroundColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

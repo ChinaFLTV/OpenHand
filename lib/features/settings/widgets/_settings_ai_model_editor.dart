@@ -2143,9 +2143,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _huggingFaceIdController;
   late final TextEditingController _knowledgeCutoffController;
   late final TextEditingController _expirationDateController;
+  late final TextEditingController _embeddingDimensionsController;
+  late final TextEditingController _embeddingMaxInputTokensController;
+  late final TextEditingController _embeddingEndpointPathController;
+  late final TextEditingController _embeddingBatchSizeController;
   bool? _isMultimodal;
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
+  bool _embeddingSupportsCustomDimensions = false;
+  bool _embeddingRequiresSpecialBody = false;
   late bool _isGlobalDefaultTitleModel;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
@@ -2228,6 +2234,33 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _expirationDateController = TextEditingController(
       text: p.expirationDate ?? effective.expirationDate ?? '',
     );
+    _embeddingDimensionsController = TextEditingController(
+      text:
+          p.embeddingDimensions?.toString() ??
+          effective.embeddingDimensions?.toString() ??
+          '',
+    );
+    _embeddingMaxInputTokensController = TextEditingController(
+      text:
+          p.embeddingMaxInputTokens?.toString() ??
+          effective.embeddingMaxInputTokens?.toString() ??
+          '',
+    );
+    _embeddingEndpointPathController = TextEditingController(
+      text: p.embeddingEndpointPath ?? effective.embeddingEndpointPath ?? '',
+    );
+    _embeddingBatchSizeController = TextEditingController(
+      text:
+          p.embeddingBatchSize?.toString() ??
+          effective.embeddingBatchSize?.toString() ??
+          '',
+    );
+    _embeddingSupportsCustomDimensions =
+        p.embeddingSupportsCustomDimensions ||
+        effective.embeddingSupportsCustomDimensions;
+    _embeddingRequiresSpecialBody =
+        p.embeddingRequiresSpecialBody ||
+        effective.embeddingRequiresSpecialBody;
 
     if (hasExisting) {
       // User already configured — use their saved values.
@@ -2334,6 +2367,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _huggingFaceIdController.dispose();
     _knowledgeCutoffController.dispose();
     _expirationDateController.dispose();
+    _embeddingDimensionsController.dispose();
+    _embeddingMaxInputTokensController.dispose();
+    _embeddingEndpointPathController.dispose();
+    _embeddingBatchSizeController.dispose();
     super.dispose();
   }
 
@@ -2391,6 +2428,19 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           ? _expirationDateController.text.trim()
           : null,
       isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
+      embeddingDimensions: _parsePositiveInt(
+        _embeddingDimensionsController.text,
+      ),
+      embeddingMaxInputTokens: _parsePositiveInt(
+        _embeddingMaxInputTokensController.text,
+      ),
+      embeddingSupportsCustomDimensions: _embeddingSupportsCustomDimensions,
+      embeddingEndpointPath:
+          _embeddingEndpointPathController.text.trim().isNotEmpty
+          ? _embeddingEndpointPathController.text.trim()
+          : null,
+      embeddingBatchSize: _parsePositiveInt(_embeddingBatchSizeController.text),
+      embeddingRequiresSpecialBody: _embeddingRequiresSpecialBody,
     );
     Navigator.of(context).pop(profile);
   }
@@ -2666,6 +2716,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         AiModelCapability.pptGeneration => AppLocalizations.of(
                           context,
                         )!.mdlEdPpt,
+                        AiModelCapability.embeddingGeneration =>
+                          openHandIsChineseLocale(context)
+                              ? '嵌入生成'
+                              : 'Embeddings',
                       };
                       return FilterChip(
                         label: Text(label),
@@ -2684,6 +2738,103 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     .toList(growable: false),
               ),
               const SizedBox(height: 16),
+
+              if (_capabilities.contains(
+                AiModelCapability.embeddingGeneration,
+              )) ...[
+                _buildSectionHeader(
+                  openHandIsChineseLocale(context)
+                      ? '嵌入生成配置'
+                      : 'Embedding Configuration',
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: TextField(
+                        controller: _embeddingDimensionsController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: openHandIsChineseLocale(context)
+                              ? '默认维度'
+                              : 'Default Dimensions',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _embeddingMaxInputTokensController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: openHandIsChineseLocale(context)
+                              ? '最大输入 tokens'
+                              : 'Max Input Tokens',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: TextField(
+                        controller: _embeddingEndpointPathController,
+                        decoration: InputDecoration(
+                          labelText: openHandIsChineseLocale(context)
+                              ? '嵌入 endpoint path'
+                              : 'Embedding Endpoint Path',
+                          hintText: '/v1/embeddings',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _embeddingBatchSizeController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: openHandIsChineseLocale(context)
+                              ? '建议 batch size'
+                              : 'Suggested Batch Size',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    openHandIsChineseLocale(context)
+                        ? '支持自定义 dimensions'
+                        : 'Supports Custom Dimensions',
+                  ),
+                  value: _embeddingSupportsCustomDimensions,
+                  onChanged: (value) => setState(
+                    () => _embeddingSupportsCustomDimensions = value,
+                  ),
+                ),
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    openHandIsChineseLocale(context)
+                        ? '需要特殊 request body 字段'
+                        : 'Requires Special Request Body',
+                  ),
+                  value: _embeddingRequiresSpecialBody,
+                  onChanged: (value) =>
+                      setState(() => _embeddingRequiresSpecialBody = value),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Token limits
               _buildSectionHeader(

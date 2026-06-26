@@ -52,7 +52,9 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.notebookEdit ||
     AiBuiltinToolKind.deleteFile => HardnessToolCategory.filesystem,
     AiBuiltinToolKind.grep ||
-    AiBuiltinToolKind.codebaseSearch => HardnessToolCategory.search,
+    AiBuiltinToolKind.codebaseSearch ||
+    AiBuiltinToolKind.knowledgeSearch ||
+    AiBuiltinToolKind.knowledgeRead => HardnessToolCategory.search,
     AiBuiltinToolKind.bash ||
     AiBuiltinToolKind.bashBackground ||
     AiBuiltinToolKind.taskOutput ||

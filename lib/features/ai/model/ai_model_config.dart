@@ -216,7 +216,8 @@ enum AiModelCapability {
   videoGeneration('video_generation'),
   audioGeneration('audio_generation'),
   pdfGeneration('pdf_generation'),
-  pptGeneration('ppt_generation');
+  pptGeneration('ppt_generation'),
+  embeddingGeneration('embedding_generation');
 
   const AiModelCapability(this.storageValue);
   final String storageValue;
@@ -262,6 +263,12 @@ class AiModelProfile {
     this.expirationDate,
     this.links,
     this.isGlobalDefaultTitleModel = false,
+    this.embeddingDimensions,
+    this.embeddingMaxInputTokens,
+    this.embeddingSupportsCustomDimensions = false,
+    this.embeddingEndpointPath,
+    this.embeddingBatchSize,
+    this.embeddingRequiresSpecialBody = false,
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -311,6 +318,20 @@ class AiModelProfile {
           : null,
       isGlobalDefaultTitleModel:
           _readBool(json[_globalDefaultTitleModelJsonKey]) ?? false,
+      embeddingDimensions: _readNullablePositiveInt(
+        json['embedding_dimensions'],
+      ),
+      embeddingMaxInputTokens: _readNullablePositiveInt(
+        json['embedding_max_input_tokens'],
+      ),
+      embeddingSupportsCustomDimensions:
+          _readBool(json['embedding_supports_custom_dimensions']) ?? false,
+      embeddingEndpointPath: json['embedding_endpoint_path'] as String?,
+      embeddingBatchSize: _readNullablePositiveInt(
+        json['embedding_batch_size'],
+      ),
+      embeddingRequiresSpecialBody:
+          _readBool(json['embedding_requires_special_body']) ?? false,
     );
   }
 
@@ -377,6 +398,16 @@ class AiModelProfile {
   /// text, image, video, and audio models at the same time.
   final bool isGlobalDefaultTitleModel;
 
+  final int? embeddingDimensions;
+  final int? embeddingMaxInputTokens;
+  final bool embeddingSupportsCustomDimensions;
+  final String? embeddingEndpointPath;
+  final int? embeddingBatchSize;
+  final bool embeddingRequiresSpecialBody;
+
+  bool get supportsEmbeddings =>
+      capabilities.contains(AiModelCapability.embeddingGeneration);
+
   /// Whether user explicitly configured this profile (not just empty defaults).
   bool get hasUserOverrides =>
       displayName != null ||
@@ -404,7 +435,13 @@ class AiModelProfile {
       knowledgeCutoff != null ||
       expirationDate != null ||
       links != null ||
-      isGlobalDefaultTitleModel;
+      isGlobalDefaultTitleModel ||
+      embeddingDimensions != null ||
+      embeddingMaxInputTokens != null ||
+      embeddingSupportsCustomDimensions ||
+      embeddingEndpointPath != null ||
+      embeddingBatchSize != null ||
+      embeddingRequiresSpecialBody;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -453,6 +490,16 @@ class AiModelProfile {
     AiModelLinksMetadata? links,
     bool clearLinks = false,
     bool? isGlobalDefaultTitleModel,
+    int? embeddingDimensions,
+    bool clearEmbeddingDimensions = false,
+    int? embeddingMaxInputTokens,
+    bool clearEmbeddingMaxInputTokens = false,
+    bool? embeddingSupportsCustomDimensions,
+    String? embeddingEndpointPath,
+    bool clearEmbeddingEndpointPath = false,
+    int? embeddingBatchSize,
+    bool clearEmbeddingBatchSize = false,
+    bool? embeddingRequiresSpecialBody,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -514,6 +561,23 @@ class AiModelProfile {
       links: clearLinks ? null : links ?? this.links,
       isGlobalDefaultTitleModel:
           isGlobalDefaultTitleModel ?? this.isGlobalDefaultTitleModel,
+      embeddingDimensions: clearEmbeddingDimensions
+          ? null
+          : embeddingDimensions ?? this.embeddingDimensions,
+      embeddingMaxInputTokens: clearEmbeddingMaxInputTokens
+          ? null
+          : embeddingMaxInputTokens ?? this.embeddingMaxInputTokens,
+      embeddingSupportsCustomDimensions:
+          embeddingSupportsCustomDimensions ??
+          this.embeddingSupportsCustomDimensions,
+      embeddingEndpointPath: clearEmbeddingEndpointPath
+          ? null
+          : embeddingEndpointPath ?? this.embeddingEndpointPath,
+      embeddingBatchSize: clearEmbeddingBatchSize
+          ? null
+          : embeddingBatchSize ?? this.embeddingBatchSize,
+      embeddingRequiresSpecialBody:
+          embeddingRequiresSpecialBody ?? this.embeddingRequiresSpecialBody,
     );
   }
 
@@ -556,6 +620,17 @@ class AiModelProfile {
       if (expirationDate != null) 'expiration_date': expirationDate,
       if (links != null && !links!.isEmpty) 'links': links!.toJson(),
       if (isGlobalDefaultTitleModel) _globalDefaultTitleModelJsonKey: true,
+      if (embeddingDimensions != null)
+        'embedding_dimensions': embeddingDimensions,
+      if (embeddingMaxInputTokens != null)
+        'embedding_max_input_tokens': embeddingMaxInputTokens,
+      if (embeddingSupportsCustomDimensions)
+        'embedding_supports_custom_dimensions': true,
+      if (embeddingEndpointPath != null)
+        'embedding_endpoint_path': embeddingEndpointPath,
+      if (embeddingBatchSize != null)
+        'embedding_batch_size': embeddingBatchSize,
+      if (embeddingRequiresSpecialBody) 'embedding_requires_special_body': true,
     };
   }
 
@@ -877,6 +952,13 @@ class AiModelConfig {
       expirationDate: override.expirationDate,
       links: override.links,
       isGlobalDefaultTitleModel: override.isGlobalDefaultTitleModel,
+      embeddingDimensions: override.embeddingDimensions,
+      embeddingMaxInputTokens: override.embeddingMaxInputTokens,
+      embeddingSupportsCustomDimensions:
+          override.embeddingSupportsCustomDimensions,
+      embeddingEndpointPath: override.embeddingEndpointPath,
+      embeddingBatchSize: override.embeddingBatchSize,
+      embeddingRequiresSpecialBody: override.embeddingRequiresSpecialBody,
     );
   }
 

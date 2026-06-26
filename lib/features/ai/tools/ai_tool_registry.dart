@@ -21,6 +21,7 @@ import 'fs/ai_notebook_edit_tool.dart';
 import 'fs/ai_read_tool.dart';
 import 'fs/ai_write_tool.dart';
 import 'git/ai_git_tool.dart';
+import 'knowledge/ai_knowledge_base_tool.dart';
 import 'lsp/ai_lsp_tool.dart';
 import 'lsp/ai_read_lints_tool.dart';
 import 'memory/ai_memory_tool.dart';
@@ -61,6 +62,8 @@ class AiToolRegistry {
       ..register(AiGitTool())
       ..register(AiDeleteFileTool())
       ..register(AiReadLintsTool())
+      ..register(AiKnowledgeSearchTool())
+      ..register(AiKnowledgeReadTool())
       ..register(AiToolSearchTool())
       ..register(AiAskUserChoiceTool());
   }

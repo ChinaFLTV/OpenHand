@@ -25,6 +25,7 @@ import 'features/ai/service/chat/ai_protocol_adapter.dart'
 import 'features/crons/index.dart';
 import 'features/hooks/index.dart';
 import 'features/instructions/index.dart';
+import 'features/knowledge_base/index.dart';
 import 'features/mcp/index.dart';
 import 'features/memory/index.dart';
 import 'features/message_gateway/index.dart';
@@ -188,6 +189,7 @@ Future<void> _bootstrap() async {
   final instructionsModuleFuture = InstructionsModule.bootstrap();
   final memoryModuleFuture = MemoryModule.bootstrap();
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
+  final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
   unawaited(AiOutputFormatPrompts.ensureLoaded());
   // 2026-05-03: kick off system-proxy detection in parallel with the
@@ -360,6 +362,7 @@ Future<void> _bootstrap() async {
     );
   }());
 
+  final knowledgeBase = await knowledgeBaseModuleFuture;
   final messageGateway = await MessageGatewayModule.bootstrap(
     sessionController: aiSessionController,
     settingsController: settingsController,
@@ -368,6 +371,7 @@ Future<void> _bootstrap() async {
     memoryController: memory.controller,
     cronsController: cronsController,
     instructionsController: instructions.controller,
+    knowledgeBaseController: knowledgeBase.controller,
     appInfo: appInfo,
   );
   unawaited(messageGateway.controller.initialize());
@@ -375,6 +379,7 @@ Future<void> _bootstrap() async {
   final pluginService = await pluginServiceModuleFuture;
   unawaited(pluginService.controller.initialize());
   messageGateway.controller.pluginServiceController = pluginService.controller;
+  unawaited(knowledgeBase.controller.initialize());
 
   // 冷启动后异步触发一次 cron 历史清理，不干扰 UI 启动。
   unawaited(
@@ -405,6 +410,7 @@ Future<void> _bootstrap() async {
         ...InstructionsModule.providers(instructions),
         ...MessageGatewayModule.providers(messageGateway),
         ...PluginServiceModule.providers(pluginService),
+        ...KnowledgeBaseModule.providers(knowledgeBase),
         ...AiModule.providers(ai),
         ChangeNotifierProvider<TemplateRuntimeLinkageController>.value(
           value: templateRuntimeLinkageController,

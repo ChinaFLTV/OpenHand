@@ -37,6 +37,7 @@ class PluginInfo {
     this.dependencies = const [],
     this.dependents = const [],
     this.supportsUninstall = true,
+    this.metadata = const <String, Object?>{},
     this.errorMessage,
   });
 
@@ -73,6 +74,9 @@ class PluginInfo {
   /// 是否支持卸载
   final bool supportsUninstall;
 
+  /// Plugin-specific structured diagnostics.
+  final Map<String, Object?> metadata;
+
   /// 错误信息
   final String? errorMessage;
 
@@ -99,6 +103,7 @@ class PluginInfo {
     List<String>? dependencies,
     List<String>? dependents,
     bool? supportsUninstall,
+    Map<String, Object?>? metadata,
     String? errorMessage,
   }) {
     return PluginInfo(
@@ -113,6 +118,7 @@ class PluginInfo {
       dependencies: dependencies ?? this.dependencies,
       dependents: dependents ?? this.dependents,
       supportsUninstall: supportsUninstall ?? this.supportsUninstall,
+      metadata: metadata ?? this.metadata,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }

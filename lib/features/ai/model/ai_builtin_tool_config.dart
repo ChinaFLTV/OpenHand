@@ -493,6 +493,8 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
+      case AiBuiltinToolKind.knowledgeSearch:
+      case AiBuiltinToolKind.knowledgeRead:
         return AiBuiltinToolLoadStrategy.lazy;
     }
   }

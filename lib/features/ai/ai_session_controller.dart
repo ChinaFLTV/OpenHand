@@ -8630,6 +8630,8 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.codebaseSearch:
       case AiBuiltinToolKind.git:
       case AiBuiltinToolKind.readLints:
+      case AiBuiltinToolKind.knowledgeSearch:
+      case AiBuiltinToolKind.knowledgeRead:
         return true;
       case AiBuiltinToolKind.task:
         return _isParallelizableTaskToolCall(toolCall);

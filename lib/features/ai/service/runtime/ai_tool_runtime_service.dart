@@ -182,6 +182,8 @@ enum AiBuiltinToolKind {
   skillManager,
   toolSearch,
   memory,
+  knowledgeSearch,
+  knowledgeRead,
 }
 
 class AiToolExecutionResult {
@@ -1801,6 +1803,8 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.skillManager => 'SkillManager',
       AiBuiltinToolKind.toolSearch => 'ToolSearch',
       AiBuiltinToolKind.memory => 'Memory',
+      AiBuiltinToolKind.knowledgeSearch => 'KnowledgeSearch',
+      AiBuiltinToolKind.knowledgeRead => 'KnowledgeRead',
       null => tool.name,
     };
   }
@@ -3223,6 +3227,84 @@ class AiToolRuntimeService {
           },
         },
         'required': <String>['query'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.knowledgeSearch,
+      name: 'KnowledgeSearch',
+      description:
+          'Read-only search over the local OpenHand Knowledge Base SQLite metadata/chunks. '
+          'Use this when you need to inspect local KB references proactively. '
+          'Automatic user-message RAG uses Qdrant dense vector retrieval separately; this tool is for explicit read-only lookup and audit.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'query': <String, Object?>{
+            'type': 'string',
+            'description': 'Natural language or exact text query.',
+          },
+          'tags': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description':
+                'Optional tag filter, reserved for indexed payloads.',
+          },
+          'date_from': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional ISO date lower bound.',
+          },
+          'date_to': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional ISO date upper bound.',
+          },
+          'source_ids': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+          },
+          'top_k': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 20,
+            'description': 'Maximum results to return. Defaults to 6.',
+          },
+        },
+        'required': <String>['query'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.knowledgeRead,
+      name: 'KnowledgeRead',
+      description:
+          'Read-only fetch for Knowledge Base content by chunk_id or source_id. '
+          'Returns source, date, tags/metadata where available, and chunk content.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'chunk_id': <String, Object?>{
+            'type': 'string',
+            'description': 'A concrete knowledge chunk id to read.',
+          },
+          'source_id': <String, Object?>{
+            'type': 'string',
+            'description': 'A source id; returns its first chunks.',
+          },
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 50,
+            'description': 'For source_id reads, maximum chunks to return.',
+          },
+        },
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['chunk_id'],
+          },
+          <String, Object?>{
+            'required': <String>['source_id'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

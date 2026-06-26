@@ -9,7 +9,7 @@
 //
 // Web 端不执行撤销/重做等本地文件 ledger 操作，只做只读审阅展示。
 
-import type { SessionMessage, SessionMessageFeedback } from '../api/sessions';
+import { KNOWLEDGE_BASE_MESSAGE_METADATA_KEY, type SessionMessage, type SessionMessageFeedback } from '../api/sessions';
 import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
 import { Markdown, looksLikeHtml, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
@@ -110,6 +110,7 @@ type MessageIconName =
   | 'status'
   | 'compression'
   | 'goal'
+  | 'knowledge'
   | 'user'
   | 'assistant'
   | 'copy'
@@ -120,6 +121,7 @@ type MessageIconName =
   | 'codeOff'
   | 'trash'
   | 'cascade'
+  | 'close'
   | 'chevronDown'
   | 'chevronUp'
   | 'write'
@@ -194,6 +196,8 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M6 4h12v5H6z" /><path d="M8 9v11h8V9" /><path d="m9 14 3 3 3-3" /></svg>;
     case 'goal':
       return <svg {...common}><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></svg>;
+    case 'knowledge':
+      return <svg {...common}><path d="M5 5.8A2.8 2.8 0 0 1 7.8 3H19v15H8a3 3 0 0 0-3 3z" /><path d="M5 5.8V21" /><path d="M9 7h6M9 11h7M9 15h5" /></svg>;
     case 'user':
       return <svg {...common}><circle cx="12" cy="8" r="4" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>;
     case 'assistant':
@@ -210,6 +214,8 @@ function MessageIcon({ name, size = 16 }: { name: MessageIconName; size?: number
       return <svg {...common}><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 14h10l1-14" /><path d="M9 7V4h6v3" /></svg>;
     case 'cascade':
       return <svg {...common}><path d="M5 6h14" /><path d="M8 12h8" /><path d="M10 18h4" /><path d="M18 6v5a7 7 0 0 1-7 7" /></svg>;
+    case 'close':
+      return <svg {...common}><path d="M7 7l10 10M17 7 7 17" /></svg>;
     case 'chevronDown':
       return <svg {...common}><path d="m6 9 6 6 6-6" /></svg>;
     case 'chevronUp':
@@ -369,6 +375,7 @@ interface MessageContextChip {
   label: string;
   icon?: MessageIconName;
   emoji?: string;
+  onClick?: () => void;
 }
 
 interface MachineExpertRequestViewModel {
@@ -468,6 +475,34 @@ const ANDROID_REVERSE_PROMPT_FIELD_LABELS = [
 
 function nonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function knowledgeBaseMetadata(message: SessionMessage): Record<string, unknown> | null {
+  const meta = recordOrNullFromUnknown(message.metadata);
+  return recordOrNullFromUnknown(meta?.[KNOWLEDGE_BASE_MESSAGE_METADATA_KEY]);
+}
+
+function knowledgeBaseResults(kb: Record<string, unknown> | null): Record<string, unknown>[] {
+  const raw = kb?.['results'];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => recordOrNullFromUnknown(item))
+    .filter((item): item is Record<string, unknown> => item != null);
+}
+
+function knowledgeBaseHasReferences(message: SessionMessage): boolean {
+  const kb = knowledgeBaseMetadata(message);
+  return kb?.['enabled'] === true &&
+    kb?.['status'] === 'success' &&
+    knowledgeBaseResults(kb).length > 0;
+}
+
+function knowledgeBaseTokenEstimate(kb: Record<string, unknown> | null): number | null {
+  return finiteNumberOrNullFromUnknown(recordOrNullFromUnknown(kb?.['prompt_append'])?.['token_estimate']);
+}
+
+function knowledgeBaseContextContent(kb: Record<string, unknown> | null): string {
+  return nonEmptyString(kb?.['prompt_append_content']);
 }
 
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
@@ -1246,8 +1281,8 @@ function attachmentKindData(kind: AttachmentKind): { icon: MessageIconName; labe
 }
 
 function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
-  return (
-    <span class="oh-message-context-capsule oh-soft-replace" title={chip.label}>
+  const content = (
+    <>
       {chip.emoji ? (
         <span class="oh-message-context-emoji" aria-hidden>{chip.emoji}</span>
       ) : chip.icon ? (
@@ -1256,6 +1291,26 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
         </span>
       ) : null}
       <span class="truncate">{chip.label}</span>
+    </>
+  );
+  if (chip.onClick) {
+    return (
+      <button
+        type="button"
+        class="oh-message-context-capsule oh-soft-replace"
+        title={chip.label}
+        onClick={(event) => {
+          event.stopPropagation();
+          chip.onClick?.();
+        }}
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span class="oh-message-context-capsule oh-soft-replace" title={chip.label}>
+      {content}
     </span>
   );
 }
@@ -2116,6 +2171,10 @@ function MessageCardImpl({
     message.kind === 'mcp';
   const useToolBody = useStructuredToolBody || message.kind === 'file_mutation_summary';
   const metadata = message.metadata ?? {};
+  const [knowledgeBaseDialogOpen, setKnowledgeBaseDialogOpen] = useState(false);
+  const kbMetadata = knowledgeBaseMetadata(message);
+  const kbResults = knowledgeBaseResults(kbMetadata);
+  const kbTokenEstimate = knowledgeBaseTokenEstimate(kbMetadata);
   const recentlyUpdatedContent = useRecentMessageActivity(
     content,
     !isUserBubble &&
@@ -2389,7 +2448,23 @@ function MessageCardImpl({
       : isUserBubble
       ? 'min(78%, 640px)'
       : 'min(82%, 720px)';
-  const contextChips = messageContextChips(message);
+  const contextChips = [
+    ...messageContextChips(message),
+    ...(isUserBubble && knowledgeBaseHasReferences(message)
+      ? [
+        {
+          key: 'knowledge-base',
+          icon: 'knowledge' as const,
+          label: kbTokenEstimate == null
+            ? t('message.context.knowledgeBaseHits', `知识库 ${kbResults.length} 条`).replace('{count}', String(kbResults.length))
+            : t('message.context.knowledgeBaseHitsTokens', `知识库 · ${kbResults.length} 条 · ${Math.round(kbTokenEstimate).toLocaleString()} tokens`)
+              .replace('{count}', String(kbResults.length))
+              .replace('{tokens}', Math.round(kbTokenEstimate).toLocaleString()),
+          onClick: () => setKnowledgeBaseDialogOpen(true),
+        },
+      ]
+      : []),
+  ];
   const plainRoleMeta = isPlainConversationMessage(message)
     ? ''
     : `${roleLabel(message.role)}${
@@ -2901,7 +2976,172 @@ function MessageCardImpl({
         onClose={() => setInlineImagePreview(null)}
       />
     ) : null}
+    {knowledgeBaseDialogOpen && kbMetadata ? (
+      <KnowledgeBaseRetrievalDialog
+        metadata={kbMetadata}
+        onClose={() => setKnowledgeBaseDialogOpen(false)}
+      />
+    ) : null}
     </>
+  );
+}
+
+function KnowledgeBaseRetrievalDialog({
+  metadata,
+  onClose,
+}: {
+  metadata: Record<string, unknown>;
+  onClose: () => void;
+}) {
+  const [closing, setClosing] = useState(false);
+  const results = knowledgeBaseResults(metadata);
+  const embedding = recordOrNullFromUnknown(metadata['embedding']);
+  const retrieval = recordOrNullFromUnknown(metadata['retrieval']);
+  const promptAppend = recordOrNullFromUnknown(metadata['prompt_append']);
+  const contextContent = knowledgeBaseContextContent(metadata);
+  const query = nonEmptyString(metadata['query']);
+  const status = nonEmptyString(metadata['status']) || 'unknown';
+  const error = nonEmptyString(metadata['error']);
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    window.setTimeout(onClose, getDialogMotionDurationMs());
+  }, [closing, onClose]);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [requestClose]);
+  const copyJson = async () => {
+    const ok = await copyTextToClipboard(JSON.stringify(metadata, null, 2));
+    showSnackbar(ok ? t('detail.copy.ok', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
+  };
+  const copyContext = async () => {
+    const ok = await copyTextToClipboard(contextContent);
+    showSnackbar(ok ? t('detail.copy.ok', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
+  };
+  return (
+    <div class={`oh-kb-dialog-backdrop ${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'}`} role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) requestClose();
+    }}>
+      <section
+        class={`oh-kb-dialog-card ${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('message.kbDialog.title', '引用知识库详情')}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header class="oh-kb-dialog-header">
+          <span class="oh-kb-dialog-icon" aria-hidden>
+            <MessageIcon name="knowledge" size={18} />
+          </span>
+          <div class="min-w-0 flex-1">
+            <h3>{t('message.kbDialog.title', '引用知识库详情')}</h3>
+            <p>{results.length} {t('message.kbDialog.hitUnit', '条命中')} · {status}</p>
+          </div>
+          <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
+            <MessageIcon name="close" size={18} />
+          </button>
+        </header>
+        <div class="oh-kb-dialog-body">
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.query', '原始 query')}>
+            <pre class="oh-kb-dialog-pre">{query || '—'}</pre>
+            {error ? <p class="oh-kb-dialog-error">{error}</p> : null}
+          </KnowledgeBaseDialogSection>
+          <div class="oh-kb-dialog-grid">
+            <KnowledgeBaseDialogSection title={t('message.kbDialog.embedding', 'Embedding')}>
+              <KbKv label="provider_config_id" value={embedding?.['provider_config_id']} />
+              <KbKv label="model_id" value={embedding?.['model_id']} />
+              <KbKv label="dimensions" value={embedding?.['dimensions']} />
+              <KbKv label="duration_ms" value={embedding?.['duration_ms']} />
+            </KnowledgeBaseDialogSection>
+            <KnowledgeBaseDialogSection title={t('message.kbDialog.retrieval', '检索参数')}>
+              <KbKv label="duration_ms" value={retrieval?.['duration_ms']} />
+              <KbKv label="top_n" value={retrieval?.['top_n']} />
+              <KbKv label="top_k" value={retrieval?.['top_k']} />
+              <KbKv label="min_similarity" value={retrieval?.['min_similarity']} />
+            </KnowledgeBaseDialogSection>
+            <KnowledgeBaseDialogSection title={t('message.kbDialog.promptAppend', 'Prompt 追加')}>
+              <KbKv label="chunk_count" value={promptAppend?.['chunk_count']} />
+              <KbKv label="token_estimate" value={promptAppend?.['token_estimate']} />
+              <KbKv label="content_hash" value={promptAppend?.['content_hash']} />
+            </KnowledgeBaseDialogSection>
+          </div>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.hits', '命中 chunks')}>
+            <div class="oh-kb-hit-list">
+              {results.length === 0 ? (
+                <p class="oh-kb-dialog-muted">{t('message.kbDialog.noHits', '没有命中记录。')}</p>
+              ) : results.map((hit, index) => (
+                <article class="oh-kb-hit-card" key={`${nonEmptyString(hit['chunk_id']) || index}`}>
+                  <div class="oh-kb-hit-title">
+                    <span>{index + 1}. {nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || nonEmptyString(hit['chunk_id']) || t('message.kbDialog.untitled', '未命名 chunk')}</span>
+                    <span>{finiteNumberOrNullFromUnknown(hit['score'])?.toFixed(4) ?? '—'}</span>
+                  </div>
+                  <div class="oh-kb-hit-meta">
+                    <KbKv label="chunk_id" value={hit['chunk_id']} />
+                    <KbKv label="source_id" value={hit['source_id']} />
+                    <KbKv label="path" value={hit['path']} />
+                    <KbKv label="tags" value={Array.isArray(hit['tags']) ? hit['tags'].join(', ') : hit['tags']} />
+                    <KbKv label="document_time" value={hit['document_time']} />
+                    <KbKv label="rerank_score" value={hit['rerank_score']} />
+                    <KbKv label="tokens" value={hit['token_estimate']} />
+                  </div>
+                  {nonEmptyString(hit['preview']) ? <p class="oh-kb-hit-preview">{nonEmptyString(hit['preview'])}</p> : null}
+                </article>
+              ))}
+            </div>
+          </KnowledgeBaseDialogSection>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.appendedContext', '实际追加上下文')}>
+            <pre class="oh-kb-dialog-pre is-context">{contextContent || '—'}</pre>
+          </KnowledgeBaseDialogSection>
+        </div>
+        <footer class="oh-kb-dialog-actions">
+          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyContext} disabled={!contextContent}>
+            <MessageIcon name="copy" size={15} />
+            {t('message.kbDialog.copyContext', '复制上下文')}
+          </button>
+          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyJson}>
+            <MessageIcon name="audit" size={15} />
+            {t('message.kbDialog.copyJson', '复制 JSON')}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function KnowledgeBaseDialogSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ComponentChildren;
+}) {
+  return (
+    <section class="oh-kb-dialog-section">
+      <h4>{title}</h4>
+      {children}
+    </section>
+  );
+}
+
+function KbKv({ label, value }: { label: string; value: unknown }) {
+  const text = Array.isArray(value)
+    ? value.join(', ')
+    : value == null || value === ''
+      ? '—'
+      : String(value);
+  return (
+    <div class="oh-kb-kv">
+      <span>{label}</span>
+      <span title={text}>{text}</span>
+    </div>
   );
 }
 

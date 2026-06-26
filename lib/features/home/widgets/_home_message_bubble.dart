@@ -7016,6 +7016,20 @@ class _SelectedMessageContextRow extends StatelessWidget {
       message.metadata[AiCreationRequest.metadataKey],
     );
     final skillMetadata = message.metadata[aiUserSkillSelectionMetadataKey];
+    final knowledgeBaseMetadata = KnowledgeMessageMetadata.object(
+      message.metadata[knowledgeBaseMessageMetadataKey],
+    );
+    final knowledgeBaseResults = knowledgeBaseMetadata?['results'];
+    final knowledgeBaseHitCount = knowledgeBaseResults is List
+        ? knowledgeBaseResults.length
+        : 0;
+    final knowledgeBasePromptAppend = KnowledgeMessageMetadata.object(
+      knowledgeBaseMetadata?['prompt_append'],
+    );
+    final knowledgeBaseTokens =
+        knowledgeBasePromptAppend?['token_estimate'] is num
+        ? (knowledgeBasePromptAppend!['token_estimate'] as num).round()
+        : null;
     final responseVariants = message.responseVariants;
     final responseVariantIndex = message.responseVariantIndex;
     final capsules = <Widget>[
@@ -7046,6 +7060,27 @@ class _SelectedMessageContextRow extends StatelessWidget {
         message: message,
         textColor: textColor,
       ),
+      if (KnowledgeMessageMetadata.hasReferences(message.metadata))
+        _MessageContextCapsule(
+          icon: Icons.library_books_rounded,
+          label: knowledgeBaseTokens == null
+              ? _localizedText(
+                  context,
+                  zh: '知识库 $knowledgeBaseHitCount 条',
+                  en: 'KB $knowledgeBaseHitCount hits',
+                )
+              : _localizedText(
+                  context,
+                  zh: '知识库 · $knowledgeBaseHitCount 条 · $knowledgeBaseTokens tokens',
+                  en: 'KB · $knowledgeBaseHitCount hits · $knowledgeBaseTokens tokens',
+                ),
+          textColor: textColor,
+          onPressed: () {
+            unawaited(
+              showKnowledgeRetrievalDetailDialog(context, message.metadata),
+            );
+          },
+        ),
       if (creationRequest.isActive)
         _CreationModeChip(request: creationRequest, textColor: textColor),
       if (_UserSkillSelectionChip.nameFromMetadata(skillMetadata).isNotEmpty)

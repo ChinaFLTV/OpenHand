@@ -20,6 +20,7 @@ class _QueuedMessage {
     this.creationRequest = AiCreationRequest.none,
     this.systemReminders = const <String>[],
     this.skillMetadata,
+    this.knowledgeBaseReferenceEnabled = false,
   });
 
   final String id;
@@ -28,6 +29,7 @@ class _QueuedMessage {
   final AiCreationRequest creationRequest;
   final List<String> systemReminders;
   final Map<String, Object?>? skillMetadata;
+  final bool knowledgeBaseReferenceEnabled;
 }
 
 enum _SubmitTextOutcome { submitted, stoppedBeforeSubmit, failedBeforeSubmit }
@@ -391,7 +393,8 @@ extension on AppSection {
       AppSection.instructions => 5,
       AppSection.messageGateway => 6,
       AppSection.pluginService => 7,
-      AppSection.settings => 8,
+      AppSection.knowledgeBase => 8,
+      AppSection.settings => 9,
     };
   }
 }
@@ -406,7 +409,8 @@ AppSection _sectionFromDrawerIndex(int index) {
     5 => AppSection.instructions,
     6 => AppSection.messageGateway,
     7 => AppSection.pluginService,
-    8 => AppSection.settings,
+    8 => AppSection.knowledgeBase,
+    9 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

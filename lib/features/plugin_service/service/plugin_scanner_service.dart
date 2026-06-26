@@ -15,6 +15,12 @@ import '../model/plugin_info.dart';
 class PluginScannerService {
   PluginScannerService();
 
+  static const String qdrantContainerName = 'openhand-qdrant';
+  static const String qdrantImageName = 'qdrant/qdrant';
+  static const String qdrantDefaultTag = 'latest';
+  static const int qdrantRestPort = 6333;
+  static const int qdrantGrpcPort = 6334;
+
   Future<_PythonRuntimeScan?>? _pythonRuntimeProbe;
   final Map<String, Future<String?>> _brewLatestVersionProbes =
       <String, Future<String?>>{};
@@ -473,6 +479,8 @@ class PluginScannerService {
       'blutter' => _blutterNotInstalled,
       'doldrums' => _doldrumsNotInstalled,
       'anything_analyzer' => _anythingAnalyzerNotInstalled,
+      'docker' => _dockerNotInstalled,
+      'qdrant' => _qdrantNotInstalled,
       _ => PluginInfo(
         id: id,
         name: id,
@@ -944,6 +952,271 @@ class PluginScannerService {
     return _anythingAnalyzerNotInstalled;
   }
 
+  Future<PluginInfo> scanDocker() async {
+    try {
+      final pathResult = await _shellRun('command -v docker');
+      final desktopAppExists =
+          Platform.isMacOS &&
+          (Directory('/Applications/Docker.app').existsSync() ||
+              Directory(
+                '${Platform.environment['HOME'] ?? ''}/Applications/Docker.app',
+              ).existsSync());
+      if (pathResult.exitCode != 0) {
+        if (desktopAppExists) {
+          return const PluginInfo(
+            id: 'docker',
+            name: 'Docker',
+            description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
+            status: PluginStatus.error,
+            dependents: <String>['qdrant'],
+            metadata: <String, Object?>{
+              'desktop_app_detected': true,
+              'daemon_running': false,
+            },
+            errorMessage: '检测到 Docker Desktop，但 docker CLI 不在 PATH 中。',
+          );
+        }
+        return _dockerNotInstalled;
+      }
+      final installPath = _extractAbsolutePath(pathResult.stdout.toString());
+      final versionResult = await _shellRun('docker --version');
+      final version = versionResult.exitCode == 0
+          ? _extractLooseVersion(versionResult.stdout.toString())
+          : null;
+      final contextResult = await _shellRun('docker context show');
+      final infoResult = await _shellRun('docker info --format "{{json .}}"');
+      final metadata = <String, Object?>{
+        'cli_available': true,
+        'desktop_app_detected': desktopAppExists,
+        'daemon_running': infoResult.exitCode == 0,
+        if (contextResult.exitCode == 0)
+          'context': contextResult.stdout.toString().trim(),
+      };
+      if (infoResult.exitCode == 0) {
+        final decoded = _decodeOptionalJson(infoResult.stdout.toString());
+        if (decoded is Map) {
+          final info = Map<String, Object?>.from(decoded);
+          metadata.addAll(<String, Object?>{
+            if (info['ServerVersion'] != null)
+              'server_version': '${info['ServerVersion']}',
+            if (info['OperatingSystem'] != null)
+              'docker_os': '${info['OperatingSystem']}',
+            if (info['DockerRootDir'] != null)
+              'docker_root_dir': '${info['DockerRootDir']}',
+            if (info['Name'] != null) 'daemon_name': '${info['Name']}',
+            if (info['OSType'] != null) 'os_type': '${info['OSType']}',
+            if (info['Architecture'] != null)
+              'architecture': '${info['Architecture']}',
+          });
+        }
+        final compose = await _shellRun('docker compose version --short');
+        if (compose.exitCode == 0) {
+          metadata['compose_version'] = compose.stdout.toString().trim();
+        }
+        return PluginInfo(
+          id: 'docker',
+          name: 'Docker',
+          description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
+          status: PluginStatus.installed,
+          installedVersion: version,
+          installPath: installPath,
+          dependents: const <String>['qdrant'],
+          metadata: metadata,
+        );
+      }
+      return PluginInfo(
+        id: 'docker',
+        name: 'Docker',
+        description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
+        status: PluginStatus.error,
+        installedVersion: version,
+        installPath: installPath,
+        dependents: const <String>['qdrant'],
+        metadata: metadata,
+        errorMessage: 'docker CLI 可用，但 Docker daemon 未运行或不可访问。',
+      );
+    } catch (e, stack) {
+      silentLog('PluginScanner', 'scanDocker', e, stack);
+    }
+    return _dockerNotInstalled;
+  }
+
+  Future<PluginInfo> scanQdrant() async {
+    try {
+      final dockerPath = await _shellRun('command -v docker');
+      if (dockerPath.exitCode != 0) return _qdrantNotInstalled;
+      final dockerInfo = await _shellRun('docker info --format "{{json .}}"');
+      if (dockerInfo.exitCode != 0) {
+        return _qdrantNotInstalled.copyWith(
+          status: PluginStatus.error,
+          errorMessage: 'Qdrant 依赖 Docker daemon，请先启动 Docker。',
+          metadata: const <String, Object?>{'docker_daemon_running': false},
+        );
+      }
+
+      final inspectResult = await _shellRun(
+        'docker inspect ${_shellQuote(qdrantContainerName)}',
+      );
+      if (inspectResult.exitCode != 0) {
+        return _qdrantNotInstalled;
+      }
+      final decoded = _decodeOptionalJson(inspectResult.stdout.toString());
+      if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
+        return _qdrantNotInstalled.copyWith(
+          status: PluginStatus.error,
+          errorMessage: '无法解析 OpenHand Qdrant 容器信息。',
+        );
+      }
+      final inspect = Map<String, Object?>.from(decoded.first as Map);
+      final state = inspect['State'] is Map
+          ? Map<String, Object?>.from(inspect['State'] as Map)
+          : const <String, Object?>{};
+      final config = inspect['Config'] is Map
+          ? Map<String, Object?>.from(inspect['Config'] as Map)
+          : const <String, Object?>{};
+      final networkSettings = inspect['NetworkSettings'] is Map
+          ? Map<String, Object?>.from(inspect['NetworkSettings'] as Map)
+          : const <String, Object?>{};
+      final hostConfig = inspect['HostConfig'] is Map
+          ? Map<String, Object?>.from(inspect['HostConfig'] as Map)
+          : const <String, Object?>{};
+      final image = '${config['Image'] ?? ''}'.trim();
+      final running = state['Running'] == true;
+      final labels = config['Labels'] is Map
+          ? Map<String, Object?>.from(config['Labels'] as Map)
+          : const <String, Object?>{};
+      final openHandManaged =
+          labels['openhand.managed'] == 'true' ||
+          labels['com.openhand.managed'] == 'true';
+      final metadata = <String, Object?>{
+        'docker_daemon_running': true,
+        'openhand_managed': openHandManaged,
+        'container_id': '${inspect['Id'] ?? ''}'.trim(),
+        'container_name': qdrantContainerName,
+        'container_status': '${state['Status'] ?? ''}'.trim(),
+        'running': running,
+        'started_at': '${state['StartedAt'] ?? ''}'.trim(),
+        'finished_at': '${state['FinishedAt'] ?? ''}'.trim(),
+        'restart_count': state['RestartCount'],
+        'exit_code': state['ExitCode'],
+        'image': image,
+        'image_id': '${inspect['Image'] ?? ''}'.trim(),
+        'ports': _formatDockerPorts(networkSettings['Ports']),
+        'restart_policy': _formatRestartPolicy(hostConfig['RestartPolicy']),
+        'rest_endpoint': 'http://127.0.0.1:$qdrantRestPort',
+        'grpc_endpoint': '127.0.0.1:$qdrantGrpcPort',
+        'data_directory': _extractHostDataDirectory(inspect['Mounts']),
+      };
+      String? qdrantVersion;
+      if (running) {
+        final health = await _shellRun(
+          'curl -fsS http://127.0.0.1:$qdrantRestPort/ 2>/dev/null || true',
+        );
+        final healthText = health.stdout.toString().trim();
+        metadata['health_response'] = healthText;
+        final healthJson = _decodeOptionalJson(healthText);
+        if (healthJson is Map) {
+          qdrantVersion = '${healthJson['version'] ?? ''}'.trim();
+          metadata['health_title'] = '${healthJson['title'] ?? ''}'.trim();
+        }
+        final collections = await _shellRun(
+          'curl -fsS http://127.0.0.1:$qdrantRestPort/collections 2>/dev/null || true',
+        );
+        final collectionsJson = _decodeOptionalJson(
+          collections.stdout.toString(),
+        );
+        if (collectionsJson is Map) {
+          final result = collectionsJson['result'];
+          if (result is Map && result['collections'] is List) {
+            metadata['collection_count'] =
+                (result['collections'] as List).length;
+          }
+        }
+      }
+      final imageVersion = image.contains(':') ? image.split(':').last : null;
+      final installedVersion = qdrantVersion?.isNotEmpty == true
+          ? qdrantVersion
+          : imageVersion;
+      if (!openHandManaged) {
+        return PluginInfo(
+          id: 'qdrant',
+          name: 'Qdrant',
+          description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
+          status: PluginStatus.error,
+          installedVersion: installedVersion,
+          dependencies: const <String>['docker'],
+          metadata: metadata,
+          errorMessage: '检测到同名 Qdrant 容器，但缺少 OpenHand 管理标记。',
+        );
+      }
+      if (!running) {
+        return PluginInfo(
+          id: 'qdrant',
+          name: 'Qdrant',
+          description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
+          status: PluginStatus.error,
+          installedVersion: installedVersion,
+          dependencies: const <String>['docker'],
+          metadata: metadata,
+          errorMessage: 'OpenHand Qdrant 容器已存在但未运行。',
+        );
+      }
+      return PluginInfo(
+        id: 'qdrant',
+        name: 'Qdrant',
+        description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
+        status: PluginStatus.installed,
+        installedVersion: installedVersion,
+        installPath: '${metadata['data_directory'] ?? ''}'.trim().isEmpty
+            ? null
+            : '${metadata['data_directory']}',
+        dependencies: const <String>['docker'],
+        metadata: metadata,
+      );
+    } catch (e, stack) {
+      silentLog('PluginScanner', 'scanQdrant', e, stack);
+    }
+    return _qdrantNotInstalled;
+  }
+
+  static String _formatDockerPorts(Object? value) {
+    if (value is! Map) return '';
+    final parts = <String>[];
+    for (final entry in value.entries) {
+      final bindings = entry.value;
+      if (bindings is List && bindings.isNotEmpty) {
+        for (final binding in bindings) {
+          if (binding is Map) {
+            final hostIp = '${binding['HostIp'] ?? ''}';
+            final hostPort = '${binding['HostPort'] ?? ''}';
+            parts.add('${entry.key} -> $hostIp:$hostPort');
+          }
+        }
+      }
+    }
+    return parts.join(', ');
+  }
+
+  static String _formatRestartPolicy(Object? value) {
+    if (value is! Map) return '';
+    final name = '${value['Name'] ?? ''}'.trim();
+    final maximumRetryCount = '${value['MaximumRetryCount'] ?? ''}'.trim();
+    if (maximumRetryCount.isEmpty || maximumRetryCount == '0') return name;
+    return '$name ($maximumRetryCount)';
+  }
+
+  static String _extractHostDataDirectory(Object? mounts) {
+    if (mounts is! List) return '';
+    for (final mount in mounts) {
+      if (mount is! Map) continue;
+      final destination = '${mount['Destination'] ?? ''}'.trim();
+      if (destination == '/qdrant/storage') {
+        return '${mount['Source'] ?? ''}'.trim();
+      }
+    }
+    return '';
+  }
+
   static String _openHandToolBin(String name) {
     final home = Platform.environment['HOME'] ?? '';
     return '$home/.openhand/android_reverse_tools/bin/$name';
@@ -1059,6 +1332,22 @@ class PluginScannerService {
     status: PluginStatus.notInstalled,
   );
 
+  static const _dockerNotInstalled = PluginInfo(
+    id: 'docker',
+    name: 'Docker',
+    description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
+    status: PluginStatus.notInstalled,
+    dependents: ['qdrant'],
+  );
+
+  static const _qdrantNotInstalled = PluginInfo(
+    id: 'qdrant',
+    name: 'Qdrant',
+    description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
+    status: PluginStatus.notInstalled,
+    dependencies: ['docker'],
+  );
+
   static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
     _nodeNotInstalled,
     _playwrightNotInstalled,
@@ -1073,6 +1362,8 @@ class PluginScannerService {
     _blutterNotInstalled,
     _doldrumsNotInstalled,
     _anythingAnalyzerNotInstalled,
+    _dockerNotInstalled,
+    _qdrantNotInstalled,
   ];
 
   Future<List<PluginInfo>> scanAll() async {
@@ -1087,6 +1378,7 @@ class PluginScannerService {
     final blutterFuture = scanBlutter();
     final doldrumsFuture = scanDoldrums();
     final anythingAnalyzerFuture = scanAnythingAnalyzer();
+    final dockerFuture = scanDocker();
     final pythonRuntimeFuture = _resolvePythonRuntime();
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
@@ -1099,6 +1391,8 @@ class PluginScannerService {
     final blutter = await blutterFuture;
     final doldrums = await doldrumsFuture;
     final anythingAnalyzer = await anythingAnalyzerFuture;
+    final docker = await dockerFuture;
+    final qdrant = await scanQdrant();
     _PythonRuntimeScan? pythonRuntime;
     try {
       pythonRuntime = await pythonRuntimeFuture;
@@ -1115,6 +1409,9 @@ class PluginScannerService {
     }
     final updatedNodeJs = nodeJs.copyWith(
       dependents: playwright.isInstalled ? const ['playwright'] : const [],
+    );
+    final updatedDocker = docker.copyWith(
+      dependents: qdrant.isInstalled ? const ['qdrant'] : const [],
     );
     final updatedJava = java.copyWith(
       dependents: <String>[
@@ -1136,6 +1433,8 @@ class PluginScannerService {
       blutter,
       doldrums,
       anythingAnalyzer,
+      updatedDocker,
+      qdrant,
     ];
   }
 }

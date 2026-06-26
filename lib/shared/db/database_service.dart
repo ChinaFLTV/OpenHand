@@ -15,7 +15,7 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 6;
+  static const int schemaVersion = 7;
   static const String _databaseFileName = 'openhand.db';
 
   /// Returns the singleton instance.  Must call [initialize] first.
@@ -236,8 +236,114 @@ class DatabaseService {
     batch.execute(
       'CREATE INDEX idx_user_instructions_sort ON user_instructions(sort_order)',
     );
+    _createKnowledgeBaseSchema(batch);
 
     await batch.commit(noResult: true);
+  }
+
+  static void _createKnowledgeBaseSchema(Batch batch) {
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS knowledge_sources (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL DEFAULT '',
+        kind TEXT NOT NULL DEFAULT 'note',
+        original_path TEXT NOT NULL DEFAULT '',
+        stored_path TEXT NOT NULL DEFAULT '',
+        mime_type TEXT NOT NULL DEFAULT '',
+        size_bytes INTEGER NOT NULL DEFAULT 0,
+        content_hash TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending',
+        error_message TEXT NOT NULL DEFAULT '',
+        document_time TEXT,
+        imported_at TEXT NOT NULL,
+        indexed_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}'
+      )
+    ''');
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS knowledge_chunks (
+        id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL,
+        chunk_index INTEGER NOT NULL DEFAULT 0,
+        parent_chunk_id TEXT,
+        title TEXT NOT NULL DEFAULT '',
+        heading_path TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL DEFAULT '',
+        content_hash TEXT NOT NULL DEFAULT '',
+        char_count INTEGER NOT NULL DEFAULT 0,
+        token_estimate INTEGER NOT NULL DEFAULT 0,
+        start_offset INTEGER,
+        end_offset INTEGER,
+        page_number INTEGER,
+        document_time TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        FOREIGN KEY (source_id) REFERENCES knowledge_sources(id) ON DELETE CASCADE
+      )
+    ''');
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS knowledge_tags (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        color TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS knowledge_source_tags (
+        source_id TEXT NOT NULL,
+        tag_id TEXT NOT NULL,
+        PRIMARY KEY (source_id, tag_id),
+        FOREIGN KEY (source_id) REFERENCES knowledge_sources(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES knowledge_tags(id) ON DELETE CASCADE
+      )
+    ''');
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS knowledge_chunk_tags (
+        chunk_id TEXT NOT NULL,
+        tag_id TEXT NOT NULL,
+        PRIMARY KEY (chunk_id, tag_id),
+        FOREIGN KEY (chunk_id) REFERENCES knowledge_chunks(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES knowledge_tags(id) ON DELETE CASCADE
+      )
+    ''');
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS knowledge_embedding_jobs (
+        id TEXT PRIMARY KEY,
+        chunk_id TEXT NOT NULL,
+        provider_config_id TEXT NOT NULL DEFAULT '',
+        model_id TEXT NOT NULL DEFAULT '',
+        dimensions INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'pending',
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        error_message TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (chunk_id) REFERENCES knowledge_chunks(id) ON DELETE CASCADE
+      )
+    ''');
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_knowledge_sources_status ON knowledge_sources(status)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_knowledge_sources_updated_at ON knowledge_sources(updated_at)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_knowledge_sources_document_time ON knowledge_sources(document_time)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source_id ON knowledge_chunks(source_id)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_document_time ON knowledge_chunks(document_time)',
+    );
+    batch.execute(
+      'CREATE INDEX IF NOT EXISTS idx_knowledge_embedding_jobs_status ON knowledge_embedding_jobs(status)',
+    );
   }
 
   static Future<void> _onUpgrade(
@@ -320,6 +426,11 @@ class DatabaseService {
       await db.execute(
         "ALTER TABLE sessions ADD COLUMN pending_plan_allowed_prompts_json TEXT NOT NULL DEFAULT '[]'",
       );
+    }
+    if (oldVersion < 7) {
+      final batch = db.batch();
+      _createKnowledgeBaseSchema(batch);
+      await batch.commit(noResult: true);
     }
   }
 }

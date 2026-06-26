@@ -10,6 +10,7 @@ enum AppSection {
   instructions,
   messageGateway,
   pluginService,
+  knowledgeBase,
   settings,
   hardnessSession,
 }

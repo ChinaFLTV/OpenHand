@@ -9,6 +9,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../instructions/index.dart';
+import '../../../knowledge_base/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_attachment.dart';
@@ -3173,6 +3174,18 @@ $identity''';
             '<user-prompt-submit-hook>$feedback</user-prompt-submit-hook>',
           );
       }
+    }
+    final knowledgeBaseMetadata = KnowledgeMessageMetadata.object(
+      message.metadata[knowledgeBaseMessageMetadataKey],
+    );
+    final knowledgeBasePromptAppend =
+        '${knowledgeBaseMetadata?[knowledgeBasePromptAppendMetadataKey] ?? ''}'
+            .trim();
+    if (knowledgeBasePromptAppend.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln()
+        ..write(knowledgeBasePromptAppend);
     }
     return buffer.toString().trim();
   }

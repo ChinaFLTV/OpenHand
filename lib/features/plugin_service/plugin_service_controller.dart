@@ -109,6 +109,8 @@ class PluginServiceController extends ManagedChangeNotifier {
       'blutter',
       'doldrums',
       'anything_analyzer',
+      'docker',
+      'qdrant',
     ]) {
       final plugin = byId[id];
       if (plugin == null) continue;
@@ -151,6 +153,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         'blutter' => _scanner.scanBlutter(),
         'doldrums' => _scanner.scanDoldrums(),
         'anything_analyzer' => _scanner.scanAnythingAnalyzer(),
+        'docker' => _scanner.scanDocker(),
+        'qdrant' => _scanner.scanQdrant(),
         _ => Future<PluginInfo?>.value(),
       };
       if (refreshed == null) return null;
@@ -228,6 +232,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         'anything_analyzer' => await _lifecycle.installAnythingAnalyzer(
           onProgress: _addLog,
         ),
+        'docker' => await _lifecycle.installDocker(onProgress: _addLog),
+        'qdrant' => await _lifecycle.installQdrant(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
@@ -279,6 +285,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         'anything_analyzer' => await _lifecycle.updateAnythingAnalyzer(
           onProgress: _addLog,
         ),
+        'docker' => await _lifecycle.updateDocker(onProgress: _addLog),
+        'qdrant' => await _lifecycle.updateQdrant(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {
@@ -353,6 +361,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         'anything_analyzer' => await _lifecycle.uninstallAnythingAnalyzer(
           onProgress: _addLog,
         ),
+        'docker' => await _lifecycle.uninstallDocker(onProgress: _addLog),
+        'qdrant' => await _lifecycle.uninstallQdrant(onProgress: _addLog),
         _ => const PluginOperationResult(success: false, message: '未知插件'),
       };
       if (result.success) {

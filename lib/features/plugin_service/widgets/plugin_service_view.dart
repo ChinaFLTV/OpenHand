@@ -258,6 +258,8 @@ class _PluginCard extends StatelessWidget {
       'mitmproxy' => Icons.lan_rounded,
       'apktool' => Icons.archive_rounded,
       'jadx' => Icons.data_object_rounded,
+      'docker' => Icons.view_in_ar_rounded,
+      'qdrant' => Icons.hub_rounded,
       _ => Icons.extension_rounded,
     };
 
@@ -1246,6 +1248,18 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             error,
             stack,
           );
+        }
+      }
+      for (final entry in widget.plugin.metadata.entries) {
+        final key = entry.key.trim();
+        if (key.isEmpty) continue;
+        final value = entry.value;
+        if (value == null) continue;
+        final text = value is Iterable
+            ? value.map((item) => '$item').join(', ')
+            : '$value';
+        if (text.trim().isNotEmpty) {
+          info[key] = text;
         }
       }
     } catch (error, stack) {

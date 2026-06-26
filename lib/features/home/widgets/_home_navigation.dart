@@ -369,6 +369,13 @@ class _NavigationPaneState extends State<_NavigationPane> {
               label: Text(_localizedText(context, zh: '插件', en: 'Plugins')),
             ),
             NavigationDrawerDestination(
+              icon: const Icon(Icons.library_books_outlined),
+              selectedIcon: const Icon(Icons.library_books_rounded),
+              label: Text(
+                _localizedText(context, zh: '知识库', en: 'Knowledge Base'),
+              ),
+            ),
+            NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings_rounded),
               label: Text(l10n.settings),

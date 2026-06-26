@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -37,6 +38,11 @@ class PluginOperationResult {
 class PluginLifecycleService {
   PluginLifecycleService();
 
+  static const String _qdrantContainerName = 'openhand-qdrant';
+  static const String _qdrantImage = 'qdrant/qdrant:latest';
+  static const int _qdrantRestPort = 6333;
+  static const int _qdrantGrpcPort = 6334;
+
   static String _pickShell() {
     final shell = Platform.environment['SHELL'];
     if (shell != null && shell.isNotEmpty) return shell;
@@ -59,6 +65,21 @@ class PluginLifecycleService {
       tag: 'plugin_lifecycle.which.$executable',
     );
     return result.exitCode == 0;
+  }
+
+  Future<bool> _isDockerDaemonAvailable() async {
+    final result = await runTrackedProcessOrFailed(
+      'docker',
+      ['info'],
+      timeout: _pluginLifecycleVerifyTimeout,
+      tag: 'plugin_lifecycle.docker_info',
+      environment: _proxyEnv(),
+    );
+    return result.exitCode == 0;
+  }
+
+  String _qdrantDataDirectory() {
+    return '${OpenHandPaths.homeDirectoryPath()}/.openhand/knowledge/qdrant';
   }
 
   /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
@@ -1108,6 +1129,155 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
     void Function(String line)? onProgress,
   }) => _installOrUpdateAnythingAnalyzer(onProgress: onProgress);
 
+  Future<PluginOperationResult> installDocker({
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('正在检测 Docker…');
+    if (await _isExecutableAvailable('docker')) {
+      if (await _isDockerDaemonAvailable()) {
+        return const PluginOperationResult(
+          success: true,
+          message: 'Docker CLI 与 daemon 已就绪。',
+        );
+      }
+      if (Platform.isMacOS &&
+          (Directory('/Applications/Docker.app').existsSync() ||
+              Directory(
+                '${Platform.environment['HOME'] ?? ''}/Applications/Docker.app',
+              ).existsSync())) {
+        onProgress?.call('Docker Desktop 已安装，正在尝试启动…');
+        await _runWithProgress(
+          'open',
+          ['-a', 'Docker'],
+          onProgress: onProgress,
+          timeout: const Duration(seconds: 20),
+        );
+        for (var attempt = 0; attempt < 24; attempt++) {
+          if (await _isDockerDaemonAvailable()) {
+            return const PluginOperationResult(
+              success: true,
+              message: 'Docker Desktop 已启动，daemon 可用。',
+            );
+          }
+          await Future<void>.delayed(const Duration(seconds: 5));
+          onProgress?.call('等待 Docker daemon 启动… ${attempt + 1}/24');
+        }
+      }
+      return const PluginOperationResult(
+        success: false,
+        message: 'docker CLI 已安装，但 daemon 未运行。请启动 Docker Desktop 后重新扫描。',
+      );
+    }
+
+    if (Platform.isMacOS && await _isExecutableAvailable('brew')) {
+      onProgress?.call('使用 Homebrew Cask 安装 Docker Desktop…');
+      final result = await _runWithProgress(
+        'brew',
+        ['install', '--cask', 'docker'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 15),
+      );
+      if (result.exitCode != 0) {
+        return PluginOperationResult(
+          success: false,
+          message: 'Docker Desktop 安装失败: ${_processErrorMessage(result)}',
+        );
+      }
+      onProgress?.call('Docker Desktop 已安装，请根据系统提示完成首次启动授权。');
+      return const PluginOperationResult(
+        success: true,
+        message: 'Docker Desktop 已安装。首次使用可能需要手动打开并完成授权。',
+      );
+    }
+
+    if (Platform.isWindows) {
+      return const PluginOperationResult(
+        success: false,
+        message:
+            'Windows 暂不支持静默安装 Docker。请安装 Docker Desktop: https://www.docker.com/products/docker-desktop/',
+      );
+    }
+    if (Platform.isLinux) {
+      return const PluginOperationResult(
+        success: false,
+        message:
+            'Linux 暂不执行自动安装 Docker。请按发行版安装 docker engine 与 compose plugin，并确认当前用户可访问 docker daemon。',
+      );
+    }
+    return const PluginOperationResult(
+      success: false,
+      message: '当前平台不支持自动安装 Docker。',
+    );
+  }
+
+  Future<PluginOperationResult> installQdrant({
+    void Function(String line)? onProgress,
+  }) async {
+    if (!await _isExecutableAvailable('docker')) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Qdrant 依赖 Docker，请先安装 Docker。',
+      );
+    }
+    if (!await _isDockerDaemonAvailable()) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Docker daemon 未运行，请先启动 Docker。',
+      );
+    }
+    final dataDir = _qdrantDataDirectory();
+    final script =
+        '''
+set -euo pipefail
+mkdir -p ${_pluginShellQuote(dataDir)}
+docker pull ${_pluginShellQuote(_qdrantImage)}
+if docker inspect ${_pluginShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
+  LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${_pluginShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
+  if [ "\$LABEL" != "true" ]; then
+    echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
+    exit 3
+  fi
+  docker start ${_pluginShellQuote(_qdrantContainerName)} >/dev/null
+else
+  docker run -d \\
+    --name ${_pluginShellQuote(_qdrantContainerName)} \\
+    --label openhand.managed=true \\
+    --label com.openhand.managed=true \\
+    --restart unless-stopped \\
+    -p $_qdrantRestPort:6333 \\
+    -p $_qdrantGrpcPort:6334 \\
+    -v ${_pluginShellQuote(dataDir)}:/qdrant/storage \\
+    ${_pluginShellQuote(_qdrantImage)}
+fi
+for i in \$(seq 1 30); do
+  if curl -fsS http://127.0.0.1:$_qdrantRestPort/ >/dev/null 2>&1; then
+    docker ps --filter name=^/$_qdrantContainerName\$ --format 'container={{.ID}} image={{.Image}} status={{.Status}}'
+    exit 0
+  fi
+  sleep 1
+done
+echo "Qdrant health endpoint did not become ready" >&2
+exit 4
+''';
+    final result = await _runWithProgress(
+      _pickShell(),
+      ['-c', script],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+      environment: _proxyEnv(),
+    );
+    if (result.exitCode == 0) {
+      return PluginOperationResult(
+        success: true,
+        message: 'Qdrant 已启动，数据目录：$dataDir',
+      );
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'Qdrant 安装/启动失败: ${_processErrorMessage(result)}',
+    );
+  }
+
   Future<PluginOperationResult> updateNodeJs({
     void Function(String line)? onProgress,
   }) async {
@@ -1553,6 +1723,99 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
     void Function(String line)? onProgress,
   }) => _installOrUpdateAnythingAnalyzer(onProgress: onProgress);
 
+  Future<PluginOperationResult> updateDocker({
+    void Function(String line)? onProgress,
+  }) async {
+    if (Platform.isMacOS && await _isExecutableAvailable('brew')) {
+      onProgress?.call('使用 Homebrew Cask 更新 Docker Desktop…');
+      final result = await _runWithProgress(
+        'brew',
+        ['upgrade', '--cask', 'docker'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 15),
+      );
+      final message = _processErrorMessage(result);
+      if (result.exitCode == 0 ||
+          message.contains('already installed') ||
+          message.contains('not outdated')) {
+        return const PluginOperationResult(
+          success: true,
+          message: 'Docker Desktop 已更新或已经是最新版本。',
+        );
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'Docker Desktop 更新失败: $message',
+      );
+    }
+    return const PluginOperationResult(
+      success: false,
+      message: '无法自动更新 Docker。请通过 Docker Desktop 或系统包管理器更新。',
+    );
+  }
+
+  Future<PluginOperationResult> updateQdrant({
+    void Function(String line)? onProgress,
+  }) async {
+    if (!await _isDockerDaemonAvailable()) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Docker daemon 未运行，请先启动 Docker。',
+      );
+    }
+    final dataDir = _qdrantDataDirectory();
+    final script =
+        '''
+set -euo pipefail
+if docker inspect ${_pluginShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
+  LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${_pluginShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
+  if [ "\$LABEL" != "true" ]; then
+    echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
+    exit 3
+  fi
+  docker stop ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
+  docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
+fi
+mkdir -p ${_pluginShellQuote(dataDir)}
+docker pull ${_pluginShellQuote(_qdrantImage)}
+docker run -d \\
+  --name ${_pluginShellQuote(_qdrantContainerName)} \\
+  --label openhand.managed=true \\
+  --label com.openhand.managed=true \\
+  --restart unless-stopped \\
+  -p $_qdrantRestPort:6333 \\
+  -p $_qdrantGrpcPort:6334 \\
+  -v ${_pluginShellQuote(dataDir)}:/qdrant/storage \\
+  ${_pluginShellQuote(_qdrantImage)}
+for i in \$(seq 1 30); do
+  if curl -fsS http://127.0.0.1:$_qdrantRestPort/ >/dev/null 2>&1; then
+    docker ps --filter name=^/$_qdrantContainerName\$ --format 'container={{.ID}} image={{.Image}} status={{.Status}}'
+    exit 0
+  fi
+  sleep 1
+done
+echo "Qdrant health endpoint did not become ready" >&2
+exit 4
+''';
+    final result = await _runWithProgress(
+      _pickShell(),
+      ['-c', script],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 8),
+      environment: _proxyEnv(),
+    );
+    if (result.exitCode == 0) {
+      return const PluginOperationResult(
+        success: true,
+        message: 'Qdrant 镜像已更新，容器已安全重建并保留数据目录。',
+      );
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'Qdrant 更新失败: ${_processErrorMessage(result)}',
+    );
+  }
+
   Future<PluginOperationResult> uninstallNodeJs({
     required bool playwrightInstalled,
     void Function(String line)? onProgress,
@@ -1772,6 +2035,84 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
     shimName: 'anything-analyzer',
     onProgress: onProgress,
   );
+
+  Future<PluginOperationResult> uninstallDocker({
+    void Function(String line)? onProgress,
+  }) async {
+    if (Platform.isMacOS && await _isExecutableAvailable('brew')) {
+      onProgress?.call('使用 Homebrew Cask 卸载 Docker Desktop…');
+      final result = await _runWithProgress(
+        'brew',
+        ['uninstall', '--cask', 'docker'],
+        onProgress: onProgress,
+        timeout: const Duration(minutes: 8),
+      );
+      if (result.exitCode == 0) {
+        return const PluginOperationResult(
+          success: true,
+          message: 'Docker Desktop 已卸载。',
+        );
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'Docker Desktop 卸载失败: ${_processErrorMessage(result)}',
+      );
+    }
+    return const PluginOperationResult(
+      success: false,
+      message: '无法自动卸载 Docker。请通过 Docker Desktop 或系统包管理器卸载。',
+    );
+  }
+
+  Future<PluginOperationResult> uninstallQdrant({
+    void Function(String line)? onProgress,
+  }) async {
+    if (!await _isExecutableAvailable('docker')) {
+      return const PluginOperationResult(
+        success: true,
+        message: 'docker CLI 不存在，Qdrant 容器无需卸载。',
+      );
+    }
+    if (!await _isDockerDaemonAvailable()) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Docker daemon 未运行，无法安全检查并卸载 Qdrant 容器。',
+      );
+    }
+    final dataDir = _qdrantDataDirectory();
+    final script =
+        '''
+set -euo pipefail
+if ! docker inspect ${_pluginShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
+  echo "Qdrant container not found"
+  exit 0
+fi
+LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${_pluginShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
+if [ "\$LABEL" != "true" ]; then
+  echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
+  exit 3
+fi
+docker stop ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
+docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
+echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
+''';
+    final result = await _runWithProgress(
+      _pickShell(),
+      ['-c', script],
+      onProgress: onProgress,
+      environment: _proxyEnv(),
+    );
+    if (result.exitCode == 0) {
+      return PluginOperationResult(
+        success: true,
+        message: 'Qdrant 容器已移除，数据目录已保留：$dataDir',
+      );
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'Qdrant 卸载失败: ${_processErrorMessage(result)}',
+    );
+  }
 
   Future<List<String>> _remainingPyenvVersions({
     required String excluding,

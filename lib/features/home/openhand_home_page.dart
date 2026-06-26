@@ -93,6 +93,7 @@ import '../crons/index.dart';
 import '../hardness/index.dart';
 import '../hooks/index.dart';
 import '../instructions/index.dart';
+import '../knowledge_base/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../message_gateway/index.dart';
@@ -1636,6 +1637,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       creationRequest: queuedMessage.creationRequest,
       additionalSystemReminders: queuedMessage.systemReminders,
       selectedSkillMetadata: queuedMessage.skillMetadata,
+      knowledgeBaseReferenceEnabled:
+          queuedMessage.knowledgeBaseReferenceEnabled,
       allowQueuedGoalInterruption: true,
       processQueueAfterCompletion: false,
     );
@@ -5797,6 +5800,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  bool _knowledgeBaseReferenceEnabledForSession(AiSession? session) {
+    return session?.metadata[knowledgeBaseSessionToggleMetadataKey] == true;
+  }
+
+  Future<void> _setKnowledgeBaseReferenceEnabled(bool enabled) async {
+    final sessionController = context.read<AiSessionController>();
+    final session = sessionController.currentSession;
+    if (session == null) {
+      OpenHandSnackBar.showInfo(
+        context,
+        _localizedText(
+          context,
+          zh: '请先创建或选择一个会话。',
+          en: 'Create or select a session first.',
+        ),
+      );
+      return;
+    }
+    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
+      knowledgeBaseSessionToggleMetadataKey: enabled,
+    });
+    if (!mounted) return;
+    setState(() {});
+  }
+
   void _queueMessageForSession({
     required String sessionId,
     required String prompt,
@@ -5804,6 +5832,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required AiCreationRequest creationRequest,
     required List<String> additionalSystemReminders,
     required Map<String, Object?>? selectedSkillMetadata,
+    required bool knowledgeBaseReferenceEnabled,
   }) {
     final queued = _QueuedMessage(
       id: _nextQueuedMessageId(),
@@ -5812,6 +5841,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       creationRequest: creationRequest,
       systemReminders: additionalSystemReminders,
       skillMetadata: selectedSkillMetadata,
+      knowledgeBaseReferenceEnabled: knowledgeBaseReferenceEnabled,
     );
     setState(() {
       final q = _queuedMessagesBySessionId[sessionId] ?? <_QueuedMessage>[];
@@ -5897,6 +5927,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         creationRequest: _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
+        knowledgeBaseReferenceEnabled: _knowledgeBaseReferenceEnabledForSession(
+          sessionController.currentSession,
+        ),
       );
       return;
     }
@@ -6071,6 +6104,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         creationRequest: _creationRequestFromComposer(_creationMode),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: skillDisplayMetadata,
+        knowledgeBaseReferenceEnabled: _knowledgeBaseReferenceEnabledForSession(
+          _sessionForId(sessionController, targetSessionId),
+        ),
       );
       return;
     }
@@ -6127,6 +6163,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       additionalSystemReminders: additionalSystemReminders,
       selectedSkillMetadata: skillDisplayMetadata,
       goalStartOptions: goalStartOptions,
+      knowledgeBaseReferenceEnabled: _knowledgeBaseReferenceEnabledForSession(
+        sendSession,
+      ),
     );
   }
 
@@ -6298,6 +6337,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
     AiSessionGoalStartOptions? goalStartOptions,
+    bool knowledgeBaseReferenceEnabled = false,
     bool allowQueuedGoalInterruption = false,
     bool restoreDraftOnLocalStop = true,
     bool processQueueAfterCompletion = true,
@@ -6440,6 +6480,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           : sendSession?.fullAccessPermission == true
           ? false
           : settingsController.aiWriteCommandConfirmationEnabled;
+      Map<String, Object?>? userMessageMetadata;
+      if (knowledgeBaseReferenceEnabled) {
+        final knowledgeBaseController = context.read<KnowledgeBaseController>();
+        final knowledgeBaseStopwatch = Stopwatch()..start();
+        final embeddingModel = knowledgeBaseController.resolveEmbeddingModel(
+          settingsController.aiModels,
+        );
+        final knowledgeBaseMetadata = await knowledgeBaseController
+            .buildMessageAugmentation(
+              query: prompt,
+              enabled: true,
+              embeddingModel: embeddingModel,
+            );
+        knowledgeBaseStopwatch.stop();
+        submitPreflightTimingsMs['knowledge_base_retrieval'] =
+            knowledgeBaseStopwatch.elapsedMilliseconds;
+        if (knowledgeBaseMetadata != null && knowledgeBaseMetadata.isNotEmpty) {
+          userMessageMetadata = <String, Object?>{
+            knowledgeBaseMessageMetadataKey: knowledgeBaseMetadata,
+          };
+        }
+      }
       final sent = await sessionController.sendMessage(
         sessionId: targetSessionId,
         content: prompt,
@@ -6457,6 +6519,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _confirmWriteCommand(request, sessionId: targetSessionId),
         additionalSystemReminders: additionalSystemReminders,
         selectedSkillMetadata: selectedSkillMetadata,
+        userMessageMetadata: userMessageMetadata,
         goalStartOptions: goalStartOptions,
         allowQueuedGoalInterruption: allowQueuedGoalInterruption,
       );
@@ -7775,6 +7838,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         context,
         zh: '插件',
         en: 'Plugins',
+      ),
+      AppSection.knowledgeBase => _localizedText(
+        context,
+        zh: '知识库',
+        en: 'Knowledge Base',
       ),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
@@ -9291,6 +9359,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
         sessionMode: _effectiveComposerMode(sessionController),
         onSessionModeChanged: _setComposerMode,
+        knowledgeBaseReferenceEnabled: _knowledgeBaseReferenceEnabledForSession(
+          currentSession,
+        ),
+        onKnowledgeBaseReferenceChanged: (enabled) {
+          unawaited(_setKnowledgeBaseReferenceEnabled(enabled));
+        },
         goalModeAvailable:
             currentSession != null &&
             aiSessionGoalModeAllowedForTemplate(currentSession.templateId),
@@ -9359,6 +9433,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   creationRequest: q[index].creationRequest,
                   systemReminders: q[index].systemReminders,
                   skillMetadata: q[index].skillMetadata,
+                  knowledgeBaseReferenceEnabled:
+                      q[index].knowledgeBaseReferenceEnabled,
                 );
                 _failedQueuedMessageIdsBySessionId.remove(currentSession.id);
               }
@@ -9479,6 +9555,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.instructions => const InstructionsView(),
       AppSection.messageGateway => const MessageGatewayView(),
       AppSection.pluginService => const PluginServiceView(),
+      AppSection.knowledgeBase => KnowledgeBaseView(
+        onOpenPlugins: () => _selectSection(AppSection.pluginService),
+      ),
       AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
         value: _toolSearchReplayDispatcher,
         child: const SettingsView(),
