@@ -31,6 +31,7 @@ class KnowledgeBaseView extends StatelessWidget {
     final pluginController = context.watch<PluginServiceController>();
     final settingsController = context.watch<SettingsController>();
     final isZh = openHandIsChineseLocale(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final dependencies = controller.dependencies(pluginController);
     final embeddingModel = controller.resolveEmbeddingModel(
       settingsController.aiModels,
@@ -103,6 +104,21 @@ class KnowledgeBaseView extends StatelessWidget {
             tone: FeatureStateTone.error,
             title: isZh ? '知识库操作失败' : 'Knowledge Base operation failed',
             body: controller.error!,
+            trailing: Tooltip(
+              message: isZh ? '关闭' : 'Dismiss',
+              child: IconButton(
+                onPressed: controller.clearError,
+                icon: const Icon(Icons.close_rounded),
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.onErrorContainer,
+                  minimumSize: const Size(36, 36),
+                  maximumSize: const Size(36, 36),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
           ),
       ],
       body: _KnowledgeBaseBody(

@@ -57,6 +57,12 @@ class KnowledgeBaseController extends ChangeNotifier {
   KnowledgeRetrievalResult? get lastRetrieval => _lastRetrieval;
   List<QdrantAdminOperationLog> get qdrantAdminLogs => _qdrantAdminService.logs;
 
+  void clearError() {
+    if (_error == null) return;
+    _error = null;
+    notifyListeners();
+  }
+
   Future<void> initialize() async {
     _loading = true;
     notifyListeners();
