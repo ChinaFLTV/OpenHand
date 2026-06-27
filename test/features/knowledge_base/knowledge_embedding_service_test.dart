@@ -1,0 +1,114 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/index.dart';
+import 'package:openhand/features/knowledge_base/model/knowledge_base_settings.dart';
+import 'package:openhand/features/knowledge_base/service/knowledge_embedding_service.dart';
+
+void main() {
+  group('KnowledgeEmbeddingService', () {
+    test('preserves embedding profile for query-specific model ids', () async {
+      final embeddings = _RecordingEmbeddingsService(dimensions: 4);
+      final service = KnowledgeEmbeddingService(embeddings: embeddings);
+
+      await service.embedBatch(
+        settings: _settings(dimensions: 4),
+        model: _model(
+          profile: const AiModelProfile(
+            capabilities: <AiModelCapability>{
+              AiModelCapability.embeddingGeneration,
+            },
+            supportedParameters: <String>[
+              'input',
+              'model',
+              'dimensions',
+              'input_type',
+            ],
+            embeddingDimensions: 4,
+            embeddingSupportsCustomDimensions: true,
+            embeddingQueryModelId: 'embedding-query',
+            embeddingQueryInputType: 'query',
+          ),
+        ),
+        inputs: const <String>['find docs'],
+        isQuery: true,
+      );
+
+      final requestModel = embeddings.calls.single.model;
+      expect(requestModel.modelId, 'embedding-query');
+      expect(requestModel.operationRouting.embeddingModelId, 'embedding-query');
+      expect(
+        requestModel.profileFor('embedding-query').supportedParameters,
+        contains('dimensions'),
+      );
+      expect(embeddings.calls.single.dimensions, 4);
+      expect(embeddings.calls.single.inputType, 'query');
+    });
+  });
+}
+
+KnowledgeBaseSettings _settings({required int dimensions}) {
+  return KnowledgeBaseSettings(
+    providerConfigId: 'provider',
+    modelId: 'embedding-base',
+    dimensions: dimensions,
+    allowDocumentCloudEmbedding: true,
+    allowQueryCloudEmbedding: true,
+  );
+}
+
+AiModelConfig _model({required AiModelProfile profile}) {
+  return AiModelConfig(
+    id: 'provider',
+    baseUrl: 'https://example.com/v1',
+    authScheme: AiAuthScheme.bearer,
+    token: 'token',
+    modelId: 'embedding-base',
+    protocolType: AiProtocolType.openai,
+    modelProfiles: <String, AiModelProfile>{'embedding-base': profile},
+  );
+}
+
+class _RecordingEmbeddingsService extends AiEmbeddingsService {
+  _RecordingEmbeddingsService({required this.dimensions});
+
+  final int dimensions;
+  final List<_EmbeddingCall> calls = <_EmbeddingCall>[];
+
+  @override
+  Future<AiEmbeddingResult> createEmbeddings({
+    required AiModelConfig model,
+    required List<String> input,
+    Duration timeout = const Duration(seconds: 60),
+    int? dimensions,
+    String? encodingFormat,
+    String? inputType,
+    String? taskType,
+    String? title,
+    String? outputDType,
+    String? truncation,
+    String? user,
+  }) async {
+    calls.add(
+      _EmbeddingCall(
+        model: model,
+        dimensions: dimensions,
+        inputType: inputType,
+      ),
+    );
+    return AiEmbeddingResult(
+      vectors: List<List<double>>.generate(
+        input.length,
+        (_) => List<double>.filled(this.dimensions, 1),
+        growable: false,
+      ),
+      rawResponse: '{}',
+    );
+  }
+}
+
+class _EmbeddingCall {
+  const _EmbeddingCall({required this.model, this.dimensions, this.inputType});
+
+  final AiModelConfig model;
+  final int? dimensions;
+  final String? inputType;
+}

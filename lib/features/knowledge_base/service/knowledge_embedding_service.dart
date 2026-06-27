@@ -29,11 +29,11 @@ class KnowledgeEmbeddingService {
       fallbackModelId: settings.modelId,
       isQuery: isQuery,
     );
-    final embeddingModel = model.copyWith(
-      modelId: requestModelId,
-      operationRouting: model.operationRouting.copyWith(
-        embeddingModelId: requestModelId,
-      ),
+    final embeddingModel = _embeddingModelForRequest(
+      model,
+      profile: profile,
+      sourceModelId: settings.modelId,
+      requestModelId: requestModelId,
     );
     _validateDimensions(settings, profile);
     final batchSize = _boundedBatchSize(
@@ -191,6 +191,29 @@ class KnowledgeEmbeddingService {
         ? profile.embeddingQueryModelId
         : profile.embeddingDocumentModelId;
     return _trimmedOrNull(value) ?? fallbackModelId;
+  }
+
+  AiModelConfig _embeddingModelForRequest(
+    AiModelConfig model, {
+    required AiModelProfile profile,
+    required String sourceModelId,
+    required String requestModelId,
+  }) {
+    final source = sourceModelId.trim();
+    final request = requestModelId.trim();
+    final profiles = Map<String, AiModelProfile>.of(model.modelProfiles);
+    if (request.isNotEmpty &&
+        request != source &&
+        !profiles.containsKey(request)) {
+      profiles[request] = profile;
+    }
+    return model.copyWith(
+      modelId: request,
+      modelProfiles: profiles,
+      operationRouting: model.operationRouting.copyWith(
+        embeddingModelId: request,
+      ),
+    );
   }
 
   List<String> _applyTextPrefix(List<String> inputs, String? prefix) {
