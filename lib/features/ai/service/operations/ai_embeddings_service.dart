@@ -568,9 +568,11 @@ class _MistralEmbeddingStrategy extends _EmbeddingRequestStrategy {
       context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'input': context.input,
-        if (context.positiveDimensions != null)
+        if (context.supportsParameter('output_dimension') &&
+            context.positiveDimensions != null)
           'output_dimension': context.positiveDimensions,
-        if (context.trimmedOutputDType != null)
+        if (context.supportsParameter('output_dtype') &&
+            context.trimmedOutputDType != null)
           'output_dtype': context.trimmedOutputDType,
       }),
     );
@@ -694,11 +696,17 @@ class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
       context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'input': context.input,
-        if (context.trimmedTaskType != null) 'task': context.trimmedTaskType,
-        if (context.positiveDimensions != null)
+        if (context.supportsParameter('task') &&
+            context.trimmedTaskType != null)
+          'task': context.trimmedTaskType,
+        if (context.supportsParameter('dimensions') &&
+            context.positiveDimensions != null)
           'dimensions': context.positiveDimensions,
-        if (embeddingType != null) 'embedding_type': embeddingType,
-        if (context.profile.embeddingOutputsNormalized != null)
+        if (context.supportsParameter('embedding_type') &&
+            embeddingType != null)
+          'embedding_type': embeddingType,
+        if (context.supportsParameter('normalized') &&
+            context.profile.embeddingOutputsNormalized != null)
           'normalized': context.profile.embeddingOutputsNormalized,
         if (context.supportsParameter('truncate') &&
             context.trimmedTruncation != null)

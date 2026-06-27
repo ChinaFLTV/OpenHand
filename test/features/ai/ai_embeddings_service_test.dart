@@ -284,7 +284,11 @@ void main() {
               ).copyWith(
                 modelProfiles: const <String, AiModelProfile>{
                   'custom-jina-embed': AiModelProfile(
-                    supportedParameters: <String>['Embedding_Type', 'Task'],
+                    supportedParameters: <String>[
+                      'Embedding_Type',
+                      'Task',
+                      'Normalized',
+                    ],
                     embeddingDefaultTaskType: 'retrieval.passage',
                     embeddingDefaultEncodingFormat: 'float',
                     embeddingOutputsNormalized: true,
@@ -303,6 +307,51 @@ void main() {
         });
       },
     );
+
+    test('does not send undeclared Jina embedding options', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': <num>[1, 2, 3, 4],
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model:
+            _model(
+              protocol: AiProtocolType.openai,
+              baseUrl: 'https://api.jina.ai/v1',
+              modelId: 'custom-jina-fixed',
+            ).copyWith(
+              modelProfiles: const <String, AiModelProfile>{
+                'custom-jina-fixed': AiModelProfile(
+                  supportedParameters: <String>['task', 'embedding_type'],
+                  embeddingDefaultTaskType: 'retrieval.passage',
+                  embeddingDefaultEncodingFormat: 'float',
+                  embeddingOutputsNormalized: true,
+                ),
+              },
+            ),
+        input: const <String>['alpha'],
+        dimensions: 2,
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'custom-jina-fixed',
+        'input': <String>['alpha'],
+        'task': 'retrieval.passage',
+        'embedding_type': 'float',
+      });
+      expect(client.bodies.single.containsKey('dimensions'), isFalse);
+      expect(client.bodies.single.containsKey('normalized'), isFalse);
+      expect(result.vectors.single, <double>[1, 2, 3, 4]);
+    });
 
     test(
       'merges profile embedding defaults below explicit payload and extras',
@@ -610,6 +659,48 @@ void main() {
 
       expect(client.bodies.single['output_dimension'], 256);
       expect(client.bodies.single.containsKey('dimensions'), isFalse);
+    });
+
+    test('does not send undeclared Mistral embedding options', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': <num>[1, 2, 3, 4],
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model:
+            _model(
+              protocol: AiProtocolType.openai,
+              name: 'Mistral',
+              baseUrl: 'https://api.mistral.ai/v1',
+              modelId: 'custom-mistral-embed',
+            ).copyWith(
+              modelProfiles: const <String, AiModelProfile>{
+                'custom-mistral-embed': AiModelProfile(
+                  supportedParameters: <String>['input', 'model'],
+                ),
+              },
+            ),
+        input: const <String>['alpha'],
+        dimensions: 2,
+        outputDType: 'int8',
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'custom-mistral-embed',
+        'input': <String>['alpha'],
+      });
+      expect(client.bodies.single.containsKey('output_dimension'), isFalse);
+      expect(client.bodies.single.containsKey('output_dtype'), isFalse);
+      expect(result.vectors.single, <double>[1, 2, 3, 4]);
     });
 
     test(
