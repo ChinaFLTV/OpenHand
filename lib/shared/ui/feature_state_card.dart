@@ -58,31 +58,38 @@ class FeatureStateCard extends StatelessWidget {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: colors.iconBackground,
-                  borderRadius: BorderRadius.circular(24),
+          child: SingleChildScrollView(
+            primary: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: colors.iconBackground,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: colors.iconForeground),
                 ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: colors.iconForeground),
-              ),
-              const SizedBox(height: 18),
-              Text(title, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 10),
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineSmall,
                 ),
-              ),
-              if (action != null) ...[const SizedBox(height: 20), action!],
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  body,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                if (action != null) ...[const SizedBox(height: 20), action!],
+              ],
+            ),
           ),
         ),
       ),
