@@ -843,6 +843,59 @@ button.oh-message-context-capsule {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.oh-message-kb-citation-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.oh-message-kb-citation-chip {
+  appearance: none;
+  max-width: min(100%, 240px);
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 24%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 34%, var(--m3-surface));
+  color: var(--m3-on-primary-container);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transform-origin: center;
+  transition:
+    transform 220ms var(--oh-motion-spring),
+    background-color 220ms var(--oh-motion-emphasized),
+    border-color 220ms var(--oh-motion-emphasized),
+    box-shadow 220ms var(--oh-motion-emphasized);
+}
+.oh-message-kb-citation-chip:hover {
+  transform: translate3d(0, -1px, 0) scale(1.015);
+  border-color: color-mix(in srgb, var(--m3-primary) 38%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 48%, var(--m3-surface));
+  box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 72%, transparent);
+}
+.oh-message-kb-citation-chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--m3-primary) 72%, transparent);
+  outline-offset: 2px;
+}
+.oh-message-kb-citation-chip > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oh-message-kb-citation-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: var(--m3-primary);
+}
 .oh-kb-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -1336,6 +1389,9 @@ button.oh-message-context-capsule {
 
 .oh-message-info-button {
   cursor: default;
+}
+.oh-message-info-button.is-clickable {
+  cursor: pointer;
 }
 
 .oh-message-selected-info-row {

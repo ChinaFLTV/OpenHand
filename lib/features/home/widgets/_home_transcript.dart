@@ -2342,6 +2342,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             : null,
         onCopy: () => widget.onCopyMessage(message),
         onFork: () => widget.onForkMessage(message),
+        associatedKnowledgeBaseMetadata:
+            _associatedKnowledgeBaseMetadataForMessage(
+              visibleMessages: visibleMessages,
+              currentIndex: visibleMessageIndex,
+              message: message,
+            ),
         onSetFeedback: (feedback) =>
             _setMessageFeedbackAnchored(message, feedback),
         onRegenerateResponse: () => widget.onRegenerateMessage(message),
@@ -3088,6 +3094,33 @@ class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
       ),
     );
   }
+}
+
+Map<String, Object?>? _associatedKnowledgeBaseMetadataForMessage({
+  required List<AiSessionMessage> visibleMessages,
+  required int? currentIndex,
+  required AiSessionMessage message,
+}) {
+  if (currentIndex == null || currentIndex <= 0) return null;
+  if (message.kind != AiSessionMessageKind.assistant) return null;
+  for (var index = currentIndex - 1; index >= 0; index--) {
+    final candidate = visibleMessages[index];
+    if (candidate.kind == AiSessionMessageKind.user) {
+      final metadata = KnowledgeMessageMetadata.fromMessageMetadata(
+        candidate.metadata,
+      );
+      if (metadata == null ||
+          !KnowledgeMessageMetadata.hasReferences(metadata)) {
+        return null;
+      }
+      return metadata;
+    }
+    if (candidate.kind == AiSessionMessageKind.assistant &&
+        candidate.content.trim().isNotEmpty) {
+      return null;
+    }
+  }
+  return null;
 }
 
 AiCreationRequest? _resolvePendingCreationPlaceholder({

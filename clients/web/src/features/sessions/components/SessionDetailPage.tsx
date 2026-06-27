@@ -21,6 +21,7 @@ import { useRoute } from 'preact-iso';
 import {
   GOAL_DEFAULT_MAX_AUTO_TURNS,
   GOAL_HARD_MAX_AUTO_TURNS,
+  KNOWLEDGE_BASE_MESSAGE_METADATA_KEY,
   KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY,
   clearSessionThrottle,
   compactSession,
@@ -819,6 +820,39 @@ function sessionWithKnowledgeBaseReference(session: SessionSummary, enabled: boo
       [KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY]: enabled,
     },
   };
+}
+
+function messageKnowledgeBaseMetadata(message: SessionMessage): Record<string, unknown> | null {
+  const metadata = recordOrNullFromUnknown(message.metadata);
+  return recordOrNullFromUnknown(metadata?.[KNOWLEDGE_BASE_MESSAGE_METADATA_KEY]);
+}
+
+function messageKnowledgeBaseHasReferences(metadata: Record<string, unknown> | null): boolean {
+  const results = metadata?.['results'];
+  return metadata?.['enabled'] === true &&
+    metadata?.['status'] === 'success' &&
+    Array.isArray(results) &&
+    results.length > 0;
+}
+
+function associatedKnowledgeBaseMetadataForMessage(
+  messages: SessionMessage[],
+  currentIndex: number,
+  message: SessionMessage,
+): Record<string, unknown> | null {
+  if (currentIndex <= 0 || message.kind !== 'assistant') return null;
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const candidate = messages[index];
+    if (!candidate) continue;
+    if (candidate.kind === 'user') {
+      const metadata = messageKnowledgeBaseMetadata(candidate);
+      return messageKnowledgeBaseHasReferences(metadata) ? metadata : null;
+    }
+    if (candidate.kind === 'assistant' && candidate.content.trim().length > 0) {
+      return null;
+    }
+  }
+  return null;
 }
 
 type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'image' | 'knowledge' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
@@ -5130,11 +5164,17 @@ export function SessionDetailPage() {
                   <>
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
                     <ul class="oh-session-message-list flex flex-col gap-3">
-                      {visibleSortedMessages.map((m) => {
+                      {visibleSortedMessages.map((m, index) => {
                         const translation = messageTranslations[m.id];
                         const translationMatches =
                           translation?.source === (m.content ?? '') &&
                           translation.settingsFingerprint === translationRequestFingerprint;
+                        const associatedKnowledgeBaseMetadata =
+                          associatedKnowledgeBaseMetadataForMessage(
+                            visibleSortedMessages,
+                            index,
+                            m,
+                          );
                         return (
                           <li key={m.id} class="oh-session-message-row">
                             <MessageCard
@@ -5152,6 +5192,7 @@ export function SessionDetailPage() {
                               translatedContent={translationMatches ? translation.text : null}
                               translationLoading={translationMatches && translation.loading}
                               translationVisible={translationMatches && translation.visible}
+                              associatedKnowledgeBaseMetadata={associatedKnowledgeBaseMetadata}
                               feedbackBusy={feedbackBusyMessageIds.has(m.id)}
                               regenerating={regeneratingMessageIds.has(m.id)}
                               onActiveChange={handleMessageActiveChange}

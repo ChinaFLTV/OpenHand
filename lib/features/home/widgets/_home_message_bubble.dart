@@ -20,6 +20,7 @@ class _MessageBubble extends StatefulWidget {
     required this.onCopy,
     required this.onDelete,
     required this.onFork,
+    this.associatedKnowledgeBaseMetadata,
     this.onDeleteFromHere,
     this.onEdit,
     this.onAudit,
@@ -55,6 +56,7 @@ class _MessageBubble extends StatefulWidget {
   final Future<void> Function() onCopy;
   final Future<void> Function() onDelete;
   final Future<void> Function() onFork;
+  final Map<String, Object?>? associatedKnowledgeBaseMetadata;
   final Future<void> Function()? onDeleteFromHere;
   final Future<void> Function()? onEdit;
   final VoidCallback? onAudit;
@@ -609,6 +611,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
         !isToolResult &&
         !isStatus &&
         !isSelfLearning;
+    final associatedKnowledgeBaseMetadata =
+        isAssistantResponse &&
+            !isStreamingAssistant &&
+            widget.associatedKnowledgeBaseMetadata != null &&
+            KnowledgeMessageMetadata.hasReferences(
+              widget.associatedKnowledgeBaseMetadata!,
+            )
+        ? widget.associatedKnowledgeBaseMetadata
+        : null;
     final isAiSideMessage =
         message.isAiSideConversationMessage && !isGoalEvaluationMessage;
     final selectedFeedback = message.feedback;
@@ -1077,6 +1088,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               _responseVariantSizeMotionActive,
                           scrollStateKey: assistantBodyScrollStateKey,
                         ),
+                      if (associatedKnowledgeBaseMetadata != null) ...[
+                        const SizedBox(height: 10),
+                        _AssistantKnowledgeCitationRail(
+                          metadata: associatedKnowledgeBaseMetadata,
+                          textColor: textColor,
+                        ),
+                      ],
                       if (isStreamingAssistant &&
                           resolvedMessageContentFormat !=
                               AiMessageContentFormat.html) ...[
@@ -1148,6 +1166,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       hardnessAnnotation: heAnnotation,
       textColor: textColor,
       showModelLabel: !isUser,
+      associatedKnowledgeBaseMetadata: associatedKnowledgeBaseMetadata,
       onSelectResponseVariant: widget.onSelectResponseVariant,
       actions: [
         _MessageActionSpec(
@@ -1496,6 +1515,7 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
     required this.hardnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
+    this.associatedKnowledgeBaseMetadata,
     this.onSelectResponseVariant,
   });
 
@@ -1510,6 +1530,7 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
   final _HeAnnotation? hardnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
+  final Map<String, Object?>? associatedKnowledgeBaseMetadata;
   final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
@@ -1548,6 +1569,8 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
                   hardnessAnnotation: hardnessAnnotation,
                   textColor: textColor,
                   showModelLabel: showModelLabel,
+                  associatedKnowledgeBaseMetadata:
+                      associatedKnowledgeBaseMetadata,
                   onSelectResponseVariant: onSelectResponseVariant,
                 ),
               )
@@ -1623,6 +1646,7 @@ class _SelectedMessageActionPanel extends StatefulWidget {
     required this.hardnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
+    this.associatedKnowledgeBaseMetadata,
     this.onSelectResponseVariant,
   });
 
@@ -1636,6 +1660,7 @@ class _SelectedMessageActionPanel extends StatefulWidget {
   final _HeAnnotation? hardnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
+  final Map<String, Object?>? associatedKnowledgeBaseMetadata;
   final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
@@ -1735,6 +1760,8 @@ class _SelectedMessageActionPanelState
               textColor: widget.textColor,
               alignEnd: widget.alignEnd,
               showModelLabel: widget.showModelLabel,
+              associatedKnowledgeBaseMetadata:
+                  widget.associatedKnowledgeBaseMetadata,
               onSelectResponseVariant: widget.onSelectResponseVariant,
             ),
           ],
@@ -6988,6 +7015,149 @@ class _GoalMessageMetricChip extends StatelessWidget {
   }
 }
 
+class _KnowledgeBaseCitationSource {
+  const _KnowledgeBaseCitationSource({required this.key, required this.label});
+
+  final String key;
+  final String label;
+}
+
+Map<String, Object?> _knowledgeBaseMetadataEnvelope(
+  Map<String, Object?> metadata,
+) {
+  return <String, Object?>{knowledgeBaseMessageMetadataKey: metadata};
+}
+
+List<Map<String, Object?>> _knowledgeBaseResultMaps(
+  Map<String, Object?> metadata,
+) {
+  final results = metadata['results'];
+  if (results is! List) return const <Map<String, Object?>>[];
+  return results
+      .whereType<Map>()
+      .map((item) => Map<String, Object?>.from(item))
+      .toList(growable: false);
+}
+
+List<_KnowledgeBaseCitationSource> _knowledgeBaseCitationSources(
+  Map<String, Object?> metadata, {
+  int limit = 1 << 30,
+}) {
+  final sources = <_KnowledgeBaseCitationSource>[];
+  final seen = <String>{};
+  for (final hit in _knowledgeBaseResultMaps(metadata)) {
+    final label = _knowledgeBaseCitationLabel(hit);
+    if (label.isEmpty) continue;
+    final key = _knowledgeBaseCitationKey(hit, label);
+    if (!seen.add(key)) continue;
+    sources.add(_KnowledgeBaseCitationSource(key: key, label: label));
+    if (sources.length >= limit) break;
+  }
+  return sources;
+}
+
+String _knowledgeBaseCitationKey(Map<String, Object?> hit, String label) {
+  final sourceId = '${hit['source_id'] ?? ''}'.trim();
+  if (sourceId.isNotEmpty) return 'source:$sourceId';
+  final path = '${hit['path'] ?? ''}'.trim();
+  if (path.isNotEmpty) return 'path:$path';
+  return 'label:$label';
+}
+
+String _knowledgeBaseCitationLabel(Map<String, Object?> hit) {
+  final title = '${hit['source_title'] ?? hit['title'] ?? ''}'.trim();
+  if (title.isNotEmpty) return title;
+  final path = '${hit['path'] ?? ''}'.trim();
+  if (path.isNotEmpty) {
+    final normalized = path.replaceAll('\\', '/');
+    final slash = normalized.lastIndexOf('/');
+    return slash >= 0 ? normalized.substring(slash + 1) : normalized;
+  }
+  return '${hit['chunk_id'] ?? ''}'.trim();
+}
+
+class _AssistantKnowledgeCitationRail extends StatelessWidget {
+  const _AssistantKnowledgeCitationRail({
+    required this.metadata,
+    required this.textColor,
+  });
+
+  final Map<String, Object?> metadata;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = _knowledgeBaseCitationSources(metadata, limit: 6);
+    if (sources.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final source in sources)
+          _KnowledgeCitationChip(
+            source: source,
+            textColor: textColor,
+            onPressed: () {
+              unawaited(
+                showKnowledgeRetrievalDetailDialog(
+                  context,
+                  _knowledgeBaseMetadataEnvelope(metadata),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _KnowledgeCitationChip extends StatelessWidget {
+  const _KnowledgeCitationChip({
+    required this.source,
+    required this.textColor,
+    required this.onPressed,
+  });
+
+  final _KnowledgeBaseCitationSource source;
+  final Color textColor;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final background = colorScheme.surfaceContainerHighest.withValues(
+      alpha: 0.62,
+    );
+    final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.58);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 220),
+      child: ActionChip(
+        avatar: Icon(
+          Icons.library_books_rounded,
+          size: 14,
+          color: colorScheme.primary,
+        ),
+        label: Text(source.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        labelStyle: theme.textTheme.labelMedium?.copyWith(
+          color: textColor.withValues(alpha: 0.82),
+          fontWeight: FontWeight.w800,
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsetsDirectional.only(start: 6, end: 8),
+        backgroundColor: background,
+        side: BorderSide(color: borderColor),
+        shape: const StadiumBorder(),
+        onPressed: () {
+          _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+          onPressed();
+        },
+      ),
+    );
+  }
+}
+
 /// Context capsules shown in the focused message action panel's second row.
 /// Keeps message cards focused on message content while preserving mode, skill,
 /// attachment, model, and timestamp metadata next to the selected message.
@@ -6999,6 +7169,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
     required this.textColor,
     required this.alignEnd,
     required this.showModelLabel,
+    this.associatedKnowledgeBaseMetadata,
     this.onSelectResponseVariant,
   });
 
@@ -7008,6 +7179,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
   final Color textColor;
   final bool alignEnd;
   final bool showModelLabel;
+  final Map<String, Object?>? associatedKnowledgeBaseMetadata;
   final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
@@ -7030,6 +7202,12 @@ class _SelectedMessageContextRow extends StatelessWidget {
         knowledgeBasePromptAppend?['token_estimate'] is num
         ? (knowledgeBasePromptAppend!['token_estimate'] as num).round()
         : null;
+    final associatedKnowledgeBaseSourceCount =
+        associatedKnowledgeBaseMetadata == null
+        ? 0
+        : _knowledgeBaseCitationSources(
+            associatedKnowledgeBaseMetadata!,
+          ).length;
     final responseVariants = message.responseVariants;
     final responseVariantIndex = message.responseVariantIndex;
     final capsules = <Widget>[
@@ -7078,6 +7256,28 @@ class _SelectedMessageContextRow extends StatelessWidget {
           onPressed: () {
             unawaited(
               showKnowledgeRetrievalDetailDialog(context, message.metadata),
+            );
+          },
+        ),
+      if (!KnowledgeMessageMetadata.hasReferences(message.metadata) &&
+          associatedKnowledgeBaseMetadata != null &&
+          associatedKnowledgeBaseSourceCount > 0)
+        _MessageContextCapsule(
+          icon: Icons.library_books_rounded,
+          label: _localizedText(
+            context,
+            zh: '引用 $associatedKnowledgeBaseSourceCount 篇知识库',
+            en: '$associatedKnowledgeBaseSourceCount KB sources',
+          ),
+          textColor: textColor,
+          onPressed: () {
+            unawaited(
+              showKnowledgeRetrievalDetailDialog(
+                context,
+                _knowledgeBaseMetadataEnvelope(
+                  associatedKnowledgeBaseMetadata!,
+                ),
+              ),
             );
           },
         ),

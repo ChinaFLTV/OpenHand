@@ -378,6 +378,11 @@ interface MessageContextChip {
   onClick?: () => void;
 }
 
+interface KnowledgeBaseCitationSource {
+  key: string;
+  label: string;
+}
+
 interface MachineExpertRequestViewModel {
   terminalApplication?: string;
   terminalLocation?: string;
@@ -492,6 +497,10 @@ function knowledgeBaseResults(kb: Record<string, unknown> | null): Record<string
 
 function knowledgeBaseHasReferences(message: SessionMessage): boolean {
   const kb = knowledgeBaseMetadata(message);
+  return knowledgeBaseMetadataHasReferences(kb);
+}
+
+function knowledgeBaseMetadataHasReferences(kb: Record<string, unknown> | null): boolean {
   return kb?.['enabled'] === true &&
     kb?.['status'] === 'success' &&
     knowledgeBaseResults(kb).length > 0;
@@ -503,6 +512,44 @@ function knowledgeBaseTokenEstimate(kb: Record<string, unknown> | null): number 
 
 function knowledgeBaseContextContent(kb: Record<string, unknown> | null): string {
   return nonEmptyString(kb?.['prompt_append_content']);
+}
+
+function knowledgeBaseCitationSources(
+  kb: Record<string, unknown> | null,
+  limit = Number.POSITIVE_INFINITY,
+): KnowledgeBaseCitationSource[] {
+  const sources: KnowledgeBaseCitationSource[] = [];
+  const seen = new Set<string>();
+  for (const hit of knowledgeBaseResults(kb)) {
+    const label = knowledgeBaseCitationLabel(hit);
+    if (!label) continue;
+    const key = knowledgeBaseCitationKey(hit, label);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sources.push({ key, label });
+    if (sources.length >= limit) break;
+  }
+  return sources;
+}
+
+function knowledgeBaseCitationKey(hit: Record<string, unknown>, label: string): string {
+  const sourceId = nonEmptyString(hit['source_id']);
+  if (sourceId) return `source:${sourceId}`;
+  const path = nonEmptyString(hit['path']);
+  if (path) return `path:${path}`;
+  return `label:${label}`;
+}
+
+function knowledgeBaseCitationLabel(hit: Record<string, unknown>): string {
+  const title = nonEmptyString(hit['source_title']) || nonEmptyString(hit['title']);
+  if (title) return title;
+  const path = nonEmptyString(hit['path']);
+  if (path) {
+    const normalized = path.replace(/\\/g, '/');
+    const slash = normalized.lastIndexOf('/');
+    return slash >= 0 ? normalized.slice(slash + 1) : normalized;
+  }
+  return nonEmptyString(hit['chunk_id']);
 }
 
 function messageContextChips(message: SessionMessage): MessageContextChip[] {
@@ -1584,7 +1631,11 @@ function messageFeedbackValue(message: SessionMessage): SessionMessageFeedback |
   return normalizedMessageFeedback(recordOrNullFromUnknown(variants[index])?.['message_feedback']);
 }
 
-function selectedMessageInfoChips(message: SessionMessage): MessageContextChip[] {
+function selectedMessageInfoChips(
+  message: SessionMessage,
+  associatedKnowledgeBaseMetadata: Record<string, unknown> | null = null,
+  onOpenAssociatedKnowledgeBase?: () => void,
+): MessageContextChip[] {
   const chips: MessageContextChip[] = [];
   const meta = recordOrNullFromUnknown(message.metadata);
   if (meta) {
@@ -1601,6 +1652,16 @@ function selectedMessageInfoChips(message: SessionMessage): MessageContextChip[]
         label: modelLabel,
       });
     }
+  }
+  const associatedSources = knowledgeBaseCitationSources(associatedKnowledgeBaseMetadata);
+  if (associatedSources.length > 0) {
+    chips.push({
+      key: 'associated-knowledge-base',
+      icon: 'knowledge',
+      label: t('message.context.knowledgeBaseSources', `引用 ${associatedSources.length} 篇知识库`)
+        .replace('{count}', String(associatedSources.length)),
+      onClick: onOpenAssociatedKnowledgeBase,
+    });
   }
   const sentAt = formatTimestamp(message.created_at);
   if (sentAt) {
@@ -2116,6 +2177,7 @@ export interface MessageCardProps {
   translatedContent?: string | null;
   translationLoading?: boolean;
   translationVisible?: boolean;
+  associatedKnowledgeBaseMetadata?: Record<string, unknown> | null;
   feedbackBusy?: boolean;
   regenerating?: boolean;
   onToggleReadAloud?: (m: SessionMessage) => void;
@@ -2147,6 +2209,7 @@ function MessageCardImpl({
   translatedContent,
   translationLoading = false,
   translationVisible = false,
+  associatedKnowledgeBaseMetadata = null,
   feedbackBusy = false,
   regenerating = false,
   onToggleReadAloud,
@@ -2365,6 +2428,13 @@ function MessageCardImpl({
   const ttsPlaying = readAloudPlaying;
   const hasMultimediaContent = messageHasMultimedia(message);
   const isFormalAssistantResponse = isFormalAssistantResponseMessage(message);
+  const associatedKbReferenceMetadata =
+    !isUserBubble &&
+    isFormalAssistantResponse &&
+    !activelyStreaming &&
+    knowledgeBaseMetadataHasReferences(associatedKnowledgeBaseMetadata)
+      ? associatedKnowledgeBaseMetadata
+      : null;
   const textActionKindSupported =
     !goalMessageView &&
     (isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse);
@@ -2476,7 +2546,11 @@ function MessageCardImpl({
       }`;
   const shouldRenderHeader =
     style.badge || shouldRenderResponseBadge || Boolean(plainRoleMeta);
-  const selectedInfoChips = selectedMessageInfoChips(message);
+  const selectedInfoChips = selectedMessageInfoChips(
+    message,
+    associatedKbReferenceMetadata,
+    () => setKnowledgeBaseDialogOpen(true),
+  );
   const media = sessionId ? (
     <MessageMedia
       message={message}
@@ -2799,6 +2873,12 @@ function MessageCardImpl({
           <TypewriterCaret />
         ) : null}
       </ReasoningCollapsibleBody>
+      {associatedKbReferenceMetadata ? (
+        <KnowledgeBaseCitationRail
+          metadata={associatedKbReferenceMetadata}
+          onOpen={() => setKnowledgeBaseDialogOpen(true)}
+        />
+      ) : null}
       {isUserBubble && contextChips.length > 0 ? (
         <div class="oh-message-context-capsules is-user is-after-content">
           {contextChips.map((chip) => <MessageContextCapsule key={chip.key} chip={chip} />)}
@@ -2976,13 +3056,45 @@ function MessageCardImpl({
         onClose={() => setInlineImagePreview(null)}
       />
     ) : null}
-    {knowledgeBaseDialogOpen && kbMetadata ? (
+    {knowledgeBaseDialogOpen && (kbMetadata || associatedKbReferenceMetadata) ? (
       <KnowledgeBaseRetrievalDialog
-        metadata={kbMetadata}
+        metadata={(kbMetadata || associatedKbReferenceMetadata)!}
         onClose={() => setKnowledgeBaseDialogOpen(false)}
       />
     ) : null}
     </>
+  );
+}
+
+function KnowledgeBaseCitationRail({
+  metadata,
+  onOpen,
+}: {
+  metadata: Record<string, unknown>;
+  onOpen: () => void;
+}) {
+  const sources = knowledgeBaseCitationSources(metadata, 6);
+  if (sources.length === 0) return null;
+  return (
+    <div class="oh-message-kb-citation-rail" aria-label={t('message.kbCitations.label', '知识库来源')}>
+      {sources.map((source) => (
+        <button
+          key={source.key}
+          type="button"
+          class="oh-tap-press oh-message-kb-citation-chip"
+          title={source.label}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+        >
+          <span class="oh-message-kb-citation-icon" aria-hidden>
+            <MessageIcon name="knowledge" size={13} />
+          </span>
+          <span>{source.label}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -3146,18 +3258,39 @@ function KbKv({ label, value }: { label: string; value: unknown }) {
 }
 
 function SelectedInfoChip({ chip }: { chip: MessageContextChip }) {
-  return (
-    <span
-      class="oh-message-action-button oh-message-info-button oh-soft-replace"
-      style={messageActionSurfaceStyle}
-      title={chip.label}
-    >
+  const content = (
+    <>
       {chip.emoji ? (
         <span class="oh-message-context-emoji" aria-hidden>{chip.emoji}</span>
       ) : chip.icon ? (
         <MessageIcon name={chip.icon} size={14} />
       ) : null}
       <span>{chip.label}</span>
+    </>
+  );
+  if (chip.onClick) {
+    return (
+      <button
+        type="button"
+        class="oh-tap-press oh-message-action-button oh-message-info-button oh-soft-replace is-clickable"
+        style={messageActionSurfaceStyle}
+        title={chip.label}
+        onClick={(event) => {
+          event.stopPropagation();
+          chip.onClick?.();
+        }}
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span
+      class="oh-message-action-button oh-message-info-button oh-soft-replace"
+      style={messageActionSurfaceStyle}
+      title={chip.label}
+    >
+      {content}
     </span>
   );
 }
