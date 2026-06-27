@@ -324,6 +324,8 @@ class _KbStatChip extends StatelessWidget {
 class _KnowledgeSourceCard extends StatelessWidget {
   const _KnowledgeSourceCard({required this.source});
 
+  static const double _radius = 28;
+
   final KnowledgeSource source;
 
   @override
@@ -336,9 +338,28 @@ class _KnowledgeSourceCard extends StatelessWidget {
       'indexing' => colorScheme.primary,
       _ => colorScheme.onSurfaceVariant,
     };
-    return Card(
+    final borderRadius = BorderRadius.circular(_radius);
+    return Material(
+      color: colorScheme.surfaceContainerLowest,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: borderRadius,
+        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return colorScheme.primary.withValues(alpha: 0.10);
+          }
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return colorScheme.primary.withValues(alpha: 0.06);
+          }
+          return null;
+        }),
         onTap: () => showKnowledgeSourceDetailDialog(context, source.id),
         child: Padding(
           padding: const EdgeInsets.all(16),
