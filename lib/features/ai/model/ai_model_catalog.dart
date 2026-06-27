@@ -144,6 +144,13 @@ class AiModelCatalog {
     'model',
   ];
 
+  static const _typedOpenAiCompatibleEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'input_type',
+    'truncate',
+  ];
+
   static const _qwenTextEmbeddingParameters = <String>[
     'input',
     'model',
@@ -2674,12 +2681,20 @@ class AiModelCatalog {
     bool customDimensions = false,
     int? minDimensions,
     int? maxDimensions,
+    List<String> supportedParameters = _openAiCompatibleEmbeddingParameters,
+    List<String> inputTypes = const <String>['text'],
+    String? defaultInputType,
+    String? queryInputType,
+    String? documentInputType,
     List<String> taskTypes = const <String>[],
     String? defaultTaskType,
     String? queryTaskType,
     String? documentTaskType,
     String? queryTextPrefix,
     String? documentTextPrefix,
+    List<String> outputDTypes = const <String>[],
+    String? defaultOutputDType,
+    String? defaultTruncation,
     int batchSize = 64,
     bool outputsNormalized = true,
   }) {
@@ -2691,6 +2706,11 @@ class AiModelCatalog {
       maxInputTokens: context,
       customDimensions: customDimensions,
       batchSize: batchSize,
+      supportedParameters: supportedParameters,
+      inputTypes: inputTypes,
+      defaultInputType: defaultInputType,
+      queryInputType: queryInputType,
+      documentInputType: documentInputType,
       taskTypes: taskTypes,
       defaultTaskType: defaultTaskType,
       queryTaskType: queryTaskType,
@@ -2699,6 +2719,9 @@ class AiModelCatalog {
       documentTextPrefix: documentTextPrefix,
       encodingFormats: const <String>['float'],
       defaultEncodingFormat: 'float',
+      outputDTypes: outputDTypes,
+      defaultOutputDType: defaultOutputDType,
+      defaultTruncation: defaultTruncation,
       outputsNormalized: outputsNormalized,
       minDimensions: minDimensions,
       maxDimensions: maxDimensions,
@@ -2706,6 +2729,113 @@ class AiModelCatalog {
   }
 
   static AiModelProfile? _openSourceEmbedding(String id) {
+    if (id.contains('titan-embed-text-v2')) {
+      return _openSourceTextEmbeddingP(
+        name: 'Amazon Titan Text Embeddings V2',
+        desc: 'Amazon Bedrock text embedding model',
+        context: 8192,
+        dimensions: 1024,
+        customDimensions: true,
+        minDimensions: 256,
+        maxDimensions: 1024,
+        outputDTypes: const <String>['float', 'binary'],
+        defaultOutputDType: 'float',
+      );
+    }
+    if (id.contains('titan-embed-text')) {
+      return _openSourceTextEmbeddingP(
+        name: 'Amazon Titan Text Embeddings',
+        desc: 'Amazon Bedrock text embedding model',
+        context: 8192,
+        dimensions: 1536,
+      );
+    }
+    if (id.contains('titan-embed-image')) {
+      return _embeddingP(
+        name: 'Amazon Titan Multimodal Embeddings',
+        desc: 'Amazon Bedrock image/text embedding model',
+        multimodal: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.image,
+        },
+        context: 128,
+        dimensions: 1024,
+        maxInputTokens: 128,
+        customDimensions: true,
+        batchSize: 16,
+        inputTypes: const <String>['text', 'image'],
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        minDimensions: 256,
+        maxDimensions: 1024,
+      );
+    }
+    if (id.contains('nv-embedqa-e5')) {
+      return _openSourceTextEmbeddingP(
+        name: 'NVIDIA NV-EmbedQA E5',
+        desc: 'NVIDIA NIM E5 retrieval embedding model',
+        context: 512,
+        dimensions: 1024,
+        supportedParameters: _typedOpenAiCompatibleEmbeddingParameters,
+        inputTypes: const <String>['query', 'passage'],
+        defaultInputType: 'passage',
+        queryInputType: 'query',
+        documentInputType: 'passage',
+        taskTypes: const <String>['query', 'passage'],
+        defaultTaskType: 'passage',
+        queryTaskType: 'query',
+        documentTaskType: 'passage',
+        queryTextPrefix: 'query:',
+        documentTextPrefix: 'passage:',
+        defaultTruncation: 'END',
+      );
+    }
+    if (id.contains('nv-embed') || id.contains('nvidia/nv-embed')) {
+      return _openSourceTextEmbeddingP(
+        name: 'NVIDIA NV-Embed',
+        desc: 'NVIDIA retrieval embedding model',
+        context: 32768,
+        dimensions: 4096,
+        customDimensions: true,
+        minDimensions: 256,
+        maxDimensions: 4096,
+        taskTypes: const <String>['query', 'document'],
+        defaultTaskType: 'document',
+        queryTaskType: 'query',
+        documentTaskType: 'document',
+      );
+    }
+    if (id.contains('solar-embedding')) {
+      final isQuery = id.contains('query');
+      return _openSourceTextEmbeddingP(
+        name: 'Solar Embedding',
+        desc: 'Upstage Solar text embedding model',
+        context: 4096,
+        dimensions: 4096,
+        batchSize: 100,
+        taskTypes: const <String>['query', 'passage'],
+        defaultTaskType: isQuery ? 'query' : 'passage',
+        queryTaskType: 'query',
+        documentTaskType: 'passage',
+      );
+    }
+    if (id.contains('slate-125m')) {
+      return _openSourceTextEmbeddingP(
+        name: 'IBM Slate 125M Embedding',
+        desc: 'IBM Granite Slate text embedding model',
+        context: 512,
+        dimensions: 384,
+      );
+    }
+    if (id.contains('slate-30m')) {
+      return _openSourceTextEmbeddingP(
+        name: 'IBM Slate 30M Embedding',
+        desc: 'IBM Granite Slate text embedding model',
+        context: 512,
+        dimensions: 384,
+      );
+    }
     if (id.contains('qwen3-embedding')) {
       final dim = id.contains('8b')
           ? 4096

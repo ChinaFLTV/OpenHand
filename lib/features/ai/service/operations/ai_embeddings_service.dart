@@ -378,6 +378,14 @@ class _EmbeddingRequestContext {
   String? get trimmedTitle => _trimmedOrNull(title);
   String? get profileEndpointPath =>
       _trimmedOrNull(profile.embeddingEndpointPath);
+
+  bool supportsParameter(String key) {
+    final normalizedKey = key.trim().toLowerCase();
+    if (normalizedKey.isEmpty) return false;
+    return profile.supportedParameters.any(
+      (parameter) => parameter.trim().toLowerCase() == normalizedKey,
+    );
+  }
 }
 
 abstract class _EmbeddingRequestStrategy {
@@ -397,18 +405,34 @@ class _OpenAiCompatibleEmbeddingStrategy extends _EmbeddingRequestStrategy {
   @override
   _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
     const family = AiApiFamily.embeddings;
+    final payload = <String, Object?>{
+      'model': context.modelId,
+      'input': context.input,
+      if (context.positiveDimensions != null)
+        'dimensions': context.positiveDimensions,
+      if (context.supportsParameter('encoding_format') &&
+          context.trimmedEncodingFormat != null)
+        'encoding_format': context.trimmedEncodingFormat,
+      if (context.supportsParameter('input_type') &&
+          context.trimmedInputType != null)
+        'input_type': context.trimmedInputType,
+      if (context.supportsParameter('task') && context.trimmedTaskType != null)
+        'task': context.trimmedTaskType,
+      if (context.supportsParameter('output_dtype') &&
+          context.trimmedOutputDType != null)
+        'output_dtype': context.trimmedOutputDType,
+      if (context.supportsParameter('truncate') &&
+          context.trimmedTruncation != null)
+        'truncate': context.trimmedTruncation,
+      if (context.supportsParameter('truncation') &&
+          context.trimmedTruncation != null)
+        'truncation': _truncationValue(context.trimmedTruncation),
+      if (context.trimmedUser != null) 'user': context.trimmedUser,
+    };
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
       family,
-      <String, Object?>{
-        'model': context.modelId,
-        'input': context.input,
-        if (context.positiveDimensions != null)
-          'dimensions': context.positiveDimensions,
-        if (context.trimmedEncodingFormat != null)
-          'encoding_format': context.trimmedEncodingFormat,
-        if (context.trimmedUser != null) 'user': context.trimmedUser,
-      },
+      payload,
     );
     return _EmbeddingRequestPlan(
       body: body,

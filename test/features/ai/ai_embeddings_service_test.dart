@@ -52,6 +52,43 @@ void main() {
       ]);
     });
 
+    test(
+      'sends typed OpenAI-compatible embedding parameters when declared',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[1, 2],
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        await service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://integrate.api.nvidia.com',
+            modelId: 'nvidia/nv-embedqa-e5-v5',
+          ),
+          input: const <String>['alpha'],
+          inputType: 'query',
+          truncation: 'END',
+        );
+
+        expect(client.requests.single.url.path, '/v1/embeddings');
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'nvidia/nv-embedqa-e5-v5',
+          'input': <String>['alpha'],
+          'input_type': 'query',
+          'truncate': 'END',
+        });
+      },
+    );
+
     test('sends Gemini batch embedding requests and parses values', () async {
       final client = _RecordingHttpClient(
         responseBody: <String, Object?>{
@@ -538,6 +575,57 @@ void main() {
       expect(miniLm?.displayName, 'all-MiniLM-L6-v2');
       expect(miniLm?.embeddingDimensions, 384);
       expect(reranker?.supportsEmbeddings ?? false, isFalse);
+    });
+
+    test('recognizes managed compatible embedding model profiles', () {
+      final titan = AiModelCatalog.lookup(
+        'amazon.titan-embed-text-v2:0',
+        AiProtocolType.openai,
+      );
+      final titanImage = AiModelCatalog.lookup(
+        'amazon.titan-embed-image-v1',
+        AiProtocolType.openai,
+      );
+      final nvidia = AiModelCatalog.lookup(
+        'nvidia/nv-embedqa-e5-v5',
+        AiProtocolType.openai,
+      );
+      final solar = AiModelCatalog.lookup(
+        'solar-embedding-1-large-query',
+        AiProtocolType.openai,
+      );
+      final slate = AiModelCatalog.lookup(
+        'ibm/slate-30m-english-rtrvr',
+        AiProtocolType.openai,
+      );
+      final slate125 = AiModelCatalog.lookup(
+        'ibm/slate-125m-english-rtrvr-v2',
+        AiProtocolType.openai,
+      );
+
+      expect(titan?.displayName, 'Amazon Titan Text Embeddings V2');
+      expect(titan?.embeddingDimensions, 1024);
+      expect(titan?.embeddingSupportsCustomDimensions, isTrue);
+      expect(titan?.embeddingMinDimensions, 256);
+      expect(titan?.embeddingMaxDimensions, 1024);
+      expect(titan?.embeddingOutputDTypes, contains('binary'));
+
+      expect(titanImage?.isMultimodal, isTrue);
+      expect(titanImage?.embeddingDimensions, 1024);
+
+      expect(nvidia?.displayName, 'NVIDIA NV-EmbedQA E5');
+      expect(nvidia?.embeddingDimensions, 1024);
+      expect(nvidia?.embeddingInputTypes, contains('query'));
+      expect(nvidia?.supportedParameters, contains('input_type'));
+      expect(nvidia?.embeddingDefaultTruncation, 'END');
+
+      expect(solar?.displayName, 'Solar Embedding');
+      expect(solar?.embeddingDimensions, 4096);
+      expect(solar?.embeddingDefaultTaskType, 'query');
+      expect(slate?.displayName, 'IBM Slate 30M Embedding');
+      expect(slate?.embeddingDimensions, 384);
+      expect(slate125?.displayName, 'IBM Slate 125M Embedding');
+      expect(slate125?.embeddingDimensions, 384);
     });
 
     test(
