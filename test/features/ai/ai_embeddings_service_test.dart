@@ -526,6 +526,41 @@ void main() {
       },
     );
 
+    test('does not send Cohere v4-only dimensions to v3 models', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'embeddings': <String, Object?>{
+            'float': <Object?>[
+              <num>[0.1, 0.2],
+            ],
+          },
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.cohere.com/v2',
+          modelId: 'embed-english-v3.0',
+        ),
+        input: const <String>['alpha'],
+        dimensions: 384,
+      );
+
+      expect(client.requests.single.url.path, '/v2/embed');
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'embed-english-v3.0',
+        'texts': <String>['alpha'],
+        'input_type': 'search_document',
+        'embedding_types': <String>['float'],
+        'truncate': 'END',
+      });
+      expect(client.bodies.single.containsKey('output_dimension'), isFalse);
+    });
+
     test(
       'sends Voyage embedding requests with typed retrieval params',
       () async {
@@ -587,6 +622,7 @@ void main() {
         input: const <String>['alpha'],
         dimensions: 256,
         taskType: 'retrieval.query',
+        truncation: 'true',
       );
 
       expect(client.bodies.single, <String, Object?>{
@@ -596,6 +632,7 @@ void main() {
         'dimensions': 256,
         'embedding_type': 'float',
         'normalized': true,
+        'truncate': true,
       });
     });
 
@@ -782,8 +819,23 @@ void main() {
         'bce-embedding-base_v1',
         AiProtocolType.openai,
       );
+      final jinaCode = AiModelCatalog.lookup(
+        'jina-code-embeddings-1.5b',
+        AiProtocolType.openai,
+      );
+      final jinaV2 = AiModelCatalog.lookup(
+        'jina-embeddings-v2-base-en',
+        AiProtocolType.openai,
+      );
       expect(bce?.displayName, 'BCE Embedding');
       expect(bce?.embeddingDimensions, 768);
+      expect(jinaCode?.displayName, 'Jina Code Embeddings 1.5B');
+      expect(jinaCode?.embeddingDimensions, 1536);
+      expect(jinaCode?.embeddingMaxInputTokens, 32768);
+      expect(jinaCode?.embeddingSupportsTruncation, isTrue);
+      expect(jinaV2?.displayName, 'Jina Embeddings v2');
+      expect(jinaV2?.embeddingDimensions, 768);
+      expect(jinaV2?.embeddingDefaultDocumentTaskType, 'retrieval.passage');
       expect(claude?.supportsEmbeddings ?? false, isFalse);
     });
 
@@ -877,6 +929,11 @@ void main() {
         expect(cohereLight?.embeddingDimensions, 384);
         expect(cohereLight?.embeddingEndpointPath, 'v2/embed');
         expect(cohereLight?.embeddingMaxInputsPerBatch, 96);
+        expect(cohereLight?.embeddingDefaultEncodingFormat, 'float');
+        expect(
+          cohereLight?.supportedParameters,
+          isNot(contains('output_dimension')),
+        );
         expect(cohereMultilingualLight?.embeddingDimensions, 384);
 
         expect(voyageLite?.displayName, 'Voyage Embedding');
@@ -1017,6 +1074,7 @@ void main() {
       expect(nvidia?.embeddingInputTypes, contains('query'));
       expect(nvidia?.supportedParameters, contains('input_type'));
       expect(nvidia?.embeddingDefaultTruncation, 'END');
+      expect(nvidia?.embeddingSupportsTruncation, isTrue);
 
       expect(mistral?.displayName, 'Mistral Embed');
       expect(mistral?.embeddingOutputDTypes, contains('ubinary'));

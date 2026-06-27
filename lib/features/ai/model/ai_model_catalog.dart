@@ -200,6 +200,16 @@ class AiModelCatalog {
     'model',
     'input_type',
     'embedding_types',
+    'truncate',
+  ];
+
+  static const _cohereEmbeddingV4Parameters = <String>[
+    'texts',
+    'images',
+    'inputs',
+    'model',
+    'input_type',
+    'embedding_types',
     'output_dimension',
     'truncate',
   ];
@@ -220,6 +230,8 @@ class AiModelCatalog {
     'dimensions',
     'embedding_type',
     'normalized',
+    'truncate',
+    'late_chunking',
   ];
 
   static final Map<String, AiModelProfile> _exactModelProfiles =
@@ -2409,6 +2421,14 @@ class AiModelCatalog {
         'classification',
         'clustering',
       ],
+      encodingFormats: const <String>[
+        'float',
+        'int8',
+        'uint8',
+        'binary',
+        'ubinary',
+      ],
+      defaultEncodingFormat: 'float',
       defaultTruncation: 'END',
       maxInputsPerBatch: 96,
       supportsTruncation: true,
@@ -2431,7 +2451,7 @@ class AiModelCatalog {
         customDimensions: true,
         endpointPath: 'v2/embed',
         batchSize: 96,
-        supportedParameters: _cohereEmbeddingParameters,
+        supportedParameters: _cohereEmbeddingV4Parameters,
         inputTypes: const <String>['search_document', 'search_query', 'image'],
         defaultInputType: 'search_document',
         queryInputType: 'search_query',
@@ -2577,6 +2597,37 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _jina(String id) {
+    if (id.startsWith('jina-code-embeddings')) {
+      final large = id.contains('1.5b') || id.contains('1-5b');
+      return _embeddingP(
+        name: large ? 'Jina Code Embeddings 1.5B' : 'Jina Code Embeddings 0.5B',
+        desc: 'Jina code retrieval embedding model',
+        context: 32768,
+        dimensions: large ? 1536 : 896,
+        maxInputTokens: 32768,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _jinaEmbeddingParameters,
+        inputTypes: const <String>['text', 'code'],
+        taskTypes: const <String>[
+          'retrieval.query',
+          'retrieval.passage',
+          'text-matching',
+          'code',
+        ],
+        defaultTaskType: 'retrieval.passage',
+        queryTaskType: 'retrieval.query',
+        documentTaskType: 'retrieval.passage',
+        encodingFormats: const <String>['float', 'base64', 'binary'],
+        defaultEncodingFormat: 'float',
+        outputDTypes: const <String>['float', 'binary'],
+        defaultOutputDType: 'float',
+        outputsNormalized: true,
+        minDimensions: 128,
+        maxDimensions: large ? 1536 : 896,
+        supportsTruncation: true,
+      );
+    }
     if (id.startsWith('jina-embeddings-v5-omni')) {
       final nano = id.contains('nano');
       return _embeddingP(
@@ -2705,6 +2756,32 @@ class AiModelCatalog {
         supportsTruncation: true,
       );
     }
+    if (id.startsWith('jina-embeddings-v2')) {
+      final small = id.contains('small');
+      return _embeddingP(
+        name: small ? 'Jina Embeddings v2 Small' : 'Jina Embeddings v2',
+        desc: 'Jina multilingual text embedding model',
+        context: 8192,
+        dimensions: small ? 512 : 768,
+        maxInputTokens: 8192,
+        batchSize: 64,
+        supportedParameters: _jinaEmbeddingParameters,
+        taskTypes: const <String>[
+          'retrieval.query',
+          'retrieval.passage',
+          'text-matching',
+          'classification',
+          'clustering',
+        ],
+        defaultTaskType: 'retrieval.passage',
+        queryTaskType: 'retrieval.query',
+        documentTaskType: 'retrieval.passage',
+        encodingFormats: const <String>['float', 'base64'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+        supportsTruncation: true,
+      );
+    }
     if (id.startsWith('jina-clip')) {
       return _embeddingP(
         name: 'Jina CLIP',
@@ -2761,6 +2838,7 @@ class AiModelCatalog {
     int? maxInputsPerBatch,
     int? maxTokensPerBatch,
     bool outputsNormalized = true,
+    bool supportsTruncation = false,
   }) {
     return _embeddingP(
       name: name,
@@ -2793,6 +2871,7 @@ class AiModelCatalog {
       maxDimensions: maxDimensions,
       maxInputsPerBatch: maxInputsPerBatch,
       maxTokensPerBatch: maxTokensPerBatch,
+      supportsTruncation: supportsTruncation || defaultTruncation != null,
     );
   }
 

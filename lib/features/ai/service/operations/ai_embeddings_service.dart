@@ -587,7 +587,8 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
         if (context.trimmedInputType != null)
           'input_type': context.trimmedInputType,
         if (embeddingType != null) 'embedding_types': <String>[embeddingType],
-        if (context.positiveDimensions != null)
+        if (context.supportsParameter('output_dimension') &&
+            context.positiveDimensions != null)
           'output_dimension': context.positiveDimensions,
         if (context.trimmedTruncation != null)
           'truncate': context.trimmedTruncation,
@@ -668,6 +669,9 @@ class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
         if (embeddingType != null) 'embedding_type': embeddingType,
         if (context.profile.embeddingOutputsNormalized != null)
           'normalized': context.profile.embeddingOutputsNormalized,
+        if (context.supportsParameter('truncate') &&
+            context.trimmedTruncation != null)
+          'truncate': _truncationValue(context.trimmedTruncation),
       }),
     );
     return _EmbeddingRequestPlan(
