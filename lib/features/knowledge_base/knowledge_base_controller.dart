@@ -14,7 +14,9 @@ import 'model/knowledge_chunk.dart';
 import 'model/knowledge_message_metadata.dart';
 import 'model/knowledge_retrieval_result.dart';
 import 'model/knowledge_source.dart';
+import 'service/knowledge_chunker.dart';
 import 'service/knowledge_dependency_service.dart';
+import 'service/knowledge_document_parser.dart';
 import 'service/knowledge_embedding_service.dart';
 import 'service/knowledge_indexing_control.dart';
 import 'service/knowledge_ingestion_service.dart';
@@ -186,12 +188,85 @@ class KnowledgeBaseController extends ChangeNotifier {
     );
   }
 
-  Future<List<KnowledgeChunk>> loadChunksForSource(String sourceId) {
-    return _store.loadChunksForSource(sourceId);
+  Future<List<KnowledgeChunk>> loadChunksForSource(String sourceId) async {
+    final chunks = await _store.loadChunksForSource(sourceId);
+    if (chunks.isNotEmpty) {
+      return chunks;
+    }
+    final source = await _store.loadSource(sourceId);
+    if (source == null || source.status != 'indexed') {
+      return chunks;
+    }
+    final restored = await _restoreMissingChunksForSource(source);
+    if (restored.isNotEmpty) {
+      notifyListeners();
+      return restored;
+    }
+    return chunks;
   }
 
   Future<KnowledgeSource?> loadSource(String sourceId) {
     return _store.loadSource(sourceId);
+  }
+
+  Future<List<KnowledgeChunk>> _restoreMissingChunksForSource(
+    KnowledgeSource source,
+  ) async {
+    try {
+      final file = await _resolveReadableSourceFile(source);
+      if (file == null) {
+        return const <KnowledgeChunk>[];
+      }
+      final stat = await file.stat();
+      final tags = _sourceTags(source);
+      final parsed = await const KnowledgeDocumentParserRegistry().parse(
+        KnowledgeDocumentParseRequest(
+          file: file,
+          settings: _settings,
+          stat: stat,
+          tags: tags,
+        ),
+      );
+      final chunks = const KnowledgeChunker().chunk(
+        source: source,
+        text: parsed.text,
+        settings: _settings,
+        tags: tags,
+      );
+      if (chunks.isEmpty) {
+        return const <KnowledgeChunk>[];
+      }
+      await _store.replaceChunks(sourceId: source.id, chunks: chunks);
+      return chunks;
+    } catch (_) {
+      return const <KnowledgeChunk>[];
+    }
+  }
+
+  Future<File?> _resolveReadableSourceFile(KnowledgeSource source) async {
+    for (final path in <String>[source.storedPath, source.originalPath]) {
+      final normalized = path.trim();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      final file = File(normalized);
+      if (await file.exists()) {
+        return file;
+      }
+    }
+    return null;
+  }
+
+  List<String> _sourceTags(KnowledgeSource source) {
+    final raw = source.metadata['tags'];
+    if (raw is! Iterable) {
+      return const <String>[];
+    }
+    return raw
+        .map((tag) => '$tag'.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
   }
 
   Future<({int sourceCount, int chunkCount, int pendingJobs, int failedJobs})>

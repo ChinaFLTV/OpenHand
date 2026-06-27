@@ -35,11 +35,19 @@ class KnowledgeBaseStore {
   }
 
   Future<void> upsertSource(KnowledgeSource source) async {
-    await _db.insert(
-      'knowledge_sources',
-      source.toRow(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.transaction((txn) async {
+      final row = source.toRow();
+      final updated = await txn.update(
+        'knowledge_sources',
+        row,
+        where: 'id = ?',
+        whereArgs: <Object?>[source.id],
+      );
+      if (updated > 0) {
+        return;
+      }
+      await txn.insert('knowledge_sources', row);
+    });
   }
 
   Future<void> deleteSource(String sourceId) async {

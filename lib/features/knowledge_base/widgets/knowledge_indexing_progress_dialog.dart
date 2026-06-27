@@ -155,9 +155,9 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                     const SizedBox(height: 18),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        minHeight: 9,
-                        value: cancelling ? null : progress.fraction,
+                      child: _KnowledgeIndexingProgressBar(
+                        value: progress.fraction,
+                        indeterminate: cancelling,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -239,6 +239,73 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _KnowledgeIndexingProgressBar extends StatefulWidget {
+  const _KnowledgeIndexingProgressBar({
+    required this.value,
+    required this.indeterminate,
+  });
+
+  final double? value;
+  final bool indeterminate;
+
+  @override
+  State<_KnowledgeIndexingProgressBar> createState() =>
+      _KnowledgeIndexingProgressBarState();
+}
+
+class _KnowledgeIndexingProgressBarState
+    extends State<_KnowledgeIndexingProgressBar> {
+  double _begin = 0;
+  double _end = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialValue = _normalizedValue(widget.value);
+    _begin = initialValue;
+    _end = initialValue;
+  }
+
+  @override
+  void didUpdateWidget(covariant _KnowledgeIndexingProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.indeterminate || widget.value == null) {
+      return;
+    }
+    final next = _normalizedValue(widget.value);
+    if (next == _end) {
+      return;
+    }
+    _begin = _normalizedValue(oldWidget.value ?? _end);
+    _end = next;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.indeterminate || widget.value == null) {
+      return const LinearProgressIndicator(minHeight: 9);
+    }
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: _begin, end: _end),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) {
+        return LinearProgressIndicator(minHeight: 9, value: value);
+      },
+    );
+  }
+
+  double _normalizedValue(double? value) {
+    if (value == null || value.isNaN || !value.isFinite) {
+      return 0;
+    }
+    return value.clamp(0.0, 1.0).toDouble();
   }
 }
 
