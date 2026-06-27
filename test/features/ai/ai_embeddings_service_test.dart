@@ -159,6 +159,7 @@ void main() {
           input: const <String>['alpha', 'beta'],
         );
 
+        expect(client.requests.single.url.path, '/v2/embed');
         expect(client.bodies.single, <String, Object?>{
           'model': 'embed-v4.0',
           'texts': <String>['alpha', 'beta'],
@@ -242,6 +243,7 @@ void main() {
         'task': 'retrieval.query',
         'dimensions': 256,
         'embedding_type': 'float',
+        'normalized': true,
       });
     });
 
@@ -360,6 +362,19 @@ void main() {
       expect(qwen?.embeddingBatchSize, 10);
       expect(glm?.supportsEmbeddings, isTrue);
       expect(glm?.embeddingDimensions, 2048);
+      final jina = AiModelCatalog.lookup(
+        'jina-embeddings-v3',
+        AiProtocolType.openai,
+      );
+      expect(jina?.supportsEmbeddings, isTrue);
+      expect(jina?.embeddingOutputsNormalized, isTrue);
+      expect(jina?.embeddingDefaultQueryTaskType, 'retrieval.query');
+      final bce = AiModelCatalog.lookup(
+        'bce-embedding-base_v1',
+        AiProtocolType.openai,
+      );
+      expect(bce?.displayName, 'BCE Embedding');
+      expect(bce?.embeddingDimensions, 768);
       expect(claude?.supportsEmbeddings ?? false, isFalse);
     });
 
@@ -389,6 +404,43 @@ void main() {
         expect(profile.embeddingDefaultQueryTaskType, 'RETRIEVAL_QUERY');
       },
     );
+
+    test('round-trips extended embedding profile parameters', () {
+      const profile = AiModelProfile(
+        capabilities: <AiModelCapability>{
+          AiModelCapability.embeddingGeneration,
+        },
+        embeddingInputTypes: <String>['document', 'query'],
+        embeddingDefaultInputType: 'document',
+        embeddingQueryInputType: 'query',
+        embeddingDocumentInputType: 'document',
+        embeddingSupportedTaskTypes: <String>['retrieval.query'],
+        embeddingDefaultTaskType: 'retrieval.passage',
+        embeddingDefaultQueryTaskType: 'retrieval.query',
+        embeddingDefaultDocumentTaskType: 'retrieval.passage',
+        embeddingEncodingFormats: <String>['float'],
+        embeddingDefaultEncodingFormat: 'float',
+        embeddingOutputDTypes: <String>['float', 'int8'],
+        embeddingDefaultOutputDType: 'float',
+        embeddingDefaultTruncation: 'END',
+        embeddingSimilarityMetric: 'cosine',
+        embeddingOutputsNormalized: true,
+      );
+
+      final roundTripped = AiModelProfile.fromJson(profile.toJson());
+
+      expect(roundTripped.embeddingDefaultInputType, 'document');
+      expect(roundTripped.embeddingQueryInputType, 'query');
+      expect(roundTripped.embeddingDocumentInputType, 'document');
+      expect(roundTripped.embeddingDefaultQueryTaskType, 'retrieval.query');
+      expect(
+        roundTripped.embeddingDefaultDocumentTaskType,
+        'retrieval.passage',
+      );
+      expect(roundTripped.embeddingDefaultOutputDType, 'float');
+      expect(roundTripped.embeddingDefaultTruncation, 'END');
+      expect(roundTripped.embeddingOutputsNormalized, isTrue);
+    });
   });
 }
 

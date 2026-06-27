@@ -63,28 +63,27 @@ class AiModelCatalog {
     // patterns.  Handles cases like DeepSeek models served via Aliyun/Qwen,
     // or GLM models accessed through OpenAI-compatible endpoints.
     return _openai(id) ??
-        _claude(id) ??
         _gemini(id) ??
+        _mistral(id) ??
+        _cohere(id) ??
+        _voyage(id) ??
+        _jina(id) ??
+        _openSourceEmbedding(id) ??
+        _claude(id) ??
         _deepseek(id) ??
         _qwen(id) ??
         _glm(id) ??
         _kimi(id) ??
-        _seed(id) ??
         _stepfun(id) ??
+        _seed(id) ??
         _minimax(id) ??
         _agnes(id) ??
         _longcat(id) ??
         _joycode(id) ??
         _wenxin(id) ??
         _meta(id) ??
-        _mistral(id) ??
-        _cohere(id) ??
-        _voyage(id) ??
-        _jina(id) ??
-        _openSourceEmbedding(id) ??
         _grok(id) ??
-        _hunyuan(id) ??
-        _minimax(id);
+        _hunyuan(id);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2323,6 +2322,7 @@ class AiModelCatalog {
         dimensions: 1536,
         maxInputTokens: 128000,
         customDimensions: true,
+        endpointPath: 'v2/embed',
         batchSize: 96,
         supportedParameters: _cohereEmbeddingParameters,
         inputTypes: const <String>['search_document', 'search_query', 'image'],
@@ -2357,6 +2357,7 @@ class AiModelCatalog {
         context: 512,
         dimensions: 1024,
         maxInputTokens: 512,
+        endpointPath: 'v2/embed',
         batchSize: 96,
         supportedParameters: _cohereEmbeddingParameters,
         inputTypes: const <String>['search_document', 'search_query'],
@@ -2381,6 +2382,7 @@ class AiModelCatalog {
         context: 512,
         dimensions: 1024,
         maxInputTokens: 512,
+        endpointPath: 'v2/embed',
         batchSize: 96,
         supportedParameters: _cohereEmbeddingParameters,
         inputTypes: const <String>['search_document', 'search_query'],
