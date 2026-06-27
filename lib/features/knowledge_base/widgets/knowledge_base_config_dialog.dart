@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -855,6 +857,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     return values.isEmpty ? '-' : values.join(', ');
   }
 
+  String _jsonMapLabel(Map<String, Object?> values) {
+    return values.isEmpty ? '-' : jsonEncode(values);
+  }
+
   String _nullableBoolLabel(BuildContext context, bool? value) {
     final isZh = openHandIsChineseLocale(context);
     return switch (value) {
@@ -912,6 +918,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       (
         isZh ? '支持参数' : 'Supported Parameters',
         _listLabel(profile.supportedParameters),
+      ),
+      (
+        isZh ? '默认参数' : 'Default Parameters',
+        _jsonMapLabel(profile.defaultParameters),
       ),
       (
         isZh ? '输入类型' : 'Input Types',

@@ -2144,6 +2144,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _knowledgeCutoffController;
   late final TextEditingController _expirationDateController;
   late final TextEditingController _supportedParametersController;
+  late final TextEditingController _defaultParametersController;
   late final TextEditingController _embeddingDimensionsController;
   late final TextEditingController _embeddingMaxInputTokensController;
   late final TextEditingController _embeddingEndpointPathController;
@@ -2180,6 +2181,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late bool _isGlobalDefaultTitleModel;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
+  String? _profileErrorMessage;
 
   @override
   void initState() {
@@ -2264,6 +2266,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         p.supportedParameters.isNotEmpty
             ? p.supportedParameters
             : effective.supportedParameters,
+      ),
+    );
+    _defaultParametersController = TextEditingController(
+      text: _prettyJson(
+        p.defaultParameters.isNotEmpty
+            ? p.defaultParameters
+            : effective.defaultParameters,
       ),
     );
     _embeddingDimensionsController = TextEditingController(
@@ -2535,6 +2544,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _knowledgeCutoffController.dispose();
     _expirationDateController.dispose();
     _supportedParametersController.dispose();
+    _defaultParametersController.dispose();
     _embeddingDimensionsController.dispose();
     _embeddingMaxInputTokensController.dispose();
     _embeddingEndpointPathController.dispose();
@@ -2577,6 +2587,24 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     return result;
   }
 
+  Map<String, Object?> _parseJsonObject(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return const <String, Object?>{};
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map<String, Object?>) {
+      return Map<String, Object?>.from(decoded);
+    }
+    if (decoded is Map) {
+      return Map<String, Object?>.from(decoded);
+    }
+    throw const FormatException('JSON value must be an object.');
+  }
+
+  String _prettyJson(Map<String, Object?> map) {
+    if (map.isEmpty) return '';
+    return const JsonEncoder.withIndent('  ').convert(map);
+  }
+
   String? _optionalText(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
@@ -2599,6 +2627,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   }
 
   void _save() {
+    late final Map<String, Object?> defaultParameters;
+    try {
+      defaultParameters = _parseJsonObject(_defaultParametersController.text);
+    } on FormatException {
+      setState(() {
+        _profileErrorMessage = openHandIsChineseLocale(context)
+            ? 'default_parameters 必须是合法的 JSON 对象。'
+            : 'default_parameters must be a valid JSON object.';
+      });
+      return;
+    }
+
     final profile = AiModelProfile(
       displayName: _displayNameController.text.trim().isNotEmpty
           ? _displayNameController.text.trim()
@@ -2636,6 +2676,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           ? _expirationDateController.text.trim()
           : null,
       supportedParameters: _parseCsv(_supportedParametersController.text),
+      defaultParameters: defaultParameters,
       isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
       embeddingDimensions: _parsePositiveInt(
         _embeddingDimensionsController.text,
@@ -2856,6 +2897,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (_profileErrorMessage != null) ...[
+                Text(
+                  _profileErrorMessage!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Display name
               TextField(
@@ -3538,6 +3589,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 decoration: const InputDecoration(
                   labelText: 'supported_parameters (CSV)',
                   hintText: 'input, model, input_type, truncate',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _defaultParametersController,
+                minLines: 2,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: 'default_parameters (JSON)',
+                  hintText: '{"encoding_format": "float"}',
+                  alignLabelWithHint: true,
                   isDense: true,
                 ),
               ),

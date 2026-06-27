@@ -89,6 +89,65 @@ void main() {
       },
     );
 
+    test(
+      'merges profile embedding defaults below explicit payload and extras',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[1, 2],
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        await service.createEmbeddings(
+          model:
+              _model(
+                protocol: AiProtocolType.openai,
+                baseUrl: 'https://api.openai.com',
+                modelId: 'text-embedding-3-small',
+              ).copyWith(
+                modelProfiles: const <String, AiModelProfile>{
+                  'text-embedding-3-small': AiModelProfile(
+                    defaultParameters: <String, Object?>{
+                      'dimensions': 1024,
+                      'encoding_format': 'base64',
+                      'user': 'profile-user',
+                      'provider_flag': true,
+                    },
+                  ),
+                },
+                operationExtras: const <String, Object?>{
+                  'embeddings': <String, Object?>{
+                    'body': <String, Object?>{
+                      'user': 'extra-user',
+                      'extra_flag': true,
+                    },
+                  },
+                },
+              ),
+          input: const <String>['alpha'],
+          dimensions: 512,
+          encodingFormat: 'float',
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'text-embedding-3-small',
+          'input': <String>['alpha'],
+          'dimensions': 512,
+          'encoding_format': 'float',
+          'user': 'extra-user',
+          'provider_flag': true,
+          'extra_flag': true,
+        });
+      },
+    );
+
     test('sends Gemini batch embedding requests and parses values', () async {
       final client = _RecordingHttpClient(
         responseBody: <String, Object?>{
@@ -352,6 +411,63 @@ void main() {
         <double>[0.5, 0.6],
       ]);
     });
+
+    test(
+      'deep merges nested profile defaults for provider parameters only',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'output': <String, Object?>{
+              'embeddings': <Object?>[
+                <String, Object?>{
+                  'embedding': <num>[0.5, 0.6],
+                },
+              ],
+            },
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        await service.createEmbeddings(
+          model:
+              _model(
+                protocol: AiProtocolType.qwen,
+                baseUrl: 'https://dashscope.aliyuncs.com',
+                modelId: 'qwen3-vl-embedding',
+              ).copyWith(
+                modelProfiles: const <String, AiModelProfile>{
+                  'qwen3-vl-embedding': AiModelProfile(
+                    defaultParameters: <String, Object?>{
+                      'input': <String, Object?>{'stale': true},
+                      'parameters': <String, Object?>{
+                        'dimension': 512,
+                        'text_type': 'query',
+                      },
+                    },
+                  ),
+                },
+              ),
+          input: const <String>['find a similar image'],
+          dimensions: 1024,
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'qwen3-vl-embedding',
+          'input': <String, Object?>{
+            'contents': <Object?>[
+              <String, Object?>{'text': 'find a similar image'},
+            ],
+          },
+          'parameters': <String, Object?>{
+            'dimension': 1024,
+            'text_type': 'query',
+            'enable_fusion': true,
+          },
+        });
+      },
+    );
 
     test('rejects multiple DashScope fused multimodal inputs', () async {
       final client = _RecordingHttpClient(

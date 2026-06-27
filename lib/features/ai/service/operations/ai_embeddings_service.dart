@@ -379,6 +379,12 @@ class _EmbeddingRequestContext {
   String? get profileEndpointPath =>
       _trimmedOrNull(profile.embeddingEndpointPath);
 
+  Map<String, Object?> withProfileDefaults(Map<String, Object?> payload) {
+    final defaults = profile.defaultParameters;
+    if (defaults.isEmpty) return payload;
+    return _deepMergeObjectMaps(defaults, payload);
+  }
+
   bool supportsParameter(String key) {
     final normalizedKey = key.trim().toLowerCase();
     if (normalizedKey.isEmpty) return false;
@@ -432,7 +438,7 @@ class _OpenAiCompatibleEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
       family,
-      payload,
+      context.withProfileDefaults(payload),
     );
     return _EmbeddingRequestPlan(
       body: body,
@@ -459,14 +465,14 @@ class _MistralEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
       family,
-      <String, Object?>{
+      context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'input': context.input,
         if (context.positiveDimensions != null)
           'output_dimension': context.positiveDimensions,
         if (context.trimmedOutputDType != null)
           'output_dtype': context.trimmedOutputDType,
-      },
+      }),
     );
     return _EmbeddingRequestPlan(
       body: body,
@@ -495,7 +501,7 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
       family,
-      <String, Object?>{
+      context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'texts': _stringInputList(context.input),
         if (context.trimmedInputType != null)
@@ -503,7 +509,7 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
         if (embeddingType != null) 'embedding_types': <String>[embeddingType],
         if (context.trimmedTruncation != null)
           'truncate': context.trimmedTruncation,
-      },
+      }),
     );
     return _EmbeddingRequestPlan(
       body: body,
@@ -531,7 +537,7 @@ class _VoyageEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
       family,
-      <String, Object?>{
+      context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'input': context.input,
         if (context.trimmedInputType != null)
@@ -541,7 +547,7 @@ class _VoyageEmbeddingStrategy extends _EmbeddingRequestStrategy {
         if (context.trimmedOutputDType != null)
           'output_dtype': context.trimmedOutputDType,
         if (truncation != null) 'truncation': truncation,
-      },
+      }),
     );
     return _EmbeddingRequestPlan(
       body: body,
@@ -571,7 +577,7 @@ class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
       family,
-      <String, Object?>{
+      context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'input': context.input,
         if (context.trimmedTaskType != null) 'task': context.trimmedTaskType,
@@ -580,7 +586,7 @@ class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
         if (embeddingType != null) 'embedding_type': embeddingType,
         if (context.profile.embeddingOutputsNormalized != null)
           'normalized': context.profile.embeddingOutputsNormalized,
-      },
+      }),
     );
     return _EmbeddingRequestPlan(
       body: body,
@@ -639,7 +645,11 @@ class _GeminiEmbeddingStrategy extends _EmbeddingRequestStrategy {
       };
     }
     return _EmbeddingRequestPlan(
-      body: AiOperationHttp.mergeBodyExtras(context.model, family, body),
+      body: AiOperationHttp.mergeBodyExtras(
+        context.model,
+        family,
+        context.withProfileDefaults(body),
+      ),
       fallbackPath:
           context.profileEndpointPath ??
           (isBatch
@@ -679,13 +689,13 @@ class _DashScopeMultimodalEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
       family,
-      <String, Object?>{
+      context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'input': <String, Object?>{
           'contents': _dashScopeMultimodalContents(context.input),
         },
         if (parameters.isNotEmpty) 'parameters': parameters,
-      },
+      }),
     );
     return _EmbeddingRequestPlan(
       body: body,
@@ -755,6 +765,33 @@ Object? _truncationValue(String? value) {
   }
   return value!.trim();
 }
+
+Map<String, Object?> _deepMergeObjectMaps(
+  Map<String, Object?> defaults,
+  Map<String, Object?> overrides,
+) {
+  if (defaults.isEmpty) return overrides;
+  if (overrides.isEmpty) return Map<String, Object?>.from(defaults);
+  final merged = Map<String, Object?>.from(defaults);
+  for (final entry in overrides.entries) {
+    final defaultValue = merged[entry.key];
+    final defaultMap = AiOperationHttp.stringKeyedMap(defaultValue);
+    final overrideMap = AiOperationHttp.stringKeyedMap(entry.value);
+    if (_deepMergeableEmbeddingBodyKeys.contains(entry.key) &&
+        defaultMap.isNotEmpty &&
+        overrideMap.isNotEmpty) {
+      merged[entry.key] = _deepMergeObjectMaps(defaultMap, overrideMap);
+    } else {
+      merged[entry.key] = entry.value;
+    }
+  }
+  return merged;
+}
+
+const Set<String> _deepMergeableEmbeddingBodyKeys = <String>{
+  'metadata',
+  'parameters',
+};
 
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim() ?? '';
