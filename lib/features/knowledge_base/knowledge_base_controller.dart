@@ -244,6 +244,13 @@ class KnowledgeBaseController extends ChangeNotifier {
     );
   }
 
+  Future<Map<String, Object?>> createDefaultQdrantPayloadIndexes() {
+    return _qdrantAdminService.createDefaultPayloadIndexes(
+      _settings,
+      collection: _settings.effectiveCollectionName,
+    );
+  }
+
   Future<void> deleteQdrantPoints(List<String> ids) {
     return _qdrantAdminService.deletePoints(
       _settings,

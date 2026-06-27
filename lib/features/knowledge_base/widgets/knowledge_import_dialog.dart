@@ -32,6 +32,8 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
   final TextEditingController _content = TextEditingController();
   final TextEditingController _tagInput = TextEditingController();
   final List<String> _tags = <String>[];
+  final List<TextEditingValue> _undoStack = <TextEditingValue>[];
+  final List<TextEditingValue> _redoStack = <TextEditingValue>[];
   bool _preview = false;
   bool _saving = false;
 
@@ -59,33 +61,95 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     setState(() => _tags.remove(value));
   }
 
-  void _insertSnippet(String prefix, String suffix, {String placeholder = ''}) {
-    final text = _content.text;
+  void _replaceContent(TextEditingValue value) {
+    _undoStack.add(_content.value);
+    if (_undoStack.length > 80) {
+      _undoStack.removeAt(0);
+    }
+    _redoStack.clear();
+    _content.value = value;
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    _redoStack.add(_content.value);
+    _content.value = _undoStack.removeLast();
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    _undoStack.add(_content.value);
+    _content.value = _redoStack.removeLast();
+  }
+
+  TextSelection _safeSelection(String text) {
     final selection = _content.selection;
-    final safeSelection = selection.isValid
+    return selection.isValid
         ? selection
         : TextSelection.collapsed(offset: text.length);
+  }
+
+  void _insertSnippet(
+    String prefix,
+    String suffix, {
+    String placeholder = '',
+    int? cursorOffset,
+  }) {
+    final text = _content.text;
+    final safeSelection = _safeSelection(text);
     final start = safeSelection.start.clamp(0, text.length).toInt();
     final end = safeSelection.end.clamp(0, text.length).toInt();
     final selected = start == end ? placeholder : text.substring(start, end);
     final next = text.replaceRange(start, end, '$prefix$selected$suffix');
-    final cursor = start + prefix.length + selected.length + suffix.length;
-    _content.value = TextEditingValue(
-      text: next,
-      selection: TextSelection.collapsed(offset: cursor),
+    final cursor =
+        start +
+        (cursorOffset ?? prefix.length + selected.length + suffix.length);
+    _replaceContent(
+      TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: cursor),
+      ),
     );
   }
 
-  void _prefixCurrentLine(String prefix) {
+  void _prefixSelectedLines(String prefix) {
     final text = _content.text;
-    final selection = _content.selection;
-    final cursor = selection.isValid
-        ? selection.baseOffset.clamp(0, text.length).toInt()
-        : text.length;
-    final lineStart = text.lastIndexOf('\n', math.max(0, cursor - 1)) + 1;
-    _content.value = TextEditingValue(
-      text: text.replaceRange(lineStart, lineStart, prefix),
-      selection: TextSelection.collapsed(offset: cursor + prefix.length),
+    final selection = _safeSelection(text);
+    final start = selection.start.clamp(0, text.length).toInt();
+    final end = selection.end.clamp(0, text.length).toInt();
+    final lineStart = text.lastIndexOf('\n', math.max(0, start - 1)) + 1;
+    final lineEnd = end >= text.length ? text.length : text.indexOf('\n', end);
+    final effectiveEnd = lineEnd < 0 ? text.length : lineEnd;
+    final block = text.substring(lineStart, effectiveEnd);
+    final lines = block.split('\n');
+    final replacement = lines.map((line) => '$prefix$line').join('\n');
+    _replaceContent(
+      TextEditingValue(
+        text: text.replaceRange(lineStart, effectiveEnd, replacement),
+        selection: TextSelection(
+          baseOffset: start + prefix.length,
+          extentOffset: end + prefix.length * lines.length,
+        ),
+      ),
+    );
+  }
+
+  void _insertBlock(String block) {
+    final text = _content.text;
+    final selection = _safeSelection(text);
+    final start = selection.start.clamp(0, text.length).toInt();
+    final end = selection.end.clamp(0, text.length).toInt();
+    final needsLeadingBreak =
+        start > 0 && !text.substring(0, start).endsWith('\n');
+    final needsTrailingBreak =
+        end < text.length && !text.substring(end).startsWith('\n');
+    final insert =
+        '${needsLeadingBreak ? '\n' : ''}$block${needsTrailingBreak ? '\n' : ''}';
+    _replaceContent(
+      TextEditingValue(
+        text: text.replaceRange(start, end, insert),
+        selection: TextSelection.collapsed(offset: start + insert.length),
+      ),
     );
   }
 
@@ -159,19 +223,46 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
           onTogglePreview: (value) => setState(() => _preview = value),
           onAddTag: _addTag,
           onRemoveTag: _removeTag,
+          onUndo: _undo,
+          onRedo: _redo,
           onBold: () =>
               _insertSnippet('**', '**', placeholder: isZh ? '加粗' : 'bold'),
           onItalic: () =>
               _insertSnippet('*', '*', placeholder: isZh ? '斜体' : 'italic'),
+          onStrike: () => _insertSnippet(
+            '~~',
+            '~~',
+            placeholder: isZh ? '删除线' : 'strikethrough',
+          ),
           onCode: () => _insertSnippet('`', '`', placeholder: 'code'),
+          onCodeBlock: () => _insertBlock(
+            '```dart\n${isZh ? '// 在这里输入代码' : '// code here'}\n```',
+          ),
           onLink: () => _insertSnippet(
             '[',
             '](https://)',
             placeholder: isZh ? '链接文本' : 'link text',
+            cursorOffset: (isZh ? '链接文本' : 'link text').length + 3,
           ),
-          onHeading: () => _prefixCurrentLine('## '),
-          onList: () => _prefixCurrentLine('- '),
-          onQuote: () => _prefixCurrentLine('> '),
+          onImage: () => _insertSnippet(
+            '![',
+            '](https://)',
+            placeholder: isZh ? '图片描述' : 'image alt',
+            cursorOffset: (isZh ? '图片描述' : 'image alt').length + 4,
+          ),
+          onHeading1: () => _prefixSelectedLines('# '),
+          onHeading2: () => _prefixSelectedLines('## '),
+          onHeading3: () => _prefixSelectedLines('### '),
+          onBulletList: () => _prefixSelectedLines('- '),
+          onOrderedList: () => _prefixSelectedLines('1. '),
+          onTaskList: () => _prefixSelectedLines('- [ ] '),
+          onQuote: () => _prefixSelectedLines('> '),
+          onDivider: () => _insertBlock('---'),
+          onTable: () => _insertBlock(
+            '| ${isZh ? '字段' : 'Field'} | ${isZh ? '说明' : 'Description'} |\n'
+            '| --- | --- |\n'
+            '|  |  |',
+          ),
         ),
       ),
       actions: [
@@ -201,13 +292,24 @@ class _KnowledgeNoteEditor extends StatelessWidget {
     required this.onTogglePreview,
     required this.onAddTag,
     required this.onRemoveTag,
+    required this.onUndo,
+    required this.onRedo,
     required this.onBold,
     required this.onItalic,
+    required this.onStrike,
     required this.onCode,
+    required this.onCodeBlock,
     required this.onLink,
-    required this.onHeading,
-    required this.onList,
+    required this.onImage,
+    required this.onHeading1,
+    required this.onHeading2,
+    required this.onHeading3,
+    required this.onBulletList,
+    required this.onOrderedList,
+    required this.onTaskList,
     required this.onQuote,
+    required this.onDivider,
+    required this.onTable,
   });
 
   final TextEditingController title;
@@ -219,13 +321,24 @@ class _KnowledgeNoteEditor extends StatelessWidget {
   final ValueChanged<bool> onTogglePreview;
   final VoidCallback onAddTag;
   final ValueChanged<String> onRemoveTag;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
   final VoidCallback onBold;
   final VoidCallback onItalic;
+  final VoidCallback onStrike;
   final VoidCallback onCode;
+  final VoidCallback onCodeBlock;
   final VoidCallback onLink;
-  final VoidCallback onHeading;
-  final VoidCallback onList;
+  final VoidCallback onImage;
+  final VoidCallback onHeading1;
+  final VoidCallback onHeading2;
+  final VoidCallback onHeading3;
+  final VoidCallback onBulletList;
+  final VoidCallback onOrderedList;
+  final VoidCallback onTaskList;
   final VoidCallback onQuote;
+  final VoidCallback onDivider;
+  final VoidCallback onTable;
 
   @override
   Widget build(BuildContext context) {
@@ -324,12 +437,22 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                height: 48,
-                child: FilledButton.tonalIcon(
-                  onPressed: onAddTag,
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(isZh ? '添加' : 'Add'),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 116),
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton.tonalIcon(
+                    onPressed: onAddTag,
+                    icon: const Icon(Icons.add_rounded),
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        isZh ? '添加' : 'Add',
+                        maxLines: 1,
+                        softWrap: false,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -353,13 +476,24 @@ class _KnowledgeNoteEditor extends StatelessWidget {
           const SizedBox(height: 10),
           _MarkdownToolbar(
             isZh: isZh,
+            onUndo: onUndo,
+            onRedo: onRedo,
             onBold: onBold,
             onItalic: onItalic,
+            onStrike: onStrike,
             onCode: onCode,
+            onCodeBlock: onCodeBlock,
             onLink: onLink,
-            onHeading: onHeading,
-            onList: onList,
+            onImage: onImage,
+            onHeading1: onHeading1,
+            onHeading2: onHeading2,
+            onHeading3: onHeading3,
+            onBulletList: onBulletList,
+            onOrderedList: onOrderedList,
+            onTaskList: onTaskList,
             onQuote: onQuote,
+            onDivider: onDivider,
+            onTable: onTable,
           ),
           const SizedBox(height: 10),
           Expanded(
@@ -389,23 +523,45 @@ class _KnowledgeNoteEditor extends StatelessWidget {
 class _MarkdownToolbar extends StatelessWidget {
   const _MarkdownToolbar({
     required this.isZh,
+    required this.onUndo,
+    required this.onRedo,
     required this.onBold,
     required this.onItalic,
+    required this.onStrike,
     required this.onCode,
+    required this.onCodeBlock,
     required this.onLink,
-    required this.onHeading,
-    required this.onList,
+    required this.onImage,
+    required this.onHeading1,
+    required this.onHeading2,
+    required this.onHeading3,
+    required this.onBulletList,
+    required this.onOrderedList,
+    required this.onTaskList,
     required this.onQuote,
+    required this.onDivider,
+    required this.onTable,
   });
 
   final bool isZh;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
   final VoidCallback onBold;
   final VoidCallback onItalic;
+  final VoidCallback onStrike;
   final VoidCallback onCode;
+  final VoidCallback onCodeBlock;
   final VoidCallback onLink;
-  final VoidCallback onHeading;
-  final VoidCallback onList;
+  final VoidCallback onImage;
+  final VoidCallback onHeading1;
+  final VoidCallback onHeading2;
+  final VoidCallback onHeading3;
+  final VoidCallback onBulletList;
+  final VoidCallback onOrderedList;
+  final VoidCallback onTaskList;
   final VoidCallback onQuote;
+  final VoidCallback onDivider;
+  final VoidCallback onTable;
 
   @override
   Widget build(BuildContext context) {
@@ -424,10 +580,32 @@ class _MarkdownToolbar extends StatelessWidget {
         runSpacing: 6,
         children: [
           _ToolbarButton(
-            tooltip: isZh ? '标题' : 'Heading',
-            icon: Icons.title_rounded,
-            onPressed: onHeading,
+            tooltip: isZh ? '撤销' : 'Undo',
+            icon: Icons.undo_rounded,
+            onPressed: onUndo,
           ),
+          _ToolbarButton(
+            tooltip: isZh ? '重做' : 'Redo',
+            icon: Icons.redo_rounded,
+            onPressed: onRedo,
+          ),
+          _ToolbarDivider(),
+          _ToolbarButton(
+            tooltip: isZh ? '一级标题' : 'Heading 1',
+            label: 'H1',
+            onPressed: onHeading1,
+          ),
+          _ToolbarButton(
+            tooltip: isZh ? '二级标题' : 'Heading 2',
+            label: 'H2',
+            onPressed: onHeading2,
+          ),
+          _ToolbarButton(
+            tooltip: isZh ? '三级标题' : 'Heading 3',
+            label: 'H3',
+            onPressed: onHeading3,
+          ),
+          _ToolbarDivider(),
           _ToolbarButton(
             tooltip: isZh ? '加粗' : 'Bold',
             icon: Icons.format_bold_rounded,
@@ -439,24 +617,61 @@ class _MarkdownToolbar extends StatelessWidget {
             onPressed: onItalic,
           ),
           _ToolbarButton(
+            tooltip: isZh ? '删除线' : 'Strikethrough',
+            icon: Icons.format_strikethrough_rounded,
+            onPressed: onStrike,
+          ),
+          _ToolbarButton(
             tooltip: isZh ? '代码' : 'Code',
             icon: Icons.code_rounded,
             onPressed: onCode,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '列表' : 'List',
+            tooltip: isZh ? '代码块' : 'Code block',
+            icon: Icons.integration_instructions_rounded,
+            onPressed: onCodeBlock,
+          ),
+          _ToolbarDivider(),
+          _ToolbarButton(
+            tooltip: isZh ? '无序列表' : 'Bullet list',
             icon: Icons.format_list_bulleted_rounded,
-            onPressed: onList,
+            onPressed: onBulletList,
+          ),
+          _ToolbarButton(
+            tooltip: isZh ? '有序列表' : 'Ordered list',
+            icon: Icons.format_list_numbered_rounded,
+            onPressed: onOrderedList,
+          ),
+          _ToolbarButton(
+            tooltip: isZh ? '任务列表' : 'Task list',
+            icon: Icons.checklist_rounded,
+            onPressed: onTaskList,
           ),
           _ToolbarButton(
             tooltip: isZh ? '引用' : 'Quote',
             icon: Icons.format_quote_rounded,
             onPressed: onQuote,
           ),
+          _ToolbarDivider(),
           _ToolbarButton(
             tooltip: isZh ? '链接' : 'Link',
             icon: Icons.link_rounded,
             onPressed: onLink,
+          ),
+          _ToolbarButton(
+            tooltip: isZh ? '图片' : 'Image',
+            icon: Icons.image_outlined,
+            onPressed: onImage,
+          ),
+          _ToolbarButton(
+            tooltip: isZh ? '表格' : 'Table',
+            icon: Icons.table_chart_outlined,
+            onPressed: onTable,
+          ),
+          _ToolbarButton(
+            tooltip: isZh ? '分割线' : 'Divider',
+            icon: Icons.horizontal_rule_rounded,
+            onPressed: onDivider,
           ),
         ],
       ),
@@ -467,12 +682,14 @@ class _MarkdownToolbar extends StatelessWidget {
 class _ToolbarButton extends StatelessWidget {
   const _ToolbarButton({
     required this.tooltip,
-    required this.icon,
     required this.onPressed,
+    this.icon,
+    this.label,
   });
 
   final String tooltip;
-  final IconData icon;
+  final IconData? icon;
+  final String? label;
   final VoidCallback onPressed;
 
   @override
@@ -481,11 +698,35 @@ class _ToolbarButton extends StatelessWidget {
       message: tooltip,
       child: IconButton.filledTonal(
         onPressed: onPressed,
-        icon: Icon(icon),
+        icon: icon == null
+            ? Text(
+                label ?? '',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900),
+              )
+            : Icon(icon),
         iconSize: 18,
         constraints: const BoxConstraints.tightFor(width: 36, height: 36),
         padding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+}
+
+class _ToolbarDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 8,
+      height: 36,
+      child: Center(
+        child: Container(
+          width: 1,
+          height: 20,
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
       ),
     );
   }

@@ -99,6 +99,48 @@ class QdrantAdminService {
     );
   }
 
+  Future<Map<String, Object?>> createPayloadIndex(
+    KnowledgeBaseSettings settings, {
+    required String collection,
+    required String fieldName,
+    required String fieldSchema,
+  }) {
+    return _request(
+      settings,
+      'PUT',
+      '/collections/$collection/index',
+      body: <String, Object?>{
+        'field_name': fieldName,
+        'field_schema': fieldSchema,
+      },
+      action: 'create_payload_index',
+    );
+  }
+
+  Future<Map<String, Object?>> createDefaultPayloadIndexes(
+    KnowledgeBaseSettings settings, {
+    required String collection,
+  }) async {
+    const fields = <String, String>{
+      'source_id': 'keyword',
+      'chunk_id': 'keyword',
+      'source_kind': 'keyword',
+      'tags': 'keyword',
+      'document_time': 'datetime',
+      'updated_at': 'datetime',
+    };
+    final results = <String, Object?>{};
+    for (final entry in fields.entries) {
+      results[entry.key] = await createPayloadIndex(
+        settings,
+        collection: collection,
+        fieldName: entry.key,
+        fieldSchema: entry.value,
+      );
+    }
+    return results;
+  }
+
   Future<void> deletePoints(
     KnowledgeBaseSettings settings, {
     required String collection,

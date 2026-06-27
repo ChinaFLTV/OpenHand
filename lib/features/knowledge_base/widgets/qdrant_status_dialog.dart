@@ -151,7 +151,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       if (parsed == null || parsed.isNaN || !parsed.isFinite) {
         OpenHandSnackBar.showError(
           context,
-          isZh ? 'Raw vector 包含无效数值：$value' : 'Invalid vector number: $value',
+          isZh ? '原始向量包含无效数值：$value' : 'Invalid vector number: $value',
         );
         return null;
       }
@@ -165,7 +165,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       OpenHandSnackBar.showError(
         context,
         isZh
-            ? 'Raw vector 维度为 ${vector.length}，当前配置要求 $dimensions。'
+            ? '原始向量维度为 ${vector.length}，当前配置要求 $dimensions。'
             : 'Raw vector has ${vector.length} dimensions; current settings require $dimensions.',
       );
       return null;
@@ -251,6 +251,22 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     );
   }
 
+  Future<void> _createPayloadIndexes() async {
+    await _runOperation(
+      (controller) => controller.createDefaultQdrantPayloadIndexes(),
+    );
+    if (!mounted) return;
+    OpenHandSnackBar.showSuccess(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '常用 Payload 索引已提交创建/重建。',
+        en: 'Default payload index creation submitted.',
+      ),
+    );
+    await _refresh(silent: true);
+  }
+
   Future<void> _deletePoints() async {
     final controller = context.read<KnowledgeBaseController>();
     final isZh = openHandIsChineseLocale(context);
@@ -267,17 +283,17 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     if (ids.isEmpty) {
       OpenHandSnackBar.showError(
         context,
-        isZh ? '请先输入要删除的 point id。' : 'Enter point IDs to delete first.',
+        isZh ? '请先输入要删除的向量点 ID。' : 'Enter point IDs to delete first.',
       );
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除 Qdrant points？' : 'Delete Qdrant points?',
+      title: isZh ? '删除 Qdrant 向量点？' : 'Delete Qdrant points?',
       message: isZh
-          ? '将从当前 collection 删除 ${ids.length} 个 points。此操作不可撤销。'
+          ? '将从当前集合删除 ${ids.length} 个向量点。此操作不可撤销。'
           : 'This deletes ${ids.length} points from the current collection. This cannot be undone.',
-      confirmLabel: isZh ? '删除 Points' : 'Delete points',
+      confirmLabel: isZh ? '删除向量点' : 'Delete points',
       destructive: true,
     );
     if (confirmed != true || !mounted) return;
@@ -290,7 +306,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       if (!mounted) return;
       OpenHandSnackBar.showSuccess(
         context,
-        isZh ? 'Points 已删除。' : 'Points deleted.',
+        isZh ? '向量点已删除。' : 'Points deleted.',
       );
       await _refresh(silent: true);
     } catch (error) {
@@ -320,11 +336,11 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除 Qdrant collection？' : 'Delete Qdrant collection?',
+      title: isZh ? '删除 Qdrant 集合？' : 'Delete Qdrant collection?',
       message: isZh
-          ? '将删除 collection "$collection" 及其中所有 points。此操作不可撤销。'
+          ? '将删除集合 "$collection" 及其中所有向量点。此操作不可撤销。'
           : 'This deletes collection "$collection" and all points in it. This cannot be undone.',
-      confirmLabel: isZh ? '删除 Collection' : 'Delete collection',
+      confirmLabel: isZh ? '删除集合' : 'Delete collection',
       destructive: true,
     );
     if (confirmed != true || !mounted) return;
@@ -337,7 +353,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       if (!mounted) return;
       OpenHandSnackBar.showSuccess(
         context,
-        isZh ? 'Collection 已删除。' : 'Collection deleted.',
+        isZh ? '集合已删除。' : 'Collection deleted.',
       );
       await _refresh(silent: true);
     } catch (error) {
@@ -406,8 +422,8 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                 isScrollable: true,
                 tabs: [
                   Tab(text: isZh ? '总览监控' : 'Overview'),
-                  Tab(text: isZh ? 'Collections' : 'Collections'),
-                  Tab(text: isZh ? 'Points 查询' : 'Points'),
+                  Tab(text: isZh ? '集合管理' : 'Collections'),
+                  Tab(text: isZh ? '向量点查询' : 'Points'),
                   Tab(text: isZh ? '诊断日志' : 'Diagnostics'),
                 ],
               ),
@@ -439,6 +455,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                       onLoadIds: _loadPointIds,
                       onScroll: _scrollPoints,
                       onSearchVector: _searchVector,
+                      onCreatePayloadIndexes: _createPayloadIndexes,
                       onDeletePoints: _deletePoints,
                     ),
                     _DiagnosticsTab(
@@ -489,9 +506,9 @@ class _QdrantOpsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final overview = snapshot?.sections['总览'];
+    final overview = snapshot?.sections['overview'];
     final status =
-        '${overview?['服务状态'] ?? (refreshing ? 'loading' : 'unknown')}';
+        '${overview?['service_status'] ?? (refreshing ? 'loading' : 'unknown')}';
     final statusColor = status == 'healthy'
         ? colorScheme.primary
         : status == 'loading'
@@ -528,7 +545,7 @@ class _QdrantOpsHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${overview?['REST endpoint'] ?? '-'} · ${overview?['当前 collection'] ?? '-'}',
+                  '${overview?['rest_endpoint'] ?? '-'} · ${overview?['current_collection'] ?? '-'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -539,7 +556,11 @@ class _QdrantOpsHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          _StatusPill(icon: Icons.circle, label: status, color: statusColor),
+          _StatusPill(
+            icon: Icons.circle,
+            label: '${_localizedMetricValue(isZh, status)}',
+            color: statusColor,
+          ),
         ],
       ),
     );
@@ -562,8 +583,9 @@ class _OverviewTab extends StatelessWidget {
     if (snapshot == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final api = snapshot!.sections['Qdrant API 指标'] ?? const {};
-    final openhand = snapshot!.sections['OpenHand 知识库指标'] ?? const {};
+    final api = snapshot!.sections['qdrant_api'] ?? const {};
+    final storage = snapshot!.sections['storage_optimizer'] ?? const {};
+    final openhand = snapshot!.sections['openhand_knowledge'] ?? const {};
     return SingleChildScrollView(
       physics: openHandDialogAwareScrollPhysics(context),
       child: Column(
@@ -575,28 +597,33 @@ class _OverviewTab extends StatelessWidget {
             children: [
               _MetricCard(
                 icon: Icons.dataset_outlined,
-                label: isZh ? 'Collections' : 'Collections',
-                value: '${api['collections 总数'] ?? 0}',
+                label: isZh ? '集合' : 'Collections',
+                value: '${api['collections_total'] ?? 0}',
               ),
               _MetricCard(
                 icon: Icons.scatter_plot_outlined,
-                label: isZh ? 'Points' : 'Points',
-                value: '${api['points 总数'] ?? 0}',
+                label: isZh ? '向量点' : 'Points',
+                value: '${api['points_total'] ?? 0}',
               ),
               _MetricCard(
                 icon: Icons.polyline_outlined,
-                label: isZh ? 'Indexed vectors' : 'Indexed vectors',
-                value: '${api['indexed vectors 总数'] ?? 0}',
+                label: isZh ? '已索引向量' : 'Indexed vectors',
+                value: '${api['indexed_vectors_total'] ?? 0}',
               ),
               _MetricCard(
                 icon: Icons.segment_outlined,
-                label: isZh ? 'Chunks' : 'Chunks',
-                value: '${openhand['chunk 数'] ?? 0}',
+                label: isZh ? '分块' : 'Chunks',
+                value: '${openhand['chunk_count'] ?? 0}',
               ),
               _MetricCard(
                 icon: Icons.pending_actions_outlined,
-                label: isZh ? 'Pending jobs' : 'Pending jobs',
-                value: '${openhand['待 embedding job 数'] ?? 0}',
+                label: isZh ? '待处理任务' : 'Pending jobs',
+                value: '${openhand['pending_embedding_jobs'] ?? 0}',
+              ),
+              _MetricCard(
+                icon: Icons.storage_outlined,
+                label: isZh ? 'WAL 容量' : 'WAL capacity',
+                value: '${storage['wal_capacity_mb'] ?? '-'}',
               ),
             ],
           ),
@@ -640,7 +667,7 @@ class _CollectionsTab extends StatelessWidget {
         child: KnowledgeDialogNotice(
           icon: Icons.info_outline_rounded,
           message: isZh
-              ? '没有 collection，或当前 Qdrant 服务不可用。'
+              ? '没有集合，或当前 Qdrant 服务不可用。'
               : 'No collection found, or Qdrant is unavailable.',
         ),
       );
@@ -677,6 +704,7 @@ class _PointsTab extends StatelessWidget {
     required this.onLoadIds,
     required this.onScroll,
     required this.onSearchVector,
+    required this.onCreatePayloadIndexes,
     required this.onDeletePoints,
   });
 
@@ -691,6 +719,7 @@ class _PointsTab extends StatelessWidget {
   final VoidCallback onLoadIds;
   final VoidCallback onScroll;
   final VoidCallback onSearchVector;
+  final VoidCallback onCreatePayloadIndexes;
   final VoidCallback onDeletePoints;
 
   @override
@@ -701,9 +730,7 @@ class _PointsTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           KnowledgeDialogSection(
-            title: isZh
-                ? 'Points / Search / Scroll'
-                : 'Points / Search / Scroll',
+            title: isZh ? '向量点查询 / 搜索 / 滚动读取' : 'Points / Search / Scroll',
             icon: Icons.manage_search_rounded,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -715,24 +742,22 @@ class _PointsTab extends StatelessWidget {
                     _OpsTextField(
                       controller: pointIds,
                       width: 300,
-                      label: isZh
-                          ? 'Point / chunk IDs（空格或逗号分隔）'
-                          : 'Point / chunk IDs',
+                      label: isZh ? '向量点/分块 ID（空格或逗号分隔）' : 'Point / chunk IDs',
                     ),
                     _OpsTextField(
                       controller: sourceId,
                       width: 210,
-                      label: isZh ? 'source_id 过滤' : 'source_id filter',
+                      label: isZh ? '来源 ID 过滤' : 'Source ID filter',
                     ),
                     _OpsTextField(
                       controller: tag,
                       width: 170,
-                      label: isZh ? 'tag 过滤' : 'tag filter',
+                      label: isZh ? '标签过滤' : 'Tag filter',
                     ),
                     _OpsTextField(
                       controller: limit,
                       width: 120,
-                      label: isZh ? 'limit' : 'limit',
+                      label: isZh ? '数量上限' : 'Limit',
                       keyboardType: TextInputType.number,
                     ),
                   ],
@@ -745,7 +770,7 @@ class _PointsTab extends StatelessWidget {
                   decoration: knowledgeDialogInputDecoration(
                     context,
                     isZh
-                        ? 'Raw vector（逗号或空格分隔，维度必须匹配当前配置）'
+                        ? '原始向量（逗号或空格分隔，维度必须匹配当前配置）'
                         : 'Raw vector (comma or space separated, must match dimensions)',
                     alignLabelWithHint: true,
                   ),
@@ -768,7 +793,14 @@ class _PointsTab extends StatelessWidget {
                     FilledButton.tonalIcon(
                       onPressed: busy ? null : onSearchVector,
                       icon: const Icon(Icons.polyline_outlined),
-                      label: Text(isZh ? 'Raw Vector 搜索' : 'Raw Vector Search'),
+                      label: Text(isZh ? '原始向量搜索' : 'Raw Vector Search'),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: busy ? null : onCreatePayloadIndexes,
+                      icon: const Icon(Icons.manage_search_rounded),
+                      label: Text(
+                        isZh ? '重建 Payload 索引' : 'Rebuild payload indexes',
+                      ),
                     ),
                     FilledButton.icon(
                       onPressed: busy ? null : onDeletePoints,
@@ -989,12 +1021,12 @@ class _QdrantTrendChart extends StatelessWidget {
           children: [
             _StatusPill(
               icon: Icons.show_chart_rounded,
-              label: isZh ? 'points' : 'points',
+              label: isZh ? '向量点' : 'points',
               color: colorScheme.primary,
             ),
             _StatusPill(
               icon: Icons.show_chart_rounded,
-              label: isZh ? 'chunks' : 'chunks',
+              label: isZh ? '分块' : 'chunks',
               color: colorScheme.tertiary,
             ),
             _StatusPill(
@@ -1093,7 +1125,7 @@ class _QdrantTrendPainter extends CustomPainter {
 
     final textPainter = TextPainter(
       text: TextSpan(
-        text: '${samples.length} samples',
+        text: '${samples.length} pts',
         style: TextStyle(color: foreground, fontSize: 11),
       ),
       textDirection: TextDirection.ltr,
@@ -1162,13 +1194,13 @@ class _StatusSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return KnowledgeDialogSection(
-      title: _localizedSectionTitle(title),
+      title: _localizedSectionTitle(isZh, title),
       icon: _iconForSection(title),
       child: KnowledgeDialogKeyValueList(
         rows: {
           for (final entry in values.entries)
-            _localizedMetricLabel(entry.key): _localizedMetricValue(
-              entry.key,
+            _localizedMetricLabel(isZh, entry.key): _localizedMetricValue(
+              isZh,
               entry.value,
             ),
         },
@@ -1179,66 +1211,129 @@ class _StatusSection extends StatelessWidget {
 
   IconData _iconForSection(String value) {
     return switch (value) {
-      '总览' => Icons.dashboard_customize_outlined,
-      'Docker/容器指标' => Icons.developer_board_outlined,
-      'Qdrant API 指标' => Icons.storage_outlined,
-      'OpenHand 知识库指标' => Icons.library_books_outlined,
+      'overview' => Icons.dashboard_customize_outlined,
+      'docker_container' => Icons.developer_board_outlined,
+      'qdrant_api' => Icons.storage_outlined,
+      'collection_config' => Icons.tune_rounded,
+      'storage_optimizer' => Icons.speed_rounded,
+      'telemetry' => Icons.sensors_outlined,
+      'openhand_knowledge' => Icons.library_books_outlined,
       _ => Icons.monitor_heart_outlined,
     };
   }
+}
 
-  String _localizedSectionTitle(String value) {
-    if (isZh) return value;
-    return switch (value) {
-      '总览' => 'Overview',
-      'Docker/容器指标' => 'Docker / Container Metrics',
-      'Qdrant API 指标' => 'Qdrant API Metrics',
-      'OpenHand 知识库指标' => 'OpenHand Knowledge Metrics',
-      _ => value,
-    };
-  }
+String _localizedSectionTitle(bool isZh, String value) {
+  return switch (value) {
+    'overview' => isZh ? '总览' : 'Overview',
+    'docker_container' => isZh ? 'Docker / 容器指标' : 'Docker / Container',
+    'qdrant_api' => isZh ? 'Qdrant API 指标' : 'Qdrant API Metrics',
+    'collection_config' => isZh ? '集合配置' : 'Collection Config',
+    'storage_optimizer' => isZh ? '存储 / 优化器' : 'Storage / Optimizer',
+    'telemetry' => isZh ? '遥测数据' : 'Telemetry',
+    'openhand_knowledge' => isZh ? 'OpenHand 知识库指标' : 'OpenHand Knowledge',
+    _ => value,
+  };
+}
 
-  String _localizedMetricLabel(String value) {
-    if (isZh) return value;
-    return switch (value) {
-      '服务状态' => 'Service status',
-      '当前 collection' => 'Current collection',
-      'collection 状态' => 'Collection status',
-      'optimizer 状态' => 'Optimizer status',
-      '最近健康检查时间' => 'Last health check',
-      'collections 总数' => 'Collections total',
-      'points 总数' => 'Points total',
-      'vectors 总数' => 'Vectors total',
-      'indexed vectors 总数' => 'Indexed vectors total',
-      'segments 数' => 'Segments',
-      'payload schema 字段数' => 'Payload schema fields',
-      '单机模式' => 'Single-node mode',
-      'payload index 状态' => 'Payload index status',
-      'cluster 状态' => 'Cluster status',
-      'source 数' => 'Sources',
-      'chunk 数' => 'Chunks',
-      '待 embedding job 数' => 'Pending embedding jobs',
-      '失败 job 数' => 'Failed jobs',
-      '当前 embedding model' => 'Current embedding model',
-      '当前 dimensions' => 'Current dimensions',
-      '最近日志摘要' => 'Latest log summary',
-      _ => value,
-    };
-  }
+String _localizedMetricLabel(bool isZh, String value) {
+  return switch (value) {
+    'service_status' => isZh ? '服务状态' : 'Service status',
+    'rest_endpoint' => 'REST endpoint',
+    'grpc_endpoint' => 'gRPC endpoint',
+    'qdrant_version' => isZh ? 'Qdrant 版本' : 'Qdrant version',
+    'current_collection' => isZh ? '当前集合' : 'Current collection',
+    'collection_status' => isZh ? '集合状态' : 'Collection status',
+    'optimizer_status' => isZh ? '优化器状态' : 'Optimizer status',
+    'last_health_check_at' => isZh ? '最近健康检查时间' : 'Last health check',
+    'docker_daemon' => isZh ? 'Docker 守护进程' : 'Docker daemon',
+    'container_cpu' => isZh ? '容器 CPU' : 'Container CPU',
+    'container_memory' => isZh ? '容器内存' : 'Container memory',
+    'network_io' => isZh ? '网络收发' : 'Network I/O',
+    'block_io' => isZh ? '块设备 I/O' : 'Block I/O',
+    'restart_count' => isZh ? '重启次数' : 'Restart count',
+    'latest_log_summary' => isZh ? '最近日志摘要' : 'Latest log summary',
+    'collections_total' => isZh ? '集合总数' : 'Collections total',
+    'points_total' => isZh ? '向量点总数' : 'Points total',
+    'vectors_total' => isZh ? '向量总数' : 'Vectors total',
+    'indexed_vectors_total' => isZh ? '已索引向量总数' : 'Indexed vectors total',
+    'segments_total' => isZh ? '分段数' : 'Segments',
+    'payload_schema_fields' =>
+      isZh ? 'Payload schema 字段数' : 'Payload schema fields',
+    'payload_schema_names' =>
+      isZh ? 'Payload schema 字段' : 'Payload schema names',
+    'vector_size' => isZh ? '向量维度' : 'Vector size',
+    'distance' => isZh ? '距离度量' : 'Distance',
+    'single_node_mode' => isZh ? '单机模式' : 'Single-node mode',
+    'payload_index_status' => isZh ? 'Payload 索引状态' : 'Payload index status',
+    'cluster_status' => isZh ? '集群状态' : 'Cluster status',
+    'hnsw_m' => 'HNSW M',
+    'hnsw_ef_construct' => 'HNSW ef_construct',
+    'hnsw_full_scan_threshold' =>
+      isZh ? 'HNSW 全扫描阈值' : 'HNSW full scan threshold',
+    'hnsw_max_indexing_threads' =>
+      isZh ? 'HNSW 最大索引线程' : 'HNSW max indexing threads',
+    'on_disk_payload' => isZh ? 'Payload 磁盘存储' : 'On-disk payload',
+    'shard_number' => isZh ? '分片数' : 'Shard number',
+    'replication_factor' => isZh ? '副本因子' : 'Replication factor',
+    'write_consistency_factor' => isZh ? '写一致性因子' : 'Write consistency factor',
+    'read_fan_out_factor' => isZh ? '读取扇出因子' : 'Read fan-out factor',
+    'optimizer_deleted_threshold' =>
+      isZh ? '优化器删除阈值' : 'Optimizer deleted threshold',
+    'optimizer_vacuum_min_vector_number' =>
+      isZh ? 'Vacuum 最小向量数' : 'Vacuum min vector number',
+    'optimizer_default_segment_number' =>
+      isZh ? '默认分段数' : 'Default segment number',
+    'optimizer_max_segment_size' => isZh ? '最大分段大小' : 'Max segment size',
+    'optimizer_indexing_threshold' => isZh ? '索引阈值' : 'Indexing threshold',
+    'optimizer_flush_interval_sec' =>
+      isZh ? '刷盘间隔秒数' : 'Flush interval seconds',
+    'wal_capacity_mb' => isZh ? 'WAL 容量 MB' : 'WAL capacity MB',
+    'wal_segments_ahead' => isZh ? 'WAL 预留段' : 'WAL segments ahead',
+    'quantization' => isZh ? '量化配置' : 'Quantization',
+    'strict_mode' => isZh ? '严格模式' : 'Strict mode',
+    'telemetry_status' => isZh ? '遥测状态' : 'Telemetry status',
+    'app_version' => isZh ? '应用版本' : 'App version',
+    'app_name' => isZh ? '应用名称' : 'App name',
+    'telemetry_collections' => isZh ? '集合遥测' : 'Collections telemetry',
+    'telemetry_requests' => isZh ? '请求遥测' : 'Requests telemetry',
+    'source_count' => isZh ? '来源数' : 'Sources',
+    'chunk_count' => isZh ? '分块数' : 'Chunks',
+    'pending_embedding_jobs' => isZh ? '待处理嵌入任务' : 'Pending embedding jobs',
+    'failed_embedding_jobs' => isZh ? '失败嵌入任务' : 'Failed embedding jobs',
+    'embedding_model' => isZh ? '当前嵌入模型' : 'Current embedding model',
+    'embedding_dimensions' => isZh ? '当前向量维度' : 'Current dimensions',
+    'retrieval_top_n' => isZh ? '召回 TopN' : 'Retrieval topN',
+    'retrieval_top_k' => isZh ? '最终 TopK' : 'Final topK',
+    'min_similarity' => isZh ? '最低相似度' : 'Minimum similarity',
+    'prompt_chunk_budget' => isZh ? 'Prompt 分块预算' : 'Prompt chunk budget',
+    'prompt_token_budget' => isZh ? 'Prompt token 预算' : 'Prompt token budget',
+    _ => value,
+  };
+}
 
-  Object? _localizedMetricValue(String key, Object? value) {
-    if (isZh) return value;
-    return switch ('$value') {
-      '由插件服务扫描' => 'Scanned by plugin service',
-      '插件运行时提供' => 'Provided by plugin runtime',
-      '可在插件详情查看' => 'Available in plugin details',
-      '本地单机/不可用' => 'Local single-node / unavailable',
-      '已返回 cluster 信息' => 'Cluster info returned',
-      '已配置 payload schema' => 'Payload schema configured',
-      '未发现 payload schema' => 'No payload schema found',
-      _ => value,
-    };
-  }
+Object? _localizedMetricValue(bool isZh, Object? value) {
+  final text = '$value';
+  return switch (text) {
+    'true' => isZh ? '是' : 'Yes',
+    'false' => isZh ? '否' : 'No',
+    'healthy' => isZh ? '健康' : 'Healthy',
+    'unknown' => isZh ? '未知' : 'Unknown',
+    'loading' => isZh ? '加载中' : 'Loading',
+    'available' => isZh ? '可用' : 'Available',
+    'unavailable' => isZh ? '不可用' : 'Unavailable',
+    'plugin_service_scan' => isZh ? '由插件服务扫描' : 'Scanned by plugin service',
+    'plugin_runtime_metric' => isZh ? '由插件运行时提供' : 'Provided by plugin runtime',
+    'plugin_details_logs' => isZh ? '可在插件详情查看' : 'Available in plugin details',
+    'local_single_node_or_unavailable' =>
+      isZh ? '本地单机 / 不可用' : 'Local single-node / unavailable',
+    'cluster_info_available' => isZh ? '已返回集群信息' : 'Cluster info returned',
+    'payload_schema_configured' =>
+      isZh ? '已配置 payload schema' : 'Payload schema configured',
+    'payload_schema_missing' =>
+      isZh ? '未发现 payload schema' : 'No payload schema found',
+    _ => value,
+  };
 }
 
 class _CollectionTile extends StatelessWidget {
@@ -1389,16 +1484,16 @@ class _QdrantMetricSample {
   });
 
   factory _QdrantMetricSample.fromSnapshot(QdrantMonitoringSnapshot snapshot) {
-    final api = snapshot.sections['Qdrant API 指标'] ?? const {};
-    final openhand = snapshot.sections['OpenHand 知识库指标'] ?? const {};
+    final api = snapshot.sections['qdrant_api'] ?? const {};
+    final openhand = snapshot.sections['openhand_knowledge'] ?? const {};
     return _QdrantMetricSample(
       createdAt: snapshot.collectedAt,
-      collections: _intValue(api['collections 总数']),
-      points: _intValue(api['points 总数']),
-      indexedVectors: _intValue(api['indexed vectors 总数']),
-      chunks: _intValue(openhand['chunk 数']),
-      pending: _intValue(openhand['待 embedding job 数']),
-      failed: _intValue(openhand['失败 job 数']),
+      collections: _intValue(api['collections_total']),
+      points: _intValue(api['points_total']),
+      indexedVectors: _intValue(api['indexed_vectors_total']),
+      chunks: _intValue(openhand['chunk_count']),
+      pending: _intValue(openhand['pending_embedding_jobs']),
+      failed: _intValue(openhand['failed_embedding_jobs']),
     );
   }
 
