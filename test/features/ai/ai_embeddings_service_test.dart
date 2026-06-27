@@ -485,6 +485,59 @@ void main() {
       },
     );
 
+    test('recognizes common self-hosted embedding model profiles', () {
+      final e5 = AiModelCatalog.lookup(
+        'intfloat/multilingual-e5-large',
+        AiProtocolType.openai,
+      );
+      final gteQwen = AiModelCatalog.lookup(
+        'Alibaba-NLP/gte-Qwen2-7B-instruct',
+        AiProtocolType.openai,
+      );
+      final bgeBase = AiModelCatalog.lookup(
+        'BAAI/bge-base-zh-v1.5',
+        AiProtocolType.openai,
+      );
+      final mixedbread = AiModelCatalog.lookup(
+        'mixedbread-ai/mxbai-embed-large-v1',
+        AiProtocolType.openai,
+      );
+      final snowflake = AiModelCatalog.lookup(
+        'Snowflake/snowflake-arctic-embed-m-v2.0',
+        AiProtocolType.openai,
+      );
+      final miniLm = AiModelCatalog.lookup(
+        'sentence-transformers/all-MiniLM-L6-v2',
+        AiProtocolType.openai,
+      );
+      final reranker = AiModelCatalog.lookup(
+        'BAAI/bge-reranker-large',
+        AiProtocolType.openai,
+      );
+
+      expect(e5?.displayName, 'intfloat multilingual-e5');
+      expect(e5?.embeddingDimensions, 1024);
+      expect(e5?.embeddingMaxInputTokens, 512);
+      expect(e5?.embeddingDefaultQueryTaskType, 'query');
+      expect(e5?.embeddingDefaultDocumentTaskType, 'passage');
+
+      expect(gteQwen?.displayName, 'GTE Qwen2 Embedding');
+      expect(gteQwen?.embeddingDimensions, 3584);
+      expect(gteQwen?.embeddingMaxInputTokens, 32768);
+      expect(gteQwen?.embeddingSupportsCustomDimensions, isTrue);
+
+      expect(bgeBase?.displayName, 'BAAI bge-base-zh');
+      expect(bgeBase?.embeddingDimensions, 768);
+      expect(mixedbread?.displayName, 'mxbai-embed-large-v1');
+      expect(mixedbread?.embeddingDimensions, 1024);
+      expect(snowflake?.displayName, 'Snowflake Arctic Embed');
+      expect(snowflake?.embeddingDimensions, 768);
+      expect(snowflake?.embeddingMaxInputTokens, 8192);
+      expect(miniLm?.displayName, 'all-MiniLM-L6-v2');
+      expect(miniLm?.embeddingDimensions, 384);
+      expect(reranker?.supportsEmbeddings ?? false, isFalse);
+    });
+
     test(
       'preserves catalog embedding booleans when user overrides other fields',
       () {

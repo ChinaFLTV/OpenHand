@@ -2658,6 +2658,41 @@ class AiModelCatalog {
   // Open-source / OpenAI-compatible embedding model IDs
   // ═══════════════════════════════════════════════════════════════════════════
 
+  static AiModelProfile _openSourceTextEmbeddingP({
+    required String name,
+    required String desc,
+    required int context,
+    required int dimensions,
+    bool customDimensions = false,
+    int? minDimensions,
+    int? maxDimensions,
+    List<String> taskTypes = const <String>[],
+    String? defaultTaskType,
+    String? queryTaskType,
+    String? documentTaskType,
+    int batchSize = 64,
+    bool outputsNormalized = true,
+  }) {
+    return _embeddingP(
+      name: name,
+      desc: desc,
+      context: context,
+      dimensions: dimensions,
+      maxInputTokens: context,
+      customDimensions: customDimensions,
+      batchSize: batchSize,
+      taskTypes: taskTypes,
+      defaultTaskType: defaultTaskType,
+      queryTaskType: queryTaskType,
+      documentTaskType: documentTaskType,
+      encodingFormats: const <String>['float'],
+      defaultEncodingFormat: 'float',
+      outputsNormalized: outputsNormalized,
+      minDimensions: minDimensions,
+      maxDimensions: maxDimensions,
+    );
+  }
+
   static AiModelProfile? _openSourceEmbedding(String id) {
     if (id.contains('qwen3-embedding')) {
       final dim = id.contains('8b')
@@ -2665,79 +2700,186 @@ class AiModelCatalog {
           : id.contains('4b')
           ? 2560
           : 1024;
-      return _embeddingP(
+      return _openSourceTextEmbeddingP(
         name: 'Qwen3 Embedding',
         desc: 'Qwen3 open-source multilingual embedding model',
         context: 32768,
         dimensions: dim,
-        maxInputTokens: 32768,
         customDimensions: true,
-        batchSize: 64,
-        outputsNormalized: true,
+        minDimensions: 64,
+        maxDimensions: dim,
       );
     }
     if (id.contains('bge-m3')) {
-      return _embeddingP(
+      return _openSourceTextEmbeddingP(
         name: 'BAAI bge-m3',
         desc: 'BAAI multilingual multi-function embedding model',
         context: 8192,
         dimensions: 1024,
-        maxInputTokens: 8192,
-        batchSize: 64,
         taskTypes: const <String>['dense', 'sparse', 'multi-vector'],
         defaultTaskType: 'dense',
-        outputsNormalized: true,
       );
     }
-    if (id.contains('bge-large-zh')) {
-      return _embeddingP(
-        name: 'BAAI bge-large-zh',
-        desc: 'Chinese text embedding model',
+    if (id.contains('bge-large')) {
+      return _openSourceTextEmbeddingP(
+        name: id.contains('zh') ? 'BAAI bge-large-zh' : 'BAAI bge-large-en',
+        desc: id.contains('zh')
+            ? 'BAAI Chinese large text embedding model'
+            : 'BAAI English large text embedding model',
         context: 512,
         dimensions: 1024,
-        maxInputTokens: 512,
-        batchSize: 64,
-        outputsNormalized: true,
       );
     }
-    if (id.contains('bge-large-en')) {
-      return _embeddingP(
-        name: 'BAAI bge-large-en',
-        desc: 'English text embedding model',
+    if (id.contains('bge-base')) {
+      return _openSourceTextEmbeddingP(
+        name: id.contains('zh') ? 'BAAI bge-base-zh' : 'BAAI bge-base-en',
+        desc: id.contains('zh')
+            ? 'BAAI Chinese base text embedding model'
+            : 'BAAI English base text embedding model',
         context: 512,
-        dimensions: 1024,
-        maxInputTokens: 512,
-        batchSize: 64,
-        outputsNormalized: true,
+        dimensions: 768,
+      );
+    }
+    if (id.contains('bge-small')) {
+      return _openSourceTextEmbeddingP(
+        name: id.contains('zh') ? 'BAAI bge-small-zh' : 'BAAI bge-small-en',
+        desc: id.contains('zh')
+            ? 'BAAI Chinese small text embedding model'
+            : 'BAAI English small text embedding model',
+        context: 512,
+        dimensions: 384,
       );
     }
     if (id.contains('bce-embedding')) {
-      return _embeddingP(
+      return _openSourceTextEmbeddingP(
         name: 'BCE Embedding',
         desc: 'NetEase Youdao bilingual/chinese embedding model',
         context: 512,
         dimensions: 768,
-        maxInputTokens: 512,
-        batchSize: 64,
-        outputsNormalized: true,
       );
     }
     if (id.contains('nomic-embed')) {
-      return _embeddingP(
+      return _openSourceTextEmbeddingP(
         name: 'Nomic Embed',
         desc: 'Nomic text embedding model',
         context: 8192,
         dimensions: 768,
-        maxInputTokens: 8192,
         customDimensions: true,
-        batchSize: 64,
         taskTypes: const <String>['search_document', 'search_query'],
         defaultTaskType: 'search_document',
         queryTaskType: 'search_query',
         documentTaskType: 'search_document',
-        outputsNormalized: true,
         minDimensions: 64,
         maxDimensions: 768,
+      );
+    }
+    if (id.contains('multilingual-e5') || id.contains('e5-')) {
+      final isSmall = id.contains('small');
+      final isBase = id.contains('base');
+      return _openSourceTextEmbeddingP(
+        name: id.contains('multilingual')
+            ? 'intfloat multilingual-e5'
+            : 'intfloat e5',
+        desc: 'E5 retrieval embedding model',
+        context: 512,
+        dimensions: isSmall
+            ? 384
+            : isBase
+            ? 768
+            : 1024,
+        taskTypes: const <String>['query', 'passage'],
+        defaultTaskType: 'passage',
+        queryTaskType: 'query',
+        documentTaskType: 'passage',
+      );
+    }
+    if (id.contains('gte-qwen2')) {
+      final dimensions = id.contains('7b')
+          ? 3584
+          : id.contains('1.5b') || id.contains('1-5b')
+          ? 1536
+          : 1024;
+      return _openSourceTextEmbeddingP(
+        name: 'GTE Qwen2 Embedding',
+        desc: 'Alibaba GTE Qwen2 instruction embedding model',
+        context: 32768,
+        dimensions: dimensions,
+        customDimensions: true,
+        minDimensions: 128,
+        maxDimensions: dimensions,
+        taskTypes: const <String>['query', 'document'],
+        defaultTaskType: 'document',
+        queryTaskType: 'query',
+        documentTaskType: 'document',
+      );
+    }
+    if (id.contains('gte-large') ||
+        id.contains('gte-base') ||
+        id.contains('gte-small')) {
+      final dimensions = id.contains('small')
+          ? 384
+          : id.contains('base')
+          ? 768
+          : 1024;
+      final longContext = id.contains('v1.5') || id.contains('v1-5');
+      return _openSourceTextEmbeddingP(
+        name: id.contains('small')
+            ? 'GTE Small'
+            : id.contains('base')
+            ? 'GTE Base'
+            : 'GTE Large',
+        desc: 'GTE text embedding model',
+        context: longContext ? 8192 : 512,
+        dimensions: dimensions,
+        taskTypes: const <String>['query', 'document'],
+        defaultTaskType: 'document',
+        queryTaskType: 'query',
+        documentTaskType: 'document',
+      );
+    }
+    if (id.contains('mxbai-embed')) {
+      return _openSourceTextEmbeddingP(
+        name: 'mxbai-embed-large-v1',
+        desc: 'Mixedbread large retrieval embedding model',
+        context: 512,
+        dimensions: 1024,
+        taskTypes: const <String>['query', 'document'],
+        defaultTaskType: 'document',
+        queryTaskType: 'query',
+        documentTaskType: 'document',
+      );
+    }
+    if (id.contains('snowflake-arctic-embed')) {
+      final dimensions = id.contains('-s') || id.contains('-xs')
+          ? 384
+          : id.contains('-m')
+          ? 768
+          : 1024;
+      return _openSourceTextEmbeddingP(
+        name: 'Snowflake Arctic Embed',
+        desc: 'Snowflake Arctic text embedding model',
+        context: id.contains('v2') ? 8192 : 512,
+        dimensions: dimensions,
+        taskTypes: const <String>['query', 'document'],
+        defaultTaskType: 'document',
+        queryTaskType: 'query',
+        documentTaskType: 'document',
+      );
+    }
+    if (id.contains('all-minilm-l6-v2')) {
+      return _openSourceTextEmbeddingP(
+        name: 'all-MiniLM-L6-v2',
+        desc: 'SentenceTransformers compact text embedding model',
+        context: 256,
+        dimensions: 384,
+      );
+    }
+    if (id.contains('all-mpnet-base-v2')) {
+      return _openSourceTextEmbeddingP(
+        name: 'all-mpnet-base-v2',
+        desc: 'SentenceTransformers MPNet text embedding model',
+        context: 384,
+        dimensions: 768,
       );
     }
     return null;
