@@ -25,7 +25,7 @@ import 'knowledge_dialog_widgets.dart';
 const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
 const int _kKnowledgeEditorHistoryLimit = 160;
 const int _kKnowledgeEditorFindMatchLimit = 10000;
-const double _kKnowledgeEditorInlineControlSize = 40;
+const double _kKnowledgeEditorInlineControlSize = 48;
 
 Future<void> showKnowledgeSourceContentDialog(
   BuildContext context,
@@ -815,7 +815,10 @@ class _KnowledgeFindTextField extends StatelessWidget {
           isDense: true,
           filled: true,
           fillColor: colorScheme.surface,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 10,
+          ),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
