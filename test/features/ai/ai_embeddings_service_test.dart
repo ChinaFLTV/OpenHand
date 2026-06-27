@@ -418,6 +418,74 @@ void main() {
     );
 
     test(
+      'captures provider variant embedding limits without broad fallbacks',
+      () {
+        final cohereLight = AiModelCatalog.lookup(
+          'embed-english-light-v3.0',
+          AiProtocolType.openai,
+        );
+        final cohereMultilingualLight = AiModelCatalog.lookup(
+          'embed-multilingual-light-v3.0',
+          AiProtocolType.openai,
+        );
+        final voyageLite = AiModelCatalog.lookup(
+          'voyage-3.5-lite',
+          AiProtocolType.openai,
+        );
+        final voyageLaw = AiModelCatalog.lookup(
+          'voyage-law-2',
+          AiProtocolType.openai,
+        );
+        final baidu = AiModelCatalog.lookup(
+          'Embedding-V1',
+          AiProtocolType.wenxin,
+        );
+        final baiduCompatible = AiModelCatalog.lookup(
+          'Embedding-V1',
+          AiProtocolType.openai,
+        );
+        final tao = AiModelCatalog.lookup('tao-8k', AiProtocolType.wenxin);
+        final qwen3 = AiModelCatalog.lookup(
+          'Qwen3-Embedding-4B',
+          AiProtocolType.wenxin,
+        );
+        final doubao = AiModelCatalog.lookup(
+          'doubao-embedding-text-240515',
+          AiProtocolType.seed,
+        );
+
+        expect(cohereLight?.displayName, 'Cohere Embed English Light v3.0');
+        expect(cohereLight?.embeddingDimensions, 384);
+        expect(cohereLight?.embeddingEndpointPath, 'v2/embed');
+        expect(cohereLight?.embeddingMaxInputsPerBatch, 96);
+        expect(cohereMultilingualLight?.embeddingDimensions, 384);
+
+        expect(voyageLite?.displayName, 'Voyage Embedding');
+        expect(voyageLite?.embeddingDimensions, 1024);
+        expect(voyageLite?.embeddingSupportsCustomDimensions, isTrue);
+        expect(voyageLite?.embeddingMaxDimensions, 2048);
+        expect(voyageLite?.embeddingMaxTokensPerBatch, 1000000);
+        expect(voyageLite?.embeddingOutputDTypes, contains('int8'));
+
+        expect(voyageLaw?.displayName, 'Voyage Law 2');
+        expect(voyageLaw?.embeddingMaxInputTokens, 16000);
+        expect(voyageLaw?.embeddingMaxTokensPerBatch, 120000);
+        expect(voyageLaw?.embeddingOutputDTypes, isEmpty);
+
+        expect(baidu?.displayName, 'Embedding-V1');
+        expect(baidu?.embeddingDimensions, 384);
+        expect(baidu?.embeddingBatchSize, 16);
+        expect(baiduCompatible?.displayName, 'Embedding-V1');
+        expect(tao?.displayName, 'tao-8k');
+        expect(tao?.embeddingBatchSize, 1);
+        expect(qwen3?.displayName, 'Qwen3-Embedding');
+        expect(qwen3?.embeddingDimensions, 2560);
+        expect(qwen3?.embeddingSupportsCustomDimensions, isTrue);
+        expect(doubao?.displayName, 'Doubao Embedding');
+      },
+    );
+
+    test(
       'preserves catalog embedding booleans when user overrides other fields',
       () {
         final model =

@@ -1650,7 +1650,7 @@ class AiModelCatalog {
         maxDimensions: 2048,
       );
     }
-    if (id.startsWith('embedding-2') || id.startsWith('embedding')) {
+    if (id.startsWith('embedding-2') || id == 'embedding') {
       return _embeddingP(
         name: 'GLM Embedding',
         desc: 'Zhipu AI text embedding model',
@@ -2112,7 +2112,9 @@ class AiModelCatalog {
     }
 
     // ── Embedding ────────────────────────────────────────────────────────
-    if (id.contains('embedding')) {
+    if (id.contains('doubao-embedding') ||
+        id.contains('embedding-text') ||
+        id.contains('embedding-vision')) {
       return _embeddingP(
         name: 'Doubao Embedding',
         desc: 'Text/multimodal embedding model',
@@ -2310,6 +2312,36 @@ class AiModelCatalog {
   // Cohere
   // ═══════════════════════════════════════════════════════════════════════════
 
+  static AiModelProfile _cohereTextEmbedV3({
+    required String name,
+    required String desc,
+    required int dimensions,
+  }) {
+    return _embeddingP(
+      name: name,
+      desc: desc,
+      context: 512,
+      dimensions: dimensions,
+      maxInputTokens: 512,
+      endpointPath: 'v2/embed',
+      batchSize: 96,
+      supportedParameters: _cohereEmbeddingParameters,
+      inputTypes: const <String>['search_document', 'search_query'],
+      defaultInputType: 'search_document',
+      queryInputType: 'search_query',
+      documentInputType: 'search_document',
+      taskTypes: const <String>[
+        'search_document',
+        'search_query',
+        'classification',
+        'clustering',
+      ],
+      defaultTruncation: 'END',
+      maxInputsPerBatch: 96,
+      supportsTruncation: true,
+    );
+  }
+
   static AiModelProfile? _cohere(String id) {
     if (id.contains('embed-v4') || id.contains('embed-4')) {
       return _embeddingP(
@@ -2352,54 +2384,32 @@ class AiModelCatalog {
         supportsTruncation: true,
       );
     }
+    if (id.contains('embed-multilingual-light-v3')) {
+      return _cohereTextEmbedV3(
+        name: 'Cohere Embed Multilingual Light v3.0',
+        desc: 'Cohere lightweight multilingual embedding model',
+        dimensions: 384,
+      );
+    }
     if (id.contains('embed-multilingual-v3')) {
-      return _embeddingP(
+      return _cohereTextEmbedV3(
         name: 'Cohere Embed Multilingual v3.0',
         desc: 'Cohere multilingual embedding model',
-        context: 512,
         dimensions: 1024,
-        maxInputTokens: 512,
-        endpointPath: 'v2/embed',
-        batchSize: 96,
-        supportedParameters: _cohereEmbeddingParameters,
-        inputTypes: const <String>['search_document', 'search_query'],
-        defaultInputType: 'search_document',
-        queryInputType: 'search_query',
-        documentInputType: 'search_document',
-        taskTypes: const <String>[
-          'search_document',
-          'search_query',
-          'classification',
-          'clustering',
-        ],
-        defaultTruncation: 'END',
-        maxInputsPerBatch: 96,
-        supportsTruncation: true,
+      );
+    }
+    if (id.contains('embed-english-light-v3')) {
+      return _cohereTextEmbedV3(
+        name: 'Cohere Embed English Light v3.0',
+        desc: 'Cohere lightweight English embedding model',
+        dimensions: 384,
       );
     }
     if (id.contains('embed-english-v3')) {
-      return _embeddingP(
+      return _cohereTextEmbedV3(
         name: 'Cohere Embed English v3.0',
         desc: 'Cohere English embedding model',
-        context: 512,
         dimensions: 1024,
-        maxInputTokens: 512,
-        endpointPath: 'v2/embed',
-        batchSize: 96,
-        supportedParameters: _cohereEmbeddingParameters,
-        inputTypes: const <String>['search_document', 'search_query'],
-        defaultInputType: 'search_document',
-        queryInputType: 'search_query',
-        documentInputType: 'search_document',
-        taskTypes: const <String>[
-          'search_document',
-          'search_query',
-          'classification',
-          'clustering',
-        ],
-        defaultTruncation: 'END',
-        maxInputsPerBatch: 96,
-        supportsTruncation: true,
       );
     }
     return null;
@@ -2411,11 +2421,41 @@ class AiModelCatalog {
 
   static AiModelProfile? _voyage(String id) {
     if (!id.startsWith('voyage-')) return null;
+    final isVoyage4 = id.startsWith('voyage-4');
+    final isVoyage35 = id.startsWith('voyage-3.5');
+    final isVoyage3Large = id.startsWith('voyage-3-large');
+    final isCode = id.startsWith('voyage-code');
+    final isFinance = id.startsWith('voyage-finance');
+    final isLaw = id.startsWith('voyage-law');
+    final isMultimodal = id.startsWith('voyage-multimodal');
+    final isLegacyLite =
+        id.startsWith('voyage-3-lite') || id.startsWith('voyage-2-lite');
+    final supportsFlexibleOutput =
+        isVoyage4 || isVoyage35 || isVoyage3Large || isCode;
+    final highThroughputBatch =
+        id.startsWith('voyage-4-lite') || id.startsWith('voyage-3.5-lite');
+    final constrainedBatch =
+        id.startsWith('voyage-4-large') ||
+        isVoyage3Large ||
+        isCode ||
+        isFinance ||
+        isLaw;
+    final maxTokensPerBatch = highThroughputBatch
+        ? 1000000
+        : constrainedBatch
+        ? 120000
+        : 320000;
     final code = id.contains('code');
-    final lite = id.contains('lite') && !id.contains('4');
+    final lite = isLegacyLite;
     return _embeddingP(
       name: code
-          ? 'Voyage Code'
+          ? 'Voyage Code 3'
+          : isFinance
+          ? 'Voyage Finance 2'
+          : isLaw
+          ? 'Voyage Law 2'
+          : isMultimodal
+          ? 'Voyage Multimodal'
           : id.startsWith('voyage-4')
           ? 'Voyage 4'
           : lite
@@ -2423,27 +2463,38 @@ class AiModelCatalog {
           : 'Voyage Embedding',
       desc: code
           ? 'Voyage code retrieval embedding model'
+          : isFinance
+          ? 'Voyage finance-domain embedding model'
+          : isLaw
+          ? 'Voyage legal-domain embedding model'
+          : isMultimodal
+          ? 'Voyage multimodal embedding model'
           : 'Voyage general-purpose multilingual embedding model',
-      context: code ? 32000 : 32000,
+      multimodal: isMultimodal,
+      modalities: isMultimodal
+          ? _textImageVideo
+          : const <AiModelModality>{AiModelModality.text},
+      context: isLaw ? 16000 : 32000,
       dimensions: lite ? 512 : 1024,
-      maxInputTokens: 32000,
-      customDimensions:
-          id.startsWith('voyage-4') ||
-          id.startsWith('voyage-3.5') ||
-          id.startsWith('voyage-3-large') ||
-          code,
+      maxInputTokens: isLaw ? 16000 : 32000,
+      customDimensions: supportsFlexibleOutput,
       batchSize: 128,
       supportedParameters: _voyageEmbeddingParameters,
-      inputTypes: const <String>['document', 'query'],
+      inputTypes: isMultimodal
+          ? const <String>['document', 'query', 'image', 'video']
+          : const <String>['document', 'query'],
       defaultInputType: 'document',
       queryInputType: 'query',
       documentInputType: 'document',
       taskTypes: const <String>['document', 'query'],
-      outputDTypes: const <String>['float', 'int8', 'uint8', 'binary'],
-      defaultOutputDType: 'float',
+      outputDTypes: supportsFlexibleOutput
+          ? const <String>['float', 'int8', 'uint8', 'binary']
+          : const <String>[],
+      defaultOutputDType: supportsFlexibleOutput ? 'float' : null,
       defaultTruncation: 'true',
-      minDimensions: id.startsWith('voyage-4') || code ? 256 : null,
-      maxDimensions: id.startsWith('voyage-4') || code ? 2048 : null,
+      minDimensions: supportsFlexibleOutput ? 256 : null,
+      maxDimensions: supportsFlexibleOutput ? 2048 : null,
+      maxTokensPerBatch: maxTokensPerBatch,
       supportsTruncation: true,
     );
   }
@@ -2894,7 +2945,9 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _minimax(String id) {
-    if (id.startsWith('embo-01') || id.contains('embedding')) {
+    if (id.startsWith('embo-01') ||
+        id.startsWith('embo') ||
+        id.contains('minimax-embedding')) {
       return _embeddingP(
         name: 'MiniMax embo-01',
         desc: 'MiniMax text embedding model',
@@ -3179,14 +3232,81 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _wenxin(String id) {
-    if (id.contains('bge-large-zh') || id.contains('embedding')) {
+    if (id.contains('qwen3-embedding')) {
+      final dimensions = id.contains('8b')
+          ? 4096
+          : id.contains('4b')
+          ? 2560
+          : 1024;
       return _embeddingP(
-        name: id.contains('bge-large-zh') ? 'bge-large-zh' : 'Baidu Embedding',
+        name: 'Qwen3-Embedding',
+        desc: 'Baidu Qianfan hosted Qwen3 embedding model',
+        context: 8192,
+        dimensions: dimensions,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 16,
+        maxInputsPerBatch: 16,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+        minDimensions: 64,
+        maxDimensions: dimensions,
+      );
+    }
+    if (id.contains('tao-8k')) {
+      return _embeddingP(
+        name: 'tao-8k',
+        desc: 'Baidu Qianfan long-context text embedding model',
+        context: 8192,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        batchSize: 1,
+        maxInputsPerBatch: 1,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('bge-large-zh') || id.contains('bge-large-en')) {
+      return _embeddingP(
+        name: id.contains('bge-large-zh') ? 'bge-large-zh' : 'bge-large-en',
+        desc: 'Baidu Qianfan hosted BGE embedding model',
+        context: 512,
+        dimensions: 1024,
+        maxInputTokens: 512,
+        batchSize: 16,
+        maxInputsPerBatch: 16,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+      );
+    }
+    if (id == 'embedding-v1' || id.contains('embedding-v1')) {
+      return _embeddingP(
+        name: 'Embedding-V1',
         desc: 'Baidu Qianfan text embedding model',
-        context: id.contains('bge-large-zh') ? 512 : 8192,
-        dimensions: id.contains('bge-large-zh') ? 1024 : 1024,
-        maxInputTokens: id.contains('bge-large-zh') ? 512 : 8192,
-        batchSize: 64,
+        context: 384,
+        dimensions: 384,
+        maxInputTokens: 384,
+        batchSize: 16,
+        maxInputsPerBatch: 16,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('embedding')) {
+      return _embeddingP(
+        name: 'Baidu Embedding',
+        desc: 'Baidu Qianfan text embedding model',
+        context: 8192,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        batchSize: 16,
+        maxInputsPerBatch: 16,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
         outputsNormalized: true,
       );
     }
