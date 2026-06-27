@@ -86,13 +86,13 @@ class KnowledgeBaseView extends StatelessWidget {
             icon: const Icon(Icons.upload_file_rounded),
             label: Text(isZh ? '导入' : 'Import'),
           ),
-          IconButton.filledTonal(
-            tooltip: isZh ? '配置' : 'Settings',
+          FilledButton.tonalIcon(
             onPressed: () => showKnowledgeBaseConfigDialog(
               context,
               onOpenPlugins: onOpenPlugins,
             ),
             icon: const Icon(Icons.settings_rounded),
+            label: Text(isZh ? '配置' : 'Configure'),
           ),
         ],
       ),
@@ -193,24 +193,13 @@ class _KnowledgeBaseBody extends StatelessWidget {
           body: isZh
               ? '导入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT 或代码文件，或新建一条笔记来生成本地向量索引。'
               : 'Import Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT, or code files, or create a note to build the local vector index.',
-          action: FilledButton.icon(
-            onPressed: embeddingModel == null || !dependenciesReady
-                ? () => showKnowledgeBaseConfigDialog(
-                    context,
-                    onOpenPlugins: onOpenPlugins,
-                  )
-                : () => showKnowledgeImportDialog(context),
-            icon: Icon(
-              embeddingModel == null || !dependenciesReady
-                  ? Icons.settings_rounded
-                  : Icons.note_add_outlined,
-            ),
-            label: Text(
-              embeddingModel == null || !dependenciesReady
-                  ? (isZh ? '配置' : 'Configure')
-                  : (isZh ? '新建笔记' : 'New Note'),
-            ),
-          ),
+          action: embeddingModel != null && dependenciesReady
+              ? FilledButton.icon(
+                  onPressed: () => showKnowledgeImportDialog(context),
+                  icon: const Icon(Icons.note_add_outlined),
+                  label: Text(isZh ? '新建笔记' : 'New Note'),
+                )
+              : null,
         ),
       );
     }

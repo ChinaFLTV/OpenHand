@@ -46,6 +46,13 @@ const List<String> _knowledgeFailureStrategies = <String>[
   'fail_closed',
 ];
 
+const double _knowledgeConfigItemWidth = kKnowledgeDialogWideFieldWidth;
+const double _knowledgeConfigItemHeight = 64;
+const double _knowledgeConfigGridSpacing = 12;
+const double _knowledgeConfigFullRowWidth =
+    _knowledgeConfigItemWidth * 2 + _knowledgeConfigGridSpacing;
+const double _knowledgeConfigSummaryItemHeight = 76;
+
 Future<void> showKnowledgeBaseConfigDialog(
   BuildContext context, {
   VoidCallback? onOpenPlugins,
@@ -378,7 +385,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     _emptyModelState(context)
                   else
                     SizedBox(
-                      width: 690,
+                      width: _knowledgeConfigFullRowWidth,
                       child: OpenHandModelSelectorField(
                         models: models,
                         recentSelections:
@@ -495,14 +502,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 context,
                 title: isZh ? '文档导入与分块' : 'Document Import and Chunking',
                 icon: Icons.segment_outlined,
+                subtitle: isZh
+                    ? '支持 ${KnowledgeDocumentParserRegistry.supportedFilesLabelZh}'
+                    : 'Supports ${KnowledgeDocumentParserRegistry.supportedFilesLabelEn}',
                 children: [
-                  _readonly(
-                    context,
-                    isZh ? '支持文件' : 'Supported files',
-                    isZh
-                        ? KnowledgeDocumentParserRegistry.supportedFilesLabelZh
-                        : KnowledgeDocumentParserRegistry.supportedFilesLabelEn,
-                  ),
                   _dropdown(
                     label: isZh ? '分块策略' : 'Chunk strategy',
                     value: _settings.chunkStrategy,
@@ -1029,7 +1032,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 icon: Icons.privacy_tip_outlined,
                 children: [
                   SizedBox(
-                    width: 690,
+                    width: _knowledgeConfigFullRowWidth,
                     child: KnowledgeDialogNotice(
                       icon: Icons.lock_outline_rounded,
                       message: isZh
@@ -1307,7 +1310,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     ];
 
     return SizedBox(
-      width: 690,
+      width: _knowledgeConfigFullRowWidth,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -1322,42 +1325,45 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           runSpacing: 8,
           children: [
             for (final row in rows)
-              Container(
-                constraints: const BoxConstraints(minWidth: 190, maxWidth: 318),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.48),
+              SizedBox(
+                width: _knowledgeConfigItemWidth - 10,
+                height: _knowledgeConfigSummaryItemHeight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      row.$1,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.48),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      row.$2.isEmpty ? '-' : row.$2,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        row.$1,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        row.$2.isEmpty ? '-' : row.$2,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
@@ -1369,7 +1375,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   Widget _emptyModelState(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
     return SizedBox(
-      width: 690,
+      width: _knowledgeConfigFullRowWidth,
       child: KnowledgeDialogNotice(
         icon: Icons.info_outline_rounded,
         message: isZh
@@ -1383,18 +1389,21 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     BuildContext context, {
     required String title,
     required IconData icon,
+    String? subtitle,
     required List<Widget> children,
   }) {
     return KnowledgeDialogSection(
       title: title,
       icon: icon,
+      subtitle: subtitle,
       child: Wrap(spacing: 12, runSpacing: 12, children: children),
     );
   }
 
   Widget _field(TextEditingController controller, String label) {
     return SizedBox(
-      width: kKnowledgeDialogFieldWidth,
+      width: _knowledgeConfigItemWidth,
+      height: _knowledgeConfigItemHeight,
       child: TextField(
         controller: controller,
         style: Theme.of(context).textTheme.bodyMedium,
@@ -1405,10 +1414,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
 
   Widget _readonly(BuildContext context, String label, String value) {
     return SizedBox(
-      width: kKnowledgeDialogWideFieldWidth,
+      width: _knowledgeConfigItemWidth,
+      height: _knowledgeConfigItemHeight,
       child: InputDecorator(
         decoration: knowledgeDialogInputDecoration(context, label),
-        child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
       ),
     );
   }
@@ -1417,7 +1430,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      width: kKnowledgeDialogWideFieldWidth,
+      width: _knowledgeConfigItemWidth,
+      height: _knowledgeConfigItemHeight,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
@@ -1458,15 +1472,32 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     String Function(String value)? itemLabel,
   }) {
     return SizedBox(
-      width: kKnowledgeDialogWideFieldWidth,
+      width: _knowledgeConfigItemWidth,
+      height: _knowledgeConfigItemHeight,
       child: DropdownButtonFormField<String>(
         initialValue: values.contains(value) ? value : values.first,
+        isExpanded: true,
         decoration: knowledgeDialogInputDecoration(context, label),
+        selectedItemBuilder: (context) => [
+          for (final item in values)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                itemLabel?.call(item) ?? item,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
         items: [
           for (final item in values)
             DropdownMenuItem<String>(
               value: item,
-              child: Text(itemLabel?.call(item) ?? item),
+              child: Text(
+                itemLabel?.call(item) ?? item,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
         ],
         onChanged: (value) {
