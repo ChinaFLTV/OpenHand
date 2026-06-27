@@ -23,6 +23,8 @@ import '../model/knowledge_source.dart';
 import 'knowledge_dialog_widgets.dart';
 
 const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
+const int _kKnowledgeEditorHistoryLimit = 160;
+const int _kKnowledgeEditorFindMatchLimit = 10000;
 
 Future<void> showKnowledgeSourceContentDialog(
   BuildContext context,
@@ -47,10 +49,23 @@ class KnowledgeSourceContentDialog extends StatefulWidget {
 class _KnowledgeSourceContentDialogState
     extends State<KnowledgeSourceContentDialog> {
   final TextEditingController _sourceController = TextEditingController();
+  final TextEditingController _findController = TextEditingController();
+  final TextEditingController _replaceController = TextEditingController();
+  final FocusNode _editorFocusNode = FocusNode();
+  final FocusNode _findFocusNode = FocusNode();
+  final List<TextEditingValue> _undoStack = <TextEditingValue>[];
+  final List<TextEditingValue> _redoStack = <TextEditingValue>[];
+  List<int> _findMatchOffsets = const <int>[];
+  TextEditingValue _lastEditValue = TextEditingValue.empty;
   bool _preview = true;
   bool _loading = true;
   bool _saving = false;
   bool _hydrating = false;
+  bool _applyingHistory = false;
+  bool _findVisible = false;
+  bool _replaceVisible = false;
+  bool _findCaseSensitive = false;
+  int _currentMatchIndex = -1;
   Object? _loadError;
   _KnowledgeSourceContentSnapshot? _snapshot;
   String _savedText = '';
@@ -65,12 +80,32 @@ class _KnowledgeSourceContentDialogState
   @override
   void dispose() {
     _sourceController.dispose();
+    _findController.dispose();
+    _replaceController.dispose();
+    _editorFocusNode.dispose();
+    _findFocusNode.dispose();
     super.dispose();
   }
 
   void _onSourceChanged() {
     if (_hydrating || !mounted) return;
-    setState(() {});
+    final current = _sourceController.value;
+    final textChanged = current.text != _lastEditValue.text;
+    if (textChanged && !_applyingHistory) {
+      _undoStack.add(_lastEditValue);
+      if (_undoStack.length > _kKnowledgeEditorHistoryLimit) {
+        _undoStack.removeAt(0);
+      }
+      _redoStack.clear();
+    }
+    _lastEditValue = current;
+    if (textChanged && _findVisible && _findController.text.isNotEmpty) {
+      _updateFindMatches(_findController.text, selectMatch: false);
+      return;
+    }
+    if (textChanged) {
+      setState(() {});
+    }
   }
 
   Future<void> _load() async {
@@ -103,11 +138,17 @@ class _KnowledgeSourceContentDialogState
     _snapshot = snapshot;
     _savedText = snapshot.text;
     _hydrating = true;
-    _sourceController.value = TextEditingValue(
+    final nextValue = TextEditingValue(
       text: snapshot.text,
       selection: const TextSelection.collapsed(offset: 0),
     );
+    _sourceController.value = nextValue;
     _hydrating = false;
+    _lastEditValue = nextValue;
+    _undoStack.clear();
+    _redoStack.clear();
+    _findMatchOffsets = const <int>[];
+    _currentMatchIndex = -1;
   }
 
   bool get _sourceMode {
@@ -160,16 +201,212 @@ class _KnowledgeSourceContentDialogState
 
   void _discardSourceChanges() {
     final isZh = openHandIsChineseLocale(context);
-    _hydrating = true;
-    _sourceController.value = TextEditingValue(
-      text: _savedText,
-      selection: TextSelection.collapsed(offset: _savedText.length),
+    _setEditorValue(
+      TextEditingValue(
+        text: _savedText,
+        selection: TextSelection.collapsed(offset: _savedText.length),
+      ),
+      clearHistory: true,
     );
-    _hydrating = false;
-    setState(() {});
     OpenHandSnackBar.showInfo(
       context,
       isZh ? '已舍弃未保存修改。' : 'Unsaved changes discarded.',
+    );
+  }
+
+  void _setEditorValue(TextEditingValue value, {bool clearHistory = false}) {
+    _hydrating = true;
+    _sourceController.value = value;
+    _hydrating = false;
+    _lastEditValue = value;
+    if (clearHistory) {
+      _undoStack.clear();
+      _redoStack.clear();
+    }
+    if (_findVisible && _findController.text.isNotEmpty) {
+      _updateFindMatches(_findController.text, selectMatch: false);
+    } else {
+      setState(() {});
+    }
+  }
+
+  void _undoEdit() {
+    if (_undoStack.isEmpty) return;
+    _applyingHistory = true;
+    final current = _sourceController.value;
+    final previous = _undoStack.removeLast();
+    _redoStack.add(current);
+    _setEditorValue(previous);
+    _applyingHistory = false;
+  }
+
+  void _redoEdit() {
+    if (_redoStack.isEmpty) return;
+    _applyingHistory = true;
+    final current = _sourceController.value;
+    final next = _redoStack.removeLast();
+    _undoStack.add(current);
+    _setEditorValue(next);
+    _applyingHistory = false;
+  }
+
+  void _showFind({bool replace = false}) {
+    setState(() {
+      _preview = false;
+      _findVisible = true;
+      _replaceVisible = replace;
+    });
+    _updateFindMatches(_findController.text, selectMatch: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _findFocusNode.requestFocus();
+    });
+  }
+
+  void _hideFind() {
+    setState(() {
+      _findVisible = false;
+      _replaceVisible = false;
+      _findMatchOffsets = const <int>[];
+      _currentMatchIndex = -1;
+    });
+  }
+
+  void _updateFindMatches(String query, {bool selectMatch = true}) {
+    if (query.isEmpty) {
+      setState(() {
+        _findMatchOffsets = const <int>[];
+        _currentMatchIndex = -1;
+      });
+      return;
+    }
+    final text = _sourceController.text;
+    final pattern = _findCaseSensitive ? query : query.toLowerCase();
+    final searchText = _findCaseSensitive ? text : text.toLowerCase();
+    final offsets = <int>[];
+    var startIndex = 0;
+    while (true) {
+      final index = searchText.indexOf(pattern, startIndex);
+      if (index < 0) break;
+      offsets.add(index);
+      startIndex = index + math.max(pattern.length, 1);
+      if (offsets.length >= _kKnowledgeEditorFindMatchLimit) break;
+    }
+    final selectionBase = _sourceController.selection.baseOffset;
+    var selectedIndex = offsets.isEmpty ? -1 : 0;
+    if (offsets.isNotEmpty && selectionBase >= 0) {
+      final nearest = offsets.indexWhere((offset) => offset >= selectionBase);
+      selectedIndex = nearest < 0 ? 0 : nearest;
+    }
+    setState(() {
+      _findMatchOffsets = offsets;
+      _currentMatchIndex = selectedIndex;
+    });
+    if (selectMatch && selectedIndex >= 0) {
+      _selectMatch(selectedIndex);
+    }
+  }
+
+  void _findNext() {
+    if (_findMatchOffsets.isEmpty) return;
+    final next = (_currentMatchIndex + 1) % _findMatchOffsets.length;
+    setState(() => _currentMatchIndex = next);
+    _selectMatch(next);
+  }
+
+  void _findPrevious() {
+    if (_findMatchOffsets.isEmpty) return;
+    final previous =
+        (_currentMatchIndex - 1 + _findMatchOffsets.length) %
+        _findMatchOffsets.length;
+    setState(() => _currentMatchIndex = previous);
+    _selectMatch(previous);
+  }
+
+  void _selectMatch(int index) {
+    if (index < 0 || index >= _findMatchOffsets.length) return;
+    final offset = _findMatchOffsets[index];
+    final length = _findController.text.length;
+    _sourceController.selection = TextSelection(
+      baseOffset: offset,
+      extentOffset: math.min(offset + length, _sourceController.text.length),
+    );
+    _editorFocusNode.requestFocus();
+  }
+
+  void _toggleFindCaseSensitive() {
+    setState(() => _findCaseSensitive = !_findCaseSensitive);
+    _updateFindMatches(_findController.text);
+  }
+
+  void _replaceCurrent() {
+    final snapshot = _snapshot;
+    if (snapshot?.canEdit != true ||
+        _currentMatchIndex < 0 ||
+        _currentMatchIndex >= _findMatchOffsets.length ||
+        _findController.text.isEmpty) {
+      return;
+    }
+    final offset = _findMatchOffsets[_currentMatchIndex];
+    final findLength = _findController.text.length;
+    final replacement = _replaceController.text;
+    final text = _sourceController.text;
+    if (offset + findLength > text.length) return;
+    _sourceController.value = TextEditingValue(
+      text: text.replaceRange(offset, offset + findLength, replacement),
+      selection: TextSelection.collapsed(offset: offset + replacement.length),
+    );
+    _updateFindMatches(_findController.text);
+  }
+
+  void _replaceAll() {
+    final snapshot = _snapshot;
+    final findText = _findController.text;
+    if (snapshot?.canEdit != true || findText.isEmpty) return;
+    final replacement = _replaceController.text;
+    final current = _sourceController.text;
+    final next = _findCaseSensitive
+        ? current.replaceAll(findText, replacement)
+        : current.replaceAll(
+            RegExp(RegExp.escape(findText), caseSensitive: false),
+            replacement,
+          );
+    if (next == current) return;
+    final selectionOffset = math.max(0, _sourceController.selection.baseOffset);
+    _sourceController.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(
+        offset: math.min(next.length, selectionOffset),
+      ),
+    );
+    _updateFindMatches(findText, selectMatch: false);
+  }
+
+  _KnowledgeEditorControls _editorControls() {
+    return _KnowledgeEditorControls(
+      sourceMode: _sourceMode,
+      editable: _snapshot?.canEdit == true,
+      canUndo: _undoStack.isNotEmpty,
+      canRedo: _redoStack.isNotEmpty,
+      findVisible: _findVisible,
+      replaceVisible: _replaceVisible,
+      findCaseSensitive: _findCaseSensitive,
+      currentMatchIndex: _currentMatchIndex,
+      matchCount: _findMatchOffsets.length,
+      findController: _findController,
+      replaceController: _replaceController,
+      findFocusNode: _findFocusNode,
+      editorFocusNode: _editorFocusNode,
+      onUndo: _undoEdit,
+      onRedo: _redoEdit,
+      onShowFind: () => _showFind(),
+      onShowReplace: () => _showFind(replace: true),
+      onHideFind: _hideFind,
+      onFindChanged: (value) => _updateFindMatches(value),
+      onFindNext: _findNext,
+      onFindPrevious: _findPrevious,
+      onToggleCaseSensitive: _toggleFindCaseSensitive,
+      onReplaceCurrent: _replaceCurrent,
+      onReplaceAll: _replaceAll,
     );
   }
 
@@ -206,6 +443,7 @@ class _KnowledgeSourceContentDialogState
                 contentController: _sourceController,
                 preview: _preview,
                 editable: _showEditActions,
+                editorControls: _editorControls(),
                 onPreviewChanged: (value) => setState(() => _preview = value),
               ),
       ),
@@ -247,12 +485,404 @@ class _KnowledgeSourceContentDialogState
   }
 }
 
+class _KnowledgeEditorControls {
+  const _KnowledgeEditorControls({
+    required this.sourceMode,
+    required this.editable,
+    required this.canUndo,
+    required this.canRedo,
+    required this.findVisible,
+    required this.replaceVisible,
+    required this.findCaseSensitive,
+    required this.currentMatchIndex,
+    required this.matchCount,
+    required this.findController,
+    required this.replaceController,
+    required this.findFocusNode,
+    required this.editorFocusNode,
+    required this.onUndo,
+    required this.onRedo,
+    required this.onShowFind,
+    required this.onShowReplace,
+    required this.onHideFind,
+    required this.onFindChanged,
+    required this.onFindNext,
+    required this.onFindPrevious,
+    required this.onToggleCaseSensitive,
+    required this.onReplaceCurrent,
+    required this.onReplaceAll,
+  });
+
+  final bool sourceMode;
+  final bool editable;
+  final bool canUndo;
+  final bool canRedo;
+  final bool findVisible;
+  final bool replaceVisible;
+  final bool findCaseSensitive;
+  final int currentMatchIndex;
+  final int matchCount;
+  final TextEditingController findController;
+  final TextEditingController replaceController;
+  final FocusNode findFocusNode;
+  final FocusNode editorFocusNode;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
+  final VoidCallback onShowFind;
+  final VoidCallback onShowReplace;
+  final VoidCallback onHideFind;
+  final ValueChanged<String> onFindChanged;
+  final VoidCallback onFindNext;
+  final VoidCallback onFindPrevious;
+  final VoidCallback onToggleCaseSensitive;
+  final VoidCallback onReplaceCurrent;
+  final VoidCallback onReplaceAll;
+}
+
+class _KnowledgeModeToggle extends StatelessWidget {
+  const _KnowledgeModeToggle({
+    required this.preview,
+    required this.isZh,
+    required this.onChanged,
+  });
+
+  final bool preview;
+  final bool isZh;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _KnowledgeModeToggleButton(
+            selected: preview,
+            icon: Icons.visibility_outlined,
+            label: isZh ? '预览' : 'Preview',
+            onPressed: () => onChanged(true),
+          ),
+          Container(width: 1, color: colorScheme.outlineVariant),
+          _KnowledgeModeToggleButton(
+            selected: !preview,
+            icon: Icons.code_rounded,
+            label: isZh ? '源码' : 'Source',
+            onPressed: () => onChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KnowledgeModeToggleButton extends StatelessWidget {
+  const _KnowledgeModeToggleButton({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final foreground = selected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    return Material(
+      color: selected ? colorScheme.primaryContainer : Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        child: SizedBox(
+          height: 48,
+          width: 94,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: foreground),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KnowledgeEditorToolbar extends StatelessWidget {
+  const _KnowledgeEditorToolbar({required this.controls, required this.isZh});
+
+  final _KnowledgeEditorControls controls;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _KnowledgeEditorToolButton(
+          tooltip: isZh ? '撤销' : 'Undo',
+          icon: Icons.undo_rounded,
+          onPressed: controls.canUndo ? controls.onUndo : null,
+        ),
+        _KnowledgeEditorToolButton(
+          tooltip: isZh ? '重做' : 'Redo',
+          icon: Icons.redo_rounded,
+          onPressed: controls.canRedo ? controls.onRedo : null,
+        ),
+        const _KnowledgeEditorToolDivider(),
+        _KnowledgeEditorToolButton(
+          tooltip: isZh ? '查找' : 'Find',
+          icon: Icons.search_rounded,
+          onPressed: controls.onShowFind,
+        ),
+        _KnowledgeEditorToolButton(
+          tooltip: isZh ? '查找并替换' : 'Find and replace',
+          icon: Icons.find_replace_rounded,
+          onPressed: controls.editable ? controls.onShowReplace : null,
+        ),
+      ],
+    );
+  }
+}
+
+class _KnowledgeFindReplaceBar extends StatelessWidget {
+  const _KnowledgeFindReplaceBar({required this.controls, required this.isZh});
+
+  final _KnowledgeEditorControls controls;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final matchLabel = controls.matchCount <= 0
+        ? ''
+        : '${controls.currentMatchIndex + 1}/${controls.matchCount}';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _KnowledgeFindTextField(
+                controller: controls.findController,
+                focusNode: controls.findFocusNode,
+                hintText: isZh ? '查找' : 'Find',
+                onChanged: controls.onFindChanged,
+                onSubmitted: (_) => controls.onFindNext(),
+              ),
+            ),
+            if (matchLabel.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Text(
+                matchLabel,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            const SizedBox(width: 6),
+            _KnowledgeEditorToolButton(
+              tooltip: isZh ? '上一个匹配项' : 'Previous match',
+              icon: Icons.keyboard_arrow_up_rounded,
+              onPressed: controls.matchCount <= 0
+                  ? null
+                  : controls.onFindPrevious,
+            ),
+            _KnowledgeEditorToolButton(
+              tooltip: isZh ? '下一个匹配项' : 'Next match',
+              icon: Icons.keyboard_arrow_down_rounded,
+              onPressed: controls.matchCount <= 0 ? null : controls.onFindNext,
+            ),
+            _KnowledgeEditorToolButton(
+              tooltip: isZh ? '区分大小写' : 'Match case',
+              icon: Icons.font_download_rounded,
+              selected: controls.findCaseSensitive,
+              onPressed: controls.onToggleCaseSensitive,
+            ),
+            if (!controls.replaceVisible)
+              _KnowledgeEditorToolButton(
+                tooltip: isZh ? '显示替换' : 'Show replace',
+                icon: Icons.find_replace_rounded,
+                onPressed: controls.editable ? controls.onShowReplace : null,
+              ),
+            _KnowledgeEditorToolButton(
+              tooltip: isZh ? '关闭查找' : 'Close find',
+              icon: Icons.close_rounded,
+              onPressed: controls.onHideFind,
+            ),
+          ],
+        ),
+        if (controls.replaceVisible) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: _KnowledgeFindTextField(
+                  controller: controls.replaceController,
+                  hintText: isZh ? '替换为' : 'Replace with',
+                  onSubmitted: (_) => controls.onReplaceCurrent(),
+                ),
+              ),
+              const SizedBox(width: 6),
+              _KnowledgeEditorToolButton(
+                tooltip: isZh ? '替换当前项' : 'Replace current',
+                icon: Icons.find_replace_rounded,
+                onPressed: controls.editable && controls.matchCount > 0
+                    ? controls.onReplaceCurrent
+                    : null,
+              ),
+              _KnowledgeEditorToolButton(
+                tooltip: isZh ? '全部替换' : 'Replace all',
+                icon: Icons.done_all_rounded,
+                onPressed: controls.editable && controls.matchCount > 0
+                    ? controls.onReplaceAll
+                    : null,
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _KnowledgeFindTextField extends StatelessWidget {
+  const _KnowledgeFindTextField({
+    required this.controller,
+    required this.hintText,
+    this.focusNode,
+    this.onChanged,
+    this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final String hintText;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 38,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: hintText,
+          isDense: true,
+          filled: true,
+          fillColor: colorScheme.surface,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.84),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KnowledgeEditorToolButton extends StatelessWidget {
+  const _KnowledgeEditorToolButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.selected = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: IconButton.filledTonal(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        iconSize: 18,
+        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        style: selected
+            ? IconButton.styleFrom(
+                backgroundColor: colorScheme.primaryContainer,
+                foregroundColor: colorScheme.onPrimaryContainer,
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+class _KnowledgeEditorToolDivider extends StatelessWidget {
+  const _KnowledgeEditorToolDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 8,
+      height: 38,
+      child: Center(
+        child: Container(
+          width: 1,
+          height: 22,
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+    );
+  }
+}
+
 class _KnowledgeSourceContentBody extends StatelessWidget {
   const _KnowledgeSourceContentBody({
     required this.snapshot,
     required this.contentController,
     required this.preview,
     required this.editable,
+    required this.editorControls,
     required this.onPreviewChanged,
   });
 
@@ -260,6 +890,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
   final TextEditingController contentController;
   final bool preview;
   final bool editable;
+  final _KnowledgeEditorControls editorControls;
   final ValueChanged<bool> onPreviewChanged;
 
   @override
@@ -369,83 +1000,74 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
         _KnowledgeViewerPanel(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           margin: const EdgeInsets.only(bottom: 10),
-          child: SizedBox(
-            height: 48,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (previewAvailable)
-                  SizedBox(
-                    height: 48,
-                    child: SegmentedButton<bool>(
-                      showSelectedIcon: false,
-                      segments: [
-                        ButtonSegment<bool>(
-                          value: true,
-                          icon: const Icon(Icons.visibility_outlined, size: 16),
-                          label: Text(isZh ? '预览' : 'Preview'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 48,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (previewAvailable)
+                      _KnowledgeModeToggle(
+                        preview: preview,
+                        isZh: isZh,
+                        onChanged: onPreviewChanged,
+                      ),
+                    if (previewAvailable) const SizedBox(width: 8),
+                    SizedBox(
+                      height: 48,
+                      child: FilledButton.tonalIcon(
+                        onPressed: text.trim().isEmpty
+                            ? null
+                            : () {
+                                Clipboard.setData(ClipboardData(text: text));
+                                OpenHandSnackBar.showSuccess(
+                                  context,
+                                  isZh ? '内容已复制。' : 'Content copied.',
+                                );
+                              },
+                        icon: const Icon(Icons.copy_all_rounded),
+                        label: Text(isZh ? '复制内容' : 'Copy Content'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: const VisualDensity(
+                            horizontal: -1,
+                            vertical: -1,
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        ButtonSegment<bool>(
-                          value: false,
-                          icon: const Icon(Icons.code_rounded, size: 16),
-                          label: Text(isZh ? '源码' : 'Source'),
-                        ),
-                      ],
-                      selected: {preview},
-                      onSelectionChanged: (values) =>
-                          onPreviewChanged(values.first),
-                      style: ButtonStyle(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: WidgetStatePropertyAll(
-                          theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          isZh
+                              ? '$lineCount 行 · ${formatByteSize(byteCount)}'
+                              : '$lineCount lines · ${formatByteSize(byteCount)}',
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                     ),
-                  ),
-                if (previewAvailable) const SizedBox(width: 8),
-                SizedBox(
-                  height: 48,
-                  child: FilledButton.tonalIcon(
-                    onPressed: text.trim().isEmpty
-                        ? null
-                        : () {
-                            Clipboard.setData(ClipboardData(text: text));
-                            OpenHandSnackBar.showSuccess(
-                              context,
-                              isZh ? '内容已复制。' : 'Content copied.',
-                            );
-                          },
-                    icon: const Icon(Icons.copy_all_rounded),
-                    label: Text(isZh ? '复制内容' : 'Copy Content'),
-                    style: FilledButton.styleFrom(
-                      visualDensity: const VisualDensity(
-                        horizontal: -1,
-                        vertical: -1,
-                      ),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      isZh
-                          ? '$lineCount 行 · ${formatByteSize(byteCount)}'
-                          : '$lineCount lines · ${formatByteSize(byteCount)}',
-                      textAlign: TextAlign.right,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
+              ),
+              if (editorControls.sourceMode) ...[
+                const SizedBox(height: 8),
+                _KnowledgeEditorToolbar(controls: editorControls, isZh: isZh),
               ],
-            ),
+              if (editorControls.sourceMode && editorControls.findVisible) ...[
+                const SizedBox(height: 8),
+                _KnowledgeFindReplaceBar(controls: editorControls, isZh: isZh),
+              ],
+            ],
           ),
         ),
         Expanded(
@@ -461,6 +1083,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                 : _KnowledgeSourceTextViewer(
                     key: const ValueKey<String>('source-view'),
                     controller: contentController,
+                    focusNode: editorControls.editorFocusNode,
                     editable: editable,
                     emptyText: isZh ? '暂无可浏览内容。' : 'No content to view.',
                   ),
@@ -548,11 +1171,13 @@ class _KnowledgeSourceTextViewer extends StatelessWidget {
   const _KnowledgeSourceTextViewer({
     super.key,
     required this.controller,
+    required this.focusNode,
     required this.editable,
     required this.emptyText,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool editable;
   final String emptyText;
 
@@ -566,6 +1191,7 @@ class _KnowledgeSourceTextViewer extends StatelessWidget {
       child: editable
           ? TextField(
               controller: controller,
+              focusNode: focusNode,
               expands: true,
               maxLines: null,
               keyboardType: TextInputType.multiline,
