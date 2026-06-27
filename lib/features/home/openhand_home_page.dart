@@ -288,6 +288,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const Duration _queuedGuidanceStopSettlePollInterval = Duration(
     milliseconds: 60,
   );
+  static const Duration _composerClipboardReadTimeout = Duration(seconds: 2);
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
   // 2026-06-07 修复：桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
@@ -298,6 +299,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
+  bool _clipboardAttachmentPasteInProgress = false;
   final Map<String, List<_QueuedMessage>> _queuedMessagesBySessionId =
       <String, List<_QueuedMessage>>{};
   final Set<String> _autoQueuedMessageDispatchSessionIds = <String>{};
@@ -2579,17 +2581,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
       return KeyEventResult.ignored;
     }
-    // Cmd/Ctrl+V image paste: probe the OS clipboard for image bytes in
-    // parallel with the platform's text-paste path. If image bytes are
-    // present we add them as an attachment; if only text is on the
-    // clipboard the TextField's normal paste continues unaffected.
-    if (event.logicalKey == LogicalKeyboardKey.keyV) {
+    // Cmd/Ctrl+V attachment paste: probe the OS clipboard in parallel with
+    // the platform text-paste path. If only text is present the TextField's
+    // normal paste continues unaffected.
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.keyV) {
       final hw = HardwareKeyboard.instance;
       final hasModifier = Platform.isMacOS
           ? hw.isMetaPressed
           : hw.isControlPressed;
       if (hasModifier && !hw.isShiftPressed && !hw.isAltPressed) {
-        unawaited(_tryPasteImageFromClipboard());
+        unawaited(_tryPasteAttachmentsFromClipboard());
         // Intentionally fall through (return ignored) so the TextField can
         // still paste text if the clipboard happens to carry both.
       }
@@ -5893,8 +5894,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       OpenHandSnackBar.showError(context, l10n.aiModelSelectionRequired);
       return;
     }
-    if (pendingAttachments.isNotEmpty &&
-        !_selectedModelSupportsAttachments(selectedModel)) {
+    final attachmentCapabilities = _selectedModelAttachmentCapabilities(
+      selectedModel,
+    );
+    if (pendingAttachments.isNotEmpty && !attachmentCapabilities.supportsAny) {
       _showHomeSnackBar(
         context,
         SnackBar(
@@ -5905,6 +5908,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               en: 'The selected model does not support attachments.',
             ),
           ),
+        ),
+      );
+      return;
+    }
+    final unsupportedAttachmentCount = pendingAttachments
+        .where((item) => !attachmentCapabilities.supportsKind(item.kind))
+        .length;
+    if (unsupportedAttachmentCount > 0) {
+      _showAttachmentAppendNotices(
+        _AppendComposerAttachmentsResult(
+          unsupported: unsupportedAttachmentCount,
         ),
       );
       return;
@@ -5954,26 +5968,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       await _handleSlashCommand(slashCommand);
       return;
     }
-    // Warn (non-blocking) when the user attaches images but the model is
-    // not detected as supporting inline image content.
-    if (pendingAttachments.any(
-          (a) => aiAttachmentKindForPath(a.filePath) == AiAttachmentKind.image,
-        ) &&
-        !AiProtocolRegistry.supportsInlineImages(selectedModel)) {
-      _showHomeSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '⚠️ 当前模型可能不支持直接查看图片，图片将以文字描述形式发送。建议切换到多模态模型。',
-              en: '⚠️ The selected model may not support image viewing. Images will be sent as text descriptions.',
-            ),
-          ),
-        ),
-      );
-    }
-
     MachineExpertDialogResult? machineExpertConfig;
     AiSessionRuntimeContext? runtimeContext;
     final submitPreflightTimingsMs = <String, int>{};
@@ -6357,6 +6351,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       initialSession,
     );
     if (selectedModel == null) return _SubmitTextOutcome.failedBeforeSubmit;
+    final attachmentCapabilities = _selectedModelAttachmentCapabilities(
+      selectedModel,
+    );
+    if (pendingAttachments.any(
+      (item) => !attachmentCapabilities.supportsKind(item.kind),
+    )) {
+      if (mounted) {
+        _showAttachmentAppendNotices(
+          _AppendComposerAttachmentsResult(
+            unsupported: pendingAttachments
+                .where(
+                  (item) => !attachmentCapabilities.supportsKind(item.kind),
+                )
+                .length,
+          ),
+        );
+      }
+      return _SubmitTextOutcome.failedBeforeSubmit;
+    }
     if (initialSession?.templateId == WebReverseCdpMcpBridge.templateId &&
         _webReverseControllers[targetSessionId] == null) {
       await restoreWebReverseSession(initialSession!);
@@ -6667,17 +6680,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  bool _selectedModelSupportsAttachments(AiModelConfig? model) {
-    if (model == null) return false;
-    return model.resolvedSupportsAttachments;
+  AiAttachmentInputCapabilities _selectedModelAttachmentCapabilities(
+    AiModelConfig? model,
+  ) {
+    return resolveAiAttachmentInputCapabilities(model);
   }
 
-  /// Attempts to pull an image off the OS clipboard (Cmd/Ctrl+V) and add it
-  /// to the composer's pending attachments. Silently no-ops if the clipboard
-  /// holds no image, the active model rejects attachments, the 20-slot or
-  /// 10MB caps are exhausted, or the platform plugin is unavailable.
-  Future<void> _tryPasteImageFromClipboard() async {
-    if (!mounted) {
+  bool _selectedModelSupportsAttachments(AiModelConfig? model) {
+    return _selectedModelAttachmentCapabilities(model).supportsAny;
+  }
+
+  Future<void> _tryPasteAttachmentsFromClipboard() async {
+    if (!mounted || _clipboardAttachmentPasteInProgress) {
       return;
     }
     final settingsController = context.read<SettingsController>();
@@ -6685,74 +6699,85 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController,
       context.read<AiSessionController>().currentSession,
     );
-    if (selectedModel == null ||
-        !_selectedModelSupportsAttachments(selectedModel)) {
+    final capabilities = _selectedModelAttachmentCapabilities(selectedModel);
+    if (!capabilities.supportsAny) {
       return;
     }
     if (_pendingAttachments.length >= aiMessageAttachmentLimit) {
+      _showAttachmentAppendNotices(
+        const _AppendComposerAttachmentsResult(limitSkipped: 1),
+      );
       return;
     }
-    Uint8List? bytes;
+    _clipboardAttachmentPasteInProgress = true;
     try {
-      bytes = await Pasteboard.image;
-    } catch (error, stack) {
-      silentLog('home', 'pasteboard.image', error, stack);
-      return;
-    }
-    if (bytes == null || bytes.isEmpty) {
-      return;
-    }
-    if (bytes.lengthInBytes > aiMessageAttachmentMaxFileBytes) {
+      List<String> clipboardFiles = const <String>[];
+      try {
+        clipboardFiles = await Pasteboard.files().timeout(
+          _composerClipboardReadTimeout,
+        );
+      } catch (error, stack) {
+        silentLog('home', 'pasteboard.files', error, stack);
+      }
       if (!mounted) {
         return;
       }
-      _showHomeSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '剪贴板图片超出 10MB 单文件上限，已忽略。',
-              en: 'Clipboard image exceeds the 10MB per-attachment limit and was ignored.',
-            ),
-          ),
-        ),
-      );
-      return;
+      if (clipboardFiles.isNotEmpty) {
+        final result = await _appendComposerAttachmentPaths(
+          clipboardFiles,
+          capabilities: capabilities,
+        );
+        if (!mounted) {
+          return;
+        }
+        _showAttachmentAppendNotices(result);
+        return;
+      }
+      if (!capabilities.supportsImageInput) {
+        return;
+      }
+      Uint8List? bytes;
+      try {
+        bytes = await Pasteboard.image.timeout(_composerClipboardReadTimeout);
+      } catch (error, stack) {
+        silentLog('home', 'pasteboard.image', error, stack);
+        return;
+      }
+      if (bytes == null || bytes.isEmpty) {
+        return;
+      }
+      if (bytes.lengthInBytes > aiMessageAttachmentMaxFileBytes) {
+        _showAttachmentAppendNotices(
+          const _AppendComposerAttachmentsResult(oversized: 1),
+        );
+        return;
+      }
+      String tempPath;
+      try {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'openhand_paste_',
+        );
+        final ts = DateTime.now().microsecondsSinceEpoch;
+        final tempFile = File(p.join(tempDir.path, 'pasted_$ts.png'));
+        await tempFile.writeAsBytes(bytes, flush: true);
+        tempPath = tempFile.path;
+      } catch (error, stack) {
+        silentLog('home', 'pasteboard.write_temp', error, stack);
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      final result = await _appendComposerAttachmentPaths(<String>[
+        tempPath,
+      ], capabilities: capabilities);
+      if (!mounted) {
+        return;
+      }
+      _showAttachmentAppendNotices(result);
+    } finally {
+      _clipboardAttachmentPasteInProgress = false;
     }
-    String tempPath;
-    try {
-      final tempDir = await Directory.systemTemp.createTemp('openhand_paste_');
-      final ts = DateTime.now().toIso8601String().replaceAll(
-        RegExp(r'[^0-9]'),
-        '',
-      );
-      final tempFile = File(p.join(tempDir.path, 'pasted_$ts.png'));
-      await tempFile.writeAsBytes(bytes, flush: true);
-      tempPath = tempFile.path;
-    } catch (error, stack) {
-      silentLog('home', 'pasteboard.write_temp', error, stack);
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    _ComposerAttachmentDraft draft;
-    try {
-      draft = await _ComposerAttachmentDraft.fromPath(tempPath);
-    } catch (error, stack) {
-      silentLog('home', 'pasteboard.draft', error, stack);
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _pendingAttachments = List<_ComposerAttachmentDraft>.from(
-        _pendingAttachments,
-      )..add(draft);
-      _composerCollapsed = false;
-    });
   }
 
   Future<void> _pickComposerAttachments() async {
@@ -6766,13 +6791,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       OpenHandSnackBar.showError(context, l10n.aiModelSelectionRequired);
       return;
     }
-    if (!_selectedModelSupportsAttachments(selectedModel)) {
+    final capabilities = _selectedModelAttachmentCapabilities(selectedModel);
+    if (!capabilities.supportsAny) {
       OpenHandSnackBar.showInfo(
         context,
         _localizedText(
           context,
           zh: '当前模型不支持附件。',
           en: 'The selected model does not support attachments.',
+        ),
+      );
+      return;
+    }
+    final extensions = aiAttachmentPickerExtensionsForCapabilities(
+      capabilities,
+    );
+    if (extensions.isEmpty) {
+      OpenHandSnackBar.showInfo(
+        context,
+        _localizedText(
+          context,
+          zh: '当前模型没有可添加的附件类型。',
+          en: 'The selected model has no supported attachment types.',
         ),
       );
       return;
@@ -6792,15 +6832,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final pickedFiles = await openFiles(
       acceptedTypeGroups: <XTypeGroup>[
-        XTypeGroup(
-          label: 'Attachments',
-          extensions: aiAttachmentPickerExtensions(),
-        ),
+        XTypeGroup(label: 'Attachments', extensions: extensions),
       ],
     );
     if (!mounted || pickedFiles.isEmpty) {
       return;
     }
+    final result = await _appendComposerAttachmentPaths(
+      pickedFiles.map((file) => file.path),
+      capabilities: capabilities,
+    );
+    if (!mounted) {
+      return;
+    }
+    _showAttachmentAppendNotices(result);
+  }
+
+  Future<_AppendComposerAttachmentsResult> _appendComposerAttachmentPaths(
+    Iterable<String> rawPaths, {
+    required AiAttachmentInputCapabilities capabilities,
+  }) async {
     final existingPaths = _pendingAttachments
         .map((item) => item.filePath)
         .toSet();
@@ -6812,33 +6863,46 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         .aiImageSizeLimitBytes;
     var addedCount = 0;
     var oversizedCount = 0;
-    for (final file in pickedFiles) {
-      final path = file.path.trim();
-      if (path.isEmpty || existingPaths.contains(path)) {
+    var unsupportedCount = 0;
+    var unreadableCount = 0;
+    var limitSkippedCount = 0;
+    for (final rawPath in rawPaths) {
+      final path = rawPath.trim();
+      if (path.isEmpty) {
+        continue;
+      }
+      if (existingPaths.contains(path)) {
         continue;
       }
       if (nextAttachments.length >= aiMessageAttachmentLimit) {
-        break;
+        limitSkippedCount += 1;
+        continue;
       }
-      // Hard 10MB per-file cap (raw on-disk bytes). Enforced before any
-      // image-editor or temp-file step so we never copy oversize files.
+      final kind = aiAttachmentKindForPath(path);
+      if (!capabilities.supportsKind(kind)) {
+        unsupportedCount += 1;
+        continue;
+      }
       try {
         final stat = await File(path).stat();
+        if (stat.type != FileSystemEntityType.file) {
+          unreadableCount += 1;
+          continue;
+        }
         if (stat.size > aiMessageAttachmentMaxFileBytes) {
           oversizedCount += 1;
           continue;
         }
       } catch (_) {
-        // Couldn't stat — skip silently, the downstream service will
-        // surface a clearer error if it cannot read the file at all.
+        unreadableCount += 1;
         continue;
       }
       var resolvedPath = path;
-      if (aiAttachmentKindForPath(path) == AiAttachmentKind.image) {
+      if (kind == AiAttachmentKind.image) {
         try {
           final bytes = await File(path).readAsBytes();
           if (!mounted) {
-            return;
+            return const _AppendComposerAttachmentsResult();
           }
           final editorResult = await showImageEditorDialog(
             context,
@@ -6846,60 +6910,100 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             imageSizeLimitBytes: imageSizeLimitBytes,
           );
           if (!mounted) {
-            return;
+            return const _AppendComposerAttachmentsResult();
           }
           if (editorResult == null) {
-            // User cancelled — drop this image entirely.
             continue;
           }
-          // Persist edited bytes to a temp file so the rest of the
-          // attachment pipeline can treat it like any other picked file.
           final tempDir = await Directory.systemTemp.createTemp(
             'openhand_edit_',
           );
           final ext = editorResult.format;
-          final basename = p.basenameWithoutExtension(path);
+          final basename = p.basenameWithoutExtension(path).trim().isEmpty
+              ? 'image'
+              : p.basenameWithoutExtension(path).trim();
           final tempFile = File(p.join(tempDir.path, '$basename.$ext'));
           await tempFile.writeAsBytes(editorResult.bytes, flush: true);
           resolvedPath = tempFile.path;
-        } catch (_) {
-          // Reading or editing failed — fall back to the original picked path.
+        } catch (error, stack) {
+          silentLog('home', 'image attachment editor', error, stack);
           resolvedPath = path;
         }
       }
       if (existingPaths.contains(resolvedPath)) {
         continue;
       }
-      nextAttachments.add(
-        await _ComposerAttachmentDraft.fromPath(resolvedPath),
-      );
+      try {
+        nextAttachments.add(
+          await _ComposerAttachmentDraft.fromPath(resolvedPath),
+        );
+      } catch (error, stack) {
+        silentLog('home', 'attachment draft', error, stack);
+        unreadableCount += 1;
+        continue;
+      }
       existingPaths.add(resolvedPath);
       addedCount += 1;
     }
-    if (!mounted) {
+    if (mounted && addedCount > 0) {
+      setState(() {
+        _pendingAttachments = nextAttachments;
+        _composerCollapsed = false;
+      });
+    }
+    return _AppendComposerAttachmentsResult(
+      added: addedCount,
+      oversized: oversizedCount,
+      unsupported: unsupportedCount,
+      unreadable: unreadableCount,
+      limitSkipped: limitSkippedCount,
+    );
+  }
+
+  void _showAttachmentAppendNotices(_AppendComposerAttachmentsResult result) {
+    if (!mounted || !result.hasNotices) {
       return;
     }
-    if (oversizedCount > 0) {
-      _showHomeSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '已忽略 $oversizedCount 个超出 10MB 单文件上限的附件。',
-              en: 'Ignored $oversizedCount file(s) exceeding the 10MB per-attachment limit.',
-            ),
-          ),
+    final lines = <String>[];
+    if (result.limitSkipped > 0) {
+      lines.add(
+        _localizedText(
+          context,
+          zh: '单条消息最多携带 20 个附件。',
+          en: 'A single message supports at most 20 attachments.',
         ),
       );
     }
-    if (addedCount == 0) {
-      return;
+    if (result.unsupported > 0) {
+      lines.add(
+        _localizedText(
+          context,
+          zh: '已忽略 ${result.unsupported} 个当前模型不支持的附件类型。',
+          en: 'Ignored ${result.unsupported} unsupported attachment type(s) for the selected model.',
+        ),
+      );
     }
-    setState(() {
-      _pendingAttachments = nextAttachments;
-      _composerCollapsed = false;
-    });
+    if (result.oversized > 0) {
+      lines.add(
+        _localizedText(
+          context,
+          zh: '已忽略 ${result.oversized} 个超出 10MB 单文件上限的附件。',
+          en: 'Ignored ${result.oversized} file(s) exceeding the 10MB per-attachment limit.',
+        ),
+      );
+    }
+    if (result.unreadable > 0) {
+      lines.add(
+        _localizedText(
+          context,
+          zh: '已忽略 ${result.unreadable} 个无法读取的附件。',
+          en: 'Ignored ${result.unreadable} unreadable attachment(s).',
+        ),
+      );
+    }
+    if (lines.isNotEmpty) {
+      _showHomeSnackBar(context, SnackBar(content: Text(lines.join('\n'))));
+    }
   }
 
   void _removePendingAttachment(String filePath) {

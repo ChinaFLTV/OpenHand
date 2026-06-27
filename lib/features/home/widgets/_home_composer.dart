@@ -4306,6 +4306,25 @@ class _ComposerAttachmentDraft {
   }
 }
 
+class _AppendComposerAttachmentsResult {
+  const _AppendComposerAttachmentsResult({
+    this.added = 0,
+    this.oversized = 0,
+    this.unsupported = 0,
+    this.unreadable = 0,
+    this.limitSkipped = 0,
+  });
+
+  final int added;
+  final int oversized;
+  final int unsupported;
+  final int unreadable;
+  final int limitSkipped;
+
+  bool get hasNotices =>
+      oversized > 0 || unsupported > 0 || unreadable > 0 || limitSkipped > 0;
+}
+
 IconData _iconForAttachmentKind(AiAttachmentKind kind) {
   return switch (kind) {
     AiAttachmentKind.image => Icons.image_outlined,

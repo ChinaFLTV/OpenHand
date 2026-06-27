@@ -50,6 +50,7 @@ export 'service/chat/ai_protocol_adapter.dart';
 export 'service/chat/ai_transport_diagnostic_messages.dart';
 export 'service/dsml/ai_dsml_partial_stream_scanner.dart';
 export 'service/dsml/ai_dsml_tool_call_parser.dart';
+export 'service/fs/ai_attachment_input_capabilities.dart';
 export 'service/fs/ai_attachment_service.dart';
 export 'service/fs/ai_file_history_service.dart';
 export 'service/fs/ai_file_mutation_ledger.dart';

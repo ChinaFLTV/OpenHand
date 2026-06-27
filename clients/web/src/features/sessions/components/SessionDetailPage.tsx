@@ -169,6 +169,7 @@ const SSE_FAIL_THRESHOLD = 3;
 
 // 单条附件最大字节数；真正的硬上限以 service 端响应为准。
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
+const ATTACHMENT_MAX_COUNT = 20;
 const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
 const COMPOSER_CHIP_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
@@ -179,6 +180,55 @@ const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
 const COMPOSER_TRIGGER_WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
 const EMPTY_SESSION_MESSAGES: SessionMessage[] = [];
+const IMAGE_ATTACHMENT_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
+const FILE_ATTACHMENT_EXTENSIONS = new Set([
+  'txt',
+  'md',
+  'markdown',
+  'json',
+  'yaml',
+  'yml',
+  'toml',
+  'xml',
+  'html',
+  'htm',
+  'css',
+  'scss',
+  'sass',
+  'js',
+  'jsx',
+  'ts',
+  'tsx',
+  'dart',
+  'go',
+  'py',
+  'java',
+  'kt',
+  'kts',
+  'rb',
+  'rs',
+  'c',
+  'cc',
+  'cpp',
+  'h',
+  'hpp',
+  'sh',
+  'zsh',
+  'bash',
+  'fish',
+  'ps1',
+  'swift',
+  'php',
+  'cs',
+  'scala',
+  'sql',
+  'log',
+  'csv',
+  'tsv',
+  'xls',
+  'xlsx',
+  'pdf',
+]);
 type AwaitingCreationMode = Extract<MediaGenerationMode, 'image' | 'video' | 'audio'>;
 
 interface ComposerTriggerDismissal {
@@ -1428,6 +1478,84 @@ function modelSupportsMode(model: ApiMetaModel | undefined, mode: string): boole
     default:
       return true;
   }
+}
+
+type ComposerAttachmentKind = 'image' | 'file' | 'unsupported';
+
+function extensionFromName(name: string): string {
+  const normalized = name.trim().toLowerCase();
+  const dot = normalized.lastIndexOf('.');
+  return dot >= 0 && dot < normalized.length - 1 ? normalized.slice(dot + 1) : '';
+}
+
+function composerAttachmentKind(name: string, mime?: string): ComposerAttachmentKind {
+  const normalizedMime = (mime ?? '').trim().toLowerCase();
+  const extension = extensionFromName(name);
+  if (normalizedMime.startsWith('image/') || IMAGE_ATTACHMENT_EXTENSIONS.has(extension)) {
+    return 'image';
+  }
+  if (FILE_ATTACHMENT_EXTENSIONS.has(extension)) {
+    return 'file';
+  }
+  return 'unsupported';
+}
+
+function mimeForAttachmentName(name: string): string | null {
+  switch (extensionFromName(name)) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    case 'bmp':
+      return 'image/bmp';
+    case 'svg':
+      return 'image/svg+xml';
+    case 'pdf':
+      return 'application/pdf';
+    case 'csv':
+      return 'text/csv';
+    case 'tsv':
+      return 'text/tab-separated-values';
+    case 'json':
+      return 'application/json';
+    case 'yaml':
+    case 'yml':
+      return 'application/yaml';
+    case 'toml':
+      return 'application/toml';
+    case 'xml':
+      return 'application/xml';
+    case 'xls':
+      return 'application/vnd.ms-excel';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    default:
+      return FILE_ATTACHMENT_EXTENSIONS.has(extensionFromName(name)) ? 'text/plain' : null;
+  }
+}
+
+function modelSupportsAttachmentKind(model: ApiMetaModel | undefined, kind: ComposerAttachmentKind): boolean {
+  if (!model || model.supports_attachments === false) return false;
+  if (kind === 'image') return model.supports_image_input === true;
+  if (kind === 'file') return model.supports_file_input !== false;
+  return false;
+}
+
+function attachmentAcceptForModel(model: ApiMetaModel | undefined): string {
+  if (!model || model.supports_attachments === false) return '';
+  const extensions: string[] = [];
+  if (model.supports_image_input === true) {
+    extensions.push(...Array.from(IMAGE_ATTACHMENT_EXTENSIONS).map((ext) => `.${ext}`));
+  }
+  if (model.supports_file_input !== false) {
+    extensions.push(...Array.from(FILE_ATTACHMENT_EXTENSIONS).map((ext) => `.${ext}`));
+  }
+  return Array.from(new Set(extensions)).join(',');
 }
 
 function composerModeLabel(mode: string): string {
@@ -3345,7 +3473,10 @@ export function SessionDetailPage() {
     if (goalModeAvailable) modes.push('goal');
     return modes;
   }, [goalModeAvailable, meta?.service?.plan_mode_enabled]);
-  const attachmentsAllowed = allowedMessageTypes.includes('attachment') && selectedModel?.supports_attachments !== false;
+  const attachmentsAllowed =
+    allowedMessageTypes.includes('attachment') &&
+    (modelSupportsAttachmentKind(selectedModel, 'image') || modelSupportsAttachmentKind(selectedModel, 'file'));
+  const attachmentAccept = useMemo(() => attachmentAcceptForModel(selectedModel), [selectedModel]);
   const textAllowed = allowedMessageTypes.includes('text');
 
   function copyQueuedAttachments(): SendMessageAttachment[] {
@@ -3381,6 +3512,13 @@ export function SessionDetailPage() {
     if (text && !textAllowed) return t('composer.error.textNotAllowed', '当前 service 禁用了文本消息');
     if (attachments.length > 0 && (!allowedMessageTypes.includes('attachment') || model?.supports_attachments === false)) {
       return t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件');
+    }
+    if (attachments.length > ATTACHMENT_MAX_COUNT) {
+      return t('composer.error.attachmentLimit', '单条消息最多携带 20 个附件');
+    }
+    const unsupported = attachments.some((attachment) => !modelSupportsAttachmentKind(model, composerAttachmentKind(attachment.name)));
+    if (unsupported) {
+      return t('composer.error.attachmentTypeNotSupported', '当前模型不支持所选附件类型');
     }
     if (!modelKey) return t('composer.error.modelMissing', '请选择模型');
     if (!modelSupportsMode(model, mode)) {
@@ -4186,11 +4324,11 @@ export function SessionDetailPage() {
           reject(new Error('empty base64 payload'));
           return;
         }
-        const mime = file.type || (idx > 0 ? result.substring(5, result.indexOf(';')) : 'application/octet-stream');
+        const mime = file.type || mimeForAttachmentName(file.name) || (idx > 0 ? result.substring(5, result.indexOf(';')) : 'application/octet-stream');
         resolve({
           att: { name: file.name, data_base64: data },
           mime,
-          dataUrl: result,
+          dataUrl: `data:${mime};base64,${data}`,
         });
       };
       reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
@@ -4305,8 +4443,19 @@ export function SessionDetailPage() {
     const nextAtt: SendMessageAttachment[] = [...composerAttachments];
     const nextPv: { mime: string; dataUrl: string; size: number }[] = [...attachmentPreviews];
     const nextIds = [...composerAttachmentIds];
+    let unsupportedCount = 0;
+    let limitSkippedCount = 0;
     for (const file of files) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
+      if (nextAtt.length >= ATTACHMENT_MAX_COUNT) {
+        limitSkippedCount += 1;
+        continue;
+      }
+      const kind = composerAttachmentKind(file.name, file.type);
+      if (!modelSupportsAttachmentKind(selectedModel, kind)) {
+        unsupportedCount += 1;
+        continue;
+      }
       if (file.size > ATTACHMENT_MAX_BYTES) {
         if (!ownsSessionAsyncResult(requestSessionId)) return;
         setComposerError(t('composer.attachment.tooLarge', '附件超过 ') + (ATTACHMENT_MAX_BYTES / (1024 * 1024)).toFixed(0) + ' MiB');
@@ -4315,7 +4464,7 @@ export function SessionDetailPage() {
       try {
         const r = await readFileAsAttachment(file);
         if (!ownsSessionAsyncResult(requestSessionId)) return;
-        if (r.mime.startsWith('image/')) {
+        if (kind === 'image') {
           const edited = await openImageEditor({
             name: file.name,
             mime: r.mime,
@@ -4349,6 +4498,11 @@ export function SessionDetailPage() {
     setComposerAttachments(nextAtt);
     setComposerAttachmentIds(nextIds);
     setAttachmentPreviews(nextPv);
+    if (limitSkippedCount > 0) {
+      setComposerError(t('composer.error.attachmentLimit', '单条消息最多携带 20 个附件'));
+    } else if (unsupportedCount > 0) {
+      setComposerError(t('composer.error.attachmentTypeNotSupported', '当前模型不支持所选附件类型'));
+    }
   }
 
   async function handleAttachmentInput(ev: Event): Promise<void> {
@@ -5578,21 +5732,24 @@ export function SessionDetailPage() {
             <div
               class="relative"
               onDragOver={(e) => {
-                if (!attachmentsAllowed) return;
                 if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) {
                   e.preventDefault();
-                  if (!dragOver) setDragOver(true);
+                  if (attachmentsAllowed && !dragOver) setDragOver(true);
                 }
               }}
               onDragLeave={(e) => {
                 if (e.currentTarget === e.target) setDragOver(false);
               }}
               onDrop={(e) => {
-                if (!attachmentsAllowed) return;
+                const files = Array.from(e.dataTransfer?.files ?? []);
+                if (files.length === 0) return;
                 e.preventDefault();
                 setDragOver(false);
-                const files = Array.from(e.dataTransfer?.files ?? []);
-                if (files.length > 0) void appendFiles(files);
+                if (!attachmentsAllowed) {
+                  setComposerError(t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件'));
+                  return;
+                }
+                void appendFiles(files);
               }}
             >
                 {atMentionFilePickerVisible && atMentionFilePickerAnchor ? (
@@ -5742,7 +5899,6 @@ export function SessionDetailPage() {
                     updateAtMentionFilePickerForText(target.value, target.selectionStart ?? target.value.length);
                   }}
                   onPaste={(e) => {
-                    if (!attachmentsAllowed) return;
                     const items = e.clipboardData?.items;
                     if (!items) return;
                     const files: File[] = [];
@@ -5754,6 +5910,10 @@ export function SessionDetailPage() {
                     }
                     if (files.length > 0) {
                       e.preventDefault();
+                      if (!attachmentsAllowed) {
+                        setComposerError(t('composer.error.attachmentNotAllowed', '当前 service 禁用了附件'));
+                        return;
+                      }
                       void appendFiles(files);
                     }
                   }}
@@ -5782,7 +5942,7 @@ export function SessionDetailPage() {
                   <ComposerIcon name="attachment" size={16} />
                 </span>
                 {t('composer.attachment.add', '添加附件')}
-                <input ref={composerFileInputRef} type="file" multiple onChange={handleAttachmentInput} style={{ display: 'none' }} />
+                <input ref={composerFileInputRef} type="file" multiple accept={attachmentAccept} onChange={handleAttachmentInput} style={{ display: 'none' }} />
               </label>
             ) : null}
             <span class="text-xs flex-1 min-w-[160px]" style={{ color: 'var(--m3-on-surface-variant)' }}>

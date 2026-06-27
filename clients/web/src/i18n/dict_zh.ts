@@ -255,6 +255,8 @@ export const dict_zh: Record<string, string> = {
   'composer.error.empty': '请输入内容或添加附件',
   'composer.error.textNotAllowed': '当前 service 禁用了文本消息',
   'composer.error.attachmentNotAllowed': '当前 service 禁用了附件',
+  'composer.error.attachmentLimit': '单条消息最多携带 20 个附件',
+  'composer.error.attachmentTypeNotSupported': '当前模型不支持所选附件类型',
   'composer.error.modelMissing': '请选择模型',
   'composer.error.send': '发送失败：HTTP ',
   'composer.send': '发送',

@@ -254,6 +254,8 @@ export const dict_zhHant: Record<string, string> = {
   'composer.error.empty': '請輸入內容或新增附件',
   'composer.error.textNotAllowed': '目前 service 已停用文字訊息',
   'composer.error.attachmentNotAllowed': '目前 service 已停用附件',
+  'composer.error.attachmentLimit': '單則訊息最多可攜帶 20 個附件',
+  'composer.error.attachmentTypeNotSupported': '目前模型不支援所選附件類型',
   'composer.error.modelMissing': '請選擇模型',
   'composer.error.send': '傳送失敗：HTTP ',
   'composer.send': '傳送',

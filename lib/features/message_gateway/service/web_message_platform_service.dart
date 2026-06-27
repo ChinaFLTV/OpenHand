@@ -2237,6 +2237,8 @@ class WebMessagePlatformService {
               'model_id': item.modelId,
               'label': item.label,
               'supports_attachments': item.supportsAttachments,
+              'supports_image_input': item.supportsImageInput,
+              'supports_file_input': item.supportsFileInput,
               'supports_image_generation': item.supportsImageGeneration,
               'supports_video_generation': item.supportsVideoGeneration,
               'supports_audio_generation': item.supportsAudioGeneration,
@@ -2946,34 +2948,62 @@ class WebMessagePlatformService {
         'error': 'conversation_mode_not_allowed',
       });
     }
+    final rawAttachments = body['attachments'];
+    if (rawAttachments is List &&
+        rawAttachments.length > aiMessageAttachmentLimit) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'too_many_attachments',
+        'limit': aiMessageAttachmentLimit,
+      });
+    }
     final attachments = await _materializeAttachments(
       session.id,
-      body['attachments'],
+      rawAttachments,
     );
     if (attachments.isNotEmpty &&
         !_config.allowedMessageTypes.contains(
           WebGatewayMessageType.attachment,
         )) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'attachments_not_allowed',
       });
     }
     if (content.isNotEmpty &&
         !_config.allowedMessageTypes.contains(WebGatewayMessageType.text)) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'text_not_allowed',
       });
     }
     final model = _resolveModel(_string(body['model_key'], ''));
     if (model == null) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_not_configured',
+      });
+    }
+    final attachmentCapabilities = resolveAiAttachmentInputCapabilities(model);
+    final unsupportedAttachmentCount = attachments
+        .where(
+          (path) => !attachmentCapabilities.supportsKind(
+            aiAttachmentKindForPath(path),
+          ),
+        )
+        .length;
+    if (unsupportedAttachmentCount > 0) {
+      await _deleteMaterializedAttachments(attachments);
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'attachment_type_not_supported',
+        'unsupported_count': unsupportedAttachmentCount,
+        'message': '当前模型不支持所选附件类型，请移除附件或切换模型。',
       });
     }
     final selectedSkill = await _resolveWebSelectedSkill(
       body['selected_skill'],
     );
     if (selectedSkill.error != null) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': selectedSkill.error,
       });
@@ -2995,6 +3025,7 @@ class WebMessagePlatformService {
           : null,
     );
     if (!_modelSupportsConversationMode(model, conversationMode)) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_mode_not_supported',
         'mode': conversationMode.storageValue,
@@ -3014,12 +3045,14 @@ class WebMessagePlatformService {
         ? null
         : AiSessionGoalStartOptions.fromJson(goalOptionsRaw);
     if (goalOptionsRaw != null && goalStartOptions == null) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'goal_options_invalid',
       });
     }
     if (goalStartOptions != null &&
         !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.forbidden, <String, Object?>{
         'error': 'goal_mode_not_available',
       });
@@ -3028,6 +3061,7 @@ class WebMessagePlatformService {
         body['allow_queued_goal_interruption'] == true ||
         body['allowQueuedGoalInterruption'] == true;
     if (session.hasActiveGoal && !allowQueuedGoalInterruption) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.conflict, <String, Object?>{
         'error': 'goal_active',
         'goal_state': session.goalState.toJson(),
@@ -3036,6 +3070,7 @@ class WebMessagePlatformService {
     if (session.mode == AiSessionMode.goal &&
         goalStartOptions == null &&
         !allowQueuedGoalInterruption) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'goal_options_required',
       });
@@ -3056,6 +3091,7 @@ class WebMessagePlatformService {
     // 第一层让前端立即得到 409 反馈以禁用按钮，第二层兜底防止异常路径并发。
     final currentPhase = _sessionController.sendPhaseForSession(session.id);
     if (currentPhase != AiSendPhase.idle) {
+      await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.conflict, <String, Object?>{
         'error': 'session_busy',
         'send_phase': currentPhase.name,
@@ -3071,6 +3107,7 @@ class WebMessagePlatformService {
     if (knowledgeBaseReferenceEnabled) {
       final knowledgeBaseController = _knowledgeBaseController;
       if (knowledgeBaseController == null) {
+        await _deleteMaterializedAttachments(attachments);
         return _json(HttpStatus.serviceUnavailable, <String, Object?>{
           'error': 'knowledge_base_unavailable',
           'message': '知识库服务未初始化。',
@@ -3092,6 +3129,7 @@ class WebMessagePlatformService {
         }
       } catch (error, stack) {
         silentLog('WebGateway', 'knowledgeBaseAugmentation', error, stack);
+        await _deleteMaterializedAttachments(attachments);
         return _json(HttpStatus.badGateway, <String, Object?>{
           'error': 'knowledge_base_augmentation_failed',
           'message': '$error',
@@ -6030,6 +6068,9 @@ class WebMessagePlatformService {
         }
         final resolved = provider.copyWith(modelId: modelId);
         final profile = provider.profileFor(modelId);
+        final attachmentCapabilities = resolveAiAttachmentInputCapabilities(
+          resolved,
+        );
         result.add(
           _AllowedWebModel(
             key: key,
@@ -6038,7 +6079,9 @@ class WebMessagePlatformService {
             protocolLabel: provider.protocolType.storageValue,
             modelId: modelId,
             label: '${provider.providerLabel} / $modelId',
-            supportsAttachments: resolved.resolvedSupportsAttachments,
+            supportsAttachments: attachmentCapabilities.supportsAny,
+            supportsImageInput: attachmentCapabilities.supportsImageInput,
+            supportsFileInput: attachmentCapabilities.supportsFileInput,
             supportsImageGeneration:
                 AiImageGenerationService.supportsImageGenerationForModel(
                   resolved,
@@ -6182,6 +6225,26 @@ class WebMessagePlatformService {
       output.add(file.path);
     }
     return output;
+  }
+
+  Future<void> _deleteMaterializedAttachments(List<String> paths) async {
+    for (final path in paths) {
+      try {
+        final trimmed = path.trim();
+        if (trimmed.isEmpty) continue;
+        final file = File(trimmed);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (error, stack) {
+        silentLog(
+          'web_message_platform_service',
+          'delete materialized attachment',
+          error,
+          stack,
+        );
+      }
+    }
   }
 
   String get _uploadCacheDirectoryPath =>
@@ -6820,6 +6883,8 @@ class _AllowedWebModel {
     required this.modelId,
     required this.label,
     required this.supportsAttachments,
+    required this.supportsImageInput,
+    required this.supportsFileInput,
     required this.supportsImageGeneration,
     required this.supportsVideoGeneration,
     required this.supportsAudioGeneration,
@@ -6836,6 +6901,8 @@ class _AllowedWebModel {
   final String modelId;
   final String label;
   final bool supportsAttachments;
+  final bool supportsImageInput;
+  final bool supportsFileInput;
   final bool supportsImageGeneration;
   final bool supportsVideoGeneration;
   final bool supportsAudioGeneration;

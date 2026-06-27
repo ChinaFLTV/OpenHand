@@ -101,6 +101,8 @@ export interface ApiMetaModel {
   model_id: string;
   label: string;
   supports_attachments?: boolean;
+  supports_image_input?: boolean;
+  supports_file_input?: boolean;
   supports_image_generation?: boolean;
   supports_video_generation?: boolean;
   supports_audio_generation?: boolean;

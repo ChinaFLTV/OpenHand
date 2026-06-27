@@ -247,8 +247,7 @@ abstract class AiProtocolAdapter {
   });
 
   bool supportsAttachmentsForModel(AiModelConfig model) {
-    // Check user-configured profile override first.
-    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    final profileOverride = _profileInlineImageSupport(model);
     if (profileOverride != null) return profileOverride;
     return false;
   }
@@ -302,6 +301,17 @@ abstract class AiProtocolAdapter {
     }
     return trimmed;
   }
+}
+
+bool? _profileInlineImageSupport(AiModelConfig model) {
+  final profile = model.profileFor(model.modelId);
+  if (profile.isMultimodal != null) {
+    return profile.isMultimodal;
+  }
+  if (profile.supportedModalities.contains(AiModelModality.image)) {
+    return true;
+  }
+  return null;
 }
 
 List<AiToolDefinition> _stableToolDefinitions(List<AiToolDefinition> tools) {
@@ -404,7 +414,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
-    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    final profileOverride = _profileInlineImageSupport(model);
     if (profileOverride != null) return profileOverride;
     return _containsAny(model.modelId, visionModelPatterns);
   }
@@ -1225,7 +1235,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
-    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    final profileOverride = _profileInlineImageSupport(model);
     if (profileOverride != null) return profileOverride;
     return _containsAny(model.modelId, const <String>[
       'claude-3',
@@ -1558,7 +1568,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
-    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    final profileOverride = _profileInlineImageSupport(model);
     if (profileOverride != null) return profileOverride;
     return _containsAny(model.modelId, const <String>[
       'gemini-1.5',

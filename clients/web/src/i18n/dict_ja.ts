@@ -254,6 +254,8 @@ export const dict_ja: Record<string, string> = {
   'composer.error.empty': '本文を入力するか添付を追加してください',
   'composer.error.textNotAllowed': 'この service はテキストメッセージを無効化しています',
   'composer.error.attachmentNotAllowed': 'この service は添付を無効化しています',
+  'composer.error.attachmentLimit': '1 件のメッセージに添付できるのは最大 20 個です',
+  'composer.error.attachmentTypeNotSupported': '選択中のモデルはこの添付タイプに対応していません',
   'composer.error.modelMissing': 'モデルを選択してください',
   'composer.error.send': '送信失敗：HTTP ',
   'composer.send': '送信',
