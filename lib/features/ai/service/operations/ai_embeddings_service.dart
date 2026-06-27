@@ -782,10 +782,14 @@ class _GeminiEmbeddingStrategy extends _EmbeddingRequestStrategy {
               (text) => <String, Object?>{
                 'model': modelName,
                 'content': _geminiContentPayload(text),
-                if (context.trimmedTaskType != null)
+                if (context.supportsParameter('taskType') &&
+                    context.trimmedTaskType != null)
                   'taskType': context.trimmedTaskType,
-                if (context.trimmedTitle != null) 'title': context.trimmedTitle,
-                if (context.positiveDimensions != null)
+                if (context.supportsParameter('title') &&
+                    context.trimmedTitle != null)
+                  'title': context.trimmedTitle,
+                if (context.supportsParameter('outputDimensionality') &&
+                    context.positiveDimensions != null)
                   'outputDimensionality': context.positiveDimensions,
               },
             )
@@ -798,10 +802,13 @@ class _GeminiEmbeddingStrategy extends _EmbeddingRequestStrategy {
       body = <String, Object?>{
         'model': modelName,
         'content': _geminiContentPayload(content),
-        if (context.trimmedTaskType != null)
+        if (context.supportsParameter('taskType') &&
+            context.trimmedTaskType != null)
           'taskType': context.trimmedTaskType,
-        if (context.trimmedTitle != null) 'title': context.trimmedTitle,
-        if (context.positiveDimensions != null)
+        if (context.supportsParameter('title') && context.trimmedTitle != null)
+          'title': context.trimmedTitle,
+        if (context.supportsParameter('outputDimensionality') &&
+            context.positiveDimensions != null)
           'outputDimensionality': context.positiveDimensions,
       };
     }
@@ -845,9 +852,11 @@ class _DashScopeMultimodalEmbeddingStrategy extends _EmbeddingRequestStrategy {
   _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
     const family = AiApiFamily.embeddings;
     final parameters = <String, Object?>{
-      if (context.normalizedModelId.contains('vl-embedding'))
+      if (context.supportsParameter('parameters.enable_fusion') &&
+          context.normalizedModelId.contains('vl-embedding'))
         'enable_fusion': true,
-      if (context.positiveDimensions != null)
+      if (context.supportsParameter('parameters.dimension') &&
+          context.positiveDimensions != null)
         'dimension': context.positiveDimensions,
     };
     final body = AiOperationHttp.mergeBodyExtras(

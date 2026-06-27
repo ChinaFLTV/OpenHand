@@ -537,6 +537,52 @@ void main() {
       ]);
     });
 
+    test(
+      'keeps Gemini multimodal embedding payload parameter-scoped',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'embedding': <String, Object?>{
+              'values': <num>[0.1, 0.2],
+            },
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        final result = await service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.gemini,
+            baseUrl: 'https://generativelanguage.googleapis.com',
+            modelId: 'gemini-embedding-2',
+            authScheme: AiAuthScheme.apiKey,
+          ),
+          input: const <String>['alpha'],
+          dimensions: 1024,
+          taskType: 'RETRIEVAL_DOCUMENT',
+          title: 'ignored title',
+        );
+
+        expect(
+          client.requests.single.url.path,
+          '/v1beta/models/gemini-embedding-2:embedContent',
+        );
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'models/gemini-embedding-2',
+          'content': <String, Object?>{
+            'parts': <Object?>[
+              <String, Object?>{'text': 'alpha'},
+            ],
+          },
+          'outputDimensionality': 1024,
+        });
+        expect(client.bodies.single.containsKey('taskType'), isFalse);
+        expect(client.bodies.single.containsKey('title'), isFalse);
+        expect(result.vectors.single, <double>[0.1, 0.2]);
+      },
+    );
+
     test('maps Mistral custom dimensions to output_dimension', () async {
       final client = _RecordingHttpClient(
         responseBody: <String, Object?>{
@@ -908,6 +954,52 @@ void main() {
       expect(result.vectors, <List<double>>[
         <double>[0.5, 0.6],
       ]);
+    });
+
+    test('sends DashScope vision dimensions without fusion defaults', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'output': <String, Object?>{
+            'embeddings': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[0.5, 0.6],
+              },
+            ],
+          },
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.qwen,
+          baseUrl: 'https://dashscope.aliyuncs.com',
+          modelId: 'tongyi-embedding-vision-plus',
+        ),
+        input: const <String>['find a similar image'],
+        dimensions: 1024,
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'tongyi-embedding-vision-plus',
+        'input': <String, Object?>{
+          'contents': <Object?>[
+            <String, Object?>{'text': 'find a similar image'},
+          ],
+        },
+        'parameters': <String, Object?>{'dimension': 1024},
+      });
+      final profile = AiModelCatalog.lookup(
+        'tongyi-embedding-vision-plus',
+        AiProtocolType.qwen,
+      );
+      expect(profile?.supportedParameters, contains('parameters.dimension'));
+      expect(
+        profile?.supportedParameters,
+        contains('parameters.enable_fusion'),
+      );
     });
 
     test(

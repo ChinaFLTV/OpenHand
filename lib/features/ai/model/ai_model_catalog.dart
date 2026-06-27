@@ -1368,6 +1368,7 @@ class AiModelCatalog {
         endpointPath:
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
         batchSize: 1,
+        supportedParameters: _qwenMultimodalEmbeddingParameters,
         inputTypes: const <String>['text', 'image', 'video'],
         maxDimensions: 1152,
       );
@@ -1388,6 +1389,7 @@ class AiModelCatalog {
         endpointPath:
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
         batchSize: 1,
+        supportedParameters: _qwenMultimodalEmbeddingParameters,
         inputTypes: const <String>['text', 'image', 'video'],
         maxDimensions: id.startsWith('multimodal-embedding-v1') ? 1024 : 768,
       );
