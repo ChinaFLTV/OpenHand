@@ -950,6 +950,34 @@ class AiModelCatalog {
         maxDimensions: 768,
       );
     }
+    if (id.startsWith('text-multilingual-embedding-002')) {
+      return _embeddingP(
+        name: 'text-multilingual-embedding-002',
+        desc: 'Google multilingual text embedding model',
+        context: 2048,
+        dimensions: 768,
+        maxInputTokens: 2048,
+        customDimensions: true,
+        batchSize: 100,
+        specialBody: true,
+        supportedParameters: _geminiEmbeddingParameters,
+        taskTypes: const <String>[
+          'RETRIEVAL_QUERY',
+          'RETRIEVAL_DOCUMENT',
+          'SEMANTIC_SIMILARITY',
+          'CLASSIFICATION',
+          'CLUSTERING',
+          'QUESTION_ANSWERING',
+          'FACT_VERIFICATION',
+        ],
+        defaultTaskType: 'RETRIEVAL_DOCUMENT',
+        queryTaskType: 'RETRIEVAL_QUERY',
+        documentTaskType: 'RETRIEVAL_DOCUMENT',
+        outputsNormalized: true,
+        minDimensions: 128,
+        maxDimensions: 768,
+      );
+    }
     if (id.startsWith('text-embedding-004')) {
       return _embeddingP(
         name: 'text-embedding-004',
@@ -2518,7 +2546,7 @@ class AiModelCatalog {
       documentInputType: 'document',
       taskTypes: const <String>['document', 'query'],
       outputDTypes: supportsFlexibleOutput
-          ? const <String>['float', 'int8', 'uint8', 'binary']
+          ? const <String>['float', 'int8', 'uint8', 'binary', 'ubinary']
           : const <String>[],
       defaultOutputDType: supportsFlexibleOutput ? 'float' : null,
       defaultTruncation: 'true',

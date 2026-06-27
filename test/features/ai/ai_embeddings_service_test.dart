@@ -625,6 +625,10 @@ void main() {
           'text-embedding-005',
           AiProtocolType.openai,
         );
+        final googleMultilingual = AiModelCatalog.lookup(
+          'text-multilingual-embedding-002',
+          AiProtocolType.openai,
+        );
         final openAi = AiModelCatalog.lookup(
           'text-embedding-3-large',
           AiProtocolType.openai,
@@ -645,6 +649,12 @@ void main() {
           google?.embeddingSupportedTaskTypes,
           contains('RETRIEVAL_QUERY'),
         );
+        expect(
+          googleMultilingual?.displayName,
+          'text-multilingual-embedding-002',
+        );
+        expect(googleMultilingual?.embeddingDimensions, 768);
+        expect(googleMultilingual?.embeddingRequiresSpecialBody, isTrue);
 
         expect(openAi?.displayName, 'text-embedding-3-large');
         expect(openAi?.embeddingDimensions, 3072);
@@ -702,6 +712,7 @@ void main() {
         expect(voyageLite?.embeddingMaxDimensions, 2048);
         expect(voyageLite?.embeddingMaxTokensPerBatch, 1000000);
         expect(voyageLite?.embeddingOutputDTypes, contains('int8'));
+        expect(voyageLite?.embeddingOutputDTypes, contains('ubinary'));
 
         expect(voyageLaw?.displayName, 'Voyage Law 2');
         expect(voyageLaw?.embeddingMaxInputTokens, 16000);
