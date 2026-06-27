@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../model/knowledge_base_settings.dart';
+import 'knowledge_indexing_control.dart';
 import 'knowledge_vector_store.dart';
 
 class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
@@ -25,11 +26,13 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     required String collectionName,
     required int dimensions,
     required String distance,
+    Future<void>? cancelSignal,
   }) async {
     final existing = await _send(
       method: 'GET',
       uri: _uri('/collections/$collectionName'),
       tolerateNotFound: true,
+      cancelSignal: cancelSignal,
     );
     if (existing.statusCode == 200) {
       final decoded = _decode(existing.body);
@@ -50,6 +53,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     await _send(
       method: 'PUT',
       uri: _uri('/collections/$collectionName'),
+      cancelSignal: cancelSignal,
       body: <String, Object?>{
         'vectors': <String, Object?>{
           'size': dimensions,
@@ -67,6 +71,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   Future<void> upsert({
     required String collectionName,
     required List<KnowledgeVectorPoint> points,
+    Future<void>? cancelSignal,
   }) async {
     if (points.isEmpty) return;
     await _send(
@@ -75,6 +80,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         '/collections/$collectionName/points',
         queryParameters: const <String, String>{'wait': 'true'},
       ),
+      cancelSignal: cancelSignal,
       body: <String, Object?>{
         'points': points
             .map(
@@ -158,9 +164,10 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     required Uri uri,
     Map<String, Object?>? body,
     bool tolerateNotFound = false,
+    Future<void>? cancelSignal,
   }) async {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
-    try {
+    Future<_QdrantResponse> send() async {
       final request = await client
           .openUrl(method, uri)
           .timeout(const Duration(seconds: 12));
@@ -179,9 +186,23 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         throw HttpException('Qdrant ${response.statusCode}: $text', uri: uri);
       }
       return _QdrantResponse(response.statusCode, text);
-    } finally {
-      client.close(force: true);
     }
+
+    final requestFuture = send().whenComplete(() => client.close(force: true));
+    if (cancelSignal == null) return requestFuture;
+    final cancelled = Object();
+    final result = await Future.any<Object?>([
+      requestFuture.then<Object?>((value) => value),
+      cancelSignal.then<Object?>((_) => cancelled),
+    ]);
+    if (identical(result, cancelled)) {
+      client.close(force: true);
+      unawaited(
+        requestFuture.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      );
+      throw const KnowledgeIndexingCancelledException();
+    }
+    return result! as _QdrantResponse;
   }
 
   Map<String, Object?> _decode(String body) {

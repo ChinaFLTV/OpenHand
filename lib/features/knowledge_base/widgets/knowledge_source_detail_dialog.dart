@@ -159,6 +159,7 @@ class _SourceDetailBody extends StatelessWidget {
       'failed' => isZh ? '失败' : 'Failed',
       'indexing' => isZh ? '索引中' : 'Indexing',
       'pending' => isZh ? '待处理' : 'Pending',
+      'cancelled' => isZh ? '已停止' : 'Stopped',
       _ => status.trim().isEmpty ? '-' : status,
     };
   }

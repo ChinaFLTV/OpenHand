@@ -16,6 +16,7 @@ import 'model/knowledge_retrieval_result.dart';
 import 'model/knowledge_source.dart';
 import 'service/knowledge_dependency_service.dart';
 import 'service/knowledge_embedding_service.dart';
+import 'service/knowledge_indexing_control.dart';
 import 'service/knowledge_ingestion_service.dart';
 import 'service/knowledge_retrieval_service.dart';
 import 'service/qdrant_admin_service.dart';
@@ -98,6 +99,8 @@ class KnowledgeBaseController extends ChangeNotifier {
     required String filePath,
     required AiModelConfig embeddingModel,
     List<String> tags = const <String>[],
+    KnowledgeIndexingCancelToken? cancelToken,
+    KnowledgeIndexingProgressCallback? onProgress,
   }) async {
     _busy = true;
     _error = null;
@@ -114,9 +117,15 @@ class KnowledgeBaseController extends ChangeNotifier {
         settings: _settings,
         embeddingModel: embeddingModel,
         tags: tags,
+        cancelToken: cancelToken,
+        onProgress: onProgress,
       );
       _sources = await _store.loadSources(query: _query);
       return source;
+    } on KnowledgeIndexingCancelledException {
+      _error = null;
+      _sources = await _store.loadSources(query: _query);
+      return null;
     } catch (error) {
       _error = '$error';
       return null;
@@ -131,7 +140,10 @@ class KnowledgeBaseController extends ChangeNotifier {
     required String content,
     required AiModelConfig embeddingModel,
     List<String> tags = const <String>[],
+    KnowledgeIndexingCancelToken? cancelToken,
+    KnowledgeIndexingProgressCallback? onProgress,
   }) async {
+    cancelToken?.throwIfCancelled();
     final normalizedTitle = title.trim().isEmpty
         ? 'OpenHand Note'
         : title.trim();
@@ -164,10 +176,13 @@ class KnowledgeBaseController extends ChangeNotifier {
       file,
       '# $normalizedTitle\n\n$normalizedContent\n',
     );
+    cancelToken?.throwIfCancelled();
     return importFile(
       filePath: file.path,
       embeddingModel: embeddingModel,
       tags: tags,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
     );
   }
 

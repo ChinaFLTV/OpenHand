@@ -13,6 +13,7 @@ import '../model/knowledge_source.dart';
 import 'knowledge_chunker.dart';
 import 'knowledge_document_parser.dart';
 import 'knowledge_embedding_service.dart';
+import 'knowledge_indexing_control.dart';
 import 'knowledge_vector_store.dart';
 
 class KnowledgeIngestionService {
@@ -41,16 +42,32 @@ class KnowledgeIngestionService {
     required KnowledgeBaseSettings settings,
     required AiModelConfig embeddingModel,
     List<String> tags = const <String>[],
+    KnowledgeIndexingCancelToken? cancelToken,
+    KnowledgeIndexingProgressCallback? onProgress,
   }) async {
+    void report(KnowledgeIndexingProgress progress) {
+      onProgress?.call(progress);
+    }
+
     final file = File(filePath);
+    final initialTitle = p.basename(file.path);
+    report(KnowledgeIndexingProgress(sourceTitle: initialTitle));
+    cancelToken?.throwIfCancelled();
     if (!await file.exists()) {
       throw FileSystemException('文件不存在', filePath);
     }
     final stat = await file.stat();
+    cancelToken?.throwIfCancelled();
     final maxBytes = settings.maxFileSizeMb * 1024 * 1024;
     if (stat.size > maxBytes) {
       throw StateError('文件超过知识库最大单文件大小 ${settings.maxFileSizeMb}MB。');
     }
+    report(
+      KnowledgeIndexingProgress(
+        phase: KnowledgeIndexingPhase.parsing,
+        sourceTitle: initialTitle,
+      ),
+    );
     final parsed = await _parserRegistry.parse(
       KnowledgeDocumentParseRequest(
         file: file,
@@ -59,8 +76,17 @@ class KnowledgeIngestionService {
         tags: tags,
       ),
     );
+    cancelToken?.throwIfCancelled();
     final now = DateTime.now().toUtc();
     final sourceId = _uuid.v4();
+    report(
+      KnowledgeIndexingProgress(
+        phase: KnowledgeIndexingPhase.storing,
+        sourceTitle: parsed.title?.trim().isNotEmpty == true
+            ? parsed.title!.trim()
+            : initialTitle,
+      ),
+    );
     final storedPath = settings.copyImportedFiles
         ? await _copyToKnowledgeStorage(file, sourceId)
         : file.path;
@@ -93,6 +119,13 @@ class KnowledgeIngestionService {
     );
     await _store.upsertSource(source);
     try {
+      cancelToken?.throwIfCancelled();
+      report(
+        KnowledgeIndexingProgress(
+          phase: KnowledgeIndexingPhase.chunking,
+          sourceTitle: source.title,
+        ),
+      );
       final chunks = _chunker.chunk(
         source: source,
         text: parsed.text,
@@ -102,15 +135,35 @@ class KnowledgeIngestionService {
       if (chunks.isEmpty) {
         throw StateError('文档解析后没有可索引内容。');
       }
+      cancelToken?.throwIfCancelled();
       await _store.replaceChunks(sourceId: source.id, chunks: chunks);
+      report(
+        KnowledgeIndexingProgress(
+          phase: KnowledgeIndexingPhase.ensuringCollection,
+          sourceTitle: source.title,
+          totalChunks: chunks.length,
+        ),
+      );
       await _vectorStore.ensureCollection(
         collectionName: settings.effectiveCollectionName,
         dimensions: settings.dimensions,
         distance: settings.distanceMetric,
+        cancelSignal: cancelToken?.whenCancelled,
       );
-      for (var start = 0; start < chunks.length; start += settings.batchSize) {
-        final end = (start + settings.batchSize).clamp(0, chunks.length);
+      final batchSize = settings.batchSize <= 0 ? 1 : settings.batchSize;
+      for (var start = 0; start < chunks.length; start += batchSize) {
+        cancelToken?.throwIfCancelled();
+        final end = (start + batchSize).clamp(0, chunks.length);
         final batch = chunks.sublist(start, end);
+        report(
+          KnowledgeIndexingProgress(
+            phase: KnowledgeIndexingPhase.embedding,
+            sourceTitle: source.title,
+            processedChunks: start,
+            totalChunks: chunks.length,
+            detail: '${start + 1}-$end/${chunks.length}',
+          ),
+        );
         final vectors = await _embeddingService.embedBatch(
           settings: settings,
           model: embeddingModel,
@@ -123,6 +176,17 @@ class KnowledgeIngestionService {
               )
               .toList(growable: false),
           isQuery: false,
+          cancelToken: cancelToken,
+        );
+        cancelToken?.throwIfCancelled();
+        report(
+          KnowledgeIndexingProgress(
+            phase: KnowledgeIndexingPhase.upserting,
+            sourceTitle: source.title,
+            processedChunks: start,
+            totalChunks: chunks.length,
+            detail: '${start + 1}-$end/${chunks.length}',
+          ),
         );
         await _vectorStore.upsert(
           collectionName: settings.effectiveCollectionName,
@@ -138,15 +202,66 @@ class KnowledgeIngestionService {
                 ),
               ),
           ],
+          cancelSignal: cancelToken?.whenCancelled,
+        );
+        cancelToken?.throwIfCancelled();
+        report(
+          KnowledgeIndexingProgress(
+            phase: KnowledgeIndexingPhase.embedding,
+            sourceTitle: source.title,
+            processedChunks: end,
+            totalChunks: chunks.length,
+            detail: '$end/${chunks.length}',
+          ),
         );
       }
+      report(
+        KnowledgeIndexingProgress(
+          phase: KnowledgeIndexingPhase.finalizing,
+          sourceTitle: source.title,
+          processedChunks: chunks.length,
+          totalChunks: chunks.length,
+        ),
+      );
       source = source.copyWith(
         status: 'indexed',
         indexedAt: DateTime.now().toUtc(),
         updatedAt: DateTime.now().toUtc(),
       );
       await _store.upsertSource(source);
+      report(
+        KnowledgeIndexingProgress(
+          phase: KnowledgeIndexingPhase.completed,
+          sourceTitle: source.title,
+          processedChunks: chunks.length,
+          totalChunks: chunks.length,
+        ),
+      );
       return source;
+    } on KnowledgeIndexingCancelledException {
+      report(
+        KnowledgeIndexingProgress(
+          phase: KnowledgeIndexingPhase.cancelling,
+          sourceTitle: source.title,
+        ),
+      );
+      await _discardPartialIndex(
+        sourceId: source.id,
+        collectionName: settings.effectiveCollectionName,
+      );
+      source = source.copyWith(
+        status: 'cancelled',
+        errorMessage: '',
+        updatedAt: DateTime.now().toUtc(),
+      );
+      await _store.upsertSource(source);
+      report(
+        KnowledgeIndexingProgress(
+          phase: KnowledgeIndexingPhase.cancelled,
+          sourceTitle: source.title,
+        ),
+      );
+      rethrow;
     } catch (error) {
       await _discardPartialIndex(
         sourceId: source.id,

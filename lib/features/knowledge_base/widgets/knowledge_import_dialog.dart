@@ -11,7 +11,10 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
+import '../model/knowledge_source.dart';
+import '../service/knowledge_indexing_control.dart';
 import 'knowledge_dialog_widgets.dart';
+import 'knowledge_indexing_progress_dialog.dart';
 
 Future<void> showKnowledgeImportDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -173,14 +176,38 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       return;
     }
     setState(() => _saving = true);
+    final cancelToken = KnowledgeIndexingCancelToken();
+    final progressController = KnowledgeIndexingProgressController(
+      cancelToken: cancelToken,
+      initialProgress: KnowledgeIndexingProgress(
+        sourceTitle: _title.text.trim().isEmpty
+            ? (isZh ? 'OpenHand 笔记' : 'OpenHand Note')
+            : _title.text.trim(),
+      ),
+    );
     try {
-      final source = await controller.importNote(
-        title: _title.text,
-        content: _content.text,
-        embeddingModel: embeddingModel,
-        tags: List<String>.unmodifiable(_tags),
+      final source = await runKnowledgeIndexingProgressTask<KnowledgeSource>(
+        context: context,
+        controller: progressController,
+        title: isZh ? '构建知识库向量' : 'Building Knowledge Vectors',
+        subtitle: isZh ? '正在保存并索引笔记。' : 'Saving and indexing the note.',
+        task: () => controller.importNote(
+          title: _title.text,
+          content: _content.text,
+          embeddingModel: embeddingModel,
+          tags: List<String>.unmodifiable(_tags),
+          cancelToken: cancelToken,
+          onProgress: progressController.updateProgress,
+        ),
       );
       if (!mounted) return;
+      if (cancelToken.isCancelled) {
+        OpenHandSnackBar.showInfo(
+          context,
+          isZh ? '已停止构建向量。' : 'Vector indexing stopped.',
+        );
+        return;
+      }
       if (source == null) {
         OpenHandSnackBar.showError(
           context,
@@ -195,8 +222,17 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       );
     } catch (error) {
       if (!mounted) return;
+      if (error is KnowledgeIndexingCancelledException ||
+          cancelToken.isCancelled) {
+        OpenHandSnackBar.showInfo(
+          context,
+          isZh ? '已停止构建向量。' : 'Vector indexing stopped.',
+        );
+        return;
+      }
       OpenHandSnackBar.showError(context, '$error');
     } finally {
+      progressController.dispose();
       if (mounted) setState(() => _saving = false);
     }
   }

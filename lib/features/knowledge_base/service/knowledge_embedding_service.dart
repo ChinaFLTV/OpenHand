@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../ai/index.dart';
 import '../model/knowledge_base_settings.dart';
+import 'knowledge_indexing_control.dart';
 
 const int _localQwen3EmbeddingDocumentTimeoutSeconds = 180;
 const int _localQwen3EmbeddingQueryTimeoutSeconds = 120;
@@ -10,17 +11,21 @@ const int _maxRetryBackoffMs = 10000;
 
 class KnowledgeEmbeddingService {
   KnowledgeEmbeddingService({AiEmbeddingsService? embeddings})
-    : _embeddings = embeddings ?? AiEmbeddingsService();
+    : _embeddings = embeddings ?? AiEmbeddingsService(),
+      _ownsEmbeddings = embeddings == null;
 
-  final AiEmbeddingsService _embeddings;
+  AiEmbeddingsService _embeddings;
+  final bool _ownsEmbeddings;
 
   Future<List<List<double>>> embedBatch({
     required KnowledgeBaseSettings settings,
     required AiModelConfig model,
     required List<String> inputs,
     required bool isQuery,
+    KnowledgeIndexingCancelToken? cancelToken,
   }) async {
     if (inputs.isEmpty) return const <List<double>>[];
+    cancelToken?.throwIfCancelled();
     final profile = model.profileFor(settings.modelId);
     if (!profile.supportsEmbeddings) {
       throw StateError('模型 ${settings.modelId} 未开启“嵌入生成”能力。');
@@ -67,6 +72,7 @@ class KnowledgeEmbeddingService {
     final vectors = <List<double>>[];
     var start = 0;
     while (start < preparedInputs.length) {
+      cancelToken?.throwIfCancelled();
       final end = _boundedBatchEnd(
         preparedInputs,
         start,
@@ -85,10 +91,12 @@ class KnowledgeEmbeddingService {
         timeout: timeout,
         taskType: taskType,
         inputType: inputType,
+        cancelToken: cancelToken,
       );
       vectors.addAll(batchVectors);
       start = end;
     }
+    cancelToken?.throwIfCancelled();
     for (final vector in vectors) {
       if (vector.length != settings.dimensions) {
         throw StateError(
@@ -110,7 +118,9 @@ class KnowledgeEmbeddingService {
     required Duration timeout,
     required String? taskType,
     required String? inputType,
+    required KnowledgeIndexingCancelToken? cancelToken,
   }) async {
+    cancelToken?.throwIfCancelled();
     try {
       final result = await _createEmbeddingsWithRetries(
         settings: settings,
@@ -120,6 +130,7 @@ class KnowledgeEmbeddingService {
         timeout: timeout,
         taskType: taskType,
         inputType: inputType,
+        cancelToken: cancelToken,
       );
       if (result.vectors.length != batch.length) {
         throw StateError(
@@ -141,6 +152,7 @@ class KnowledgeEmbeddingService {
           timeout: timeout,
           taskType: taskType,
           inputType: inputType,
+          cancelToken: cancelToken,
         );
         final right = await _embedPreparedBatch(
           settings: settings,
@@ -153,6 +165,7 @@ class KnowledgeEmbeddingService {
           timeout: timeout,
           taskType: taskType,
           inputType: inputType,
+          cancelToken: cancelToken,
         );
         return <List<double>>[...left, ...right];
       }
@@ -189,30 +202,79 @@ class KnowledgeEmbeddingService {
     required Duration timeout,
     required String? taskType,
     required String? inputType,
+    required KnowledgeIndexingCancelToken? cancelToken,
   }) async {
     final retryCount = settings.retryCount < 0 ? 0 : settings.retryCount;
     for (var attempt = 0; ; attempt += 1) {
+      cancelToken?.throwIfCancelled();
       try {
-        return await _embeddings.createEmbeddings(
-          model: model,
-          input: batch,
-          dimensions: profile.embeddingSupportsCustomDimensions
-              ? settings.dimensions
-              : null,
-          encodingFormat: profile.embeddingDefaultEncodingFormat,
-          inputType: inputType,
-          taskType: taskType,
-          outputDType: profile.embeddingDefaultOutputDType,
-          truncation: profile.embeddingDefaultTruncation,
-          timeout: timeout,
+        return await _awaitEmbeddingOrCancel(
+          _embeddings.createEmbeddings(
+            model: model,
+            input: batch,
+            dimensions: profile.embeddingSupportsCustomDimensions
+                ? settings.dimensions
+                : null,
+            encodingFormat: profile.embeddingDefaultEncodingFormat,
+            inputType: inputType,
+            taskType: taskType,
+            outputDType: profile.embeddingDefaultOutputDType,
+            truncation: profile.embeddingDefaultTruncation,
+            timeout: timeout,
+          ),
+          cancelToken,
         );
       } catch (error, stackTrace) {
         if (!_isRetryableEmbeddingError(error) || attempt >= retryCount) {
           Error.throwWithStackTrace(error, stackTrace);
         }
-        await Future<void>.delayed(_retryBackoff(settings, attempt));
+        await _delayOrCancel(_retryBackoff(settings, attempt), cancelToken);
       }
     }
+  }
+
+  Future<T> _awaitEmbeddingOrCancel<T>(
+    Future<T> future,
+    KnowledgeIndexingCancelToken? cancelToken,
+  ) async {
+    if (cancelToken == null) return future;
+    final cancelled = Object();
+    final result = await Future.any<Object?>([
+      future.then<Object?>((value) => value),
+      cancelToken.whenCancelled.then<Object?>((_) => cancelled),
+    ]);
+    if (identical(result, cancelled)) {
+      _abortOwnedEmbeddings();
+      unawaited(
+        future.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      );
+      throw const KnowledgeIndexingCancelledException();
+    }
+    return result as T;
+  }
+
+  Future<void> _delayOrCancel(
+    Duration duration,
+    KnowledgeIndexingCancelToken? cancelToken,
+  ) async {
+    if (cancelToken == null) {
+      await Future<void>.delayed(duration);
+      return;
+    }
+    final cancelled = Object();
+    final result = await Future.any<Object?>([
+      Future<void>.delayed(duration).then<Object?>((_) => null),
+      cancelToken.whenCancelled.then<Object?>((_) => cancelled),
+    ]);
+    if (identical(result, cancelled)) {
+      throw const KnowledgeIndexingCancelledException();
+    }
+  }
+
+  void _abortOwnedEmbeddings() {
+    if (!_ownsEmbeddings) return;
+    _embeddings.dispose();
+    _embeddings = AiEmbeddingsService();
   }
 
   int _boundedBatchSize(

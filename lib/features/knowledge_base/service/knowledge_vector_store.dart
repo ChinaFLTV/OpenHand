@@ -27,11 +27,13 @@ abstract class KnowledgeVectorStore {
     required String collectionName,
     required int dimensions,
     required String distance,
+    Future<void>? cancelSignal,
   });
 
   Future<void> upsert({
     required String collectionName,
     required List<KnowledgeVectorPoint> points,
+    Future<void>? cancelSignal,
   });
 
   Future<List<KnowledgeVectorSearchHit>> search({

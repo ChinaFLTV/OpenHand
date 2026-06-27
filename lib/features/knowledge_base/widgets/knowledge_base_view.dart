@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
@@ -17,8 +20,10 @@ import '../../plugin_service/index.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_source.dart';
 import '../service/knowledge_document_parser.dart';
+import '../service/knowledge_indexing_control.dart';
 import 'knowledge_base_config_dialog.dart';
 import 'knowledge_import_dialog.dart';
+import 'knowledge_indexing_progress_dialog.dart';
 import 'knowledge_source_content_dialog.dart';
 import 'knowledge_source_detail_dialog.dart';
 import 'qdrant_admin_dialog.dart';
@@ -158,11 +163,38 @@ class KnowledgeBaseView extends StatelessWidget {
       ],
     );
     if (file == null || !context.mounted) return;
-    final source = await controller.importFile(
-      filePath: file.path,
-      embeddingModel: embeddingModel,
+    final cancelToken = KnowledgeIndexingCancelToken();
+    final progressController = KnowledgeIndexingProgressController(
+      cancelToken: cancelToken,
+      initialProgress: KnowledgeIndexingProgress(
+        sourceTitle: p.basename(file.path),
+      ),
     );
+    KnowledgeSource? source;
+    try {
+      source = await runKnowledgeIndexingProgressTask<KnowledgeSource>(
+        context: context,
+        controller: progressController,
+        title: isZh ? '构建知识库向量' : 'Building Knowledge Vectors',
+        subtitle: isZh ? '正在准备导入文件。' : 'Preparing to import the file.',
+        task: () => controller.importFile(
+          filePath: file.path,
+          embeddingModel: embeddingModel,
+          cancelToken: cancelToken,
+          onProgress: progressController.updateProgress,
+        ),
+      );
+    } finally {
+      progressController.dispose();
+    }
     if (!context.mounted) return;
+    if (cancelToken.isCancelled) {
+      OpenHandSnackBar.showInfo(
+        context,
+        isZh ? '已停止构建向量。' : 'Vector indexing stopped.',
+      );
+      return;
+    }
     if (source != null) {
       OpenHandSnackBar.showSuccess(
         context,
@@ -376,6 +408,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
       'indexed' => Colors.green,
       'failed' => colorScheme.error,
       'indexing' => colorScheme.primary,
+      'cancelled' => colorScheme.outline,
       _ => colorScheme.onSurfaceVariant,
     };
     return HoverLift(
@@ -635,6 +668,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
       'failed' => isZh ? '失败' : 'Failed',
       'indexing' => isZh ? '索引中' : 'Indexing',
       'pending' => isZh ? '待处理' : 'Pending',
+      'cancelled' => isZh ? '已停止' : 'Stopped',
       _ => status.trim().isEmpty ? '-' : status,
     };
   }
