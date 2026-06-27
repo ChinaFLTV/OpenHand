@@ -379,6 +379,45 @@ void main() {
     });
 
     test(
+      'keeps provider-specific text embedding profiles over compatible endpoints',
+      () {
+        final qwen = AiModelCatalog.lookup(
+          'text-embedding-v4',
+          AiProtocolType.openai,
+        );
+        final google = AiModelCatalog.lookup(
+          'text-embedding-005',
+          AiProtocolType.openai,
+        );
+        final openAi = AiModelCatalog.lookup(
+          'text-embedding-3-large',
+          AiProtocolType.openai,
+        );
+        final openAiViaQwenProtocol = AiModelCatalog.lookup(
+          'text-embedding-3-large',
+          AiProtocolType.qwen,
+        );
+
+        expect(qwen?.displayName, 'text-embedding-v4');
+        expect(qwen?.embeddingDimensions, 1024);
+        expect(qwen?.embeddingBatchSize, 10);
+        expect(qwen?.embeddingEndpointPath, 'compatible-mode/v1/embeddings');
+
+        expect(google?.displayName, 'text-embedding-005');
+        expect(google?.embeddingDimensions, 768);
+        expect(
+          google?.embeddingSupportedTaskTypes,
+          contains('RETRIEVAL_QUERY'),
+        );
+
+        expect(openAi?.displayName, 'text-embedding-3-large');
+        expect(openAi?.embeddingDimensions, 3072);
+        expect(openAiViaQwenProtocol?.displayName, 'text-embedding-3-large');
+        expect(openAiViaQwenProtocol?.embeddingDimensions, 3072);
+      },
+    );
+
+    test(
       'preserves catalog embedding booleans when user overrides other fields',
       () {
         final model =

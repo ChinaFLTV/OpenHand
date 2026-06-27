@@ -478,7 +478,9 @@ class AiModelCatalog {
         outputsNormalized: true,
       );
     }
-    if (id.startsWith('text-embedding-')) {
+    if (id.startsWith('text-embedding-') &&
+        !id.startsWith('text-embedding-v') &&
+        !id.startsWith('text-embedding-00')) {
       return _embeddingP(
         name: 'OpenAI Embedding',
         desc: 'OpenAI text embedding model',
@@ -1236,7 +1238,7 @@ class AiModelCatalog {
         maxDimensions: 1024,
       );
     }
-    if (id.startsWith('text-embedding-')) {
+    if (id.startsWith('text-embedding-v')) {
       return _embeddingP(
         name: 'Qwen Text Embedding',
         desc: 'DashScope text embedding model',
