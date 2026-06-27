@@ -267,10 +267,7 @@ class _ThreadSessionManagementDialogState
   }
 
   Future<void> _deleteIds(Set<String> ids) async {
-    // Phase 1: kick off the row collapse animation. The wrapper around
-    // each `_SessionRow` watches `_animatingOutIds`; flagging an id here
-    // collapses that row's height to 0 over ~240ms while neighbouring
-    // rows slide up smoothly via `AnimatedSize`.
+    // Start row collapse before deleting data so neighbouring rows slide up smoothly.
     if (mounted) {
       setState(() {
         _animatingOutIds.addAll(ids);

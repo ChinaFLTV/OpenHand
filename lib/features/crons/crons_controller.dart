@@ -61,12 +61,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await _store.ensureTable();
       final entries = await _store.loadAll();
-      // 2026-04-25 (Task 19) — Seed the Hermes Talker self-learning system
-      // entry on first launch if it does not already exist. Also refresh the
-      // system-managed display fields (name / description / schedule /
-      // notification policy) every launch so that first-seeded-with-English
-      // installs pick up the latest simplified-Chinese copy. User-toggleable
-      // fields (e.g. `enabled`) and runtime state fields are preserved.
+      // Seed the Hermes Talker self-learning system entry if needed, then
+      // refresh only system-managed display/scheduling fields. User-toggleable
+      // fields and runtime state are preserved.
       final existingIndex = entries.indexWhere(
         (e) => e.id == selfLearningSystemEntryId,
       );
@@ -98,7 +95,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           await _store.saveAll(entries);
         }
       }
-      // 2026-05-04 — MCP 关键词倒排索引重建系统条目。该条目「特殊」在：
+      // MCP 关键词倒排索引重建系统条目。该条目「特殊」在：
       //   * 是否存在完全由「全局设置 → MCP → 更新关键词映射模式」驱动；
       //   * 冷启动模式下条目应不存在（彻底删除）；
       //   * 定时间隔 / 每日定点模式下条目存在且强制 enabled=true，UI 禁止切换；
@@ -380,7 +377,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         orElse: () => _missingSentinel,
       );
       if (identical(target, _missingSentinel)) return false;
-      // 2026-04-25 (Task 20) — guard system-managed entries from deletion.
+      // System-managed entries are not user-deletable.
       if (target.tags.contains(systemTag)) return false;
       _setEntries(_entries.where((item) => item.id != id).toList());
       if (_entries.length == before) return false;
@@ -530,9 +527,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (index < 0) return;
     final entry = _entries[index];
     if (!entry.enabled) return;
-    // 2026-04-25 (Task 16/19) — agent-typed crons have no script payload;
-    // they dispatch via [_agentHandler]. Only gate non-agent jobs on
-    // [hasScript].
+    // Agent crons dispatch via [_agentHandler] and do not require a script payload.
     if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
     await _executeJob(entry, triggerType: 'manual');
   }
@@ -747,9 +742,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (!_canExecuteInCurrentState) return;
     _cancelTimer(entry.id);
     if (!entry.enabled) return;
-    // 2026-04-25 (Task 16/19) — agent-typed crons are scheduled even
-    // though they carry no script payload: execution is routed through
-    // [_agentHandler] rather than [CronExecutor].
+    // Agent crons are scheduled without a script payload; execution is routed
+    // through [_agentHandler] rather than [CronExecutor].
     if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
 
     final nextRun = CronParser.nextRun(entry.cronExpression);
@@ -814,11 +808,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     // Mark as running.
     _updateEntryStatus(entry.id, CronJobStatus.running);
 
-    // 2026-04-25 (Task 19) — system agent entries are dispatched to an
-    // injected handler rather than spawned as processes. If no handler is
-    // registered yet (e.g. bootstrap hasn't finished wiring the scheduler),
-    // the entry is reported as a no-op success so the scheduler can retry
-    // on the next tick.
+    // System agent entries dispatch to an injected handler rather than a
+    // spawned process. If bootstrap has not registered the handler yet, the job
+    // is reported as a no-op success so the scheduler can retry on the next tick.
     if (entry.scriptType == CronScriptType.agent) {
       if (_runningAgentJobIds.contains(entry.id)) return;
       _runningAgentJobIds.add(entry.id);

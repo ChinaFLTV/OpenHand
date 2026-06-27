@@ -2239,8 +2239,8 @@ class AiSessionController extends ChangeNotifier {
   /// Appends a [AiSessionMessageKind.selfLearning] message to the session and
   /// persists it.
   ///
-  /// Intended for Hermes Talker's self-learning runner (Task 18). Returns
-  /// the inserted message id, or null if the session could not be found.
+  /// Used by Hermes Talker's self-learning runner. Returns the inserted message
+  /// id, or null if the session could not be found.
   Future<String?> appendSelfLearningMessage({
     required String sessionId,
     required String content,

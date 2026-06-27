@@ -1885,7 +1885,6 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
-              // 2026-12-12 — 节流参数总入口（统一全局，移除 per-template 覆盖）。
               Text(
                 AppLocalizations.of(context)!.aiThrottleSettingsLabel,
                 style: Theme.of(context).textTheme.titleLarge,
@@ -1898,9 +1897,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
               const SizedBox(height: 18),
-              // 2026-05-17 — 节流总开关 + 自动模式入口（位于具体速率
-              // 配置项之前，让用户先决定"是否启用 / 是否自适应"再调
-              // 具体数字）
+              // 先决定是否启用/自适应，再调整具体速率。
               _ResponsiveSettingRow(
                 title: openHandIsChineseLocale(context)
                     ? '启用流式输出节流'

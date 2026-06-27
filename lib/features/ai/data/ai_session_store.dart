@@ -741,9 +741,8 @@ class AiSessionStore {
   /// Loads all sessions (with messages) that belong to the given [templateId]
   /// AND whose `created_at` is on or after [minCreatedAt].
   ///
-  /// Added for Hermes Talker self-learning (Task 17 / 2026-04-25). Ordered
-  /// most-recently-updated first so that the scheduler prioritises active
-  /// sessions when concurrency is capped.
+  /// Ordered most-recently-updated first so the self-learning scheduler
+  /// prioritises active sessions when concurrency is capped.
   Future<List<AiSession>> loadSessionsByTemplate({
     required String templateId,
     required DateTime minCreatedAt,

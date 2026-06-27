@@ -2,7 +2,7 @@ library;
 
 import '../../../memory/index.dart';
 
-/// Hermes Talker 专用 Memory 工具 (Task 18 / 2026-04-25).
+/// Hermes Talker 专用 Memory 工具。
 ///
 /// 提供给自我学习子 Agent 使用，将对话中的关键结论沉淀到 [MemoryController]
 /// 管理的用户记忆存储。为了和 `SkillManager` 对齐，本工具名为 `Memory`，

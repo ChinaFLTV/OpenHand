@@ -1,13 +1,5 @@
-// 2026-05-04: 代理连通性诊断控制台弹窗。
-//
-// 把原先一行 inline 状态升级成完整的"全链路探针"：将 URL 解析、
-// 代理配置摘要、SystemProxyResolver 决策、DNS 查询、TCP 握手、
-// HTTPS 请求/响应全过程的关键事件以彩色等宽日志的形式滚动输出，
-// 等价于在终端里跑一次 `curl -v --proxy ...` 的可视化版本。
-//
-// 弹窗本体使用 [showAnimatedDialog]，自动继承用户在"设置 → 弹窗
-// 动画"里配置的 entrance/exit/duration/curve，与系统其它弹窗
-// 进退场动画完全一致，无需额外 transitionBuilder。
+// 代理连通性诊断控制台。按时间线展示 URL 解析、代理决策、DNS、TCP、
+// HTTPS 请求/响应等关键事件；弹窗动画由 [showAnimatedDialog] 统一控制。
 part of 'settings_view.dart';
 
 class _ProxyTestOutcome {
@@ -65,15 +57,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   String? _finalSummary;
   final ValueNotifier<int> _completionPulse = ValueNotifier<int>(0);
 
-  // 2026-05-04 (UI 调优 v2):
-  // - _hiddenLevels：底部 mini 过滤器开关，被点选的 level 会从
-  //   控制台 ListView 中过滤掉（仍写入 _entries，仅渲染遮蔽）。
-  //   head 永远不被过滤——它是阶段锚点，藏掉会让整个时序错乱。
-  // - _maximized：header 上的最大化按钮切换；最大化时弹窗几乎
-  //   占满屏幕，便于看长 trace。
-  // - _slowSectionThresholdMs：≥ 此值的 section head 会在文本后
-  //   缀上 ⚠ ms 警告标。50 ms 是经验阈值——DNS / TCP / TLS 握手
-  //   单段如果超过这个量级，基本就是网络/代理路径异常的信号。
+  // head 是阶段锚点，永远不参与底部等级过滤。
+  // 单段 DNS/TCP/TLS 超过该阈值时标记为慢路径。
   final Set<_ProxyTestLogLevel> _hiddenLevels = <_ProxyTestLogLevel>{};
   bool _maximized = false;
   static const int _slowSectionThresholdMs = 50;
@@ -605,12 +590,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mediaSize = MediaQuery.sizeOf(context);
-    // 2026-05-04 (UI 调优 v3): 最大化 / 还原的尺寸切换走
-    // TweenAnimationBuilder 平滑过渡 —— easeOutBack 会在末段
-    // 略微回弹 ~9%，配上 380ms duration 给出"Q 弹丝滑"的手感，
-    // 避免 setState 切 _maximized 后 ConstrainedBox 直接跳变
-    // 带来的生硬感。t∈[0,1]：0=还原态，1=最大化态，所有尺寸量
-    // (w/h/insetPadding) 都做 lerp。
+    // 最大化/还原通过同一动画因子插值尺寸与边距，避免窗口生硬跳变。
     final wMin = math.min(840.0, mediaSize.width - 48);
     final hMin = math.min(560.0, mediaSize.height - 96);
     final wMax = mediaSize.width - 24;
@@ -620,10 +600,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutBack,
       builder: (context, t, _) {
-        // easeOutBack 末段会越过 1 再回弹；clamp 到 [0,1] 之外
-        // 时若直接 lerp 会让窗口短暂超过屏幕（被 ParentData
-        // 截断成抖动）。clamp 到 [0, 1.06] 留一点弹性；外层
-        // ConstrainedBox 自身 max 会再次兜底。
+        // easeOutBack 会短暂越界；保留少量弹性，最终仍由外层约束兜底。
         final tt = t.clamp(0.0, 1.06);
         final w = ui.lerpDouble(wMin, wMax, tt)!;
         final h = ui.lerpDouble(hMin, hMax, tt)!;
@@ -673,9 +650,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   Widget _buildHeader(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    // 2026-05-04 (UI 调优 v2): 把状态色从主题 primary/error 改为
-    // 显式的绿/红/琥珀，避免 primary 在某些主题下表现成粉/紫导
-    // 致"看不出成功失败"。
+    // 状态色固定为绿/红/琥珀，避免主题主色削弱成功/失败辨识度。
     const successColor = OpenHandStatusColors.success; // green-500
     const errorColor = OpenHandStatusColors.error; // red-500
     const runningColor = Color(0xFFFACC15); // amber-400
@@ -754,18 +729,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               size: 18,
             ),
           ),
-          // 2026-05-04: 三个 header IconButton 之间各夹 6px SizedBox
-          // 视觉间隙，避免在窄宽度下挤成一团；IconButton 自带 8px
-          // tap padding，加 6 后总间距约 14px，触觉上是"分开但仍是
-          // 一个工具组"的感觉。
+          // 工具按钮之间保留固定间距，窄宽度下仍维持可点按的视觉分隔。
           const SizedBox(width: 6),
           IconButton(
             tooltip: l10n.proxyTestConsoleClear,
-            // 2026-05-04: 清空按钮在运行中也可用 —— 用户场景里
-            // 经常想"看清楚刚发的请求"，把之前堆积的 trace 清掉
-            // 而保留正在跑的诊断；只清 _entries / _sectionDurations，
-            // 不重置 _totalStopwatch 也不打断流程，新增条目继续
-            // 按当前 elapsed 时间戳追加。
+            // 运行中允许清空历史行；不重置总计时，也不打断诊断流程。
             onPressed: _entries.isEmpty ? null : _clearConsole,
             icon: const Icon(Icons.cleaning_services_outlined, size: 18),
           ),
@@ -814,9 +782,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF101218) : const Color(0xFF1B1F27);
-    // 2026-05-04 (UI 调优 v2): 过滤器仅遮蔽 info / ok / warn / err
-    // / debug 这五种数据行；head 永远不被过滤——它是阶段锚点，藏
-    // 掉会让整个时序错乱。
+    // head 行是阶段锚点，始终保留；过滤器只遮蔽数据行。
     final visible = _entries
         .where(
           (e) =>
@@ -827,11 +793,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     return Container(
       color: bg,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      // 2026-05-04 (Bug 修复 v2): 把 SelectionArea 上提到整个
-      // 控制台层 — 早先每行单独包一层 SelectionArea，与
-      // ListView.builder 在 unbounded main-axis + 入场 fade
-      // 0 帧叠加时容易导致 SliverList 'child.hasSize' 断言。
-      // 整片包一次同样支持选中复制，且尺寸链路最稳。
+      // 整片包一层 SelectionArea，避免每行独立选择区扰动 SliverList 尺寸。
       child: SelectionArea(
         child: OpenHandSafeScrollbar(
           controller: _scrollController,
@@ -855,10 +817,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Widget _buildBlinkingCursor() {
-    // 2026-05-04 (UI 调优): 双色 + 双频闪烁 — 控制器自身在
-    // 600 ms 内做 0→1 一次，颜色在绿色和琥珀色之间交替，
-    // 视觉上传递"正在工作"的活力，比单色淡入淡出更有"机器
-    // 在跑"的临场感。
+    // 双色闪烁用于传达诊断仍在运行。
     return AnimatedBuilder(
       animation: _cursorBlinkController,
       builder: (_, _) {
@@ -894,24 +853,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       color: levelColor,
       fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
     );
-    // 2026-05-04 (Bug 修复 v2):
-    //   旧实现把"左侧色条"做成 Row 的第一个 Container 子项，并
-    //   通过 `crossAxisAlignment: stretch` + 外层 IntrinsicHeight
-    //   让色条与文本同高。这套组合在 ListView.builder 的 unbounded
-    //   main-axis 下会触发 SliverList 'child.hasSize' 断言（特别
-    //   是在 fade-in TweenAnimationBuilder 的初始零帧 + opacity=0
-    //   状态时）。
-    //
-    //   修复策略：把色条挪到 _ProxyHoverableRow 的 AnimatedContainer
-    //   decoration.border.left 上 —— 边框会自动跟容器同高，无需
-    //   IntrinsicHeight；同时彻底去掉 Row + stretch，保留普通的
-    //   Padding > Text.rich 单元素结构，是 Flutter 在 SliverList
-    //   场景里最稳的尺寸路径。
-    //
-    //   level 背景：err / warn 微弱色块 (alpha 0.08 / 0.06)；
-    //   head 行：上下加 1px 浅蓝细分隔线 + bg alpha 0.12，作为阶段
-    //   分段；hover：MouseRegion 鼠标悬停时背景再加一层 0.06 白色；
-    //   ≥ 50 ms 的 head：在 body 后缀拼一个 ⚠ Xms。
+    // 左侧色条使用边框实现，避免 IntrinsicHeight 在 SliverList 中引发尺寸抖动。
     final isHead = entry.level == _ProxyTestLogLevel.head;
     final levelBg = switch (entry.level) {
       _ProxyTestLogLevel.head => const Color(
@@ -1037,10 +979,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // 2026-05-04 (UI 调优 v2): 底部 mini 过滤器 — 4 个等级
-          // chip (info/ok/warn/err)，被 untoggled 后该 level 的
-          // 行从 ListView 中过滤掉。head/debug 不进过滤器：head
-          // 是阶段锚不能藏，debug 默认就极少出现，没必要加按钮。
+          // 底部过滤器只暴露常用等级；head 是阶段锚点，不参与过滤。
           Row(
             children: <Widget>[
               Icon(

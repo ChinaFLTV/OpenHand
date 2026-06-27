@@ -112,6 +112,3 @@ class WebFetchCacheLookup {
   final DateTime cachedAt;
   final DateTime expiresAt;
 }
-
-/// 兼容旧名称：与 [WebSearchCachePrewarmReport] 同结构。
-typedef WebFetchCachePrewarmReport = WebEngineCachePrewarmReport;

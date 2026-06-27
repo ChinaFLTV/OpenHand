@@ -1,6 +1,4 @@
 /// User Instructions controller
-///
-/// 2026-04-25 / Phase 4-Instructions
 library;
 
 import 'package:flutter/foundation.dart';

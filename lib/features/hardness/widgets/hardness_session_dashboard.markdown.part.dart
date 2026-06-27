@@ -1168,17 +1168,6 @@ void _heSanitizeMarkdownAst(List<md.Node> nodes) {
 }
 
 // =============================================================================
-// _HePill — matches _ToolbarPill (surfaceContainerHighest bg, primary icon, h:32)
-// =============================================================================
-
-// =============================================================================
-// _HePill — backed by shared `OhPill` so other panels can reuse the visual.
-// Typedef keeps existing call sites (`const _HePill(...)`) compiling untouched.
-// =============================================================================
-
-typedef _HePill = OhPill;
-
-// =============================================================================
 // _HeOutputLinesDial — mirrors _TokenDial but for CLI output lines
 // Displays total output lines from all phase logs as a proxy for activity.
 // =============================================================================

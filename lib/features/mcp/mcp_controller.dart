@@ -114,7 +114,7 @@ class McpController extends ChangeNotifier {
   /// `HighlightPulse` to flash on commit.
   ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
 
-  // ----- Keyword inverted index (Phase 2) -------------------------------
+  // ----- Keyword inverted index -----------------------------------------
   final McpKeywordIndexService _keywordIndexService = McpKeywordIndexService();
   McpKeywordIndex? _keywordIndex;
   bool _keywordIndexLoadedFromDisk = false;

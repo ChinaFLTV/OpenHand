@@ -198,14 +198,14 @@ class _HePaneHeader extends StatelessWidget {
                     child: Row(
                       children: [
                         // ── Phase progress (mirrors runtime mode / template pill) ──
-                        _HePill(
+                        OhPill(
                           icon: _phaseProgressIcon(),
                           label: _phaseProgressLabel(),
                           foregroundColor: _phaseProgressColor(colorScheme),
                         ),
                         if (replayPendingDeadlineListenable != null) ...[
                           const SizedBox(width: 8),
-                          _HePendingReplayBadge(
+                          HardnessPendingReplayBadge(
                             isZh: isZh,
                             deadlineListenable:
                                 replayPendingDeadlineListenable!,
@@ -215,7 +215,7 @@ class _HePaneHeader extends StatelessWidget {
                         if (reviewRetries > 0) ...[
                           const SizedBox(width: 8),
                           // ── Review retry counter ──
-                          _HePill(
+                          OhPill(
                             icon: Icons.replay_rounded,
                             label: isZh
                                 ? '重试 $reviewRetries/3'
@@ -224,33 +224,33 @@ class _HePaneHeader extends StatelessWidget {
                           ),
                         ],
                         const SizedBox(width: 8),
-                        const _HePill(
+                        const OhPill(
                           icon: Icons.layers_rounded,
                           label:
                               'Harness Engineering · v$kHardnessOrchestratorDisplayVersion',
                         ),
                         const SizedBox(width: 8),
-                        _HePill(
+                        OhPill(
                           icon: Icons.data_object_rounded,
                           label: isZh ? '会话元数据' : 'Session Metadata',
                           onTap: () => _showSessionMetadata(context),
                         ),
                         const SizedBox(width: 8),
-                        _HePill(
+                        OhPill(
                           icon: Icons.folder_special_rounded,
                           label: isZh ? '资产文件' : 'Steering Assets',
                           onTap: () => _showSteeringAssets(context),
                         ),
                         if (updatedAtLabel?.isNotEmpty == true) ...[
                           const SizedBox(width: 8),
-                          _HePill(
+                          OhPill(
                             icon: Icons.update_rounded,
                             label: updatedAtLabel!,
                           ),
                         ],
                         if (isRunning) ...[
                           const SizedBox(width: 8),
-                          _HePill(
+                          OhPill(
                             icon: Icons.stop_circle_outlined,
                             label: isZh ? '中止' : 'Cancel',
                             foregroundColor: Theme.of(
@@ -263,7 +263,7 @@ class _HePaneHeader extends StatelessWidget {
                             orchestrator.status !=
                                 HardnessOrchestratorStatus.completed) ...[
                           const SizedBox(width: 8),
-                          _HePill(
+                          OhPill(
                             icon: Icons.restart_alt_rounded,
                             label:
                                 orchestrator.status ==
@@ -697,13 +697,3 @@ class _HeMetadataEntryRow extends StatelessWidget {
     );
   }
 }
-
-// =============================================================================
-// Q弹 entrance animation wrapper for phase cards.
-// Plays a single fade + vertical-slide + subtle scale pop when the card first
-// appears in the list. Uses easeOutBack so the card slightly overshoots and
-// settles back — giving that characteristic "Q弹丝滑" spring feel.
-// =============================================================================
-
-/// Backed by [HardnessPendingReplayBadge] (extracted for testability).
-typedef _HePendingReplayBadge = HardnessPendingReplayBadge;

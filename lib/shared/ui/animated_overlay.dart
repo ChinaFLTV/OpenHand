@@ -126,7 +126,3 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     );
   }
 }
-
-/// A simpler variant that only provides fade animation for very lightweight
-/// overlays like file stat popups.
-typedef FadeInOverlayContent = AnimatedOverlayContent;

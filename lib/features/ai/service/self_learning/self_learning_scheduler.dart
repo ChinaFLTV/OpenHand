@@ -1,14 +1,12 @@
-/// Hermes Talker 自主学习调度器 (Task 17 / 2026-04-25).
+/// Hermes Talker 自主学习调度器。
 ///
 /// 该调度器会定期（目前由外部 Cron 系统每 5 分钟调用一次 [tick]）
 /// 扫描最近 7 天内的 Hermes Talker 会话，为满足触发条件的会话派发
 /// 子 Agent 以将对话中的关键结论沉淀到用户记忆 / 技能库。
 ///
 /// 本文件仅实现 **扫描 + 调度骨架 + 信号量并发池**。
-/// 真正的子 Agent 派发（`_runForSession`）由任务 18 在运行时注入：
-/// 构造 [SelfLearningScheduler] 时提供 [runForSession] 回调即可，
-/// 该回调负责针对单个会话执行"自我学习"子 Agent，并持久化
-/// `selfLearning` 消息卡片。
+/// 真正的子 Agent 派发由 [runForSession] 在运行时注入，负责针对单个
+/// 会话执行"自我学习"子 Agent，并持久化 `selfLearning` 消息卡片。
 ///
 /// 本模块的职责边界：
 /// * 查询候选会话（最近 7 天 + Hermes Talker 模板）。
@@ -51,10 +49,8 @@ class SelfLearningTickResult {
   /// 派发过程中抛出的异常数量（内部已吞异常，记录为错误计数）。
   final int errors;
 
-  /// 2026-04-25 — 每个被实际运行过的会话的富报告，供 Crons 历史详
-  /// 情面板展示"影响了哪些会话 / 改了哪些画像-记忆-技能 / AI 思考与回
-  /// 复"。仅包含 dispatcher 调用走完成（成功或失败）的会话，不包含未
-  /// 达到 minConversationTurns 门槛而静默跳过的会话。
+  /// 每个被实际运行过的会话的富报告，供 Crons 历史详情面板展示影响范围。
+  /// 仅包含 dispatcher 调用已完成（成功或失败）的会话。
   final List<SelfLearningSessionReport> reports;
 
   @override
@@ -89,7 +85,7 @@ class SelfLearningScheduler {
     this.minMessagesRequired = 4,
   }) : _semaphore = _Semaphore(concurrency.clamp(1, _maxConcurrency));
 
-  /// 默认并发度（参见 Task 17 计划 §bounded worker pool）。
+  /// 默认并发度。
   static const int _defaultConcurrency = 5;
 
   /// 并发上限，防止误配置造成超额资源占用。
