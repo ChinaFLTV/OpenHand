@@ -92,6 +92,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       text: widget.initialModel?.temperature?.toString() ?? '0.7',
     );
     _authScheme = widget.initialModel?.authScheme ?? AiAuthScheme.bearer;
+    if (_authScheme == AiAuthScheme.none) {
+      _tokenController.clear();
+    }
     _protocolType = widget.initialModel?.protocolType ?? AiProtocolType.openai;
     _apiDialect =
         widget.initialModel?.apiDialect ?? inferAiApiDialect(_protocolType);
@@ -256,7 +259,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         baseUrl: baseUrl,
         autoCompleteBaseUrl: _autoCompleteBaseUrl,
         authScheme: _authScheme,
-        token: _tokenController.text.trim(),
+        token: _effectiveToken,
         modelId: '',
         protocolType: _protocolType,
         customHeaders: _collectCustomHeaders(),
@@ -403,7 +406,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       baseUrl: _baseUrlController.text.trim(),
       autoCompleteBaseUrl: _autoCompleteBaseUrl,
       authScheme: _authScheme,
-      token: _tokenController.text.trim(),
+      token: _effectiveToken,
       modelId: modelId,
       protocolType: _protocolType,
       modelProfiles: <String, AiModelProfile>{
@@ -477,6 +480,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   bool get _showsExplicitPromptCacheControl =>
       _protocolType == AiProtocolType.claude;
 
+  bool get _usesTokenAuth => _authScheme != AiAuthScheme.none;
+
+  String get _effectiveToken =>
+      _usesTokenAuth ? _tokenController.text.trim() : '';
+
   Map<String, Object?> _tryDecodeJsonObject(String rawValue) {
     try {
       return _decodeJsonObject(rawValue);
@@ -498,7 +506,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         baseUrl: baseUrl,
         autoCompleteBaseUrl: _autoCompleteBaseUrl,
         authScheme: _authScheme,
-        token: _tokenController.text.trim(),
+        token: _effectiveToken,
         modelId: _modelIdController.text.trim(),
         protocolType: _protocolType,
         apiDialect: _apiDialect,
@@ -877,6 +885,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                               }
                                               setState(() {
                                                 _authScheme = value;
+                                                if (value ==
+                                                    AiAuthScheme.none) {
+                                                  _tokenController.clear();
+                                                }
                                               });
                                             },
                                     );
@@ -929,52 +941,97 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             _buildExplicitPromptCacheControl(
                               globalInputCacheEnabled: globalInputCacheEnabled,
                             ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _tokenController,
-                              enabled: !_isSaving,
-                              obscureText: _obscureToken,
-                              decoration: InputDecoration(
-                                labelText: l10n.aiModelToken,
-                                suffixIconConstraints: const BoxConstraints(
-                                  minWidth: 56,
-                                  minHeight: 40,
-                                ),
-                                suffixIcon: Padding(
-                                  padding: const EdgeInsetsDirectional.only(
-                                    end: 10,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) {
+                                return SizeTransition(
+                                  sizeFactor: animation,
+                                  axisAlignment: -1,
+                                  child: FadeTransition(
+                                    opacity: animation,
+                                    child: child,
                                   ),
-                                  child: IconButton(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : () {
-                                            setState(() {
-                                              _obscureToken = !_obscureToken;
-                                            });
-                                          },
-                                    style: IconButton.styleFrom(
-                                      backgroundColor: Colors.transparent,
-                                      foregroundColor:
-                                          colorScheme.onSurfaceVariant,
-                                      disabledForegroundColor: colorScheme
-                                          .onSurfaceVariant
-                                          .withValues(alpha: 0.38),
-                                      minimumSize: const Size(36, 36),
-                                      maximumSize: const Size(36, 36),
-                                      padding: EdgeInsets.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
+                                );
+                              },
+                              child: _usesTokenAuth
+                                  ? Column(
+                                      key: const ValueKey<String>(
+                                        'ai-model-token-field',
+                                      ),
+                                      children: [
+                                        const SizedBox(height: 16),
+                                        TextFormField(
+                                          controller: _tokenController,
+                                          enabled: !_isSaving,
+                                          obscureText: _obscureToken,
+                                          decoration: InputDecoration(
+                                            labelText: l10n.aiModelToken,
+                                            suffixIconConstraints:
+                                                const BoxConstraints(
+                                                  minWidth: 56,
+                                                  minHeight: 40,
+                                                ),
+                                            suffixIcon: Padding(
+                                              padding:
+                                                  const EdgeInsetsDirectional.only(
+                                                    end: 10,
+                                                  ),
+                                              child: IconButton(
+                                                onPressed: _isSaving
+                                                    ? null
+                                                    : () {
+                                                        setState(() {
+                                                          _obscureToken =
+                                                              !_obscureToken;
+                                                        });
+                                                      },
+                                                style: IconButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  foregroundColor: colorScheme
+                                                      .onSurfaceVariant,
+                                                  disabledForegroundColor:
+                                                      colorScheme
+                                                          .onSurfaceVariant
+                                                          .withValues(
+                                                            alpha: 0.38,
+                                                          ),
+                                                  minimumSize: const Size(
+                                                    36,
+                                                    36,
+                                                  ),
+                                                  maximumSize: const Size(
+                                                    36,
+                                                    36,
+                                                  ),
+                                                  padding: EdgeInsets.zero,
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                ),
+                                                icon: Icon(
+                                                  _obscureToken
+                                                      ? Icons
+                                                            .visibility_outlined
+                                                      : Icons
+                                                            .visibility_off_outlined,
+                                                  size: 22,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const SizedBox.shrink(
+                                      key: ValueKey<String>(
+                                        'ai-model-token-field-hidden',
+                                      ),
                                     ),
-                                    icon: Icon(
-                                      _obscureToken
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                      size: 22,
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ),
                             const SizedBox(height: 20),
                             // ── Model scan section ──
@@ -1947,7 +2004,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       baseUrl: _baseUrlController.text.trim(),
       autoCompleteBaseUrl: _autoCompleteBaseUrl,
       authScheme: _authScheme,
-      token: _tokenController.text.trim(),
+      token: _effectiveToken,
       modelId: _modelIdController.text.trim(),
       protocolType: _protocolType,
       apiDialect: _apiDialect,
