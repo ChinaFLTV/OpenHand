@@ -507,6 +507,7 @@ void main() {
             modelId: 'embed-v4.0',
           ),
           input: const <String>['alpha', 'beta'],
+          dimensions: 512,
         );
 
         expect(client.requests.single.url.path, '/v2/embed');
@@ -515,6 +516,7 @@ void main() {
           'texts': <String>['alpha', 'beta'],
           'input_type': 'search_document',
           'embedding_types': <String>['float'],
+          'output_dimension': 512,
           'truncate': 'END',
         });
         expect(result.vectors, <List<double>>[

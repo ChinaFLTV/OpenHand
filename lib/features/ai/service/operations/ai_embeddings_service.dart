@@ -587,6 +587,8 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
         if (context.trimmedInputType != null)
           'input_type': context.trimmedInputType,
         if (embeddingType != null) 'embedding_types': <String>[embeddingType],
+        if (context.positiveDimensions != null)
+          'output_dimension': context.positiveDimensions,
         if (context.trimmedTruncation != null)
           'truncate': context.trimmedTruncation,
       }),

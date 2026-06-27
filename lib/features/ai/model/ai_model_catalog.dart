@@ -200,6 +200,7 @@ class AiModelCatalog {
     'model',
     'input_type',
     'embedding_types',
+    'output_dimension',
     'truncate',
   ];
 
