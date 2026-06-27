@@ -10,9 +10,14 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
 
   final KnowledgeBaseSettings settings;
 
-  Uri _uri(String path) {
+  Uri _uri(String path, {Map<String, String>? queryParameters}) {
     final base = settings.qdrantBaseUri;
-    return base.replace(path: path.startsWith('/') ? path : '/$path');
+    return base.replace(
+      path: path.startsWith('/') ? path : '/$path',
+      queryParameters: queryParameters?.isEmpty == false
+          ? queryParameters
+          : null,
+    );
   }
 
   @override
@@ -66,7 +71,10 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     if (points.isEmpty) return;
     await _send(
       method: 'PUT',
-      uri: _uri('/collections/$collectionName/points?wait=true'),
+      uri: _uri(
+        '/collections/$collectionName/points',
+        queryParameters: const <String, String>{'wait': 'true'},
+      ),
       body: <String, Object?>{
         'points': points
             .map(
@@ -127,7 +135,11 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   }) async {
     await _send(
       method: 'POST',
-      uri: _uri('/collections/$collectionName/points/delete?wait=true'),
+      uri: _uri(
+        '/collections/$collectionName/points/delete',
+        queryParameters: const <String, String>{'wait': 'true'},
+      ),
+      tolerateNotFound: true,
       body: <String, Object?>{
         'filter': <String, Object?>{
           'must': <Object?>[

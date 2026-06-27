@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -16,6 +17,7 @@ import '../model/knowledge_source.dart';
 import '../service/knowledge_document_parser.dart';
 import 'knowledge_base_config_dialog.dart';
 import 'knowledge_import_dialog.dart';
+import 'knowledge_source_content_dialog.dart';
 import 'knowledge_source_detail_dialog.dart';
 import 'qdrant_admin_dialog.dart';
 import 'qdrant_status_dialog.dart';
@@ -325,6 +327,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
   const _KnowledgeSourceCard({required this.source});
 
   static const double _radius = 28;
+  static const double _actionButtonSize = 44;
 
   final KnowledgeSource source;
 
@@ -332,6 +335,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
     final statusColor = switch (source.status) {
       'indexed' => Colors.green,
       'failed' => colorScheme.error,
@@ -339,71 +343,145 @@ class _KnowledgeSourceCard extends StatelessWidget {
       _ => colorScheme.onSurfaceVariant,
     };
     final borderRadius = BorderRadius.circular(_radius);
-    return Material(
-      color: colorScheme.surfaceContainerLowest,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: borderRadius,
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: InkWell(
-        borderRadius: borderRadius,
-        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(WidgetState.pressed)) {
-            return colorScheme.primary.withValues(alpha: 0.10);
-          }
-          if (states.contains(WidgetState.hovered) ||
-              states.contains(WidgetState.focused)) {
-            return colorScheme.primary.withValues(alpha: 0.06);
-          }
-          return null;
-        }),
-        onTap: () => showKnowledgeSourceDetailDialog(context, source.id),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  _iconForKind(source.kind),
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      source.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+    return HoverLift(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: Card(
+          margin: EdgeInsets.zero,
+          elevation: 0,
+          color: colorScheme.surfaceContainerLowest,
+          surfaceTintColor: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: borderRadius,
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+          child: InkWell(
+            borderRadius: borderRadius,
+            overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+              if (states.contains(WidgetState.pressed)) {
+                return colorScheme.primary.withValues(alpha: 0.10);
+              }
+              if (states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.focused)) {
+                return colorScheme.primary.withValues(alpha: 0.06);
+              }
+              return null;
+            }),
+            onTap: () => showKnowledgeSourceDetailDialog(context, source.id),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Icon(
+                              _iconForKind(source.kind),
+                              color: colorScheme.onPrimaryContainer,
+                              size: 26,
+                            ),
+                          ),
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: _KnowledgeSourceStatusDot(
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      source.originalPath,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              source.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _localizedKind(source.kind, context),
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              source.originalPath,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {},
+                            child: Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              alignment: WrapAlignment.end,
+                              children: [
+                                _KnowledgeCardActionButton(
+                                  tooltip: isZh ? '查看内容' : 'View content',
+                                  icon: Icons.article_outlined,
+                                  onPressed: () =>
+                                      showKnowledgeSourceContentDialog(
+                                        context,
+                                        source.id,
+                                      ),
+                                  size: _actionButtonSize,
+                                ),
+                                _KnowledgeCardActionButton(
+                                  tooltip: isZh ? '详情 / 编辑' : 'Details / Edit',
+                                  icon: Icons.edit_outlined,
+                                  onPressed: () =>
+                                      showKnowledgeSourceDetailDialog(
+                                        context,
+                                        source.id,
+                                      ),
+                                  size: _actionButtonSize,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
                         _SmallPill(
                           icon: Icons.circle,
@@ -424,15 +502,10 @@ class _KnowledgeSourceCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -454,6 +527,24 @@ class _KnowledgeSourceCard extends StatelessWidget {
     };
   }
 
+  String _localizedKind(String kind, BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
+    return switch (kind) {
+      'markdown' => isZh ? 'Markdown 文档' : 'Markdown',
+      'text' => isZh ? '文本' : 'Text',
+      'code' => isZh ? '代码' : 'Code',
+      'pdf' => isZh ? 'PDF' : 'PDF',
+      'html' => isZh ? '网页 HTML' : 'HTML',
+      'docx' => isZh ? 'Word 文档' : 'Word document',
+      'spreadsheet' => isZh ? '电子表格' : 'Spreadsheet',
+      'presentation' => isZh ? '演示文稿' : 'Presentation',
+      'table' => isZh ? '表格数据' : 'Table data',
+      'structured' => isZh ? '结构化数据' : 'Structured data',
+      'note' => isZh ? '笔记' : 'Note',
+      _ => kind.trim().isEmpty ? '-' : kind,
+    };
+  }
+
   String _localizedStatus(String status, BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
     return switch (status) {
@@ -463,6 +554,54 @@ class _KnowledgeSourceCard extends StatelessWidget {
       'pending' => isZh ? '待处理' : 'Pending',
       _ => status.trim().isEmpty ? '-' : status,
     };
+  }
+}
+
+class _KnowledgeCardActionButton extends StatelessWidget {
+  const _KnowledgeCardActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    required this.size,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: IconButton.filledTonal(onPressed: onPressed, icon: Icon(icon)),
+      ),
+    );
+  }
+}
+
+class _KnowledgeSourceStatusDot extends StatelessWidget {
+  const _KnowledgeSourceStatusDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.surfaceContainerLowest,
+          width: 3,
+        ),
+      ),
+    );
   }
 }
 

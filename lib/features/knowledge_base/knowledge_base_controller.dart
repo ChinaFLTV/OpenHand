@@ -184,7 +184,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     return _store.loadStats();
   }
 
-  Future<void> deleteSource(KnowledgeSource source) async {
+  Future<bool> deleteSource(KnowledgeSource source) async {
     _busy = true;
     _error = null;
     notifyListeners();
@@ -196,8 +196,10 @@ class KnowledgeBaseController extends ChangeNotifier {
       );
       await _store.deleteSource(source.id);
       _sources = await _store.loadSources(query: _query);
+      return true;
     } catch (error) {
       _error = '$error';
+      return false;
     } finally {
       _busy = false;
       notifyListeners();

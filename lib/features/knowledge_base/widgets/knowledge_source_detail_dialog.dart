@@ -96,8 +96,16 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
       destructive: true,
     );
     if (confirmed != true || !context.mounted) return;
-    await context.read<KnowledgeBaseController>().deleteSource(source);
+    final controller = context.read<KnowledgeBaseController>();
+    final deleted = await controller.deleteSource(source);
     if (!context.mounted) return;
+    if (!deleted) {
+      OpenHandSnackBar.showError(
+        context,
+        controller.error ?? (isZh ? '来源删除失败。' : 'Failed to delete source.'),
+      );
+      return;
+    }
     Navigator.of(context).pop();
     OpenHandSnackBar.showSuccess(context, isZh ? '来源已删除。' : 'Source deleted.');
   }
