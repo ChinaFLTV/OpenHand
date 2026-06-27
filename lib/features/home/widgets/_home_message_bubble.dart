@@ -7056,6 +7056,45 @@ List<_KnowledgeBaseCitationSource> _knowledgeBaseCitationSources(
   return sources;
 }
 
+bool _knowledgeBaseMetadataWasEnabled(Map<String, Object?>? metadata) {
+  return metadata != null &&
+      metadata['enabled'] == true &&
+      (metadata.containsKey('results') ||
+          metadata.containsKey('prompt_append') ||
+          metadata.containsKey('embedding'));
+}
+
+String _knowledgeBaseMessageCapsuleLabel(
+  BuildContext context,
+  Map<String, Object?> metadata,
+) {
+  final results = metadata['results'];
+  final hitCount = results is List ? results.length : 0;
+  final promptAppend = KnowledgeMessageMetadata.promptAppendInfo(metadata);
+  final tokens = promptAppend?['token_estimate'] is num
+      ? (promptAppend!['token_estimate'] as num).round()
+      : null;
+  final status = '${metadata['status'] ?? ''}'.trim();
+  if (status == 'failed') {
+    return _localizedText(context, zh: '知识库失败', en: 'KB failed');
+  }
+  if (hitCount <= 0) {
+    return _localizedText(context, zh: '知识库无命中', en: 'KB no hits');
+  }
+  if (tokens == null) {
+    return _localizedText(
+      context,
+      zh: '知识库 $hitCount 条',
+      en: 'KB $hitCount hits',
+    );
+  }
+  return _localizedText(
+    context,
+    zh: '知识库 · $hitCount 条 · $tokens tokens',
+    en: 'KB · $hitCount hits · $tokens tokens',
+  );
+}
+
 String _knowledgeBaseCitationKey(Map<String, Object?> hit, String label) {
   final sourceId = '${hit['source_id'] ?? ''}'.trim();
   if (sourceId.isNotEmpty) return 'source:$sourceId';
@@ -7191,17 +7230,6 @@ class _SelectedMessageContextRow extends StatelessWidget {
     final knowledgeBaseMetadata = KnowledgeMessageMetadata.fromMessageMetadata(
       message.metadata,
     );
-    final knowledgeBaseResults = knowledgeBaseMetadata?['results'];
-    final knowledgeBaseHitCount = knowledgeBaseResults is List
-        ? knowledgeBaseResults.length
-        : 0;
-    final knowledgeBasePromptAppend = KnowledgeMessageMetadata.promptAppendInfo(
-      message.metadata,
-    );
-    final knowledgeBaseTokens =
-        knowledgeBasePromptAppend?['token_estimate'] is num
-        ? (knowledgeBasePromptAppend!['token_estimate'] as num).round()
-        : null;
     final associatedKnowledgeBaseSourceCount =
         associatedKnowledgeBaseMetadata == null
         ? 0
@@ -7238,28 +7266,24 @@ class _SelectedMessageContextRow extends StatelessWidget {
         message: message,
         textColor: textColor,
       ),
-      if (KnowledgeMessageMetadata.hasReferences(message.metadata))
+      if (_knowledgeBaseMetadataWasEnabled(knowledgeBaseMetadata))
         _MessageContextCapsule(
           icon: Icons.library_books_rounded,
-          label: knowledgeBaseTokens == null
-              ? _localizedText(
-                  context,
-                  zh: '知识库 $knowledgeBaseHitCount 条',
-                  en: 'KB $knowledgeBaseHitCount hits',
-                )
-              : _localizedText(
-                  context,
-                  zh: '知识库 · $knowledgeBaseHitCount 条 · $knowledgeBaseTokens tokens',
-                  en: 'KB · $knowledgeBaseHitCount hits · $knowledgeBaseTokens tokens',
-                ),
+          label: _knowledgeBaseMessageCapsuleLabel(
+            context,
+            knowledgeBaseMetadata!,
+          ),
           textColor: textColor,
           onPressed: () {
             unawaited(
-              showKnowledgeRetrievalDetailDialog(context, message.metadata),
+              showKnowledgeRetrievalDetailDialog(
+                context,
+                _knowledgeBaseMetadataEnvelope(knowledgeBaseMetadata),
+              ),
             );
           },
         ),
-      if (!KnowledgeMessageMetadata.hasReferences(message.metadata) &&
+      if (knowledgeBaseMetadata == null &&
           associatedKnowledgeBaseMetadata != null &&
           associatedKnowledgeBaseSourceCount > 0)
         _MessageContextCapsule(
