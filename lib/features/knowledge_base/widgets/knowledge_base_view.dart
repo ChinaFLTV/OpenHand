@@ -56,7 +56,7 @@ class KnowledgeBaseView extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: () => showQdrantStatusDialog(context),
             icon: const Icon(Icons.monitor_heart_outlined),
-            label: Text(isZh ? 'Qdrant 监控' : 'Qdrant Status'),
+            label: Text(isZh ? 'Qdrant 运维' : 'Qdrant Ops'),
           ),
           OutlinedButton.icon(
             onPressed: () => showQdrantAdminDialog(context),

@@ -46,12 +46,12 @@ const List<String> _knowledgeFailureStrategies = <String>[
   'fail_closed',
 ];
 
-const double _knowledgeConfigItemWidth = kKnowledgeDialogWideFieldWidth;
 const double _knowledgeConfigItemHeight = 64;
 const double _knowledgeConfigGridSpacing = 12;
-const double _knowledgeConfigFullRowWidth =
-    _knowledgeConfigItemWidth * 2 + _knowledgeConfigGridSpacing;
 const double _knowledgeConfigSummaryItemHeight = 76;
+const double _knowledgeConfigMinItemWidth = 280;
+const double _knowledgeConfigFallbackFullRowWidth =
+    _knowledgeConfigMinItemWidth * 2 + _knowledgeConfigGridSpacing;
 
 Future<void> showKnowledgeBaseConfigDialog(
   BuildContext context, {
@@ -384,9 +384,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   if (models.isEmpty)
                     _emptyModelState(context)
                   else
-                    SizedBox(
-                      width: _knowledgeConfigFullRowWidth,
-                      child: OpenHandModelSelectorField(
+                    _fullRow(
+                      OpenHandModelSelectorField(
                         models: models,
                         recentSelections:
                             settingsController.recentModelSelections,
@@ -1031,9 +1030,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 title: isZh ? '隐私与云端调用' : 'Privacy and Cloud Calls',
                 icon: Icons.privacy_tip_outlined,
                 children: [
-                  SizedBox(
-                    width: _knowledgeConfigFullRowWidth,
-                    child: KnowledgeDialogNotice(
+                  _fullRow(
+                    KnowledgeDialogNotice(
                       icon: Icons.lock_outline_rounded,
                       message: isZh
                           ? '云端 embedding 会发送文档 chunk 与用户 query。默认关闭，开启前请确认数据边界。'
@@ -1309,74 +1307,85 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
     ];
 
-    return SizedBox(
-      width: _knowledgeConfigFullRowWidth,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-          ),
-        ),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final row in rows)
-              SizedBox(
-                width: _knowledgeConfigItemWidth - 10,
-                height: _knowledgeConfigSummaryItemHeight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface.withValues(alpha: 0.72),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.48),
+    return Builder(
+      builder: (context) {
+        final metrics = _KnowledgeConfigGridScope.of(context);
+        final summaryWidth = metrics.columns == 1
+            ? metrics.fullWidth
+            : (metrics.fullWidth - 8) / 2;
+        return SizedBox(
+          width: metrics.fullWidth,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.36,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+              ),
+            ),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final row in rows)
+                  SizedBox(
+                    width: summaryWidth,
+                    height: _knowledgeConfigSummaryItemHeight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.48,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            row.$1,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            row.$2.isEmpty ? '-' : row.$2,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        row.$1,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        row.$2.isEmpty ? '-' : row.$2,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _emptyModelState(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
-    return SizedBox(
-      width: _knowledgeConfigFullRowWidth,
-      child: KnowledgeDialogNotice(
+    return _fullRow(
+      KnowledgeDialogNotice(
         icon: Icons.info_outline_rounded,
         message: isZh
             ? '没有已开启“嵌入生成”的模型。请先在设置的模型配置中启用该能力。'
@@ -1396,71 +1405,119 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       title: title,
       icon: icon,
       subtitle: subtitle,
-      child: Wrap(spacing: 12, runSpacing: 12, children: children),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : _knowledgeConfigFallbackFullRowWidth;
+          final columns =
+              maxWidth >=
+                  _knowledgeConfigMinItemWidth * 2 + _knowledgeConfigGridSpacing
+              ? 2
+              : 1;
+          final itemWidth = columns == 1
+              ? maxWidth
+              : (maxWidth - _knowledgeConfigGridSpacing) / 2;
+          return _KnowledgeConfigGridScope(
+            itemWidth: itemWidth,
+            fullWidth: maxWidth,
+            columns: columns,
+            child: Wrap(
+              spacing: _knowledgeConfigGridSpacing,
+              runSpacing: 12,
+              children: children,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _fullRow(Widget child) {
+    return Builder(
+      builder: (context) {
+        final metrics = _KnowledgeConfigGridScope.of(context);
+        return SizedBox(width: metrics.fullWidth, child: child);
+      },
     );
   }
 
   Widget _field(TextEditingController controller, String label) {
-    return SizedBox(
-      width: _knowledgeConfigItemWidth,
-      height: _knowledgeConfigItemHeight,
-      child: TextField(
-        controller: controller,
-        style: Theme.of(context).textTheme.bodyMedium,
-        decoration: knowledgeDialogInputDecoration(context, label),
-      ),
+    return Builder(
+      builder: (context) {
+        final metrics = _KnowledgeConfigGridScope.of(context);
+        return SizedBox(
+          width: metrics.itemWidth,
+          height: _knowledgeConfigItemHeight,
+          child: TextField(
+            controller: controller,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: knowledgeDialogInputDecoration(context, label),
+          ),
+        );
+      },
     );
   }
 
   Widget _readonly(BuildContext context, String label, String value) {
-    return SizedBox(
-      width: _knowledgeConfigItemWidth,
-      height: _knowledgeConfigItemHeight,
-      child: InputDecorator(
-        decoration: knowledgeDialogInputDecoration(context, label),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        final metrics = _KnowledgeConfigGridScope.of(context);
+        return SizedBox(
+          width: metrics.itemWidth,
+          height: _knowledgeConfigItemHeight,
+          child: InputDecorator(
+            decoration: knowledgeDialogInputDecoration(context, label),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _switch(String label, bool value, ValueChanged<bool> onChanged) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      width: _knowledgeConfigItemWidth,
-      height: _knowledgeConfigItemHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                height: 1.25,
-              ),
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        final metrics = _KnowledgeConfigGridScope.of(context);
+        return Container(
+          width: metrics.itemWidth,
+          height: _knowledgeConfigItemHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.72),
             ),
           ),
-          const SizedBox(width: 10),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1471,39 +1528,75 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     required ValueChanged<String> onChanged,
     String Function(String value)? itemLabel,
   }) {
-    return SizedBox(
-      width: _knowledgeConfigItemWidth,
-      height: _knowledgeConfigItemHeight,
-      child: DropdownButtonFormField<String>(
-        initialValue: values.contains(value) ? value : values.first,
-        isExpanded: true,
-        decoration: knowledgeDialogInputDecoration(context, label),
-        selectedItemBuilder: (context) => [
-          for (final item in values)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                itemLabel?.call(item) ?? item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
-        items: [
-          for (final item in values)
-            DropdownMenuItem<String>(
-              value: item,
-              child: Text(
-                itemLabel?.call(item) ?? item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
-        onChanged: (value) {
-          if (value != null) onChanged(value);
-        },
-      ),
+    return Builder(
+      builder: (context) {
+        final metrics = _KnowledgeConfigGridScope.of(context);
+        return SizedBox(
+          width: metrics.itemWidth,
+          height: _knowledgeConfigItemHeight,
+          child: DropdownButtonFormField<String>(
+            initialValue: values.contains(value) ? value : values.first,
+            isExpanded: true,
+            decoration: knowledgeDialogInputDecoration(context, label),
+            selectedItemBuilder: (context) => [
+              for (final item in values)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    itemLabel?.call(item) ?? item,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            items: [
+              for (final item in values)
+                DropdownMenuItem<String>(
+                  value: item,
+                  child: Text(
+                    itemLabel?.call(item) ?? item,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: (value) {
+              if (value != null) onChanged(value);
+            },
+          ),
+        );
+      },
     );
+  }
+}
+
+class _KnowledgeConfigGridScope extends InheritedWidget {
+  const _KnowledgeConfigGridScope({
+    required this.itemWidth,
+    required this.fullWidth,
+    required this.columns,
+    required super.child,
+  });
+
+  final double itemWidth;
+  final double fullWidth;
+  final int columns;
+
+  static _KnowledgeConfigGridScope of(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<_KnowledgeConfigGridScope>() ??
+        const _KnowledgeConfigGridScope(
+          itemWidth: _knowledgeConfigMinItemWidth,
+          fullWidth: _knowledgeConfigFallbackFullRowWidth,
+          columns: 2,
+          child: SizedBox.shrink(),
+        );
+  }
+
+  @override
+  bool updateShouldNotify(_KnowledgeConfigGridScope oldWidget) {
+    return itemWidth != oldWidget.itemWidth ||
+        fullWidth != oldWidget.fullWidth ||
+        columns != oldWidget.columns;
   }
 }

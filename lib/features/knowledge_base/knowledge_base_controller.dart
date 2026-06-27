@@ -210,11 +210,45 @@ class KnowledgeBaseController extends ChangeNotifier {
     return _qdrantAdminService.collectionInfo(_settings, collection);
   }
 
-  Future<Map<String, Object?>> scrollQdrantPoints({int limit = 20}) {
+  Future<Map<String, Object?>> scrollQdrantPoints({
+    int limit = 20,
+    Map<String, Object?>? filter,
+  }) {
     return _qdrantAdminService.scroll(
       _settings,
       collection: _settings.effectiveCollectionName,
       limit: limit,
+      filter: filter,
+    );
+  }
+
+  Future<Map<String, Object?>> loadQdrantPointsByIds(List<String> ids) {
+    return _qdrantAdminService.pointsByIds(
+      _settings,
+      collection: _settings.effectiveCollectionName,
+      ids: ids,
+    );
+  }
+
+  Future<Map<String, Object?>> searchQdrantRawVector({
+    required List<double> vector,
+    int limit = 10,
+    Map<String, Object?>? filter,
+  }) {
+    return _qdrantAdminService.searchRawVector(
+      _settings,
+      collection: _settings.effectiveCollectionName,
+      vector: vector,
+      limit: limit,
+      filter: filter,
+    );
+  }
+
+  Future<void> deleteQdrantPoints(List<String> ids) {
+    return _qdrantAdminService.deletePoints(
+      _settings,
+      collection: _settings.effectiveCollectionName,
+      ids: ids,
     );
   }
 

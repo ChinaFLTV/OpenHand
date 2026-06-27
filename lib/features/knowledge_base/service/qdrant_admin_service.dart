@@ -59,6 +59,60 @@ class QdrantAdminService {
     );
   }
 
+  Future<Map<String, Object?>> pointsByIds(
+    KnowledgeBaseSettings settings, {
+    required String collection,
+    required List<String> ids,
+  }) {
+    return _request(
+      settings,
+      'POST',
+      '/collections/$collection/points',
+      body: <String, Object?>{
+        'ids': ids,
+        'with_payload': true,
+        'with_vector': false,
+      },
+      action: 'points_by_ids',
+    );
+  }
+
+  Future<Map<String, Object?>> searchRawVector(
+    KnowledgeBaseSettings settings, {
+    required String collection,
+    required List<double> vector,
+    int limit = 10,
+    Map<String, Object?>? filter,
+  }) {
+    return _request(
+      settings,
+      'POST',
+      '/collections/$collection/points/search',
+      body: <String, Object?>{
+        'vector': vector,
+        'limit': limit,
+        'with_payload': true,
+        'with_vector': false,
+        if (filter != null) 'filter': filter,
+      },
+      action: 'raw_vector_search',
+    );
+  }
+
+  Future<void> deletePoints(
+    KnowledgeBaseSettings settings, {
+    required String collection,
+    required List<String> ids,
+  }) async {
+    await _request(
+      settings,
+      'POST',
+      '/collections/$collection/points/delete',
+      body: <String, Object?>{'points': ids},
+      action: 'delete_points',
+    );
+  }
+
   Future<void> deleteCollection(
     KnowledgeBaseSettings settings,
     String collection,
