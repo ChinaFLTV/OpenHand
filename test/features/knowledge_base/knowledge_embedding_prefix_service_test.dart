@@ -14,6 +14,8 @@ void main() {
             AiModelCapability.embeddingGeneration,
           },
           embeddingDimensions: 4,
+          embeddingQueryModelId: 'embedding-query',
+          embeddingDocumentModelId: 'embedding-document',
           embeddingQueryTextPrefix: 'query:',
           embeddingDocumentTextPrefix: 'passage:',
         ),
@@ -36,7 +38,9 @@ void main() {
         'query: find docs',
         'query: already tagged',
       ]);
+      expect(embeddings.calls.first.modelId, 'embedding-query');
       expect(embeddings.calls.last.input, <String>['passage: source chunk']);
+      expect(embeddings.calls.last.modelId, 'embedding-document');
     });
   });
 }
@@ -83,7 +87,7 @@ class _RecordingEmbeddingsService extends AiEmbeddingsService {
     String? truncation,
     String? user,
   }) async {
-    calls.add(_EmbeddingCall(input: input));
+    calls.add(_EmbeddingCall(modelId: model.modelId, input: input));
     return AiEmbeddingResult(
       vectors: List<List<double>>.generate(
         input.length,
@@ -95,7 +99,8 @@ class _RecordingEmbeddingsService extends AiEmbeddingsService {
 }
 
 class _EmbeddingCall {
-  const _EmbeddingCall({required this.input});
+  const _EmbeddingCall({required this.modelId, required this.input});
 
+  final String modelId;
   final List<String> input;
 }

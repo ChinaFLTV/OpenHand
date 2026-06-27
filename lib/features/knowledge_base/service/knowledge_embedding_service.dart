@@ -24,10 +24,15 @@ class KnowledgeEmbeddingService {
     if (!isQuery && !settings.allowDocumentCloudEmbedding) {
       throw StateError('知识库隐私设置禁止将文档内容发送到云端 embedding API。');
     }
+    final requestModelId = _resolvedModelId(
+      profile,
+      fallbackModelId: settings.modelId,
+      isQuery: isQuery,
+    );
     final embeddingModel = model.copyWith(
-      modelId: settings.modelId,
+      modelId: requestModelId,
       operationRouting: model.operationRouting.copyWith(
-        embeddingModelId: settings.modelId,
+        embeddingModelId: requestModelId,
       ),
     );
     _validateDimensions(settings, profile);
@@ -175,6 +180,17 @@ class KnowledgeEmbeddingService {
         ? profile.embeddingQueryTextPrefix
         : profile.embeddingDocumentTextPrefix;
     return _trimmedOrNull(value);
+  }
+
+  String _resolvedModelId(
+    AiModelProfile profile, {
+    required String fallbackModelId,
+    required bool isQuery,
+  }) {
+    final value = isQuery
+        ? profile.embeddingQueryModelId
+        : profile.embeddingDocumentModelId;
+    return _trimmedOrNull(value) ?? fallbackModelId;
   }
 
   List<String> _applyTextPrefix(List<String> inputs, String? prefix) {

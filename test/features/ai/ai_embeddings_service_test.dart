@@ -622,6 +622,11 @@ void main() {
       expect(solar?.displayName, 'Solar Embedding');
       expect(solar?.embeddingDimensions, 4096);
       expect(solar?.embeddingDefaultTaskType, 'query');
+      expect(solar?.embeddingQueryModelId, 'solar-embedding-1-large-query');
+      expect(
+        solar?.embeddingDocumentModelId,
+        'solar-embedding-1-large-passage',
+      );
       expect(slate?.displayName, 'IBM Slate 30M Embedding');
       expect(slate?.embeddingDimensions, 384);
       expect(slate125?.displayName, 'IBM Slate 125M Embedding');
@@ -662,6 +667,8 @@ void main() {
         },
         embeddingInputTypes: <String>['document', 'query'],
         embeddingDefaultInputType: 'document',
+        embeddingQueryModelId: 'embedding-query',
+        embeddingDocumentModelId: 'embedding-document',
         embeddingQueryInputType: 'query',
         embeddingDocumentInputType: 'document',
         embeddingSupportedTaskTypes: <String>['retrieval.query'],
@@ -682,6 +689,8 @@ void main() {
       final roundTripped = AiModelProfile.fromJson(profile.toJson());
 
       expect(roundTripped.embeddingDefaultInputType, 'document');
+      expect(roundTripped.embeddingQueryModelId, 'embedding-query');
+      expect(roundTripped.embeddingDocumentModelId, 'embedding-document');
       expect(roundTripped.embeddingQueryInputType, 'query');
       expect(roundTripped.embeddingDocumentInputType, 'document');
       expect(roundTripped.embeddingDefaultQueryTaskType, 'retrieval.query');

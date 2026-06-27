@@ -269,6 +269,8 @@ class AiModelProfile {
     this.embeddingEndpointPath,
     this.embeddingBatchSize,
     this.embeddingRequiresSpecialBody = false,
+    this.embeddingQueryModelId,
+    this.embeddingDocumentModelId,
     this.embeddingInputTypes = const <String>[],
     this.embeddingDefaultInputType,
     this.embeddingQueryInputType,
@@ -354,6 +356,8 @@ class AiModelProfile {
       ),
       embeddingRequiresSpecialBody:
           _readBool(json['embedding_requires_special_body']) ?? false,
+      embeddingQueryModelId: json['embedding_query_model_id'] as String?,
+      embeddingDocumentModelId: json['embedding_document_model_id'] as String?,
       embeddingInputTypes: _parseStringList(json['embedding_input_types']),
       embeddingDefaultInputType:
           json['embedding_default_input_type'] as String?,
@@ -471,6 +475,8 @@ class AiModelProfile {
   final String? embeddingEndpointPath;
   final int? embeddingBatchSize;
   final bool embeddingRequiresSpecialBody;
+  final String? embeddingQueryModelId;
+  final String? embeddingDocumentModelId;
   final List<String> embeddingInputTypes;
   final String? embeddingDefaultInputType;
   final String? embeddingQueryInputType;
@@ -531,6 +537,8 @@ class AiModelProfile {
       embeddingEndpointPath != null ||
       embeddingBatchSize != null ||
       embeddingRequiresSpecialBody ||
+      embeddingQueryModelId != null ||
+      embeddingDocumentModelId != null ||
       embeddingInputTypes.isNotEmpty ||
       embeddingDefaultInputType != null ||
       embeddingQueryInputType != null ||
@@ -611,6 +619,10 @@ class AiModelProfile {
     int? embeddingBatchSize,
     bool clearEmbeddingBatchSize = false,
     bool? embeddingRequiresSpecialBody,
+    String? embeddingQueryModelId,
+    bool clearEmbeddingQueryModelId = false,
+    String? embeddingDocumentModelId,
+    bool clearEmbeddingDocumentModelId = false,
     List<String>? embeddingInputTypes,
     String? embeddingDefaultInputType,
     bool clearEmbeddingDefaultInputType = false,
@@ -728,6 +740,12 @@ class AiModelProfile {
           : embeddingBatchSize ?? this.embeddingBatchSize,
       embeddingRequiresSpecialBody:
           embeddingRequiresSpecialBody ?? this.embeddingRequiresSpecialBody,
+      embeddingQueryModelId: clearEmbeddingQueryModelId
+          ? null
+          : embeddingQueryModelId ?? this.embeddingQueryModelId,
+      embeddingDocumentModelId: clearEmbeddingDocumentModelId
+          ? null
+          : embeddingDocumentModelId ?? this.embeddingDocumentModelId,
       embeddingInputTypes: embeddingInputTypes ?? this.embeddingInputTypes,
       embeddingDefaultInputType: clearEmbeddingDefaultInputType
           ? null
@@ -843,6 +861,10 @@ class AiModelProfile {
       if (embeddingBatchSize != null)
         'embedding_batch_size': embeddingBatchSize,
       if (embeddingRequiresSpecialBody) 'embedding_requires_special_body': true,
+      if (embeddingQueryModelId != null)
+        'embedding_query_model_id': embeddingQueryModelId,
+      if (embeddingDocumentModelId != null)
+        'embedding_document_model_id': embeddingDocumentModelId,
       if (embeddingInputTypes.isNotEmpty)
         'embedding_input_types': embeddingInputTypes,
       if (embeddingDefaultInputType != null)
@@ -1222,6 +1244,10 @@ class AiModelConfig {
       embeddingRequiresSpecialBody:
           override.embeddingRequiresSpecialBody ||
           catalog.embeddingRequiresSpecialBody,
+      embeddingQueryModelId:
+          override.embeddingQueryModelId ?? catalog.embeddingQueryModelId,
+      embeddingDocumentModelId:
+          override.embeddingDocumentModelId ?? catalog.embeddingDocumentModelId,
       embeddingInputTypes: override.embeddingInputTypes.isNotEmpty
           ? override.embeddingInputTypes
           : catalog.embeddingInputTypes,

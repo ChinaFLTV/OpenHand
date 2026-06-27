@@ -2147,6 +2147,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _embeddingMaxInputTokensController;
   late final TextEditingController _embeddingEndpointPathController;
   late final TextEditingController _embeddingBatchSizeController;
+  late final TextEditingController _embeddingQueryModelIdController;
+  late final TextEditingController _embeddingDocumentModelIdController;
   late final TextEditingController _embeddingInputTypesController;
   late final TextEditingController _embeddingDefaultInputTypeController;
   late final TextEditingController _embeddingQueryInputTypeController;
@@ -2275,6 +2277,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       text:
           p.embeddingBatchSize?.toString() ??
           effective.embeddingBatchSize?.toString() ??
+          '',
+    );
+    _embeddingQueryModelIdController = TextEditingController(
+      text: p.embeddingQueryModelId ?? effective.embeddingQueryModelId ?? '',
+    );
+    _embeddingDocumentModelIdController = TextEditingController(
+      text:
+          p.embeddingDocumentModelId ??
+          effective.embeddingDocumentModelId ??
           '',
     );
     _embeddingInputTypesController = TextEditingController(
@@ -2519,6 +2530,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _embeddingMaxInputTokensController.dispose();
     _embeddingEndpointPathController.dispose();
     _embeddingBatchSizeController.dispose();
+    _embeddingQueryModelIdController.dispose();
+    _embeddingDocumentModelIdController.dispose();
     _embeddingInputTypesController.dispose();
     _embeddingDefaultInputTypeController.dispose();
     _embeddingQueryInputTypeController.dispose();
@@ -2627,6 +2640,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           : null,
       embeddingBatchSize: _parsePositiveInt(_embeddingBatchSizeController.text),
       embeddingRequiresSpecialBody: _embeddingRequiresSpecialBody,
+      embeddingQueryModelId: _optionalText(
+        _embeddingQueryModelIdController.text,
+      ),
+      embeddingDocumentModelId: _optionalText(
+        _embeddingDocumentModelIdController.text,
+      ),
       embeddingInputTypes: _parseCsv(_embeddingInputTypesController.text),
       embeddingDefaultInputType: _optionalText(
         _embeddingDefaultInputTypeController.text,
@@ -3084,6 +3103,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         controller: _embeddingBatchSizeController,
                         keyboardType: TextInputType.number,
                         label: zh ? '建议 batch size' : 'Suggested Batch Size',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingQueryModelIdController,
+                        label: zh ? 'Query 模型 ID' : 'Query Model ID',
+                        hint: widget.modelId,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingDocumentModelIdController,
+                        label: zh ? 'Document 模型 ID' : 'Document Model ID',
+                        hint: widget.modelId,
                       ),
                     ),
                   ],

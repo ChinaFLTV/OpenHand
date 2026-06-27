@@ -883,6 +883,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     ].join(' ');
     final rows = <(String, String)>[
       (isZh ? '模型' : 'Model', _settings.modelId),
+      (
+        isZh ? '模型路由' : 'Model Routing',
+        _listLabel(<String>[
+          if (profile.embeddingQueryModelId != null)
+            'query ${profile.embeddingQueryModelId}',
+          if (profile.embeddingDocumentModelId != null)
+            'doc ${profile.embeddingDocumentModelId}',
+        ]),
+      ),
       (isZh ? '维度/范围' : 'Dimensions / Range', dimensions),
       (
         isZh ? '最大输入 token' : 'Max Input Tokens',
