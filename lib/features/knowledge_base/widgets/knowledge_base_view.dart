@@ -87,40 +87,15 @@ class KnowledgeBaseView extends StatelessWidget {
           ),
           IconButton.filledTonal(
             tooltip: isZh ? '配置' : 'Settings',
-            onPressed: () => showKnowledgeBaseConfigDialog(context),
+            onPressed: () => showKnowledgeBaseConfigDialog(
+              context,
+              onOpenPlugins: onOpenPlugins,
+            ),
             icon: const Icon(Icons.settings_rounded),
           ),
         ],
       ),
       notices: [
-        if (!dependencies.ready)
-          FeatureStateCard.inline(
-            icon: dependencies.dockerInstalled
-                ? Icons.storage_rounded
-                : Icons.directions_boat_filled_outlined,
-            tone: FeatureStateTone.error,
-            title: isZh ? '知识库依赖未就绪' : 'Knowledge dependencies unavailable',
-            body: dependencies.message,
-            trailing: FilledButton.tonalIcon(
-              onPressed: onOpenPlugins ?? () => _openPlugins(context),
-              icon: const Icon(Icons.power_rounded),
-              label: Text(isZh ? '前往插件' : 'Open Plugins'),
-            ),
-          ),
-        if (!controller.settings.hasEmbeddingModel)
-          FeatureStateCard.inline(
-            icon: Icons.hub_outlined,
-            tone: FeatureStateTone.secondary,
-            title: isZh ? '未配置嵌入模型' : 'No embedding model configured',
-            body: isZh
-                ? '请在知识库配置中选择已开启“嵌入生成”的模型，并确认隐私开关。'
-                : 'Choose an embedding-capable model in Knowledge Base settings and confirm privacy options.',
-            trailing: OutlinedButton.icon(
-              onPressed: () => showKnowledgeBaseConfigDialog(context),
-              icon: const Icon(Icons.settings_rounded),
-              label: Text(isZh ? '配置' : 'Configure'),
-            ),
-          ),
         if (controller.error != null)
           FeatureStateCard.inline(
             icon: Icons.error_outline_rounded,
@@ -132,17 +107,8 @@ class KnowledgeBaseView extends StatelessWidget {
       body: _KnowledgeBaseBody(
         controller: controller,
         embeddingModel: embeddingModel,
-      ),
-    );
-  }
-
-  static void _openPlugins(BuildContext context) {
-    OpenHandSnackBar.showInfo(
-      context,
-      openHandLocalizedText(
-        context,
-        zh: '请在左侧导航打开“插件”，安装或启动 Docker / Qdrant。',
-        en: 'Open Plugins in the left navigation to install or start Docker / Qdrant.',
+        dependenciesReady: dependencies.ready,
+        onOpenPlugins: onOpenPlugins,
       ),
     );
   }
@@ -161,10 +127,10 @@ class KnowledgeBaseView extends StatelessWidget {
       return;
     }
     final file = await openFile(
-      acceptedTypeGroups: const <XTypeGroup>[
+      acceptedTypeGroups: <XTypeGroup>[
         XTypeGroup(
-          label: 'Knowledge documents',
-          extensions: <String>[
+          label: isZh ? '知识库文档' : 'Knowledge documents',
+          extensions: const <String>[
             'md',
             'markdown',
             'txt',
@@ -215,10 +181,14 @@ class _KnowledgeBaseBody extends StatelessWidget {
   const _KnowledgeBaseBody({
     required this.controller,
     required this.embeddingModel,
+    required this.dependenciesReady,
+    required this.onOpenPlugins,
   });
 
   final KnowledgeBaseController controller;
   final AiModelConfig? embeddingModel;
+  final bool dependenciesReady;
+  final VoidCallback? onOpenPlugins;
 
   @override
   Widget build(BuildContext context) {
@@ -227,25 +197,30 @@ class _KnowledgeBaseBody extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (controller.sources.isEmpty && controller.query.trim().isEmpty) {
-      return FeatureStateCard.centered(
-        icon: Icons.library_books_outlined,
-        title: isZh ? '知识库为空' : 'Knowledge Base is empty',
-        body: isZh
-            ? '导入 Markdown、TXT 或代码文件，或新建一条笔记来生成本地向量索引。'
-            : 'Import Markdown, TXT, or code files, or create a note to build the local vector index.',
-        action: FilledButton.icon(
-          onPressed: embeddingModel == null
-              ? () => showKnowledgeBaseConfigDialog(context)
-              : () => showKnowledgeImportDialog(context),
-          icon: Icon(
-            embeddingModel == null
-                ? Icons.settings_rounded
-                : Icons.note_add_outlined,
-          ),
-          label: Text(
-            embeddingModel == null
-                ? (isZh ? '配置' : 'Configure')
-                : (isZh ? '新建笔记' : 'New Note'),
+      return SizedBox.expand(
+        child: FeatureStateCard.centered(
+          icon: Icons.library_books_outlined,
+          title: isZh ? '知识库为空' : 'Knowledge Base is empty',
+          body: isZh
+              ? '导入 Markdown、TXT 或代码文件，或新建一条笔记来生成本地向量索引。'
+              : 'Import Markdown, TXT, or code files, or create a note to build the local vector index.',
+          action: FilledButton.icon(
+            onPressed: embeddingModel == null || !dependenciesReady
+                ? () => showKnowledgeBaseConfigDialog(
+                    context,
+                    onOpenPlugins: onOpenPlugins,
+                  )
+                : () => showKnowledgeImportDialog(context),
+            icon: Icon(
+              embeddingModel == null || !dependenciesReady
+                  ? Icons.settings_rounded
+                  : Icons.note_add_outlined,
+            ),
+            label: Text(
+              embeddingModel == null || !dependenciesReady
+                  ? (isZh ? '配置' : 'Configure')
+                  : (isZh ? '新建笔记' : 'New Note'),
+            ),
           ),
         ),
       );
@@ -319,13 +294,14 @@ class _KbStatStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
     return Wrap(
       spacing: 8,
       children: [
-        _KbStatChip(label: 'Sources', value: sourceCount),
-        _KbStatChip(label: 'Chunks', value: chunkCount),
-        _KbStatChip(label: 'Pending', value: pendingJobs),
-        _KbStatChip(label: 'Failed', value: failedJobs),
+        _KbStatChip(label: isZh ? '来源' : 'Sources', value: sourceCount),
+        _KbStatChip(label: isZh ? '分块' : 'Chunks', value: chunkCount),
+        _KbStatChip(label: isZh ? '待处理' : 'Pending', value: pendingJobs),
+        _KbStatChip(label: isZh ? '失败' : 'Failed', value: failedJobs),
       ],
     );
   }
@@ -416,7 +392,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                       children: [
                         _SmallPill(
                           icon: Icons.circle,
-                          label: source.status,
+                          label: _localizedStatus(source.status, context),
                           color: statusColor,
                         ),
                         _SmallPill(
@@ -455,6 +431,17 @@ class _KnowledgeSourceCard extends StatelessWidget {
       'pdf' => Icons.picture_as_pdf_outlined,
       'html' => Icons.language_rounded,
       _ => Icons.description_outlined,
+    };
+  }
+
+  String _localizedStatus(String status, BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
+    return switch (status) {
+      'indexed' => isZh ? '已索引' : 'Indexed',
+      'failed' => isZh ? '失败' : 'Failed',
+      'indexing' => isZh ? '索引中' : 'Indexing',
+      'pending' => isZh ? '待处理' : 'Pending',
+      _ => status.trim().isEmpty ? '-' : status,
     };
   }
 }

@@ -47,32 +47,36 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 icon: Icons.fact_check_outlined,
                 child: KnowledgeDialogKeyValueList(
                   rows: {
-                    'status': kb['status'],
-                    'query': kb['query'],
-                    'error': kb['error'],
+                    isZh ? '状态' : 'Status': kb['status'],
+                    isZh ? '查询' : 'Query': kb['query'],
+                    isZh ? '错误' : 'Error': kb['error'],
                   },
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? 'Embedding' : 'Embedding',
+                title: isZh ? '嵌入' : 'Embedding',
                 icon: Icons.hub_outlined,
-                child: KnowledgeDialogKeyValueList(rows: _map(kb['embedding'])),
+                child: KnowledgeDialogKeyValueList(
+                  rows: _localizedRows(_map(kb['embedding']), isZh),
+                ),
               ),
               KnowledgeDialogSection(
                 title: isZh ? '检索参数' : 'Retrieval Parameters',
                 icon: Icons.manage_search_rounded,
-                child: KnowledgeDialogKeyValueList(rows: _map(kb['retrieval'])),
+                child: KnowledgeDialogKeyValueList(
+                  rows: _localizedRows(_map(kb['retrieval']), isZh),
+                ),
               ),
               KnowledgeDialogSection(
                 title: isZh ? 'Prompt 追加' : 'Prompt Append',
                 icon: Icons.post_add_outlined,
                 child: KnowledgeDialogKeyValueList(
-                  rows: _map(kb['prompt_append']),
+                  rows: _localizedRows(_map(kb['prompt_append']), isZh),
                 ),
               ),
               KnowledgeDialogSection(
                 title: isZh
-                    ? '命中 chunks (${results.length})'
+                    ? '命中分块 (${results.length})'
                     : 'Hit chunks (${results.length})',
                 icon: Icons.article_outlined,
                 child: results.isEmpty
@@ -107,12 +111,12 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
             if (context.mounted) {
               OpenHandSnackBar.showSuccess(
                 context,
-                isZh ? '已复制知识库 metadata。' : 'Knowledge metadata copied.',
+                isZh ? '已复制知识库元数据。' : 'Knowledge metadata copied.',
               );
             }
           },
           icon: Icons.copy_rounded,
-          label: isZh ? '复制 metadata' : 'Copy metadata',
+          label: isZh ? '复制元数据' : 'Copy metadata',
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
@@ -135,6 +139,30 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         .map((item) => Map<String, Object?>.from(item))
         .toList(growable: false);
   }
+
+  Map<String, Object?> _localizedRows(Map<String, Object?> rows, bool isZh) {
+    if (!isZh) return rows;
+    return <String, Object?>{
+      for (final entry in rows.entries) _metadataLabel(entry.key): entry.value,
+    };
+  }
+
+  String _metadataLabel(String key) {
+    return switch (key) {
+      'provider_config_id' => 'Provider 配置',
+      'model_id' => '模型 ID',
+      'dimensions' => '向量维度',
+      'duration_ms' => '耗时毫秒',
+      'top_n' => '召回 topN',
+      'top_k' => '最终 topK',
+      'min_similarity' => '最低相似度',
+      'filters' => '过滤条件',
+      'chunk_count' => '追加分块数',
+      'token_estimate' => '预估 token',
+      'content_hash' => '内容哈希',
+      _ => key,
+    };
+  }
 }
 
 class _HitTile extends StatelessWidget {
@@ -146,8 +174,9 @@ class _HitTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
     final title =
-        '${hit['title'] ?? hit['source_title'] ?? hit['chunk_id'] ?? 'KB hit'}';
+        '${hit['title'] ?? hit['source_title'] ?? hit['chunk_id'] ?? ''}';
     final path = '${hit['path'] ?? ''}'.trim();
     final preview = '${hit['preview'] ?? ''}'.trim();
     return Container(
@@ -165,7 +194,7 @@ class _HitTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SelectableText(
-            title.trim().isEmpty ? 'KB hit' : title,
+            title.trim().isEmpty ? (isZh ? '知识库命中' : 'KB hit') : title,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w800,
               height: 1.25,
@@ -190,17 +219,19 @@ class _HitTile extends StatelessWidget {
             children: [
               KnowledgeDialogChip(
                 icon: Icons.trending_up_rounded,
-                label: 'score ${hit['score'] ?? '-'}',
+                label: '${isZh ? '分数' : 'score'} ${hit['score'] ?? '-'}',
               ),
               if (hit['rerank_score'] != null)
                 KnowledgeDialogChip(
                   icon: Icons.filter_alt_rounded,
-                  label: 'rerank ${hit['rerank_score']}',
+                  label: '${isZh ? '重排' : 'rerank'} ${hit['rerank_score']}',
                 ),
               if (hit['token_estimate'] != null)
                 KnowledgeDialogChip(
                   icon: Icons.data_usage_rounded,
-                  label: '${hit['token_estimate']} tokens',
+                  label: isZh
+                      ? '${hit['token_estimate']} token'
+                      : '${hit['token_estimate']} tokens',
                 ),
               if ('${hit['document_time'] ?? ''}'.trim().isNotEmpty)
                 KnowledgeDialogChip(

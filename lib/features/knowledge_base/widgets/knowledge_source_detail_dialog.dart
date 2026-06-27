@@ -123,8 +123,11 @@ class _SourceDetailBody extends StatelessWidget {
               labelWidth: isZh ? 120 : 128,
               rows: {
                 isZh ? '标题' : 'Title': source.title,
-                isZh ? '类型' : 'Kind': source.kind,
-                isZh ? '状态' : 'Status': source.status,
+                isZh ? '类型' : 'Kind': _localizedKind(source.kind, context),
+                isZh ? '状态' : 'Status': _localizedStatus(
+                  source.status,
+                  context,
+                ),
                 isZh ? '原始路径' : 'Original path': source.originalPath,
                 isZh ? '存储路径' : 'Stored path': source.storedPath,
                 isZh ? '文档时间' : 'Document time': _date(source.documentTime),
@@ -136,9 +139,7 @@ class _SourceDetailBody extends StatelessWidget {
             ),
           ),
           KnowledgeDialogSection(
-            title: isZh
-                ? 'Chunks (${chunks.length})'
-                : 'Chunks (${chunks.length})',
+            title: isZh ? '分块 (${chunks.length})' : 'Chunks (${chunks.length})',
             icon: Icons.article_outlined,
             margin: EdgeInsets.zero,
             child: chunks.isEmpty
@@ -160,6 +161,30 @@ class _SourceDetailBody extends StatelessWidget {
   String _date(DateTime? value) {
     return value == null ? '-' : formatYearMonthDayHms(value.toLocal());
   }
+
+  String _localizedKind(String kind, BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
+    return switch (kind) {
+      'markdown' => isZh ? 'Markdown 文档' : 'Markdown',
+      'text' => isZh ? '文本' : 'Text',
+      'code' => isZh ? '代码' : 'Code',
+      'pdf' => isZh ? 'PDF' : 'PDF',
+      'html' => isZh ? '网页 HTML' : 'HTML',
+      'note' => isZh ? '笔记' : 'Note',
+      _ => kind.trim().isEmpty ? '-' : kind,
+    };
+  }
+
+  String _localizedStatus(String status, BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
+    return switch (status) {
+      'indexed' => isZh ? '已索引' : 'Indexed',
+      'failed' => isZh ? '失败' : 'Failed',
+      'indexing' => isZh ? '索引中' : 'Indexing',
+      'pending' => isZh ? '待处理' : 'Pending',
+      _ => status.trim().isEmpty ? '-' : status,
+    };
+  }
 }
 
 class _ChunkTile extends StatelessWidget {
@@ -171,6 +196,7 @@ class _ChunkTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
     final heading = chunk.headingPath.isEmpty ? chunk.title : chunk.headingPath;
     return Container(
       width: double.infinity,
@@ -200,7 +226,9 @@ class _ChunkTile extends StatelessWidget {
               ),
               KnowledgeDialogChip(
                 icon: Icons.numbers_rounded,
-                label: '${chunk.tokenEstimate} tokens',
+                label: isZh
+                    ? '${chunk.tokenEstimate} token'
+                    : '${chunk.tokenEstimate} tokens',
               ),
               KnowledgeDialogChip(
                 icon: Icons.fingerprint_rounded,

@@ -40,7 +40,10 @@ class HooksView extends StatelessWidget {
       actions: actions,
       successSignal: hooksController.saveSuccessSignal,
       body: entries.isEmpty
-          ? const _EmptyState(key: ValueKey<String>('empty'))
+          ? const SizedBox.expand(
+              key: ValueKey<String>('empty'),
+              child: _EmptyState(),
+            )
           : ScrollConfiguration(
               key: const ValueKey<String>('list'),
               behavior: ScrollConfiguration.of(
@@ -100,7 +103,7 @@ class HooksView extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({super.key});
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {

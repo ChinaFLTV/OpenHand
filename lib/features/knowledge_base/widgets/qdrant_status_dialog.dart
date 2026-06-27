@@ -56,6 +56,7 @@ class QdrantStatusDialog extends StatelessWidget {
                           _StatusSection(
                             title: section.key,
                             values: section.value,
+                            isZh: isZh,
                           ),
                       ],
                     ),
@@ -94,17 +95,68 @@ class QdrantStatusDialog extends StatelessWidget {
 }
 
 class _StatusSection extends StatelessWidget {
-  const _StatusSection({required this.title, required this.values});
+  const _StatusSection({
+    required this.title,
+    required this.values,
+    required this.isZh,
+  });
 
   final String title;
   final Map<String, Object?> values;
+  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
     return KnowledgeDialogSection(
-      title: title,
+      title: _localizedSectionTitle(title),
       icon: Icons.monitor_heart_outlined,
-      child: KnowledgeDialogKeyValueList(rows: values, labelWidth: 210),
+      child: KnowledgeDialogKeyValueList(
+        rows: {
+          for (final entry in values.entries)
+            _localizedMetricLabel(entry.key): _localizedMetricValue(
+              entry.key,
+              entry.value,
+            ),
+        },
+        labelWidth: isZh ? 190 : 210,
+      ),
     );
+  }
+
+  String _localizedSectionTitle(String value) {
+    if (isZh) return value;
+    return switch (value) {
+      '总览' => 'Overview',
+      'Qdrant API 指标' => 'Qdrant API Metrics',
+      'OpenHand 知识库指标' => 'OpenHand Knowledge Metrics',
+      _ => value,
+    };
+  }
+
+  String _localizedMetricLabel(String value) {
+    if (isZh) return value;
+    return switch (value) {
+      '服务状态' => 'Service status',
+      '当前 collection' => 'Current collection',
+      '最近健康检查时间' => 'Last health check',
+      'collections 总数' => 'Collections total',
+      '单机模式' => 'Single-node mode',
+      'payload index 状态' => 'Payload index status',
+      'source 数' => 'Sources',
+      'chunk 数' => 'Chunks',
+      '待 embedding job 数' => 'Pending embedding jobs',
+      '失败 job 数' => 'Failed jobs',
+      '当前 embedding model' => 'Current embedding model',
+      '当前 dimensions' => 'Current dimensions',
+      _ => value,
+    };
+  }
+
+  Object? _localizedMetricValue(String key, Object? value) {
+    if (isZh) return value;
+    if (key == 'payload index 状态' && value == '可在管理弹窗检查/重建') {
+      return 'Inspect or rebuild in Qdrant Admin';
+    }
+    return value;
   }
 }

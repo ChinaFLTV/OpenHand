@@ -207,11 +207,13 @@ class KnowledgeDialogNotice extends StatelessWidget {
     required this.icon,
     required this.message,
     this.error = false,
+    this.trailing,
   });
 
   final IconData icon;
   final String message;
   final bool error;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +250,10 @@ class KnowledgeDialogNotice extends StatelessWidget {
               ),
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 10),
+            Align(alignment: Alignment.centerRight, child: trailing),
+          ],
         ],
       ),
     );

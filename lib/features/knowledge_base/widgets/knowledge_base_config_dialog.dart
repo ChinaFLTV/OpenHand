@@ -8,19 +8,26 @@ import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
+import '../../plugin_service/index.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_base_settings.dart';
+import '../service/knowledge_dependency_service.dart';
 import 'knowledge_dialog_widgets.dart';
 
-Future<void> showKnowledgeBaseConfigDialog(BuildContext context) {
+Future<void> showKnowledgeBaseConfigDialog(
+  BuildContext context, {
+  VoidCallback? onOpenPlugins,
+}) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => const KnowledgeBaseConfigDialog(),
+    builder: (_) => KnowledgeBaseConfigDialog(onOpenPlugins: onOpenPlugins),
   );
 }
 
 class KnowledgeBaseConfigDialog extends StatefulWidget {
-  const KnowledgeBaseConfigDialog({super.key});
+  const KnowledgeBaseConfigDialog({super.key, this.onOpenPlugins});
+
+  final VoidCallback? onOpenPlugins;
 
   @override
   State<KnowledgeBaseConfigDialog> createState() =>
@@ -138,6 +145,16 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     return filtered;
   }
 
+  bool _selectedEmbeddingModelAvailable(List<AiModelConfig> models) {
+    if (!_settings.hasEmbeddingModel) return false;
+    for (final model in models) {
+      if (model.id != _settings.providerConfigId) continue;
+      return model.allModelIds.contains(_settings.modelId) &&
+          model.profileFor(_settings.modelId).supportsEmbeddings;
+    }
+    return false;
+  }
+
   int _int(TextEditingController controller, int fallback) {
     final parsed = int.tryParse(controller.text.trim());
     return parsed == null || parsed <= 0 ? fallback : parsed;
@@ -191,8 +208,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final knowledgeController = context.watch<KnowledgeBaseController>();
+    final pluginController = context.watch<PluginServiceController>();
     final settingsController = context.watch<SettingsController>();
     final models = _embeddingModels(settingsController.aiModels);
+    final dependencies = knowledgeController.dependencies(pluginController);
     final isZh = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
       title: Text(isZh ? '知识库配置' : 'Knowledge Base Settings'),
@@ -203,6 +223,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              ..._buildConfigNotices(
+                context,
+                dependencies: dependencies,
+                embeddingModelAvailable: _selectedEmbeddingModelAvailable(
+                  models,
+                ),
+              ),
               _section(
                 context,
                 title: isZh ? '嵌入模型' : 'Embedding Model',
@@ -253,7 +280,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         },
                       ),
                     ),
-                  _field(_dimensions, isZh ? '默认 dimensions' : 'Dimensions'),
+                  _field(_dimensions, isZh ? '默认向量维度' : 'Default dimensions'),
                   _field(
                     _maxInputTokens,
                     isZh ? '最大输入 token' : 'Max input tokens',
@@ -267,10 +294,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 title: isZh ? '向量库' : 'Vector Store',
                 icon: Icons.storage_outlined,
                 children: [
-                  _readonly(context, 'Type', 'Qdrant'),
-                  _field(_qdrantHost, 'Qdrant host'),
-                  _field(_qdrantRestPort, 'REST port'),
-                  _field(_qdrantGrpcPort, 'gRPC port'),
+                  _readonly(context, isZh ? '类型' : 'Type', 'Qdrant'),
+                  _field(_qdrantHost, isZh ? 'Qdrant 主机' : 'Qdrant host'),
+                  _field(_qdrantRestPort, isZh ? 'REST 端口' : 'REST port'),
+                  _field(_qdrantGrpcPort, isZh ? 'gRPC 端口' : 'gRPC port'),
                   _field(
                     _collectionName,
                     isZh
@@ -296,20 +323,19 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   _readonly(
                     context,
                     isZh ? '支持文件' : 'Supported files',
-                    'Markdown, TXT, code, HTML (PDF reserved)',
+                    isZh
+                        ? 'Markdown、TXT、代码、HTML（PDF 预留）'
+                        : 'Markdown, TXT, code, HTML (PDF reserved)',
                   ),
                   _field(
                     _targetTokens,
-                    isZh ? 'child target tokens' : 'Child target tokens',
+                    isZh ? '子分块目标 token' : 'Child target tokens',
                   ),
                   _field(
                     _hardMaxTokens,
-                    isZh ? 'child hard max tokens' : 'Child hard max tokens',
+                    isZh ? '子分块硬上限 token' : 'Child hard max tokens',
                   ),
-                  _field(
-                    _overlapTokens,
-                    isZh ? 'overlap tokens' : 'Overlap tokens',
-                  ),
+                  _field(_overlapTokens, isZh ? '重叠 token' : 'Overlap tokens'),
                   _switch(
                     isZh ? '复制导入文件' : 'Copy imported files',
                     _settings.copyImportedFiles,
@@ -389,14 +415,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 title: isZh ? '检索召回' : 'Retrieval Recall',
                 icon: Icons.travel_explore_rounded,
                 children: [
-                  _field(_topN, 'topN recall'),
-                  _field(_topK, 'topK final'),
+                  _field(_topN, isZh ? '召回 topN' : 'topN recall'),
+                  _field(_topK, isZh ? '最终 topK' : 'topK final'),
                   _field(_minSimilarity, isZh ? '最低相似度' : 'Min similarity'),
                   _field(_sourceCap, isZh ? '单来源上限' : 'Source cap'),
-                  _field(_vectorWeight, 'vector weight'),
-                  _field(_titleWeight, 'title weight'),
-                  _field(_tagWeight, 'tag weight'),
-                  _field(_timeWeight, 'time weight'),
+                  _field(_vectorWeight, isZh ? '向量权重' : 'Vector weight'),
+                  _field(_titleWeight, isZh ? '标题权重' : 'Title weight'),
+                  _field(_tagWeight, isZh ? '标签权重' : 'Tag weight'),
+                  _field(_timeWeight, isZh ? '时间权重' : 'Time weight'),
                 ],
               ),
               _section(
@@ -421,7 +447,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? 'Parent 扩展' : 'Parent expansion',
+                    isZh ? '父级扩展' : 'Parent expansion',
                     _settings.parentExpansionEnabled,
                     (value) {
                       setState(
@@ -488,7 +514,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '包含 source path' : 'Include source path',
+                    isZh ? '包含来源路径' : 'Include source path',
                     _settings.includeSourcePath,
                     (value) {
                       setState(
@@ -509,6 +535,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     label: isZh ? '检索失败策略' : 'Retrieval failure strategy',
                     value: _settings.failureStrategy,
                     values: const ['fail_open', 'fail_closed'],
+                    itemLabel: (value) => switch (value) {
+                      'fail_open' => isZh ? '失败后继续发送' : 'Fail open',
+                      'fail_closed' => isZh ? '失败后阻止发送' : 'Fail closed',
+                      _ => value,
+                    },
                     onChanged: (value) {
                       setState(
                         () => _settings = _settings.copyWith(
@@ -529,7 +560,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '缓存 query embedding' : 'Cache query embedding',
+                    isZh ? '缓存查询 embedding' : 'Cache query embedding',
                     _settings.cacheQueryEmbedding,
                     (value) {
                       setState(
@@ -567,7 +598,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '允许发送用户 query' : 'Allow query cloud embedding',
+                    isZh ? '允许发送用户查询' : 'Allow query cloud embedding',
                     _settings.allowQueryCloudEmbedding,
                     (value) {
                       setState(
@@ -634,6 +665,49 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ),
       ],
     );
+  }
+
+  List<Widget> _buildConfigNotices(
+    BuildContext context, {
+    required KnowledgeDependencySnapshot dependencies,
+    required bool embeddingModelAvailable,
+  }) {
+    final isZh = openHandIsChineseLocale(context);
+    return <Widget>[
+      if (!dependencies.ready)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: KnowledgeDialogNotice(
+            icon: dependencies.dockerInstalled
+                ? Icons.storage_rounded
+                : Icons.dns_outlined,
+            error: true,
+            message: isZh
+                ? '知识库依赖未就绪：${dependencies.localizedMessage(true)}'
+                : 'Knowledge dependencies are unavailable: ${dependencies.localizedMessage(false)}',
+            trailing: widget.onOpenPlugins == null
+                ? null
+                : TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onOpenPlugins?.call();
+                    },
+                    icon: const Icon(Icons.power_rounded, size: 18),
+                    label: Text(isZh ? '前往插件' : 'Open Plugins'),
+                  ),
+          ),
+        ),
+      if (!embeddingModelAvailable)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: KnowledgeDialogNotice(
+            icon: Icons.hub_outlined,
+            message: isZh
+                ? '未配置可用的嵌入模型。请选择已开启“嵌入生成”的模型，并确认隐私开关。'
+                : 'No usable embedding model is configured. Choose an embedding-capable model and confirm privacy options.',
+          ),
+        ),
+    ];
   }
 
   Widget _emptyModelState(BuildContext context) {
@@ -725,6 +799,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     required String value,
     required List<String> values,
     required ValueChanged<String> onChanged,
+    String Function(String value)? itemLabel,
   }) {
     return SizedBox(
       width: kKnowledgeDialogWideFieldWidth,
@@ -733,7 +808,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         decoration: knowledgeDialogInputDecoration(context, label),
         items: [
           for (final item in values)
-            DropdownMenuItem<String>(value: item, child: Text(item)),
+            DropdownMenuItem<String>(
+              value: item,
+              child: Text(itemLabel?.call(item) ?? item),
+            ),
         ],
         onChanged: (value) {
           if (value != null) onChanged(value);

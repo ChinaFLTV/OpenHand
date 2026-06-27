@@ -101,7 +101,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
       message: isZh
           ? '将删除 collection "$collection" 及其中所有 points。此操作不可撤销。'
           : 'This deletes collection "$collection" and all points in it. This cannot be undone.',
-      confirmLabel: isZh ? '删除 collection' : 'Delete collection',
+      confirmLabel: isZh ? '删除 Collection' : 'Delete collection',
       destructive: true,
     );
     if (confirmed != true || !mounted) return;
@@ -144,7 +144,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                   ),
                 ),
               KnowledgeDialogSection(
-                title: isZh ? 'Collections' : 'Collections',
+                title: isZh ? 'Collections 列表' : 'Collections',
                 icon: Icons.dataset_outlined,
                 child: FutureBuilder<List<Map<String, Object?>>>(
                   future: _collectionsFuture,
@@ -182,9 +182,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh
-                    ? 'Points / Search / Scroll'
-                    : 'Points / Search / Scroll',
+                title: isZh ? 'Points / 搜索 / 滚动读取' : 'Points / Search / Scroll',
                 icon: Icons.manage_search_rounded,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,9 +199,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                       onPressed: _busy ? null : _scroll,
                       icon: const Icon(Icons.list_alt_rounded),
                       label: Text(
-                        isZh
-                            ? 'Scroll 前 20 个 points'
-                            : 'Scroll first 20 points',
+                        isZh ? '滚动读取前 20 个 points' : 'Scroll first 20 points',
                       ),
                     ),
                     if (_scrollResult case final scrollResult?) ...[
@@ -216,7 +212,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
               if (_collectionInfo case final collectionInfo?)
                 KnowledgeDialogSection(
                   title: isZh
-                      ? 'Collection schema / config'
+                      ? 'Collection 结构 / 配置'
                       : 'Collection schema / config',
                   icon: Icons.schema_outlined,
                   child: KnowledgeDialogJsonBox(value: collectionInfo),
