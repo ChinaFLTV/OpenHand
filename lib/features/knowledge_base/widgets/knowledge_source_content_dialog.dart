@@ -271,7 +271,11 @@ class _KnowledgeSourceContentDialogState
     });
   }
 
-  void _updateFindMatches(String query, {bool selectMatch = true}) {
+  void _updateFindMatches(
+    String query, {
+    bool selectMatch = true,
+    bool focusEditor = false,
+  }) {
     if (query.isEmpty) {
       setState(() {
         _findMatchOffsets = const <int>[];
@@ -302,7 +306,7 @@ class _KnowledgeSourceContentDialogState
       _currentMatchIndex = selectedIndex;
     });
     if (selectMatch && selectedIndex >= 0) {
-      _selectMatch(selectedIndex);
+      _selectMatch(selectedIndex, requestFocus: focusEditor);
     }
   }
 
@@ -322,7 +326,7 @@ class _KnowledgeSourceContentDialogState
     _selectMatch(previous);
   }
 
-  void _selectMatch(int index) {
+  void _selectMatch(int index, {bool requestFocus = true}) {
     if (index < 0 || index >= _findMatchOffsets.length) return;
     final offset = _findMatchOffsets[index];
     final length = _findController.text.length;
@@ -330,7 +334,9 @@ class _KnowledgeSourceContentDialogState
       baseOffset: offset,
       extentOffset: math.min(offset + length, _sourceController.text.length),
     );
-    _editorFocusNode.requestFocus();
+    if (requestFocus) {
+      _editorFocusNode.requestFocus();
+    }
   }
 
   void _toggleFindCaseSensitive() {
@@ -655,7 +661,6 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
           icon: Icons.redo_rounded,
           onPressed: controls.canRedo ? controls.onRedo : null,
         ),
-        const _KnowledgeEditorToolDivider(),
         _KnowledgeEditorToolButton(
           tooltip: isZh ? '查找' : 'Find',
           icon: Icons.search_rounded,
@@ -682,6 +687,35 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
     final matchLabel = controls.matchCount <= 0
         ? ''
         : '${controls.currentMatchIndex + 1}/${controls.matchCount}';
+    final findActions = <Widget>[
+      _KnowledgeEditorToolButton(
+        tooltip: isZh ? '上一个匹配项' : 'Previous match',
+        icon: Icons.keyboard_arrow_up_rounded,
+        onPressed: controls.matchCount <= 0 ? null : controls.onFindPrevious,
+      ),
+      _KnowledgeEditorToolButton(
+        tooltip: isZh ? '下一个匹配项' : 'Next match',
+        icon: Icons.keyboard_arrow_down_rounded,
+        onPressed: controls.matchCount <= 0 ? null : controls.onFindNext,
+      ),
+      _KnowledgeEditorToolButton(
+        tooltip: isZh ? '区分大小写' : 'Match case',
+        icon: Icons.font_download_rounded,
+        selected: controls.findCaseSensitive,
+        onPressed: controls.onToggleCaseSensitive,
+      ),
+      if (!controls.replaceVisible)
+        _KnowledgeEditorToolButton(
+          tooltip: isZh ? '显示替换' : 'Show replace',
+          icon: Icons.find_replace_rounded,
+          onPressed: controls.editable ? controls.onShowReplace : null,
+        ),
+      _KnowledgeEditorToolButton(
+        tooltip: isZh ? '关闭查找' : 'Close find',
+        icon: Icons.close_rounded,
+        onPressed: controls.onHideFind,
+      ),
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -697,7 +731,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               ),
             ),
             if (matchLabel.isNotEmpty) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
                 matchLabel,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -706,40 +740,12 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(width: 6),
-            _KnowledgeEditorToolButton(
-              tooltip: isZh ? '上一个匹配项' : 'Previous match',
-              icon: Icons.keyboard_arrow_up_rounded,
-              onPressed: controls.matchCount <= 0
-                  ? null
-                  : controls.onFindPrevious,
-            ),
-            _KnowledgeEditorToolButton(
-              tooltip: isZh ? '下一个匹配项' : 'Next match',
-              icon: Icons.keyboard_arrow_down_rounded,
-              onPressed: controls.matchCount <= 0 ? null : controls.onFindNext,
-            ),
-            _KnowledgeEditorToolButton(
-              tooltip: isZh ? '区分大小写' : 'Match case',
-              icon: Icons.font_download_rounded,
-              selected: controls.findCaseSensitive,
-              onPressed: controls.onToggleCaseSensitive,
-            ),
-            if (!controls.replaceVisible)
-              _KnowledgeEditorToolButton(
-                tooltip: isZh ? '显示替换' : 'Show replace',
-                icon: Icons.find_replace_rounded,
-                onPressed: controls.editable ? controls.onShowReplace : null,
-              ),
-            _KnowledgeEditorToolButton(
-              tooltip: isZh ? '关闭查找' : 'Close find',
-              icon: Icons.close_rounded,
-              onPressed: controls.onHideFind,
-            ),
+            const SizedBox(width: 12),
+            _KnowledgeEditorToolButtonGroup(children: findActions),
           ],
         ),
         if (controls.replaceVisible) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -749,20 +755,24 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
                   onSubmitted: (_) => controls.onReplaceCurrent(),
                 ),
               ),
-              const SizedBox(width: 6),
-              _KnowledgeEditorToolButton(
-                tooltip: isZh ? '替换当前项' : 'Replace current',
-                icon: Icons.find_replace_rounded,
-                onPressed: controls.editable && controls.matchCount > 0
-                    ? controls.onReplaceCurrent
-                    : null,
-              ),
-              _KnowledgeEditorToolButton(
-                tooltip: isZh ? '全部替换' : 'Replace all',
-                icon: Icons.done_all_rounded,
-                onPressed: controls.editable && controls.matchCount > 0
-                    ? controls.onReplaceAll
-                    : null,
+              const SizedBox(width: 12),
+              _KnowledgeEditorToolButtonGroup(
+                children: [
+                  _KnowledgeEditorToolButton(
+                    tooltip: isZh ? '替换当前项' : 'Replace current',
+                    icon: Icons.find_replace_rounded,
+                    onPressed: controls.editable && controls.matchCount > 0
+                        ? controls.onReplaceCurrent
+                        : null,
+                  ),
+                  _KnowledgeEditorToolButton(
+                    tooltip: isZh ? '全部替换' : 'Replace all',
+                    icon: Icons.done_all_rounded,
+                    onPressed: controls.editable && controls.matchCount > 0
+                        ? controls.onReplaceAll
+                        : null,
+                  ),
+                ],
               ),
             ],
           ),
@@ -821,6 +831,22 @@ class _KnowledgeFindTextField extends StatelessWidget {
   }
 }
 
+class _KnowledgeEditorToolButtonGroup extends StatelessWidget {
+  const _KnowledgeEditorToolButtonGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: children,
+    );
+  }
+}
+
 class _KnowledgeEditorToolButton extends StatelessWidget {
   const _KnowledgeEditorToolButton({
     required this.tooltip,
@@ -852,25 +878,6 @@ class _KnowledgeEditorToolButton extends StatelessWidget {
                 foregroundColor: colorScheme.onPrimaryContainer,
               )
             : null,
-      ),
-    );
-  }
-}
-
-class _KnowledgeEditorToolDivider extends StatelessWidget {
-  const _KnowledgeEditorToolDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 8,
-      height: 38,
-      child: Center(
-        child: Container(
-          width: 1,
-          height: 22,
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
       ),
     );
   }
@@ -1002,6 +1009,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
                 height: 48,
