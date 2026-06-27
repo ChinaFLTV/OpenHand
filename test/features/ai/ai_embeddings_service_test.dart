@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -51,6 +52,44 @@ void main() {
         <double>[3, 4],
       ]);
     });
+
+    test(
+      'decodes OpenAI-compatible base64 float embedding responses',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': _base64Float32(<double>[1.25, -2.5]),
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        final result = await service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://api.openai.com',
+            modelId: 'text-embedding-3-small',
+          ),
+          input: const <String>['alpha'],
+          encodingFormat: 'base64',
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'text-embedding-3-small',
+          'input': <String>['alpha'],
+          'encoding_format': 'base64',
+        });
+        expect(result.vectors, hasLength(1));
+        expect(result.vectors.single, hasLength(2));
+        expect(result.vectors.single[0], closeTo(1.25, 0.000001));
+        expect(result.vectors.single[1], closeTo(-2.5, 0.000001));
+      },
+    );
 
     test(
       'sends typed OpenAI-compatible embedding parameters when declared',
@@ -983,6 +1022,14 @@ AiModelConfig _model({
     apiDialect: inferAiApiDialect(protocol),
     providerKind: inferAiProviderKind(protocol),
   );
+}
+
+String _base64Float32(List<double> values) {
+  final data = ByteData(values.length * 4);
+  for (var index = 0; index < values.length; index += 1) {
+    data.setFloat32(index * 4, values[index], Endian.little);
+  }
+  return base64Encode(data.buffer.asUint8List());
 }
 
 class _RecordingHttpClient extends http.BaseClient {
