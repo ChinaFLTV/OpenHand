@@ -25,6 +25,7 @@ import 'knowledge_dialog_widgets.dart';
 const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
 const int _kKnowledgeEditorHistoryLimit = 160;
 const int _kKnowledgeEditorFindMatchLimit = 10000;
+const double _kKnowledgeEditorInlineControlSize = 40;
 
 Future<void> showKnowledgeSourceContentDialog(
   BuildContext context,
@@ -801,19 +802,20 @@ class _KnowledgeFindTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 38,
+      height: _kKnowledgeEditorInlineControlSize,
       child: TextField(
         controller: controller,
         focusNode: focusNode,
         onChanged: onChanged,
         onSubmitted: onSubmitted,
+        textAlignVertical: TextAlignVertical.center,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: hintText,
           isDense: true,
           filled: true,
           fillColor: colorScheme.surface,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
@@ -869,15 +871,20 @@ class _KnowledgeEditorToolButton extends StatelessWidget {
         onPressed: onPressed,
         icon: Icon(icon),
         iconSize: 18,
-        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+        constraints: const BoxConstraints.tightFor(
+          width: _kKnowledgeEditorInlineControlSize,
+          height: _kKnowledgeEditorInlineControlSize,
+        ),
         padding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
-        style: selected
-            ? IconButton.styleFrom(
-                backgroundColor: colorScheme.primaryContainer,
-                foregroundColor: colorScheme.onPrimaryContainer,
-              )
-            : null,
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(_kKnowledgeEditorInlineControlSize),
+          fixedSize: const Size.square(_kKnowledgeEditorInlineControlSize),
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          backgroundColor: selected ? colorScheme.primaryContainer : null,
+          foregroundColor: selected ? colorScheme.onPrimaryContainer : null,
+        ),
       ),
     );
   }
