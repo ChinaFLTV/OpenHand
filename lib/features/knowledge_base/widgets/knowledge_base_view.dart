@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
@@ -21,6 +23,8 @@ import 'knowledge_source_content_dialog.dart';
 import 'knowledge_source_detail_dialog.dart';
 import 'qdrant_admin_dialog.dart';
 import 'qdrant_status_dialog.dart';
+
+const double _kKnowledgeToolbarControlHeight = 54;
 
 class KnowledgeBaseView extends StatelessWidget {
   const KnowledgeBaseView({super.key, this.onOpenPlugins});
@@ -227,14 +231,23 @@ class _KnowledgeBaseBody extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: TextField(
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: isZh ? '搜索来源标题或路径' : 'Search source title or path',
-                  border: const OutlineInputBorder(),
-                  isDense: true,
+              child: SizedBox(
+                height: _kKnowledgeToolbarControlHeight,
+                child: TextField(
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: isZh
+                        ? '搜索来源标题或路径'
+                        : 'Search source title or path',
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 17,
+                    ),
+                  ),
+                  onChanged: controller.searchSources,
                 ),
-                onChanged: controller.searchSources,
               ),
             ),
             const SizedBox(width: 12),
@@ -291,14 +304,21 @@ class _KbStatStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
-    return Wrap(
-      spacing: 8,
-      children: [
-        _KbStatChip(label: isZh ? '来源' : 'Sources', value: sourceCount),
-        _KbStatChip(label: isZh ? '分块' : 'Chunks', value: chunkCount),
-        _KbStatChip(label: isZh ? '待处理' : 'Pending', value: pendingJobs),
-        _KbStatChip(label: isZh ? '失败' : 'Failed', value: failedJobs),
-      ],
+    return SizedBox(
+      height: _kKnowledgeToolbarControlHeight,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _KbStatChip(label: isZh ? '来源' : 'Sources', value: sourceCount),
+            _KbStatChip(label: isZh ? '分块' : 'Chunks', value: chunkCount),
+            _KbStatChip(label: isZh ? '待处理' : 'Pending', value: pendingJobs),
+            _KbStatChip(label: isZh ? '失败' : 'Failed', value: failedJobs),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -311,17 +331,33 @@ class _KbStatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Chip(
-      avatar: const Icon(Icons.data_object_rounded, size: 16),
-      label: Text('$label $value'),
-      visualDensity: VisualDensity.compact,
-      backgroundColor: colorScheme.surfaceContainerHighest,
-      side: BorderSide(color: colorScheme.outlineVariant),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      height: _kKnowledgeToolbarControlHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.data_object_rounded, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            '$label $value',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: colorScheme.onSurface),
+          ),
+        ],
+      ),
     );
   }
 }
+
+enum _KnowledgeCardAction { delete }
 
 class _KnowledgeSourceCard extends StatelessWidget {
   const _KnowledgeSourceCard({required this.source});
@@ -342,24 +378,15 @@ class _KnowledgeSourceCard extends StatelessWidget {
       'indexing' => colorScheme.primary,
       _ => colorScheme.onSurfaceVariant,
     };
-    final borderRadius = BorderRadius.circular(_radius);
     return HoverLift(
       child: AnimatedSize(
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: Card(
-          margin: EdgeInsets.zero,
-          elevation: 0,
-          color: colorScheme.surfaceContainerLowest,
-          surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: borderRadius,
-            side: BorderSide(color: colorScheme.outlineVariant),
-          ),
           child: InkWell(
-            borderRadius: borderRadius,
+            borderRadius: BorderRadius.circular(_radius),
             overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
               if (states.contains(WidgetState.pressed)) {
                 return colorScheme.primary.withValues(alpha: 0.10);
@@ -460,7 +487,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                   size: _actionButtonSize,
                                 ),
                                 _KnowledgeCardActionButton(
-                                  tooltip: isZh ? '详情 / 编辑' : 'Details / Edit',
+                                  tooltip: isZh ? '详情' : 'Details',
                                   icon: Icons.edit_outlined,
                                   onPressed: () =>
                                       showKnowledgeSourceDetailDialog(
@@ -468,6 +495,34 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                         source.id,
                                       ),
                                   size: _actionButtonSize,
+                                ),
+                                SizedBox(
+                                  width: _actionButtonSize,
+                                  height: _actionButtonSize,
+                                  child:
+                                      AnimatedPopupMenuButton<
+                                        _KnowledgeCardAction
+                                      >(
+                                        tooltip: isZh ? '更多操作' : 'More actions',
+                                        onSelected: (action) {
+                                          switch (action) {
+                                            case _KnowledgeCardAction.delete:
+                                              _confirmDelete(context);
+                                          }
+                                        },
+                                        itemBuilder: (context) => [
+                                          PopupMenuItem<_KnowledgeCardAction>(
+                                            value: _KnowledgeCardAction.delete,
+                                            child: Text(
+                                              isZh ? '删除' : 'Delete',
+                                              style: TextStyle(
+                                                color: colorScheme.error,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                 ),
                               ],
                             ),
@@ -509,6 +564,34 @@ class _KnowledgeSourceCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final isZh = openHandIsChineseLocale(context);
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: isZh ? '删除知识库来源？' : 'Delete knowledge source?',
+      message: isZh
+          ? '将删除 SQLite 元数据、chunks，并尝试删除 Qdrant 中该来源的向量。原始文件不会删除。'
+          : 'This deletes SQLite metadata, chunks, and attempts to remove this source vectors from Qdrant. The original file is kept.',
+      confirmLabel: isZh ? '删除' : 'Delete',
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+    final controller = context.read<KnowledgeBaseController>();
+    final deleted = await controller.deleteSource(source);
+    if (!context.mounted) return;
+    if (deleted) {
+      OpenHandSnackBar.showSuccess(
+        context,
+        isZh ? '来源已删除。' : 'Source deleted.',
+      );
+      return;
+    }
+    OpenHandSnackBar.showError(
+      context,
+      controller.error ?? (isZh ? '来源删除失败。' : 'Failed to delete source.'),
     );
   }
 
@@ -590,6 +673,7 @@ class _KnowledgeSourceStatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Container(
       width: 16,
       height: 16,
@@ -597,9 +681,18 @@ class _KnowledgeSourceStatusDot extends StatelessWidget {
         color: color,
         shape: BoxShape.circle,
         border: Border.all(
-          color: Theme.of(context).colorScheme.surfaceContainerLowest,
+          color: Theme.of(context).colorScheme.surface,
           width: 3,
         ),
+        boxShadow: reduceMotion
+            ? null
+            : [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.32),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
       ),
     );
   }
@@ -619,26 +712,22 @@ class _SmallPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+    final colorScheme = theme.colorScheme;
+    final neutral = color == colorScheme.onSurfaceVariant;
+    return Chip(
+      avatar: Icon(icon, size: 18, color: neutral ? null : color),
+      label: Text(label),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      backgroundColor: neutral
+          ? colorScheme.surfaceContainerHighest
+          : color.withValues(alpha: 0.10),
+      side: neutral
+          ? BorderSide(color: colorScheme.outlineVariant)
+          : BorderSide(color: color.withValues(alpha: 0.28)),
+      labelStyle: theme.textTheme.labelLarge?.copyWith(
+        color: neutral ? colorScheme.onSurface : color,
+        fontWeight: FontWeight.w700,
       ),
     );
   }

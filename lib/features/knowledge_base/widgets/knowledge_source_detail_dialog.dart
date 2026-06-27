@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
@@ -65,12 +64,6 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                 icon: Icons.copy_rounded,
                 label: isZh ? '复制路径' : 'Copy Path',
               ),
-            if (source != null)
-              OpenHandDialogActionButton.destructive(
-                onPressed: () => _confirmDelete(context, source),
-                icon: Icons.delete_outline_rounded,
-                label: isZh ? '删除' : 'Delete',
-              ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(),
               label: isZh ? '关闭' : 'Close',
@@ -79,35 +72,6 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
         );
       },
     );
-  }
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    KnowledgeSource source,
-  ) async {
-    final isZh = openHandIsChineseLocale(context);
-    final confirmed = await showOpenHandConfirmDialog(
-      context: context,
-      title: isZh ? '删除知识库来源？' : 'Delete knowledge source?',
-      message: isZh
-          ? '将删除 SQLite 元数据、chunks，并尝试删除 Qdrant 中该来源的向量。原始文件不会删除。'
-          : 'This deletes SQLite metadata, chunks, and attempts to remove this source vectors from Qdrant. The original file is kept.',
-      confirmLabel: isZh ? '删除' : 'Delete',
-      destructive: true,
-    );
-    if (confirmed != true || !context.mounted) return;
-    final controller = context.read<KnowledgeBaseController>();
-    final deleted = await controller.deleteSource(source);
-    if (!context.mounted) return;
-    if (!deleted) {
-      OpenHandSnackBar.showError(
-        context,
-        controller.error ?? (isZh ? '来源删除失败。' : 'Failed to delete source.'),
-      );
-      return;
-    }
-    Navigator.of(context).pop();
-    OpenHandSnackBar.showSuccess(context, isZh ? '来源已删除。' : 'Source deleted.');
   }
 }
 
