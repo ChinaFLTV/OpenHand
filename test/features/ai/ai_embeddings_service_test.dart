@@ -983,8 +983,36 @@ void main() {
         'Snowflake/snowflake-arctic-embed-m-v2.0',
         AiProtocolType.openai,
       );
+      final snowflakeEmbed2 = AiModelCatalog.lookup(
+        'snowflake-arctic-embed2',
+        AiProtocolType.openai,
+      );
+      final embeddingGemma = AiModelCatalog.lookup(
+        'embeddinggemma',
+        AiProtocolType.openai,
+      );
+      final graniteCompact = AiModelCatalog.lookup(
+        'granite-embedding:30m',
+        AiProtocolType.openai,
+      );
+      final graniteLarge = AiModelCatalog.lookup(
+        'ibm/granite-embedding-278m-multilingual',
+        AiProtocolType.openai,
+      );
+      final nomicV2 = AiModelCatalog.lookup(
+        'nomic-embed-text-v2-moe',
+        AiProtocolType.openai,
+      );
+      final paraphrase = AiModelCatalog.lookup(
+        'paraphrase-multilingual',
+        AiProtocolType.openai,
+      );
       final miniLm = AiModelCatalog.lookup(
         'sentence-transformers/all-MiniLM-L6-v2',
+        AiProtocolType.openai,
+      );
+      final miniLmL12 = AiModelCatalog.lookup(
+        'sentence-transformers/all-MiniLM-L12-v2',
         AiProtocolType.openai,
       );
       final reranker = AiModelCatalog.lookup(
@@ -1012,8 +1040,25 @@ void main() {
       expect(snowflake?.displayName, 'Snowflake Arctic Embed');
       expect(snowflake?.embeddingDimensions, 768);
       expect(snowflake?.embeddingMaxInputTokens, 8192);
+      expect(snowflakeEmbed2?.displayName, 'Snowflake Arctic Embed');
+      expect(snowflakeEmbed2?.embeddingDimensions, 1024);
+      expect(snowflakeEmbed2?.embeddingMaxInputTokens, 8192);
+      expect(embeddingGemma?.displayName, 'EmbeddingGemma');
+      expect(embeddingGemma?.embeddingDimensions, 768);
+      expect(embeddingGemma?.embeddingSupportsCustomDimensions, isTrue);
+      expect(graniteCompact?.displayName, 'IBM Granite Embedding');
+      expect(graniteCompact?.embeddingDimensions, 384);
+      expect(graniteLarge?.displayName, 'IBM Granite Embedding');
+      expect(graniteLarge?.embeddingDimensions, 768);
+      expect(nomicV2?.displayName, 'Nomic Embed Text v2 MoE');
+      expect(nomicV2?.embeddingMinDimensions, 256);
+      expect(nomicV2?.embeddingMaxInputTokens, 512);
+      expect(paraphrase?.displayName, 'paraphrase-multilingual');
+      expect(paraphrase?.embeddingDimensions, 768);
       expect(miniLm?.displayName, 'all-MiniLM-L6-v2');
       expect(miniLm?.embeddingDimensions, 384);
+      expect(miniLmL12?.displayName, 'all-MiniLM-L12-v2');
+      expect(miniLmL12?.embeddingDimensions, 384);
       expect(reranker?.supportsEmbeddings ?? false, isFalse);
     });
 

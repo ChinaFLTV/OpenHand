@@ -3035,6 +3035,48 @@ class AiModelCatalog {
         dimensions: 384,
       );
     }
+    if (id.contains('embeddinggemma') ||
+        id.contains('embedding-gemma') ||
+        id.contains('embedding_gemma')) {
+      return _openSourceTextEmbeddingP(
+        name: 'EmbeddingGemma',
+        desc: 'Google on-device multilingual text embedding model',
+        context: 2048,
+        dimensions: 768,
+        customDimensions: true,
+        minDimensions: 128,
+        maxDimensions: 768,
+        taskTypes: const <String>[
+          'retrieval',
+          'semantic_similarity',
+          'classification',
+          'clustering',
+        ],
+        defaultTaskType: 'retrieval',
+      );
+    }
+    if (id.contains('granite-embedding')) {
+      final compact =
+          id.contains('30m') ||
+          (!id.contains('125m') &&
+              !id.contains('278m') &&
+              !id.contains('311m'));
+      final current = id.contains('311m') || id.contains('97m');
+      final dimensions = compact ? 384 : 768;
+      return _openSourceTextEmbeddingP(
+        name: 'IBM Granite Embedding',
+        desc: 'IBM Granite text embedding model',
+        context: 512,
+        dimensions: dimensions,
+        customDimensions: current && dimensions == 768,
+        minDimensions: current && dimensions == 768 ? 128 : null,
+        maxDimensions: current && dimensions == 768 ? 768 : null,
+        taskTypes: const <String>['query', 'passage', 'document'],
+        defaultTaskType: 'passage',
+        queryTaskType: 'query',
+        documentTaskType: 'passage',
+      );
+    }
     if (id.contains('qwen3-embedding')) {
       final dim = id.contains('8b')
           ? 4096
@@ -3097,6 +3139,24 @@ class AiModelCatalog {
         desc: 'NetEase Youdao bilingual/chinese embedding model',
         context: 512,
         dimensions: 768,
+      );
+    }
+    if (id.contains('nomic-embed-text-v2') ||
+        id.contains('nomic-embed-text-v2-moe')) {
+      return _openSourceTextEmbeddingP(
+        name: 'Nomic Embed Text v2 MoE',
+        desc: 'Nomic multilingual MoE text embedding model',
+        context: 512,
+        dimensions: 768,
+        customDimensions: true,
+        taskTypes: const <String>['search_document', 'search_query'],
+        defaultTaskType: 'search_document',
+        queryTaskType: 'search_query',
+        documentTaskType: 'search_document',
+        queryTextPrefix: 'search_query:',
+        documentTextPrefix: 'search_document:',
+        minDimensions: 256,
+        maxDimensions: 768,
       );
     }
     if (id.contains('nomic-embed')) {
@@ -3203,7 +3263,7 @@ class AiModelCatalog {
       return _openSourceTextEmbeddingP(
         name: 'Snowflake Arctic Embed',
         desc: 'Snowflake Arctic text embedding model',
-        context: id.contains('v2') ? 8192 : 512,
+        context: id.contains('v2') || id.contains('embed2') ? 8192 : 512,
         dimensions: dimensions,
         taskTypes: const <String>['query', 'document'],
         defaultTaskType: 'document',
@@ -3211,9 +3271,25 @@ class AiModelCatalog {
         documentTaskType: 'document',
       );
     }
-    if (id.contains('all-minilm-l6-v2')) {
+    if (id.contains('paraphrase-multilingual-minilm')) {
       return _openSourceTextEmbeddingP(
-        name: 'all-MiniLM-L6-v2',
+        name: 'paraphrase-multilingual-MiniLM',
+        desc: 'SentenceTransformers multilingual MiniLM embedding model',
+        context: 512,
+        dimensions: 384,
+      );
+    }
+    if (id.contains('paraphrase-multilingual')) {
+      return _openSourceTextEmbeddingP(
+        name: 'paraphrase-multilingual',
+        desc: 'SentenceTransformers multilingual embedding model',
+        context: 128,
+        dimensions: 768,
+      );
+    }
+    if (id.contains('all-minilm')) {
+      return _openSourceTextEmbeddingP(
+        name: id.contains('l12') ? 'all-MiniLM-L12-v2' : 'all-MiniLM-L6-v2',
         desc: 'SentenceTransformers compact text embedding model',
         context: 256,
         dimensions: 384,
