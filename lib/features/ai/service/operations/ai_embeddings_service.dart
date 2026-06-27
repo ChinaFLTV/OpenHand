@@ -39,6 +39,7 @@ class AiEmbeddingsService {
       <_EmbeddingRequestStrategy>[
         _GeminiEmbeddingStrategy(),
         _DashScopeMultimodalEmbeddingStrategy(),
+        _BedrockTitanEmbeddingStrategy(),
         _CohereEmbeddingStrategy(),
         _VoyageEmbeddingStrategy(),
         _JinaEmbeddingStrategy(),
@@ -296,15 +297,24 @@ class AiEmbeddingsService {
     void addFromEmbeddingTypeMap(Object? raw) {
       if (raw is! Map) return;
       final map = Map<String, Object?>.from(raw);
+      final preferredKey = _preferredEmbeddingTypeKey(encodingFormat);
+      if (preferredKey.isNotEmpty && map.containsKey(preferredKey)) {
+        final value = map[preferredKey];
+        addFromList(value);
+        add(value);
+        return;
+      }
       for (final value in map.values) {
         addFromList(value);
         add(value);
       }
     }
 
+    add(payload['embedding']);
     addFromMap(payload['embedding']);
     addFromList(payload['embeddings']);
     addFromEmbeddingTypeMap(payload['embeddings']);
+    addFromEmbeddingTypeMap(payload['embeddingsByType']);
     addFromList(payload['data']);
     addFromList(payload['vectors']);
 
@@ -313,6 +323,8 @@ class AiEmbeddingsService {
       final map = Map<String, Object?>.from(output);
       addFromMap(map['embedding']);
       addFromList(map['embeddings']);
+      addFromEmbeddingTypeMap(map['embeddings']);
+      addFromEmbeddingTypeMap(map['embeddingsByType']);
       addFromList(map['data']);
       addFromList(map['vectors']);
     }
@@ -508,6 +520,7 @@ class _EmbeddingRequestContext {
           supportsParameter('dimensions') ||
           supportsParameter('output_dimension') ||
           supportsParameter('outputDimensionality') ||
+          supportsParameter('embeddingConfig.outputEmbeddingLength') ||
           supportsParameter('parameters.dimension'));
 
   Map<String, Object?> withProfileDefaults(Map<String, Object?> payload) {
@@ -618,6 +631,42 @@ class _MistralEmbeddingStrategy extends _EmbeddingRequestStrategy {
           : null,
       fallbackPath: context.profileEndpointPath,
       contextHint: 'embeddings/mistral',
+    );
+  }
+}
+
+class _BedrockTitanEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _BedrockTitanEmbeddingStrategy();
+
+  static const String _fallbackPath = 'model/{model_id}/invoke';
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    final baseUrl = context.model.baseUrl.toLowerCase();
+    return context.normalizedModelId.contains('titan-embed') &&
+        (baseUrl.contains('bedrock-runtime') ||
+            baseUrl.contains('bedrock.amazonaws') ||
+            baseUrl.contains('amazonaws.com/bedrock'));
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final payload = context.normalizedModelId.contains('titan-embed-image')
+        ? _bedrockTitanImagePayload(context)
+        : _bedrockTitanTextPayload(context);
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      context.withProfileDefaults(payload),
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
+      fallbackPath: context.profileEndpointPath ?? _fallbackPath,
+      contextHint: 'embeddings/bedrock/titan',
     );
   }
 }
@@ -927,6 +976,56 @@ class _DashScopeMultimodalEmbeddingStrategy extends _EmbeddingRequestStrategy {
   }
 }
 
+Map<String, Object?> _bedrockTitanTextPayload(
+  _EmbeddingRequestContext context,
+) {
+  final outputDType = context.trimmedOutputDType;
+  return <String, Object?>{
+    'inputText': _singleTextInput(
+      context.input,
+      provider: 'Amazon Bedrock Titan text embedding',
+    ),
+    if (context.supportsParameter('dimensions') &&
+        context.positiveDimensions != null)
+      'dimensions': context.positiveDimensions,
+    if (context.supportsParameter('normalize') &&
+        context.profile.embeddingOutputsNormalized != null)
+      'normalize': context.profile.embeddingOutputsNormalized,
+    if (context.supportsParameter('embeddingTypes') && outputDType != null)
+      'embeddingTypes': <String>[outputDType],
+  };
+}
+
+Map<String, Object?> _bedrockTitanImagePayload(
+  _EmbeddingRequestContext context,
+) {
+  final rawMap = AiOperationHttp.stringKeyedMap(context.input);
+  final payload = rawMap.isEmpty
+      ? <String, Object?>{
+          'inputText': _singleTextInput(
+            context.input,
+            provider: 'Amazon Bedrock Titan multimodal embedding',
+          ),
+        }
+      : <String, Object?>{
+          if (rawMap['inputText'] != null) 'inputText': rawMap['inputText'],
+          if (rawMap['inputImage'] != null) 'inputImage': rawMap['inputImage'],
+        };
+  final embeddingConfig = AiOperationHttp.stringKeyedMap(
+    rawMap['embeddingConfig'],
+  );
+  if (context.supportsParameter('embeddingConfig.outputEmbeddingLength') &&
+      context.positiveDimensions != null) {
+    payload['embeddingConfig'] = <String, Object?>{
+      ...embeddingConfig,
+      'outputEmbeddingLength': context.positiveDimensions,
+    };
+  } else if (embeddingConfig.isNotEmpty) {
+    payload['embeddingConfig'] = embeddingConfig;
+  }
+  return payload;
+}
+
 Map<String, Object?> _geminiContentPayload(Object content) {
   if (content is Map<String, Object?>) return content;
   if (content is Map) return Map<String, Object?>.from(content);
@@ -1046,6 +1145,16 @@ List<List<String>> _perplexityContextualizedInput(Object input) {
   ];
 }
 
+String _singleTextInput(Object input, {required String provider}) {
+  if (input is List) {
+    if (input.length != 1) {
+      throw ArgumentError('$provider API only supports one input per request.');
+    }
+    return '${input.single}';
+  }
+  return '$input';
+}
+
 Object? _truncationValue(String? value) {
   final normalized = value?.trim().toLowerCase() ?? '';
   if (normalized.isEmpty) return null;
@@ -1069,9 +1178,25 @@ String _embeddingResponseEncoding(Map<String, Object?> body) {
   if (embeddingTypes is List && embeddingTypes.isNotEmpty) {
     return '${embeddingTypes.first}';
   }
+  final camelEmbeddingTypes = body['embeddingTypes'];
+  if (camelEmbeddingTypes is List && camelEmbeddingTypes.isNotEmpty) {
+    return '${camelEmbeddingTypes.first}';
+  }
   final outputDType = body['output_dtype'];
   if (outputDType is String) return outputDType;
   return '';
+}
+
+String _preferredEmbeddingTypeKey(String encodingFormat) {
+  final normalized = encodingFormat.trim().toLowerCase();
+  if (normalized.isEmpty) return '';
+  if (normalized.startsWith('base64_')) {
+    return normalized.substring('base64_'.length);
+  }
+  if (normalized == 'base64' || normalized == 'base64_float32') {
+    return 'float';
+  }
+  return normalized;
 }
 
 String _combinedBase64ResponseEncoding(
@@ -1100,6 +1225,10 @@ String _embeddingResponseDType(Map<String, Object?> body) {
   if (embeddingTypes is List && embeddingTypes.isNotEmpty) {
     return '${embeddingTypes.first}'.trim().toLowerCase();
   }
+  final camelEmbeddingTypes = body['embeddingTypes'];
+  if (camelEmbeddingTypes is List && camelEmbeddingTypes.isNotEmpty) {
+    return '${camelEmbeddingTypes.first}'.trim().toLowerCase();
+  }
   return '';
 }
 
@@ -1113,7 +1242,12 @@ int? _embeddingResponseDimensions(Map<String, Object?> body) {
     if (value != null) return value;
   }
   final parameters = AiOperationHttp.stringKeyedMap(body['parameters']);
-  return _positiveIntOrNull(parameters['dimension']);
+  final dashScopeDimensions = _positiveIntOrNull(parameters['dimension']);
+  if (dashScopeDimensions != null) return dashScopeDimensions;
+  final embeddingConfig = AiOperationHttp.stringKeyedMap(
+    body['embeddingConfig'],
+  );
+  return _positiveIntOrNull(embeddingConfig['outputEmbeddingLength']);
 }
 
 int? _positiveIntOrNull(Object? value) {

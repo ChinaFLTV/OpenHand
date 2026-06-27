@@ -1224,6 +1224,113 @@ void main() {
       },
     );
 
+    test('sends Jina late chunking from profile defaults', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': <num>[0.1, 0.2, 0.3],
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      await service.createEmbeddings(
+        model:
+            _model(
+              protocol: AiProtocolType.openai,
+              baseUrl: 'https://api.jina.ai',
+              modelId: 'jina-embeddings-v4',
+            ).copyWith(
+              modelProfiles: const <String, AiModelProfile>{
+                'jina-embeddings-v4': AiModelProfile(
+                  defaultParameters: <String, Object?>{'late_chunking': true},
+                ),
+              },
+            ),
+        input: const <String>['late chunk this document'],
+        dimensions: 512,
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'late_chunking': true,
+        'model': 'jina-embeddings-v4',
+        'input': <String>['late chunk this document'],
+        'task': 'retrieval.passage',
+        'dimensions': 512,
+        'embedding_type': 'float',
+        'normalized': true,
+      });
+    });
+
+    test('sends Bedrock Titan native text embedding requests', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'embedding': <num>[0.1, 0.2, 0.3],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+          modelId: 'amazon.titan-embed-text-v2:0',
+        ),
+        input: const <String>['alpha'],
+        dimensions: 512,
+      );
+
+      expect(client.requests.single.url.pathSegments, <String>[
+        'model',
+        'amazon.titan-embed-text-v2:0',
+        'invoke',
+      ]);
+      expect(client.bodies.single, <String, Object?>{
+        'inputText': 'alpha',
+        'dimensions': 512,
+        'normalize': true,
+        'embeddingTypes': <String>['float'],
+      });
+      expect(result.vectors.single, <double>[0.1, 0.2, 0.3]);
+    });
+
+    test('decodes Bedrock Titan embeddingsByType binary vectors', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'embeddingsByType': <String, Object?>{
+            'float': <num>[9, 9, 9],
+            'binary': <num>[5],
+          },
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+          modelId: 'amazon.titan-embed-text-v2:0',
+        ),
+        input: const <String>['alpha'],
+        dimensions: 3,
+        outputDType: 'binary',
+      );
+
+      expect(
+        client.bodies.single,
+        containsPair('embeddingTypes', <String>['binary']),
+      );
+      expect(result.vectors.single, <double>[1, 0, 1]);
+    });
+
     test('rejects multiple DashScope fused multimodal inputs', () async {
       final client = _RecordingHttpClient(
         responseBody: const <String, Object?>{},
@@ -1592,9 +1699,17 @@ void main() {
       expect(titan?.embeddingMinDimensions, 256);
       expect(titan?.embeddingMaxDimensions, 1024);
       expect(titan?.embeddingOutputDTypes, contains('binary'));
+      expect(titan?.supportedParameters, contains('inputText'));
+      expect(titan?.supportedParameters, contains('embeddingTypes'));
+      expect(titan?.embeddingMaxInputsPerBatch, 1);
+      expect(titan?.embeddingOutputsNormalized, isTrue);
 
       expect(titanImage?.isMultimodal, isTrue);
       expect(titanImage?.embeddingDimensions, 1024);
+      expect(
+        titanImage?.supportedParameters,
+        contains('embeddingConfig.outputEmbeddingLength'),
+      );
 
       expect(nvidia?.displayName, 'NVIDIA NV-EmbedQA E5');
       expect(nvidia?.embeddingDimensions, 1024);

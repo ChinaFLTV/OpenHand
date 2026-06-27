@@ -249,6 +249,23 @@ class AiModelCatalog {
     'late_chunking',
   ];
 
+  static const _bedrockTitanTextEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'inputText',
+    'dimensions',
+    'normalize',
+    'embeddingTypes',
+  ];
+
+  static const _bedrockTitanImageEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'inputText',
+    'inputImage',
+    'embeddingConfig.outputEmbeddingLength',
+  ];
+
   static final Map<String, AiModelProfile> _exactModelProfiles =
       openRouterExactModelProfiles;
 
@@ -2958,8 +2975,11 @@ class AiModelCatalog {
         customDimensions: true,
         minDimensions: 256,
         maxDimensions: 1024,
+        supportedParameters: _bedrockTitanTextEmbeddingParameters,
         outputDTypes: const <String>['float', 'binary'],
         defaultOutputDType: 'float',
+        batchSize: 1,
+        maxInputsPerBatch: 1,
       );
     }
     if (id.contains('titan-embed-text')) {
@@ -2968,6 +2988,9 @@ class AiModelCatalog {
         desc: 'Amazon Bedrock text embedding model',
         context: 8192,
         dimensions: 1536,
+        supportedParameters: _bedrockTitanTextEmbeddingParameters,
+        batchSize: 1,
+        maxInputsPerBatch: 1,
       );
     }
     if (id.contains('titan-embed-image')) {
@@ -2984,11 +3007,14 @@ class AiModelCatalog {
         maxInputTokens: 128,
         customDimensions: true,
         batchSize: 16,
+        supportedParameters: _bedrockTitanImageEmbeddingParameters,
         inputTypes: const <String>['text', 'image'],
         encodingFormats: const <String>['float'],
         defaultEncodingFormat: 'float',
         minDimensions: 256,
         maxDimensions: 1024,
+        maxInputsPerBatch: 1,
+        outputsNormalized: true,
       );
     }
     if (id.contains('nv-embedqa-e5')) {
