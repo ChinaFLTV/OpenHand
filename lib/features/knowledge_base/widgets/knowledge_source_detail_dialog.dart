@@ -9,6 +9,7 @@ import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
+import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeSourceDetailDialog(
@@ -121,17 +122,14 @@ class _SourceDetailBody extends StatelessWidget {
                   )
                 : Column(
                     children: [
-                      for (final chunk in chunks) _ChunkTile(chunk: chunk),
+                      for (final chunk in chunks)
+                        _ChunkTile(source: source, chunk: chunk),
                     ],
                   ),
           ),
         ],
       ),
     );
-  }
-
-  String _date(DateTime? value) {
-    return value == null ? '-' : formatYearMonthDayHms(value.toLocal());
   }
 
   String _localizedKind(String kind, BuildContext context) {
@@ -163,11 +161,17 @@ class _SourceDetailBody extends StatelessWidget {
       _ => status.trim().isEmpty ? '-' : status,
     };
   }
+
+  String _date(DateTime? value) {
+    if (value == null) return '-';
+    return formatYearMonthDayHms(value.toLocal());
+  }
 }
 
 class _ChunkTile extends StatelessWidget {
-  const _ChunkTile({required this.chunk});
+  const _ChunkTile({required this.source, required this.chunk});
 
+  final KnowledgeSource source;
   final KnowledgeChunk chunk;
 
   @override
@@ -176,64 +180,81 @@ class _ChunkTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isZh = openHandIsChineseLocale(context);
     final heading = chunk.headingPath.isEmpty ? chunk.title : chunk.headingPath;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.76),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.48),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '#${chunk.chunkIndex}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              KnowledgeDialogChip(
-                icon: Icons.numbers_rounded,
-                label: isZh
-                    ? '${chunk.tokenEstimate} token'
-                    : '${chunk.tokenEstimate} tokens',
-              ),
-              KnowledgeDialogChip(
-                icon: Icons.fingerprint_rounded,
-                label: chunk.id,
-              ),
-            ],
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => showKnowledgeChunkDetailDialog(
+            context,
+            source: source,
+            chunk: chunk,
           ),
-          if (heading.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              heading,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                height: 1.25,
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.48),
               ),
             ),
-          ],
-          const SizedBox(height: 8),
-          Text(
-            chunk.content,
-            maxLines: 5,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '#${chunk.chunkIndex}',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    KnowledgeDialogChip(
+                      icon: Icons.numbers_rounded,
+                      label: isZh
+                          ? '${chunk.tokenEstimate} token'
+                          : '${chunk.tokenEstimate} tokens',
+                    ),
+                    KnowledgeDialogChip(
+                      icon: Icons.fingerprint_rounded,
+                      label: chunk.id,
+                    ),
+                    KnowledgeDialogChip(
+                      icon: Icons.open_in_new_rounded,
+                      label: isZh ? '查看详情' : 'Details',
+                    ),
+                  ],
+                ),
+                if (heading.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    heading,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  chunk.content,
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
