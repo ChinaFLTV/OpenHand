@@ -131,6 +131,17 @@ void main() {
       expect(multimodal?.embeddingMaxInputsPerBatch, 1);
       expect(multimodal?.embeddingMaxTokensPerBatch, 32000);
     });
+
+    test('captures Gemini Embedding 2 batch token limit', () {
+      final profile = AiModelCatalog.lookup(
+        'gemini-embedding-2',
+        AiProtocolType.gemini,
+      );
+
+      expect(profile?.embeddingMaxTokensPerBatch, 8192);
+      expect(profile?.embeddingMaxDimensions, 3072);
+      expect(profile?.supportsEmbeddings, isTrue);
+    });
   });
 }
 

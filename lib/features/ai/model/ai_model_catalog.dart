@@ -936,6 +936,7 @@ class AiModelCatalog {
         outputsNormalized: true,
         minDimensions: 128,
         maxDimensions: 3072,
+        maxTokensPerBatch: 8192,
       );
     }
     if (id.startsWith('gemini-embedding-001')) {
