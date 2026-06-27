@@ -800,6 +800,10 @@ void main() {
         'nvidia/nv-embedqa-e5-v5',
         AiProtocolType.openai,
       );
+      final mistral = AiModelCatalog.lookup(
+        'mistral-embed',
+        AiProtocolType.openai,
+      );
       final solar = AiModelCatalog.lookup(
         'solar-embedding-1-large-query',
         AiProtocolType.openai,
@@ -840,6 +844,10 @@ void main() {
       expect(nvidia?.embeddingInputTypes, contains('query'));
       expect(nvidia?.supportedParameters, contains('input_type'));
       expect(nvidia?.embeddingDefaultTruncation, 'END');
+
+      expect(mistral?.displayName, 'Mistral Embed');
+      expect(mistral?.embeddingOutputDTypes, contains('ubinary'));
+      expect(mistral?.embeddingMaxInputsPerBatch, 512);
 
       expect(solar?.displayName, 'Solar Embedding');
       expect(solar?.embeddingDimensions, 4096);

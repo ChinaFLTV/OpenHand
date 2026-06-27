@@ -2341,10 +2341,17 @@ class AiModelCatalog {
         batchSize: 64,
         supportedParameters: _mistralEmbeddingParameters,
         inputTypes: const <String>['text', 'code'],
-        outputDTypes: const <String>['float', 'int8', 'uint8', 'binary'],
+        outputDTypes: const <String>[
+          'float',
+          'int8',
+          'uint8',
+          'binary',
+          'ubinary',
+        ],
         defaultOutputDType: 'float',
         minDimensions: 256,
         maxDimensions: 1536,
+        maxInputsPerBatch: 512,
       );
     }
     if (id.startsWith('mistral-embed')) {
@@ -2357,10 +2364,17 @@ class AiModelCatalog {
         customDimensions: true,
         batchSize: 64,
         supportedParameters: _mistralEmbeddingParameters,
-        outputDTypes: const <String>['float', 'int8', 'uint8', 'binary'],
+        outputDTypes: const <String>[
+          'float',
+          'int8',
+          'uint8',
+          'binary',
+          'ubinary',
+        ],
         defaultOutputDType: 'float',
         minDimensions: 256,
         maxDimensions: 1024,
+        maxInputsPerBatch: 512,
       );
     }
     return null;
