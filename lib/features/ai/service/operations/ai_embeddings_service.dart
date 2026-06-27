@@ -144,6 +144,7 @@ class AiEmbeddingsService {
       vectors: _parseVectors(
         payload,
         encodingFormat: _embeddingResponseEncoding(plan.body),
+        expectedDimensions: _embeddingResponseDimensions(plan.body),
       ),
       rawResponse: response.body,
       payload: payload,
@@ -202,18 +203,24 @@ class AiEmbeddingsService {
   List<List<double>> _parseVectors(
     Map<String, Object?> payload, {
     required String encodingFormat,
+    required int? expectedDimensions,
   }) {
     final vectors = <List<double>>[];
 
     final known = _parseKnownVectorContainers(
       payload,
       encodingFormat: encodingFormat,
+      expectedDimensions: expectedDimensions,
     );
     if (known.isNotEmpty) return known;
 
     void collect(Object? value) {
       if (value == null) return;
-      final vector = _vectorOrNull(value, encodingFormat: encodingFormat);
+      final vector = _vectorOrNull(
+        value,
+        encodingFormat: encodingFormat,
+        expectedDimensions: expectedDimensions,
+      );
       if (vector != null) {
         vectors.add(vector);
         return;
@@ -255,10 +262,15 @@ class AiEmbeddingsService {
   List<List<double>> _parseKnownVectorContainers(
     Map<String, Object?> payload, {
     required String encodingFormat,
+    required int? expectedDimensions,
   }) {
     final vectors = <List<double>>[];
     void add(Object? value) {
-      final vector = _vectorOrNull(value, encodingFormat: encodingFormat);
+      final vector = _vectorOrNull(
+        value,
+        encodingFormat: encodingFormat,
+        expectedDimensions: expectedDimensions,
+      );
       if (vector != null) {
         vectors.add(vector);
       }
@@ -306,9 +318,17 @@ class AiEmbeddingsService {
     return vectors;
   }
 
-  List<double>? _vectorOrNull(Object? value, {required String encodingFormat}) {
+  List<double>? _vectorOrNull(
+    Object? value, {
+    required String encodingFormat,
+    required int? expectedDimensions,
+  }) {
     if (value is String) {
-      return _encodedVectorOrNull(value, encodingFormat: encodingFormat);
+      return _encodedVectorOrNull(
+        value,
+        encodingFormat: encodingFormat,
+        expectedDimensions: expectedDimensions,
+      );
     }
     if (value is! List ||
         value.isEmpty ||
@@ -324,6 +344,7 @@ class AiEmbeddingsService {
   List<double>? _encodedVectorOrNull(
     String value, {
     required String encodingFormat,
+    required int? expectedDimensions,
   }) {
     final normalized = encodingFormat.trim().toLowerCase();
     if (!normalized.startsWith('base64')) return null;
@@ -336,10 +357,16 @@ class AiEmbeddingsService {
           .toList(growable: false);
     }
     if (normalized == 'base64_binary') {
-      return <double>[
+      final vector = <double>[
         for (final byte in bytes)
           for (var bit = 0; bit < 8; bit += 1) ((byte >> bit) & 1).toDouble(),
       ];
+      if (expectedDimensions == null ||
+          expectedDimensions <= 0 ||
+          expectedDimensions >= vector.length) {
+        return vector;
+      }
+      return vector.sublist(0, expectedDimensions);
     }
     if (normalized == 'base64' || normalized == 'base64_float32') {
       if (bytes.length % 4 != 0) return null;
@@ -889,6 +916,29 @@ String _embeddingResponseEncoding(Map<String, Object?> body) {
     return '${embeddingTypes.first}';
   }
   return '';
+}
+
+int? _embeddingResponseDimensions(Map<String, Object?> body) {
+  for (final key in const <String>[
+    'dimensions',
+    'output_dimension',
+    'outputDimensionality',
+  ]) {
+    final value = _positiveIntOrNull(body[key]);
+    if (value != null) return value;
+  }
+  final parameters = AiOperationHttp.stringKeyedMap(body['parameters']);
+  return _positiveIntOrNull(parameters['dimension']);
+}
+
+int? _positiveIntOrNull(Object? value) {
+  if (value is int && value > 0) return value;
+  if (value is num && value > 0) return value.toInt();
+  if (value is String) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed != null && parsed > 0) return parsed;
+  }
+  return null;
 }
 
 Map<String, Object?> _deepMergeObjectMaps(

@@ -340,18 +340,18 @@ void main() {
           modelId: 'pplx-embed-v1-0.6b',
         ),
         input: const <String>['alpha'],
-        dimensions: 16,
+        dimensions: 10,
         encodingFormat: 'base64_binary',
       );
 
       expect(client.bodies.single, <String, Object?>{
         'model': 'pplx-embed-v1-0.6b',
         'input': <String>['alpha'],
-        'dimensions': 16,
+        'dimensions': 10,
         'encoding_format': 'base64_binary',
       });
       expect(result.vectors, <List<double>>[
-        <double>[1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        <double>[1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
       ]);
     });
 
