@@ -665,6 +665,7 @@ void main() {
         capabilities: <AiModelCapability>{
           AiModelCapability.embeddingGeneration,
         },
+        supportedParameters: <String>['input', 'model', 'input_type'],
         embeddingInputTypes: <String>['document', 'query'],
         embeddingDefaultInputType: 'document',
         embeddingQueryModelId: 'embedding-query',
@@ -688,6 +689,11 @@ void main() {
 
       final roundTripped = AiModelProfile.fromJson(profile.toJson());
 
+      expect(roundTripped.supportedParameters, <String>[
+        'input',
+        'model',
+        'input_type',
+      ]);
       expect(roundTripped.embeddingDefaultInputType, 'document');
       expect(roundTripped.embeddingQueryModelId, 'embedding-query');
       expect(roundTripped.embeddingDocumentModelId, 'embedding-document');

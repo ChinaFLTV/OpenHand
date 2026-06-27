@@ -910,6 +910,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ].whereType<Object>().join(' / '),
       ),
       (
+        isZh ? '支持参数' : 'Supported Parameters',
+        _listLabel(profile.supportedParameters),
+      ),
+      (
         isZh ? '输入类型' : 'Input Types',
         [
           _listLabel(profile.embeddingInputTypes),

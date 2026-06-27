@@ -2143,6 +2143,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _huggingFaceIdController;
   late final TextEditingController _knowledgeCutoffController;
   late final TextEditingController _expirationDateController;
+  late final TextEditingController _supportedParametersController;
   late final TextEditingController _embeddingDimensionsController;
   late final TextEditingController _embeddingMaxInputTokensController;
   late final TextEditingController _embeddingEndpointPathController;
@@ -2257,6 +2258,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     );
     _expirationDateController = TextEditingController(
       text: p.expirationDate ?? effective.expirationDate ?? '',
+    );
+    _supportedParametersController = TextEditingController(
+      text: _joinCsv(
+        p.supportedParameters.isNotEmpty
+            ? p.supportedParameters
+            : effective.supportedParameters,
+      ),
     );
     _embeddingDimensionsController = TextEditingController(
       text:
@@ -2526,6 +2534,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _huggingFaceIdController.dispose();
     _knowledgeCutoffController.dispose();
     _expirationDateController.dispose();
+    _supportedParametersController.dispose();
     _embeddingDimensionsController.dispose();
     _embeddingMaxInputTokensController.dispose();
     _embeddingEndpointPathController.dispose();
@@ -2626,6 +2635,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       expirationDate: _expirationDateController.text.trim().isNotEmpty
           ? _expirationDateController.text.trim()
           : null,
+      supportedParameters: _parseCsv(_supportedParametersController.text),
       isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
       embeddingDimensions: _parsePositiveInt(
         _embeddingDimensionsController.text,
@@ -3519,6 +3529,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 controller: _expirationDateController,
                 decoration: const InputDecoration(
                   labelText: 'expiration_date',
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _supportedParametersController,
+                decoration: const InputDecoration(
+                  labelText: 'supported_parameters (CSV)',
+                  hintText: 'input, model, input_type, truncate',
                   isDense: true,
                 ),
               ),
