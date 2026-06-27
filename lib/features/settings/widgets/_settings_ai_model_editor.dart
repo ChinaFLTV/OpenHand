@@ -3597,6 +3597,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 controller: _defaultParametersController,
                 minLines: 2,
                 maxLines: 5,
+                onChanged: (_) {
+                  if (_profileErrorMessage == null) return;
+                  setState(() => _profileErrorMessage = null);
+                },
                 decoration: const InputDecoration(
                   labelText: 'default_parameters (JSON)',
                   hintText: '{"encoding_format": "float"}',
