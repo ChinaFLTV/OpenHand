@@ -3473,6 +3473,19 @@ button.oh-message-context-capsule {
 .oh-composer-mode-control {
   padding-right: 8px;
 }
+.oh-composer-kb-control {
+  flex: 0 1 auto;
+}
+.oh-composer-control.oh-composer-kb-control.is-tonal {
+  border-color: color-mix(in srgb, var(--m3-primary) 46%, transparent);
+  background: var(--m3-primary-container);
+  color: var(--m3-on-primary-container);
+  box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 70%, transparent);
+}
+.oh-composer-control.oh-composer-kb-control.is-tonal .oh-composer-control-icon {
+  background: color-mix(in srgb, var(--m3-primary) 16%, transparent);
+  color: var(--m3-primary);
+}
 .oh-composer-control-icon {
   width: 26px;
   height: 26px;
@@ -5002,6 +5015,11 @@ button.oh-composer-pill:not(:disabled):hover {
   }
   .oh-composer-model-control {
     order: 1;
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+  .oh-composer-kb-control {
+    order: 2;
     grid-column: 1 / -1;
     max-width: none;
   }

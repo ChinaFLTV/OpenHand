@@ -16,6 +16,9 @@ const int _atMentionShallowResultLimit = 50;
 const int _atMentionDeepSearchSoftLimit = 20;
 const int _atMentionDeepSearchResultLimit = 80;
 const int _atMentionDeepSearchMaxDepth = 8;
+const double _composerActionControlGap = 10;
+const double _composerActionControlHeight = 52;
+const double _composerKnowledgeBaseIconExtent = 28;
 final RegExp _composerTriggerWindowsDrivePattern = RegExp(r'^[A-Za-z]:');
 
 enum _AtMentionOverlayMode { projectFiles, localFiles }
@@ -1899,7 +1902,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     );
                   },
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: _composerActionControlGap),
                 _ComposerFullAccessModeButton(
                   fullAccess: widget.fullAccessPermission,
                   enabled: true,
@@ -1909,7 +1912,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     }
                   },
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: _composerActionControlGap),
                 Tooltip(
                   message: _composerModeTooltip(
                     context,
@@ -1928,16 +1931,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     onChanged: widget.onSessionModeChanged,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: _composerActionControlGap),
                 _ComposerKnowledgeBaseButton(
                   enabled: widget.knowledgeBaseReferenceEnabled,
                   onChanged: widget.onKnowledgeBaseReferenceChanged,
                 ),
-                const SizedBox(width: 10),
               ],
             ),
           ),
         ),
+        const SizedBox(width: _composerActionControlGap),
         // Compact "+" button for picking attachments. Lives just left of the
         // expand/collapse toggle so the affordance mirrors the right-side
         // creation-mode button (which carries the mode-semantic icon below).
@@ -1954,15 +1957,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   en: 'The selected model does not support attachments',
                 ),
           child: SizedBox(
-            width: 52,
-            height: 52,
+            width: _composerActionControlHeight,
+            height: _composerActionControlHeight,
             child: FilledButton(
               onPressed: widget.attachmentsEnabled
                   ? () => unawaited(widget.onPickAttachments())
                   : null,
               style: FilledButton.styleFrom(
                 padding: EdgeInsets.zero,
-                minimumSize: const Size(52, 52),
+                minimumSize: const Size(
+                  _composerActionControlHeight,
+                  _composerActionControlHeight,
+                ),
                 backgroundColor: widget.attachmentsEnabled
                     ? colorScheme.surfaceContainerHighest
                     : colorScheme.surfaceContainerHigh,
@@ -2553,14 +2559,20 @@ class _ComposerKnowledgeBaseButton extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final label = _localizedText(context, zh: '引用知识库', en: 'Knowledge Base');
     final backgroundColor = enabled
-        ? colorScheme.secondaryContainer
+        ? colorScheme.primaryContainer
         : colorScheme.surfaceContainerHighest;
     final foregroundColor = enabled
-        ? colorScheme.onSecondaryContainer
+        ? colorScheme.onPrimaryContainer
         : colorScheme.onSurfaceVariant;
     final borderColor = enabled
-        ? colorScheme.secondary.withValues(alpha: 0.45)
+        ? colorScheme.primary.withValues(alpha: 0.46)
         : colorScheme.outlineVariant;
+    final accentColor = enabled
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    final iconBackgroundColor = enabled
+        ? colorScheme.primary.withValues(alpha: 0.12)
+        : colorScheme.onSurfaceVariant.withValues(alpha: 0.08);
     return Tooltip(
       message: enabled
           ? _localizedText(
@@ -2576,7 +2588,7 @@ class _ComposerKnowledgeBaseButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: () => onChanged(!enabled),
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 52),
+          minimumSize: const Size(0, _composerActionControlHeight),
           padding: const EdgeInsets.symmetric(horizontal: 14),
           backgroundColor: backgroundColor,
           foregroundColor: foregroundColor,
@@ -2588,20 +2600,33 @@ class _ComposerKnowledgeBaseButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedSwitcher(
+            AnimatedContainer(
               duration: MediaQuery.disableAnimationsOf(context)
                   ? Duration.zero
-                  : const Duration(milliseconds: 180),
-              child: Icon(
-                enabled
-                    ? Icons.library_books_rounded
-                    : Icons.library_books_outlined,
-                key: ValueKey<bool>(enabled),
-                size: 18,
-                color: foregroundColor,
+                  : const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: _composerKnowledgeBaseIconExtent,
+              height: _composerKnowledgeBaseIconExtent,
+              decoration: BoxDecoration(
+                color: iconBackgroundColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                child: Icon(
+                  enabled
+                      ? Icons.library_books_rounded
+                      : Icons.library_books_outlined,
+                  key: ValueKey<bool>(enabled),
+                  size: 16,
+                  color: accentColor,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Text(
               label,
               style: theme.textTheme.labelLarge?.copyWith(
