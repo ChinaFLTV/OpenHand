@@ -211,115 +211,115 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
     return PopScope(
       canPop: !_isSaving && !_isProcessing,
-      child: Dialog(
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1040, maxHeight: 920),
-          child: ScaffoldMessenger(
-            key: _messengerKey,
-            child: Scaffold(
-              backgroundColor: colorScheme.surfaceContainerHigh,
-              // 2026-05 — Stack the Scaffold body with a top-edge
-              // HighlightPulse so user-triggered "important" actions
-              // (currently reset-all / reset-adjustments) get a brief
-              // primary-tinted confirmation flash. Honors reduceMotion
-              // via the pulse widget itself.
-              body: Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.imageEditorTitle,
-                          style: theme.textTheme.headlineSmall,
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 1040,
+        maxHeight: 920,
+        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+        child: ScaffoldMessenger(
+          key: _messengerKey,
+          child: Scaffold(
+            backgroundColor: colorScheme.surfaceContainerHigh,
+            // 2026-05 — Stack the Scaffold body with a top-edge
+            // HighlightPulse so user-triggered "important" actions
+            // (currently reset-all / reset-adjustments) get a brief
+            // primary-tinted confirmation flash. Honors reduceMotion
+            // via the pulse widget itself.
+            body: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.imageEditorTitle,
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.imageEditorCropHint,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          l10n.imageEditorCropHint,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildPreviewPanel(context),
-                                const SizedBox(height: 18),
-                                _buildAspectChips(context),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildPreviewPanel(context),
+                              const SizedBox(height: 18),
+                              _buildAspectChips(context),
+                              const SizedBox(height: 12),
+                              _buildTransformActions(context),
+                              const SizedBox(height: 16),
+                              _buildAdjustmentSliders(context),
+                              const SizedBox(height: 8),
+                              _buildAdvancedPanels(context),
+                              if (_statusMessage != null) ...[
                                 const SizedBox(height: 12),
-                                _buildTransformActions(context),
-                                const SizedBox(height: 16),
-                                _buildAdjustmentSliders(context),
-                                const SizedBox(height: 8),
-                                _buildAdvancedPanels(context),
-                                if (_statusMessage != null) ...[
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _statusMessage!,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.primary,
-                                    ),
+                                Text(
+                                  _statusMessage!,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.primary,
                                   ),
-                                ],
-                                if (_errorMessage != null) ...[
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _errorMessage!,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.error,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ],
-                            ),
+                              if (_errorMessage != null) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  _errorMessage!,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.error,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        if (_isSaving || _isProcessing) ...[
-                          const SizedBox(height: 16),
-                          const LinearProgressIndicator(),
-                        ],
+                      ),
+                      if (_isSaving || _isProcessing) ...[
                         const SizedBox(height: 16),
-                        _buildActionBar(context),
+                        const LinearProgressIndicator(),
                       ],
+                      const SizedBox(height: 16),
+                      _buildActionBar(context),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: HighlightPulse(signal: _actionPulse),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: HighlightPulse(
+                      signal: _successPulse,
+                      color: OpenHandStatusColors.success,
                     ),
                   ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: IgnorePointer(
-                      child: HighlightPulse(signal: _actionPulse),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: HighlightPulse(
+                      signal: _errorPulse,
+                      color: OpenHandStatusColors.error,
                     ),
                   ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: IgnorePointer(
-                      child: HighlightPulse(
-                        signal: _successPulse,
-                        color: OpenHandStatusColors.success,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: IgnorePointer(
-                      child: HighlightPulse(
-                        signal: _errorPulse,
-                        color: OpenHandStatusColors.error,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2988,10 +2988,10 @@ class _ProcessingDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Dialog(
-      elevation: 0,
+    return buildOpenHandDialog(
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
+      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),

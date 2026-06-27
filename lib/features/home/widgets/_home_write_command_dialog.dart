@@ -83,7 +83,6 @@ class _WriteCommandConfirmationDialogState
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.sizeOf(context);
     return Focus(
       focusNode: _shortcutFocusNode,
       autofocus: true,
@@ -100,175 +99,175 @@ class _WriteCommandConfirmationDialogState
         }
         return KeyEventResult.ignored;
       },
-      child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 860,
-            maxHeight: screenSize.height * 0.78,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '确认执行写命令',
-                    en: 'Confirm Write Command',
-                  ),
-                  style: Theme.of(context).textTheme.headlineSmall,
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 860,
+        maxHeight: double.infinity,
+        maxHeightFraction: 0.78,
+        safeAreaMinimum: const EdgeInsets.symmetric(
+          horizontal: 28,
+          vertical: 24,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _localizedText(
+                  context,
+                  zh: '确认执行写命令',
+                  en: 'Confirm Write Command',
                 ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: OpenHandSafeScrollbar(
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: OpenHandSafeScrollbar(
+                  controller: _bodyScrollController,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
                     controller: _bodyScrollController,
-                    thumbVisibility: true,
-                    child: SingleChildScrollView(
-                      controller: _bodyScrollController,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _localizedText(
-                              context,
-                              zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
-                              en: 'This bash command may modify files or system state. OpenHand needs your approval before running it.',
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _localizedText(
+                            context,
+                            zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
+                            en: 'This bash command may modify files or system state. OpenHand needs your approval before running it.',
                           ),
-                          if (_isExpanded)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SelectableText(
-                                  widget.request.command,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        fontFamily: 'monospace',
-                                        height: 1.45,
-                                      ),
-                                ),
-                              ),
-                            )
-                          else
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.outlineVariant,
-                                ),
-                              ),
+                        ),
+                        if (_isExpanded)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
                               child: SelectableText(
-                                _shortenedCommand,
-                                maxLines: 3,
+                                widget.request.command,
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       fontFamily: 'monospace',
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
                                       height: 1.45,
                                     ),
                               ),
                             ),
-                          if (_isLongCommand)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: TextButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    _isExpanded = !_isExpanded;
-                                  });
-                                },
-                                icon: Icon(
-                                  _isExpanded
-                                      ? Icons.unfold_less_rounded
-                                      : Icons.unfold_more_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(
-                                  _isExpanded
-                                      ? _localizedText(
-                                          context,
-                                          zh: '收起命令',
-                                          en: 'Collapse',
-                                        )
-                                      : _localizedText(
-                                          context,
-                                          zh: '查看完整命令',
-                                          en: 'View Full Command',
-                                        ),
-                                ),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
+                          )
+                        else
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
                               ),
                             ),
-                          const SizedBox(height: 12),
-                          Text(
-                            '${_localizedText(context, zh: '工作目录', en: 'Working Directory')}: ${widget.request.workingDirectory}',
+                            child: SelectableText(
+                              _shortenedCommand,
+                              maxLines: 3,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontFamily: 'monospace',
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    height: 1.45,
+                                  ),
+                            ),
                           ),
-                        ],
-                      ),
+                        if (_isLongCommand)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isExpanded = !_isExpanded;
+                                });
+                              },
+                              icon: Icon(
+                                _isExpanded
+                                    ? Icons.unfold_less_rounded
+                                    : Icons.unfold_more_rounded,
+                                size: 18,
+                              ),
+                              label: Text(
+                                _isExpanded
+                                    ? _localizedText(
+                                        context,
+                                        zh: '收起命令',
+                                        en: 'Collapse',
+                                      )
+                                    : _localizedText(
+                                        context,
+                                        zh: '查看完整命令',
+                                        en: 'View Full Command',
+                                      ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '${_localizedText(context, zh: '工作目录', en: 'Working Directory')}: ${widget.request.workingDirectory}',
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '快捷键：Enter 确认 · Esc 不关闭，请明确选择允许或取消',
-                    en: 'Shortcuts: Enter approves · Esc is ignored; choose Run or Cancel explicitly',
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '快捷键：Enter 确认 · Esc 不关闭，请明确选择允许或取消',
+                  en: 'Shortcuts: Enter approves · Esc is ignored; choose Run or Cancel explicitly',
                 ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: () =>
-                          _closeWith(BashCommandApprovalDecision.rejected),
-                      label: AppLocalizations.of(context)!.commonCancel,
-                    ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: () =>
-                          _closeWith(BashCommandApprovalDecision.approved),
-                      label: _localizedText(
-                        context,
-                        zh: '允许执行',
-                        en: 'Run Command',
-                      ),
-                    ),
-                  ],
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () =>
+                        _closeWith(BashCommandApprovalDecision.rejected),
+                    label: AppLocalizations.of(context)!.commonCancel,
+                  ),
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: () =>
+                        _closeWith(BashCommandApprovalDecision.approved),
+                    label: _localizedText(
+                      context,
+                      zh: '允许执行',
+                      en: 'Run Command',
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

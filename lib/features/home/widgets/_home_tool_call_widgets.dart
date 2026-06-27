@@ -1028,98 +1028,96 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isZh = openHandIsChineseLocale(context);
-    final screenSize = MediaQuery.sizeOf(context);
 
-    return Dialog(
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 960,
+      maxHeight: double.infinity,
+      horizontalMargin: 48,
+      verticalMargin: 80,
+      safeAreaMinimum: const EdgeInsets.all(24),
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(24)),
       ),
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: math.min(screenSize.width - 48, 960),
-          maxHeight: screenSize.height - 80,
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(24)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Header ──
-              Container(
-                padding: const EdgeInsets.fromLTRB(24, 16, 8, 16),
-                color: colorScheme.surfaceContainerLow,
-                child: Row(
-                  children: [
-                    Icon(
-                      widget.isError
-                          ? Icons.error_outline_rounded
-                          : Icons.code_rounded,
-                      color: widget.isError
-                          ? colorScheme.error
-                          : colorScheme.primary,
-                      size: 22,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(24)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Header ──
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 8, 16),
+              color: colorScheme.surfaceContainerLow,
+              child: Row(
+                children: [
+                  Icon(
+                    widget.isError
+                        ? Icons.error_outline_rounded
+                        : Icons.code_rounded,
+                    color: widget.isError
+                        ? colorScheme.error
+                        : colorScheme.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: widget.isError
+                            ? colorScheme.error
+                            : colorScheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.label,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: widget.isError
-                              ? colorScheme.error
-                              : colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _wrapLines = !_wrapLines;
+                      });
+                    },
+                    icon: Icon(
+                      _wrapLines
+                          ? Icons.wrap_text_rounded
+                          : Icons.segment_rounded,
+                      size: 16,
+                    ),
+                    label: Text(
+                      isZh
+                          ? (_wrapLines ? '取消换行' : '自动换行')
+                          : (_wrapLines ? 'Unwrap' : 'Wrap'),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.primary,
+                      textStyle: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _wrapLines = !_wrapLines;
-                        });
-                      },
-                      icon: Icon(
-                        _wrapLines
-                            ? Icons.wrap_text_rounded
-                            : Icons.segment_rounded,
-                        size: 16,
-                      ),
-                      label: Text(
-                        isZh
-                            ? (_wrapLines ? '取消换行' : '自动换行')
-                            : (_wrapLines ? 'Unwrap' : 'Wrap'),
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: colorScheme.primary,
-                        textStyle: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                      tooltip: isZh ? '关闭' : 'Close',
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: isZh ? '关闭' : 'Close',
+                  ),
+                ],
               ),
+            ),
 
-              // ── Body ──
-              Expanded(
-                child: _ToolContentFullDialogBody(
-                  content: widget.content,
-                  isError: widget.isError,
-                  wrapLines: _wrapLines,
-                  fullContentFile: widget.fullContentFile,
-                ),
+            // ── Body ──
+            Expanded(
+              child: _ToolContentFullDialogBody(
+                content: widget.content,
+                isError: widget.isError,
+                wrapLines: _wrapLines,
+                fullContentFile: widget.fullContentFile,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

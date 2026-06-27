@@ -628,47 +628,42 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         final w = ui.lerpDouble(wMin, wMax, tt)!;
         final h = ui.lerpDouble(hMin, hMax, tt)!;
         final inset = ui.lerpDouble(24, 12, tt.clamp(0.0, 1.0))!;
-        return Dialog(
+        return buildOpenHandDialog(
           insetPadding: EdgeInsets.all(inset),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: w,
-              minHeight: h,
-              maxHeight: h,
-            ),
-            child: Stack(
-              children: <Widget>[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    _buildHeader(context),
-                    if (_running)
-                      const SizedBox(
-                        height: 2,
-                        child: LinearProgressIndicator(minHeight: 2),
-                      )
-                    else
-                      const Divider(height: 1),
-                    Expanded(child: _buildConsole(context)),
+          maxWidth: w,
+          height: h,
+          child: Stack(
+            children: <Widget>[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _buildHeader(context),
+                  if (_running)
+                    const SizedBox(
+                      height: 2,
+                      child: LinearProgressIndicator(minHeight: 2),
+                    )
+                  else
                     const Divider(height: 1),
-                    _buildFooter(context, l10n),
-                  ],
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: HighlightPulse(
-                      signal: _completionPulse,
-                      color: _finishedSucceeded
-                          ? OpenHandStatusColors.success
-                          : OpenHandStatusColors.error,
-                    ),
+                  Expanded(child: _buildConsole(context)),
+                  const Divider(height: 1),
+                  _buildFooter(context, l10n),
+                ],
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: HighlightPulse(
+                    signal: _completionPulse,
+                    color: _finishedSucceeded
+                        ? OpenHandStatusColors.success
+                        : OpenHandStatusColors.error,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

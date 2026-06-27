@@ -2425,157 +2425,149 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isZh = widget.isZh;
-    return Dialog(
+    return buildOpenHandDialog(
       backgroundColor: cs.surfaceContainerHigh,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: SizedBox(
-        width: 640,
-        height: 480,
-        child: CallbackShortcuts(
-          bindings: <ShortcutActivator, VoidCallback>{
-            const SingleActivator(LogicalKeyboardKey.escape): () =>
-                Navigator.of(context).pop(),
-            const SingleActivator(LogicalKeyboardKey.arrowDown): () => _move(1),
-            const SingleActivator(LogicalKeyboardKey.arrowUp): () => _move(-1),
-            const SingleActivator(LogicalKeyboardKey.enter): _commit,
-            const SingleActivator(LogicalKeyboardKey.numpadEnter): _commit,
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-                child: TextField(
-                  controller: _qCtrl,
-                  focusNode: _qFocus,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: isZh
-                        ? '快速打开脚本… 末尾加 :42 可跳到指定行'
-                        : 'Go to file… (suffix :42 jumps to line)',
-                    prefixIcon: const Icon(Icons.flash_on_rounded, size: 16),
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 12,
-                    ),
-                  ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
+      width: 640,
+      height: 480,
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              Navigator.of(context).pop(),
+          const SingleActivator(LogicalKeyboardKey.arrowDown): () => _move(1),
+          const SingleActivator(LogicalKeyboardKey.arrowUp): () => _move(-1),
+          const SingleActivator(LogicalKeyboardKey.enter): _commit,
+          const SingleActivator(LogicalKeyboardKey.numpadEnter): _commit,
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+              child: TextField(
+                controller: _qCtrl,
+                focusNode: _qFocus,
+                autofocus: true,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: isZh
+                      ? '快速打开脚本… 末尾加 :42 可跳到指定行'
+                      : 'Go to file… (suffix :42 jumps to line)',
+                  prefixIcon: const Icon(Icons.flash_on_rounded, size: 16),
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 12,
                   ),
                 ),
-              ),
-              if (_gotoLine != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    isZh ? '将跳到第 $_gotoLine 行' : 'Will jump to line $_gotoLine',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.primary,
-                    ),
-                  ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
                 ),
-              const Divider(height: 1),
-              Expanded(
-                child: _filtered.isEmpty
-                    ? Center(
-                        child: Text(
-                          isZh ? '无匹配脚本' : 'No matches',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _listScroll,
-                        itemExtent: 36,
-                        itemCount: _filtered.length,
-                        itemBuilder: (ctx, i) {
-                          final e = _filtered[i];
-                          final active = i == _activeIndex;
-                          final base = e.url.split('/').last;
-                          final dir = base.length >= e.url.length
-                              ? ''
-                              : e.url.substring(
-                                  0,
-                                  e.url.length - base.length - 1,
-                                );
-                          return InkWell(
-                            onTap: () {
-                              setState(() => _activeIndex = i);
-                              _commit();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
-                              ),
-                              color: active
-                                  ? cs.primary.withValues(alpha: 0.12)
-                                  : Colors.transparent,
-                              alignment: Alignment.centerLeft,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.description_outlined,
-                                    size: 14,
-                                    color: active
-                                        ? cs.primary
-                                        : cs.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    base.isEmpty ? '(anonymous)' : base,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontFamily: 'monospace',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: active ? cs.primary : cs.onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      dir,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            fontFamily: 'monospace',
-                                            fontSize: 11,
-                                            color: cs.onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
               ),
+            ),
+            if (_gotoLine != null)
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
-                  vertical: 6,
+                  vertical: 4,
                 ),
                 child: Text(
-                  isZh
-                      ? '↑/↓ 选择 · Enter 打开 · Esc 关闭'
-                      : '↑/↓ navigate · Enter open · Esc close',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
-                    color: cs.onSurfaceVariant,
-                  ),
+                  isZh ? '将跳到第 $_gotoLine 行' : 'Will jump to line $_gotoLine',
+                  style: theme.textTheme.bodySmall?.copyWith(color: cs.primary),
                 ),
               ),
-            ],
-          ),
+            const Divider(height: 1),
+            Expanded(
+              child: _filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        isZh ? '无匹配脚本' : 'No matches',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _listScroll,
+                      itemExtent: 36,
+                      itemCount: _filtered.length,
+                      itemBuilder: (ctx, i) {
+                        final e = _filtered[i];
+                        final active = i == _activeIndex;
+                        final base = e.url.split('/').last;
+                        final dir = base.length >= e.url.length
+                            ? ''
+                            : e.url.substring(
+                                0,
+                                e.url.length - base.length - 1,
+                              );
+                        return InkWell(
+                          onTap: () {
+                            setState(() => _activeIndex = i);
+                            _commit();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            color: active
+                                ? cs.primary.withValues(alpha: 0.12)
+                                : Colors.transparent,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.description_outlined,
+                                  size: 14,
+                                  color: active
+                                      ? cs.primary
+                                      : cs.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  base.isEmpty ? '(anonymous)' : base,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: active ? cs.primary : cs.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    dir,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Text(
+                isZh
+                    ? '↑/↓ 选择 · Enter 打开 · Esc 关闭'
+                    : '↑/↓ navigate · Enter open · Esc close',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

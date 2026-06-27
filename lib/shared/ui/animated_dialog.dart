@@ -40,12 +40,20 @@ double resolveOpenHandResponsiveDialogExtent({
   required double maxExtent,
   double minAvailableExtent = 0,
   double viewportMargin = 0,
+  double? viewportFraction,
 }) {
   final safeMax = _validDialogDimension(maxExtent);
   final safeMin = _validDialogDimension(minAvailableExtent) ?? 0;
-  final available = viewportExtent.isFinite
+  final safeFraction = _validDialogViewportFraction(viewportFraction);
+  final marginBoundedExtent = viewportExtent.isFinite
       ? math.max(safeMin, viewportExtent - viewportMargin)
       : (safeMax ?? safeMin);
+  final available = viewportExtent.isFinite && safeFraction != null
+      ? math.min(
+          marginBoundedExtent,
+          math.max(safeMin, viewportExtent * safeFraction),
+        )
+      : marginBoundedExtent;
   return safeMax == null ? available : math.min(safeMax, available);
 }
 
@@ -74,6 +82,11 @@ double? _validDialogMaxWidth(double? maxWidth) {
 double? _validDialogDimension(double? value) {
   if (value == null || !value.isFinite || value <= 0) return null;
   return value;
+}
+
+double? _validDialogViewportFraction(double? value) {
+  if (value == null || !value.isFinite || value <= 0) return null;
+  return value.clamp(0.05, 1.0).toDouble();
 }
 
 double _safeDialogMaxDimension(double? maxValue, double minValue) {
@@ -225,6 +238,7 @@ Dialog buildOpenHandDialog({
   required Widget child,
   Color? backgroundColor,
   Color? surfaceTintColor,
+  double? elevation,
   ShapeBorder? shape,
   Clip clipBehavior = Clip.antiAlias,
   EdgeInsets? insetPadding,
@@ -239,6 +253,7 @@ Dialog buildOpenHandDialog({
   return Dialog(
     backgroundColor: backgroundColor,
     surfaceTintColor: surfaceTintColor,
+    elevation: elevation,
     shape: shape,
     clipBehavior: clipBehavior,
     insetPadding: insetPadding ?? kOpenHandDialogDefaultInsetPadding,
@@ -762,6 +777,8 @@ Widget buildOpenHandResponsiveDialogShell({
   required Widget child,
   double maxWidth = kOpenHandToolDialogDefaultMaxWidth,
   double maxHeight = kOpenHandToolDialogDefaultMaxHeight,
+  double? maxWidthFraction,
+  double? maxHeightFraction,
   double minAvailableWidth = 280,
   double minAvailableHeight = 360,
   double minWidth = 0,
@@ -782,12 +799,14 @@ Widget buildOpenHandResponsiveDialogShell({
     maxExtent: maxWidth,
     minAvailableExtent: minAvailableWidth,
     viewportMargin: horizontalMargin,
+    viewportFraction: maxWidthFraction,
   );
   final effectiveMaxHeight = resolveOpenHandResponsiveDialogExtent(
     viewportExtent: mediaSize.height,
     maxExtent: maxHeight,
     minAvailableExtent: minAvailableHeight,
     viewportMargin: verticalMargin,
+    viewportFraction: maxHeightFraction,
   );
   final effectiveMinWidth = math.min(
     effectiveMaxWidth,

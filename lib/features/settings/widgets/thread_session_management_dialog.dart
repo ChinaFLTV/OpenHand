@@ -926,78 +926,76 @@ class _ThreadSessionManagementDialogState
         );
     }
     final theme = Theme.of(context);
-    final mediaWidth = MediaQuery.sizeOf(context).width;
-    final mediaHeight = MediaQuery.sizeOf(context).height;
-    final dialogWidth = mediaWidth.clamp(420.0, 920.0);
-    final dialogHeight = (mediaHeight * 0.85).clamp(420.0, 880.0);
 
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: dialogWidth,
-          maxHeight: dialogHeight,
-        ),
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(theme, sessions),
-                const Divider(height: 1),
-                _buildToolbar(theme, templates),
-                const Divider(height: 1),
-                if (_isSelectionMode) _buildSelectionToolbar(theme, visible),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: visible.isEmpty
-                            ? _buildEmptyState()
-                            : _buildList(visible),
-                      ),
-                      AnimatedSize(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        alignment: Alignment.centerLeft,
-                        child: _previewSession == null
-                            ? const SizedBox(width: 0)
-                            : _buildPreviewDrawer(theme),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                _buildFooter(),
-              ],
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: IgnorePointer(
-                child: HighlightPulse(
-                  signal: _outcomeSuccessSignal,
-                  color: OpenHandStatusColors.success,
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 880,
+      maxHeightFraction: 0.85,
+      minAvailableWidth: 420,
+      minAvailableHeight: 420,
+      horizontalMargin: 48,
+      verticalMargin: 48,
+      safeAreaMinimum: const EdgeInsets.all(24),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(theme, sessions),
+              const Divider(height: 1),
+              _buildToolbar(theme, templates),
+              const Divider(height: 1),
+              if (_isSelectionMode) _buildSelectionToolbar(theme, visible),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: visible.isEmpty
+                          ? _buildEmptyState()
+                          : _buildList(visible),
+                    ),
+                    AnimatedSize(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.centerLeft,
+                      child: _previewSession == null
+                          ? const SizedBox(width: 0)
+                          : _buildPreviewDrawer(theme),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: IgnorePointer(
-                child: HighlightPulse(
-                  signal: _outcomeErrorSignal,
-                  color: OpenHandStatusColors.error,
-                ),
+              const Divider(height: 1),
+              _buildFooter(),
+            ],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: IgnorePointer(
+              child: HighlightPulse(
+                signal: _outcomeSuccessSignal,
+                color: OpenHandStatusColors.success,
               ),
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: IgnorePointer(
+              child: HighlightPulse(
+                signal: _outcomeErrorSignal,
+                color: OpenHandStatusColors.error,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

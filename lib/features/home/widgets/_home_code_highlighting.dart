@@ -2128,8 +2128,9 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         ? Curves.linear
         : animationSettings.curve.curve;
 
-    return Dialog(
+    return buildOpenHandDialog(
       backgroundColor: Colors.transparent,
+      clipBehavior: Clip.none,
       child: AnimatedContainer(
         duration: sizeDuration,
         curve: sizeCurve,

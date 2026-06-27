@@ -4531,10 +4531,18 @@ class _SettingsViewState extends State<SettingsView> {
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      content: _ThrottleImportDiffDialog(diffs: diffs, isZh: isZh),
+      content: buildOpenHandDialogConstrainedContent(
+        width: 600,
+        maxHeight: 420,
+        child: _ThrottleImportDiffContent(
+          diffs: diffs,
+          isZh: isZh,
+          showActions: false,
+        ),
+      ),
       title: isZh ? '导入节流配置？' : 'Import throttle config?',
       cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '导入' : 'Import',
+      confirmLabel: isZh ? '导入 ${diffs.length} 项' : 'Import ${diffs.length}',
     );
     if (!confirmed) return;
     if (!context.mounted) return;
@@ -6354,128 +6362,145 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 640,
+      maxHeight: 560,
+      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: _ThrottleImportDiffContent(
+          diffs: diffs,
+          isZh: isZh,
+          showActions: true,
+        ),
+      ),
+    );
+  }
+}
+
+class _ThrottleImportDiffContent extends StatelessWidget {
+  const _ThrottleImportDiffContent({
+    required this.diffs,
+    required this.isZh,
+    required this.showActions,
+  });
+
+  final List<_ThrottleDiffRow> diffs;
+  final bool isZh;
+  final bool showActions;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 560),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.compare_arrows_rounded, size: 20, color: scheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isZh ? '节流配置 · 冲突预览' : 'Throttle Config · Diff Preview',
+                style: theme.textTheme.titleLarge,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          isZh
+              ? '以下字段会被新 JSON 覆盖；确认后才正式生效。'
+              : 'Below fields will be overwritten after confirmation.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Flexible(
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: scheme.outlineVariant),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              physics: openHandDialogAwareScrollPhysics(context),
+              itemCount: diffs.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 12,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              itemBuilder: (_, i) {
+                final r = diffs[i];
+                return Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        r.label,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 5,
+                      child: Text(
+                        r.before,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.error,
+                          decoration: TextDecoration.lineThrough,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 14,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      flex: 5,
+                      child: Text(
+                        r.after,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+        if (showActions) ...[
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.compare_arrows_rounded,
-                    size: 20,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isZh ? '节流配置 · 冲突预览' : 'Throttle Config · Diff Preview',
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ],
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(context).pop(false),
+                label: isZh ? '取消' : 'Cancel',
               ),
-              const SizedBox(height: 8),
-              Text(
-                isZh
-                    ? '以下字段会被新 JSON 覆盖；点击「应用」后才正式生效。'
-                    : 'Below fields will be overwritten. Click "Apply" to commit.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: scheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    physics: openHandDialogAwareScrollPhysics(context),
-                    itemCount: diffs.length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 12,
-                      color: scheme.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                    itemBuilder: (_, i) {
-                      final r = diffs[i];
-                      return Row(
-                        children: [
-                          Expanded(
-                            flex: 4,
-                            child: Text(
-                              r.label,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 5,
-                            child: Text(
-                              r.before,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.error,
-                                decoration: TextDecoration.lineThrough,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 14,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            flex: 5,
-                            child: Text(
-                              r.after,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.primary,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    label: isZh ? '取消' : 'Cancel',
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    label: isZh
-                        ? '应用 ${diffs.length} 项'
-                        : 'Apply ${diffs.length}',
-                  ),
-                ],
+              const SizedBox(width: 8),
+              OpenHandDialogActionButton.primary(
+                onPressed: () => Navigator.of(context).pop(true),
+                label: isZh ? '应用 ${diffs.length} 项' : 'Apply ${diffs.length}',
               ),
             ],
           ),
-        ),
-      ),
+        ],
+      ],
     );
   }
 }

@@ -228,16 +228,12 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
 
     final dialogW = (bodyW + padding * 2).clamp(_kMinDialogW, maxDialogW);
 
-    return Dialog(
+    return buildOpenHandDialog(
       backgroundColor: cs.surface,
       insetPadding: const EdgeInsets.all(_kInsetPadding),
-      constraints: BoxConstraints(
-        minWidth: dialogW,
-        maxWidth: dialogW,
-        maxHeight: maxDialogH,
-      ),
+      width: dialogW,
+      maxHeight: maxDialogH,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
       child: AnimatedSize(
         duration: disableAnim
             ? Duration.zero

@@ -685,154 +685,154 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   Widget build(BuildContext context) {
     final isEdit = widget.source != null;
     final l10n = AppLocalizations.of(context)!;
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context, isEdit, l10n),
-                const Divider(height: 24),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextFormField(
-                          controller: _name,
-                          maxLength: UserInstructionEntry.maxNameLength,
-                          decoration: InputDecoration(
-                            labelText: l10n.instructionNameField,
-                            counterText: '',
-                          ),
-                          validator: (v) {
-                            if ((v ?? '').trim().isEmpty) {
-                              return l10n.instructionNameRequired;
-                            }
-                            return null;
-                          },
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 760,
+      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context, isEdit, l10n),
+              const Divider(height: 24),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _name,
+                        maxLength: UserInstructionEntry.maxNameLength,
+                        decoration: InputDecoration(
+                          labelText: l10n.instructionNameField,
+                          counterText: '',
                         ),
-                        const SizedBox(height: 12),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final stacked = constraints.maxWidth < 560;
-                            final description = TextFormField(
-                              controller: _description,
-                              maxLength:
-                                  UserInstructionEntry.maxDescriptionLength,
-                              decoration: InputDecoration(
-                                labelText: l10n.instructionDescriptionField,
-                                counterText: '',
-                              ),
-                            );
-                            final version = TextFormField(
-                              controller: _version,
-                              decoration: InputDecoration(
-                                labelText: l10n.instructionVersionField,
-                              ),
-                            );
-                            if (stacked) {
-                              return Column(
-                                children: [
-                                  description,
-                                  const SizedBox(height: 12),
-                                  version,
-                                ],
-                              );
-                            }
-                            return Row(
+                        validator: (v) {
+                          if ((v ?? '').trim().isEmpty) {
+                            return l10n.instructionNameRequired;
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final stacked = constraints.maxWidth < 560;
+                          final description = TextFormField(
+                            controller: _description,
+                            maxLength:
+                                UserInstructionEntry.maxDescriptionLength,
+                            decoration: InputDecoration(
+                              labelText: l10n.instructionDescriptionField,
+                              counterText: '',
+                            ),
+                          );
+                          final version = TextFormField(
+                            controller: _version,
+                            decoration: InputDecoration(
+                              labelText: l10n.instructionVersionField,
+                            ),
+                          );
+                          if (stacked) {
+                            return Column(
                               children: [
-                                Expanded(flex: 2, child: description),
-                                const SizedBox(width: 12),
-                                Expanded(child: version),
+                                description,
+                                const SizedBox(height: 12),
+                                version,
                               ],
                             );
-                          },
+                          }
+                          return Row(
+                            children: [
+                              Expanded(flex: 2, child: description),
+                              const SizedBox(width: 12),
+                              Expanded(child: version),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _applyTo,
+                        maxLength: UserInstructionEntry.maxApplyToLength,
+                        decoration: InputDecoration(
+                          labelText: l10n.instructionApplyToField,
+                          counterText: '',
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _applyTo,
-                          maxLength: UserInstructionEntry.maxApplyToLength,
-                          decoration: InputDecoration(
-                            labelText: l10n.instructionApplyToField,
-                            counterText: '',
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _taskTypes,
+                        decoration: InputDecoration(
+                          labelText: l10n.instructionTaskTypesField,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _keywords,
+                        decoration: InputDecoration(
+                          labelText: l10n.instructionKeywordsField,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _notes,
+                        minLines: 2,
+                        maxLines: 4,
+                        decoration: InputDecoration(
+                          labelText: l10n.instructionNotesField,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _body,
+                        minLines: 6,
+                        maxLines: 18,
+                        maxLength: UserInstructionEntry.maxBodyLength,
+                        inputFormatters: <TextInputFormatter>[
+                          LengthLimitingTextInputFormatter(
+                            UserInstructionEntry.maxBodyLength,
                           ),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: l10n.instructionBodyField,
+                          alignLabelWithHint: true,
+                          counterText: '',
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _taskTypes,
-                          decoration: InputDecoration(
-                            labelText: l10n.instructionTaskTypesField,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _keywords,
-                          decoration: InputDecoration(
-                            labelText: l10n.instructionKeywordsField,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _notes,
-                          minLines: 2,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            labelText: l10n.instructionNotesField,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _body,
-                          minLines: 6,
-                          maxLines: 18,
-                          maxLength: UserInstructionEntry.maxBodyLength,
-                          inputFormatters: <TextInputFormatter>[
-                            LengthLimitingTextInputFormatter(
-                              UserInstructionEntry.maxBodyLength,
-                            ),
-                          ],
-                          decoration: InputDecoration(
-                            labelText: l10n.instructionBodyField,
-                            alignLabelWithHint: true,
-                            counterText: '',
-                          ),
-                          validator: (v) {
-                            if ((v ?? '').trim().isEmpty) {
-                              return l10n.instructionBodyRequired;
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
+                        validator: (v) {
+                          if ((v ?? '').trim().isEmpty) {
+                            return l10n.instructionBodyRequired;
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _saving
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      label: l10n.commonCancel,
-                    ),
-                    const SizedBox(width: 8),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _saving ? null : _save,
-                      label: isEdit
-                          ? l10n.commonSave
-                          : l10n.instructionCreateAction,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    label: l10n.commonCancel,
+                  ),
+                  const SizedBox(width: 8),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _saving ? null : _save,
+                    label: isEdit
+                        ? l10n.commonSave
+                        : l10n.instructionCreateAction,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

@@ -125,99 +125,97 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 780,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.80,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Title row ──
-              Row(
-                children: [
-                  Icon(
-                    Icons.folder_special_rounded,
-                    color: colorScheme.primary,
-                    size: 26,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.isZh ? '资产文件浏览器' : 'Steering Assets Browser',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 780,
+      maxHeight: double.infinity,
+      maxHeightFraction: 0.80,
+      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Title row ──
+            Row(
+              children: [
+                Icon(
+                  Icons.folder_special_rounded,
+                  color: colorScheme.primary,
+                  size: 26,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.isZh ? '资产文件浏览器' : 'Steering Assets Browser',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // ── Breadcrumb ──
-              _HeBreadcrumb(
-                segments: _pathSegments,
-                isZh: widget.isZh,
-                onNavigate: _navigateTo,
-              ),
-              const SizedBox(height: 8),
-              const Divider(height: 1),
-
-              // ── File list ──
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 220),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: _loading
-                      ? const Center(
-                          key: ValueKey<String>('loading'),
-                          child: CircularProgressIndicator(),
-                        )
-                      : _entries.isEmpty
-                      ? Center(
-                          key: const ValueKey<String>('empty'),
-                          child: Text(
-                            widget.isZh ? '此目录为空' : 'This directory is empty',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          key: ValueKey<String>(
-                            'list-${_pathSegments.join('/')}',
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: _entries.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 2),
-                          itemBuilder: (ctx, i) {
-                            final entry = _entries[i];
-                            return _HeSteeringEntryTile(
-                              entry: entry,
-                              isZh: widget.isZh,
-                              description:
-                                  entry.isDirectory && _pathSegments.isEmpty
-                                  ? _directoryDescriptions[entry.name]
-                                  : null,
-                              onTap: () => _onEntryTap(entry),
-                            );
-                          },
-                        ),
                 ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // ── Breadcrumb ──
+            _HeBreadcrumb(
+              segments: _pathSegments,
+              isZh: widget.isZh,
+              onNavigate: _navigateTo,
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+
+            // ── File list ──
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _loading
+                    ? const Center(
+                        key: ValueKey<String>('loading'),
+                        child: CircularProgressIndicator(),
+                      )
+                    : _entries.isEmpty
+                    ? Center(
+                        key: const ValueKey<String>('empty'),
+                        child: Text(
+                          widget.isZh ? '此目录为空' : 'This directory is empty',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        key: ValueKey<String>(
+                          'list-${_pathSegments.join('/')}',
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _entries.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 2),
+                        itemBuilder: (ctx, i) {
+                          final entry = _entries[i];
+                          return _HeSteeringEntryTile(
+                            entry: entry,
+                            isZh: widget.isZh,
+                            description:
+                                entry.isDirectory && _pathSegments.isEmpty
+                                ? _directoryDescriptions[entry.name]
+                                : null,
+                            onTap: () => _onEntryTap(entry),
+                          );
+                        },
+                      ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -758,187 +756,188 @@ class _HeSteeringFileEditorDialogState
           if (context.mounted) Navigator.of(context).pop();
         }
       },
-      child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 1060,
-            maxHeight: MediaQuery.sizeOf(context).height * 0.88,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Title row ──
-                Row(
-                  children: [
-                    Icon(
-                      Icons.edit_document,
-                      size: 22,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            fileName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            p.dirname(widget.filePath),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isMarkdown)
-                      IconButton(
-                        tooltip: _showPreview
-                            ? (widget.isZh ? '隐藏预览' : 'Hide preview')
-                            : (widget.isZh ? '显示预览' : 'Show preview'),
-                        onPressed: () =>
-                            setState(() => _showPreview = !_showPreview),
-                        icon: Icon(
-                          _showPreview
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          size: 20,
-                        ),
-                      ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      onPressed: () async {
-                        if (await _confirmDiscard()) {
-                          if (context.mounted) Navigator.of(context).pop();
-                        }
-                      },
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Divider(height: 1),
-                const SizedBox(height: 6),
-
-                // ── Markdown toolbar ──
-                if (isMarkdown && !_loading && _error == null) ...[
-                  _buildToolbar(theme, colorScheme),
-                  const SizedBox(height: 6),
-                ],
-
-                // ── Body ──
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 220),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    child: _loading
-                        ? const Center(
-                            key: ValueKey<String>('loading'),
-                            child: CircularProgressIndicator(),
-                          )
-                        : _error != null
-                        ? Center(
-                            key: const ValueKey<String>('error'),
-                            child: SelectableText(
-                              _error!,
-                              style: TextStyle(color: colorScheme.error),
-                            ),
-                          )
-                        : isMarkdown && _showPreview
-                        ? Row(
-                            key: const ValueKey<String>('split'),
-                            children: [
-                              Expanded(
-                                child: _buildEditorPane(theme, colorScheme),
-                              ),
-                              const SizedBox(width: 10),
-                              VerticalDivider(
-                                width: 1,
-                                color: colorScheme.outlineVariant,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _buildPreviewPane(theme, colorScheme),
-                              ),
-                            ],
-                          )
-                        : KeyedSubtree(
-                            key: const ValueKey<String>('editor'),
-                            child: _buildEditorPane(theme, colorScheme),
-                          ),
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 1060,
+        maxHeight: double.infinity,
+        maxHeightFraction: 0.88,
+        safeAreaMinimum: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Title row ──
+              Row(
+                children: [
+                  Icon(
+                    Icons.edit_document,
+                    size: 22,
+                    color: colorScheme.primary,
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-                const SizedBox(height: 10),
-
-                // ── Action row ──
-                Row(
-                  children: [
-                    if (!_loading && _error == null)
-                      ListenableBuilder(
-                        listenable: _controller,
-                        builder: (_, _) {
-                          final t = _controller.text;
-                          final words = t.trim().isEmpty
-                              ? 0
-                              : t
-                                    .trim()
-                                    .split(RegExp(r'\s+'))
-                                    .where((w) => w.isNotEmpty)
-                                    .length;
-                          return Text(
-                            widget.isZh
-                                ? '${t.length} 字符  $words 词'
-                                : '${t.length} chars  $words words',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          );
-                        },
-                      ),
-                    const Spacer(),
-                    if (_dirty)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: Text(
-                          widget.isZh ? '有未保存的更改' : 'Unsaved changes',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: colorScheme.error,
-                            fontWeight: FontWeight.w600,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fileName,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                        Text(
+                          p.dirname(widget.filePath),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isMarkdown)
+                    IconButton(
+                      tooltip: _showPreview
+                          ? (widget.isZh ? '隐藏预览' : 'Hide preview')
+                          : (widget.isZh ? '显示预览' : 'Show preview'),
+                      onPressed: () =>
+                          setState(() => _showPreview = !_showPreview),
+                      icon: Icon(
+                        _showPreview
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        size: 20,
                       ),
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: () async {
-                        if (await _confirmDiscard()) {
-                          if (context.mounted) Navigator.of(context).pop();
-                        }
-                      },
-                      label: widget.isZh ? '关闭' : 'Close',
                     ),
-                    const SizedBox(width: 8),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _dirty && !_saving ? _save : null,
-                      icon: Icons.save_rounded,
-                      busy: _saving,
-                      label: widget.isZh ? '保存' : 'Save',
-                    ),
-                  ],
-                ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: () async {
+                      if (await _confirmDiscard()) {
+                        if (context.mounted) Navigator.of(context).pop();
+                      }
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 6),
+
+              // ── Markdown toolbar ──
+              if (isMarkdown && !_loading && _error == null) ...[
+                _buildToolbar(theme, colorScheme),
+                const SizedBox(height: 6),
               ],
-            ),
+
+              // ── Body ──
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _loading
+                      ? const Center(
+                          key: ValueKey<String>('loading'),
+                          child: CircularProgressIndicator(),
+                        )
+                      : _error != null
+                      ? Center(
+                          key: const ValueKey<String>('error'),
+                          child: SelectableText(
+                            _error!,
+                            style: TextStyle(color: colorScheme.error),
+                          ),
+                        )
+                      : isMarkdown && _showPreview
+                      ? Row(
+                          key: const ValueKey<String>('split'),
+                          children: [
+                            Expanded(
+                              child: _buildEditorPane(theme, colorScheme),
+                            ),
+                            const SizedBox(width: 10),
+                            VerticalDivider(
+                              width: 1,
+                              color: colorScheme.outlineVariant,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildPreviewPane(theme, colorScheme),
+                            ),
+                          ],
+                        )
+                      : KeyedSubtree(
+                          key: const ValueKey<String>('editor'),
+                          child: _buildEditorPane(theme, colorScheme),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+
+              // ── Action row ──
+              Row(
+                children: [
+                  if (!_loading && _error == null)
+                    ListenableBuilder(
+                      listenable: _controller,
+                      builder: (_, _) {
+                        final t = _controller.text;
+                        final words = t.trim().isEmpty
+                            ? 0
+                            : t
+                                  .trim()
+                                  .split(RegExp(r'\s+'))
+                                  .where((w) => w.isNotEmpty)
+                                  .length;
+                        return Text(
+                          widget.isZh
+                              ? '${t.length} 字符  $words 词'
+                              : '${t.length} chars  $words words',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      },
+                    ),
+                  const Spacer(),
+                  if (_dirty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Text(
+                        widget.isZh ? '有未保存的更改' : 'Unsaved changes',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colorScheme.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () async {
+                      if (await _confirmDiscard()) {
+                        if (context.mounted) Navigator.of(context).pop();
+                      }
+                    },
+                    label: widget.isZh ? '关闭' : 'Close',
+                  ),
+                  const SizedBox(width: 8),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _dirty && !_saving ? _save : null,
+                    icon: Icons.save_rounded,
+                    busy: _saving,
+                    label: widget.isZh ? '保存' : 'Save',
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

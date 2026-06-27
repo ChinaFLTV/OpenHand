@@ -508,453 +508,441 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
 
     return PopScope(
       canPop: !_isSaving,
-      child: Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 780),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Header ──
-                Row(
-                  children: [
-                    Icon(
-                      Icons.build_circle_outlined,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _localizedText(
-                          context,
-                          zh: '编辑工具 — ${widget.initial.kind.name}',
-                          en: 'Edit Tool — ${widget.initial.kind.name}',
-                        ),
-                        style: theme.textTheme.headlineSmall,
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 720,
+        maxHeight: 780,
+        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header ──
+              Row(
+                children: [
+                  Icon(Icons.build_circle_outlined, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _localizedText(
+                        context,
+                        zh: '编辑工具 — ${widget.initial.kind.name}',
+                        en: 'Edit Tool — ${widget.initial.kind.name}',
                       ),
-                    ),
-                    IconButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // ── Body (scrollable) ──
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Enabled toggle
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            _localizedText(
-                              context,
-                              zh: '启用工具',
-                              en: 'Enable Tool',
-                            ),
-                          ),
-                          subtitle: Text(
-                            _localizedText(
-                              context,
-                              zh: '禁用后该工具不会出现在模型的工具目录中。',
-                              en: 'When disabled, this tool will not appear in the model\'s tool catalog.',
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          value: _enabled,
-                          onChanged: (value) =>
-                              setState(() => _enabled = value),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Display name
-                        TextField(
-                          controller: _displayNameController,
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: '显示名称（可选）',
-                              en: 'Display Name (optional)',
-                            ),
-                            hintText: widget.initial.kind.name,
-                            helperText: _localizedText(
-                              context,
-                              zh: '覆盖默认工具名称，留空则使用内建默认名。',
-                              en: 'Overrides the default tool name. Leave blank for the built-in default.',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Summary
-                        TextField(
-                          controller: _summaryController,
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: '简介（可选）',
-                              en: 'Summary (optional)',
-                            ),
-                            helperText: _localizedText(
-                              context,
-                              zh: '用于在工具列表中快速了解工具用途。',
-                              en: 'Shown in the tool list for quick reference.',
-                            ),
-                          ),
-                          maxLines: 2,
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Prompt override
-                        TextField(
-                          controller: _promptOverrideController,
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: 'Prompt 追加覆盖（可选）',
-                              en: 'Prompt Override (optional)',
-                            ),
-                            helperText: _localizedText(
-                              context,
-                              zh: '追加到工具 description 末尾，可用来微调模型对该工具的使用策略。',
-                              en: 'Appended to the tool description. Use it to fine-tune how the model uses this tool.',
-                            ),
-                          ),
-                          maxLines: 4,
-                          minLines: 2,
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Schema override
-                        TextField(
-                          controller: _schemaOverrideController,
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: 'Schema 覆盖（JSON，可选）',
-                              en: 'Schema Override (JSON, optional)',
-                            ),
-                            helperText: _localizedText(
-                              context,
-                              zh: '完整的 JSON Schema 对象，覆盖工具的输入参数定义。留空使用默认。',
-                              en: 'Full JSON Schema object to override the tool\'s input parameters. Leave blank for default.',
-                            ),
-                          ),
-                          maxLines: 6,
-                          minLines: 3,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Priority & Load Strategy row
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _priorityController,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    context,
-                                    zh: '优先级 (0–9999)',
-                                    en: 'Priority (0–9999)',
-                                  ),
-                                  helperText: _localizedText(
-                                    context,
-                                    zh: '越小越优先',
-                                    en: 'Lower = higher priority',
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child:
-                                  DropdownButtonFormField<
-                                    AiBuiltinToolLoadStrategy
-                                  >(
-                                    initialValue: _loadStrategy,
-                                    decoration: InputDecoration(
-                                      labelText: _localizedText(
-                                        context,
-                                        zh: '加载策略',
-                                        en: 'Load Strategy',
-                                      ),
-                                    ),
-                                    items: AiBuiltinToolLoadStrategy.values
-                                        .map(
-                                          (s) => DropdownMenuItem(
-                                            value: s,
-                                            child: Text(
-                                              _loadStrategyLabelStatic(
-                                                context,
-                                                s,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                        .toList(growable: false),
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        setState(() => _loadStrategy = value);
-                                      }
-                                    },
-                                  ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            _localizedText(
-                              context,
-                              zh: '强制加载',
-                              en: 'Force load',
-                            ),
-                          ),
-                          subtitle: Text(
-                            _localizedText(
-                              context,
-                              zh: '开启后，即使全局内建工具懒加载处于自动或开启，也会默认直接携带该工具 schema。',
-                              en: 'When enabled, this schema is sent directly even when built-in lazy loading is Auto or On.',
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          value: _forceLoad,
-                          onChanged: (value) =>
-                              setState(() => _forceLoad = value),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Max output chars & Timeout
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _maxOutputCharsController,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    context,
-                                    zh: '输出上限（字符）',
-                                    en: 'Max Output (chars)',
-                                  ),
-                                  hintText: _localizedText(
-                                    context,
-                                    zh: '使用全局默认',
-                                    en: 'Global default',
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: TextField(
-                                controller: _timeoutSecondsController,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(
-                                    context,
-                                  )!.builtinToolTimeoutLabel,
-                                  hintText: AppLocalizations.of(context)!
-                                      .builtinToolTimeoutHint(
-                                        AiBuiltinToolConfig
-                                            .defaultTimeoutSeconds,
-                                      ),
-                                  helperText: AppLocalizations.of(context)!
-                                      .builtinToolTimeoutHelper(
-                                        AiBuiltinToolConfig
-                                            .defaultTimeoutSeconds,
-                                      ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Retry on failure / Max retries
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: SwitchListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.builtinToolRetryLabel,
-                                ),
-                                subtitle: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.builtinToolRetryBody,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                value: _retryOnFailure,
-                                onChanged: (value) =>
-                                    setState(() => _retryOnFailure = value),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: TextField(
-                                controller: _maxRetriesController,
-                                enabled: _retryOnFailure,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(context)!
-                                      .builtinToolMaxRetriesLabel(
-                                        AiBuiltinToolConfig
-                                            .maxRetriesUpperBound,
-                                      ),
-                                  helperText: AppLocalizations.of(context)!
-                                      .builtinToolMaxRetriesHelper(
-                                        AiBuiltinToolConfig
-                                            .maxRetriesUpperBound,
-                                      ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Retry backoff base (ms)
-                        TextField(
-                          controller: _retryBackoffMsController,
-                          enabled: _retryOnFailure,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: <TextInputFormatter>[
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          decoration: InputDecoration(
-                            labelText: AppLocalizations.of(
-                              context,
-                            )!.builtinToolBackoffLabel,
-                            hintText: AppLocalizations.of(context)!
-                                .builtinToolBackoffHint(
-                                  AiBuiltinToolConfig.defaultRetryBackoffMs,
-                                ),
-                            helperText: AppLocalizations.of(context)!
-                                .builtinToolBackoffHelper(
-                                  AiBuiltinToolConfig.maxRetryBackoffMs,
-                                ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Require confirmation
-                        _RequireConfirmationField(
-                          value: _requireConfirmation,
-                          onChanged: (v) =>
-                              setState(() => _requireConfirmation = v),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // ── WebSearch-specific section ──
-                        if (widget.initial.kind ==
-                                AiBuiltinToolKind.webSearch &&
-                            _webSearchSettings != null) ...[
-                          _WebSearchSettingsEditor(
-                            value: _webSearchSettings!,
-                            availableModels: widget.availableModels,
-                            recentModelSelections: widget.recentModelSelections,
-                            onChanged: (next) =>
-                                setState(() => _webSearchSettings = next),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-
-                        // ── WebFetch-specific section ──
-                        if (widget.initial.kind == AiBuiltinToolKind.webFetch &&
-                            _webFetchSettings != null) ...[
-                          _WebFetchSettingsEditor(
-                            value: _webFetchSettings!,
-                            availableModels: widget.availableModels,
-                            recentModelSelections: widget.recentModelSelections,
-                            onChanged: (next) =>
-                                setState(() => _webFetchSettings = next),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-
-                        // Tags
-                        TextField(
-                          controller: _tagsController,
-                          decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: '标签（逗号分隔）',
-                              en: 'Tags (comma-separated)',
-                            ),
-                            helperText: _localizedText(
-                              context,
-                              zh: '例如: io, file, dangerous',
-                              en: 'e.g. io, file, dangerous',
-                            ),
-                          ),
-                        ),
-                      ],
+                      style: theme.textTheme.headlineSmall,
                     ),
                   ),
-                ),
+                  IconButton(
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-                // ── Actions ──
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      label: _localizedText(context, zh: '取消', en: 'Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _isSaving
-                          ? null
-                          : () {
-                              setState(() => _isSaving = true);
-                              Navigator.of(context).pop(_buildConfig());
-                            },
-                      label: _localizedText(context, zh: '保存', en: 'Save'),
-                    ),
-                  ],
+              // ── Body (scrollable) ──
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Enabled toggle
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          _localizedText(
+                            context,
+                            zh: '启用工具',
+                            en: 'Enable Tool',
+                          ),
+                        ),
+                        subtitle: Text(
+                          _localizedText(
+                            context,
+                            zh: '禁用后该工具不会出现在模型的工具目录中。',
+                            en: 'When disabled, this tool will not appear in the model\'s tool catalog.',
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        value: _enabled,
+                        onChanged: (value) => setState(() => _enabled = value),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Display name
+                      TextField(
+                        controller: _displayNameController,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: '显示名称（可选）',
+                            en: 'Display Name (optional)',
+                          ),
+                          hintText: widget.initial.kind.name,
+                          helperText: _localizedText(
+                            context,
+                            zh: '覆盖默认工具名称，留空则使用内建默认名。',
+                            en: 'Overrides the default tool name. Leave blank for the built-in default.',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Summary
+                      TextField(
+                        controller: _summaryController,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: '简介（可选）',
+                            en: 'Summary (optional)',
+                          ),
+                          helperText: _localizedText(
+                            context,
+                            zh: '用于在工具列表中快速了解工具用途。',
+                            en: 'Shown in the tool list for quick reference.',
+                          ),
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Prompt override
+                      TextField(
+                        controller: _promptOverrideController,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: 'Prompt 追加覆盖（可选）',
+                            en: 'Prompt Override (optional)',
+                          ),
+                          helperText: _localizedText(
+                            context,
+                            zh: '追加到工具 description 末尾，可用来微调模型对该工具的使用策略。',
+                            en: 'Appended to the tool description. Use it to fine-tune how the model uses this tool.',
+                          ),
+                        ),
+                        maxLines: 4,
+                        minLines: 2,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Schema override
+                      TextField(
+                        controller: _schemaOverrideController,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: 'Schema 覆盖（JSON，可选）',
+                            en: 'Schema Override (JSON, optional)',
+                          ),
+                          helperText: _localizedText(
+                            context,
+                            zh: '完整的 JSON Schema 对象，覆盖工具的输入参数定义。留空使用默认。',
+                            en: 'Full JSON Schema object to override the tool\'s input parameters. Leave blank for default.',
+                          ),
+                        ),
+                        maxLines: 6,
+                        minLines: 3,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Priority & Load Strategy row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _priorityController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: '优先级 (0–9999)',
+                                  en: 'Priority (0–9999)',
+                                ),
+                                helperText: _localizedText(
+                                  context,
+                                  zh: '越小越优先',
+                                  en: 'Lower = higher priority',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child:
+                                DropdownButtonFormField<
+                                  AiBuiltinToolLoadStrategy
+                                >(
+                                  initialValue: _loadStrategy,
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: '加载策略',
+                                      en: 'Load Strategy',
+                                    ),
+                                  ),
+                                  items: AiBuiltinToolLoadStrategy.values
+                                      .map(
+                                        (s) => DropdownMenuItem(
+                                          value: s,
+                                          child: Text(
+                                            _loadStrategyLabelStatic(
+                                              context,
+                                              s,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => _loadStrategy = value);
+                                    }
+                                  },
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          _localizedText(context, zh: '强制加载', en: 'Force load'),
+                        ),
+                        subtitle: Text(
+                          _localizedText(
+                            context,
+                            zh: '开启后，即使全局内建工具懒加载处于自动或开启，也会默认直接携带该工具 schema。',
+                            en: 'When enabled, this schema is sent directly even when built-in lazy loading is Auto or On.',
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        value: _forceLoad,
+                        onChanged: (value) =>
+                            setState(() => _forceLoad = value),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Max output chars & Timeout
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _maxOutputCharsController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: '输出上限（字符）',
+                                  en: 'Max Output (chars)',
+                                ),
+                                hintText: _localizedText(
+                                  context,
+                                  zh: '使用全局默认',
+                                  en: 'Global default',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextField(
+                              controller: _timeoutSecondsController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(
+                                  context,
+                                )!.builtinToolTimeoutLabel,
+                                hintText: AppLocalizations.of(context)!
+                                    .builtinToolTimeoutHint(
+                                      AiBuiltinToolConfig.defaultTimeoutSeconds,
+                                    ),
+                                helperText: AppLocalizations.of(context)!
+                                    .builtinToolTimeoutHelper(
+                                      AiBuiltinToolConfig.defaultTimeoutSeconds,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Retry on failure / Max retries
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                AppLocalizations.of(
+                                  context,
+                                )!.builtinToolRetryLabel,
+                              ),
+                              subtitle: Text(
+                                AppLocalizations.of(
+                                  context,
+                                )!.builtinToolRetryBody,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              value: _retryOnFailure,
+                              onChanged: (value) =>
+                                  setState(() => _retryOnFailure = value),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: TextField(
+                              controller: _maxRetriesController,
+                              enabled: _retryOnFailure,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(context)!
+                                    .builtinToolMaxRetriesLabel(
+                                      AiBuiltinToolConfig.maxRetriesUpperBound,
+                                    ),
+                                helperText: AppLocalizations.of(context)!
+                                    .builtinToolMaxRetriesHelper(
+                                      AiBuiltinToolConfig.maxRetriesUpperBound,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Retry backoff base (ms)
+                      TextField(
+                        controller: _retryBackoffMsController,
+                        enabled: _retryOnFailure,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          labelText: AppLocalizations.of(
+                            context,
+                          )!.builtinToolBackoffLabel,
+                          hintText: AppLocalizations.of(context)!
+                              .builtinToolBackoffHint(
+                                AiBuiltinToolConfig.defaultRetryBackoffMs,
+                              ),
+                          helperText: AppLocalizations.of(context)!
+                              .builtinToolBackoffHelper(
+                                AiBuiltinToolConfig.maxRetryBackoffMs,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Require confirmation
+                      _RequireConfirmationField(
+                        value: _requireConfirmation,
+                        onChanged: (v) =>
+                            setState(() => _requireConfirmation = v),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // ── WebSearch-specific section ──
+                      if (widget.initial.kind == AiBuiltinToolKind.webSearch &&
+                          _webSearchSettings != null) ...[
+                        _WebSearchSettingsEditor(
+                          value: _webSearchSettings!,
+                          availableModels: widget.availableModels,
+                          recentModelSelections: widget.recentModelSelections,
+                          onChanged: (next) =>
+                              setState(() => _webSearchSettings = next),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+
+                      // ── WebFetch-specific section ──
+                      if (widget.initial.kind == AiBuiltinToolKind.webFetch &&
+                          _webFetchSettings != null) ...[
+                        _WebFetchSettingsEditor(
+                          value: _webFetchSettings!,
+                          availableModels: widget.availableModels,
+                          recentModelSelections: widget.recentModelSelections,
+                          onChanged: (next) =>
+                              setState(() => _webFetchSettings = next),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+
+                      // Tags
+                      TextField(
+                        controller: _tagsController,
+                        decoration: InputDecoration(
+                          labelText: _localizedText(
+                            context,
+                            zh: '标签（逗号分隔）',
+                            en: 'Tags (comma-separated)',
+                          ),
+                          helperText: _localizedText(
+                            context,
+                            zh: '例如: io, file, dangerous',
+                            en: 'e.g. io, file, dangerous',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+
+              // ── Actions ──
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    label: _localizedText(context, zh: '取消', en: 'Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _isSaving
+                        ? null
+                        : () {
+                            setState(() => _isSaving = true);
+                            Navigator.of(context).pop(_buildConfig());
+                          },
+                    label: _localizedText(context, zh: '保存', en: 'Save'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

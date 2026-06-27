@@ -2558,269 +2558,260 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         final fileCount = preparedEdit.files.length;
         final editCount = preparedEdit.edit.editCount;
 
-        return Dialog(
-          insetPadding: const EdgeInsets.symmetric(
+        return buildOpenHandResponsiveDialogShell(
+          context: dialogContext,
+          maxWidth: 1080,
+          maxHeight: 760,
+          safeAreaMinimum: const EdgeInsets.symmetric(
             horizontal: 28,
             vertical: 24,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 760),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
                         ),
                       ),
-                      IconButton(
-                        tooltip: isZh ? '关闭' : 'Close',
-                        onPressed: () => Navigator.of(dialogContext).pop(false),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _WorkspaceEditStatChip(
-                        label: isZh ? '$fileCount 个文件' : '$fileCount files',
-                        color: colorScheme.primary,
-                      ),
-                      _WorkspaceEditStatChip(
-                        label: isZh ? '$editCount 处修改' : '$editCount edits',
-                        color: colorScheme.tertiary,
-                      ),
-                      if (preparedEdit.edit.hasUnsupportedOperations)
-                        _WorkspaceEditStatChip(
-                          label: isZh
-                              ? '${preparedEdit.edit.unsupportedOperationsCount} 个未支持操作'
-                              : '${preparedEdit.edit.unsupportedOperationsCount} unsupported ops',
-                          color: colorScheme.error,
-                        ),
-                    ],
-                  ),
-                  if (description?.trim().isNotEmpty == true) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      description!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.4,
-                      ),
+                    ),
+                    IconButton(
+                      tooltip: isZh ? '关闭' : 'Close',
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      icon: const Icon(Icons.close_rounded),
                     ),
                   ],
-                  if (preparedEdit.edit.hasUnsupportedOperations) ...[
-                    const SizedBox(height: 10),
-                    _buildDiagnosticsHint(
-                      colorScheme,
-                      isZh
-                          ? '文件重命名、创建、删除等文件级操作还没有自动预览或应用能力，仅展示可计算的文本修改。'
-                          : 'File-level operations such as rename, create, or delete are not previewed or applied automatically yet. Only text edits are shown here.',
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _WorkspaceEditStatChip(
+                      label: isZh ? '$fileCount 个文件' : '$fileCount files',
+                      color: colorScheme.primary,
                     ),
+                    _WorkspaceEditStatChip(
+                      label: isZh ? '$editCount 处修改' : '$editCount edits',
+                      color: colorScheme.tertiary,
+                    ),
+                    if (preparedEdit.edit.hasUnsupportedOperations)
+                      _WorkspaceEditStatChip(
+                        label: isZh
+                            ? '${preparedEdit.edit.unsupportedOperationsCount} 个未支持操作'
+                            : '${preparedEdit.edit.unsupportedOperationsCount} unsupported ops',
+                        color: colorScheme.error,
+                      ),
                   ],
-                  const SizedBox(height: 14),
-                  Expanded(
-                    child: preparedEdit.files.isEmpty
-                        ? Center(
-                            child: Text(
-                              isZh
-                                  ? '当前没有可预览的文本修改。'
-                                  : 'There are no previewable text edits for this operation.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: preparedEdit.files.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (dialogContext, index) {
-                              final file = preparedEdit.files[index];
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerLowest
-                                      .withValues(alpha: 0.94),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: colorScheme.outlineVariant
-                                        .withValues(alpha: 0.22),
-                                    width: 0.5,
-                                  ),
-                                ),
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                p.basename(file.filePath),
-                                                style: theme
-                                                    .textTheme
-                                                    .bodyMedium
-                                                    ?.copyWith(
-                                                      color:
-                                                          colorScheme.onSurface,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                _displayPathForFilePath(
-                                                  file.filePath,
-                                                ),
-                                                style: theme.textTheme.bodySmall
-                                                    ?.copyWith(
-                                                      color:
-                                                          colorScheme.primary,
-                                                      fontFamily:
-                                                          'SF Mono, Menlo, monospace',
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            _WorkspaceEditStatChip(
-                                              label: isZh
-                                                  ? '${file.editCount} 处修改'
-                                                  : '${file.editCount} edits',
-                                              color: colorScheme.primary,
-                                            ),
-                                            if (file.additionCount > 0)
-                                              _WorkspaceEditStatChip(
-                                                label: isZh
-                                                    ? '+${file.additionCount} 新增'
-                                                    : '+${file.additionCount}',
-                                                color: const Color(0xFF2E7D32),
-                                              ),
-                                            if (file.deletionCount > 0)
-                                              _WorkspaceEditStatChip(
-                                                label: isZh
-                                                    ? '-${file.deletionCount} 删除'
-                                                    : '-${file.deletionCount}',
-                                                color: colorScheme.error,
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    if (file.diffLines.isEmpty)
-                                      Text(
-                                        isZh
-                                            ? '该文件没有可显示的文本差异。'
-                                            : 'This file does not have a displayable text diff.',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color:
-                                                  colorScheme.onSurfaceVariant,
-                                            ),
-                                      )
-                                    else
-                                      Container(
-                                        constraints: const BoxConstraints(
-                                          maxHeight: 250,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.surface,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          border: Border.all(
-                                            color: colorScheme.outlineVariant
-                                                .withValues(alpha: 0.2),
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        child: ListView.builder(
-                                          shrinkWrap: true,
-                                          itemCount:
-                                              file.diffLines.length +
-                                              (file.isTruncated ? 1 : 0),
-                                          itemBuilder: (diffContext, diffIndex) {
-                                            if (file.isTruncated &&
-                                                diffIndex ==
-                                                    file.diffLines.length) {
-                                              return Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 8,
-                                                    ),
-                                                child: Text(
-                                                  isZh
-                                                      ? '差异内容过长，已截断显示前 240 行。'
-                                                      : 'The diff is long, so only the first 240 lines are shown.',
-                                                  style: theme
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        color: colorScheme
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                ),
-                                              );
-                                            }
-                                            return _WorkspaceEditDiffLine(
-                                              line: file.diffLines[diffIndex],
-                                              colorScheme: colorScheme,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      OpenHandDialogActionButton.secondary(
-                        onPressed: () => Navigator.of(dialogContext).pop(false),
-                        label: isZh ? '取消' : 'Cancel',
-                      ),
-                      const SizedBox(width: 8),
-                      OpenHandDialogActionButton.primary(
-                        onPressed: canApply
-                            ? () => Navigator.of(dialogContext).pop(true)
-                            : null,
-                        label: canApply
-                            ? (isZh ? '应用修改' : 'Apply Changes')
-                            : (isZh ? '无可应用修改' : 'No Applicable Changes'),
-                      ),
-                    ],
+                ),
+                if (description?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    description!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
                   ),
                 ],
-              ),
+                if (preparedEdit.edit.hasUnsupportedOperations) ...[
+                  const SizedBox(height: 10),
+                  _buildDiagnosticsHint(
+                    colorScheme,
+                    isZh
+                        ? '文件重命名、创建、删除等文件级操作还没有自动预览或应用能力，仅展示可计算的文本修改。'
+                        : 'File-level operations such as rename, create, or delete are not previewed or applied automatically yet. Only text edits are shown here.',
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Expanded(
+                  child: preparedEdit.files.isEmpty
+                      ? Center(
+                          child: Text(
+                            isZh
+                                ? '当前没有可预览的文本修改。'
+                                : 'There are no previewable text edits for this operation.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: preparedEdit.files.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (dialogContext, index) {
+                            final file = preparedEdit.files[index];
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerLowest
+                                    .withValues(alpha: 0.94),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant.withValues(
+                                    alpha: 0.22,
+                                  ),
+                                  width: 0.5,
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              p.basename(file.filePath),
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                    color:
+                                                        colorScheme.onSurface,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              _displayPathForFilePath(
+                                                file.filePath,
+                                              ),
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    color: colorScheme.primary,
+                                                    fontFamily:
+                                                        'SF Mono, Menlo, monospace',
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          _WorkspaceEditStatChip(
+                                            label: isZh
+                                                ? '${file.editCount} 处修改'
+                                                : '${file.editCount} edits',
+                                            color: colorScheme.primary,
+                                          ),
+                                          if (file.additionCount > 0)
+                                            _WorkspaceEditStatChip(
+                                              label: isZh
+                                                  ? '+${file.additionCount} 新增'
+                                                  : '+${file.additionCount}',
+                                              color: const Color(0xFF2E7D32),
+                                            ),
+                                          if (file.deletionCount > 0)
+                                            _WorkspaceEditStatChip(
+                                              label: isZh
+                                                  ? '-${file.deletionCount} 删除'
+                                                  : '-${file.deletionCount}',
+                                              color: colorScheme.error,
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  if (file.diffLines.isEmpty)
+                                    Text(
+                                      isZh
+                                          ? '该文件没有可显示的文本差异。'
+                                          : 'This file does not have a displayable text diff.',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                    )
+                                  else
+                                    Container(
+                                      constraints: const BoxConstraints(
+                                        maxHeight: 250,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: colorScheme.outlineVariant
+                                              .withValues(alpha: 0.2),
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      child: ListView.builder(
+                                        shrinkWrap: true,
+                                        itemCount:
+                                            file.diffLines.length +
+                                            (file.isTruncated ? 1 : 0),
+                                        itemBuilder: (diffContext, diffIndex) {
+                                          if (file.isTruncated &&
+                                              diffIndex ==
+                                                  file.diffLines.length) {
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                              child: Text(
+                                                isZh
+                                                    ? '差异内容过长，已截断显示前 240 行。'
+                                                    : 'The diff is long, so only the first 240 lines are shown.',
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                      color: colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            );
+                                          }
+                                          return _WorkspaceEditDiffLine(
+                                            line: file.diffLines[diffIndex],
+                                            colorScheme: colorScheme,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      label: isZh ? '取消' : 'Cancel',
+                    ),
+                    const SizedBox(width: 8),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: canApply
+                          ? () => Navigator.of(dialogContext).pop(true)
+                          : null,
+                      label: canApply
+                          ? (isZh ? '应用修改' : 'Apply Changes')
+                          : (isZh ? '无可应用修改' : 'No Applicable Changes'),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         );

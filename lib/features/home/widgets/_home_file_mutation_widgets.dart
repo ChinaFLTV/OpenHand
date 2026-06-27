@@ -2371,82 +2371,83 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Dialog(
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 840,
+      maxHeight: 640,
+      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(24)),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 840, maxHeight: 640),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(24)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
-                color: colorScheme.surfaceContainerLow,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.difference_rounded,
-                      color: colorScheme.primary,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.isZh ? '文件变更对比' : 'File Diff',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _FileMutationCard._shortenFilePath(widget.filePath),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                      tooltip: widget.isZh ? '关闭' : 'Close',
-                    ),
-                  ],
-                ),
-              ),
-
-              // Diff content
-              Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            _error!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.error,
-                            ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(24)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
+              color: colorScheme.surfaceContainerLow,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.difference_rounded,
+                    color: colorScheme.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.isZh ? '文件变更对比' : 'File Diff',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      )
-                    : _buildDiffView(theme, colorScheme),
+                        const SizedBox(height: 4),
+                        Text(
+                          _FileMutationCard._shortenFilePath(widget.filePath),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: widget.isZh ? '关闭' : 'Close',
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+
+            // Diff content
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          _error!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    )
+                  : _buildDiffView(theme, colorScheme),
+            ),
+          ],
         ),
       ),
     );
@@ -2592,177 +2593,173 @@ class _FileMutationHistoryInspectorDialogState
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    return Dialog(
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 720,
+      maxHeight: 640,
+      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-              child: Row(
-                children: [
-                  Icon(Icons.history_rounded, size: 18, color: cs.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l10n.fileMutationHistoryInspectorTitle,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+            child: Row(
+              children: [
+                Icon(Icons.history_rounded, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.fileMutationHistoryInspectorTitle,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).closeButtonTooltip,
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: TextField(
+              controller: _filterCtrl,
+              onChanged: (s) => setState(() => _filter = s.trim()),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                hintText: l10n.fileMutationHistoryInspectorFilterHint,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
+          ),
+          // zoom 模式提示条 + 退出按钮
+          if (_zoomedPath != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: TextField(
-                controller: _filterCtrl,
-                onChanged: (s) => setState(() => _filter = s.trim()),
-                decoration: InputDecoration(
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                  hintText: l10n.fileMutationHistoryInspectorFilterHint,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+              child: InputChip(
+                avatar: Icon(
+                  Icons.center_focus_strong_rounded,
+                  size: 14,
+                  color: cs.primary,
+                ),
+                label: Text(
+                  _zoomedPath!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontFamily: 'monospace',
                   ),
                 ),
+                deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                onDeleted: () => setState(() => _zoomedPath = null),
               ),
             ),
-            // zoom 模式提示条 + 退出按钮
-            if (_zoomedPath != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: InputChip(
-                  avatar: Icon(
-                    Icons.center_focus_strong_rounded,
-                    size: 14,
-                    color: cs.primary,
-                  ),
-                  label: Text(
-                    _zoomedPath!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontFamily: 'monospace',
+          Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.45)),
+          Expanded(
+            child: FutureBuilder<List<FileMutationView>>(
+              future: _future,
+              builder: (ctx, snap) {
+                if (!snap.hasData) {
+                  return const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  ),
-                  deleteIcon: const Icon(Icons.close_rounded, size: 14),
-                  onDeleted: () => setState(() => _zoomedPath = null),
-                ),
-              ),
-            Divider(
-              height: 1,
-              color: cs.outlineVariant.withValues(alpha: 0.45),
-            ),
-            Expanded(
-              child: FutureBuilder<List<FileMutationView>>(
-                future: _future,
-                builder: (ctx, snap) {
-                  if (!snap.hasData) {
-                    return const Center(
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
-                  }
-                  final all = snap.data!;
-                  final filtered = _filter.isEmpty
-                      ? all
-                      : all
-                            .where(
-                              (v) => v.record.filePath.toLowerCase().contains(
-                                _filter.toLowerCase(),
-                              ),
-                            )
-                            .toList(growable: false);
-                  // zoom 模式 → 只保留该路径
-                  final visible = _zoomedPath == null
-                      ? filtered
-                      : filtered
-                            .where((v) => v.record.filePath == _zoomedPath)
-                            .toList(growable: false);
-                  if (visible.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          l10n.fileMutationHistoryInspectorEmpty,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    );
-                  }
-                  // 按文件路径分组（保持原 createdAt 倒序）
-                  final groups = <String, List<FileMutationView>>{};
-                  for (final v in visible) {
-                    groups
-                        .putIfAbsent(
-                          v.record.filePath,
-                          () => <FileMutationView>[],
-                        )
-                        .add(v);
-                  }
-                  final paths = groups.keys.toList()..sort();
-                  // 分组 staggered AppearOnce——
-                  // 80ms/张，封顶 1.2s（reduceMotion 跳过）。
-                  final reduceMotion = MediaQuery.disableAnimationsOf(context);
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: paths.length,
-                    itemBuilder: (_, i) {
-                      final path = paths[i];
-                      final entries = groups[path]!
-                        ..sort(
-                          (a, b) =>
-                              b.record.createdAt.compareTo(a.record.createdAt),
-                        );
-                      final group = _HistoryInspectorGroup(
-                        filePath: path,
-                        entries: entries,
-                        zoomed: _zoomedPath == path,
-                        onZoomToggle: () => setState(() {
-                          _zoomedPath = _zoomedPath == path ? null : path;
-                        }),
-                      );
-                      if (reduceMotion) return group;
-                      final delayMs = (i * 80).clamp(0, 1200);
-                      return _DelayedAppear(
-                        delay: Duration(milliseconds: delayMs),
-                        child: group,
-                      );
-                    },
                   );
-                },
-              ),
+                }
+                final all = snap.data!;
+                final filtered = _filter.isEmpty
+                    ? all
+                    : all
+                          .where(
+                            (v) => v.record.filePath.toLowerCase().contains(
+                              _filter.toLowerCase(),
+                            ),
+                          )
+                          .toList(growable: false);
+                // zoom 模式 → 只保留该路径
+                final visible = _zoomedPath == null
+                    ? filtered
+                    : filtered
+                          .where((v) => v.record.filePath == _zoomedPath)
+                          .toList(growable: false);
+                if (visible.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        l10n.fileMutationHistoryInspectorEmpty,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+                // 按文件路径分组（保持原 createdAt 倒序）
+                final groups = <String, List<FileMutationView>>{};
+                for (final v in visible) {
+                  groups
+                      .putIfAbsent(
+                        v.record.filePath,
+                        () => <FileMutationView>[],
+                      )
+                      .add(v);
+                }
+                final paths = groups.keys.toList()..sort();
+                // 分组 staggered AppearOnce——
+                // 80ms/张，封顶 1.2s（reduceMotion 跳过）。
+                final reduceMotion = MediaQuery.disableAnimationsOf(context);
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: paths.length,
+                  itemBuilder: (_, i) {
+                    final path = paths[i];
+                    final entries = groups[path]!
+                      ..sort(
+                        (a, b) =>
+                            b.record.createdAt.compareTo(a.record.createdAt),
+                      );
+                    final group = _HistoryInspectorGroup(
+                      filePath: path,
+                      entries: entries,
+                      zoomed: _zoomedPath == path,
+                      onZoomToggle: () => setState(() {
+                        _zoomedPath = _zoomedPath == path ? null : path;
+                      }),
+                    );
+                    if (reduceMotion) return group;
+                    final delayMs = (i * 80).clamp(0, 1200);
+                    return _DelayedAppear(
+                      delay: Duration(milliseconds: delayMs),
+                      child: group,
+                    );
+                  },
+                );
+              },
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    label: MaterialLocalizations.of(context).closeButtonLabel,
-                  ),
-                ],
-              ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.primary(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  label: MaterialLocalizations.of(context).closeButtonLabel,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

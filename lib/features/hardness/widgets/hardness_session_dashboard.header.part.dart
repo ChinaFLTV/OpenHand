@@ -409,188 +409,182 @@ class _HeSessionMetadataDialog extends StatelessWidget {
       (isZh ? '验收者 (Reviewer)' : 'Reviewer', config.reviewerConfig),
     ];
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 860,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Title row ──
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isZh ? '当前会话元数据' : 'Current Session Metadata',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          sessionTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: SingleChildScrollView(
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 860,
+      maxHeight: double.infinity,
+      maxHeightFraction: 0.82,
+      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Title row ──
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Summary tiles ──
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: summaryBlocks,
+                      Text(
+                        isZh ? '当前会话元数据' : 'Current Session Metadata',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                      const SizedBox(height: 18),
-
-                      // ── Session overview ──
-                      _HeMetadataSection(
-                        title: isZh ? '会话概览' : 'Session Overview',
-                        children: [
-                          _HeMetadataEntryRow(
-                            label: isZh ? '会话 ID' : 'Session ID',
-                            value: sessionId ?? '--',
-                          ),
-                          _HeMetadataEntryRow(
-                            label: isZh ? '模板' : 'Template',
-                            value: 'Harness Engineering',
-                          ),
-                          _HeMetadataEntryRow(
-                            label: isZh ? '创建时间' : 'Created At',
-                            value: createdAtLabel ?? '--',
-                          ),
-                          _HeMetadataEntryRow(
-                            label: isZh ? '更新时间' : 'Updated At',
-                            value: updatedAtLabel ?? '--',
-                          ),
-                          _HeMetadataEntryRow(
-                            label: isZh ? '执行状态' : 'Status',
-                            value: _statusLabel(orchestrator.status),
-                          ),
-                          if (orchestrator.errorMessage?.isNotEmpty == true)
-                            _HeMetadataEntryRow(
-                              label: isZh ? '错误信息' : 'Error',
-                              value: orchestrator.errorMessage!,
-                            ),
-                        ],
+                      const SizedBox(height: 8),
+                      Text(
+                        sessionTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                      const SizedBox(height: 16),
-
-                      // ── Task config ──
-                      _HeMetadataSection(
-                        title: isZh ? '任务配置' : 'Task Config',
-                        children: [
-                          _HeMetadataEntryRow(
-                            label: isZh ? '任务描述' : 'Task',
-                            value: config.task.isEmpty ? '-' : config.task,
-                          ),
-                          _HeMetadataEntryRow(
-                            label: isZh ? '工作目录' : 'Working Directory',
-                            value: config.workingDirectory.isEmpty
-                                ? '-'
-                                : config.workingDirectory,
-                          ),
-                          _HeMetadataEntryRow(
-                            label: isZh ? '持久化目录' : 'Persistence Directory',
-                            value: config.persistenceDirectory.isEmpty
-                                ? '-'
-                                : config.persistenceDirectory,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // ── Role configs ──
-                      _HeMetadataSection(
-                        title: isZh ? '角色配置' : 'Role Configs',
-                        children: [
-                          for (final entry in roleConfigs)
-                            _HeMetadataEntryRow(
-                              label: entry.$1,
-                              value: entry.$2.isUrlMode
-                                  ? 'URL/API · ${_heDescribeAiModelConfig(aiModels, entry.$2.aiModelConfigId, isZh: isZh, urlModeModelId: entry.$2.urlModeModelId)}'
-                                  : entry.$2.isConfigured
-                                  ? '${entry.$2.cliName} · ${describeHardnessCliModel(findHardnessCliByName(entry.$2.cliName), entry.$2.modelId, isZh: isZh)}'
-                                  : (isZh ? '未配置' : 'Not configured'),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // ── Phase status ──
-                      _HeMetadataSection(
-                        title: isZh ? '阶段状态' : 'Phase Status',
-                        children: [
-                          for (final log in logs)
-                            _HeMetadataEntryRow(
-                              label: isZh
-                                  ? log.phase.displayNameZh
-                                  : log.phase.displayNameEn,
-                              value: () {
-                                final parts = <String>[
-                                  _phaseStatusLabel(log.status),
-                                ];
-                                if (log.exitCode != null) {
-                                  parts.add(
-                                    '${isZh ? '退出码' : 'Exit code'}: ${log.exitCode}',
-                                  );
-                                }
-                                parts.add(
-                                  '${isZh ? '日志行数' : 'Log lines'}: ${log.lines.length}',
-                                );
-                                if (log.savedLogPath?.isNotEmpty == true) {
-                                  parts.add(
-                                    '${isZh ? '日志文件' : 'Log file'}: ${log.savedLogPath}',
-                                  );
-                                }
-                                return parts.join(' · ');
-                              }(),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Summary tiles ──
+                    Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+                    const SizedBox(height: 18),
 
-              // ── Close button ──
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(),
-                    label: isZh ? '关闭' : 'Close',
-                  ),
-                ],
+                    // ── Session overview ──
+                    _HeMetadataSection(
+                      title: isZh ? '会话概览' : 'Session Overview',
+                      children: [
+                        _HeMetadataEntryRow(
+                          label: isZh ? '会话 ID' : 'Session ID',
+                          value: sessionId ?? '--',
+                        ),
+                        _HeMetadataEntryRow(
+                          label: isZh ? '模板' : 'Template',
+                          value: 'Harness Engineering',
+                        ),
+                        _HeMetadataEntryRow(
+                          label: isZh ? '创建时间' : 'Created At',
+                          value: createdAtLabel ?? '--',
+                        ),
+                        _HeMetadataEntryRow(
+                          label: isZh ? '更新时间' : 'Updated At',
+                          value: updatedAtLabel ?? '--',
+                        ),
+                        _HeMetadataEntryRow(
+                          label: isZh ? '执行状态' : 'Status',
+                          value: _statusLabel(orchestrator.status),
+                        ),
+                        if (orchestrator.errorMessage?.isNotEmpty == true)
+                          _HeMetadataEntryRow(
+                            label: isZh ? '错误信息' : 'Error',
+                            value: orchestrator.errorMessage!,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Task config ──
+                    _HeMetadataSection(
+                      title: isZh ? '任务配置' : 'Task Config',
+                      children: [
+                        _HeMetadataEntryRow(
+                          label: isZh ? '任务描述' : 'Task',
+                          value: config.task.isEmpty ? '-' : config.task,
+                        ),
+                        _HeMetadataEntryRow(
+                          label: isZh ? '工作目录' : 'Working Directory',
+                          value: config.workingDirectory.isEmpty
+                              ? '-'
+                              : config.workingDirectory,
+                        ),
+                        _HeMetadataEntryRow(
+                          label: isZh ? '持久化目录' : 'Persistence Directory',
+                          value: config.persistenceDirectory.isEmpty
+                              ? '-'
+                              : config.persistenceDirectory,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Role configs ──
+                    _HeMetadataSection(
+                      title: isZh ? '角色配置' : 'Role Configs',
+                      children: [
+                        for (final entry in roleConfigs)
+                          _HeMetadataEntryRow(
+                            label: entry.$1,
+                            value: entry.$2.isUrlMode
+                                ? 'URL/API · ${_heDescribeAiModelConfig(aiModels, entry.$2.aiModelConfigId, isZh: isZh, urlModeModelId: entry.$2.urlModeModelId)}'
+                                : entry.$2.isConfigured
+                                ? '${entry.$2.cliName} · ${describeHardnessCliModel(findHardnessCliByName(entry.$2.cliName), entry.$2.modelId, isZh: isZh)}'
+                                : (isZh ? '未配置' : 'Not configured'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Phase status ──
+                    _HeMetadataSection(
+                      title: isZh ? '阶段状态' : 'Phase Status',
+                      children: [
+                        for (final log in logs)
+                          _HeMetadataEntryRow(
+                            label: isZh
+                                ? log.phase.displayNameZh
+                                : log.phase.displayNameEn,
+                            value: () {
+                              final parts = <String>[
+                                _phaseStatusLabel(log.status),
+                              ];
+                              if (log.exitCode != null) {
+                                parts.add(
+                                  '${isZh ? '退出码' : 'Exit code'}: ${log.exitCode}',
+                                );
+                              }
+                              parts.add(
+                                '${isZh ? '日志行数' : 'Log lines'}: ${log.lines.length}',
+                              );
+                              if (log.savedLogPath?.isNotEmpty == true) {
+                                parts.add(
+                                  '${isZh ? '日志文件' : 'Log file'}: ${log.savedLogPath}',
+                                );
+                              }
+                              return parts.join(' · ');
+                            }(),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 18),
+
+            // ── Close button ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: () => Navigator.of(context).pop(),
+                  label: isZh ? '关闭' : 'Close',
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

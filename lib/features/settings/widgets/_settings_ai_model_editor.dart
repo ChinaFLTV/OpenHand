@@ -783,1155 +783,1130 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
 
     return PopScope(
       canPop: !_isSaving,
-      child: Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 860),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.initialModel == null
-                          ? l10n.aiModelDialogCreateTitle
-                          : l10n.aiModelDialogEditTitle,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        // Disable the macOS trackpad rubber-band / overscroll
-                        // elastic effect. Inside a bounded-height modal dialog
-                        // the bouncing spring simulation combined with rapid
-                        // successive wheel / trackpad events causes the
-                        // visible "pull-back / jitter" glitch.
-                        physics: const ClampingScrollPhysics(),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              TextFormField(
-                                controller: _nameController,
-                                enabled: !_isSaving,
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdProviderName,
-                                  hintText: AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdOptionalEGDeepseekLocalOllama,
-                                ),
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 760,
+        maxHeight: 860,
+        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.initialModel == null
+                        ? l10n.aiModelDialogCreateTitle
+                        : l10n.aiModelDialogEditTitle,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      // Disable the macOS trackpad rubber-band / overscroll
+                      // elastic effect. Inside a bounded-height modal dialog
+                      // the bouncing spring simulation combined with rapid
+                      // successive wheel / trackpad events causes the
+                      // visible "pull-back / jitter" glitch.
+                      physics: const ClampingScrollPhysics(),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _nameController,
+                              enabled: !_isSaving,
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(
+                                  context,
+                                )!.mdlEdProviderName,
+                                hintText: AppLocalizations.of(
+                                  context,
+                                )!.mdlEdOptionalEGDeepseekLocalOllama,
                               ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _baseUrlController,
-                                enabled: !_isSaving,
-                                decoration: InputDecoration(
-                                  labelText: l10n.aiModelBaseUrl,
-                                ),
-                                onChanged: (_) {
-                                  setState(() {});
-                                },
-                                validator: (value) {
-                                  final rawValue = value?.trim() ?? '';
-                                  if (rawValue.isEmpty) {
-                                    return l10n.aiModelBaseUrlRequired;
-                                  }
-                                  if (!isValidHttpUrl(rawValue)) {
-                                    return l10n.aiModelBaseUrlInvalid;
-                                  }
-                                  return null;
-                                },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _baseUrlController,
+                              enabled: !_isSaving,
+                              decoration: InputDecoration(
+                                labelText: l10n.aiModelBaseUrl,
                               ),
-                              const SizedBox(height: 16),
-                              _buildAutoCompleteBaseUrlControl(),
-                              const SizedBox(height: 16),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final authDropdown =
-                                      DropdownButtonFormField<AiAuthScheme>(
-                                        initialValue: _authScheme,
-                                        decoration: InputDecoration(
-                                          labelText: l10n.aiModelAuthScheme,
-                                        ),
-                                        items: AiAuthScheme.values
-                                            .map(
-                                              (item) =>
-                                                  DropdownMenuItem<
-                                                    AiAuthScheme
-                                                  >(
-                                                    value: item,
-                                                    child: Text(
-                                                      item.label(l10n),
-                                                    ),
-                                                  ),
-                                            )
-                                            .toList(growable: false),
-                                        onChanged: _isSaving
-                                            ? null
-                                            : (value) {
-                                                if (value == null) {
-                                                  return;
-                                                }
-                                                setState(() {
-                                                  _authScheme = value;
-                                                });
-                                              },
-                                      );
-                                  final protocolDropdown =
-                                      DropdownButtonFormField<AiProtocolType>(
-                                        initialValue: _protocolType,
-                                        decoration: InputDecoration(
-                                          labelText: l10n.aiModelProtocol,
-                                        ),
-                                        items: AiProtocolType.values
-                                            .map(
-                                              (item) =>
-                                                  DropdownMenuItem<
-                                                    AiProtocolType
-                                                  >(
-                                                    value: item,
-                                                    child: Text(
-                                                      item.label(l10n),
-                                                    ),
-                                                  ),
-                                            )
-                                            .toList(growable: false),
-                                        onChanged: _isSaving
-                                            ? null
-                                            : (value) {
-                                                if (value == null) {
-                                                  return;
-                                                }
-                                                _handleProtocolChanged(value);
-                                              },
-                                      );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        authDropdown,
-                                        const SizedBox(height: 16),
-                                        protocolDropdown,
-                                      ],
-                                    );
-                                  }
-                                  return Row(
-                                    children: [
-                                      Expanded(child: authDropdown),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: protocolDropdown),
-                                    ],
-                                  );
-                                },
-                              ),
-                              _buildExplicitPromptCacheControl(
-                                globalInputCacheEnabled:
-                                    globalInputCacheEnabled,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _tokenController,
-                                enabled: !_isSaving,
-                                obscureText: _obscureToken,
-                                decoration: InputDecoration(
-                                  labelText: l10n.aiModelToken,
-                                  suffixIconConstraints: const BoxConstraints(
-                                    minWidth: 56,
-                                    minHeight: 40,
-                                  ),
-                                  suffixIcon: Padding(
-                                    padding: const EdgeInsetsDirectional.only(
-                                      end: 10,
-                                    ),
-                                    child: IconButton(
-                                      onPressed: _isSaving
+                              onChanged: (_) {
+                                setState(() {});
+                              },
+                              validator: (value) {
+                                final rawValue = value?.trim() ?? '';
+                                if (rawValue.isEmpty) {
+                                  return l10n.aiModelBaseUrlRequired;
+                                }
+                                if (!isValidHttpUrl(rawValue)) {
+                                  return l10n.aiModelBaseUrlInvalid;
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _buildAutoCompleteBaseUrlControl(),
+                            const SizedBox(height: 16),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final authDropdown =
+                                    DropdownButtonFormField<AiAuthScheme>(
+                                      initialValue: _authScheme,
+                                      decoration: InputDecoration(
+                                        labelText: l10n.aiModelAuthScheme,
+                                      ),
+                                      items: AiAuthScheme.values
+                                          .map(
+                                            (item) =>
+                                                DropdownMenuItem<AiAuthScheme>(
+                                                  value: item,
+                                                  child: Text(item.label(l10n)),
+                                                ),
+                                          )
+                                          .toList(growable: false),
+                                      onChanged: _isSaving
                                           ? null
-                                          : () {
+                                          : (value) {
+                                              if (value == null) {
+                                                return;
+                                              }
                                               setState(() {
-                                                _obscureToken = !_obscureToken;
+                                                _authScheme = value;
                                               });
                                             },
-                                      style: IconButton.styleFrom(
-                                        backgroundColor: Colors.transparent,
-                                        foregroundColor:
-                                            colorScheme.onSurfaceVariant,
-                                        disabledForegroundColor: colorScheme
-                                            .onSurfaceVariant
-                                            .withValues(alpha: 0.38),
-                                        minimumSize: const Size(36, 36),
-                                        maximumSize: const Size(36, 36),
-                                        padding: EdgeInsets.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                      icon: Icon(
-                                        _obscureToken
-                                            ? Icons.visibility_outlined
-                                            : Icons.visibility_off_outlined,
-                                        size: 22,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              // ── Model scan section ──
-                              Row(
-                                children: [
-                                  Text(
-                                    l10n.aiModelAvailableModels,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  if (_isScanning)
-                                    const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  else
-                                    FilledButton.tonalIcon(
-                                      onPressed: _isSaving ? null : _scanModels,
-                                      icon: const Icon(
-                                        Icons.radar_rounded,
-                                        size: 18,
-                                      ),
-                                      label: Text(l10n.aiModelScanButton),
-                                    ),
-                                  if (_isScanning) ...[
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      l10n.aiModelScanning,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              if (_scanError != null) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  _scanError!,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: colorScheme.error),
-                                ),
-                              ],
-                              const SizedBox(height: 12),
-                              // Available models chip list
-                              if (_visibleModelIds.isNotEmpty)
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 200,
-                                  ),
-                                  child: RepaintBoundary(
-                                    // Swallow overscroll notifications from this
-                                    // inner scroll area so they cannot bubble up
-                                    // and re-trigger the outer SingleChildScrollView,
-                                    // which would cause both scrollables to
-                                    // jitter against each other.
-                                    child: NotificationListener<OverscrollNotification>(
-                                      onNotification: (_) => true,
-                                      child: OpenHandSafeScrollbar(
-                                        controller: _chipScrollController,
-                                        thumbVisibility:
-                                            _visibleModelIds.length > 30,
-                                        child: SingleChildScrollView(
-                                          controller: _chipScrollController,
-                                          physics:
-                                              const ClampingScrollPhysics(),
-                                          child: Wrap(
-                                            spacing: 8,
-                                            runSpacing: 6,
-                                            children: _visibleModelIds
-                                                .map((id) {
-                                                  final isActive =
-                                                      id == _activeModelId;
-                                                  return _AiProviderModelChip(
-                                                    modelId: id,
-                                                    isActive: isActive,
-                                                    enabled: !_isSaving,
-                                                    hasProfile:
-                                                        _modelProfiles[id]
-                                                            ?.hasUserOverrides ==
-                                                        true,
-                                                    tooltip: isActive
-                                                        ? AppLocalizations.of(
-                                                            context,
-                                                          )!.mdlEdCurrentlyActiveModel
-                                                        : AppLocalizations.of(
-                                                            context,
-                                                          )!.mdlEdClickToSetAsActiveModel,
-                                                    onPressed: () =>
-                                                        _selectModelId(id),
-                                                    onEdit: () =>
-                                                        _editModelProfile(id),
-                                                    onDeleted: () =>
-                                                        _removeModelId(id),
-                                                  );
-                                                })
-                                                .toList(growable: false),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdTapScanModelsToDiscoverModels,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                ),
-                              const SizedBox(height: 12),
-                              // Manual model ID input
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _manualModelIdController,
-                                      enabled: !_isSaving,
+                                    );
+                                final protocolDropdown =
+                                    DropdownButtonFormField<AiProtocolType>(
+                                      initialValue: _protocolType,
                                       decoration: InputDecoration(
-                                        labelText: l10n.aiModelManualIdHint,
-                                        isDense: true,
+                                        labelText: l10n.aiModelProtocol,
                                       ),
-                                      onSubmitted: (_) => _addManualModelId(),
-                                    ),
+                                      items: AiProtocolType.values
+                                          .map(
+                                            (item) =>
+                                                DropdownMenuItem<
+                                                  AiProtocolType
+                                                >(
+                                                  value: item,
+                                                  child: Text(item.label(l10n)),
+                                                ),
+                                          )
+                                          .toList(growable: false),
+                                      onChanged: _isSaving
+                                          ? null
+                                          : (value) {
+                                              if (value == null) {
+                                                return;
+                                              }
+                                              _handleProtocolChanged(value);
+                                            },
+                                    );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      authDropdown,
+                                      const SizedBox(height: 16),
+                                      protocolDropdown,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(child: authDropdown),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: protocolDropdown),
+                                  ],
+                                );
+                              },
+                            ),
+                            _buildExplicitPromptCacheControl(
+                              globalInputCacheEnabled: globalInputCacheEnabled,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _tokenController,
+                              enabled: !_isSaving,
+                              obscureText: _obscureToken,
+                              decoration: InputDecoration(
+                                labelText: l10n.aiModelToken,
+                                suffixIconConstraints: const BoxConstraints(
+                                  minWidth: 56,
+                                  minHeight: 40,
+                                ),
+                                suffixIcon: Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                    end: 10,
                                   ),
-                                  const SizedBox(width: 8),
-                                  FilledButton.tonal(
+                                  child: IconButton(
                                     onPressed: _isSaving
                                         ? null
-                                        : _addManualModelId,
-                                    child: Text(l10n.aiModelManualIdAdd),
+                                        : () {
+                                            setState(() {
+                                              _obscureToken = !_obscureToken;
+                                            });
+                                          },
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      foregroundColor:
+                                          colorScheme.onSurfaceVariant,
+                                      disabledForegroundColor: colorScheme
+                                          .onSurfaceVariant
+                                          .withValues(alpha: 0.38),
+                                      minimumSize: const Size(36, 36),
+                                      maximumSize: const Size(36, 36),
+                                      padding: EdgeInsets.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    icon: Icon(
+                                      _obscureToken
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      size: 22,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            // ── Model scan section ──
+                            Row(
+                              children: [
+                                Text(
+                                  l10n.aiModelAvailableModels,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(width: 12),
+                                if (_isScanning)
+                                  const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                else
+                                  FilledButton.tonalIcon(
+                                    onPressed: _isSaving ? null : _scanModels,
+                                    icon: const Icon(
+                                      Icons.radar_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(l10n.aiModelScanButton),
+                                  ),
+                                if (_isScanning) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    l10n.aiModelScanning,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
                                   ),
                                 ],
+                              ],
+                            ),
+                            if (_scanError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _scanError!,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colorScheme.error),
                               ),
-                              const SizedBox(height: 16),
-                              _buildModelIdDropdown(
-                                label: AppLocalizations.of(
+                            ],
+                            const SizedBox(height: 12),
+                            // Available models chip list
+                            if (_visibleModelIds.isNotEmpty)
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxHeight: 200,
+                                ),
+                                child: RepaintBoundary(
+                                  // Swallow overscroll notifications from this
+                                  // inner scroll area so they cannot bubble up
+                                  // and re-trigger the outer SingleChildScrollView,
+                                  // which would cause both scrollables to
+                                  // jitter against each other.
+                                  child: NotificationListener<OverscrollNotification>(
+                                    onNotification: (_) => true,
+                                    child: OpenHandSafeScrollbar(
+                                      controller: _chipScrollController,
+                                      thumbVisibility:
+                                          _visibleModelIds.length > 30,
+                                      child: SingleChildScrollView(
+                                        controller: _chipScrollController,
+                                        physics: const ClampingScrollPhysics(),
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 6,
+                                          children: _visibleModelIds
+                                              .map((id) {
+                                                final isActive =
+                                                    id == _activeModelId;
+                                                return _AiProviderModelChip(
+                                                  modelId: id,
+                                                  isActive: isActive,
+                                                  enabled: !_isSaving,
+                                                  hasProfile:
+                                                      _modelProfiles[id]
+                                                          ?.hasUserOverrides ==
+                                                      true,
+                                                  tooltip: isActive
+                                                      ? AppLocalizations.of(
+                                                          context,
+                                                        )!.mdlEdCurrentlyActiveModel
+                                                      : AppLocalizations.of(
+                                                          context,
+                                                        )!.mdlEdClickToSetAsActiveModel,
+                                                  onPressed: () =>
+                                                      _selectModelId(id),
+                                                  onEdit: () =>
+                                                      _editModelProfile(id),
+                                                  onDeleted: () =>
+                                                      _removeModelId(id),
+                                                );
+                                              })
+                                              .toList(growable: false),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              Text(
+                                AppLocalizations.of(
                                   context,
-                                )!.mdlEdActiveModelId,
+                                )!.mdlEdTapScanModelsToDiscoverModels,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            const SizedBox(height: 12),
+                            // Manual model ID input
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _manualModelIdController,
+                                    enabled: !_isSaving,
+                                    decoration: InputDecoration(
+                                      labelText: l10n.aiModelManualIdHint,
+                                      isDense: true,
+                                    ),
+                                    onSubmitted: (_) => _addManualModelId(),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton.tonal(
+                                  onPressed: _isSaving
+                                      ? null
+                                      : _addManualModelId,
+                                  child: Text(l10n.aiModelManualIdAdd),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _buildModelIdDropdown(
+                              label: AppLocalizations.of(
+                                context,
+                              )!.mdlEdActiveModelId,
+                              helperText: AppLocalizations.of(
+                                context,
+                              )!.mdlEdTheModelUsedForConversationsSelect,
+                              selectedModelId: _activeModelId,
+                              onChanged: (value) => _selectModelId(value ?? ''),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildModelIdDropdown(
+                              label: _localizedText(
+                                context,
+                                zh: '默认标题生成模型 ID',
+                                en: 'Default Title Model ID',
+                              ),
+                              helperText: _localizedText(
+                                context,
+                                zh: '当前线程模型不适合生成文本标题时，会优先回退到这里选择的同提供商模型。',
+                                en: 'When the thread model is not suitable for text titles, title generation falls back to this sibling provider model first.',
+                              ),
+                              selectedModelId: _defaultTitleModelId,
+                              allowUnset: true,
+                              onChanged: _selectDefaultTitleModelId,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _maxContextTokensController,
+                              enabled: !_isSaving,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(
+                                  context,
+                                )!.mdlEdMaxContextTokens,
                                 helperText: AppLocalizations.of(
                                   context,
-                                )!.mdlEdTheModelUsedForConversationsSelect,
-                                selectedModelId: _activeModelId,
-                                onChanged: (value) =>
-                                    _selectModelId(value ?? ''),
+                                )!.mdlEdOptionalLimitsTheHistorySliceUsed,
                               ),
-                              const SizedBox(height: 16),
-                              _buildModelIdDropdown(
-                                label: _localizedText(
-                                  context,
-                                  zh: '默认标题生成模型 ID',
-                                  en: 'Default Title Model ID',
-                                ),
-                                helperText: _localizedText(
-                                  context,
-                                  zh: '当前线程模型不适合生成文本标题时，会优先回退到这里选择的同提供商模型。',
-                                  en: 'When the thread model is not suitable for text titles, title generation falls back to this sibling provider model first.',
-                                ),
-                                selectedModelId: _defaultTitleModelId,
-                                allowUnset: true,
-                                onChanged: _selectDefaultTitleModelId,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _maxContextTokensController,
-                                enabled: !_isSaving,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdMaxContextTokens,
-                                  helperText: AppLocalizations.of(
-                                    context,
-                                  )!.mdlEdOptionalLimitsTheHistorySliceUsed,
-                                ),
-                                validator: (value) {
-                                  final trimmed = value?.trim() ?? '';
-                                  if (trimmed.isEmpty) {
-                                    return null;
-                                  }
-                                  final parsed = int.tryParse(trimmed);
-                                  if (parsed == null || parsed <= 0) {
-                                    return AppLocalizations.of(
-                                      context,
-                                    )!.mdlEdEnterAWholeNumberGreaterThan;
-                                  }
+                              validator: (value) {
+                                final trimmed = value?.trim() ?? '';
+                                if (trimmed.isEmpty) {
                                   return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              // ── Request configuration section ──
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final methodDropdown =
-                                      DropdownButtonFormField<String>(
-                                        initialValue: _requestMethod,
-                                        decoration: InputDecoration(
-                                          labelText: AppLocalizations.of(
-                                            context,
-                                          )!.mdlEdRequestMethod,
-                                        ),
-                                        items: const <DropdownMenuItem<String>>[
-                                          DropdownMenuItem<String>(
-                                            value: 'POST',
-                                            child: Text('POST'),
-                                          ),
-                                          DropdownMenuItem<String>(
-                                            value: 'GET',
-                                            child: Text('GET'),
-                                          ),
-                                          DropdownMenuItem<String>(
-                                            value: 'PUT',
-                                            child: Text('PUT'),
-                                          ),
-                                          DropdownMenuItem<String>(
-                                            value: 'PATCH',
-                                            child: Text('PATCH'),
-                                          ),
-                                          DropdownMenuItem<String>(
-                                            value: 'DELETE',
-                                            child: Text('DELETE'),
-                                          ),
-                                          DropdownMenuItem<String>(
-                                            value: 'HEAD',
-                                            child: Text('HEAD'),
-                                          ),
-                                          DropdownMenuItem<String>(
-                                            value: 'OPTIONS',
-                                            child: Text('OPTIONS'),
-                                          ),
-                                        ],
-                                        onChanged: _isSaving
-                                            ? null
-                                            : (value) {
-                                                if (value == null) return;
-                                                setState(() {
-                                                  _requestMethod = value;
-                                                });
-                                              },
-                                      );
-                                  final streamToggle = InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: AppLocalizations.of(
-                                        context,
-                                      )!.mdlEdOutputMode,
-                                      border: InputBorder.none,
-                                      contentPadding: const EdgeInsets.only(
-                                        top: 8,
+                                }
+                                final parsed = int.tryParse(trimmed);
+                                if (parsed == null || parsed <= 0) {
+                                  return AppLocalizations.of(
+                                    context,
+                                  )!.mdlEdEnterAWholeNumberGreaterThan;
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // ── Request configuration section ──
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final methodDropdown =
+                                    DropdownButtonFormField<String>(
+                                      initialValue: _requestMethod,
+                                      decoration: InputDecoration(
+                                        labelText: AppLocalizations.of(
+                                          context,
+                                        )!.mdlEdRequestMethod,
                                       ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          _streamEnabled
-                                              ? AppLocalizations.of(
-                                                  context,
-                                                )!.mdlEdStreaming
-                                              : AppLocalizations.of(
-                                                  context,
-                                                )!.mdlEdNonStreaming,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                color: colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
+                                      items: const <DropdownMenuItem<String>>[
+                                        DropdownMenuItem<String>(
+                                          value: 'POST',
+                                          child: Text('POST'),
                                         ),
-                                        const Spacer(),
-                                        Switch(
-                                          value: _streamEnabled,
-                                          onChanged: null, // Disabled for now
+                                        DropdownMenuItem<String>(
+                                          value: 'GET',
+                                          child: Text('GET'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'PUT',
+                                          child: Text('PUT'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'PATCH',
+                                          child: Text('PATCH'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'DELETE',
+                                          child: Text('DELETE'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'HEAD',
+                                          child: Text('HEAD'),
+                                        ),
+                                        DropdownMenuItem<String>(
+                                          value: 'OPTIONS',
+                                          child: Text('OPTIONS'),
                                         ),
                                       ],
-                                    ),
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        methodDropdown,
-                                        const SizedBox(height: 16),
-                                        streamToggle,
-                                      ],
+                                      onChanged: _isSaving
+                                          ? null
+                                          : (value) {
+                                              if (value == null) return;
+                                              setState(() {
+                                                _requestMethod = value;
+                                              });
+                                            },
                                     );
-                                  }
-                                  return Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                final streamToggle = InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdOutputMode,
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.only(
+                                      top: 8,
+                                    ),
+                                  ),
+                                  child: Row(
                                     children: [
-                                      Expanded(child: methodDropdown),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: streamToggle),
+                                      Text(
+                                        _streamEnabled
+                                            ? AppLocalizations.of(
+                                                context,
+                                              )!.mdlEdStreaming
+                                            : AppLocalizations.of(
+                                                context,
+                                              )!.mdlEdNonStreaming,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      const Spacer(),
+                                      Switch(
+                                        value: _streamEnabled,
+                                        onChanged: null, // Disabled for now
+                                      ),
                                     ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final maxTokensField = TextFormField(
-                                    controller: _maxTokensController,
-                                    enabled: !_isSaving,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: AppLocalizations.of(
-                                        context,
-                                      )!.mdlEdMaxOutputTokens,
-                                      helperText: AppLocalizations.of(
-                                        context,
-                                      )!.mdlEdOptionalUsesAdapterDefaultIfUnset,
-                                    ),
-                                    validator: (value) {
-                                      final trimmed = value?.trim() ?? '';
-                                      if (trimmed.isEmpty) return null;
-                                      final parsed = int.tryParse(trimmed);
-                                      if (parsed == null || parsed <= 0) {
-                                        return AppLocalizations.of(
-                                          context,
-                                        )!.mdlEdEnterAWholeNumberGreaterThan;
-                                      }
-                                      return null;
-                                    },
-                                  );
-                                  final temperatureField = TextFormField(
-                                    controller: _temperatureController,
-                                    enabled: !_isSaving,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    decoration: InputDecoration(
-                                      labelText: AppLocalizations.of(
-                                        context,
-                                      )!.mdlEdTemperature,
-                                      helperText: AppLocalizations.of(
-                                        context,
-                                      )!.mdlEd0020Default0,
-                                    ),
-                                    validator: (value) {
-                                      final trimmed = value?.trim() ?? '';
-                                      if (trimmed.isEmpty) return null;
-                                      final parsed = double.tryParse(trimmed);
-                                      if (parsed == null ||
-                                          parsed < 0 ||
-                                          parsed > 2.0) {
-                                        return AppLocalizations.of(
-                                          context,
-                                        )!.mdlEdEnterANumberBetween00;
-                                      }
-                                      return null;
-                                    },
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        maxTokensField,
-                                        const SizedBox(height: 16),
-                                        temperatureField,
-                                      ],
-                                    );
-                                  }
-                                  return Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(child: maxTokensField),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: temperatureField),
-                                    ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                '高级接口配置',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final dialectDropdown =
-                                      DropdownButtonFormField<AiApiDialect>(
-                                        initialValue: _apiDialect,
-                                        decoration: const InputDecoration(
-                                          labelText: 'API 方言',
-                                        ),
-                                        items: AiApiDialect.values
-                                            .map(
-                                              (item) =>
-                                                  DropdownMenuItem<
-                                                    AiApiDialect
-                                                  >(
-                                                    value: item,
-                                                    child: Text(
-                                                      item.storageValue,
-                                                    ),
-                                                  ),
-                                            )
-                                            .toList(growable: false),
-                                        onChanged: _isSaving
-                                            ? null
-                                            : (value) {
-                                                if (value == null) return;
-                                                setState(() {
-                                                  _apiDialect = value;
-                                                });
-                                              },
-                                      );
-                                  final providerKindDropdown =
-                                      DropdownButtonFormField<AiProviderKind>(
-                                        initialValue: _providerKind,
-                                        decoration: const InputDecoration(
-                                          labelText: '服务商类型',
-                                        ),
-                                        items: AiProviderKind.values
-                                            .map(
-                                              (item) =>
-                                                  DropdownMenuItem<
-                                                    AiProviderKind
-                                                  >(
-                                                    value: item,
-                                                    child: Text(
-                                                      item.storageValue,
-                                                    ),
-                                                  ),
-                                            )
-                                            .toList(growable: false),
-                                        onChanged: _isSaving
-                                            ? null
-                                            : (value) {
-                                                if (value == null) return;
-                                                setState(() {
-                                                  _providerKind = value;
-                                                });
-                                              },
-                                      );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        dialectDropdown,
-                                        const SizedBox(height: 16),
-                                        providerKindDropdown,
-                                      ],
-                                    );
-                                  }
-                                  return Row(
-                                    children: [
-                                      Expanded(child: dialectDropdown),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: providerKindDropdown),
-                                    ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              TextField(
-                                controller: _responsesModelIdController,
-                                enabled: !_isSaving,
-                                decoration: const InputDecoration(
-                                  labelText: 'Responses 模型 ID（可选）',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _embeddingModelIdController,
-                                enabled: !_isSaving,
-                                decoration: const InputDecoration(
-                                  labelText: 'Embeddings 模型 ID（可选）',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final moderationField = TextField(
-                                    controller: _moderationModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Moderations 模型 ID（可选）',
-                                    ),
-                                  );
-                                  final rerankField = TextField(
-                                    controller: _rerankModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Rerank 模型 ID（可选）',
-                                    ),
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        moderationField,
-                                        const SizedBox(height: 12),
-                                        rerankField,
-                                      ],
-                                    );
-                                  }
-                                  return Row(
-                                    children: [
-                                      Expanded(child: moderationField),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: rerankField),
-                                    ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final imageField = TextField(
-                                    controller: _imageModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: '图像模型 ID（可选）',
-                                    ),
-                                  );
-                                  final videoField = TextField(
-                                    controller: _videoModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: '视频模型 ID（可选）',
-                                    ),
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        imageField,
-                                        const SizedBox(height: 12),
-                                        videoField,
-                                      ],
-                                    );
-                                  }
-                                  return Row(
-                                    children: [
-                                      Expanded(child: imageField),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: videoField),
-                                    ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final speechField = TextField(
-                                    controller: _speechModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: '语音模型 ID（可选）',
-                                    ),
-                                  );
-                                  final voiceField = TextField(
-                                    controller: _defaultVoiceController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: '默认 Voice（可选）',
-                                    ),
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        speechField,
-                                        const SizedBox(height: 12),
-                                        voiceField,
-                                      ],
-                                    );
-                                  }
-                                  return Row(
-                                    children: [
-                                      Expanded(child: speechField),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: voiceField),
-                                    ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final transcriptionField = TextField(
-                                    controller: _transcriptionModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Transcription 模型 ID（可选）',
-                                    ),
-                                  );
-                                  final translationField = TextField(
-                                    controller: _translationModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Translation 模型 ID（可选）',
-                                    ),
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        transcriptionField,
-                                        const SizedBox(height: 12),
-                                        translationField,
-                                      ],
-                                    );
-                                  }
-                                  return Row(
-                                    children: [
-                                      Expanded(child: transcriptionField),
-                                      const SizedBox(width: 16),
-                                      Expanded(child: translationField),
-                                    ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  final realtimeTransportField = TextField(
-                                    controller: _realtimeTransportController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Realtime Transport（可选）',
-                                    ),
-                                  );
-                                  final realtimeUrlField = TextField(
-                                    controller: _realtimeUrlOverrideController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Realtime URL Override（可选）',
-                                    ),
-                                  );
-                                  final realtimeModelField = TextField(
-                                    controller: _realtimeModelIdController,
-                                    enabled: !_isSaving,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Realtime 模型 ID（可选）',
-                                    ),
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        realtimeTransportField,
-                                        const SizedBox(height: 12),
-                                        realtimeUrlField,
-                                        const SizedBox(height: 12),
-                                        realtimeModelField,
-                                      ],
-                                    );
-                                  }
+                                  ),
+                                );
+                                if (stacked) {
                                   return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: realtimeTransportField,
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(child: realtimeUrlField),
-                                        ],
+                                      methodDropdown,
+                                      const SizedBox(height: 16),
+                                      streamToggle,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: methodDropdown),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: streamToggle),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final maxTokensField = TextFormField(
+                                  controller: _maxTokensController,
+                                  enabled: !_isSaving,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdMaxOutputTokens,
+                                    helperText: AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdOptionalUsesAdapterDefaultIfUnset,
+                                  ),
+                                  validator: (value) {
+                                    final trimmed = value?.trim() ?? '';
+                                    if (trimmed.isEmpty) return null;
+                                    final parsed = int.tryParse(trimmed);
+                                    if (parsed == null || parsed <= 0) {
+                                      return AppLocalizations.of(
+                                        context,
+                                      )!.mdlEdEnterAWholeNumberGreaterThan;
+                                    }
+                                    return null;
+                                  },
+                                );
+                                final temperatureField = TextFormField(
+                                  controller: _temperatureController,
+                                  enabled: !_isSaving,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
                                       ),
+                                  decoration: InputDecoration(
+                                    labelText: AppLocalizations.of(
+                                      context,
+                                    )!.mdlEdTemperature,
+                                    helperText: AppLocalizations.of(
+                                      context,
+                                    )!.mdlEd0020Default0,
+                                  ),
+                                  validator: (value) {
+                                    final trimmed = value?.trim() ?? '';
+                                    if (trimmed.isEmpty) return null;
+                                    final parsed = double.tryParse(trimmed);
+                                    if (parsed == null ||
+                                        parsed < 0 ||
+                                        parsed > 2.0) {
+                                      return AppLocalizations.of(
+                                        context,
+                                      )!.mdlEdEnterANumberBetween00;
+                                    }
+                                    return null;
+                                  },
+                                );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      maxTokensField,
+                                      const SizedBox(height: 16),
+                                      temperatureField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: maxTokensField),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: temperatureField),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              '高级接口配置',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final dialectDropdown =
+                                    DropdownButtonFormField<AiApiDialect>(
+                                      initialValue: _apiDialect,
+                                      decoration: const InputDecoration(
+                                        labelText: 'API 方言',
+                                      ),
+                                      items: AiApiDialect.values
+                                          .map(
+                                            (item) =>
+                                                DropdownMenuItem<AiApiDialect>(
+                                                  value: item,
+                                                  child: Text(
+                                                    item.storageValue,
+                                                  ),
+                                                ),
+                                          )
+                                          .toList(growable: false),
+                                      onChanged: _isSaving
+                                          ? null
+                                          : (value) {
+                                              if (value == null) return;
+                                              setState(() {
+                                                _apiDialect = value;
+                                              });
+                                            },
+                                    );
+                                final providerKindDropdown =
+                                    DropdownButtonFormField<AiProviderKind>(
+                                      initialValue: _providerKind,
+                                      decoration: const InputDecoration(
+                                        labelText: '服务商类型',
+                                      ),
+                                      items: AiProviderKind.values
+                                          .map(
+                                            (item) =>
+                                                DropdownMenuItem<
+                                                  AiProviderKind
+                                                >(
+                                                  value: item,
+                                                  child: Text(
+                                                    item.storageValue,
+                                                  ),
+                                                ),
+                                          )
+                                          .toList(growable: false),
+                                      onChanged: _isSaving
+                                          ? null
+                                          : (value) {
+                                              if (value == null) return;
+                                              setState(() {
+                                                _providerKind = value;
+                                              });
+                                            },
+                                    );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      dialectDropdown,
+                                      const SizedBox(height: 16),
+                                      providerKindDropdown,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(child: dialectDropdown),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: providerKindDropdown),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _responsesModelIdController,
+                              enabled: !_isSaving,
+                              decoration: const InputDecoration(
+                                labelText: 'Responses 模型 ID（可选）',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _embeddingModelIdController,
+                              enabled: !_isSaving,
+                              decoration: const InputDecoration(
+                                labelText: 'Embeddings 模型 ID（可选）',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final moderationField = TextField(
+                                  controller: _moderationModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Moderations 模型 ID（可选）',
+                                  ),
+                                );
+                                final rerankField = TextField(
+                                  controller: _rerankModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Rerank 模型 ID（可选）',
+                                  ),
+                                );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      moderationField,
+                                      const SizedBox(height: 12),
+                                      rerankField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(child: moderationField),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: rerankField),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final imageField = TextField(
+                                  controller: _imageModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: '图像模型 ID（可选）',
+                                  ),
+                                );
+                                final videoField = TextField(
+                                  controller: _videoModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: '视频模型 ID（可选）',
+                                  ),
+                                );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      imageField,
+                                      const SizedBox(height: 12),
+                                      videoField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(child: imageField),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: videoField),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final speechField = TextField(
+                                  controller: _speechModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: '语音模型 ID（可选）',
+                                  ),
+                                );
+                                final voiceField = TextField(
+                                  controller: _defaultVoiceController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: '默认 Voice（可选）',
+                                  ),
+                                );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      speechField,
+                                      const SizedBox(height: 12),
+                                      voiceField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(child: speechField),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: voiceField),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final transcriptionField = TextField(
+                                  controller: _transcriptionModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Transcription 模型 ID（可选）',
+                                  ),
+                                );
+                                final translationField = TextField(
+                                  controller: _translationModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Translation 模型 ID（可选）',
+                                  ),
+                                );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      transcriptionField,
+                                      const SizedBox(height: 12),
+                                      translationField,
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(child: transcriptionField),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: translationField),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                final realtimeTransportField = TextField(
+                                  controller: _realtimeTransportController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Realtime Transport（可选）',
+                                  ),
+                                );
+                                final realtimeUrlField = TextField(
+                                  controller: _realtimeUrlOverrideController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Realtime URL Override（可选）',
+                                  ),
+                                );
+                                final realtimeModelField = TextField(
+                                  controller: _realtimeModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Realtime 模型 ID（可选）',
+                                  ),
+                                );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      realtimeTransportField,
+                                      const SizedBox(height: 12),
+                                      realtimeUrlField,
                                       const SizedBox(height: 12),
                                       realtimeModelField,
                                     ],
                                   );
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _endpointOverridesController,
-                                enabled: !_isSaving,
-                                minLines: 4,
-                                maxLines: 8,
-                                decoration: const InputDecoration(
-                                  labelText: 'Endpoint Overrides JSON（可选）',
-                                  helperText:
-                                      '按 family 自定义 path/url/method/transport/headers/query_defaults。',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _operationExtrasController,
-                                enabled: !_isSaving,
-                                minLines: 4,
-                                maxLines: 8,
-                                decoration: const InputDecoration(
-                                  labelText: 'Operation Extras JSON（可选）',
-                                  helperText:
-                                      '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final stacked = constraints.maxWidth < 640;
-                                  Widget dropdown({
-                                    required String label,
-                                    required String value,
-                                    required ValueChanged<String?> onChanged,
-                                  }) {
-                                    return DropdownButtonFormField<String>(
-                                      initialValue: value,
-                                      decoration: InputDecoration(
-                                        labelText: label,
-                                      ),
-                                      items: const <DropdownMenuItem<String>>[
-                                        DropdownMenuItem<String>(
-                                          value: 'supported',
-                                          child: Text('supported'),
-                                        ),
-                                        DropdownMenuItem<String>(
-                                          value: 'experimental',
-                                          child: Text('experimental'),
-                                        ),
-                                        DropdownMenuItem<String>(
-                                          value: 'disabled',
-                                          child: Text('disabled'),
-                                        ),
-                                      ],
-                                      onChanged: _isSaving ? null : onChanged,
-                                    );
-                                  }
-
-                                  final realtimeDropdown = dropdown(
-                                    label: 'Realtime 能力状态',
-                                    value: _realtimeCapabilityStatus,
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      setState(() {
-                                        _realtimeCapabilityStatus = value;
-                                      });
-                                    },
-                                  );
-                                  final filesDropdown = dropdown(
-                                    label: 'Files 能力状态',
-                                    value: _filesCapabilityStatus,
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      setState(() {
-                                        _filesCapabilityStatus = value;
-                                      });
-                                    },
-                                  );
-                                  final fineTunesDropdown = dropdown(
-                                    label: 'Fine-tunes 能力状态',
-                                    value: _fineTunesCapabilityStatus,
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      setState(() {
-                                        _fineTunesCapabilityStatus = value;
-                                      });
-                                    },
-                                  );
-                                  if (stacked) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                }
+                                return Column(
+                                  children: [
+                                    Row(
                                       children: [
-                                        realtimeDropdown,
-                                        const SizedBox(height: 12),
-                                        filesDropdown,
-                                        const SizedBox(height: 12),
-                                        fineTunesDropdown,
+                                        Expanded(child: realtimeTransportField),
+                                        const SizedBox(width: 16),
+                                        Expanded(child: realtimeUrlField),
                                       ],
-                                    );
-                                  }
-                                  return Column(
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(child: realtimeDropdown),
-                                          const SizedBox(width: 16),
-                                          Expanded(child: filesDropdown),
-                                        ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    realtimeModelField,
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _endpointOverridesController,
+                              enabled: !_isSaving,
+                              minLines: 4,
+                              maxLines: 8,
+                              decoration: const InputDecoration(
+                                labelText: 'Endpoint Overrides JSON（可选）',
+                                helperText:
+                                    '按 family 自定义 path/url/method/transport/headers/query_defaults。',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _operationExtrasController,
+                              enabled: !_isSaving,
+                              minLines: 4,
+                              maxLines: 8,
+                              decoration: const InputDecoration(
+                                labelText: 'Operation Extras JSON（可选）',
+                                helperText:
+                                    '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 640;
+                                Widget dropdown({
+                                  required String label,
+                                  required String value,
+                                  required ValueChanged<String?> onChanged,
+                                }) {
+                                  return DropdownButtonFormField<String>(
+                                    initialValue: value,
+                                    decoration: InputDecoration(
+                                      labelText: label,
+                                    ),
+                                    items: const <DropdownMenuItem<String>>[
+                                      DropdownMenuItem<String>(
+                                        value: 'supported',
+                                        child: Text('supported'),
                                       ),
+                                      DropdownMenuItem<String>(
+                                        value: 'experimental',
+                                        child: Text('experimental'),
+                                      ),
+                                      DropdownMenuItem<String>(
+                                        value: 'disabled',
+                                        child: Text('disabled'),
+                                      ),
+                                    ],
+                                    onChanged: _isSaving ? null : onChanged,
+                                  );
+                                }
+
+                                final realtimeDropdown = dropdown(
+                                  label: 'Realtime 能力状态',
+                                  value: _realtimeCapabilityStatus,
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _realtimeCapabilityStatus = value;
+                                    });
+                                  },
+                                );
+                                final filesDropdown = dropdown(
+                                  label: 'Files 能力状态',
+                                  value: _filesCapabilityStatus,
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _filesCapabilityStatus = value;
+                                    });
+                                  },
+                                );
+                                final fineTunesDropdown = dropdown(
+                                  label: 'Fine-tunes 能力状态',
+                                  value: _fineTunesCapabilityStatus,
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _fineTunesCapabilityStatus = value;
+                                    });
+                                  },
+                                );
+                                if (stacked) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      realtimeDropdown,
+                                      const SizedBox(height: 12),
+                                      filesDropdown,
                                       const SizedBox(height: 12),
                                       fineTunesDropdown,
                                     ],
                                   );
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              // ── Custom headers section ──
-                              Row(
-                                children: [
-                                  Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.mdlEdCustomHeaders,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-                                  const Spacer(),
-                                  FilledButton.tonalIcon(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : _addHeaderEntry,
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: Text(
-                                      AppLocalizations.of(context)!.mdlEdAdd,
+                                }
+                                return Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(child: realtimeDropdown),
+                                        const SizedBox(width: 16),
+                                        Expanded(child: filesDropdown),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              if (_customHeaderEntries.isEmpty)
+                                    const SizedBox(height: 12),
+                                    fineTunesDropdown,
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            // ── Custom headers section ──
+                            Row(
+                              children: [
                                 Text(
                                   AppLocalizations.of(
                                     context,
-                                  )!.mdlEdNoCustomHeadersTapAddTo,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                )
-                              else
-                                ..._customHeaderEntries.asMap().entries.map((
-                                  mapEntry,
-                                ) {
-                                  final index = mapEntry.key;
-                                  final entry = mapEntry.value;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: TextField(
-                                            controller: entry.keyController,
-                                            enabled: !_isSaving,
-                                            decoration: InputDecoration(
-                                              labelText: AppLocalizations.of(
-                                                context,
-                                              )!.mdlEdHeaderName,
-                                              isDense: true,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          flex: 3,
-                                          child: TextField(
-                                            controller: entry.valueController,
-                                            enabled: !_isSaving,
-                                            decoration: InputDecoration(
-                                              labelText: AppLocalizations.of(
-                                                context,
-                                              )!.mdlEdHeaderValue,
-                                              isDense: true,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        IconButton(
-                                          onPressed: _isSaving
-                                              ? null
-                                              : () => _removeHeaderEntry(index),
-                                          icon: const Icon(
-                                            Icons.close,
-                                            size: 18,
-                                          ),
-                                          style: IconButton.styleFrom(
-                                            minimumSize: const Size(32, 32),
-                                            maximumSize: const Size(32, 32),
-                                            padding: EdgeInsets.zero,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-                              if (_errorMessage != null) ...[
-                                const SizedBox(height: 16),
-                                Text(
-                                  _errorMessage!,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: colorScheme.error),
+                                  )!.mdlEdCustomHeaders,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const Spacer(),
+                                FilledButton.tonalIcon(
+                                  onPressed: _isSaving ? null : _addHeaderEntry,
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: Text(
+                                    AppLocalizations.of(context)!.mdlEdAdd,
+                                  ),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (_customHeaderEntries.isEmpty)
+                              Text(
+                                AppLocalizations.of(
+                                  context,
+                                )!.mdlEdNoCustomHeadersTapAddTo,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                              )
+                            else
+                              ..._customHeaderEntries.asMap().entries.map((
+                                mapEntry,
+                              ) {
+                                final index = mapEntry.key;
+                                final entry = mapEntry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: TextField(
+                                          controller: entry.keyController,
+                                          enabled: !_isSaving,
+                                          decoration: InputDecoration(
+                                            labelText: AppLocalizations.of(
+                                              context,
+                                            )!.mdlEdHeaderName,
+                                            isDense: true,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 3,
+                                        child: TextField(
+                                          controller: entry.valueController,
+                                          enabled: !_isSaving,
+                                          decoration: InputDecoration(
+                                            labelText: AppLocalizations.of(
+                                              context,
+                                            )!.mdlEdHeaderValue,
+                                            isDense: true,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      IconButton(
+                                        onPressed: _isSaving
+                                            ? null
+                                            : () => _removeHeaderEntry(index),
+                                        icon: const Icon(Icons.close, size: 18),
+                                        style: IconButton.styleFrom(
+                                          minimumSize: const Size(32, 32),
+                                          maximumSize: const Size(32, 32),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            if (_errorMessage != null) ...[
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: colorScheme.error),
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
-                    if (_isSaving) ...[
-                      const SizedBox(height: 12),
-                      const LinearProgressIndicator(),
-                    ],
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        OpenHandDialogActionButton.secondary(
-                          onPressed: _isSaving
-                              ? null
-                              : () => Navigator.of(context).pop(false),
-                          label: l10n.commonCancel,
-                        ),
-                        const SizedBox(width: 12),
-                        OpenHandDialogActionButton.primary(
-                          onPressed: _isSaving ? null : _handleSave,
-                          label: l10n.commonSave,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: HighlightPulse(
-                    signal: _errorPulse,
-                    color: OpenHandStatusColors.error,
                   ),
+                  if (_isSaving) ...[
+                    const SizedBox(height: 12),
+                    const LinearProgressIndicator(),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OpenHandDialogActionButton.secondary(
+                        onPressed: _isSaving
+                            ? null
+                            : () => Navigator.of(context).pop(false),
+                        label: l10n.commonCancel,
+                      ),
+                      const SizedBox(width: 12),
+                      OpenHandDialogActionButton.primary(
+                        onPressed: _isSaving ? null : _handleSave,
+                        label: l10n.commonSave,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _errorPulse,
+                  color: OpenHandStatusColors.error,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

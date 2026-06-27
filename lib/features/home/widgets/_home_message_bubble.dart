@@ -2268,194 +2268,182 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
         }
         return KeyEventResult.ignored;
       },
-      child: Dialog(
-        insetPadding: const EdgeInsets.all(24),
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 560,
+        maxHeight: double.infinity,
+        maxWidthFraction: 0.92,
+        maxHeightFraction: 0.82,
+        horizontalMargin: 48,
+        safeAreaMinimum: const EdgeInsets.all(24),
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: math.min(MediaQuery.sizeOf(context).width * 0.92, 560),
-            maxHeight: MediaQuery.sizeOf(context).height * 0.82,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      _iconForAttachmentKind(widget.kind),
-                      color: colorScheme.primary,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _iconForAttachmentKind(widget.kind),
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      fileName,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        fileName,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium,
+                  ),
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.content_copy_outlined,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ),
-                    MicroPressFeedback(
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.content_copy_outlined,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '复制文件',
-                          en: 'Copy File',
-                        ),
-                        onPressed: _copying ? null : () => _copyFile(context),
+                      tooltip: _localizedText(
+                        context,
+                        zh: '复制文件',
+                        en: 'Copy File',
                       ),
+                      onPressed: _copying ? null : () => _copyFile(context),
                     ),
-                    const SizedBox(width: 4),
-                    MicroPressFeedback(
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.open_in_new_rounded,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '使用系统应用打开',
-                          en: 'Open with System App',
-                        ),
-                        onPressed: _opening ? null : () => _openFile(context),
+                  ),
+                  const SizedBox(width: 4),
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.open_in_new_rounded,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    MicroPressFeedback(
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
+                      tooltip: _localizedText(
+                        context,
+                        zh: '使用系统应用打开',
+                        en: 'Open with System App',
                       ),
+                      onPressed: _opening ? null : () => _openFile(context),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 4),
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
               ),
-              const Divider(height: 1),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.52,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: colorScheme.outlineVariant.withValues(
                             alpha: 0.52,
                           ),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: colorScheme.outlineVariant.withValues(
-                              alpha: 0.52,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 54,
-                              height: 54,
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(
-                                _iconForAttachmentKind(widget.kind),
-                                color: colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    fileName,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    aiFormatBytes(widget.sizeBytes),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  SelectableText(
-                                    widget.filePath,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        alignment: WrapAlignment.end,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          OutlinedButton.icon(
-                            onPressed: _copying
-                                ? null
-                                : () => _copyFile(context),
-                            icon: const Icon(
-                              Icons.content_copy_outlined,
-                              size: 18,
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            label: Text(
-                              _copying
-                                  ? _localizedText(
-                                      context,
-                                      zh: '复制中…',
-                                      en: 'Copying…',
-                                    )
-                                  : _localizedText(
-                                      context,
-                                      zh: '复制',
-                                      en: 'Copy',
-                                    ),
+                            child: Icon(
+                              _iconForAttachmentKind(widget.kind),
+                              color: colorScheme.onPrimaryContainer,
                             ),
                           ),
-                          FilledButton.icon(
-                            onPressed: _opening
-                                ? null
-                                : () => _openFile(context),
-                            icon: const Icon(
-                              Icons.open_in_new_rounded,
-                              size: 18,
-                            ),
-                            label: Text(
-                              _localizedText(context, zh: '打开', en: 'Open'),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  fileName,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  aiFormatBytes(widget.sizeBytes),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SelectableText(
+                                  widget.filePath,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _copying ? null : () => _copyFile(context),
+                          icon: const Icon(
+                            Icons.content_copy_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _copying
+                                ? _localizedText(
+                                    context,
+                                    zh: '复制中…',
+                                    en: 'Copying…',
+                                  )
+                                : _localizedText(context, zh: '复制', en: 'Copy'),
+                          ),
+                        ),
+                        FilledButton.icon(
+                          onPressed: _opening ? null : () => _openFile(context),
+                          icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                          label: Text(
+                            _localizedText(context, zh: '打开', en: 'Open'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2841,16 +2829,12 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
         }
         return KeyEventResult.ignored;
       },
-      child: Dialog(
+      child: buildOpenHandDialog(
         insetPadding: const EdgeInsets.all(_kInsetPadding),
-        constraints: BoxConstraints(
-          minWidth: metrics.dialogWidth,
-          maxWidth: metrics.dialogWidth,
-          maxHeight: metrics.maxDialogHeight,
-        ),
+        width: metrics.dialogWidth,
+        maxHeight: metrics.maxDialogHeight,
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
         child: AnimatedSize(
           duration: cardMotionDurationFor(context, expanding: true),
           curve: kCardMotionCurve,
@@ -5169,19 +5153,15 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         child: Focus(
           focusNode: _dialogFocus,
           autofocus: true,
-          child: Dialog(
+          child: buildOpenHandDialog(
             insetPadding: const EdgeInsets.all(_kInsetPadding),
-            constraints: BoxConstraints(
-              minWidth: metrics.dialogWidth,
-              maxWidth: metrics.dialogWidth,
-              maxHeight: metrics.maxDialogHeight,
-            ),
+            width: metrics.dialogWidth,
+            maxHeight: metrics.maxDialogHeight,
             backgroundColor: isVideo ? colorScheme.surface : Colors.transparent,
             elevation: isVideo ? null : 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(22),
             ),
-            clipBehavior: Clip.antiAlias,
             child: isVideo
                 ? _buildVideoDialogBody(context, theme, colorScheme, metrics)
                 : _buildAudioDialogBody(context, metrics),

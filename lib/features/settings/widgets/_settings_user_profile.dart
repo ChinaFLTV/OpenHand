@@ -223,143 +223,139 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
 
     return PopScope(
       canPop: !_isSaving,
-      child: Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 720),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.account_circle_outlined,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _localizedText(
-                              context,
-                              zh: '用户画像 · User Profile',
-                              en: 'User Profile',
-                            ),
-                            style: theme.textTheme.headlineSmall,
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 720,
+        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.account_circle_outlined,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _localizedText(
+                            context,
+                            zh: '用户画像 · User Profile',
+                            en: 'User Profile',
                           ),
+                          style: theme.textTheme.headlineSmall,
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '用一段话描述你希望 AI 长期记住的偏好、关注领域与交流风格。该画像将作为系统提示词的固定上下文模块，跨所有线程模板自动生效；自我学习也会基于本字段做增量优化。',
+                      en: 'Describe in one paragraph the long-term preferences, focus areas and communication style you want the AI to remember. The profile is injected as a fixed system-prompt module across all thread templates; self-learning incrementally refines it.',
                     ),
-                    const SizedBox(height: 6),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: _contentController,
+                      enabled: !_isSaving,
+                      expands: true,
+                      maxLines: null,
+                      textAlignVertical: TextAlignVertical.top,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '画像内容',
+                          en: 'Profile Content',
+                        ),
+                        alignLabelWithHint: true,
+                        hintText: _localizedText(
+                          context,
+                          zh: '示例：语言风格轻松可爱；关注娱乐圈明星、技术新闻；偏好亲切自然、不啰嗦的回复…',
+                          en: 'e.g. casual & warm tone; loves entertainment industry & tech news; prefers concise replies…',
+                        ),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 12),
                     Text(
-                      _localizedText(
-                        context,
-                        zh: '用一段话描述你希望 AI 长期记住的偏好、关注领域与交流风格。该画像将作为系统提示词的固定上下文模块，跨所有线程模板自动生效；自我学习也会基于本字段做增量优化。',
-                        en: 'Describe in one paragraph the long-term preferences, focus areas and communication style you want the AI to remember. The profile is injected as a fixed system-prompt module across all thread templates; self-learning incrementally refines it.',
-                      ),
+                      _errorMessage!,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: TextField(
-                        controller: _contentController,
-                        enabled: !_isSaving,
-                        expands: true,
-                        maxLines: null,
-                        textAlignVertical: TextAlignVertical.top,
-                        decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '画像内容',
-                            en: 'Profile Content',
-                          ),
-                          alignLabelWithHint: true,
-                          hintText: _localizedText(
-                            context,
-                            zh: '示例：语言风格轻松可爱；关注娱乐圈明星、技术新闻；偏好亲切自然、不啰嗦的回复…',
-                            en: 'e.g. casual & warm tone; loves entertainment industry & tech news; prefers concise replies…',
-                          ),
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        _errorMessage!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.error,
-                        ),
-                      ),
-                    ],
-                    if (_isSaving) ...[
-                      const SizedBox(height: 12),
-                      const LinearProgressIndicator(),
-                    ],
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        runAlignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 10,
-                        children: [
-                          if (hasExisting)
-                            OpenHandDialogActionButton.destructive(
-                              onPressed: _isSaving ? null : _handleClear,
-                              icon: Icons.delete_outline_rounded,
-                              label: _localizedText(
-                                context,
-                                zh: '清空画像',
-                                en: 'Clear',
-                              ),
-                            ),
-                          OpenHandDialogActionButton.secondary(
-                            onPressed: _isSaving
-                                ? null
-                                : () => Navigator.of(context).pop(false),
-                            label: _localizedText(
-                              context,
-                              zh: '取消',
-                              en: 'Cancel',
-                            ),
-                          ),
-                          OpenHandDialogActionButton.primary(
-                            onPressed: _isSaving ? null : _handleSave,
-                            icon: Icons.save_outlined,
-                            busy: _isSaving,
-                            label: _localizedText(
-                              context,
-                              zh: '保存',
-                              en: 'Save',
-                            ),
-                          ),
-                        ],
+                        color: colorScheme.error,
                       ),
                     ),
                   ],
-                ),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: HighlightPulse(
-                    signal: _errorPulse,
-                    color: OpenHandStatusColors.error,
+                  if (_isSaving) ...[
+                    const SizedBox(height: 12),
+                    const LinearProgressIndicator(),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      runAlignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 10,
+                      children: [
+                        if (hasExisting)
+                          OpenHandDialogActionButton.destructive(
+                            onPressed: _isSaving ? null : _handleClear,
+                            icon: Icons.delete_outline_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '清空画像',
+                              en: 'Clear',
+                            ),
+                          ),
+                        OpenHandDialogActionButton.secondary(
+                          onPressed: _isSaving
+                              ? null
+                              : () => Navigator.of(context).pop(false),
+                          label: _localizedText(
+                            context,
+                            zh: '取消',
+                            en: 'Cancel',
+                          ),
+                        ),
+                        OpenHandDialogActionButton.primary(
+                          onPressed: _isSaving ? null : _handleSave,
+                          icon: Icons.save_outlined,
+                          busy: _isSaving,
+                          label: _localizedText(context, zh: '保存', en: 'Save'),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _errorPulse,
+                  color: OpenHandStatusColors.error,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

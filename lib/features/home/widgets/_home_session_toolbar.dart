@@ -3550,203 +3550,192 @@ class _StreamThrottleSessionDialogState
     // 当前生效的启用态：会话级 > 全局。
     final globalEnabled = settings.aiStreamThrottleEnabled;
     final effectiveEnabled = _enabledOverride ?? globalEnabled;
-    final viewport = MediaQuery.sizeOf(context);
-    final dialogMaxWidth = math
-        .min(860.0, math.max(360.0, viewport.width - 48.0))
-        .toDouble();
-    final dialogMaxHeight = math
-        .min(780.0, math.max(420.0, viewport.height - 48.0))
-        .toDouble();
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: dialogMaxWidth,
-          maxHeight: dialogMaxHeight,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isZh ? '本会话流式节流' : 'Session Throttle',
-                style: theme.textTheme.titleLarge,
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 860,
+      maxHeight: 780,
+      minAvailableWidth: 360,
+      minAvailableHeight: 420,
+      horizontalMargin: 48,
+      verticalMargin: 48,
+      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isZh ? '本会话流式节流' : 'Session Throttle',
+              style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isZh
+                  ? '调整后随会话持久保存，重启后仍保留。留空 = 沿用全局值。'
+                  : 'Saved with this session and restored after restart. Empty = use global.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 8),
-              Text(
-                isZh
-                    ? '调整后随会话持久保存，重启后仍保留。留空 = 沿用全局值。'
-                    : 'Saved with this session and restored after restart. Empty = use global.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            // 会话级启用开关：关闭后从现在起不再对 AI
+            // 流式响应做任何节流；立即推送给活跃 throttle，正在输出
+            // 的字符也会立刻全速放出。
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.55,
                 ),
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 12),
-              // 会话级启用开关：关闭后从现在起不再对 AI
-              // 流式响应做任何节流；立即推送给活跃 throttle，正在输出
-              // 的字符也会立刻全速放出。
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.55,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isZh
+                              ? '启用流式输出节流（本会话）'
+                              : 'Enable stream throttle (this session)',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _enabledOverride == null
+                              ? (isZh
+                                    ? '当前沿用全局：${globalEnabled ? '已开启' : '已关闭'}'
+                                    : 'Following global: ${globalEnabled ? 'on' : 'off'}')
+                              : (isZh
+                                    ? '已会话级强制${_enabledOverride! ? '开启' : '关闭'}'
+                                    : 'Session-level forced ${_enabledOverride! ? 'on' : 'off'}'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isZh
-                                ? '启用流式输出节流（本会话）'
-                                : 'Enable stream throttle (this session)',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _enabledOverride == null
-                                ? (isZh
-                                      ? '当前沿用全局：${globalEnabled ? '已开启' : '已关闭'}'
-                                      : 'Following global: ${globalEnabled ? 'on' : 'off'}')
-                                : (isZh
-                                      ? '已会话级强制${_enabledOverride! ? '开启' : '关闭'}'
-                                      : 'Session-level forced ${_enabledOverride! ? 'on' : 'off'}'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      // Material 3 Expressive 风格：原 Switch.adaptive
-                      // 在 macOS/iOS 走 Cupertino 渲染（与 M3 设计语言不一致），
-                      // 显式 Switch 强制走 M3 thumb/track。
-                      value: effectiveEnabled,
-                      thumbIcon: WidgetStateProperty.resolveWith<Icon?>((
-                        states,
-                      ) {
-                        if (states.contains(WidgetState.selected)) {
-                          return const Icon(Icons.check_rounded, size: 16);
-                        }
-                        return const Icon(Icons.close_rounded, size: 16);
-                      }),
-                      onChanged: (v) {
-                        // 立即应用：会话级覆盖 + 推到活跃 throttle。
-                        setState(() => _enabledOverride = v);
-                        session.setSessionStreamEnabledOverride(
-                          widget.sessionId,
-                          v,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              // 实时字符吞吐仪表盘：长窗口按秒采样，绘制前
-              // 降采样；主曲线使用节流后的展示吞吐。
-              _StreamThroughputMiniGauge(
-                sessionId: widget.sessionId,
-                maxRate: effectiveChars <= 0 ? 1 : effectiveChars,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _charsCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
+                  Switch(
+                    // Material 3 Expressive 风格：原 Switch.adaptive
+                    // 在 macOS/iOS 走 Cupertino 渲染（与 M3 设计语言不一致），
+                    // 显式 Switch 强制走 M3 thumb/track。
+                    value: effectiveEnabled,
+                    thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const Icon(Icons.check_rounded, size: 16);
+                      }
+                      return const Icon(Icons.close_rounded, size: 16);
+                    }),
+                    onChanged: (v) {
+                      // 立即应用：会话级覆盖 + 推到活跃 throttle。
+                      setState(() => _enabledOverride = v);
+                      session.setSessionStreamEnabledOverride(
+                        widget.sessionId,
+                        v,
+                      );
+                    },
+                  ),
                 ],
-                decoration: InputDecoration(
-                  labelText: isZh
-                      ? '字符 / 秒（当前生效：$effectiveChars）'
-                      : 'Chars / Sec (current: $effectiveChars)',
-                  hintText:
-                      '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
-                ),
-                // 不再在输入时实时推送覆盖；仅在点击”应用”后
-                // 才正式生效。输入过程中仅刷新 UI 标签展示。
-                onChanged: (_) {
-                  if (mounted) setState(() {});
-                },
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _cardsCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
+            ),
+            const SizedBox(height: 12),
+            // 实时字符吞吐仪表盘：长窗口按秒采样，绘制前
+            // 降采样；主曲线使用节流后的展示吞吐。
+            _StreamThroughputMiniGauge(
+              sessionId: widget.sessionId,
+              maxRate: effectiveChars <= 0 ? 1 : effectiveChars,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _charsCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              decoration: InputDecoration(
+                labelText: isZh
+                    ? '字符 / 秒（当前生效：$effectiveChars）'
+                    : 'Chars / Sec (current: $effectiveChars)',
+                hintText:
+                    '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
+              ),
+              // 不再在输入时实时推送覆盖；仅在点击”应用”后
+              // 才正式生效。输入过程中仅刷新 UI 标签展示。
+              onChanged: (_) {
+                if (mounted) setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _cardsCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              decoration: InputDecoration(
+                labelText: isZh
+                    ? '卡片 / 秒（当前生效：$effectiveCards）'
+                    : 'Cards / Sec (current: $effectiveCards)',
+                hintText:
+                    '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
+              ),
+              onChanged: (_) {
+                if (mounted) setState(() {});
+              },
+            ),
+            const SizedBox(height: 20),
+            // 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
+            // 里以推翻外层 Column.crossAxisAlignment.start 带来的隱性左贴边；
+            // Wrap 仍用来兼顾窄幅对话框的软换行。
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () {
+                      session.clearSessionStreamThrottleOverride(
+                        widget.sessionId,
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    label: isZh ? '恢复默认' : 'Reset',
+                  ),
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: () => Navigator.of(context).pop(),
+                    label: isZh ? '取消' : 'Cancel',
+                  ),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: () {
+                      session.setSessionStreamCharsOverride(
+                        widget.sessionId,
+                        _parse(_charsCtrl.text),
+                      );
+                      session.setSessionStreamCardsOverride(
+                        widget.sessionId,
+                        _parse(_cardsCtrl.text),
+                      );
+                      // Switch 已 setState 即时下发；Apply 再确认一次
+                      // 让单测/截屏验证场景拿到一致状态。
+                      session.setSessionStreamEnabledOverride(
+                        widget.sessionId,
+                        _enabledOverride,
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    label: isZh ? '应用' : 'Apply',
+                  ),
                 ],
-                decoration: InputDecoration(
-                  labelText: isZh
-                      ? '卡片 / 秒（当前生效：$effectiveCards）'
-                      : 'Cards / Sec (current: $effectiveCards)',
-                  hintText:
-                      '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
-                ),
-                onChanged: (_) {
-                  if (mounted) setState(() {});
-                },
               ),
-              const SizedBox(height: 20),
-              // 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
-              // 里以推翻外层 Column.crossAxisAlignment.start 带来的隱性左贴边；
-              // Wrap 仍用来兼顾窄幅对话框的软换行。
-              SizedBox(
-                width: double.infinity,
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: () {
-                        session.clearSessionStreamThrottleOverride(
-                          widget.sessionId,
-                        );
-                        Navigator.of(context).pop();
-                      },
-                      label: isZh ? '恢复默认' : 'Reset',
-                    ),
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: () => Navigator.of(context).pop(),
-                      label: isZh ? '取消' : 'Cancel',
-                    ),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: () {
-                        session.setSessionStreamCharsOverride(
-                          widget.sessionId,
-                          _parse(_charsCtrl.text),
-                        );
-                        session.setSessionStreamCardsOverride(
-                          widget.sessionId,
-                          _parse(_cardsCtrl.text),
-                        );
-                        // Switch 已 setState 即时下发；Apply 再确认一次
-                        // 让单测/截屏验证场景拿到一致状态。
-                        session.setSessionStreamEnabledOverride(
-                          widget.sessionId,
-                          _enabledOverride,
-                        );
-                        Navigator.of(context).pop();
-                      },
-                      label: isZh ? '应用' : 'Apply',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

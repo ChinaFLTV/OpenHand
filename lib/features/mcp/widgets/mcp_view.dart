@@ -1221,176 +1221,177 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
 
     return PopScope(
       canPop: !_isSaving,
-      child: Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 760),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.initialServer == null
-                      ? l10n.mcpDialogCreateTitle
-                      : l10n.mcpDialogEditTitle,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 760,
+        maxHeight: 760,
+        safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.initialServer == null
+                    ? l10n.mcpDialogCreateTitle
+                    : l10n.mcpDialogEditTitle,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          enabled: !_isSaving,
+                          decoration: InputDecoration(
+                            labelText: l10n.mcpNameField,
+                          ),
+                          validator: (value) {
+                            final name = value?.trim() ?? '';
+                            if (name.isEmpty) {
+                              return l10n.mcpNameRequired;
+                            }
+                            if (widget.existingNames.contains(
+                              name.toLowerCase(),
+                            )) {
+                              return l10n.mcpNameDuplicate;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: 320,
+                          child: DropdownButtonFormField<McpServerType>(
+                            initialValue: _type,
+                            decoration: InputDecoration(
+                              labelText: l10n.mcpTypeField,
+                            ),
+                            items: McpServerType.values
+                                .map(
+                                  (item) => DropdownMenuItem<McpServerType>(
+                                    value: item,
+                                    child: Text(item.label(l10n)),
+                                  ),
+                                )
+                                .toList(growable: false),
+                            onChanged: _isSaving
+                                ? null
+                                : (value) {
+                                    if (value == null) {
+                                      return;
+                                    }
+                                    setState(() {
+                                      _type = value;
+                                      _headerErrorMessage = null;
+                                    });
+                                  },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.mcpServerEnabledLabel),
+                          subtitle: Text(l10n.mcpServerEnabledBody),
+                          value: _enabled,
+                          onChanged: _isSaving
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _enabled = value;
+                                  });
+                                },
+                        ),
+                        const SizedBox(height: 16),
+                        if (useUrlField) ...[
                           TextFormField(
-                            controller: _nameController,
+                            controller: _urlController,
                             enabled: !_isSaving,
                             decoration: InputDecoration(
-                              labelText: l10n.mcpNameField,
+                              labelText: l10n.mcpUrlField,
                             ),
                             validator: (value) {
-                              final name = value?.trim() ?? '';
-                              if (name.isEmpty) {
-                                return l10n.mcpNameRequired;
+                              final rawValue = value?.trim() ?? '';
+                              if (rawValue.isEmpty) {
+                                return l10n.mcpUrlRequired;
                               }
-                              if (widget.existingNames.contains(
-                                name.toLowerCase(),
-                              )) {
-                                return l10n.mcpNameDuplicate;
+                              if (!isValidHttpUrl(rawValue)) {
+                                return l10n.mcpUrlInvalid;
                               }
                               return null;
                             },
                           ),
                           const SizedBox(height: 16),
-                          SizedBox(
-                            width: 320,
-                            child: DropdownButtonFormField<McpServerType>(
-                              initialValue: _type,
-                              decoration: InputDecoration(
-                                labelText: l10n.mcpTypeField,
-                              ),
-                              items: McpServerType.values
-                                  .map(
-                                    (item) => DropdownMenuItem<McpServerType>(
-                                      value: item,
-                                      child: Text(item.label(l10n)),
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                              onChanged: _isSaving
-                                  ? null
-                                  : (value) {
-                                      if (value == null) {
-                                        return;
-                                      }
-                                      setState(() {
-                                        _type = value;
-                                        _headerErrorMessage = null;
-                                      });
-                                    },
+                          _buildHeaderEditor(context),
+                        ] else ...[
+                          TextFormField(
+                            controller: _commandController,
+                            enabled: !_isSaving,
+                            decoration: InputDecoration(
+                              labelText: l10n.mcpCommandField,
                             ),
+                            validator: (value) {
+                              if ((value?.trim() ?? '').isEmpty) {
+                                return l10n.mcpCommandRequired;
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 16),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(l10n.mcpServerEnabledLabel),
-                            subtitle: Text(l10n.mcpServerEnabledBody),
-                            value: _enabled,
-                            onChanged: _isSaving
-                                ? null
-                                : (value) {
-                                    setState(() {
-                                      _enabled = value;
-                                    });
-                                  },
+                          TextField(
+                            controller: _argsController,
+                            enabled: !_isSaving,
+                            minLines: 4,
+                            maxLines: 8,
+                            decoration: InputDecoration(
+                              labelText: l10n.mcpArgsField,
+                              hintText: l10n.mcpArgsHint,
+                              alignLabelWithHint: true,
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          if (useUrlField) ...[
-                            TextFormField(
-                              controller: _urlController,
-                              enabled: !_isSaving,
-                              decoration: InputDecoration(
-                                labelText: l10n.mcpUrlField,
-                              ),
-                              validator: (value) {
-                                final rawValue = value?.trim() ?? '';
-                                if (rawValue.isEmpty) {
-                                  return l10n.mcpUrlRequired;
-                                }
-                                if (!isValidHttpUrl(rawValue)) {
-                                  return l10n.mcpUrlInvalid;
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            _buildHeaderEditor(context),
-                          ] else ...[
-                            TextFormField(
-                              controller: _commandController,
-                              enabled: !_isSaving,
-                              decoration: InputDecoration(
-                                labelText: l10n.mcpCommandField,
-                              ),
-                              validator: (value) {
-                                if ((value?.trim() ?? '').isEmpty) {
-                                  return l10n.mcpCommandRequired;
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextField(
-                              controller: _argsController,
-                              enabled: !_isSaving,
-                              minLines: 4,
-                              maxLines: 8,
-                              decoration: InputDecoration(
-                                labelText: l10n.mcpArgsField,
-                                hintText: l10n.mcpArgsHint,
-                                alignLabelWithHint: true,
-                              ),
-                            ),
-                          ],
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.error,
-                                  ),
-                            ),
-                          ],
                         ],
-                      ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-                if (_isSaving) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      label: l10n.commonCancel,
-                    ),
-                    const SizedBox(width: 12),
-                    OpenHandDialogActionButton.primary(
-                      onPressed: _isSaving ? null : _handleSave,
-                      label: l10n.commonSave,
-                    ),
-                  ],
-                ),
+              ),
+              if (_isSaving) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
               ],
-            ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    label: l10n.commonCancel,
+                  ),
+                  const SizedBox(width: 12),
+                  OpenHandDialogActionButton.primary(
+                    onPressed: _isSaving ? null : _handleSave,
+                    label: l10n.commonSave,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -3767,273 +3768,269 @@ class _McpProbeDetailsDialog extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isZh = openHandIsChineseLocale(context);
 
-    return Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 620),
-        child:
-            Selector<
-              McpController,
-              ({
-                List<McpServer> servers,
-                int autoProbeConcurrency,
-                int activeAutoProbeSlots,
-                int queuedAutoProbeTasks,
-                bool autoToolRefreshInProgress,
-                bool autoHealthCheckInProgress,
-                DateTime? lastBatchProbeAt,
-                DateTime? nextScheduledProbeAt,
-              })
-            >(
-              selector: (_, c) => (
-                servers: c.servers,
-                autoProbeConcurrency: c.autoProbeConcurrency,
-                activeAutoProbeSlots: c.activeAutoProbeSlots,
-                queuedAutoProbeTasks: c.queuedAutoProbeTasks,
-                autoToolRefreshInProgress: c.isAutoToolRefreshInProgress,
-                autoHealthCheckInProgress: c.isAutoHealthCheckInProgress,
-                lastBatchProbeAt: c.lastBatchProbeAt,
-                nextScheduledProbeAt: c.nextScheduledProbeAt,
-              ),
-              builder: (context, snap, _) {
-                final controller = context.read<McpController>();
-                final hasWork =
-                    snap.activeAutoProbeSlots > 0 ||
-                    snap.queuedAutoProbeTasks > 0 ||
-                    snap.autoToolRefreshInProgress ||
-                    snap.autoHealthCheckInProgress;
-                final progress = snap.autoProbeConcurrency <= 0
-                    ? 0.0
-                    : (snap.activeAutoProbeSlots / snap.autoProbeConcurrency)
-                          .clamp(0.0, 1.0)
-                          .toDouble();
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 680,
+      maxHeight: 620,
+      safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
+      child:
+          Selector<
+            McpController,
+            ({
+              List<McpServer> servers,
+              int autoProbeConcurrency,
+              int activeAutoProbeSlots,
+              int queuedAutoProbeTasks,
+              bool autoToolRefreshInProgress,
+              bool autoHealthCheckInProgress,
+              DateTime? lastBatchProbeAt,
+              DateTime? nextScheduledProbeAt,
+            })
+          >(
+            selector: (_, c) => (
+              servers: c.servers,
+              autoProbeConcurrency: c.autoProbeConcurrency,
+              activeAutoProbeSlots: c.activeAutoProbeSlots,
+              queuedAutoProbeTasks: c.queuedAutoProbeTasks,
+              autoToolRefreshInProgress: c.isAutoToolRefreshInProgress,
+              autoHealthCheckInProgress: c.isAutoHealthCheckInProgress,
+              lastBatchProbeAt: c.lastBatchProbeAt,
+              nextScheduledProbeAt: c.nextScheduledProbeAt,
+            ),
+            builder: (context, snap, _) {
+              final controller = context.read<McpController>();
+              final hasWork =
+                  snap.activeAutoProbeSlots > 0 ||
+                  snap.queuedAutoProbeTasks > 0 ||
+                  snap.autoToolRefreshInProgress ||
+                  snap.autoHealthCheckInProgress;
+              final progress = snap.autoProbeConcurrency <= 0
+                  ? 0.0
+                  : (snap.activeAutoProbeSlots / snap.autoProbeConcurrency)
+                        .clamp(0.0, 1.0)
+                        .toDouble();
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 标题栏
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHigh,
-                        border: Border(
-                          bottom: BorderSide(
-                            color: colorScheme.outlineVariant.withValues(
-                              alpha: 0.5,
-                            ),
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 标题栏
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.5,
                           ),
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: hasWork
-                                  ? colorScheme.primaryContainer
-                                  : colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              hasWork
-                                  ? Icons.radar_rounded
-                                  : Icons.speed_outlined,
-                              color: hasWork
-                                  ? colorScheme.onPrimaryContainer
-                                  : colorScheme.onSurfaceVariant,
-                              size: 18,
-                            ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: hasWork
+                                ? colorScheme.primaryContainer
+                                : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isZh ? 'MCP 探测详情' : 'MCP Probe Details',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          child: Icon(
+                            hasWork
+                                ? Icons.radar_rounded
+                                : Icons.speed_outlined,
+                            color: hasWork
+                                ? colorScheme.onPrimaryContainer
+                                : colorScheme.onSurfaceVariant,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isZh ? 'MCP 探测详情' : 'MCP Probe Details',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                Text(
-                                  hasWork
-                                      ? (isZh ? '探测池运行中' : 'Probe pool active')
-                                      : (isZh ? '探测池空闲' : 'Probe pool idle'),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
+                              ),
+                              Text(
+                                hasWork
+                                    ? (isZh ? '探测池运行中' : 'Probe pool active')
+                                    : (isZh ? '探测池空闲' : 'Probe pool idle'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close, size: 18),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 进度条
+                  _McpAnimatedProgressBar(
+                    value: progress,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    reduceMotion: MediaQuery.disableAnimationsOf(context),
+                  ),
+                  // 内容
+                  Flexible(
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        // 探测池状态
+                        _ProbeSection(
+                          title: isZh ? '探测池状态' : 'Pool Status',
+                          icon: Icons.commit_rounded,
+                          children: [
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _McpStatusChip(
+                                  icon: Icons.commit_rounded,
+                                  label: isZh
+                                      ? '槽位 ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}'
+                                      : 'Slots ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}',
+                                ),
+                                _McpStatusChip(
+                                  icon: Icons.queue_rounded,
+                                  label: isZh
+                                      ? '排队 ${snap.queuedAutoProbeTasks}'
+                                      : 'Queued ${snap.queuedAutoProbeTasks}',
+                                ),
+                                _McpStatusChip(
+                                  icon: Icons.build_circle_outlined,
+                                  label:
+                                      'Tools ${snap.autoToolRefreshInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
+                                ),
+                                _McpStatusChip(
+                                  icon: Icons.health_and_safety_outlined,
+                                  label:
+                                      '${isZh ? "健康" : "Health"} ${snap.autoHealthCheckInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
+                                ),
+                                if (snap.lastBatchProbeAt != null)
+                                  _McpStatusChip(
+                                    icon: Icons.history_rounded,
+                                    label:
+                                        '${isZh ? "上次" : "Last"} ${_formatRelativePast(context, snap.lastBatchProbeAt!)}',
+                                  ),
+                                if (snap.nextScheduledProbeAt != null &&
+                                    !hasWork)
+                                  _McpStatusChip(
+                                    icon: Icons.schedule_rounded,
+                                    label:
+                                        '${isZh ? "下次" : "Next"} ${_formatRelativeFuture(context, snap.nextScheduledProbeAt!)}',
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // 探测控制
+                        _ProbeSection(
+                          title: isZh ? '探测控制' : 'Probe Controls',
+                          icon: Icons.tune_rounded,
+                          children: [
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                FilledButton.tonalIcon(
+                                  onPressed: hasWork
+                                      ? null
+                                      : () {
+                                          // 强制触发：先 deactivate 再 activate 以重置状态
+                                          controller.setPageActive(false);
+                                          Future.delayed(
+                                            const Duration(milliseconds: 200),
+                                            () {
+                                              controller.setPageActive(true);
+                                            },
+                                          );
+                                        },
+                                  icon: const Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(isZh ? '强制触发探测' : 'Force Probe'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: !hasWork
+                                      ? null
+                                      : () {
+                                          // 中断：deactivate 停止所有探测
+                                          controller.setPageActive(false);
+                                        },
+                                  icon: const Icon(
+                                    Icons.stop_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(isZh ? '中断当前探测' : 'Stop Probing'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    await controller.refresh();
+                                    // refresh 完成后重新激活探测
+                                    controller.setPageActive(true);
+                                  },
+                                  icon: const Icon(
+                                    Icons.refresh_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    isZh ? '重载服务列表' : 'Reload Servers',
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close, size: 18),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 进度条
-                    _McpAnimatedProgressBar(
-                      value: progress,
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      reduceMotion: MediaQuery.disableAnimationsOf(context),
-                    ),
-                    // 内容
-                    Flexible(
-                      child: ListView(
-                        padding: const EdgeInsets.all(20),
-                        children: [
-                          // 探测池状态
-                          _ProbeSection(
-                            title: isZh ? '探测池状态' : 'Pool Status',
-                            icon: Icons.commit_rounded,
-                            children: [
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _McpStatusChip(
-                                    icon: Icons.commit_rounded,
-                                    label: isZh
-                                        ? '槽位 ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}'
-                                        : 'Slots ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}',
-                                  ),
-                                  _McpStatusChip(
-                                    icon: Icons.queue_rounded,
-                                    label: isZh
-                                        ? '排队 ${snap.queuedAutoProbeTasks}'
-                                        : 'Queued ${snap.queuedAutoProbeTasks}',
-                                  ),
-                                  _McpStatusChip(
-                                    icon: Icons.build_circle_outlined,
-                                    label:
-                                        'Tools ${snap.autoToolRefreshInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
-                                  ),
-                                  _McpStatusChip(
-                                    icon: Icons.health_and_safety_outlined,
-                                    label:
-                                        '${isZh ? "健康" : "Health"} ${snap.autoHealthCheckInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
-                                  ),
-                                  if (snap.lastBatchProbeAt != null)
-                                    _McpStatusChip(
-                                      icon: Icons.history_rounded,
-                                      label:
-                                          '${isZh ? "上次" : "Last"} ${_formatRelativePast(context, snap.lastBatchProbeAt!)}',
-                                    ),
-                                  if (snap.nextScheduledProbeAt != null &&
-                                      !hasWork)
-                                    _McpStatusChip(
-                                      icon: Icons.schedule_rounded,
-                                      label:
-                                          '${isZh ? "下次" : "Next"} ${_formatRelativeFuture(context, snap.nextScheduledProbeAt!)}',
-                                    ),
-                                ],
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // 各服务探测状态
+                        _ProbeSection(
+                          title: isZh
+                              ? '服务探测状态 (${snap.servers.length} 个服务)'
+                              : 'Server Probe Status (${snap.servers.length} servers)',
+                          icon: Icons.dns_outlined,
+                          children: [
+                            for (final server in snap.servers)
+                              _ProbeServerRow(
+                                server: server,
+                                controller: controller,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // 探测控制
-                          _ProbeSection(
-                            title: isZh ? '探测控制' : 'Probe Controls',
-                            icon: Icons.tune_rounded,
-                            children: [
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  FilledButton.tonalIcon(
-                                    onPressed: hasWork
-                                        ? null
-                                        : () {
-                                            // 强制触发：先 deactivate 再 activate 以重置状态
-                                            controller.setPageActive(false);
-                                            Future.delayed(
-                                              const Duration(milliseconds: 200),
-                                              () {
-                                                controller.setPageActive(true);
-                                              },
-                                            );
-                                          },
-                                    icon: const Icon(
-                                      Icons.play_arrow_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      isZh ? '强制触发探测' : 'Force Probe',
-                                    ),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: !hasWork
-                                        ? null
-                                        : () {
-                                            // 中断：deactivate 停止所有探测
-                                            controller.setPageActive(false);
-                                          },
-                                    icon: const Icon(
-                                      Icons.stop_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      isZh ? '中断当前探测' : 'Stop Probing',
-                                    ),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: () async {
-                                      await controller.refresh();
-                                      // refresh 完成后重新激活探测
-                                      controller.setPageActive(true);
-                                    },
-                                    icon: const Icon(
-                                      Icons.refresh_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      isZh ? '重载服务列表' : 'Reload Servers',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // 各服务探测状态
-                          _ProbeSection(
-                            title: isZh
-                                ? '服务探测状态 (${snap.servers.length} 个服务)'
-                                : 'Server Probe Status (${snap.servers.length} servers)',
-                            icon: Icons.dns_outlined,
-                            children: [
-                              for (final server in snap.servers)
-                                _ProbeServerRow(
-                                  server: server,
-                                  controller: controller,
+                            if (snap.servers.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
                                 ),
-                              if (snap.servers.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  child: Text(
-                                    isZh ? '暂无服务' : 'No servers',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
+                                child: Text(
+                                  isZh ? '暂无服务' : 'No servers',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                            ],
-                          ),
-                        ],
-                      ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
-                );
-              },
-            ),
-      ),
+                  ),
+                ],
+              );
+            },
+          ),
     );
   }
 }
@@ -4533,194 +4530,192 @@ class _McpToolDetailsDialog extends StatelessWidget {
     final outputFields = _schemaFields(outputSchemaMetadata);
     final outputDescription = tool.outputDescription?.trim() ?? '';
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 860, maxHeight: 760),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tool.name, style: theme.textTheme.headlineSmall),
-                        const SizedBox(height: 8),
-                        SelectableText(
-                          '${_localizedText(context, zh: 'Tool ID', en: 'Tool ID')}: ${tool.id}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    key: ValueKey<String>(
-                      'mcpToolDetailsDebugButton-${tool.id}',
-                    ),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '调试 Tool',
-                      en: 'Debug Tool',
-                    ),
-                    onPressed: () => _showToolDebugDialog(
-                      context,
-                      mcpController: mcpController,
-                      server: server,
-                      toolCatalog: toolCatalog,
-                      initialTool: tool,
-                    ),
-                    icon: const Icon(Icons.play_circle_outline_rounded),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: SingleChildScrollView(
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 860,
+      maxHeight: 760,
+      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (tool.description.trim().isNotEmpty) ...[
-                        _ToolDescriptionPanel(description: tool.description),
-                        const SizedBox(height: 14),
-                      ],
-                      if (tool.hasMetadataWarning) ...[
-                        OpenHandInlineNoticeFactory.warning(
-                          context,
-                          tool.metadataWarning!,
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          _ToolMetaTile(
-                            label: _localizedText(
-                              context,
-                              zh: '入參信息',
-                              en: 'Input Metadata',
-                            ),
-                            value: _schemaSummary(
-                              context,
-                              rawSchema: inputSchemaMetadata,
-                              fields: inputFields,
-                            ),
-                          ),
-                          _ToolMetaTile(
-                            label: _localizedText(
-                              context,
-                              zh: '返回信息',
-                              en: 'Output Metadata',
-                            ),
-                            value: _schemaSummary(
-                              context,
-                              rawSchema: outputSchemaMetadata,
-                              fields: outputFields,
-                              description: outputDescription,
-                            ),
-                          ),
-                          _ToolMetaTile(
-                            label: _localizedText(
-                              context,
-                              zh: '执行能力',
-                              en: 'Execution',
-                            ),
-                            value: _executionSummary(context, tool),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      _ToolSchemaSection(
-                        title: _localizedText(
-                          context,
-                          zh: '入參',
-                          en: 'Parameters',
-                        ),
-                        fields: inputFields,
-                        schema: inputSchemaMetadata,
-                        emptyLabel: _localizedText(
-                          context,
-                          zh: '该 Tool 未声明结构化入參字段。',
-                          en: 'This tool does not declare structured input fields.',
+                      Text(tool.name, style: theme.textTheme.headlineSmall),
+                      const SizedBox(height: 8),
+                      SelectableText(
+                        '${_localizedText(context, zh: 'Tool ID', en: 'Tool ID')}: ${tool.id}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      if (outputDescription.isNotEmpty) ...[
-                        _ToolTextSection(
-                          title: _localizedText(
-                            context,
-                            zh: '返回说明',
-                            en: 'Return Description',
-                          ),
-                          body: outputDescription,
-                          caption: tool.outputDescriptionIsInferred
-                              ? _localizedText(
-                                  context,
-                                  zh: '基于 Tool 描述推断',
-                                  en: 'Derived from the tool description',
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      _ToolSchemaSection(
-                        title: _localizedText(
-                          context,
-                          zh: '返回值',
-                          en: 'Return Value',
-                        ),
-                        fields: outputFields,
-                        schema: outputSchemaMetadata,
-                        emptyLabel: outputSchemaMetadata == null
-                            ? outputDescription.isNotEmpty
-                                  ? _localizedText(
-                                      context,
-                                      zh: '该 Tool 未声明结构化返回值 Schema。',
-                                      en: 'This tool does not declare a structured output schema.',
-                                    )
-                                  : _localizedText(
-                                      context,
-                                      zh: '该 Tool 未声明返回值 Schema。',
-                                      en: 'This tool does not declare an output schema.',
-                                    )
-                            : _localizedText(
-                                context,
-                                zh: '返回值 Schema 未提供结构化字段。',
-                                en: 'The output schema does not expose structured fields.',
-                              ),
-                      ),
-                      if (tool.hasMetadataWarning && tool.hasRawMetadata) ...[
-                        const SizedBox(height: 20),
-                        Text(
-                          _localizedText(
-                            context,
-                            zh: '服务端原始元数据',
-                            en: 'Raw Server Metadata',
-                          ),
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 12),
-                        _ToolSchemaPanel(schema: tool.rawMetadata),
-                      ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                IconButton(
+                  key: ValueKey<String>('mcpToolDetailsDebugButton-${tool.id}'),
+                  tooltip: _localizedText(
+                    context,
+                    zh: '调试 Tool',
+                    en: 'Debug Tool',
+                  ),
+                  onPressed: () => _showToolDebugDialog(
+                    context,
+                    mcpController: mcpController,
+                    server: server,
+                    toolCatalog: toolCatalog,
+                    initialTool: tool,
+                  ),
+                  icon: const Icon(Icons.play_circle_outline_rounded),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (tool.description.trim().isNotEmpty) ...[
+                      _ToolDescriptionPanel(description: tool.description),
+                      const SizedBox(height: 14),
+                    ],
+                    if (tool.hasMetadataWarning) ...[
+                      OpenHandInlineNoticeFactory.warning(
+                        context,
+                        tool.metadataWarning!,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _ToolMetaTile(
+                          label: _localizedText(
+                            context,
+                            zh: '入參信息',
+                            en: 'Input Metadata',
+                          ),
+                          value: _schemaSummary(
+                            context,
+                            rawSchema: inputSchemaMetadata,
+                            fields: inputFields,
+                          ),
+                        ),
+                        _ToolMetaTile(
+                          label: _localizedText(
+                            context,
+                            zh: '返回信息',
+                            en: 'Output Metadata',
+                          ),
+                          value: _schemaSummary(
+                            context,
+                            rawSchema: outputSchemaMetadata,
+                            fields: outputFields,
+                            description: outputDescription,
+                          ),
+                        ),
+                        _ToolMetaTile(
+                          label: _localizedText(
+                            context,
+                            zh: '执行能力',
+                            en: 'Execution',
+                          ),
+                          value: _executionSummary(context, tool),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _ToolSchemaSection(
+                      title: _localizedText(
+                        context,
+                        zh: '入參',
+                        en: 'Parameters',
+                      ),
+                      fields: inputFields,
+                      schema: inputSchemaMetadata,
+                      emptyLabel: _localizedText(
+                        context,
+                        zh: '该 Tool 未声明结构化入參字段。',
+                        en: 'This tool does not declare structured input fields.',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (outputDescription.isNotEmpty) ...[
+                      _ToolTextSection(
+                        title: _localizedText(
+                          context,
+                          zh: '返回说明',
+                          en: 'Return Description',
+                        ),
+                        body: outputDescription,
+                        caption: tool.outputDescriptionIsInferred
+                            ? _localizedText(
+                                context,
+                                zh: '基于 Tool 描述推断',
+                                en: 'Derived from the tool description',
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    _ToolSchemaSection(
+                      title: _localizedText(
+                        context,
+                        zh: '返回值',
+                        en: 'Return Value',
+                      ),
+                      fields: outputFields,
+                      schema: outputSchemaMetadata,
+                      emptyLabel: outputSchemaMetadata == null
+                          ? outputDescription.isNotEmpty
+                                ? _localizedText(
+                                    context,
+                                    zh: '该 Tool 未声明结构化返回值 Schema。',
+                                    en: 'This tool does not declare a structured output schema.',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '该 Tool 未声明返回值 Schema。',
+                                    en: 'This tool does not declare an output schema.',
+                                  )
+                          : _localizedText(
+                              context,
+                              zh: '返回值 Schema 未提供结构化字段。',
+                              en: 'The output schema does not expose structured fields.',
+                            ),
+                    ),
+                    if (tool.hasMetadataWarning && tool.hasRawMetadata) ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '服务端原始元数据',
+                          en: 'Raw Server Metadata',
+                        ),
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      _ToolSchemaPanel(schema: tool.rawMetadata),
+                    ],
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -5293,306 +5288,305 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
         ? const <_SchemaField>[]
         : _schemaFields(inputSchemaMetadata);
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 820),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+    return buildOpenHandResponsiveDialogShell(
+      context: context,
+      maxWidth: 920,
+      maxHeight: 820,
+      safeAreaMinimum: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '调试 MCP Tool',
+                          en: 'Debug MCP Tool',
+                        ),
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${widget.server.name} · ${widget.server.type.label(AppLocalizations.of(context)!)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (tool == null)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    _localizedText(
+                      context,
+                      zh: '当前服务还没有可调试的 Tool，请先刷新 Tool 列表。',
+                      en: 'No tools are available for debugging yet. Refresh the tool list first.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          key: ValueKey<String>(
+                            'mcpToolDebugToolField-${tool.id}',
+                          ),
+                          onTap: _isRunning ? null : _showToolMenu,
+                          borderRadius: BorderRadius.circular(18),
+                          child: InputDecorator(
+                            key: _toolMenuAnchorKey,
+                            isFocused: _toolMenuOpen,
+                            isEmpty: tool.name.trim().isEmpty,
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                context,
+                                zh: '选择 Tool',
+                                en: 'Tool',
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              suffixIcon: Icon(
+                                _toolMenuOpen
+                                    ? Icons.arrow_drop_up_rounded
+                                    : Icons.arrow_drop_down_rounded,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  tool.hasMetadataWarning
+                                      ? Icons.warning_amber_rounded
+                                      : Icons.build_circle_outlined,
+                                  size: 18,
+                                  color: tool.hasMetadataWarning
+                                      ? colorScheme.error
+                                      : colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    tool.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (tool.description.trim().isNotEmpty) ...[
+                        _ToolDescriptionPanel(description: tool.description),
+                        const SizedBox(height: 14),
+                      ],
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '参数 JSON',
+                          en: 'Arguments JSON',
+                        ),
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        key: const ValueKey<String>(
+                          'mcpToolDebugArgumentsField',
+                        ),
+                        controller: _argumentsController,
+                        minLines: 8,
+                        maxLines: 16,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
+                        decoration: InputDecoration(
+                          hintText: _localizedText(
+                            context,
+                            zh: '请输入 JSON 对象，例如 {"page": 1}',
+                            en: 'Enter a JSON object, for example {"page": 1}',
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (widget.server.type == McpServerType.streamableHttp ||
+                          widget.server.type == McpServerType.sse)
+                        _buildHeaderConfigSection(context),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          OpenHandDialogActionButton.primary(
+                            key: const ValueKey<String>(
+                              'mcpToolDebugRunButton',
+                            ),
+                            onPressed: _isRunning ? null : _runTool,
+                            icon: Icons.play_arrow_rounded,
+                            busy: _isRunning,
+                            label: _isRunning
+                                ? _localizedText(
+                                    context,
+                                    zh: '执行中',
+                                    en: 'Running',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '执行 Tool',
+                                    en: 'Run Tool',
+                                  ),
+                          ),
+                          OpenHandDialogActionButton.secondary(
+                            onPressed: _isRunning
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _argumentsController.text =
+                                          _suggestedArgumentsJson(tool);
+                                    });
+                                  },
+                            icon: Icons.restart_alt_rounded,
+                            label: _localizedText(
+                              context,
+                              zh: '恢复示例参数',
+                              en: 'Reset Sample',
+                            ),
+                          ),
+                        ],
+                      ),
+                      OpenHandInlineNoticeSlot(
+                        child: _errorMessage != null
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 14),
+                                child: OpenHandInlineNoticeFactory.error(
+                                  context,
+                                  _errorMessage!,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '参数参考',
+                          en: 'Parameter Reference',
+                        ),
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      if (inputFields.isEmpty)
                         Text(
                           _localizedText(
                             context,
-                            zh: '调试 MCP Tool',
-                            en: 'Debug MCP Tool',
+                            zh: '该 Tool 未声明结构化参数字段。',
+                            en: 'This tool does not declare structured input fields.',
                           ),
-                          style: theme.textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${widget.server.name} · ${widget.server.type.label(AppLocalizations.of(context)!)}',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
+                        )
+                      else
+                        Column(
+                          children: inputFields
+                              .map(
+                                (field) => _ToolSchemaFieldCard(field: field),
+                              )
+                              .toList(growable: false),
                         ),
+                      if (inputSchemaMetadata != null) ...[
+                        const SizedBox(height: 12),
+                        _ToolSchemaPanel(schema: inputSchemaMetadata),
                       ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              if (tool == null)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      _localizedText(
-                        context,
-                        zh: '当前服务还没有可调试的 Tool，请先刷新 Tool 列表。',
-                        en: 'No tools are available for debugging yet. Refresh the tool list first.',
+                      const SizedBox(height: 20),
+                      Text(
+                        _localizedText(context, zh: '执行结果', en: 'Result'),
+                        style: theme.textTheme.titleLarge,
                       ),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            key: ValueKey<String>(
-                              'mcpToolDebugToolField-${tool.id}',
-                            ),
-                            onTap: _isRunning ? null : _showToolMenu,
-                            borderRadius: BorderRadius.circular(18),
-                            child: InputDecorator(
-                              key: _toolMenuAnchorKey,
-                              isFocused: _toolMenuOpen,
-                              isEmpty: tool.name.trim().isEmpty,
-                              decoration: InputDecoration(
-                                labelText: _localizedText(
-                                  context,
-                                  zh: '选择 Tool',
-                                  en: 'Tool',
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                suffixIcon: Icon(
-                                  _toolMenuOpen
-                                      ? Icons.arrow_drop_up_rounded
-                                      : Icons.arrow_drop_down_rounded,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    tool.hasMetadataWarning
-                                        ? Icons.warning_amber_rounded
-                                        : Icons.build_circle_outlined,
-                                    size: 18,
-                                    color: tool.hasMetadataWarning
-                                        ? colorScheme.error
-                                        : colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      tool.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyLarge,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        if (tool.description.trim().isNotEmpty) ...[
-                          _ToolDescriptionPanel(description: tool.description),
-                          const SizedBox(height: 14),
-                        ],
+                      const SizedBox(height: 12),
+                      if (_result == null &&
+                          _errorMessage == null &&
+                          !_isRunning)
                         Text(
                           _localizedText(
                             context,
-                            zh: '参数 JSON',
-                            en: 'Arguments JSON',
+                            zh: '执行后会在这里展示原始返回结果。',
+                            en: 'The raw tool result will appear here after execution.',
                           ),
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          key: const ValueKey<String>(
-                            'mcpToolDebugArgumentsField',
-                          ),
-                          controller: _argumentsController,
-                          minLines: 8,
-                          maxLines: 16,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            fontFamily: 'monospace',
+                            color: colorScheme.onSurfaceVariant,
                           ),
-                          decoration: InputDecoration(
-                            hintText: _localizedText(
-                              context,
-                              zh: '请输入 JSON 对象，例如 {"page": 1}',
-                              en: 'Enter a JSON object, for example {"page": 1}',
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (widget.server.type ==
-                                McpServerType.streamableHttp ||
-                            widget.server.type == McpServerType.sse)
-                          _buildHeaderConfigSection(context),
-                        const SizedBox(height: 12),
+                        )
+                      else if (_result != null) ...[
                         Wrap(
                           spacing: 10,
                           runSpacing: 10,
                           children: [
-                            OpenHandDialogActionButton.primary(
-                              key: const ValueKey<String>(
-                                'mcpToolDebugRunButton',
-                              ),
-                              onPressed: _isRunning ? null : _runTool,
-                              icon: Icons.play_arrow_rounded,
-                              busy: _isRunning,
-                              label: _isRunning
+                            _McpStatusChip(
+                              icon: _result!.isError
+                                  ? Icons.error_outline_rounded
+                                  : Icons.check_circle_outline_rounded,
+                              label: _result!.isError
                                   ? _localizedText(
                                       context,
-                                      zh: '执行中',
-                                      en: 'Running',
+                                      zh: '服务端返回错误',
+                                      en: 'Server Returned Error',
                                     )
                                   : _localizedText(
                                       context,
-                                      zh: '执行 Tool',
-                                      en: 'Run Tool',
+                                      zh: '执行成功',
+                                      en: 'Succeeded',
                                     ),
-                            ),
-                            OpenHandDialogActionButton.secondary(
-                              onPressed: _isRunning
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _argumentsController.text =
-                                            _suggestedArgumentsJson(tool);
-                                      });
-                                    },
-                              icon: Icons.restart_alt_rounded,
-                              label: _localizedText(
-                                context,
-                                zh: '恢复示例参数',
-                                en: 'Reset Sample',
-                              ),
                             ),
                           ],
                         ),
-                        OpenHandInlineNoticeSlot(
-                          child: _errorMessage != null
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: 14),
-                                  child: OpenHandInlineNoticeFactory.error(
-                                    context,
-                                    _errorMessage!,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          _localizedText(
+                        const SizedBox(height: 12),
+                        _McpFormattedResultPanel(result: _result!),
+                      ] else if (_isRunning)
+                        _ToolConsolePanel(
+                          content: _localizedText(
                             context,
-                            zh: '参数参考',
-                            en: 'Parameter Reference',
+                            zh: '正在等待 MCP 服务返回结果...',
+                            en: 'Waiting for the MCP service to return a result...',
                           ),
-                          style: theme.textTheme.titleLarge,
                         ),
-                        const SizedBox(height: 12),
-                        if (inputFields.isEmpty)
-                          Text(
-                            _localizedText(
-                              context,
-                              zh: '该 Tool 未声明结构化参数字段。',
-                              en: 'This tool does not declare structured input fields.',
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          )
-                        else
-                          Column(
-                            children: inputFields
-                                .map(
-                                  (field) => _ToolSchemaFieldCard(field: field),
-                                )
-                                .toList(growable: false),
-                          ),
-                        if (inputSchemaMetadata != null) ...[
-                          const SizedBox(height: 12),
-                          _ToolSchemaPanel(schema: inputSchemaMetadata),
-                        ],
-                        const SizedBox(height: 20),
-                        Text(
-                          _localizedText(context, zh: '执行结果', en: 'Result'),
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 12),
-                        if (_result == null &&
-                            _errorMessage == null &&
-                            !_isRunning)
-                          Text(
-                            _localizedText(
-                              context,
-                              zh: '执行后会在这里展示原始返回结果。',
-                              en: 'The raw tool result will appear here after execution.',
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          )
-                        else if (_result != null) ...[
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              _McpStatusChip(
-                                icon: _result!.isError
-                                    ? Icons.error_outline_rounded
-                                    : Icons.check_circle_outline_rounded,
-                                label: _result!.isError
-                                    ? _localizedText(
-                                        context,
-                                        zh: '服务端返回错误',
-                                        en: 'Server Returned Error',
-                                      )
-                                    : _localizedText(
-                                        context,
-                                        zh: '执行成功',
-                                        en: 'Succeeded',
-                                      ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _McpFormattedResultPanel(result: _result!),
-                        ] else if (_isRunning)
-                          _ToolConsolePanel(
-                            content: _localizedText(
-                              context,
-                              zh: '正在等待 MCP 服务返回结果...',
-                              en: 'Waiting for the MCP service to return a result...',
-                            ),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
