@@ -92,6 +92,89 @@ void main() {
     );
 
     test(
+      'does not send dimensions to fixed compatible embedding models',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[1, 2, 3, 4],
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        final result = await service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://api.openai.com',
+            modelId: 'text-embedding-ada-002',
+          ),
+          input: const <String>['alpha'],
+          dimensions: 2,
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'text-embedding-ada-002',
+          'input': <String>['alpha'],
+          'encoding_format': 'float',
+        });
+        expect(result.vectors.single, <double>[1, 2, 3, 4]);
+      },
+    );
+
+    test(
+      'clips compatible vectors locally when custom dimensions are metadata-only',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[1, 2, 3, 4],
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        final result = await service.createEmbeddings(
+          model:
+              _model(
+                protocol: AiProtocolType.ollama,
+                baseUrl: 'http://localhost:11434/v1',
+                modelId: 'local-matryoshka-embed',
+              ).copyWith(
+                modelProfiles: const <String, AiModelProfile>{
+                  'local-matryoshka-embed': AiModelProfile(
+                    capabilities: <AiModelCapability>{
+                      AiModelCapability.embeddingGeneration,
+                    },
+                    supportedParameters: <String>['input', 'model'],
+                    embeddingSupportsCustomDimensions: true,
+                    embeddingDimensions: 4,
+                    embeddingMinDimensions: 2,
+                    embeddingMaxDimensions: 4,
+                  ),
+                },
+              ),
+          input: const <String>['alpha'],
+          dimensions: 2,
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'local-matryoshka-embed',
+          'input': <String>['alpha'],
+        });
+        expect(result.vectors.single, <double>[1, 2]);
+      },
+    );
+
+    test(
       'sends typed OpenAI-compatible embedding parameters when declared',
       () async {
         final client = _RecordingHttpClient(
@@ -599,6 +682,43 @@ void main() {
       },
     );
 
+    test(
+      'does not send flexible Voyage params to fixed-dimension models',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[1, 2, 3, 4],
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        final result = await service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://api.voyageai.com/v1',
+            modelId: 'voyage-law-2',
+          ),
+          input: const <String>['alpha'],
+          dimensions: 512,
+          outputDType: 'int8',
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'voyage-law-2',
+          'input': <String>['alpha'],
+          'input_type': 'document',
+          'truncation': true,
+        });
+        expect(result.vectors.single, <double>[1, 2, 3, 4]);
+      },
+    );
+
     test('sends Jina embedding requests with retrieval task', () async {
       final client = _RecordingHttpClient(
         responseBody: <String, Object?>{
@@ -808,6 +928,7 @@ void main() {
       expect(qwen?.embeddingBatchSize, 10);
       expect(glm?.supportsEmbeddings, isTrue);
       expect(glm?.embeddingDimensions, 2048);
+      expect(glm?.supportedParameters, contains('dimensions'));
       final jina = AiModelCatalog.lookup(
         'jina-embeddings-v3',
         AiProtocolType.openai,
@@ -943,11 +1064,17 @@ void main() {
         expect(voyageLite?.embeddingMaxTokensPerBatch, 1000000);
         expect(voyageLite?.embeddingOutputDTypes, contains('int8'));
         expect(voyageLite?.embeddingOutputDTypes, contains('ubinary'));
+        expect(voyageLite?.supportedParameters, contains('output_dimension'));
 
         expect(voyageLaw?.displayName, 'Voyage Law 2');
         expect(voyageLaw?.embeddingMaxInputTokens, 16000);
         expect(voyageLaw?.embeddingMaxTokensPerBatch, 120000);
         expect(voyageLaw?.embeddingOutputDTypes, isEmpty);
+        expect(
+          voyageLaw?.supportedParameters,
+          isNot(contains('output_dimension')),
+        );
+        expect(voyageLaw?.supportedParameters, isNot(contains('output_dtype')));
 
         expect(baidu?.displayName, 'Embedding-V1');
         expect(baidu?.embeddingDimensions, 384);

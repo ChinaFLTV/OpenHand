@@ -164,6 +164,12 @@ class AiModelCatalog {
     'dimensions',
   ];
 
+  static const _glmEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'dimensions',
+  ];
+
   static const _qwenMultimodalEmbeddingParameters = <String>[
     'input',
     'parameters.enable_fusion',
@@ -221,6 +227,13 @@ class AiModelCatalog {
     'truncation',
     'output_dimension',
     'output_dtype',
+  ];
+
+  static const _voyageFixedEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'input_type',
+    'truncation',
   ];
 
   static const _jinaEmbeddingParameters = <String>[
@@ -1714,6 +1727,7 @@ class AiModelCatalog {
         customDimensions: true,
         endpointPath: 'api/paas/v4/embeddings',
         batchSize: 64,
+        supportedParameters: _glmEmbeddingParameters,
         encodingFormats: const <String>['float'],
         defaultEncodingFormat: 'float',
         outputsNormalized: true,
@@ -2572,7 +2586,9 @@ class AiModelCatalog {
       maxInputTokens: isLaw ? 16000 : 32000,
       customDimensions: supportsFlexibleOutput,
       batchSize: 128,
-      supportedParameters: _voyageEmbeddingParameters,
+      supportedParameters: supportsFlexibleOutput
+          ? _voyageEmbeddingParameters
+          : _voyageFixedEmbeddingParameters,
       inputTypes: isMultimodal
           ? const <String>['document', 'query', 'image', 'video']
           : const <String>['document', 'query'],

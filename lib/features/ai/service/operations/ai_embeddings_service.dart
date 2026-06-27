@@ -144,7 +144,8 @@ class AiEmbeddingsService {
       vectors: _parseVectors(
         payload,
         encodingFormat: _embeddingResponseEncoding(plan.body),
-        expectedDimensions: _embeddingResponseDimensions(plan.body),
+        expectedDimensions:
+            plan.expectedDimensions ?? _embeddingResponseDimensions(plan.body),
       ),
       rawResponse: response.body,
       payload: payload,
@@ -335,10 +336,16 @@ class AiEmbeddingsService {
         !value.every((item) => item is num)) {
       return null;
     }
-    return value
+    final vector = value
         .whereType<num>()
         .map((item) => item.toDouble())
         .toList(growable: false);
+    if (expectedDimensions == null ||
+        expectedDimensions <= 0 ||
+        expectedDimensions >= vector.length) {
+      return vector;
+    }
+    return vector.sublist(0, expectedDimensions);
   }
 
   List<double>? _encodedVectorOrNull(
@@ -396,11 +403,13 @@ class _EmbeddingRequestPlan {
   const _EmbeddingRequestPlan({
     required this.body,
     required this.contextHint,
+    this.expectedDimensions,
     this.fallbackPath,
   });
 
   final Map<String, Object?> body;
   final String contextHint;
+  final int? expectedDimensions;
   final String? fallbackPath;
 }
 
@@ -458,6 +467,13 @@ class _EmbeddingRequestContext {
   String? get trimmedTitle => _trimmedOrNull(title);
   String? get profileEndpointPath =>
       _trimmedOrNull(profile.embeddingEndpointPath);
+  bool get shouldConstrainDimensions =>
+      positiveDimensions != null &&
+      (profile.embeddingSupportsCustomDimensions ||
+          supportsParameter('dimensions') ||
+          supportsParameter('output_dimension') ||
+          supportsParameter('outputDimensionality') ||
+          supportsParameter('parameters.dimension'));
 
   Map<String, Object?> withProfileDefaults(Map<String, Object?> payload) {
     final defaults = profile.defaultParameters;
@@ -494,7 +510,8 @@ class _OpenAiCompatibleEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final payload = <String, Object?>{
       'model': context.modelId,
       'input': context.input,
-      if (context.positiveDimensions != null)
+      if (context.supportsParameter('dimensions') &&
+          context.positiveDimensions != null)
         'dimensions': context.positiveDimensions,
       if (context.supportsParameter('encoding_format') &&
           context.trimmedEncodingFormat != null)
@@ -522,6 +539,9 @@ class _OpenAiCompatibleEmbeddingStrategy extends _EmbeddingRequestStrategy {
     );
     return _EmbeddingRequestPlan(
       body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath: context.profileEndpointPath,
       contextHint: 'embeddings',
     );
@@ -556,6 +576,9 @@ class _MistralEmbeddingStrategy extends _EmbeddingRequestStrategy {
     );
     return _EmbeddingRequestPlan(
       body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath: context.profileEndpointPath,
       contextHint: 'embeddings/mistral',
     );
@@ -596,6 +619,9 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
     );
     return _EmbeddingRequestPlan(
       body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath: context.profileEndpointPath,
       contextHint: 'embeddings/cohere',
     );
@@ -625,15 +651,20 @@ class _VoyageEmbeddingStrategy extends _EmbeddingRequestStrategy {
         'input': context.input,
         if (context.trimmedInputType != null)
           'input_type': context.trimmedInputType,
-        if (context.positiveDimensions != null)
+        if (context.supportsParameter('output_dimension') &&
+            context.positiveDimensions != null)
           'output_dimension': context.positiveDimensions,
-        if (context.trimmedOutputDType != null)
+        if (context.supportsParameter('output_dtype') &&
+            context.trimmedOutputDType != null)
           'output_dtype': context.trimmedOutputDType,
         if (truncation != null) 'truncation': truncation,
       }),
     );
     return _EmbeddingRequestPlan(
       body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath: context.profileEndpointPath,
       contextHint: 'embeddings/voyage',
     );
@@ -676,6 +707,9 @@ class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
     );
     return _EmbeddingRequestPlan(
       body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath: context.profileEndpointPath,
       contextHint: 'embeddings/jina',
     );
@@ -714,6 +748,9 @@ class _PerplexityContextualizedEmbeddingStrategy
     );
     return _EmbeddingRequestPlan(
       body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath: context.profileEndpointPath ?? _fallbackPath,
       contextHint: 'embeddings/perplexity/contextualized',
     );
@@ -774,6 +811,9 @@ class _GeminiEmbeddingStrategy extends _EmbeddingRequestStrategy {
         family,
         context.withProfileDefaults(body),
       ),
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath:
           context.profileEndpointPath ??
           (isBatch
@@ -823,6 +863,9 @@ class _DashScopeMultimodalEmbeddingStrategy extends _EmbeddingRequestStrategy {
     );
     return _EmbeddingRequestPlan(
       body: body,
+      expectedDimensions: context.shouldConstrainDimensions
+          ? context.positiveDimensions
+          : null,
       fallbackPath: context.profileEndpointPath ?? _fallbackPath,
       contextHint: 'embeddings/dashscope/multimodal',
     );
