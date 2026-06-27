@@ -250,7 +250,7 @@ class KnowledgeDialogNotice extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.foreground,
                 height: 1.32,
-                fontWeight: FontWeight.w600,
+                fontWeight: colors.fontWeight,
               ),
             ),
           ),
@@ -309,6 +309,7 @@ class _KnowledgeDialogNoticeColors {
     required this.icon,
     required this.actionBackground,
     required this.actionBorder,
+    this.fontWeight,
   });
 
   final Color background;
@@ -317,40 +318,49 @@ class _KnowledgeDialogNoticeColors {
   final Color icon;
   final Color actionBackground;
   final Color actionBorder;
+  final FontWeight? fontWeight;
 
   static _KnowledgeDialogNoticeColors resolve(
     BuildContext context,
     KnowledgeDialogNoticeTone tone,
   ) {
     final scheme = Theme.of(context).colorScheme;
+    if (tone == KnowledgeDialogNoticeTone.neutral) {
+      return _KnowledgeDialogNoticeColors(
+        background: scheme.surfaceContainerHighest.withValues(alpha: 0.56),
+        border: scheme.outlineVariant.withValues(alpha: 0.62),
+        foreground: scheme.onSurfaceVariant,
+        icon: scheme.onSurfaceVariant,
+        actionBackground: scheme.surfaceContainerHighest,
+        actionBorder: scheme.outlineVariant,
+      );
+    }
     final surface = scheme.surfaceContainerHigh;
     final foreground = scheme.onSurface;
-    final neutralAccent = scheme.onSurfaceVariant;
     final accent = switch (tone) {
-      KnowledgeDialogNoticeTone.neutral => neutralAccent,
+      KnowledgeDialogNoticeTone.neutral => scheme.onSurfaceVariant,
       KnowledgeDialogNoticeTone.warning => OpenHandStatusColors.warning,
       KnowledgeDialogNoticeTone.error => OpenHandStatusColors.error,
     };
     final tintAlpha = switch (tone) {
-      KnowledgeDialogNoticeTone.neutral => 0.42,
+      KnowledgeDialogNoticeTone.neutral => 0.10,
       KnowledgeDialogNoticeTone.warning => 0.10,
       KnowledgeDialogNoticeTone.error => 0.10,
     };
     final borderAlpha = switch (tone) {
-      KnowledgeDialogNoticeTone.neutral => 0.62,
+      KnowledgeDialogNoticeTone.neutral => 0.30,
       KnowledgeDialogNoticeTone.warning => 0.34,
       KnowledgeDialogNoticeTone.error => 0.30,
     };
     return _KnowledgeDialogNoticeColors(
       background: Color.alphaBlend(
         accent.withValues(alpha: tintAlpha),
-        surface.withValues(
-          alpha: tone == KnowledgeDialogNoticeTone.neutral ? 0.56 : 0.92,
-        ),
+        surface.withValues(alpha: 0.92),
       ),
       border: accent.withValues(alpha: borderAlpha),
       foreground: foreground,
       icon: accent,
+      fontWeight: FontWeight.w600,
       actionBackground: Color.alphaBlend(
         accent.withValues(alpha: 0.10),
         scheme.surfaceContainerHighest,
