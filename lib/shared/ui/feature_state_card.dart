@@ -39,56 +39,51 @@ class FeatureStateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _FeatureStateToneColors.resolve(context, tone);
-    final content = switch (style) {
+    return switch (style) {
       FeatureStateCardStyle.centered => _buildCentered(context, colors),
       FeatureStateCardStyle.inline => _buildInline(context, colors),
     };
-    if (maxWidth == null) {
-      return content;
-    }
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth!),
-      child: content,
-    );
   }
 
   Widget _buildCentered(BuildContext context, _FeatureStateToneColors colors) {
     final theme = Theme.of(context);
     return Center(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            primary: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: colors.iconBackground,
-                    borderRadius: BorderRadius.circular(24),
+      child: _constrain(
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              primary: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: colors.iconBackground,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(icon, color: colors.iconForeground),
                   ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: colors.iconForeground),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  body,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(height: 18),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall,
                   ),
-                ),
-                if (action != null) ...[const SizedBox(height: 20), action!],
-              ],
+                  const SizedBox(height: 10),
+                  Text(
+                    body,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (action != null) ...[const SizedBox(height: 20), action!],
+                ],
+              ),
             ),
           ),
         ),
@@ -98,7 +93,23 @@ class FeatureStateCard extends StatelessWidget {
 
   Widget _buildInline(BuildContext context, _FeatureStateToneColors colors) {
     final theme = Theme.of(context);
-    return Container(
+    final textColumn = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(color: colors.text),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          body,
+          style: theme.textTheme.bodyMedium?.copyWith(color: colors.text),
+        ),
+      ],
+    );
+    final card = Container(
+      width: maxWidth == null ? double.infinity : null,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: colors.background,
@@ -106,34 +117,32 @@ class FeatureStateCard extends StatelessWidget {
         border: Border.all(color: colors.border),
       ),
       child: Row(
+        mainAxisSize: maxWidth == null ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: colors.iconForeground),
           const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: colors.text,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  body,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.text,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          if (maxWidth == null)
+            Expanded(child: textColumn)
+          else
+            Flexible(child: textColumn),
           if (trailing != null) ...[const SizedBox(width: 12), trailing!],
         ],
       ),
+    );
+    return maxWidth == null
+        ? card
+        : Align(alignment: Alignment.centerLeft, child: _constrain(card));
+  }
+
+  Widget _constrain(Widget child) {
+    final width = maxWidth;
+    if (width == null) {
+      return child;
+    }
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: width),
+      child: child,
     );
   }
 }
