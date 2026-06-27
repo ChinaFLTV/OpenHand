@@ -10,6 +10,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../service/qdrant_monitoring_service.dart';
+import 'knowledge_dialog_widgets.dart';
 
 Future<void> showQdrantStatusDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -40,8 +41,12 @@ class QdrantStatusDialog extends StatelessWidget {
                     child: Center(child: CircularProgressIndicator()),
                   )
                 : data == null
-                ? Text(
-                    isZh ? '无法读取 Qdrant 状态。' : 'Unable to read Qdrant status.',
+                ? KnowledgeDialogNotice(
+                    icon: Icons.warning_amber_rounded,
+                    error: true,
+                    message: isZh
+                        ? '无法读取 Qdrant 状态。'
+                        : 'Unable to read Qdrant status.',
                   )
                 : SingleChildScrollView(
                     child: Column(
@@ -96,48 +101,10 @@ class _StatusSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            for (final entry in values.entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 190,
-                      child: Text(
-                        entry.key,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: SelectableText(
-                        entry.value is Map || entry.value is List
-                            ? jsonEncode(entry.value)
-                            : '${entry.value ?? '-'}',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
+    return KnowledgeDialogSection(
+      title: title,
+      icon: Icons.monitor_heart_outlined,
+      child: KnowledgeDialogKeyValueList(rows: values, labelWidth: 210),
     );
   }
 }

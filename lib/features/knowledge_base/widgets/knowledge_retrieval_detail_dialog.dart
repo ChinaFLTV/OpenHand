@@ -8,6 +8,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_message_metadata.dart';
+import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeRetrievalDetailDialog(
   BuildContext context,
@@ -41,52 +42,55 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _section(
-                context,
+              KnowledgeDialogSection(
                 title: isZh ? '总览' : 'Overview',
-                rows: {
-                  'status': kb['status'],
-                  'query': kb['query'],
-                  'error': kb['error'],
-                },
+                icon: Icons.fact_check_outlined,
+                child: KnowledgeDialogKeyValueList(
+                  rows: {
+                    'status': kb['status'],
+                    'query': kb['query'],
+                    'error': kb['error'],
+                  },
+                ),
               ),
-              _section(
-                context,
+              KnowledgeDialogSection(
                 title: isZh ? 'Embedding' : 'Embedding',
-                rows: _map(kb['embedding']),
+                icon: Icons.hub_outlined,
+                child: KnowledgeDialogKeyValueList(rows: _map(kb['embedding'])),
               ),
-              _section(
-                context,
+              KnowledgeDialogSection(
                 title: isZh ? '检索参数' : 'Retrieval Parameters',
-                rows: _map(kb['retrieval']),
+                icon: Icons.manage_search_rounded,
+                child: KnowledgeDialogKeyValueList(rows: _map(kb['retrieval'])),
               ),
-              _section(
-                context,
+              KnowledgeDialogSection(
                 title: isZh ? 'Prompt 追加' : 'Prompt Append',
-                rows: _map(kb['prompt_append']),
+                icon: Icons.post_add_outlined,
+                child: KnowledgeDialogKeyValueList(
+                  rows: _map(kb['prompt_append']),
+                ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                isZh
+              KnowledgeDialogSection(
+                title: isZh
                     ? '命中 chunks (${results.length})'
                     : 'Hit chunks (${results.length})',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                icon: Icons.article_outlined,
+                child: results.isEmpty
+                    ? KnowledgeDialogNotice(
+                        icon: Icons.info_outline_rounded,
+                        message: isZh ? '没有命中 chunk。' : 'No hit chunks.',
+                      )
+                    : Column(
+                        children: [
+                          for (final hit in results) _HitTile(hit: hit),
+                        ],
+                      ),
               ),
-              const SizedBox(height: 8),
-              for (final hit in results) _HitCard(hit: hit),
-              const SizedBox(height: 12),
-              Text(
-                isZh ? '实际追加给模型的上下文' : 'Actual context appended to the model',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              SelectableText(
-                prompt.isEmpty ? '-' : prompt,
-                style: const TextStyle(fontFamily: 'monospace', height: 1.35),
+              KnowledgeDialogSection(
+                title: isZh ? '实际追加给模型的上下文' : 'Actual appended context',
+                icon: Icons.notes_rounded,
+                margin: EdgeInsets.zero,
+                child: KnowledgeDialogTextBox(text: prompt, maxHeight: 300),
               ),
             ],
           ),
@@ -118,50 +122,6 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _section(
-    BuildContext context, {
-    required String title,
-    required Map<String, Object?> rows,
-  }) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            for (final entry in rows.entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 150,
-                      child: Text(
-                        entry.key,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    Expanded(child: SelectableText(_value(entry.value))),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Map<String, Object?> _map(Object? value) {
     if (value is Map<String, Object?>) return value;
     if (value is Map) return Map<String, Object?>.from(value);
@@ -175,17 +135,10 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         .map((item) => Map<String, Object?>.from(item))
         .toList(growable: false);
   }
-
-  String _value(Object? value) {
-    if (value == null) return '-';
-    if (value is Map || value is List) return jsonEncode(value);
-    final text = '$value'.trim();
-    return text.isEmpty ? '-' : text;
-  }
 }
 
-class _HitCard extends StatelessWidget {
-  const _HitCard({required this.hit});
+class _HitTile extends StatelessWidget {
+  const _HitTile({required this.hit});
 
   final Map<String, Object?> hit;
 
@@ -193,68 +146,79 @@ class _HitCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Card(
-      color: colorScheme.surfaceContainerHigh,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${hit['title'] ?? hit['source_title'] ?? hit['chunk_id'] ?? 'KB hit'}',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+    final title =
+        '${hit['title'] ?? hit['source_title'] ?? hit['chunk_id'] ?? 'KB hit'}';
+    final path = '${hit['path'] ?? ''}'.trim();
+    final preview = '${hit['preview'] ?? ''}'.trim();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.48),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectableText(
+            title.trim().isEmpty ? 'KB hit' : title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              height: 1.25,
             ),
+          ),
+          if (path.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              '${hit['path'] ?? ''}',
+              path,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
+                height: 1.25,
               ),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _pill(context, 'score ${hit['score'] ?? '-'}'),
-                if (hit['rerank_score'] != null)
-                  _pill(context, 'rerank ${hit['rerank_score']}'),
-                if (hit['token_estimate'] != null)
-                  _pill(context, '${hit['token_estimate']} tokens'),
-                if ('${hit['document_time'] ?? ''}'.trim().isNotEmpty)
-                  _pill(context, '${hit['document_time']}'),
-              ],
-            ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              KnowledgeDialogChip(
+                icon: Icons.trending_up_rounded,
+                label: 'score ${hit['score'] ?? '-'}',
+              ),
+              if (hit['rerank_score'] != null)
+                KnowledgeDialogChip(
+                  icon: Icons.filter_alt_rounded,
+                  label: 'rerank ${hit['rerank_score']}',
+                ),
+              if (hit['token_estimate'] != null)
+                KnowledgeDialogChip(
+                  icon: Icons.data_usage_rounded,
+                  label: '${hit['token_estimate']} tokens',
+                ),
+              if ('${hit['document_time'] ?? ''}'.trim().isNotEmpty)
+                KnowledgeDialogChip(
+                  icon: Icons.event_rounded,
+                  label: '${hit['document_time']}',
+                ),
+            ],
+          ),
+          if (preview.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              '${hit['preview'] ?? ''}',
+              preview,
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _pill(BuildContext context, String label) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colorScheme.onPrimaryContainer,
-          fontWeight: FontWeight.w700,
-        ),
+        ],
       ),
     );
   }

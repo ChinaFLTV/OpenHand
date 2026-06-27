@@ -10,6 +10,7 @@ import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
+import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeSourceDetailDialog(
   BuildContext context,
@@ -50,7 +51,10 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                     child: Center(child: CircularProgressIndicator()),
                   )
                 : source == null
-                ? Text(isZh ? '来源不存在。' : 'Source not found.')
+                ? KnowledgeDialogNotice(
+                    icon: Icons.info_outline_rounded,
+                    message: isZh ? '来源不存在。' : 'Source not found.',
+                  )
                 : _SourceDetailBody(source: source, chunks: chunks),
           ),
           actions: [
@@ -107,84 +111,47 @@ class _SourceDetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _kv(context, 'Title', source.title),
-          _kv(context, 'Kind', source.kind),
-          _kv(context, 'Status', source.status),
-          _kv(context, 'Original path', source.originalPath),
-          _kv(context, 'Stored path', source.storedPath),
-          _kv(context, 'Document time', _date(source.documentTime)),
-          _kv(context, 'Imported at', _date(source.importedAt)),
-          _kv(context, 'Indexed at', _date(source.indexedAt)),
-          if (source.errorMessage.trim().isNotEmpty)
-            _kv(context, 'Error', source.errorMessage),
-          const SizedBox(height: 16),
-          Text(
-            'Chunks ${chunks.length}',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+          KnowledgeDialogSection(
+            title: isZh ? '来源信息' : 'Source',
+            icon: Icons.description_outlined,
+            child: KnowledgeDialogKeyValueList(
+              labelWidth: isZh ? 120 : 128,
+              rows: {
+                isZh ? '标题' : 'Title': source.title,
+                isZh ? '类型' : 'Kind': source.kind,
+                isZh ? '状态' : 'Status': source.status,
+                isZh ? '原始路径' : 'Original path': source.originalPath,
+                isZh ? '存储路径' : 'Stored path': source.storedPath,
+                isZh ? '文档时间' : 'Document time': _date(source.documentTime),
+                isZh ? '导入时间' : 'Imported at': _date(source.importedAt),
+                isZh ? '索引时间' : 'Indexed at': _date(source.indexedAt),
+                if (source.errorMessage.trim().isNotEmpty)
+                  isZh ? '错误' : 'Error': source.errorMessage,
+              },
             ),
           ),
-          const SizedBox(height: 8),
-          for (final chunk in chunks)
-            Card(
-              color: colorScheme.surfaceContainerHigh,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '#${chunk.chunkIndex} · ${chunk.headingPath.isEmpty ? chunk.title : chunk.headingPath}',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      chunk.content,
-                      maxLines: 5,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${chunk.tokenEstimate} tokens · ${chunk.id}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _kv(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 116,
-            child: Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+          KnowledgeDialogSection(
+            title: isZh
+                ? 'Chunks (${chunks.length})'
+                : 'Chunks (${chunks.length})',
+            icon: Icons.article_outlined,
+            margin: EdgeInsets.zero,
+            child: chunks.isEmpty
+                ? KnowledgeDialogNotice(
+                    icon: Icons.info_outline_rounded,
+                    message: isZh ? '暂无 chunk。' : 'No chunks yet.',
+                  )
+                : Column(
+                    children: [
+                      for (final chunk in chunks) _ChunkTile(chunk: chunk),
+                    ],
+                  ),
           ),
-          Expanded(child: SelectableText(value.trim().isEmpty ? '-' : value)),
         ],
       ),
     );
@@ -192,5 +159,76 @@ class _SourceDetailBody extends StatelessWidget {
 
   String _date(DateTime? value) {
     return value == null ? '-' : formatYearMonthDayHms(value.toLocal());
+  }
+}
+
+class _ChunkTile extends StatelessWidget {
+  const _ChunkTile({required this.chunk});
+
+  final KnowledgeChunk chunk;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final heading = chunk.headingPath.isEmpty ? chunk.title : chunk.headingPath;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.48),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '#${chunk.chunkIndex}',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              KnowledgeDialogChip(
+                icon: Icons.numbers_rounded,
+                label: '${chunk.tokenEstimate} tokens',
+              ),
+              KnowledgeDialogChip(
+                icon: Icons.fingerprint_rounded,
+                label: chunk.id,
+              ),
+            ],
+          ),
+          if (heading.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              heading,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            chunk.content,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.36),
+          ),
+        ],
+      ),
+    );
   }
 }

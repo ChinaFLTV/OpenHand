@@ -7,6 +7,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
+import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeImportDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -82,36 +83,41 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       title: Text(isZh ? '新建知识库笔记' : 'New Knowledge Note'),
       content: buildOpenHandDialogConstrainedContent(
         width: 620,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _title,
-              decoration: InputDecoration(
-                labelText: isZh ? '标题' : 'Title',
-                border: const OutlineInputBorder(),
+        child: KnowledgeDialogSection(
+          title: isZh ? '笔记内容' : 'Note Content',
+          icon: Icons.note_add_outlined,
+          margin: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _title,
+                decoration: knowledgeDialogInputDecoration(
+                  context,
+                  isZh ? '标题' : 'Title',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _tags,
-              decoration: InputDecoration(
-                labelText: isZh ? '标签（逗号分隔）' : 'Tags (comma-separated)',
-                border: const OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _tags,
+                decoration: knowledgeDialogInputDecoration(
+                  context,
+                  isZh ? '标签（逗号分隔）' : 'Tags (comma-separated)',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _content,
-              minLines: 8,
-              maxLines: 14,
-              decoration: InputDecoration(
-                labelText: isZh ? '内容' : 'Content',
-                alignLabelWithHint: true,
-                border: const OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _content,
+                minLines: 8,
+                maxLines: 14,
+                decoration: knowledgeDialogInputDecoration(
+                  context,
+                  isZh ? '内容' : 'Content',
+                  alignLabelWithHint: true,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [

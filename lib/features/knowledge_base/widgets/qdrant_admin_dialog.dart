@@ -9,6 +9,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
+import 'knowledge_dialog_widgets.dart';
 
 Future<void> showQdrantAdminDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -134,169 +135,113 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_error != null)
-                Card(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(_error!),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: KnowledgeDialogNotice(
+                    icon: Icons.error_outline_rounded,
+                    error: true,
+                    message: _error!,
                   ),
                 ),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        isZh ? 'Collections' : 'Collections',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 10),
-                      FutureBuilder<List<Map<String, Object?>>>(
-                        future: _collectionsFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState !=
-                              ConnectionState.done) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-                          final collections =
-                              snapshot.data ?? const <Map<String, Object?>>[];
-                          if (collections.isEmpty) {
-                            return Text(
-                              isZh
-                                  ? '没有 collection 或 Qdrant 不可用。'
-                                  : 'No collection found or Qdrant unavailable.',
-                            );
-                          }
-                          return Column(
-                            children: [
-                              for (final item in collections)
-                                ListTile(
-                                  dense: true,
-                                  leading: const Icon(Icons.dataset_outlined),
-                                  title: Text('${item['name'] ?? ''}'),
-                                  subtitle: Text(jsonEncode(item)),
-                                  trailing: Wrap(
-                                    spacing: 8,
-                                    children: [
-                                      IconButton(
-                                        tooltip: isZh ? '查看配置' : 'View config',
-                                        onPressed: _busy
-                                            ? null
-                                            : () => _loadInfo(
-                                                '${item['name'] ?? ''}',
-                                              ),
-                                        icon: const Icon(
-                                          Icons.info_outline_rounded,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        tooltip: isZh ? '删除' : 'Delete',
-                                        onPressed: _busy
-                                            ? null
-                                            : () => _deleteCollection(
-                                                '${item['name'] ?? ''}',
-                                              ),
-                                        icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+              KnowledgeDialogSection(
+                title: isZh ? 'Collections' : 'Collections',
+                icon: Icons.dataset_outlined,
+                child: FutureBuilder<List<Map<String, Object?>>>(
+                  future: _collectionsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const SizedBox(
+                        height: 92,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final collections =
+                        snapshot.data ?? const <Map<String, Object?>>[];
+                    if (collections.isEmpty) {
+                      return KnowledgeDialogNotice(
+                        icon: Icons.info_outline_rounded,
+                        message: isZh
+                            ? '没有 collection 或 Qdrant 不可用。'
+                            : 'No collection found or Qdrant unavailable.',
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final item in collections)
+                          _CollectionTile(
+                            item: item,
+                            busy: _busy,
+                            isZh: isZh,
+                            onInfo: () => _loadInfo('${item['name'] ?? ''}'),
+                            onDelete: () =>
+                                _deleteCollection('${item['name'] ?? ''}'),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
+              KnowledgeDialogSection(
+                title: isZh
+                    ? 'Points / Search / Scroll'
+                    : 'Points / Search / Scroll',
+                icon: Icons.manage_search_rounded,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    KnowledgeDialogKeyValueList(
+                      rows: {
+                        isZh ? '当前 collection' : 'Current collection':
+                            controller.settings.effectiveCollectionName,
+                      },
+                      labelWidth: isZh ? 150 : 170,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: _busy ? null : _scroll,
+                      icon: const Icon(Icons.list_alt_rounded),
+                      label: Text(
                         isZh
-                            ? 'Points / Search / Scroll'
-                            : 'Points / Search / Scroll',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ? 'Scroll 前 20 个 points'
+                            : 'Scroll first 20 points',
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        isZh
-                            ? '当前 collection：${controller.settings.effectiveCollectionName}'
-                            : 'Current collection: ${controller.settings.effectiveCollectionName}',
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          onPressed: _busy ? null : _scroll,
-                          icon: const Icon(Icons.list_alt_rounded),
-                          label: Text(
-                            isZh
-                                ? 'Scroll 前 20 个 points'
-                                : 'Scroll first 20 points',
-                          ),
-                        ),
-                      ),
-                      if (_scrollResult case final scrollResult?) ...[
-                        const SizedBox(height: 10),
-                        _JsonBox(value: scrollResult),
-                      ],
+                    ),
+                    if (_scrollResult case final scrollResult?) ...[
+                      const SizedBox(height: 12),
+                      KnowledgeDialogJsonBox(value: scrollResult),
                     ],
-                  ),
+                  ],
                 ),
               ),
               if (_collectionInfo case final collectionInfo?)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          isZh
-                              ? 'Collection schema/config'
-                              : 'Collection schema/config',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 10),
-                        _JsonBox(value: collectionInfo),
-                      ],
-                    ),
-                  ),
+                KnowledgeDialogSection(
+                  title: isZh
+                      ? 'Collection schema / config'
+                      : 'Collection schema / config',
+                  icon: Icons.schema_outlined,
+                  child: KnowledgeDialogJsonBox(value: collectionInfo),
                 ),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        isZh ? '操作日志' : 'Operation Log',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+              KnowledgeDialogSection(
+                title: isZh ? '操作日志' : 'Operation Log',
+                icon: Icons.receipt_long_outlined,
+                margin: EdgeInsets.zero,
+                child: controller.qdrantAdminLogs.isEmpty
+                    ? KnowledgeDialogNotice(
+                        icon: Icons.history_toggle_off_rounded,
+                        message: isZh ? '暂无操作。' : 'No operations yet.',
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final log in controller.qdrantAdminLogs)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                '${formatYearMonthDayHms(log.createdAt.toLocal())} · ${log.action} · ${log.detail}',
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      if (controller.qdrantAdminLogs.isEmpty)
-                        Text(isZh ? '暂无操作。' : 'No operations yet.')
-                      else
-                        for (final log in controller.qdrantAdminLogs)
-                          Text(
-                            '${formatYearMonthDayHms(log.createdAt.toLocal())} · ${log.action} · ${log.detail}',
-                          ),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),
@@ -317,26 +262,71 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
   }
 }
 
-class _JsonBox extends StatelessWidget {
-  const _JsonBox({required this.value});
+class _CollectionTile extends StatelessWidget {
+  const _CollectionTile({
+    required this.item,
+    required this.busy,
+    required this.isZh,
+    required this.onInfo,
+    required this.onDelete,
+  });
 
-  final Object? value;
+  final Map<String, Object?> item;
+  final bool busy;
+  final bool isZh;
+  final VoidCallback onInfo;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final text = const JsonEncoder.withIndent('  ').convert(value);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final name = '${item['name'] ?? ''}';
     return Container(
-      constraints: const BoxConstraints(maxHeight: 360),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: SingleChildScrollView(
-        child: SelectableText(
-          text,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-        ),
+      child: Row(
+        children: [
+          Icon(Icons.dataset_outlined, size: 20, color: colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  name.isEmpty ? '-' : name,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  jsonEncode(item),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: isZh ? '查看配置' : 'View config',
+            onPressed: busy ? null : onInfo,
+            icon: const Icon(Icons.info_outline_rounded),
+          ),
+          IconButton(
+            tooltip: isZh ? '删除' : 'Delete',
+            onPressed: busy ? null : onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+          ),
+        ],
       ),
     );
   }

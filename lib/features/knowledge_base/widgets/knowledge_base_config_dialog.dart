@@ -10,6 +10,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_base_settings.dart';
+import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeBaseConfigDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -211,7 +212,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     _emptyModelState(context)
                   else
                     SizedBox(
-                      width: 700,
+                      width: 690,
                       child: OpenHandModelSelectorField(
                         models: models,
                         recentSelections:
@@ -545,10 +546,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 title: isZh ? '隐私与云端调用' : 'Privacy and Cloud Calls',
                 icon: Icons.privacy_tip_outlined,
                 children: [
-                  Text(
-                    isZh
-                        ? '云端 embedding 会发送文档 chunk 与用户 query。默认关闭，开启前请确认数据边界。'
-                        : 'Cloud embeddings send document chunks and user queries. They are off by default; confirm your data boundary before enabling.',
+                  SizedBox(
+                    width: 690,
+                    child: KnowledgeDialogNotice(
+                      icon: Icons.lock_outline_rounded,
+                      message: isZh
+                          ? '云端 embedding 会发送文档 chunk 与用户 query。默认关闭，开启前请确认数据边界。'
+                          : 'Cloud embeddings send document chunks and user queries. They are off by default; confirm your data boundary before enabling.',
+                    ),
                   ),
                   _switch(
                     isZh ? '允许发送文档内容' : 'Allow document cloud embedding',
@@ -633,24 +638,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
 
   Widget _emptyModelState(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline_rounded),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              isZh
-                  ? '没有已开启“嵌入生成”的模型。请先在设置的模型配置中启用该能力。'
-                  : 'No model profile has Embedding Generation enabled. Enable it in model settings first.',
-            ),
-          ),
-        ],
+    return SizedBox(
+      width: 690,
+      child: KnowledgeDialogNotice(
+        icon: Icons.info_outline_rounded,
+        message: isZh
+            ? '没有已开启“嵌入生成”的模型。请先在设置的模型配置中启用该能力。'
+            : 'No model profile has Embedding Generation enabled. Enable it in model settings first.',
       ),
     );
   }
@@ -661,69 +655,67 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     required IconData icon,
     required List<Widget> children,
   }) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 14),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(spacing: 12, runSpacing: 12, children: children),
-          ],
-        ),
-      ),
+    return KnowledgeDialogSection(
+      title: title,
+      icon: icon,
+      child: Wrap(spacing: 12, runSpacing: 12, children: children),
     );
   }
 
   Widget _field(TextEditingController controller, String label) {
     return SizedBox(
-      width: 220,
+      width: kKnowledgeDialogFieldWidth,
       child: TextField(
         controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
+        style: Theme.of(context).textTheme.bodyMedium,
+        decoration: knowledgeDialogInputDecoration(context, label),
       ),
     );
   }
 
   Widget _readonly(BuildContext context, String label, String value) {
     return SizedBox(
-      width: 340,
+      width: kKnowledgeDialogWideFieldWidth,
       child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: knowledgeDialogInputDecoration(context, label),
         child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
     );
   }
 
   Widget _switch(String label, bool value, ValueChanged<bool> onChanged) {
-    return SizedBox(
-      width: 330,
-      child: SwitchListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        title: Text(label),
-        value: value,
-        onChanged: onChanged,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      width: kKnowledgeDialogWideFieldWidth,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
       ),
     );
   }
@@ -735,13 +727,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     required ValueChanged<String> onChanged,
   }) {
     return SizedBox(
-      width: 260,
+      width: kKnowledgeDialogWideFieldWidth,
       child: DropdownButtonFormField<String>(
         initialValue: values.contains(value) ? value : values.first,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: knowledgeDialogInputDecoration(context, label),
         items: [
           for (final item in values)
             DropdownMenuItem<String>(value: item, child: Text(item)),
