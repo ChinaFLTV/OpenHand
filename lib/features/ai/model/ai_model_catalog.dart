@@ -1320,7 +1320,9 @@ class AiModelCatalog {
         supportedParameters: _qwenTextEmbeddingParameters,
         encodingFormats: const <String>['float'],
         defaultEncodingFormat: 'float',
-        minDimensions: 512,
+        maxInputsPerBatch: 10,
+        maxTokensPerBatch: 8192,
+        minDimensions: 64,
         maxDimensions: 2048,
       );
     }
@@ -1369,7 +1371,9 @@ class AiModelCatalog {
         batchSize: 1,
         supportedParameters: _qwenMultimodalEmbeddingParameters,
         inputTypes: const <String>['text', 'image', 'video'],
-        minDimensions: 32,
+        maxInputsPerBatch: 1,
+        maxTokensPerBatch: 32000,
+        minDimensions: 256,
         maxDimensions: 2560,
       );
     }

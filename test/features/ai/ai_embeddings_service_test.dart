@@ -109,6 +109,29 @@ void main() {
       expect(result.vectors.single, <double>[0.1, 0.2, 0.3]);
     });
   });
+
+  group('AiModelCatalog embedding profiles', () {
+    test('captures DashScope embedding dimension and batch limits', () {
+      final text = AiModelCatalog.lookup(
+        'text-embedding-v4',
+        AiProtocolType.qwen,
+      );
+      final multimodal = AiModelCatalog.lookup(
+        'qwen3-vl-embedding',
+        AiProtocolType.qwen,
+      );
+
+      expect(text?.embeddingMinDimensions, 64);
+      expect(text?.embeddingMaxDimensions, 2048);
+      expect(text?.embeddingMaxInputsPerBatch, 10);
+      expect(text?.embeddingMaxTokensPerBatch, 8192);
+
+      expect(multimodal?.embeddingMinDimensions, 256);
+      expect(multimodal?.embeddingMaxDimensions, 2560);
+      expect(multimodal?.embeddingMaxInputsPerBatch, 1);
+      expect(multimodal?.embeddingMaxTokensPerBatch, 32000);
+    });
+  });
 }
 
 AiModelConfig _model({
