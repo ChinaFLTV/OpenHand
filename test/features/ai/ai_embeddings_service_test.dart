@@ -316,6 +316,45 @@ void main() {
       ]);
     });
 
+    test('decodes Perplexity base64 binary embedding responses', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': base64Encode(<int>[
+                0x05, // LSB-first bits: 1, 0, 1, 0, 0, 0, 0, 0
+                0x80, // LSB-first bits: 0, 0, 0, 0, 0, 0, 0, 1
+              ]),
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.perplexity.ai',
+          modelId: 'pplx-embed-v1-0.6b',
+        ),
+        input: const <String>['alpha'],
+        dimensions: 16,
+        encodingFormat: 'base64_binary',
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'pplx-embed-v1-0.6b',
+        'input': <String>['alpha'],
+        'dimensions': 16,
+        'encoding_format': 'base64_binary',
+      });
+      expect(result.vectors, <List<double>>[
+        <double>[1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+      ]);
+    });
+
     test('sends Perplexity contextualized embedding requests', () async {
       final client = _RecordingHttpClient(
         responseBody: <String, Object?>{

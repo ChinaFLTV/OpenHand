@@ -335,6 +335,12 @@ class AiEmbeddingsService {
           .map((value) => value.toDouble())
           .toList(growable: false);
     }
+    if (normalized == 'base64_binary') {
+      return <double>[
+        for (final byte in bytes)
+          for (var bit = 0; bit < 8; bit += 1) ((byte >> bit) & 1).toDouble(),
+      ];
+    }
     if (normalized == 'base64' || normalized == 'base64_float32') {
       if (bytes.length % 4 != 0) return null;
       final data = ByteData.sublistView(Uint8List.fromList(bytes));
