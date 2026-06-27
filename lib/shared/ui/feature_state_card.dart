@@ -93,20 +93,11 @@ class FeatureStateCard extends StatelessWidget {
 
   Widget _buildInline(BuildContext context, _FeatureStateToneColors colors) {
     final theme = Theme.of(context);
-    final textColumn = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleLarge?.copyWith(color: colors.text),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          body,
-          style: theme.textTheme.bodyMedium?.copyWith(color: colors.text),
-        ),
-      ],
+    final textArea = _InlineTextArea(
+      title: title,
+      body: body,
+      titleStyle: theme.textTheme.titleLarge?.copyWith(color: colors.text),
+      bodyStyle: theme.textTheme.bodyMedium?.copyWith(color: colors.text),
     );
     final card = Container(
       width: maxWidth == null ? double.infinity : null,
@@ -123,9 +114,9 @@ class FeatureStateCard extends StatelessWidget {
           Icon(icon, color: colors.iconForeground),
           const SizedBox(width: 14),
           if (maxWidth == null)
-            Expanded(child: textColumn)
+            Expanded(child: textArea)
           else
-            Flexible(child: textColumn),
+            Flexible(child: textArea),
           if (trailing != null) ...[const SizedBox(width: 12), trailing!],
         ],
       ),
@@ -143,6 +134,41 @@ class FeatureStateCard extends StatelessWidget {
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
       child: child,
+    );
+  }
+}
+
+class _InlineTextArea extends StatelessWidget {
+  const _InlineTextArea({
+    required this.title,
+    required this.body,
+    required this.titleStyle,
+    required this.bodyStyle,
+  });
+
+  final String title;
+  final String body;
+  final TextStyle? titleStyle;
+  final TextStyle? bodyStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      primary: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          ),
+          const SizedBox(height: 6),
+          SelectableText(body, style: bodyStyle),
+        ],
+      ),
     );
   }
 }
