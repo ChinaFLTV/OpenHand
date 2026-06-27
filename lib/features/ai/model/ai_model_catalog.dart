@@ -3145,6 +3145,8 @@ class AiModelCatalog {
         customDimensions: true,
         minDimensions: 32,
         maxDimensions: dim,
+        batchSize: 1,
+        maxInputsPerBatch: 1,
       );
     }
     if (id.contains('bge-m3')) {

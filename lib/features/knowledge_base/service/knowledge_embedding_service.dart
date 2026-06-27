@@ -1,5 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import '../../ai/index.dart';
 import '../model/knowledge_base_settings.dart';
+
+const int _localQwen3EmbeddingDocumentTimeoutSeconds = 180;
+const int _localQwen3EmbeddingQueryTimeoutSeconds = 120;
+const int _maxRetryBackoffMs = 10000;
 
 class KnowledgeEmbeddingService {
   KnowledgeEmbeddingService({AiEmbeddingsService? embeddings})
@@ -36,17 +43,26 @@ class KnowledgeEmbeddingService {
       requestModelId: requestModelId,
     );
     _validateDimensions(settings, profile);
-    final batchSize = _boundedBatchSize(
+    var batchSize = _boundedBatchSize(
       inputs.length,
       settings.batchSize,
       profile.embeddingBatchSize,
       profile.embeddingMaxInputsPerBatch,
     );
+    if (_usesLocalQwen3Embedding(embeddingModel, profile) && batchSize > 1) {
+      batchSize = 1;
+    }
     final taskType = _resolvedTaskType(profile, isQuery: isQuery);
     final inputType = _resolvedInputType(profile, isQuery: isQuery);
     final preparedInputs = _applyTextPrefix(
       inputs,
       _resolvedTextPrefix(profile, isQuery: isQuery),
+    );
+    final timeout = _effectiveTimeout(
+      settings,
+      model: embeddingModel,
+      profile: profile,
+      isQuery: isQuery,
     );
     final vectors = <List<double>>[];
     var start = 0;
@@ -58,25 +74,19 @@ class KnowledgeEmbeddingService {
         profile.embeddingMaxTokensPerBatch,
       );
       final batch = preparedInputs.sublist(start, end);
-      final result = await _embeddings.createEmbeddings(
+      final batchVectors = await _embedPreparedBatch(
+        settings: settings,
         model: embeddingModel,
-        input: batch,
-        dimensions: profile.embeddingSupportsCustomDimensions
-            ? settings.dimensions
-            : null,
-        encodingFormat: profile.embeddingDefaultEncodingFormat,
-        inputType: inputType,
+        profile: profile,
+        batch: batch,
+        isQuery: isQuery,
+        startIndex: start,
+        totalInputs: preparedInputs.length,
+        timeout: timeout,
         taskType: taskType,
-        outputDType: profile.embeddingDefaultOutputDType,
-        truncation: profile.embeddingDefaultTruncation,
-        timeout: Duration(seconds: settings.requestTimeoutSeconds),
+        inputType: inputType,
       );
-      if (result.vectors.length != batch.length) {
-        throw StateError(
-          'Embedding 返回数量 ${result.vectors.length} 与输入数量 ${batch.length} 不一致。',
-        );
-      }
-      vectors.addAll(result.vectors);
+      vectors.addAll(batchVectors);
       start = end;
     }
     for (final vector in vectors) {
@@ -87,6 +97,122 @@ class KnowledgeEmbeddingService {
       }
     }
     return vectors;
+  }
+
+  Future<List<List<double>>> _embedPreparedBatch({
+    required KnowledgeBaseSettings settings,
+    required AiModelConfig model,
+    required AiModelProfile profile,
+    required List<String> batch,
+    required bool isQuery,
+    required int startIndex,
+    required int totalInputs,
+    required Duration timeout,
+    required String? taskType,
+    required String? inputType,
+  }) async {
+    try {
+      final result = await _createEmbeddingsWithRetries(
+        settings: settings,
+        model: model,
+        profile: profile,
+        batch: batch,
+        timeout: timeout,
+        taskType: taskType,
+        inputType: inputType,
+      );
+      if (result.vectors.length != batch.length) {
+        throw StateError(
+          'Embedding 返回数量 ${result.vectors.length} 与输入数量 ${batch.length} 不一致。',
+        );
+      }
+      return result.vectors;
+    } on TimeoutException catch (error, stackTrace) {
+      if (batch.length > 1) {
+        final midpoint = batch.length ~/ 2;
+        final left = await _embedPreparedBatch(
+          settings: settings,
+          model: model,
+          profile: profile,
+          batch: batch.sublist(0, midpoint),
+          isQuery: isQuery,
+          startIndex: startIndex,
+          totalInputs: totalInputs,
+          timeout: timeout,
+          taskType: taskType,
+          inputType: inputType,
+        );
+        final right = await _embedPreparedBatch(
+          settings: settings,
+          model: model,
+          profile: profile,
+          batch: batch.sublist(midpoint),
+          isQuery: isQuery,
+          startIndex: startIndex + midpoint,
+          totalInputs: totalInputs,
+          timeout: timeout,
+          taskType: taskType,
+          inputType: inputType,
+        );
+        return <List<double>>[...left, ...right];
+      }
+      Error.throwWithStackTrace(
+        KnowledgeEmbeddingException(
+          _timeoutMessage(
+            model: model,
+            isQuery: isQuery,
+            startIndex: startIndex,
+            batchLength: batch.length,
+            totalInputs: totalInputs,
+            timeout: timeout,
+          ),
+          cause: error,
+        ),
+        stackTrace,
+      );
+    } on SocketException catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        KnowledgeEmbeddingException(
+          _networkMessage(model: model, error: error),
+          cause: error,
+        ),
+        stackTrace,
+      );
+    }
+  }
+
+  Future<AiEmbeddingResult> _createEmbeddingsWithRetries({
+    required KnowledgeBaseSettings settings,
+    required AiModelConfig model,
+    required AiModelProfile profile,
+    required List<String> batch,
+    required Duration timeout,
+    required String? taskType,
+    required String? inputType,
+  }) async {
+    final retryCount = settings.retryCount < 0 ? 0 : settings.retryCount;
+    for (var attempt = 0; ; attempt += 1) {
+      try {
+        return await _embeddings.createEmbeddings(
+          model: model,
+          input: batch,
+          dimensions: profile.embeddingSupportsCustomDimensions
+              ? settings.dimensions
+              : null,
+          encodingFormat: profile.embeddingDefaultEncodingFormat,
+          inputType: inputType,
+          taskType: taskType,
+          outputDType: profile.embeddingDefaultOutputDType,
+          truncation: profile.embeddingDefaultTruncation,
+          timeout: timeout,
+        );
+      } catch (error, stackTrace) {
+        if (!_isRetryableEmbeddingError(error) || attempt >= retryCount) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+        await Future<void>.delayed(_retryBackoff(settings, attempt));
+      }
+    }
   }
 
   int _boundedBatchSize(
@@ -216,6 +342,101 @@ class KnowledgeEmbeddingService {
     );
   }
 
+  Duration _effectiveTimeout(
+    KnowledgeBaseSettings settings, {
+    required AiModelConfig model,
+    required AiModelProfile profile,
+    required bool isQuery,
+  }) {
+    final configuredSeconds = settings.requestTimeoutSeconds > 0
+        ? settings.requestTimeoutSeconds
+        : 60;
+    if (!_usesLocalQwen3Embedding(model, profile)) {
+      return Duration(seconds: configuredSeconds);
+    }
+    final minimumSeconds = isQuery
+        ? _localQwen3EmbeddingQueryTimeoutSeconds
+        : _localQwen3EmbeddingDocumentTimeoutSeconds;
+    return Duration(
+      seconds: configuredSeconds < minimumSeconds
+          ? minimumSeconds
+          : configuredSeconds,
+    );
+  }
+
+  bool _usesLocalQwen3Embedding(AiModelConfig model, AiModelProfile profile) {
+    final modelId = model.modelId.trim().toLowerCase();
+    final displayName = (profile.displayName ?? '').trim().toLowerCase();
+    final isQwen3Embedding =
+        modelId.contains('qwen3-embedding') ||
+        displayName.contains('qwen3 embedding') ||
+        displayName.contains('qwen3-embedding');
+    if (!isQwen3Embedding) return false;
+    if (model.protocolType == AiProtocolType.ollama) return true;
+    final uri = Uri.tryParse(model.baseUrl.trim());
+    final host = uri?.host.trim().toLowerCase() ?? '';
+    return host == 'localhost' ||
+        host == '127.0.0.1' ||
+        host == '::1' ||
+        host.endsWith('.local');
+  }
+
+  bool _isRetryableEmbeddingError(Object error) {
+    if (error is TimeoutException || error is SocketException) return true;
+    final message = '$error'.toLowerCase();
+    return message.contains('http 408') ||
+        message.contains('http 409') ||
+        message.contains('http 425') ||
+        message.contains('http 429') ||
+        message.contains('http 500') ||
+        message.contains('http 502') ||
+        message.contains('http 503') ||
+        message.contains('http 504') ||
+        message.contains('connection reset') ||
+        message.contains('connection closed');
+  }
+
+  Duration _retryBackoff(KnowledgeBaseSettings settings, int attempt) {
+    var delayMs = settings.retryBackoffMs > 0 ? settings.retryBackoffMs : 800;
+    for (var i = 0; i < attempt; i += 1) {
+      delayMs *= 2;
+      if (delayMs >= _maxRetryBackoffMs) {
+        delayMs = _maxRetryBackoffMs;
+        break;
+      }
+    }
+    return Duration(milliseconds: delayMs);
+  }
+
+  String _timeoutMessage({
+    required AiModelConfig model,
+    required bool isQuery,
+    required int startIndex,
+    required int batchLength,
+    required int totalInputs,
+    required Duration timeout,
+  }) {
+    final modelId = model.modelId.trim().isEmpty
+        ? 'embedding model'
+        : model.modelId;
+    final batchEnd = startIndex + batchLength;
+    final kind = isQuery ? '查询' : '文档';
+    return '知识库 $kind embedding 请求超时：模型 $modelId 在 ${timeout.inSeconds} 秒内未返回。'
+        '当前批次 ${startIndex + 1}-$batchEnd/$totalInputs，批量大小 $batchLength。'
+        '请确认模型服务已启动并完成预热；本地大模型建议将批量大小调为 1-2，或在知识库配置中提高请求超时。';
+  }
+
+  String _networkMessage({
+    required AiModelConfig model,
+    required SocketException error,
+  }) {
+    final modelId = model.modelId.trim().isEmpty
+        ? 'embedding model'
+        : model.modelId;
+    return '知识库 embedding 请求网络异常：模型 $modelId 无法连接或连接被中断。'
+        '请确认模型服务地址、端口、代理与鉴权配置可用。原始错误：${error.message}';
+  }
+
   List<String> _applyTextPrefix(List<String> inputs, String? prefix) {
     final normalizedPrefix = _trimmedOrNull(prefix);
     if (normalizedPrefix == null) return inputs;
@@ -231,6 +452,16 @@ class KnowledgeEmbeddingService {
   }
 
   void dispose() => _embeddings.dispose();
+}
+
+class KnowledgeEmbeddingException implements Exception {
+  const KnowledgeEmbeddingException(this.message, {this.cause});
+
+  final String message;
+  final Object? cause;
+
+  @override
+  String toString() => message;
 }
 
 String? _trimmedOrNull(String? value) {

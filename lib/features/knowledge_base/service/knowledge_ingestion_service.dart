@@ -148,6 +148,10 @@ class KnowledgeIngestionService {
       await _store.upsertSource(source);
       return source;
     } catch (error) {
+      await _discardPartialIndex(
+        sourceId: source.id,
+        collectionName: settings.effectiveCollectionName,
+      );
       source = source.copyWith(
         status: 'failed',
         errorMessage: '$error',
@@ -155,6 +159,25 @@ class KnowledgeIngestionService {
       );
       await _store.upsertSource(source);
       rethrow;
+    }
+  }
+
+  Future<void> _discardPartialIndex({
+    required String sourceId,
+    required String collectionName,
+  }) async {
+    try {
+      await _vectorStore.deleteBySource(
+        collectionName: collectionName,
+        sourceId: sourceId,
+      );
+    } catch (_) {
+      // Preserve the original ingestion failure.
+    }
+    try {
+      await _store.replaceChunks(sourceId: sourceId, chunks: const []);
+    } catch (_) {
+      // Preserve the original ingestion failure.
     }
   }
 
