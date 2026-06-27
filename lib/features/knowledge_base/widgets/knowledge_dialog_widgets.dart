@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
+
 const double kKnowledgeDialogSectionSpacing = 12;
 const double kKnowledgeDialogFieldWidth = 212;
 const double kKnowledgeDialogWideFieldWidth = 328;
@@ -201,52 +203,54 @@ class KnowledgeDialogJsonBox extends StatelessWidget {
   }
 }
 
+enum KnowledgeDialogNoticeTone { neutral, warning, error }
+
 class KnowledgeDialogNotice extends StatelessWidget {
   const KnowledgeDialogNotice({
     super.key,
     required this.icon,
     required this.message,
     this.error = false,
+    this.tone,
     this.trailing,
   });
 
   final IconData icon;
   final String message;
   final bool error;
+  final KnowledgeDialogNoticeTone? tone;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final foreground = error
-        ? colorScheme.onErrorContainer
-        : colorScheme.onSurfaceVariant;
+    final colors = _KnowledgeDialogNoticeColors.resolve(
+      context,
+      tone ??
+          (error
+              ? KnowledgeDialogNoticeTone.error
+              : KnowledgeDialogNoticeTone.neutral),
+    );
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
-        color: error
-            ? colorScheme.errorContainer.withValues(alpha: 0.78)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+        color: colors.background,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: error
-              ? colorScheme.error.withValues(alpha: 0.28)
-              : colorScheme.outlineVariant.withValues(alpha: 0.62),
-        ),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 19, color: foreground),
+          Icon(icon, size: 19, color: colors.icon),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: foreground,
+                color: colors.foreground,
                 height: 1.32,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -256,6 +260,102 @@ class KnowledgeDialogNotice extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class KnowledgeDialogNoticeAction extends StatelessWidget {
+  const KnowledgeDialogNoticeAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.tone = KnowledgeDialogNoticeTone.neutral,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final KnowledgeDialogNoticeTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _KnowledgeDialogNoticeColors.resolve(context, tone);
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 17, color: colors.icon),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: colors.foreground,
+        backgroundColor: colors.actionBackground,
+        side: BorderSide(color: colors.actionBorder),
+        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+        ),
+      ),
+    );
+  }
+}
+
+class _KnowledgeDialogNoticeColors {
+  const _KnowledgeDialogNoticeColors({
+    required this.background,
+    required this.border,
+    required this.foreground,
+    required this.icon,
+    required this.actionBackground,
+    required this.actionBorder,
+  });
+
+  final Color background;
+  final Color border;
+  final Color foreground;
+  final Color icon;
+  final Color actionBackground;
+  final Color actionBorder;
+
+  static _KnowledgeDialogNoticeColors resolve(
+    BuildContext context,
+    KnowledgeDialogNoticeTone tone,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final surface = scheme.surfaceContainerHigh;
+    final foreground = scheme.onSurface;
+    final neutralAccent = scheme.onSurfaceVariant;
+    final accent = switch (tone) {
+      KnowledgeDialogNoticeTone.neutral => neutralAccent,
+      KnowledgeDialogNoticeTone.warning => OpenHandStatusColors.warning,
+      KnowledgeDialogNoticeTone.error => OpenHandStatusColors.error,
+    };
+    final tintAlpha = switch (tone) {
+      KnowledgeDialogNoticeTone.neutral => 0.42,
+      KnowledgeDialogNoticeTone.warning => 0.10,
+      KnowledgeDialogNoticeTone.error => 0.10,
+    };
+    final borderAlpha = switch (tone) {
+      KnowledgeDialogNoticeTone.neutral => 0.62,
+      KnowledgeDialogNoticeTone.warning => 0.34,
+      KnowledgeDialogNoticeTone.error => 0.30,
+    };
+    return _KnowledgeDialogNoticeColors(
+      background: Color.alphaBlend(
+        accent.withValues(alpha: tintAlpha),
+        surface.withValues(
+          alpha: tone == KnowledgeDialogNoticeTone.neutral ? 0.56 : 0.92,
+        ),
+      ),
+      border: accent.withValues(alpha: borderAlpha),
+      foreground: foreground,
+      icon: accent,
+      actionBackground: Color.alphaBlend(
+        accent.withValues(alpha: 0.10),
+        scheme.surfaceContainerHighest,
+      ),
+      actionBorder: accent.withValues(alpha: 0.28),
     );
   }
 }

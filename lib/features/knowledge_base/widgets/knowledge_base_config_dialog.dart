@@ -681,19 +681,20 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
             icon: dependencies.dockerInstalled
                 ? Icons.storage_rounded
                 : Icons.dns_outlined,
-            error: true,
+            tone: KnowledgeDialogNoticeTone.warning,
             message: isZh
                 ? '知识库依赖未就绪：${dependencies.localizedMessage(true)}'
                 : 'Knowledge dependencies are unavailable: ${dependencies.localizedMessage(false)}',
             trailing: widget.onOpenPlugins == null
                 ? null
-                : TextButton.icon(
+                : KnowledgeDialogNoticeAction(
+                    tone: KnowledgeDialogNoticeTone.warning,
                     onPressed: () {
                       Navigator.of(context).pop();
                       widget.onOpenPlugins?.call();
                     },
-                    icon: const Icon(Icons.power_rounded, size: 18),
-                    label: Text(isZh ? '前往插件' : 'Open Plugins'),
+                    icon: Icons.power_rounded,
+                    label: isZh ? '前往插件' : 'Open Plugins',
                   ),
           ),
         ),
