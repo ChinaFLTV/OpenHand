@@ -414,36 +414,118 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         if (existing.hasUserOverrides) modelId: existing,
       },
     );
-    final result = await showAnimatedDialog<AiModelProfile>(
+    final result = await showAnimatedDialog<_ModelProfileEditorResult>(
       context: context,
       builder: (context) => _ModelProfileEditorDialog(
         modelId: modelId,
+        existingModelIds: _visibleModelIds,
         initialProfile: existing,
         effectiveProfile: effectiveModel.profileFor(modelId),
         protocolType: _protocolType,
+        onDuplicate: _duplicateModelProfile,
       ),
     );
     if (result == null || !mounted) return;
     setState(() {
+      _applyModelProfileResult(modelId, result);
+    });
+  }
+
+  void _applyModelProfileResult(
+    String originalModelId,
+    _ModelProfileEditorResult result,
+  ) {
+    final nextModelId = result.modelId.trim();
+    if (nextModelId.isEmpty) {
+      return;
+    }
+    if (nextModelId != originalModelId) {
+      _availableModelIds = AiModelConfig.normalizeModelIds(<String>[
+        ..._availableModelIds.where((id) => id != originalModelId),
+        nextModelId,
+      ]);
+      _modelProfiles.remove(originalModelId);
+      if (_activeModelId == originalModelId) {
+        _activeModelId = nextModelId;
+        _modelIdController.text = nextModelId;
+      }
+      if (_defaultTitleModelId == originalModelId) {
+        _defaultTitleModelId = nextModelId;
+      }
+      _replaceRoutingModelId(originalModelId, nextModelId);
+    }
+
+    final nextProfiles = <String, AiModelProfile>{};
+    for (final entry in _modelProfiles.entries) {
+      var profile = entry.value;
+      if (result.profile.isGlobalDefaultTitleModel &&
+          entry.key != nextModelId &&
+          profile.isGlobalDefaultTitleModel) {
+        profile = profile.copyWith(isGlobalDefaultTitleModel: false);
+      }
+      if (profile.hasUserOverrides) {
+        nextProfiles[entry.key] = profile;
+      }
+    }
+    if (result.profile.hasUserOverrides) {
+      nextProfiles[nextModelId] = result.profile;
+    } else {
+      nextProfiles.remove(nextModelId);
+    }
+    _modelProfiles = nextProfiles;
+  }
+
+  String _duplicateModelProfile(String sourceModelId, AiModelProfile profile) {
+    final copyModelId = _nextCopyModelId(sourceModelId);
+    final copiedProfile = profile.copyWith(isGlobalDefaultTitleModel: false);
+    setState(() {
+      _availableModelIds = AiModelConfig.normalizeModelIds(<String>[
+        ..._availableModelIds,
+        copyModelId,
+      ]);
       final nextProfiles = <String, AiModelProfile>{};
       for (final entry in _modelProfiles.entries) {
-        var profile = entry.value;
-        if (result.isGlobalDefaultTitleModel &&
-            entry.key != modelId &&
-            profile.isGlobalDefaultTitleModel) {
-          profile = profile.copyWith(isGlobalDefaultTitleModel: false);
-        }
-        if (profile.hasUserOverrides) {
-          nextProfiles[entry.key] = profile;
+        if (entry.value.hasUserOverrides) {
+          nextProfiles[entry.key] = entry.value;
         }
       }
-      if (result.hasUserOverrides) {
-        nextProfiles[modelId] = result;
-      } else {
-        nextProfiles.remove(modelId);
+      if (copiedProfile.hasUserOverrides) {
+        nextProfiles[copyModelId] = copiedProfile;
       }
       _modelProfiles = nextProfiles;
     });
+    return copyModelId;
+  }
+
+  String _nextCopyModelId(String sourceModelId) {
+    final base = sourceModelId.trim().isEmpty ? 'model' : sourceModelId.trim();
+    final used = _visibleModelIds.toSet();
+    for (var index = 1; index <= 9999; index++) {
+      final candidate = '$base-Copy-$index';
+      if (!used.contains(candidate)) {
+        return candidate;
+      }
+    }
+    return '$base-Copy-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  void _replaceRoutingModelId(String oldModelId, String nextModelId) {
+    void replace(TextEditingController controller) {
+      if (controller.text.trim() == oldModelId) {
+        controller.text = nextModelId;
+      }
+    }
+
+    replace(_responsesModelIdController);
+    replace(_embeddingModelIdController);
+    replace(_moderationModelIdController);
+    replace(_rerankModelIdController);
+    replace(_imageModelIdController);
+    replace(_videoModelIdController);
+    replace(_speechModelIdController);
+    replace(_transcriptionModelIdController);
+    replace(_translationModelIdController);
+    replace(_realtimeModelIdController);
   }
 
   void _addHeaderEntry() {
@@ -2142,18 +2224,35 @@ class _HeaderEntry {
 // Per-model profile editor dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ModelProfileEditorDialog extends StatefulWidget {
-  const _ModelProfileEditorDialog({
+class _ModelProfileEditorResult {
+  const _ModelProfileEditorResult({
     required this.modelId,
-    required this.initialProfile,
-    required this.effectiveProfile,
-    required this.protocolType,
+    required this.profile,
   });
 
   final String modelId;
+  final AiModelProfile profile;
+}
+
+typedef _DuplicateModelProfileCallback =
+    String Function(String sourceModelId, AiModelProfile profile);
+
+class _ModelProfileEditorDialog extends StatefulWidget {
+  const _ModelProfileEditorDialog({
+    required this.modelId,
+    required this.existingModelIds,
+    required this.initialProfile,
+    required this.effectiveProfile,
+    required this.protocolType,
+    required this.onDuplicate,
+  });
+
+  final String modelId;
+  final List<String> existingModelIds;
   final AiModelProfile initialProfile;
   final AiModelProfile effectiveProfile;
   final AiProtocolType protocolType;
+  final _DuplicateModelProfileCallback onDuplicate;
 
   @override
   State<_ModelProfileEditorDialog> createState() =>
@@ -2161,6 +2260,7 @@ class _ModelProfileEditorDialog extends StatefulWidget {
 }
 
 class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
+  late final TextEditingController _modelIdController;
   late final TextEditingController _displayNameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _maxContextLengthController;
@@ -2213,6 +2313,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late bool _isGlobalDefaultTitleModel;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
+  late final Set<String> _reservedModelIds;
   String? _profileErrorMessage;
 
   @override
@@ -2222,6 +2323,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final effective = widget.effectiveProfile;
     final hasExisting = p.hasUserOverrides;
     _isGlobalDefaultTitleModel = p.isGlobalDefaultTitleModel;
+    _modelIdController = TextEditingController(text: widget.modelId);
+    _reservedModelIds = widget.existingModelIds.toSet();
 
     // Display name: pre-fill with model ID when creating a fresh profile.
     _displayNameController = TextEditingController(
@@ -2561,6 +2664,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
 
   @override
   void dispose() {
+    _modelIdController.dispose();
     _displayNameController.dispose();
     _descriptionController.dispose();
     _maxContextLengthController.dispose();
@@ -2658,7 +2762,30 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     return parsed;
   }
 
-  void _save() {
+  String? _validatedModelId() {
+    final modelId = _modelIdController.text.trim();
+    if (modelId.isEmpty) {
+      setState(() {
+        _profileErrorMessage = openHandIsChineseLocale(context)
+            ? '模型 ID 不能为空。'
+            : 'Model ID cannot be empty.';
+      });
+      return null;
+    }
+    final conflicts =
+        _reservedModelIds.contains(modelId) && modelId != widget.modelId;
+    if (conflicts) {
+      setState(() {
+        _profileErrorMessage = openHandIsChineseLocale(context)
+            ? '模型 ID 已存在，请换一个唯一 ID。'
+            : 'Model ID already exists. Use a unique ID.';
+      });
+      return null;
+    }
+    return modelId;
+  }
+
+  AiModelProfile? _collectProfile() {
     late final Map<String, Object?> defaultParameters;
     try {
       defaultParameters = _parseJsonObject(_defaultParametersController.text);
@@ -2668,10 +2795,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ? 'default_parameters 必须是合法的 JSON 对象。'
             : 'default_parameters must be a valid JSON object.';
       });
-      return;
+      return null;
+    }
+    if (_profileErrorMessage != null) {
+      setState(() => _profileErrorMessage = null);
     }
 
-    final profile = AiModelProfile(
+    return AiModelProfile(
       displayName: _displayNameController.text.trim().isNotEmpty
           ? _displayNameController.text.trim()
           : null,
@@ -2788,11 +2918,52 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       ),
       embeddingSupportsTruncation: _embeddingSupportsTruncation,
     );
-    Navigator.of(context).pop(profile);
+  }
+
+  void _save() {
+    final modelId = _validatedModelId();
+    if (modelId == null) {
+      return;
+    }
+    final profile = _collectProfile();
+    if (profile == null) {
+      return;
+    }
+    Navigator.of(
+      context,
+    ).pop(_ModelProfileEditorResult(modelId: modelId, profile: profile));
+  }
+
+  void _duplicateCurrentModel() {
+    final modelId = _validatedModelId();
+    if (modelId == null) {
+      return;
+    }
+    final profile = _collectProfile();
+    if (profile == null) {
+      return;
+    }
+    final copyModelId = widget.onDuplicate(modelId, profile);
+    _reservedModelIds.add(copyModelId);
+    if (!mounted) {
+      return;
+    }
+    OpenHandSnackBar.showSuccess(
+      context,
+      openHandIsChineseLocale(context)
+          ? '已复制模型：$copyModelId'
+          : 'Copied model: $copyModelId',
+      duration: const Duration(milliseconds: 1800),
+    );
   }
 
   void _reset() {
-    Navigator.of(context).pop(const AiModelProfile());
+    Navigator.of(context).pop(
+      _ModelProfileEditorResult(
+        modelId: widget.modelId,
+        profile: const AiModelProfile(),
+      ),
+    );
   }
 
   Widget _buildGlobalDefaultTitleModelControl() {
@@ -2920,13 +3091,20 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              // Model ID (read-only)
-              Text(
-                widget.modelId,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+              TextField(
+                controller: _modelIdController,
+                decoration: InputDecoration(
+                  labelText: zh ? '模型 ID' : 'Model ID',
+                  hintText: 'gpt-4o-mini',
+                  helperText: zh
+                      ? '用于请求接口的真实模型标识，必须在当前提供商内唯一。'
+                      : 'Actual model identifier sent to the API. Must be unique in this provider.',
+                  isDense: true,
                 ),
+                onChanged: (_) {
+                  if (_profileErrorMessage == null) return;
+                  setState(() => _profileErrorMessage = null);
+                },
               ),
               const SizedBox(height: 16),
               if (_profileErrorMessage != null) ...[
@@ -3682,6 +3860,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         OpenHandDialogActionButton.destructive(
           onPressed: _reset,
           label: AppLocalizations.of(context)!.mdlEdReset,
+        ),
+        OpenHandDialogActionButton.secondary(
+          onPressed: _duplicateCurrentModel,
+          icon: Icons.copy_rounded,
+          label: AppLocalizations.of(context)!.commonCopy,
         ),
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
