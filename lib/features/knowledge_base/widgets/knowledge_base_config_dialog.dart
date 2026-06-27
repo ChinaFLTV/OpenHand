@@ -253,6 +253,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         helperZh: '仅显示已开启“嵌入生成”的模型配置。',
                         helperEn:
                             'Only embedding-capable model profiles are shown.',
+                        modelFilter: (config, modelId) =>
+                            config.profileFor(modelId).supportsEmbeddings,
                         onSelected: (selection) {
                           final model = models.firstWhere(
                             (item) => item.id == selection.$1,
@@ -281,6 +283,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         },
                       ),
                     ),
+                  if (_settings.hasEmbeddingModel)
+                    _embeddingProfileSummary(context, models),
                   _field(_dimensions, isZh ? '默认向量维度' : 'Default dimensions'),
                   _field(
                     _maxInputTokens,
@@ -831,6 +835,158 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           ),
         ),
     ];
+  }
+
+  AiModelProfile? _selectedEmbeddingProfile(List<AiModelConfig> models) {
+    if (!_settings.hasEmbeddingModel) return null;
+    for (final model in models) {
+      if (model.id != _settings.providerConfigId) continue;
+      if (!model.allModelIds.contains(_settings.modelId)) return null;
+      final profile = model.profileFor(_settings.modelId);
+      return profile.supportsEmbeddings ? profile : null;
+    }
+    return null;
+  }
+
+  String _listLabel(List<String> values) {
+    return values.isEmpty ? '-' : values.join(', ');
+  }
+
+  String _nullableBoolLabel(BuildContext context, bool? value) {
+    final isZh = openHandIsChineseLocale(context);
+    return switch (value) {
+      true => isZh ? '是' : 'Yes',
+      false => isZh ? '否' : 'No',
+      null => isZh ? '未知' : 'Unknown',
+    };
+  }
+
+  Widget _embeddingProfileSummary(
+    BuildContext context,
+    List<AiModelConfig> models,
+  ) {
+    final profile = _selectedEmbeddingProfile(models);
+    if (profile == null) {
+      return const SizedBox.shrink();
+    }
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    final dimensions = <String>[
+      '${profile.embeddingDimensions ?? '-'}',
+      if (profile.embeddingMinDimensions != null ||
+          profile.embeddingMaxDimensions != null)
+        '(${profile.embeddingMinDimensions ?? '-'}-${profile.embeddingMaxDimensions ?? '-'})',
+    ].join(' ');
+    final rows = <(String, String)>[
+      (isZh ? '模型' : 'Model', _settings.modelId),
+      (isZh ? '维度/范围' : 'Dimensions / Range', dimensions),
+      (
+        isZh ? '最大输入 token' : 'Max Input Tokens',
+        '${profile.embeddingMaxInputTokens ?? '-'}',
+      ),
+      (
+        isZh ? 'Batch / 上限' : 'Batch / Limits',
+        [
+          profile.embeddingBatchSize ?? '-',
+          profile.embeddingMaxInputsPerBatch == null
+              ? null
+              : 'inputs ${profile.embeddingMaxInputsPerBatch}',
+          profile.embeddingMaxTokensPerBatch == null
+              ? null
+              : 'tokens ${profile.embeddingMaxTokensPerBatch}',
+        ].whereType<Object>().join(' / '),
+      ),
+      (isZh ? '输入类型' : 'Input Types', _listLabel(profile.embeddingInputTypes)),
+      (
+        isZh ? '任务类型' : 'Task Types',
+        [
+          _listLabel(profile.embeddingSupportedTaskTypes),
+          if (profile.embeddingDefaultTaskType != null)
+            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultTaskType}',
+        ].join(' / '),
+      ),
+      (
+        isZh ? '编码格式' : 'Encoding Formats',
+        [
+          _listLabel(profile.embeddingEncodingFormats),
+          if (profile.embeddingDefaultEncodingFormat != null)
+            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultEncodingFormat}',
+        ].join(' / '),
+      ),
+      (
+        isZh ? '输出 dtype' : 'Output DType',
+        [
+          _listLabel(profile.embeddingOutputDTypes),
+          if (profile.embeddingDefaultOutputDType != null)
+            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultOutputDType}',
+        ].join(' / '),
+      ),
+      (
+        isZh ? '距离/归一化' : 'Metric / Normalized',
+        '${profile.embeddingSimilarityMetric ?? '-'} / '
+            '${_nullableBoolLabel(context, profile.embeddingOutputsNormalized)}',
+      ),
+    ];
+
+    return SizedBox(
+      width: 690,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final row in rows)
+              Container(
+                constraints: const BoxConstraints(minWidth: 190, maxWidth: 318),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.48),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      row.$1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      row.$2.isEmpty ? '-' : row.$2,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _emptyModelState(BuildContext context) {

@@ -78,8 +78,13 @@ class AiModelCatalog {
         _wenxin(id) ??
         _meta(id) ??
         _mistral(id) ??
+        _cohere(id) ??
+        _voyage(id) ??
+        _jina(id) ??
+        _openSourceEmbedding(id) ??
         _grok(id) ??
-        _hunyuan(id);
+        _hunyuan(id) ??
+        _minimax(id);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -159,6 +164,11 @@ class AiModelCatalog {
     'outputDimensionality',
   ];
 
+  static const _geminiMultimodalEmbeddingParameters = <String>[
+    'content',
+    'outputDimensionality',
+  ];
+
   static const _geminiLegacyEmbeddingParameters = <String>[
     'content',
     'taskType',
@@ -170,6 +180,32 @@ class AiModelCatalog {
     'model',
     'output_dimension',
     'output_dtype',
+  ];
+
+  static const _cohereEmbeddingParameters = <String>[
+    'texts',
+    'model',
+    'input_type',
+    'embedding_types',
+    'truncate',
+  ];
+
+  static const _voyageEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'input_type',
+    'truncation',
+    'output_dimension',
+    'output_dtype',
+  ];
+
+  static const _jinaEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'task',
+    'dimensions',
+    'embedding_type',
+    'normalized',
   ];
 
   static final Map<String, AiModelProfile> _exactModelProfiles =
@@ -202,6 +238,20 @@ class AiModelCatalog {
     String? embeddingEndpointPath,
     int? embeddingBatchSize,
     bool embeddingRequiresSpecialBody = false,
+    List<String> embeddingInputTypes = const <String>[],
+    List<String> embeddingSupportedTaskTypes = const <String>[],
+    String? embeddingDefaultTaskType,
+    List<String> embeddingEncodingFormats = const <String>[],
+    String? embeddingDefaultEncodingFormat,
+    List<String> embeddingOutputDTypes = const <String>[],
+    String? embeddingDefaultOutputDType,
+    String? embeddingSimilarityMetric,
+    bool? embeddingOutputsNormalized,
+    int? embeddingMinDimensions,
+    int? embeddingMaxDimensions,
+    int? embeddingMaxInputsPerBatch,
+    int? embeddingMaxTokensPerBatch,
+    bool embeddingSupportsTruncation = false,
   }) {
     return AiModelProfile(
       displayName: name,
@@ -227,6 +277,20 @@ class AiModelCatalog {
       embeddingEndpointPath: embeddingEndpointPath,
       embeddingBatchSize: embeddingBatchSize,
       embeddingRequiresSpecialBody: embeddingRequiresSpecialBody,
+      embeddingInputTypes: embeddingInputTypes,
+      embeddingSupportedTaskTypes: embeddingSupportedTaskTypes,
+      embeddingDefaultTaskType: embeddingDefaultTaskType,
+      embeddingEncodingFormats: embeddingEncodingFormats,
+      embeddingDefaultEncodingFormat: embeddingDefaultEncodingFormat,
+      embeddingOutputDTypes: embeddingOutputDTypes,
+      embeddingDefaultOutputDType: embeddingDefaultOutputDType,
+      embeddingSimilarityMetric: embeddingSimilarityMetric,
+      embeddingOutputsNormalized: embeddingOutputsNormalized,
+      embeddingMinDimensions: embeddingMinDimensions,
+      embeddingMaxDimensions: embeddingMaxDimensions,
+      embeddingMaxInputsPerBatch: embeddingMaxInputsPerBatch,
+      embeddingMaxTokensPerBatch: embeddingMaxTokensPerBatch,
+      embeddingSupportsTruncation: embeddingSupportsTruncation,
     );
   }
 
@@ -245,6 +309,20 @@ class AiModelCatalog {
     int? batchSize,
     bool specialBody = false,
     List<String> supportedParameters = _openAiCompatibleEmbeddingParameters,
+    List<String> inputTypes = const <String>['text'],
+    List<String> taskTypes = const <String>[],
+    String? defaultTaskType,
+    List<String> encodingFormats = const <String>[],
+    String? defaultEncodingFormat,
+    List<String> outputDTypes = const <String>[],
+    String? defaultOutputDType,
+    String similarityMetric = 'cosine',
+    bool? outputsNormalized,
+    int? minDimensions,
+    int? maxDimensions,
+    int? maxInputsPerBatch,
+    int? maxTokensPerBatch,
+    bool supportsTruncation = false,
   }) {
     return _p(
       name: name,
@@ -260,6 +338,20 @@ class AiModelCatalog {
       embeddingEndpointPath: endpointPath,
       embeddingBatchSize: batchSize,
       embeddingRequiresSpecialBody: specialBody,
+      embeddingInputTypes: inputTypes,
+      embeddingSupportedTaskTypes: taskTypes,
+      embeddingDefaultTaskType: defaultTaskType,
+      embeddingEncodingFormats: encodingFormats,
+      embeddingDefaultEncodingFormat: defaultEncodingFormat,
+      embeddingOutputDTypes: outputDTypes,
+      embeddingDefaultOutputDType: defaultOutputDType,
+      embeddingSimilarityMetric: similarityMetric,
+      embeddingOutputsNormalized: outputsNormalized,
+      embeddingMinDimensions: minDimensions,
+      embeddingMaxDimensions: maxDimensions,
+      embeddingMaxInputsPerBatch: maxInputsPerBatch,
+      embeddingMaxTokensPerBatch: maxTokensPerBatch,
+      embeddingSupportsTruncation: supportsTruncation,
     );
   }
 
@@ -325,6 +417,11 @@ class AiModelCatalog {
         customDimensions: true,
         batchSize: 128,
         supportedParameters: _openAiEmbeddingParameters,
+        encodingFormats: const <String>['float', 'base64'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+        minDimensions: 256,
+        maxDimensions: 3072,
       );
     }
     if (id.startsWith('text-embedding-3-small')) {
@@ -337,6 +434,11 @@ class AiModelCatalog {
         customDimensions: true,
         batchSize: 128,
         supportedParameters: _openAiEmbeddingParameters,
+        encodingFormats: const <String>['float', 'base64'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+        minDimensions: 256,
+        maxDimensions: 1536,
       );
     }
     if (id.startsWith('text-embedding-ada-002')) {
@@ -348,6 +450,9 @@ class AiModelCatalog {
         maxInputTokens: 8192,
         batchSize: 128,
         supportedParameters: _openAiLegacyEmbeddingParameters,
+        encodingFormats: const <String>['float', 'base64'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
       );
     }
     if (id.startsWith('text-embedding-')) {
@@ -360,6 +465,9 @@ class AiModelCatalog {
         customDimensions: true,
         batchSize: 128,
         supportedParameters: _openAiEmbeddingParameters,
+        encodingFormats: const <String>['float', 'base64'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
       );
     }
 
@@ -711,9 +819,28 @@ class AiModelCatalog {
 
   static AiModelProfile? _gemini(String id) {
     // ── Embedding ────────────────────────────────────────────────────────
-    if (id.startsWith('gemini-embedding')) {
+    if (id.startsWith('gemini-embedding-2')) {
       return _embeddingP(
-        name: 'Gemini Embedding',
+        name: 'Gemini Embedding 2',
+        desc: 'Google multimodal embedding model',
+        multimodal: true,
+        modalities: _allModalities,
+        context: 8192,
+        dimensions: 3072,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 100,
+        specialBody: true,
+        supportedParameters: _geminiMultimodalEmbeddingParameters,
+        inputTypes: const <String>['text', 'image', 'video', 'audio', 'file'],
+        outputsNormalized: true,
+        minDimensions: 128,
+        maxDimensions: 3072,
+      );
+    }
+    if (id.startsWith('gemini-embedding-001')) {
+      return _embeddingP(
+        name: 'Gemini Embedding 001',
         desc: 'Google Gemini text embedding model',
         context: 2048,
         dimensions: 3072,
@@ -722,6 +849,46 @@ class AiModelCatalog {
         batchSize: 100,
         specialBody: true,
         supportedParameters: _geminiEmbeddingParameters,
+        taskTypes: const <String>[
+          'RETRIEVAL_QUERY',
+          'RETRIEVAL_DOCUMENT',
+          'SEMANTIC_SIMILARITY',
+          'CLASSIFICATION',
+          'CLUSTERING',
+          'QUESTION_ANSWERING',
+          'FACT_VERIFICATION',
+          'CODE_RETRIEVAL_QUERY',
+        ],
+        defaultTaskType: 'RETRIEVAL_DOCUMENT',
+        outputsNormalized: true,
+        minDimensions: 128,
+        maxDimensions: 3072,
+      );
+    }
+    if (id.startsWith('text-embedding-005')) {
+      return _embeddingP(
+        name: 'text-embedding-005',
+        desc: 'Google text embedding model',
+        context: 2048,
+        dimensions: 768,
+        maxInputTokens: 2048,
+        customDimensions: true,
+        batchSize: 100,
+        specialBody: true,
+        supportedParameters: _geminiEmbeddingParameters,
+        taskTypes: const <String>[
+          'RETRIEVAL_QUERY',
+          'RETRIEVAL_DOCUMENT',
+          'SEMANTIC_SIMILARITY',
+          'CLASSIFICATION',
+          'CLUSTERING',
+          'QUESTION_ANSWERING',
+          'FACT_VERIFICATION',
+        ],
+        defaultTaskType: 'RETRIEVAL_DOCUMENT',
+        outputsNormalized: true,
+        minDimensions: 128,
+        maxDimensions: 768,
       );
     }
     if (id.startsWith('text-embedding-004')) {
@@ -735,6 +902,19 @@ class AiModelCatalog {
         batchSize: 100,
         specialBody: true,
         supportedParameters: _geminiEmbeddingParameters,
+        taskTypes: const <String>[
+          'RETRIEVAL_QUERY',
+          'RETRIEVAL_DOCUMENT',
+          'SEMANTIC_SIMILARITY',
+          'CLASSIFICATION',
+          'CLUSTERING',
+          'QUESTION_ANSWERING',
+          'FACT_VERIFICATION',
+        ],
+        defaultTaskType: 'RETRIEVAL_DOCUMENT',
+        outputsNormalized: true,
+        minDimensions: 128,
+        maxDimensions: 768,
       );
     }
     if (id == 'embedding-001' || id.startsWith('embedding-001')) {
@@ -747,6 +927,15 @@ class AiModelCatalog {
         batchSize: 100,
         specialBody: true,
         supportedParameters: _geminiLegacyEmbeddingParameters,
+        taskTypes: const <String>[
+          'RETRIEVAL_QUERY',
+          'RETRIEVAL_DOCUMENT',
+          'SEMANTIC_SIMILARITY',
+          'CLASSIFICATION',
+          'CLUSTERING',
+        ],
+        defaultTaskType: 'RETRIEVAL_DOCUMENT',
+        outputsNormalized: true,
       );
     }
 
@@ -993,6 +1182,10 @@ class AiModelCatalog {
         endpointPath: 'compatible-mode/v1/embeddings',
         batchSize: 10,
         supportedParameters: _qwenTextEmbeddingParameters,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        minDimensions: 512,
+        maxDimensions: 2048,
       );
     }
     if (id.startsWith('text-embedding-v3')) {
@@ -1006,6 +1199,10 @@ class AiModelCatalog {
         endpointPath: 'compatible-mode/v1/embeddings',
         batchSize: 10,
         supportedParameters: _qwenTextEmbeddingParameters,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        minDimensions: 512,
+        maxDimensions: 1024,
       );
     }
     if (id.startsWith('text-embedding-')) {
@@ -1017,6 +1214,8 @@ class AiModelCatalog {
         maxInputTokens: 8192,
         endpointPath: 'compatible-mode/v1/embeddings',
         batchSize: 10,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
       );
     }
     if (id.startsWith('qwen3-vl-embedding')) {
@@ -1033,6 +1232,9 @@ class AiModelCatalog {
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
         batchSize: 1,
         supportedParameters: _qwenMultimodalEmbeddingParameters,
+        inputTypes: const <String>['text', 'image', 'video'],
+        minDimensions: 32,
+        maxDimensions: 2560,
       );
     }
     if (id.startsWith('tongyi-embedding-vision-plus')) {
@@ -1048,6 +1250,8 @@ class AiModelCatalog {
         endpointPath:
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
         batchSize: 1,
+        inputTypes: const <String>['text', 'image', 'video'],
+        maxDimensions: 1152,
       );
     }
     if (id.startsWith('tongyi-embedding-vision-flash') ||
@@ -1066,6 +1270,8 @@ class AiModelCatalog {
         endpointPath:
             'api/v1/services/embeddings/multimodal-embedding/multimodal-embedding',
         batchSize: 1,
+        inputTypes: const <String>['text', 'image', 'video'],
+        maxDimensions: id.startsWith('multimodal-embedding-v1') ? 1024 : 768,
       );
     }
 
@@ -1399,10 +1605,16 @@ class AiModelCatalog {
         name: 'Embedding-3',
         desc: 'Zhipu AI text embedding model',
         context: 8192,
-        dimensions: 1024,
+        dimensions: 2048,
         maxInputTokens: 8192,
+        customDimensions: true,
         endpointPath: 'api/paas/v4/embeddings',
         batchSize: 64,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+        minDimensions: 256,
+        maxDimensions: 2048,
       );
     }
     if (id.startsWith('embedding-2') || id.startsWith('embedding')) {
@@ -1414,6 +1626,9 @@ class AiModelCatalog {
         maxInputTokens: 8192,
         endpointPath: 'api/paas/v4/embeddings',
         batchSize: 64,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
       );
     }
 
@@ -1873,6 +2088,9 @@ class AiModelCatalog {
         maxInputTokens: 128000,
         endpointPath: 'api/v3/embeddings',
         batchSize: 64,
+        inputTypes: const <String>['text', 'image'],
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
       );
     }
 
@@ -2029,6 +2247,11 @@ class AiModelCatalog {
         customDimensions: true,
         batchSize: 64,
         supportedParameters: _mistralEmbeddingParameters,
+        inputTypes: const <String>['text', 'code'],
+        outputDTypes: const <String>['float', 'int8', 'uint8', 'binary'],
+        defaultOutputDType: 'float',
+        minDimensions: 256,
+        maxDimensions: 1536,
       );
     }
     if (id.startsWith('mistral-embed')) {
@@ -2041,6 +2264,359 @@ class AiModelCatalog {
         customDimensions: true,
         batchSize: 64,
         supportedParameters: _mistralEmbeddingParameters,
+        outputDTypes: const <String>['float', 'int8', 'uint8', 'binary'],
+        defaultOutputDType: 'float',
+        minDimensions: 256,
+        maxDimensions: 1024,
+      );
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Cohere
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _cohere(String id) {
+    if (id.contains('embed-v4') || id.contains('embed-4')) {
+      return _embeddingP(
+        name: 'Cohere Embed v4.0',
+        desc: 'Cohere multilingual multimodal embedding model',
+        multimodal: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.image,
+        },
+        context: 128000,
+        dimensions: 1536,
+        maxInputTokens: 128000,
+        customDimensions: true,
+        batchSize: 96,
+        supportedParameters: _cohereEmbeddingParameters,
+        inputTypes: const <String>['search_document', 'search_query', 'image'],
+        taskTypes: const <String>[
+          'search_document',
+          'search_query',
+          'classification',
+          'clustering',
+        ],
+        encodingFormats: const <String>[
+          'float',
+          'int8',
+          'uint8',
+          'binary',
+          'ubinary',
+        ],
+        defaultEncodingFormat: 'float',
+        minDimensions: 256,
+        maxDimensions: 1536,
+        maxInputsPerBatch: 96,
+        supportsTruncation: true,
+      );
+    }
+    if (id.contains('embed-multilingual-v3')) {
+      return _embeddingP(
+        name: 'Cohere Embed Multilingual v3.0',
+        desc: 'Cohere multilingual embedding model',
+        context: 512,
+        dimensions: 1024,
+        maxInputTokens: 512,
+        batchSize: 96,
+        supportedParameters: _cohereEmbeddingParameters,
+        inputTypes: const <String>['search_document', 'search_query'],
+        taskTypes: const <String>[
+          'search_document',
+          'search_query',
+          'classification',
+          'clustering',
+        ],
+        maxInputsPerBatch: 96,
+        supportsTruncation: true,
+      );
+    }
+    if (id.contains('embed-english-v3')) {
+      return _embeddingP(
+        name: 'Cohere Embed English v3.0',
+        desc: 'Cohere English embedding model',
+        context: 512,
+        dimensions: 1024,
+        maxInputTokens: 512,
+        batchSize: 96,
+        supportedParameters: _cohereEmbeddingParameters,
+        inputTypes: const <String>['search_document', 'search_query'],
+        taskTypes: const <String>[
+          'search_document',
+          'search_query',
+          'classification',
+          'clustering',
+        ],
+        maxInputsPerBatch: 96,
+        supportsTruncation: true,
+      );
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Voyage AI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _voyage(String id) {
+    if (!id.startsWith('voyage-')) return null;
+    final code = id.contains('code');
+    final lite = id.contains('lite') && !id.contains('4');
+    return _embeddingP(
+      name: code
+          ? 'Voyage Code'
+          : id.startsWith('voyage-4')
+          ? 'Voyage 4'
+          : lite
+          ? 'Voyage Lite'
+          : 'Voyage Embedding',
+      desc: code
+          ? 'Voyage code retrieval embedding model'
+          : 'Voyage general-purpose multilingual embedding model',
+      context: code ? 32000 : 32000,
+      dimensions: lite ? 512 : 1024,
+      maxInputTokens: 32000,
+      customDimensions:
+          id.startsWith('voyage-4') ||
+          id.startsWith('voyage-3.5') ||
+          id.startsWith('voyage-3-large') ||
+          code,
+      batchSize: 128,
+      supportedParameters: _voyageEmbeddingParameters,
+      inputTypes: const <String>['document', 'query'],
+      taskTypes: const <String>['document', 'query'],
+      outputDTypes: const <String>['float', 'int8', 'uint8', 'binary'],
+      defaultOutputDType: 'float',
+      minDimensions: id.startsWith('voyage-4') || code ? 256 : null,
+      maxDimensions: id.startsWith('voyage-4') || code ? 2048 : null,
+      supportsTruncation: true,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Jina AI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _jina(String id) {
+    if (id.startsWith('jina-embeddings-v5-omni')) {
+      final nano = id.contains('nano');
+      return _embeddingP(
+        name: nano ? 'Jina Embeddings v5 Omni Nano' : 'Jina Embeddings v5 Omni',
+        desc: 'Jina multilingual omni embedding model',
+        multimodal: true,
+        modalities: _allModalities,
+        context: nano ? 8192 : 32768,
+        dimensions: nano ? 768 : 1024,
+        maxInputTokens: nano ? 8192 : 32768,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _jinaEmbeddingParameters,
+        inputTypes: const <String>['text', 'image', 'audio', 'video', 'file'],
+        taskTypes: const <String>[
+          'retrieval',
+          'text-matching',
+          'classification',
+          'clustering',
+        ],
+        defaultTaskType: 'retrieval',
+        encodingFormats: const <String>['float', 'base64', 'binary'],
+        defaultEncodingFormat: 'float',
+        outputDTypes: const <String>['float', 'binary'],
+        defaultOutputDType: 'float',
+        outputsNormalized: true,
+        minDimensions: 32,
+        maxDimensions: nano ? 768 : 1024,
+        supportsTruncation: true,
+      );
+    }
+    if (id.startsWith('jina-embeddings-v5-text')) {
+      final nano = id.contains('nano');
+      return _embeddingP(
+        name: nano ? 'Jina Embeddings v5 Text Nano' : 'Jina Embeddings v5 Text',
+        desc: 'Jina multilingual text embedding model',
+        context: nano ? 8192 : 32768,
+        dimensions: nano ? 768 : 1024,
+        maxInputTokens: nano ? 8192 : 32768,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _jinaEmbeddingParameters,
+        taskTypes: const <String>[
+          'retrieval',
+          'text-matching',
+          'classification',
+          'clustering',
+        ],
+        defaultTaskType: 'retrieval',
+        encodingFormats: const <String>['float', 'base64', 'binary'],
+        defaultEncodingFormat: 'float',
+        outputDTypes: const <String>['float', 'binary'],
+        defaultOutputDType: 'float',
+        outputsNormalized: true,
+        minDimensions: 32,
+        maxDimensions: nano ? 768 : 1024,
+        supportsTruncation: true,
+      );
+    }
+    if (id.startsWith('jina-embeddings-v4')) {
+      return _embeddingP(
+        name: 'Jina Embeddings v4',
+        desc: 'Jina multimodal multilingual embedding model',
+        multimodal: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.image,
+        },
+        context: 32768,
+        dimensions: 2048,
+        maxInputTokens: 32768,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _jinaEmbeddingParameters,
+        inputTypes: const <String>['text', 'image'],
+        taskTypes: const <String>['retrieval', 'text-matching', 'code'],
+        defaultTaskType: 'retrieval',
+        encodingFormats: const <String>['float', 'base64', 'binary'],
+        defaultEncodingFormat: 'float',
+        outputDTypes: const <String>['float', 'binary'],
+        defaultOutputDType: 'float',
+        outputsNormalized: true,
+        minDimensions: 128,
+        maxDimensions: 2048,
+        supportsTruncation: true,
+      );
+    }
+    if (id.startsWith('jina-embeddings-v3')) {
+      return _embeddingP(
+        name: 'Jina Embeddings v3',
+        desc: 'Jina multilingual text embedding model',
+        context: 8192,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _jinaEmbeddingParameters,
+        taskTypes: const <String>[
+          'retrieval.query',
+          'retrieval.passage',
+          'text-matching',
+          'classification',
+          'separation',
+        ],
+        defaultTaskType: 'retrieval.passage',
+        encodingFormats: const <String>['float', 'base64', 'binary'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+        minDimensions: 32,
+        maxDimensions: 1024,
+        supportsTruncation: true,
+      );
+    }
+    if (id.startsWith('jina-clip')) {
+      return _embeddingP(
+        name: 'Jina CLIP',
+        desc: 'Jina image/text embedding model',
+        multimodal: true,
+        modalities: const <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.image,
+        },
+        context: 8192,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 64,
+        supportedParameters: _jinaEmbeddingParameters,
+        inputTypes: const <String>['text', 'image'],
+        outputsNormalized: true,
+      );
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Open-source / OpenAI-compatible embedding model IDs
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _openSourceEmbedding(String id) {
+    if (id.contains('qwen3-embedding')) {
+      final dim = id.contains('8b')
+          ? 4096
+          : id.contains('4b')
+          ? 2560
+          : 1024;
+      return _embeddingP(
+        name: 'Qwen3 Embedding',
+        desc: 'Qwen3 open-source multilingual embedding model',
+        context: 32768,
+        dimensions: dim,
+        maxInputTokens: 32768,
+        customDimensions: true,
+        batchSize: 64,
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('bge-m3')) {
+      return _embeddingP(
+        name: 'BAAI bge-m3',
+        desc: 'BAAI multilingual multi-function embedding model',
+        context: 8192,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        batchSize: 64,
+        taskTypes: const <String>['dense', 'sparse', 'multi-vector'],
+        defaultTaskType: 'dense',
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('bge-large-zh')) {
+      return _embeddingP(
+        name: 'BAAI bge-large-zh',
+        desc: 'Chinese text embedding model',
+        context: 512,
+        dimensions: 1024,
+        maxInputTokens: 512,
+        batchSize: 64,
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('bge-large-en')) {
+      return _embeddingP(
+        name: 'BAAI bge-large-en',
+        desc: 'English text embedding model',
+        context: 512,
+        dimensions: 1024,
+        maxInputTokens: 512,
+        batchSize: 64,
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('bce-embedding')) {
+      return _embeddingP(
+        name: 'BCE Embedding',
+        desc: 'NetEase Youdao bilingual/chinese embedding model',
+        context: 512,
+        dimensions: 768,
+        maxInputTokens: 512,
+        batchSize: 64,
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('nomic-embed')) {
+      return _embeddingP(
+        name: 'Nomic Embed',
+        desc: 'Nomic text embedding model',
+        context: 8192,
+        dimensions: 768,
+        maxInputTokens: 8192,
+        customDimensions: true,
+        batchSize: 64,
+        taskTypes: const <String>['search_document', 'search_query'],
+        outputsNormalized: true,
+        minDimensions: 64,
+        maxDimensions: 768,
       );
     }
     return null;
@@ -2148,6 +2724,19 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _hunyuan(String id) {
+    // ── Embedding ────────────────────────────────────────────────────────
+    if (id.contains('embedding') || id.contains('embed')) {
+      return _embeddingP(
+        name: 'Hunyuan Embedding',
+        desc: 'Tencent Hunyuan embedding model',
+        context: 8192,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        batchSize: 64,
+        endpointPath: 'v1/embeddings',
+      );
+    }
+
     // ── Vision models ────────────────────────────────────────────────────
     if (id.contains('vision-video')) {
       return _p(
@@ -2235,6 +2824,17 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _minimax(String id) {
+    if (id.startsWith('embo-01') || id.contains('embedding')) {
+      return _embeddingP(
+        name: 'MiniMax embo-01',
+        desc: 'MiniMax text embedding model',
+        context: 8192,
+        dimensions: 1536,
+        maxInputTokens: 8192,
+        batchSize: 64,
+        endpointPath: 'v1/embeddings',
+      );
+    }
     if (id.contains('image')) {
       return _p(
         name: 'MiniMax Image',
@@ -2509,6 +3109,17 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _wenxin(String id) {
+    if (id.contains('bge-large-zh') || id.contains('embedding')) {
+      return _embeddingP(
+        name: id.contains('bge-large-zh') ? 'bge-large-zh' : 'Baidu Embedding',
+        desc: 'Baidu Qianfan text embedding model',
+        context: id.contains('bge-large-zh') ? 512 : 8192,
+        dimensions: id.contains('bge-large-zh') ? 1024 : 1024,
+        maxInputTokens: id.contains('bge-large-zh') ? 512 : 8192,
+        batchSize: 64,
+        outputsNormalized: true,
+      );
+    }
     if (id.contains('ernie-vilg') || id.contains('image')) {
       return _p(
         name: 'ERNIE Image',

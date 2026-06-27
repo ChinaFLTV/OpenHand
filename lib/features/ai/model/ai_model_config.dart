@@ -269,6 +269,20 @@ class AiModelProfile {
     this.embeddingEndpointPath,
     this.embeddingBatchSize,
     this.embeddingRequiresSpecialBody = false,
+    this.embeddingInputTypes = const <String>[],
+    this.embeddingSupportedTaskTypes = const <String>[],
+    this.embeddingDefaultTaskType,
+    this.embeddingEncodingFormats = const <String>[],
+    this.embeddingDefaultEncodingFormat,
+    this.embeddingOutputDTypes = const <String>[],
+    this.embeddingDefaultOutputDType,
+    this.embeddingSimilarityMetric,
+    this.embeddingOutputsNormalized,
+    this.embeddingMinDimensions,
+    this.embeddingMaxDimensions,
+    this.embeddingMaxInputsPerBatch,
+    this.embeddingMaxTokensPerBatch,
+    this.embeddingSupportsTruncation = false,
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -332,6 +346,37 @@ class AiModelProfile {
       ),
       embeddingRequiresSpecialBody:
           _readBool(json['embedding_requires_special_body']) ?? false,
+      embeddingInputTypes: _parseStringList(json['embedding_input_types']),
+      embeddingSupportedTaskTypes: _parseStringList(
+        json['embedding_supported_task_types'],
+      ),
+      embeddingDefaultTaskType: json['embedding_default_task_type'] as String?,
+      embeddingEncodingFormats: _parseStringList(
+        json['embedding_encoding_formats'],
+      ),
+      embeddingDefaultEncodingFormat:
+          json['embedding_default_encoding_format'] as String?,
+      embeddingOutputDTypes: _parseStringList(json['embedding_output_dtypes']),
+      embeddingDefaultOutputDType:
+          json['embedding_default_output_dtype'] as String?,
+      embeddingSimilarityMetric: json['embedding_similarity_metric'] as String?,
+      embeddingOutputsNormalized: _readBool(
+        json['embedding_outputs_normalized'],
+      ),
+      embeddingMinDimensions: _readNullablePositiveInt(
+        json['embedding_min_dimensions'],
+      ),
+      embeddingMaxDimensions: _readNullablePositiveInt(
+        json['embedding_max_dimensions'],
+      ),
+      embeddingMaxInputsPerBatch: _readNullablePositiveInt(
+        json['embedding_max_inputs_per_batch'],
+      ),
+      embeddingMaxTokensPerBatch: _readNullablePositiveInt(
+        json['embedding_max_tokens_per_batch'],
+      ),
+      embeddingSupportsTruncation:
+          _readBool(json['embedding_supports_truncation']) ?? false,
     );
   }
 
@@ -404,6 +449,20 @@ class AiModelProfile {
   final String? embeddingEndpointPath;
   final int? embeddingBatchSize;
   final bool embeddingRequiresSpecialBody;
+  final List<String> embeddingInputTypes;
+  final List<String> embeddingSupportedTaskTypes;
+  final String? embeddingDefaultTaskType;
+  final List<String> embeddingEncodingFormats;
+  final String? embeddingDefaultEncodingFormat;
+  final List<String> embeddingOutputDTypes;
+  final String? embeddingDefaultOutputDType;
+  final String? embeddingSimilarityMetric;
+  final bool? embeddingOutputsNormalized;
+  final int? embeddingMinDimensions;
+  final int? embeddingMaxDimensions;
+  final int? embeddingMaxInputsPerBatch;
+  final int? embeddingMaxTokensPerBatch;
+  final bool embeddingSupportsTruncation;
 
   bool get supportsEmbeddings =>
       capabilities.contains(AiModelCapability.embeddingGeneration);
@@ -441,7 +500,21 @@ class AiModelProfile {
       embeddingSupportsCustomDimensions ||
       embeddingEndpointPath != null ||
       embeddingBatchSize != null ||
-      embeddingRequiresSpecialBody;
+      embeddingRequiresSpecialBody ||
+      embeddingInputTypes.isNotEmpty ||
+      embeddingSupportedTaskTypes.isNotEmpty ||
+      embeddingDefaultTaskType != null ||
+      embeddingEncodingFormats.isNotEmpty ||
+      embeddingDefaultEncodingFormat != null ||
+      embeddingOutputDTypes.isNotEmpty ||
+      embeddingDefaultOutputDType != null ||
+      embeddingSimilarityMetric != null ||
+      embeddingOutputsNormalized != null ||
+      embeddingMinDimensions != null ||
+      embeddingMaxDimensions != null ||
+      embeddingMaxInputsPerBatch != null ||
+      embeddingMaxTokensPerBatch != null ||
+      embeddingSupportsTruncation;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -500,6 +573,29 @@ class AiModelProfile {
     int? embeddingBatchSize,
     bool clearEmbeddingBatchSize = false,
     bool? embeddingRequiresSpecialBody,
+    List<String>? embeddingInputTypes,
+    List<String>? embeddingSupportedTaskTypes,
+    String? embeddingDefaultTaskType,
+    bool clearEmbeddingDefaultTaskType = false,
+    List<String>? embeddingEncodingFormats,
+    String? embeddingDefaultEncodingFormat,
+    bool clearEmbeddingDefaultEncodingFormat = false,
+    List<String>? embeddingOutputDTypes,
+    String? embeddingDefaultOutputDType,
+    bool clearEmbeddingDefaultOutputDType = false,
+    String? embeddingSimilarityMetric,
+    bool clearEmbeddingSimilarityMetric = false,
+    bool? embeddingOutputsNormalized,
+    bool clearEmbeddingOutputsNormalized = false,
+    int? embeddingMinDimensions,
+    bool clearEmbeddingMinDimensions = false,
+    int? embeddingMaxDimensions,
+    bool clearEmbeddingMaxDimensions = false,
+    int? embeddingMaxInputsPerBatch,
+    bool clearEmbeddingMaxInputsPerBatch = false,
+    int? embeddingMaxTokensPerBatch,
+    bool clearEmbeddingMaxTokensPerBatch = false,
+    bool? embeddingSupportsTruncation,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -578,6 +674,43 @@ class AiModelProfile {
           : embeddingBatchSize ?? this.embeddingBatchSize,
       embeddingRequiresSpecialBody:
           embeddingRequiresSpecialBody ?? this.embeddingRequiresSpecialBody,
+      embeddingInputTypes: embeddingInputTypes ?? this.embeddingInputTypes,
+      embeddingSupportedTaskTypes:
+          embeddingSupportedTaskTypes ?? this.embeddingSupportedTaskTypes,
+      embeddingDefaultTaskType: clearEmbeddingDefaultTaskType
+          ? null
+          : embeddingDefaultTaskType ?? this.embeddingDefaultTaskType,
+      embeddingEncodingFormats:
+          embeddingEncodingFormats ?? this.embeddingEncodingFormats,
+      embeddingDefaultEncodingFormat: clearEmbeddingDefaultEncodingFormat
+          ? null
+          : embeddingDefaultEncodingFormat ??
+                this.embeddingDefaultEncodingFormat,
+      embeddingOutputDTypes:
+          embeddingOutputDTypes ?? this.embeddingOutputDTypes,
+      embeddingDefaultOutputDType: clearEmbeddingDefaultOutputDType
+          ? null
+          : embeddingDefaultOutputDType ?? this.embeddingDefaultOutputDType,
+      embeddingSimilarityMetric: clearEmbeddingSimilarityMetric
+          ? null
+          : embeddingSimilarityMetric ?? this.embeddingSimilarityMetric,
+      embeddingOutputsNormalized: clearEmbeddingOutputsNormalized
+          ? null
+          : embeddingOutputsNormalized ?? this.embeddingOutputsNormalized,
+      embeddingMinDimensions: clearEmbeddingMinDimensions
+          ? null
+          : embeddingMinDimensions ?? this.embeddingMinDimensions,
+      embeddingMaxDimensions: clearEmbeddingMaxDimensions
+          ? null
+          : embeddingMaxDimensions ?? this.embeddingMaxDimensions,
+      embeddingMaxInputsPerBatch: clearEmbeddingMaxInputsPerBatch
+          ? null
+          : embeddingMaxInputsPerBatch ?? this.embeddingMaxInputsPerBatch,
+      embeddingMaxTokensPerBatch: clearEmbeddingMaxTokensPerBatch
+          ? null
+          : embeddingMaxTokensPerBatch ?? this.embeddingMaxTokensPerBatch,
+      embeddingSupportsTruncation:
+          embeddingSupportsTruncation ?? this.embeddingSupportsTruncation,
     );
   }
 
@@ -631,6 +764,33 @@ class AiModelProfile {
       if (embeddingBatchSize != null)
         'embedding_batch_size': embeddingBatchSize,
       if (embeddingRequiresSpecialBody) 'embedding_requires_special_body': true,
+      if (embeddingInputTypes.isNotEmpty)
+        'embedding_input_types': embeddingInputTypes,
+      if (embeddingSupportedTaskTypes.isNotEmpty)
+        'embedding_supported_task_types': embeddingSupportedTaskTypes,
+      if (embeddingDefaultTaskType != null)
+        'embedding_default_task_type': embeddingDefaultTaskType,
+      if (embeddingEncodingFormats.isNotEmpty)
+        'embedding_encoding_formats': embeddingEncodingFormats,
+      if (embeddingDefaultEncodingFormat != null)
+        'embedding_default_encoding_format': embeddingDefaultEncodingFormat,
+      if (embeddingOutputDTypes.isNotEmpty)
+        'embedding_output_dtypes': embeddingOutputDTypes,
+      if (embeddingDefaultOutputDType != null)
+        'embedding_default_output_dtype': embeddingDefaultOutputDType,
+      if (embeddingSimilarityMetric != null)
+        'embedding_similarity_metric': embeddingSimilarityMetric,
+      if (embeddingOutputsNormalized != null)
+        'embedding_outputs_normalized': embeddingOutputsNormalized,
+      if (embeddingMinDimensions != null)
+        'embedding_min_dimensions': embeddingMinDimensions,
+      if (embeddingMaxDimensions != null)
+        'embedding_max_dimensions': embeddingMaxDimensions,
+      if (embeddingMaxInputsPerBatch != null)
+        'embedding_max_inputs_per_batch': embeddingMaxInputsPerBatch,
+      if (embeddingMaxTokensPerBatch != null)
+        'embedding_max_tokens_per_batch': embeddingMaxTokensPerBatch,
+      if (embeddingSupportsTruncation) 'embedding_supports_truncation': true,
     };
   }
 
@@ -962,6 +1122,46 @@ class AiModelConfig {
       embeddingRequiresSpecialBody:
           override.embeddingRequiresSpecialBody ||
           catalog.embeddingRequiresSpecialBody,
+      embeddingInputTypes: override.embeddingInputTypes.isNotEmpty
+          ? override.embeddingInputTypes
+          : catalog.embeddingInputTypes,
+      embeddingSupportedTaskTypes:
+          override.embeddingSupportedTaskTypes.isNotEmpty
+          ? override.embeddingSupportedTaskTypes
+          : catalog.embeddingSupportedTaskTypes,
+      embeddingDefaultTaskType:
+          override.embeddingDefaultTaskType ?? catalog.embeddingDefaultTaskType,
+      embeddingEncodingFormats: override.embeddingEncodingFormats.isNotEmpty
+          ? override.embeddingEncodingFormats
+          : catalog.embeddingEncodingFormats,
+      embeddingDefaultEncodingFormat:
+          override.embeddingDefaultEncodingFormat ??
+          catalog.embeddingDefaultEncodingFormat,
+      embeddingOutputDTypes: override.embeddingOutputDTypes.isNotEmpty
+          ? override.embeddingOutputDTypes
+          : catalog.embeddingOutputDTypes,
+      embeddingDefaultOutputDType:
+          override.embeddingDefaultOutputDType ??
+          catalog.embeddingDefaultOutputDType,
+      embeddingSimilarityMetric:
+          override.embeddingSimilarityMetric ??
+          catalog.embeddingSimilarityMetric,
+      embeddingOutputsNormalized:
+          override.embeddingOutputsNormalized ??
+          catalog.embeddingOutputsNormalized,
+      embeddingMinDimensions:
+          override.embeddingMinDimensions ?? catalog.embeddingMinDimensions,
+      embeddingMaxDimensions:
+          override.embeddingMaxDimensions ?? catalog.embeddingMaxDimensions,
+      embeddingMaxInputsPerBatch:
+          override.embeddingMaxInputsPerBatch ??
+          catalog.embeddingMaxInputsPerBatch,
+      embeddingMaxTokensPerBatch:
+          override.embeddingMaxTokensPerBatch ??
+          catalog.embeddingMaxTokensPerBatch,
+      embeddingSupportsTruncation:
+          override.embeddingSupportsTruncation ||
+          catalog.embeddingSupportsTruncation,
     );
   }
 

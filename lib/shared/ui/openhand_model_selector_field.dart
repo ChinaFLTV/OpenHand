@@ -18,6 +18,7 @@ class OpenHandModelSelectorField extends StatefulWidget {
     this.labelEn = 'Model',
     this.helperZh,
     this.helperEn,
+    this.modelFilter,
   });
 
   final List<AiModelConfig> models;
@@ -30,6 +31,7 @@ class OpenHandModelSelectorField extends StatefulWidget {
   final String labelEn;
   final String? helperZh;
   final String? helperEn;
+  final bool Function(AiModelConfig config, String modelId)? modelFilter;
 
   @override
   State<OpenHandModelSelectorField> createState() =>
@@ -40,8 +42,15 @@ class _OpenHandModelSelectorFieldState
     extends State<OpenHandModelSelectorField> {
   bool _menuOpen = false;
 
-  bool get _hasModels =>
-      widget.models.any((item) => item.allModelIds.isNotEmpty);
+  bool get _hasModels {
+    return widget.models.any(
+      (item) => item.allModelIds.any(
+        (modelId) =>
+            widget.modelFilter == null ||
+            widget.modelFilter!(item, modelId.trim()),
+      ),
+    );
+  }
 
   bool get hasValidSelection {
     final configId = widget.selectedConfigId?.trim();
@@ -52,9 +61,12 @@ class _OpenHandModelSelectorFieldState
         modelId.isEmpty) {
       return false;
     }
-    return widget.models.any(
-      (config) => config.id == configId && config.allModelIds.contains(modelId),
-    );
+    return widget.models.any((config) {
+      if (config.id != configId || !config.allModelIds.contains(modelId)) {
+        return false;
+      }
+      return widget.modelFilter == null || widget.modelFilter!(config, modelId);
+    });
   }
 
   String? _selectedDisplayLabel() {
@@ -79,6 +91,7 @@ class _OpenHandModelSelectorFieldState
       recentSelections: widget.recentSelections,
       selectedConfigId: widget.selectedConfigId,
       selectedModelId: widget.selectedModelId,
+      modelFilter: widget.modelFilter,
     );
     if (!mounted) return;
     setState(() => _menuOpen = false);

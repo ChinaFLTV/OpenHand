@@ -2147,11 +2147,25 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _embeddingMaxInputTokensController;
   late final TextEditingController _embeddingEndpointPathController;
   late final TextEditingController _embeddingBatchSizeController;
+  late final TextEditingController _embeddingInputTypesController;
+  late final TextEditingController _embeddingSupportedTaskTypesController;
+  late final TextEditingController _embeddingDefaultTaskTypeController;
+  late final TextEditingController _embeddingEncodingFormatsController;
+  late final TextEditingController _embeddingDefaultEncodingFormatController;
+  late final TextEditingController _embeddingOutputDTypesController;
+  late final TextEditingController _embeddingDefaultOutputDTypeController;
+  late final TextEditingController _embeddingSimilarityMetricController;
+  late final TextEditingController _embeddingMinDimensionsController;
+  late final TextEditingController _embeddingMaxDimensionsController;
+  late final TextEditingController _embeddingMaxInputsPerBatchController;
+  late final TextEditingController _embeddingMaxTokensPerBatchController;
   bool? _isMultimodal;
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
+  bool? _embeddingOutputsNormalized;
   bool _embeddingSupportsCustomDimensions = false;
   bool _embeddingRequiresSpecialBody = false;
+  bool _embeddingSupportsTruncation = false;
   late bool _isGlobalDefaultTitleModel;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
@@ -2255,12 +2269,92 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           effective.embeddingBatchSize?.toString() ??
           '',
     );
+    _embeddingInputTypesController = TextEditingController(
+      text: _joinCsv(
+        p.embeddingInputTypes.isNotEmpty
+            ? p.embeddingInputTypes
+            : effective.embeddingInputTypes,
+      ),
+    );
+    _embeddingSupportedTaskTypesController = TextEditingController(
+      text: _joinCsv(
+        p.embeddingSupportedTaskTypes.isNotEmpty
+            ? p.embeddingSupportedTaskTypes
+            : effective.embeddingSupportedTaskTypes,
+      ),
+    );
+    _embeddingDefaultTaskTypeController = TextEditingController(
+      text:
+          p.embeddingDefaultTaskType ??
+          effective.embeddingDefaultTaskType ??
+          '',
+    );
+    _embeddingEncodingFormatsController = TextEditingController(
+      text: _joinCsv(
+        p.embeddingEncodingFormats.isNotEmpty
+            ? p.embeddingEncodingFormats
+            : effective.embeddingEncodingFormats,
+      ),
+    );
+    _embeddingDefaultEncodingFormatController = TextEditingController(
+      text:
+          p.embeddingDefaultEncodingFormat ??
+          effective.embeddingDefaultEncodingFormat ??
+          '',
+    );
+    _embeddingOutputDTypesController = TextEditingController(
+      text: _joinCsv(
+        p.embeddingOutputDTypes.isNotEmpty
+            ? p.embeddingOutputDTypes
+            : effective.embeddingOutputDTypes,
+      ),
+    );
+    _embeddingDefaultOutputDTypeController = TextEditingController(
+      text:
+          p.embeddingDefaultOutputDType ??
+          effective.embeddingDefaultOutputDType ??
+          '',
+    );
+    _embeddingSimilarityMetricController = TextEditingController(
+      text:
+          p.embeddingSimilarityMetric ??
+          effective.embeddingSimilarityMetric ??
+          '',
+    );
+    _embeddingMinDimensionsController = TextEditingController(
+      text:
+          p.embeddingMinDimensions?.toString() ??
+          effective.embeddingMinDimensions?.toString() ??
+          '',
+    );
+    _embeddingMaxDimensionsController = TextEditingController(
+      text:
+          p.embeddingMaxDimensions?.toString() ??
+          effective.embeddingMaxDimensions?.toString() ??
+          '',
+    );
+    _embeddingMaxInputsPerBatchController = TextEditingController(
+      text:
+          p.embeddingMaxInputsPerBatch?.toString() ??
+          effective.embeddingMaxInputsPerBatch?.toString() ??
+          '',
+    );
+    _embeddingMaxTokensPerBatchController = TextEditingController(
+      text:
+          p.embeddingMaxTokensPerBatch?.toString() ??
+          effective.embeddingMaxTokensPerBatch?.toString() ??
+          '',
+    );
+    _embeddingOutputsNormalized =
+        p.embeddingOutputsNormalized ?? effective.embeddingOutputsNormalized;
     _embeddingSupportsCustomDimensions =
         p.embeddingSupportsCustomDimensions ||
         effective.embeddingSupportsCustomDimensions;
     _embeddingRequiresSpecialBody =
         p.embeddingRequiresSpecialBody ||
         effective.embeddingRequiresSpecialBody;
+    _embeddingSupportsTruncation =
+        p.embeddingSupportsTruncation || effective.embeddingSupportsTruncation;
 
     if (hasExisting) {
       // User already configured — use their saved values.
@@ -2371,7 +2465,37 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _embeddingMaxInputTokensController.dispose();
     _embeddingEndpointPathController.dispose();
     _embeddingBatchSizeController.dispose();
+    _embeddingInputTypesController.dispose();
+    _embeddingSupportedTaskTypesController.dispose();
+    _embeddingDefaultTaskTypeController.dispose();
+    _embeddingEncodingFormatsController.dispose();
+    _embeddingDefaultEncodingFormatController.dispose();
+    _embeddingOutputDTypesController.dispose();
+    _embeddingDefaultOutputDTypeController.dispose();
+    _embeddingSimilarityMetricController.dispose();
+    _embeddingMinDimensionsController.dispose();
+    _embeddingMaxDimensionsController.dispose();
+    _embeddingMaxInputsPerBatchController.dispose();
+    _embeddingMaxTokensPerBatchController.dispose();
     super.dispose();
+  }
+
+  static String _joinCsv(List<String> values) => values.join(', ');
+
+  List<String> _parseCsv(String value) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final part in value.split(',')) {
+      final trimmed = part.trim();
+      if (trimmed.isEmpty || !seen.add(trimmed)) continue;
+      result.add(trimmed);
+    }
+    return result;
+  }
+
+  String? _optionalText(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   int? _parsePositiveInt(String value) {
@@ -2441,6 +2565,40 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           : null,
       embeddingBatchSize: _parsePositiveInt(_embeddingBatchSizeController.text),
       embeddingRequiresSpecialBody: _embeddingRequiresSpecialBody,
+      embeddingInputTypes: _parseCsv(_embeddingInputTypesController.text),
+      embeddingSupportedTaskTypes: _parseCsv(
+        _embeddingSupportedTaskTypesController.text,
+      ),
+      embeddingDefaultTaskType: _optionalText(
+        _embeddingDefaultTaskTypeController.text,
+      ),
+      embeddingEncodingFormats: _parseCsv(
+        _embeddingEncodingFormatsController.text,
+      ),
+      embeddingDefaultEncodingFormat: _optionalText(
+        _embeddingDefaultEncodingFormatController.text,
+      ),
+      embeddingOutputDTypes: _parseCsv(_embeddingOutputDTypesController.text),
+      embeddingDefaultOutputDType: _optionalText(
+        _embeddingDefaultOutputDTypeController.text,
+      ),
+      embeddingSimilarityMetric: _optionalText(
+        _embeddingSimilarityMetricController.text,
+      ),
+      embeddingOutputsNormalized: _embeddingOutputsNormalized,
+      embeddingMinDimensions: _parsePositiveInt(
+        _embeddingMinDimensionsController.text,
+      ),
+      embeddingMaxDimensions: _parsePositiveInt(
+        _embeddingMaxDimensionsController.text,
+      ),
+      embeddingMaxInputsPerBatch: _parsePositiveInt(
+        _embeddingMaxInputsPerBatchController.text,
+      ),
+      embeddingMaxTokensPerBatch: _parsePositiveInt(
+        _embeddingMaxTokensPerBatchController.text,
+      ),
+      embeddingSupportsTruncation: _embeddingSupportsTruncation,
     );
     Navigator.of(context).pop(profile);
   }
@@ -2494,10 +2652,69 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     );
   }
 
+  Widget _buildCompactTextField({
+    required TextEditingController controller,
+    required String label,
+    String? hint,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildEmbeddingNormalizedControl() {
+    final theme = Theme.of(context);
+    final zh = openHandIsChineseLocale(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          zh ? '输出向量已归一化' : 'Normalized Output Vectors',
+          style: theme.textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: <Widget>[
+            ChoiceChip(
+              label: Text(zh ? '未知/自动' : 'Unknown / Auto'),
+              selected: _embeddingOutputsNormalized == null,
+              onSelected: (_) =>
+                  setState(() => _embeddingOutputsNormalized = null),
+            ),
+            ChoiceChip(
+              label: Text(AppLocalizations.of(context)!.mdlEdYes),
+              selected: _embeddingOutputsNormalized == true,
+              onSelected: (_) =>
+                  setState(() => _embeddingOutputsNormalized = true),
+            ),
+            ChoiceChip(
+              label: Text(AppLocalizations.of(context)!.mdlEdNo),
+              selected: _embeddingOutputsNormalized == false,
+              onSelected: (_) =>
+                  setState(() => _embeddingOutputsNormalized = false),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final zh = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
       title: Text(
         AppLocalizations.of(context)!.mdlEdEditModelProfile,
@@ -2742,37 +2959,23 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               if (_capabilities.contains(
                 AiModelCapability.embeddingGeneration,
               )) ...[
-                _buildSectionHeader(
-                  openHandIsChineseLocale(context)
-                      ? '嵌入生成配置'
-                      : 'Embedding Configuration',
-                ),
+                _buildSectionHeader(zh ? '嵌入生成配置' : 'Embedding Configuration'),
                 const SizedBox(height: 8),
                 Row(
                   children: <Widget>[
                     Expanded(
-                      child: TextField(
+                      child: _buildCompactTextField(
                         controller: _embeddingDimensionsController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: openHandIsChineseLocale(context)
-                              ? '默认维度'
-                              : 'Default Dimensions',
-                          isDense: true,
-                        ),
+                        label: zh ? '默认维度' : 'Default Dimensions',
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: _buildCompactTextField(
                         controller: _embeddingMaxInputTokensController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: openHandIsChineseLocale(context)
-                              ? '最大输入 tokens'
-                              : 'Max Input Tokens',
-                          isDense: true,
-                        ),
+                        label: zh ? '单条最大输入 tokens' : 'Max Input Tokens',
                       ),
                     ),
                   ],
@@ -2781,28 +2984,140 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 Row(
                   children: <Widget>[
                     Expanded(
-                      child: TextField(
+                      child: _buildCompactTextField(
                         controller: _embeddingEndpointPathController,
-                        decoration: InputDecoration(
-                          labelText: openHandIsChineseLocale(context)
-                              ? '嵌入 endpoint path'
-                              : 'Embedding Endpoint Path',
-                          hintText: '/v1/embeddings',
-                          isDense: true,
-                        ),
+                        label: zh
+                            ? '嵌入 endpoint path'
+                            : 'Embedding Endpoint Path',
+                        hint: '/v1/embeddings',
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: _buildCompactTextField(
                         controller: _embeddingBatchSizeController,
                         keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: openHandIsChineseLocale(context)
-                              ? '建议 batch size'
-                              : 'Suggested Batch Size',
-                          isDense: true,
-                        ),
+                        label: zh ? '建议 batch size' : 'Suggested Batch Size',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingMinDimensionsController,
+                        keyboardType: TextInputType.number,
+                        label: zh ? '最小可选维度' : 'Min Dimensions',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingMaxDimensionsController,
+                        keyboardType: TextInputType.number,
+                        label: zh ? '最大可选维度' : 'Max Dimensions',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingInputTypesController,
+                        label: zh ? '输入类型（逗号分隔）' : 'Input Types (CSV)',
+                        hint: 'text, image',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingSupportedTaskTypesController,
+                        label: zh ? '任务类型（逗号分隔）' : 'Task Types (CSV)',
+                        hint: 'retrieval_query, retrieval_document',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingDefaultTaskTypeController,
+                        label: zh ? '默认任务类型' : 'Default Task Type',
+                        hint: 'retrieval_document',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingSimilarityMetricController,
+                        label: zh ? '相似度/距离类型' : 'Similarity Metric',
+                        hint: 'cosine',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingEncodingFormatsController,
+                        label: zh ? '编码格式（逗号分隔）' : 'Encoding Formats (CSV)',
+                        hint: 'float, base64',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingDefaultEncodingFormatController,
+                        label: zh ? '默认编码格式' : 'Default Encoding Format',
+                        hint: 'float',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingOutputDTypesController,
+                        label: zh ? '输出 dtype（逗号分隔）' : 'Output DTypes (CSV)',
+                        hint: 'float, int8, uint8, binary',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingDefaultOutputDTypeController,
+                        label: zh ? '默认输出 dtype' : 'Default Output DType',
+                        hint: 'float',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingMaxInputsPerBatchController,
+                        keyboardType: TextInputType.number,
+                        label: zh ? '每批最大输入数' : 'Max Inputs Per Batch',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingMaxTokensPerBatchController,
+                        keyboardType: TextInputType.number,
+                        label: zh ? '每批最大 tokens' : 'Max Tokens Per Batch',
                       ),
                     ),
                   ],
@@ -2812,8 +3127,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    openHandIsChineseLocale(context)
-                        ? '支持自定义 dimensions'
+                    zh
+                        ? '支持自定义 dimensions / output dimensionality'
                         : 'Supports Custom Dimensions',
                   ),
                   value: _embeddingSupportsCustomDimensions,
@@ -2825,7 +3140,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    openHandIsChineseLocale(context)
+                    zh
                         ? '需要特殊 request body 字段'
                         : 'Requires Special Request Body',
                   ),
@@ -2833,6 +3148,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   onChanged: (value) =>
                       setState(() => _embeddingRequiresSpecialBody = value),
                 ),
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(zh ? '支持服务端自动截断' : 'Supports Server Truncation'),
+                  value: _embeddingSupportsTruncation,
+                  onChanged: (value) =>
+                      setState(() => _embeddingSupportsTruncation = value),
+                ),
+                const SizedBox(height: 4),
+                _buildEmbeddingNormalizedControl(),
                 const SizedBox(height: 16),
               ],
 
