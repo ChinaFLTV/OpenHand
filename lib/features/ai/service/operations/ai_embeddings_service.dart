@@ -578,7 +578,8 @@ class _OpenAiCompatibleEmbeddingStrategy extends _EmbeddingRequestStrategy {
       if (context.supportsParameter('truncation') &&
           context.trimmedTruncation != null)
         'truncation': _truncationValue(context.trimmedTruncation),
-      if (context.trimmedUser != null) 'user': context.trimmedUser,
+      if (context.supportsParameter('user') && context.trimmedUser != null)
+        'user': context.trimmedUser,
     };
     final body = AiOperationHttp.mergeBodyExtras(
       context.model,
@@ -693,13 +694,17 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
       context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         ..._cohereInputPayload(context),
-        if (context.trimmedInputType != null)
+        if (context.supportsParameter('input_type') &&
+            context.trimmedInputType != null)
           'input_type': context.trimmedInputType,
-        if (embeddingType != null) 'embedding_types': <String>[embeddingType],
+        if (context.supportsParameter('embedding_types') &&
+            embeddingType != null)
+          'embedding_types': <String>[embeddingType],
         if (context.supportsParameter('output_dimension') &&
             context.positiveDimensions != null)
           'output_dimension': context.positiveDimensions,
-        if (context.trimmedTruncation != null)
+        if (context.supportsParameter('truncate') &&
+            context.trimmedTruncation != null)
           'truncate': context.trimmedTruncation,
       }),
     );
@@ -735,7 +740,8 @@ class _VoyageEmbeddingStrategy extends _EmbeddingRequestStrategy {
       context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
         'input': context.input,
-        if (context.trimmedInputType != null)
+        if (context.supportsParameter('input_type') &&
+            context.trimmedInputType != null)
           'input_type': context.trimmedInputType,
         if (context.supportsParameter('encoding_format') &&
             context.trimmedEncodingFormat != null)
@@ -746,7 +752,8 @@ class _VoyageEmbeddingStrategy extends _EmbeddingRequestStrategy {
         if (context.supportsParameter('output_dtype') &&
             context.trimmedOutputDType != null)
           'output_dtype': context.trimmedOutputDType,
-        if (truncation != null) 'truncation': truncation,
+        if (context.supportsParameter('truncation') && truncation != null)
+          'truncation': truncation,
       }),
     );
     return _EmbeddingRequestPlan(
@@ -830,7 +837,8 @@ class _PerplexityContextualizedEmbeddingStrategy
     final payload = <String, Object?>{
       'model': context.modelId,
       'input': _perplexityContextualizedInput(context.input),
-      if (context.positiveDimensions != null)
+      if (context.supportsParameter('dimensions') &&
+          context.positiveDimensions != null)
         'dimensions': context.positiveDimensions,
       if (context.supportsParameter('encoding_format') &&
           context.trimmedEncodingFormat != null)
