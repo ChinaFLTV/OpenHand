@@ -148,6 +148,89 @@ void main() {
       },
     );
 
+    test('decodes Perplexity base64 int8 embedding responses', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': base64Encode(<int>[255, 0, 1, 127, 128]),
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.perplexity.ai',
+          modelId: 'pplx-embed-v1-0.6b',
+        ),
+        input: const <String>['alpha'],
+        dimensions: 512,
+      );
+
+      expect(client.requests.single.url.path, '/v1/embeddings');
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'pplx-embed-v1-0.6b',
+        'input': <String>['alpha'],
+        'dimensions': 512,
+        'encoding_format': 'base64_int8',
+      });
+      expect(result.vectors, <List<double>>[
+        <double>[-1, 0, 1, 127, -128],
+      ]);
+    });
+
+    test('sends Perplexity contextualized embedding requests', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'index': 0,
+              'data': <Object?>[
+                <String, Object?>{
+                  'embedding': base64Encode(<int>[1, 2]),
+                },
+                <String, Object?>{
+                  'embedding': base64Encode(<int>[3, 4]),
+                },
+              ],
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.perplexity.ai',
+          modelId: 'pplx-embed-context-v1-4b',
+        ),
+        input: const <String>['chunk one', 'chunk two'],
+        dimensions: 256,
+      );
+
+      expect(client.requests.single.url.path, '/v1/embeddings/contextualized');
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'pplx-embed-context-v1-4b',
+        'input': <Object?>[
+          <String>['chunk one', 'chunk two'],
+        ],
+        'dimensions': 256,
+        'encoding_format': 'base64_int8',
+      });
+      expect(result.vectors, <List<double>>[
+        <double>[1, 2],
+        <double>[3, 4],
+      ]);
+    });
+
     test('sends Gemini batch embedding requests and parses values', () async {
       final client = _RecordingHttpClient(
         responseBody: <String, Object?>{
@@ -718,6 +801,18 @@ void main() {
         'ibm/slate-125m-english-rtrvr-v2',
         AiProtocolType.openai,
       );
+      final perplexity = AiModelCatalog.lookup(
+        'pplx-embed-v1-4b',
+        AiProtocolType.openai,
+      );
+      final perplexityContext = AiModelCatalog.lookup(
+        'pplx-embed-context-v1-0.6b',
+        AiProtocolType.openai,
+      );
+      final fireworksQwen3 = AiModelCatalog.lookup(
+        'accounts/fireworks/models/qwen3-embedding-8b',
+        AiProtocolType.openai,
+      );
 
       expect(titan?.displayName, 'Amazon Titan Text Embeddings V2');
       expect(titan?.embeddingDimensions, 1024);
@@ -747,6 +842,28 @@ void main() {
       expect(slate?.embeddingDimensions, 384);
       expect(slate125?.displayName, 'IBM Slate 125M Embedding');
       expect(slate125?.embeddingDimensions, 384);
+
+      expect(perplexity?.displayName, 'Perplexity Embed v1 4B');
+      expect(perplexity?.embeddingDimensions, 2560);
+      expect(perplexity?.embeddingMinDimensions, 128);
+      expect(perplexity?.embeddingDefaultEncodingFormat, 'base64_int8');
+      expect(perplexity?.embeddingOutputsNormalized, isFalse);
+      expect(perplexity?.embeddingMaxInputsPerBatch, 512);
+
+      expect(
+        perplexityContext?.displayName,
+        'Perplexity Contextual Embed v1 0.6B',
+      );
+      expect(
+        perplexityContext?.embeddingEndpointPath,
+        'v1/embeddings/contextualized',
+      );
+      expect(perplexityContext?.embeddingRequiresSpecialBody, isTrue);
+      expect(perplexityContext?.embeddingMaxInputsPerBatch, 16000);
+
+      expect(fireworksQwen3?.displayName, 'Qwen3 Embedding');
+      expect(fireworksQwen3?.embeddingDimensions, 4096);
+      expect(fireworksQwen3?.embeddingMinDimensions, 32);
     });
 
     test(

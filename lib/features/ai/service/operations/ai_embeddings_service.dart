@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
@@ -41,6 +43,7 @@ class AiEmbeddingsService {
         _VoyageEmbeddingStrategy(),
         _JinaEmbeddingStrategy(),
         _MistralEmbeddingStrategy(),
+        _PerplexityContextualizedEmbeddingStrategy(),
         _OpenAiCompatibleEmbeddingStrategy(),
       ];
 
@@ -138,7 +141,10 @@ class AiEmbeddingsService {
     );
     final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     return AiEmbeddingResult(
-      vectors: _parseVectors(payload),
+      vectors: _parseVectors(
+        payload,
+        encodingFormat: _embeddingResponseEncoding(plan.body),
+      ),
       rawResponse: response.body,
       payload: payload,
     );
@@ -193,21 +199,23 @@ class AiEmbeddingsService {
     throw StateError('No embedding request strategy matched.');
   }
 
-  List<List<double>> _parseVectors(Map<String, Object?> payload) {
+  List<List<double>> _parseVectors(
+    Map<String, Object?> payload, {
+    required String encodingFormat,
+  }) {
     final vectors = <List<double>>[];
 
-    final known = _parseKnownVectorContainers(payload);
+    final known = _parseKnownVectorContainers(
+      payload,
+      encodingFormat: encodingFormat,
+    );
     if (known.isNotEmpty) return known;
 
     void collect(Object? value) {
       if (value == null) return;
-      if (value is List && value.every((item) => item is num)) {
-        vectors.add(
-          value
-              .whereType<num>()
-              .map((item) => item.toDouble())
-              .toList(growable: false),
-        );
+      final vector = _vectorOrNull(value, encodingFormat: encodingFormat);
+      if (vector != null) {
+        vectors.add(vector);
         return;
       }
       if (value is List) {
@@ -244,10 +252,13 @@ class AiEmbeddingsService {
     return vectors;
   }
 
-  List<List<double>> _parseKnownVectorContainers(Map<String, Object?> payload) {
+  List<List<double>> _parseKnownVectorContainers(
+    Map<String, Object?> payload, {
+    required String encodingFormat,
+  }) {
     final vectors = <List<double>>[];
     void add(Object? value) {
-      final vector = _numericVectorOrNull(value);
+      final vector = _vectorOrNull(value, encodingFormat: encodingFormat);
       if (vector != null) {
         vectors.add(vector);
       }
@@ -295,7 +306,10 @@ class AiEmbeddingsService {
     return vectors;
   }
 
-  List<double>? _numericVectorOrNull(Object? value) {
+  List<double>? _vectorOrNull(Object? value, {required String encodingFormat}) {
+    if (value is String) {
+      return _encodedVectorOrNull(value, encodingFormat: encodingFormat);
+    }
     if (value is! List ||
         value.isEmpty ||
         !value.every((item) => item is num)) {
@@ -305,6 +319,39 @@ class AiEmbeddingsService {
         .whereType<num>()
         .map((item) => item.toDouble())
         .toList(growable: false);
+  }
+
+  List<double>? _encodedVectorOrNull(
+    String value, {
+    required String encodingFormat,
+  }) {
+    final normalized = encodingFormat.trim().toLowerCase();
+    if (!normalized.startsWith('base64')) return null;
+    final bytes = _base64BytesOrNull(value);
+    if (bytes == null || bytes.isEmpty) return null;
+    if (normalized == 'base64_int8') {
+      return bytes
+          .map((byte) => byte >= 128 ? byte - 256 : byte)
+          .map((value) => value.toDouble())
+          .toList(growable: false);
+    }
+    if (normalized == 'base64' || normalized == 'base64_float32') {
+      if (bytes.length % 4 != 0) return null;
+      final data = ByteData.sublistView(Uint8List.fromList(bytes));
+      return <double>[
+        for (var offset = 0; offset < bytes.length; offset += 4)
+          data.getFloat32(offset, Endian.little),
+      ];
+    }
+    return null;
+  }
+
+  List<int>? _base64BytesOrNull(String value) {
+    try {
+      return base64Decode(value.trim());
+    } on FormatException {
+      return null;
+    }
   }
 
   void dispose() {
@@ -596,6 +643,45 @@ class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
   }
 }
 
+class _PerplexityContextualizedEmbeddingStrategy
+    extends _EmbeddingRequestStrategy {
+  const _PerplexityContextualizedEmbeddingStrategy();
+
+  static const String _fallbackPath = 'v1/embeddings/contextualized';
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    return context.normalizedModelId.startsWith('pplx-embed-context') ||
+        (context.profileEndpointPath ?? '').contains(
+          'embeddings/contextualized',
+        );
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final payload = <String, Object?>{
+      'model': context.modelId,
+      'input': _perplexityContextualizedInput(context.input),
+      if (context.positiveDimensions != null)
+        'dimensions': context.positiveDimensions,
+      if (context.supportsParameter('encoding_format') &&
+          context.trimmedEncodingFormat != null)
+        'encoding_format': context.trimmedEncodingFormat,
+    };
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      context.withProfileDefaults(payload),
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      fallbackPath: context.profileEndpointPath ?? _fallbackPath,
+      contextHint: 'embeddings/perplexity/contextualized',
+    );
+  }
+}
+
 class _GeminiEmbeddingStrategy extends _EmbeddingRequestStrategy {
   const _GeminiEmbeddingStrategy();
 
@@ -754,6 +840,28 @@ List<String> _stringInputList(Object input) {
   return <String>['$input'];
 }
 
+List<List<String>> _perplexityContextualizedInput(Object input) {
+  if (input is List) {
+    if (input.isEmpty) return const <List<String>>[];
+    if (input.every((item) => item is List)) {
+      return input
+          .whereType<List>()
+          .map(
+            (document) =>
+                document.map((chunk) => '$chunk').toList(growable: false),
+          )
+          .where((document) => document.isNotEmpty)
+          .toList(growable: false);
+    }
+    return <List<String>>[
+      input.map((chunk) => '$chunk').toList(growable: false),
+    ];
+  }
+  return <List<String>>[
+    <String>['$input'],
+  ];
+}
+
 Object? _truncationValue(String? value) {
   final normalized = value?.trim().toLowerCase() ?? '';
   if (normalized.isEmpty) return null;
@@ -764,6 +872,18 @@ Object? _truncationValue(String? value) {
     return false;
   }
   return value!.trim();
+}
+
+String _embeddingResponseEncoding(Map<String, Object?> body) {
+  final encodingFormat = body['encoding_format'];
+  if (encodingFormat is String) return encodingFormat;
+  final embeddingType = body['embedding_type'];
+  if (embeddingType is String) return embeddingType;
+  final embeddingTypes = body['embedding_types'];
+  if (embeddingTypes is List && embeddingTypes.isNotEmpty) {
+    return '${embeddingTypes.first}';
+  }
+  return '';
 }
 
 Map<String, Object?> _deepMergeObjectMaps(

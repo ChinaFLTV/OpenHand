@@ -151,6 +151,13 @@ class AiModelCatalog {
     'truncate',
   ];
 
+  static const _perplexityEmbeddingParameters = <String>[
+    'input',
+    'model',
+    'dimensions',
+    'encoding_format',
+  ];
+
   static const _qwenTextEmbeddingParameters = <String>[
     'input',
     'model',
@@ -2702,10 +2709,14 @@ class AiModelCatalog {
     String? documentTaskType,
     String? queryTextPrefix,
     String? documentTextPrefix,
+    List<String> encodingFormats = const <String>['float'],
+    String? defaultEncodingFormat = 'float',
     List<String> outputDTypes = const <String>[],
     String? defaultOutputDType,
     String? defaultTruncation,
     int batchSize = 64,
+    int? maxInputsPerBatch,
+    int? maxTokensPerBatch,
     bool outputsNormalized = true,
   }) {
     return _embeddingP(
@@ -2729,18 +2740,70 @@ class AiModelCatalog {
       documentTaskType: documentTaskType,
       queryTextPrefix: queryTextPrefix,
       documentTextPrefix: documentTextPrefix,
-      encodingFormats: const <String>['float'],
-      defaultEncodingFormat: 'float',
+      encodingFormats: encodingFormats,
+      defaultEncodingFormat: defaultEncodingFormat,
       outputDTypes: outputDTypes,
       defaultOutputDType: defaultOutputDType,
       defaultTruncation: defaultTruncation,
       outputsNormalized: outputsNormalized,
       minDimensions: minDimensions,
       maxDimensions: maxDimensions,
+      maxInputsPerBatch: maxInputsPerBatch,
+      maxTokensPerBatch: maxTokensPerBatch,
     );
   }
 
   static AiModelProfile? _openSourceEmbedding(String id) {
+    if (id.startsWith('pplx-embed-context-v1')) {
+      final large = id.contains('4b');
+      final dimensions = large ? 2560 : 1024;
+      return _embeddingP(
+        name: large
+            ? 'Perplexity Contextual Embed v1 4B'
+            : 'Perplexity Contextual Embed v1 0.6B',
+        desc: 'Perplexity contextualized embedding model',
+        context: 32768,
+        dimensions: dimensions,
+        maxInputTokens: 32768,
+        customDimensions: true,
+        endpointPath: 'v1/embeddings/contextualized',
+        batchSize: 128,
+        specialBody: true,
+        supportedParameters: _perplexityEmbeddingParameters,
+        inputTypes: const <String>['document_chunks'],
+        encodingFormats: const <String>['base64_int8', 'base64_binary'],
+        defaultEncodingFormat: 'base64_int8',
+        outputDTypes: const <String>['int8', 'binary'],
+        defaultOutputDType: 'int8',
+        minDimensions: 128,
+        maxDimensions: dimensions,
+        maxInputsPerBatch: 16000,
+        maxTokensPerBatch: 120000,
+        outputsNormalized: false,
+      );
+    }
+    if (id.startsWith('pplx-embed-v1')) {
+      final large = id.contains('4b');
+      final dimensions = large ? 2560 : 1024;
+      return _openSourceTextEmbeddingP(
+        name: large ? 'Perplexity Embed v1 4B' : 'Perplexity Embed v1 0.6B',
+        desc: 'Perplexity text embedding model',
+        context: 32768,
+        dimensions: dimensions,
+        customDimensions: true,
+        minDimensions: 128,
+        maxDimensions: dimensions,
+        supportedParameters: _perplexityEmbeddingParameters,
+        encodingFormats: const <String>['base64_int8', 'base64_binary'],
+        defaultEncodingFormat: 'base64_int8',
+        outputDTypes: const <String>['int8', 'binary'],
+        defaultOutputDType: 'int8',
+        batchSize: 100,
+        maxInputsPerBatch: 512,
+        maxTokensPerBatch: 120000,
+        outputsNormalized: false,
+      );
+    }
     if (id.contains('titan-embed-text-v2')) {
       return _openSourceTextEmbeddingP(
         name: 'Amazon Titan Text Embeddings V2',
@@ -2862,7 +2925,7 @@ class AiModelCatalog {
         context: 32768,
         dimensions: dim,
         customDimensions: true,
-        minDimensions: 64,
+        minDimensions: 32,
         maxDimensions: dim,
       );
     }
@@ -3552,7 +3615,7 @@ class AiModelCatalog {
         encodingFormats: const <String>['float'],
         defaultEncodingFormat: 'float',
         outputsNormalized: true,
-        minDimensions: 64,
+        minDimensions: 32,
         maxDimensions: dimensions,
       );
     }
