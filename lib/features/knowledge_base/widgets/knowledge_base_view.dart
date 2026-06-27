@@ -16,7 +16,6 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
-import '../../plugin_service/index.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_source.dart';
 import '../service/knowledge_document_parser.dart';
@@ -39,11 +38,9 @@ class KnowledgeBaseView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<KnowledgeBaseController>();
-    final pluginController = context.watch<PluginServiceController>();
     final settingsController = context.watch<SettingsController>();
     final isZh = openHandIsChineseLocale(context);
     final colorScheme = Theme.of(context).colorScheme;
-    final dependencies = controller.dependencies(pluginController);
     final embeddingModel = controller.resolveEmbeddingModel(
       settingsController.aiModels,
     );
@@ -132,12 +129,7 @@ class KnowledgeBaseView extends StatelessWidget {
             ),
           ),
       ],
-      body: _KnowledgeBaseBody(
-        controller: controller,
-        embeddingModel: embeddingModel,
-        dependenciesReady: dependencies.ready,
-        onOpenPlugins: onOpenPlugins,
-      ),
+      body: _KnowledgeBaseBody(controller: controller),
     );
   }
 
@@ -221,17 +213,9 @@ class KnowledgeBaseView extends StatelessWidget {
 }
 
 class _KnowledgeBaseBody extends StatelessWidget {
-  const _KnowledgeBaseBody({
-    required this.controller,
-    required this.embeddingModel,
-    required this.dependenciesReady,
-    required this.onOpenPlugins,
-  });
+  const _KnowledgeBaseBody({required this.controller});
 
   final KnowledgeBaseController controller;
-  final AiModelConfig? embeddingModel;
-  final bool dependenciesReady;
-  final VoidCallback? onOpenPlugins;
 
   @override
   Widget build(BuildContext context) {
@@ -247,13 +231,6 @@ class _KnowledgeBaseBody extends StatelessWidget {
           body: isZh
               ? '导入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT 或代码文件，或新建一条笔记来生成本地向量索引。'
               : 'Import Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT, or code files, or create a note to build the local vector index.',
-          action: embeddingModel != null && dependenciesReady
-              ? FilledButton.icon(
-                  onPressed: () => showKnowledgeImportDialog(context),
-                  icon: const Icon(Icons.note_add_outlined),
-                  label: Text(isZh ? '新建笔记' : 'New Note'),
-                )
-              : null,
         ),
       );
     }
