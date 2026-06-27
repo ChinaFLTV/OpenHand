@@ -226,6 +226,7 @@ class AiModelCatalog {
     'model',
     'input_type',
     'truncation',
+    'encoding_format',
     'output_dimension',
     'output_dtype',
   ];
@@ -2603,6 +2604,9 @@ class AiModelCatalog {
           ? const <String>['float', 'int8', 'uint8', 'binary', 'ubinary']
           : const <String>[],
       defaultOutputDType: supportsFlexibleOutput ? 'float' : null,
+      encodingFormats: supportsFlexibleOutput
+          ? const <String>['base64']
+          : const <String>[],
       defaultTruncation: 'true',
       minDimensions: supportsFlexibleOutput ? 256 : null,
       maxDimensions: supportsFlexibleOutput ? 2048 : null,

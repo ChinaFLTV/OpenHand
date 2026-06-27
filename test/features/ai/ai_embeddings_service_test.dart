@@ -941,6 +941,80 @@ void main() {
       },
     );
 
+    test('decodes Voyage base64 int8 embedding responses', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': base64Encode(<int>[255, 0, 1, 127, 128]),
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.voyageai.com/v1',
+          modelId: 'voyage-3.5',
+        ),
+        input: const <String>['alpha'],
+        encodingFormat: 'base64',
+        outputDType: 'int8',
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'voyage-3.5',
+        'input': <String>['alpha'],
+        'input_type': 'document',
+        'encoding_format': 'base64',
+        'output_dtype': 'int8',
+        'truncation': true,
+      });
+      expect(result.vectors.single, <double>[-1, 0, 1, 127, -128]);
+    });
+
+    test('decodes Voyage base64 ubinary embedding responses', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': base64Encode(<int>[0x05, 0x80]),
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      final result = await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.voyageai.com/v1',
+          modelId: 'voyage-3.5',
+        ),
+        input: const <String>['alpha'],
+        dimensions: 10,
+        encodingFormat: 'base64',
+        outputDType: 'ubinary',
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'voyage-3.5',
+        'input': <String>['alpha'],
+        'input_type': 'document',
+        'encoding_format': 'base64',
+        'output_dimension': 10,
+        'output_dtype': 'ubinary',
+        'truncation': true,
+      });
+      expect(result.vectors.single, <double>[1, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
+    });
+
     test('sends Jina embedding requests with retrieval task', () async {
       final client = _RecordingHttpClient(
         responseBody: <String, Object?>{
@@ -1343,7 +1417,9 @@ void main() {
         expect(voyageLite?.embeddingMaxTokensPerBatch, 1000000);
         expect(voyageLite?.embeddingOutputDTypes, contains('int8'));
         expect(voyageLite?.embeddingOutputDTypes, contains('ubinary'));
+        expect(voyageLite?.embeddingEncodingFormats, contains('base64'));
         expect(voyageLite?.supportedParameters, contains('output_dimension'));
+        expect(voyageLite?.supportedParameters, contains('encoding_format'));
 
         expect(voyageLaw?.displayName, 'Voyage Law 2');
         expect(voyageLaw?.embeddingMaxInputTokens, 16000);

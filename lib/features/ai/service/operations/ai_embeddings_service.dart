@@ -340,6 +340,12 @@ class AiEmbeddingsService {
         .whereType<num>()
         .map((item) => item.toDouble())
         .toList(growable: false);
+    final unpacked = _unpackedBitVectorOrNull(
+      vector,
+      encodingFormat: encodingFormat,
+      expectedDimensions: expectedDimensions,
+    );
+    if (unpacked != null) return unpacked;
     if (expectedDimensions == null ||
         expectedDimensions <= 0 ||
         expectedDimensions >= vector.length) {
@@ -363,17 +369,11 @@ class AiEmbeddingsService {
           .map((value) => value.toDouble())
           .toList(growable: false);
     }
-    if (normalized == 'base64_binary') {
-      final vector = <double>[
-        for (final byte in bytes)
-          for (var bit = 0; bit < 8; bit += 1) ((byte >> bit) & 1).toDouble(),
-      ];
-      if (expectedDimensions == null ||
-          expectedDimensions <= 0 ||
-          expectedDimensions >= vector.length) {
-        return vector;
-      }
-      return vector.sublist(0, expectedDimensions);
+    if (normalized == 'base64_uint8') {
+      return bytes.map((byte) => byte.toDouble()).toList(growable: false);
+    }
+    if (normalized == 'base64_binary' || normalized == 'base64_ubinary') {
+      return _unpackBitBytes(bytes, expectedDimensions: expectedDimensions);
     }
     if (normalized == 'base64' || normalized == 'base64_float32') {
       if (bytes.length % 4 != 0) return null;
@@ -384,6 +384,41 @@ class AiEmbeddingsService {
       ];
     }
     return null;
+  }
+
+  List<double>? _unpackedBitVectorOrNull(
+    List<double> vector, {
+    required String encodingFormat,
+    required int? expectedDimensions,
+  }) {
+    final normalized = encodingFormat.trim().toLowerCase();
+    if (normalized != 'binary' && normalized != 'ubinary') return null;
+    if (expectedDimensions == null || expectedDimensions <= vector.length) {
+      return null;
+    }
+    final bytes = <int>[];
+    for (final item in vector) {
+      final rounded = item.round();
+      if (item != rounded || rounded < -128 || rounded > 255) return null;
+      bytes.add(rounded & 0xff);
+    }
+    return _unpackBitBytes(bytes, expectedDimensions: expectedDimensions);
+  }
+
+  List<double> _unpackBitBytes(
+    Iterable<int> bytes, {
+    required int? expectedDimensions,
+  }) {
+    final vector = <double>[
+      for (final byte in bytes)
+        for (var bit = 0; bit < 8; bit += 1) ((byte >> bit) & 1).toDouble(),
+    ];
+    if (expectedDimensions == null ||
+        expectedDimensions <= 0 ||
+        expectedDimensions >= vector.length) {
+      return vector;
+    }
+    return vector.sublist(0, expectedDimensions);
   }
 
   List<int>? _base64BytesOrNull(String value) {
@@ -653,6 +688,9 @@ class _VoyageEmbeddingStrategy extends _EmbeddingRequestStrategy {
         'input': context.input,
         if (context.trimmedInputType != null)
           'input_type': context.trimmedInputType,
+        if (context.supportsParameter('encoding_format') &&
+            context.trimmedEncodingFormat != null)
+          'encoding_format': context.trimmedEncodingFormat,
         if (context.supportsParameter('output_dimension') &&
             context.positiveDimensions != null)
           'output_dimension': context.positiveDimensions,
@@ -1022,12 +1060,45 @@ Object? _truncationValue(String? value) {
 
 String _embeddingResponseEncoding(Map<String, Object?> body) {
   final encodingFormat = body['encoding_format'];
-  if (encodingFormat is String) return encodingFormat;
+  if (encodingFormat is String) {
+    return _combinedBase64ResponseEncoding(encodingFormat, body);
+  }
   final embeddingType = body['embedding_type'];
   if (embeddingType is String) return embeddingType;
   final embeddingTypes = body['embedding_types'];
   if (embeddingTypes is List && embeddingTypes.isNotEmpty) {
     return '${embeddingTypes.first}';
+  }
+  final outputDType = body['output_dtype'];
+  if (outputDType is String) return outputDType;
+  return '';
+}
+
+String _combinedBase64ResponseEncoding(
+  String encodingFormat,
+  Map<String, Object?> body,
+) {
+  final normalized = encodingFormat.trim().toLowerCase();
+  if (normalized != 'base64') return encodingFormat;
+  final dtype = _embeddingResponseDType(body);
+  return switch (dtype) {
+    'int8' => 'base64_int8',
+    'uint8' => 'base64_uint8',
+    'binary' => 'base64_binary',
+    'ubinary' => 'base64_ubinary',
+    'float' || 'float32' => 'base64_float32',
+    _ => encodingFormat,
+  };
+}
+
+String _embeddingResponseDType(Map<String, Object?> body) {
+  final outputDType = body['output_dtype'];
+  if (outputDType is String) return outputDType.trim().toLowerCase();
+  final embeddingType = body['embedding_type'];
+  if (embeddingType is String) return embeddingType.trim().toLowerCase();
+  final embeddingTypes = body['embedding_types'];
+  if (embeddingTypes is List && embeddingTypes.isNotEmpty) {
+    return '${embeddingTypes.first}'.trim().toLowerCase();
   }
   return '';
 }
