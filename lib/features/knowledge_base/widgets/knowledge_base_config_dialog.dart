@@ -274,6 +274,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                               batchSize:
                                   profile.embeddingBatchSize ??
                                   _settings.batchSize,
+                              distanceMetric:
+                                  profile.embeddingSimilarityMetric ??
+                                  _settings.distanceMetric,
                             );
                             _dimensions.text = '${_settings.dimensions}';
                             _maxInputTokens.text =
@@ -897,11 +900,26 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               : 'tokens ${profile.embeddingMaxTokensPerBatch}',
         ].whereType<Object>().join(' / '),
       ),
-      (isZh ? '输入类型' : 'Input Types', _listLabel(profile.embeddingInputTypes)),
+      (
+        isZh ? '输入类型' : 'Input Types',
+        [
+          _listLabel(profile.embeddingInputTypes),
+          if (profile.embeddingDefaultInputType != null)
+            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultInputType}',
+          if (profile.embeddingQueryInputType != null)
+            'query ${profile.embeddingQueryInputType}',
+          if (profile.embeddingDocumentInputType != null)
+            'doc ${profile.embeddingDocumentInputType}',
+        ].join(' / '),
+      ),
       (
         isZh ? '任务类型' : 'Task Types',
         [
           _listLabel(profile.embeddingSupportedTaskTypes),
+          if (profile.embeddingDefaultQueryTaskType != null)
+            'query ${profile.embeddingDefaultQueryTaskType}',
+          if (profile.embeddingDefaultDocumentTaskType != null)
+            'doc ${profile.embeddingDefaultDocumentTaskType}',
           if (profile.embeddingDefaultTaskType != null)
             '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultTaskType}',
         ].join(' / '),
@@ -924,8 +942,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         isZh ? '距离/归一化' : 'Metric / Normalized',
-        '${profile.embeddingSimilarityMetric ?? '-'} / '
-            '${_nullableBoolLabel(context, profile.embeddingOutputsNormalized)}',
+        [
+          '${profile.embeddingSimilarityMetric ?? '-'} / '
+              '${_nullableBoolLabel(context, profile.embeddingOutputsNormalized)}',
+          if (profile.embeddingDefaultTruncation != null)
+            '${isZh ? '截断' : 'truncate'} ${profile.embeddingDefaultTruncation}',
+        ].join(' / '),
       ),
     ];
 

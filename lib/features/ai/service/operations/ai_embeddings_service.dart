@@ -37,6 +37,9 @@ class AiEmbeddingsService {
       <_EmbeddingRequestStrategy>[
         _GeminiEmbeddingStrategy(),
         _DashScopeMultimodalEmbeddingStrategy(),
+        _CohereEmbeddingStrategy(),
+        _VoyageEmbeddingStrategy(),
+        _JinaEmbeddingStrategy(),
         _MistralEmbeddingStrategy(),
         _OpenAiCompatibleEmbeddingStrategy(),
       ];
@@ -50,6 +53,11 @@ class AiEmbeddingsService {
     Duration timeout = const Duration(seconds: 60),
     int? dimensions,
     String? encodingFormat,
+    String? inputType,
+    String? taskType,
+    String? title,
+    String? outputDType,
+    String? truncation,
     String? user,
   }) async {
     return createEmbedding(
@@ -58,6 +66,11 @@ class AiEmbeddingsService {
       timeout: timeout,
       dimensions: dimensions,
       encodingFormat: encodingFormat,
+      inputType: inputType,
+      taskType: taskType,
+      title: title,
+      outputDType: outputDType,
+      truncation: truncation,
       user: user,
     );
   }
@@ -68,6 +81,11 @@ class AiEmbeddingsService {
     Duration timeout = const Duration(seconds: 60),
     int? dimensions,
     String? encodingFormat,
+    String? inputType,
+    String? taskType,
+    String? title,
+    String? outputDType,
+    String? truncation,
     String? user,
   }) async {
     if (input is List && input.isEmpty) return _emptyResult;
@@ -76,6 +94,11 @@ class AiEmbeddingsService {
       input: input,
       dimensions: dimensions,
       encodingFormat: encodingFormat,
+      inputType: inputType,
+      taskType: taskType,
+      title: title,
+      outputDType: outputDType,
+      truncation: truncation,
       user: user,
     );
     return _sendPlan(model: model, plan: plan, timeout: timeout);
@@ -145,6 +168,11 @@ class AiEmbeddingsService {
     required Object input,
     int? dimensions,
     String? encodingFormat,
+    String? inputType,
+    String? taskType,
+    String? title,
+    String? outputDType,
+    String? truncation,
     String? user,
   }) {
     final context = _EmbeddingRequestContext(
@@ -152,6 +180,11 @@ class AiEmbeddingsService {
       input: input,
       dimensions: dimensions,
       encodingFormat: encodingFormat,
+      inputType: inputType,
+      taskType: taskType ?? '',
+      title: title ?? '',
+      outputDType: outputDType,
+      truncation: truncation,
       user: user,
     );
     for (final strategy in _requestStrategies) {
@@ -236,8 +269,18 @@ class AiEmbeddingsService {
       }
     }
 
+    void addFromEmbeddingTypeMap(Object? raw) {
+      if (raw is! Map) return;
+      final map = Map<String, Object?>.from(raw);
+      for (final value in map.values) {
+        addFromList(value);
+        add(value);
+      }
+    }
+
     addFromMap(payload['embedding']);
     addFromList(payload['embeddings']);
+    addFromEmbeddingTypeMap(payload['embeddings']);
     addFromList(payload['data']);
     addFromList(payload['vectors']);
 
@@ -287,6 +330,9 @@ class _EmbeddingRequestContext {
     required this.input,
     this.dimensions,
     this.encodingFormat,
+    this.inputType,
+    this.outputDType,
+    this.truncation,
     this.user,
     this.taskType = '',
     this.title = '',
@@ -300,6 +346,9 @@ class _EmbeddingRequestContext {
   final Object input;
   final int? dimensions;
   final String? encodingFormat;
+  final String? inputType;
+  final String? outputDType;
+  final String? truncation;
   final String? user;
   final String taskType;
   final String title;
@@ -310,9 +359,22 @@ class _EmbeddingRequestContext {
   int? get positiveDimensions =>
       dimensions == null || dimensions! <= 0 ? null : dimensions;
   String get normalizedModelId => modelId.toLowerCase();
-  String? get trimmedEncodingFormat => _trimmedOrNull(encodingFormat);
+  String? get trimmedEncodingFormat =>
+      _trimmedOrNull(encodingFormat) ??
+      _trimmedOrNull(profile.embeddingDefaultEncodingFormat);
+  String? get trimmedInputType =>
+      _trimmedOrNull(inputType) ??
+      _trimmedOrNull(profile.embeddingDefaultInputType);
+  String? get trimmedOutputDType =>
+      _trimmedOrNull(outputDType) ??
+      _trimmedOrNull(profile.embeddingDefaultOutputDType);
+  String? get trimmedTruncation =>
+      _trimmedOrNull(truncation) ??
+      _trimmedOrNull(profile.embeddingDefaultTruncation);
   String? get trimmedUser => _trimmedOrNull(user);
-  String? get trimmedTaskType => _trimmedOrNull(taskType);
+  String? get trimmedTaskType =>
+      _trimmedOrNull(taskType) ??
+      _trimmedOrNull(profile.embeddingDefaultTaskType);
   String? get trimmedTitle => _trimmedOrNull(title);
   String? get profileEndpointPath =>
       _trimmedOrNull(profile.embeddingEndpointPath);
@@ -378,12 +440,128 @@ class _MistralEmbeddingStrategy extends _EmbeddingRequestStrategy {
         'input': context.input,
         if (context.positiveDimensions != null)
           'output_dimension': context.positiveDimensions,
+        if (context.trimmedOutputDType != null)
+          'output_dtype': context.trimmedOutputDType,
       },
     );
     return _EmbeddingRequestPlan(
       body: body,
       fallbackPath: context.profileEndpointPath,
       contextHint: 'embeddings/mistral',
+    );
+  }
+}
+
+class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _CohereEmbeddingStrategy();
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    final baseUrl = context.model.baseUrl.toLowerCase();
+    return baseUrl.contains('cohere') ||
+        context.profile.supportedParameters.contains('texts') &&
+            context.profile.supportedParameters.contains('input_type');
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final embeddingType =
+        context.trimmedOutputDType ?? context.trimmedEncodingFormat;
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      <String, Object?>{
+        'model': context.modelId,
+        'texts': _stringInputList(context.input),
+        if (context.trimmedInputType != null)
+          'input_type': context.trimmedInputType,
+        if (embeddingType != null) 'embedding_types': <String>[embeddingType],
+        if (context.trimmedTruncation != null)
+          'truncate': context.trimmedTruncation,
+      },
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      fallbackPath: context.profileEndpointPath,
+      contextHint: 'embeddings/cohere',
+    );
+  }
+}
+
+class _VoyageEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _VoyageEmbeddingStrategy();
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    final baseUrl = context.model.baseUrl.toLowerCase();
+    return context.normalizedModelId.startsWith('voyage-') ||
+        baseUrl.contains('voyageai') ||
+        baseUrl.contains('voyage.ai');
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final truncation = _truncationValue(context.trimmedTruncation);
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      <String, Object?>{
+        'model': context.modelId,
+        'input': context.input,
+        if (context.trimmedInputType != null)
+          'input_type': context.trimmedInputType,
+        if (context.positiveDimensions != null)
+          'output_dimension': context.positiveDimensions,
+        if (context.trimmedOutputDType != null)
+          'output_dtype': context.trimmedOutputDType,
+        if (truncation != null) 'truncation': truncation,
+      },
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      fallbackPath: context.profileEndpointPath,
+      contextHint: 'embeddings/voyage',
+    );
+  }
+}
+
+class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
+  const _JinaEmbeddingStrategy();
+
+  @override
+  bool matches(_EmbeddingRequestContext context) {
+    final baseUrl = context.model.baseUrl.toLowerCase();
+    return context.normalizedModelId.startsWith('jina-') ||
+        baseUrl.contains('jina.ai') ||
+        context.profile.supportedParameters.contains('embedding_type') &&
+            context.profile.supportedParameters.contains('task');
+  }
+
+  @override
+  _EmbeddingRequestPlan build(_EmbeddingRequestContext context) {
+    const family = AiApiFamily.embeddings;
+    final embeddingType =
+        context.trimmedOutputDType ?? context.trimmedEncodingFormat;
+    final body = AiOperationHttp.mergeBodyExtras(
+      context.model,
+      family,
+      <String, Object?>{
+        'model': context.modelId,
+        'input': context.input,
+        if (context.trimmedTaskType != null) 'task': context.trimmedTaskType,
+        if (context.positiveDimensions != null)
+          'dimensions': context.positiveDimensions,
+        if (embeddingType != null) 'embedding_type': embeddingType,
+        if (context.profile.embeddingOutputsNormalized != null)
+          'normalized': context.profile.embeddingOutputsNormalized,
+      },
+    );
+    return _EmbeddingRequestPlan(
+      body: body,
+      fallbackPath: context.profileEndpointPath,
+      contextHint: 'embeddings/jina',
     );
   }
 }
@@ -533,6 +711,25 @@ List<String>? _stringBatchOrNull(Object input) {
     values.add(item);
   }
   return values;
+}
+
+List<String> _stringInputList(Object input) {
+  if (input is List) {
+    return input.map((item) => '$item').toList(growable: false);
+  }
+  return <String>['$input'];
+}
+
+Object? _truncationValue(String? value) {
+  final normalized = value?.trim().toLowerCase() ?? '';
+  if (normalized.isEmpty) return null;
+  if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+    return true;
+  }
+  if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+    return false;
+  }
+  return value!.trim();
 }
 
 String? _trimmedOrNull(String? value) {

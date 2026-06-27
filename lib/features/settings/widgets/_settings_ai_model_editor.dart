@@ -2148,12 +2148,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _embeddingEndpointPathController;
   late final TextEditingController _embeddingBatchSizeController;
   late final TextEditingController _embeddingInputTypesController;
+  late final TextEditingController _embeddingDefaultInputTypeController;
+  late final TextEditingController _embeddingQueryInputTypeController;
+  late final TextEditingController _embeddingDocumentInputTypeController;
   late final TextEditingController _embeddingSupportedTaskTypesController;
   late final TextEditingController _embeddingDefaultTaskTypeController;
+  late final TextEditingController _embeddingDefaultQueryTaskTypeController;
+  late final TextEditingController _embeddingDefaultDocumentTaskTypeController;
   late final TextEditingController _embeddingEncodingFormatsController;
   late final TextEditingController _embeddingDefaultEncodingFormatController;
   late final TextEditingController _embeddingOutputDTypesController;
   late final TextEditingController _embeddingDefaultOutputDTypeController;
+  late final TextEditingController _embeddingDefaultTruncationController;
   late final TextEditingController _embeddingSimilarityMetricController;
   late final TextEditingController _embeddingMinDimensionsController;
   late final TextEditingController _embeddingMaxDimensionsController;
@@ -2276,6 +2282,22 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             : effective.embeddingInputTypes,
       ),
     );
+    _embeddingDefaultInputTypeController = TextEditingController(
+      text:
+          p.embeddingDefaultInputType ??
+          effective.embeddingDefaultInputType ??
+          '',
+    );
+    _embeddingQueryInputTypeController = TextEditingController(
+      text:
+          p.embeddingQueryInputType ?? effective.embeddingQueryInputType ?? '',
+    );
+    _embeddingDocumentInputTypeController = TextEditingController(
+      text:
+          p.embeddingDocumentInputType ??
+          effective.embeddingDocumentInputType ??
+          '',
+    );
     _embeddingSupportedTaskTypesController = TextEditingController(
       text: _joinCsv(
         p.embeddingSupportedTaskTypes.isNotEmpty
@@ -2287,6 +2309,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       text:
           p.embeddingDefaultTaskType ??
           effective.embeddingDefaultTaskType ??
+          '',
+    );
+    _embeddingDefaultQueryTaskTypeController = TextEditingController(
+      text:
+          p.embeddingDefaultQueryTaskType ??
+          effective.embeddingDefaultQueryTaskType ??
+          '',
+    );
+    _embeddingDefaultDocumentTaskTypeController = TextEditingController(
+      text:
+          p.embeddingDefaultDocumentTaskType ??
+          effective.embeddingDefaultDocumentTaskType ??
           '',
     );
     _embeddingEncodingFormatsController = TextEditingController(
@@ -2313,6 +2347,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       text:
           p.embeddingDefaultOutputDType ??
           effective.embeddingDefaultOutputDType ??
+          '',
+    );
+    _embeddingDefaultTruncationController = TextEditingController(
+      text:
+          p.embeddingDefaultTruncation ??
+          effective.embeddingDefaultTruncation ??
           '',
     );
     _embeddingSimilarityMetricController = TextEditingController(
@@ -2466,12 +2506,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _embeddingEndpointPathController.dispose();
     _embeddingBatchSizeController.dispose();
     _embeddingInputTypesController.dispose();
+    _embeddingDefaultInputTypeController.dispose();
+    _embeddingQueryInputTypeController.dispose();
+    _embeddingDocumentInputTypeController.dispose();
     _embeddingSupportedTaskTypesController.dispose();
     _embeddingDefaultTaskTypeController.dispose();
+    _embeddingDefaultQueryTaskTypeController.dispose();
+    _embeddingDefaultDocumentTaskTypeController.dispose();
     _embeddingEncodingFormatsController.dispose();
     _embeddingDefaultEncodingFormatController.dispose();
     _embeddingOutputDTypesController.dispose();
     _embeddingDefaultOutputDTypeController.dispose();
+    _embeddingDefaultTruncationController.dispose();
     _embeddingSimilarityMetricController.dispose();
     _embeddingMinDimensionsController.dispose();
     _embeddingMaxDimensionsController.dispose();
@@ -2566,11 +2612,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       embeddingBatchSize: _parsePositiveInt(_embeddingBatchSizeController.text),
       embeddingRequiresSpecialBody: _embeddingRequiresSpecialBody,
       embeddingInputTypes: _parseCsv(_embeddingInputTypesController.text),
+      embeddingDefaultInputType: _optionalText(
+        _embeddingDefaultInputTypeController.text,
+      ),
+      embeddingQueryInputType: _optionalText(
+        _embeddingQueryInputTypeController.text,
+      ),
+      embeddingDocumentInputType: _optionalText(
+        _embeddingDocumentInputTypeController.text,
+      ),
       embeddingSupportedTaskTypes: _parseCsv(
         _embeddingSupportedTaskTypesController.text,
       ),
       embeddingDefaultTaskType: _optionalText(
         _embeddingDefaultTaskTypeController.text,
+      ),
+      embeddingDefaultQueryTaskType: _optionalText(
+        _embeddingDefaultQueryTaskTypeController.text,
+      ),
+      embeddingDefaultDocumentTaskType: _optionalText(
+        _embeddingDefaultDocumentTaskTypeController.text,
       ),
       embeddingEncodingFormats: _parseCsv(
         _embeddingEncodingFormatsController.text,
@@ -2581,6 +2642,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       embeddingOutputDTypes: _parseCsv(_embeddingOutputDTypesController.text),
       embeddingDefaultOutputDType: _optionalText(
         _embeddingDefaultOutputDTypeController.text,
+      ),
+      embeddingDefaultTruncation: _optionalText(
+        _embeddingDefaultTruncationController.text,
       ),
       embeddingSimilarityMetric: _optionalText(
         _embeddingSimilarityMetricController.text,
@@ -3047,6 +3111,32 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   children: <Widget>[
                     Expanded(
                       child: _buildCompactTextField(
+                        controller: _embeddingDefaultInputTypeController,
+                        label: zh ? '默认输入类型' : 'Default Input Type',
+                        hint: 'document',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingQueryInputTypeController,
+                        label: zh ? 'Query 输入类型' : 'Query Input Type',
+                        hint: 'query',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildCompactTextField(
+                  controller: _embeddingDocumentInputTypeController,
+                  label: zh ? 'Document 输入类型' : 'Document Input Type',
+                  hint: 'document',
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
                         controller: _embeddingDefaultTaskTypeController,
                         label: zh ? '默认任务类型' : 'Default Task Type',
                         hint: 'retrieval_document',
@@ -3058,6 +3148,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         controller: _embeddingSimilarityMetricController,
                         label: zh ? '相似度/距离类型' : 'Similarity Metric',
                         hint: 'cosine',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingDefaultQueryTaskTypeController,
+                        label: zh ? 'Query 任务类型' : 'Query Task Type',
+                        hint: 'RETRIEVAL_QUERY',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingDefaultDocumentTaskTypeController,
+                        label: zh ? 'Document 任务类型' : 'Document Task Type',
+                        hint: 'RETRIEVAL_DOCUMENT',
                       ),
                     ),
                   ],
@@ -3081,6 +3191,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                _buildCompactTextField(
+                  controller: _embeddingDefaultTruncationController,
+                  label: zh ? '默认截断策略' : 'Default Truncation',
+                  hint: 'END / true',
                 ),
                 const SizedBox(height: 12),
                 Row(

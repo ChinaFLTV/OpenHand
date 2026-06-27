@@ -270,12 +270,18 @@ class AiModelProfile {
     this.embeddingBatchSize,
     this.embeddingRequiresSpecialBody = false,
     this.embeddingInputTypes = const <String>[],
+    this.embeddingDefaultInputType,
+    this.embeddingQueryInputType,
+    this.embeddingDocumentInputType,
     this.embeddingSupportedTaskTypes = const <String>[],
     this.embeddingDefaultTaskType,
+    this.embeddingDefaultQueryTaskType,
+    this.embeddingDefaultDocumentTaskType,
     this.embeddingEncodingFormats = const <String>[],
     this.embeddingDefaultEncodingFormat,
     this.embeddingOutputDTypes = const <String>[],
     this.embeddingDefaultOutputDType,
+    this.embeddingDefaultTruncation,
     this.embeddingSimilarityMetric,
     this.embeddingOutputsNormalized,
     this.embeddingMinDimensions,
@@ -347,10 +353,19 @@ class AiModelProfile {
       embeddingRequiresSpecialBody:
           _readBool(json['embedding_requires_special_body']) ?? false,
       embeddingInputTypes: _parseStringList(json['embedding_input_types']),
+      embeddingDefaultInputType:
+          json['embedding_default_input_type'] as String?,
+      embeddingQueryInputType: json['embedding_query_input_type'] as String?,
+      embeddingDocumentInputType:
+          json['embedding_document_input_type'] as String?,
       embeddingSupportedTaskTypes: _parseStringList(
         json['embedding_supported_task_types'],
       ),
       embeddingDefaultTaskType: json['embedding_default_task_type'] as String?,
+      embeddingDefaultQueryTaskType:
+          json['embedding_default_query_task_type'] as String?,
+      embeddingDefaultDocumentTaskType:
+          json['embedding_default_document_task_type'] as String?,
       embeddingEncodingFormats: _parseStringList(
         json['embedding_encoding_formats'],
       ),
@@ -359,6 +374,8 @@ class AiModelProfile {
       embeddingOutputDTypes: _parseStringList(json['embedding_output_dtypes']),
       embeddingDefaultOutputDType:
           json['embedding_default_output_dtype'] as String?,
+      embeddingDefaultTruncation:
+          json['embedding_default_truncation'] as String?,
       embeddingSimilarityMetric: json['embedding_similarity_metric'] as String?,
       embeddingOutputsNormalized: _readBool(
         json['embedding_outputs_normalized'],
@@ -450,12 +467,18 @@ class AiModelProfile {
   final int? embeddingBatchSize;
   final bool embeddingRequiresSpecialBody;
   final List<String> embeddingInputTypes;
+  final String? embeddingDefaultInputType;
+  final String? embeddingQueryInputType;
+  final String? embeddingDocumentInputType;
   final List<String> embeddingSupportedTaskTypes;
   final String? embeddingDefaultTaskType;
+  final String? embeddingDefaultQueryTaskType;
+  final String? embeddingDefaultDocumentTaskType;
   final List<String> embeddingEncodingFormats;
   final String? embeddingDefaultEncodingFormat;
   final List<String> embeddingOutputDTypes;
   final String? embeddingDefaultOutputDType;
+  final String? embeddingDefaultTruncation;
   final String? embeddingSimilarityMetric;
   final bool? embeddingOutputsNormalized;
   final int? embeddingMinDimensions;
@@ -502,12 +525,18 @@ class AiModelProfile {
       embeddingBatchSize != null ||
       embeddingRequiresSpecialBody ||
       embeddingInputTypes.isNotEmpty ||
+      embeddingDefaultInputType != null ||
+      embeddingQueryInputType != null ||
+      embeddingDocumentInputType != null ||
       embeddingSupportedTaskTypes.isNotEmpty ||
       embeddingDefaultTaskType != null ||
+      embeddingDefaultQueryTaskType != null ||
+      embeddingDefaultDocumentTaskType != null ||
       embeddingEncodingFormats.isNotEmpty ||
       embeddingDefaultEncodingFormat != null ||
       embeddingOutputDTypes.isNotEmpty ||
       embeddingDefaultOutputDType != null ||
+      embeddingDefaultTruncation != null ||
       embeddingSimilarityMetric != null ||
       embeddingOutputsNormalized != null ||
       embeddingMinDimensions != null ||
@@ -574,15 +603,27 @@ class AiModelProfile {
     bool clearEmbeddingBatchSize = false,
     bool? embeddingRequiresSpecialBody,
     List<String>? embeddingInputTypes,
+    String? embeddingDefaultInputType,
+    bool clearEmbeddingDefaultInputType = false,
+    String? embeddingQueryInputType,
+    bool clearEmbeddingQueryInputType = false,
+    String? embeddingDocumentInputType,
+    bool clearEmbeddingDocumentInputType = false,
     List<String>? embeddingSupportedTaskTypes,
     String? embeddingDefaultTaskType,
     bool clearEmbeddingDefaultTaskType = false,
+    String? embeddingDefaultQueryTaskType,
+    bool clearEmbeddingDefaultQueryTaskType = false,
+    String? embeddingDefaultDocumentTaskType,
+    bool clearEmbeddingDefaultDocumentTaskType = false,
     List<String>? embeddingEncodingFormats,
     String? embeddingDefaultEncodingFormat,
     bool clearEmbeddingDefaultEncodingFormat = false,
     List<String>? embeddingOutputDTypes,
     String? embeddingDefaultOutputDType,
     bool clearEmbeddingDefaultOutputDType = false,
+    String? embeddingDefaultTruncation,
+    bool clearEmbeddingDefaultTruncation = false,
     String? embeddingSimilarityMetric,
     bool clearEmbeddingSimilarityMetric = false,
     bool? embeddingOutputsNormalized,
@@ -675,11 +716,27 @@ class AiModelProfile {
       embeddingRequiresSpecialBody:
           embeddingRequiresSpecialBody ?? this.embeddingRequiresSpecialBody,
       embeddingInputTypes: embeddingInputTypes ?? this.embeddingInputTypes,
+      embeddingDefaultInputType: clearEmbeddingDefaultInputType
+          ? null
+          : embeddingDefaultInputType ?? this.embeddingDefaultInputType,
+      embeddingQueryInputType: clearEmbeddingQueryInputType
+          ? null
+          : embeddingQueryInputType ?? this.embeddingQueryInputType,
+      embeddingDocumentInputType: clearEmbeddingDocumentInputType
+          ? null
+          : embeddingDocumentInputType ?? this.embeddingDocumentInputType,
       embeddingSupportedTaskTypes:
           embeddingSupportedTaskTypes ?? this.embeddingSupportedTaskTypes,
       embeddingDefaultTaskType: clearEmbeddingDefaultTaskType
           ? null
           : embeddingDefaultTaskType ?? this.embeddingDefaultTaskType,
+      embeddingDefaultQueryTaskType: clearEmbeddingDefaultQueryTaskType
+          ? null
+          : embeddingDefaultQueryTaskType ?? this.embeddingDefaultQueryTaskType,
+      embeddingDefaultDocumentTaskType: clearEmbeddingDefaultDocumentTaskType
+          ? null
+          : embeddingDefaultDocumentTaskType ??
+                this.embeddingDefaultDocumentTaskType,
       embeddingEncodingFormats:
           embeddingEncodingFormats ?? this.embeddingEncodingFormats,
       embeddingDefaultEncodingFormat: clearEmbeddingDefaultEncodingFormat
@@ -691,6 +748,9 @@ class AiModelProfile {
       embeddingDefaultOutputDType: clearEmbeddingDefaultOutputDType
           ? null
           : embeddingDefaultOutputDType ?? this.embeddingDefaultOutputDType,
+      embeddingDefaultTruncation: clearEmbeddingDefaultTruncation
+          ? null
+          : embeddingDefaultTruncation ?? this.embeddingDefaultTruncation,
       embeddingSimilarityMetric: clearEmbeddingSimilarityMetric
           ? null
           : embeddingSimilarityMetric ?? this.embeddingSimilarityMetric,
@@ -766,10 +826,21 @@ class AiModelProfile {
       if (embeddingRequiresSpecialBody) 'embedding_requires_special_body': true,
       if (embeddingInputTypes.isNotEmpty)
         'embedding_input_types': embeddingInputTypes,
+      if (embeddingDefaultInputType != null)
+        'embedding_default_input_type': embeddingDefaultInputType,
+      if (embeddingQueryInputType != null)
+        'embedding_query_input_type': embeddingQueryInputType,
+      if (embeddingDocumentInputType != null)
+        'embedding_document_input_type': embeddingDocumentInputType,
       if (embeddingSupportedTaskTypes.isNotEmpty)
         'embedding_supported_task_types': embeddingSupportedTaskTypes,
       if (embeddingDefaultTaskType != null)
         'embedding_default_task_type': embeddingDefaultTaskType,
+      if (embeddingDefaultQueryTaskType != null)
+        'embedding_default_query_task_type': embeddingDefaultQueryTaskType,
+      if (embeddingDefaultDocumentTaskType != null)
+        'embedding_default_document_task_type':
+            embeddingDefaultDocumentTaskType,
       if (embeddingEncodingFormats.isNotEmpty)
         'embedding_encoding_formats': embeddingEncodingFormats,
       if (embeddingDefaultEncodingFormat != null)
@@ -778,6 +849,8 @@ class AiModelProfile {
         'embedding_output_dtypes': embeddingOutputDTypes,
       if (embeddingDefaultOutputDType != null)
         'embedding_default_output_dtype': embeddingDefaultOutputDType,
+      if (embeddingDefaultTruncation != null)
+        'embedding_default_truncation': embeddingDefaultTruncation,
       if (embeddingSimilarityMetric != null)
         'embedding_similarity_metric': embeddingSimilarityMetric,
       if (embeddingOutputsNormalized != null)
@@ -1112,25 +1185,43 @@ class AiModelConfig {
       expirationDate: override.expirationDate,
       links: override.links,
       isGlobalDefaultTitleModel: override.isGlobalDefaultTitleModel,
-      embeddingDimensions: override.embeddingDimensions,
-      embeddingMaxInputTokens: override.embeddingMaxInputTokens,
+      embeddingDimensions:
+          override.embeddingDimensions ?? catalog.embeddingDimensions,
+      embeddingMaxInputTokens:
+          override.embeddingMaxInputTokens ?? catalog.embeddingMaxInputTokens,
       embeddingSupportsCustomDimensions:
           override.embeddingSupportsCustomDimensions ||
           catalog.embeddingSupportsCustomDimensions,
-      embeddingEndpointPath: override.embeddingEndpointPath,
-      embeddingBatchSize: override.embeddingBatchSize,
+      embeddingEndpointPath:
+          override.embeddingEndpointPath ?? catalog.embeddingEndpointPath,
+      embeddingBatchSize:
+          override.embeddingBatchSize ?? catalog.embeddingBatchSize,
       embeddingRequiresSpecialBody:
           override.embeddingRequiresSpecialBody ||
           catalog.embeddingRequiresSpecialBody,
       embeddingInputTypes: override.embeddingInputTypes.isNotEmpty
           ? override.embeddingInputTypes
           : catalog.embeddingInputTypes,
+      embeddingDefaultInputType:
+          override.embeddingDefaultInputType ??
+          catalog.embeddingDefaultInputType,
+      embeddingQueryInputType:
+          override.embeddingQueryInputType ?? catalog.embeddingQueryInputType,
+      embeddingDocumentInputType:
+          override.embeddingDocumentInputType ??
+          catalog.embeddingDocumentInputType,
       embeddingSupportedTaskTypes:
           override.embeddingSupportedTaskTypes.isNotEmpty
           ? override.embeddingSupportedTaskTypes
           : catalog.embeddingSupportedTaskTypes,
       embeddingDefaultTaskType:
           override.embeddingDefaultTaskType ?? catalog.embeddingDefaultTaskType,
+      embeddingDefaultQueryTaskType:
+          override.embeddingDefaultQueryTaskType ??
+          catalog.embeddingDefaultQueryTaskType,
+      embeddingDefaultDocumentTaskType:
+          override.embeddingDefaultDocumentTaskType ??
+          catalog.embeddingDefaultDocumentTaskType,
       embeddingEncodingFormats: override.embeddingEncodingFormats.isNotEmpty
           ? override.embeddingEncodingFormats
           : catalog.embeddingEncodingFormats,
@@ -1143,6 +1234,9 @@ class AiModelConfig {
       embeddingDefaultOutputDType:
           override.embeddingDefaultOutputDType ??
           catalog.embeddingDefaultOutputDType,
+      embeddingDefaultTruncation:
+          override.embeddingDefaultTruncation ??
+          catalog.embeddingDefaultTruncation,
       embeddingSimilarityMetric:
           override.embeddingSimilarityMetric ??
           catalog.embeddingSimilarityMetric,

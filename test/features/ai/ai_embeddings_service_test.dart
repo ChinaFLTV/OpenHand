@@ -95,6 +95,7 @@ void main() {
             <String, Object?>{'text': 'alpha'},
           ],
         },
+        'taskType': 'RETRIEVAL_DOCUMENT',
         'outputDimensionality': 768,
       });
       expect(result.vectors, <List<double>>[
@@ -130,6 +131,118 @@ void main() {
 
       expect(client.bodies.single['output_dimension'], 256);
       expect(client.bodies.single.containsKey('dimensions'), isFalse);
+    });
+
+    test(
+      'sends Cohere embedding requests with input type and truncation',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'embeddings': <String, Object?>{
+              'float': <Object?>[
+                <num>[0.1, 0.2],
+                <num>[0.3, 0.4],
+              ],
+            },
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        final result = await service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://api.cohere.com/v2',
+            modelId: 'embed-v4.0',
+          ),
+          input: const <String>['alpha', 'beta'],
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'embed-v4.0',
+          'texts': <String>['alpha', 'beta'],
+          'input_type': 'search_document',
+          'embedding_types': <String>['float'],
+          'truncate': 'END',
+        });
+        expect(result.vectors, <List<double>>[
+          <double>[0.1, 0.2],
+          <double>[0.3, 0.4],
+        ]);
+      },
+    );
+
+    test(
+      'sends Voyage embedding requests with typed retrieval params',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[1, 2],
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        await service.createEmbeddings(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://api.voyageai.com/v1',
+            modelId: 'voyage-3.5',
+          ),
+          input: const <String>['alpha'],
+          dimensions: 512,
+          inputType: 'query',
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'voyage-3.5',
+          'input': <String>['alpha'],
+          'input_type': 'query',
+          'output_dimension': 512,
+          'output_dtype': 'float',
+          'truncation': true,
+        });
+      },
+    );
+
+    test('sends Jina embedding requests with retrieval task', () async {
+      final client = _RecordingHttpClient(
+        responseBody: <String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': <num>[1, 2],
+            },
+          ],
+        },
+      );
+      final service = AiEmbeddingsService(
+        transport: AiTransportClient(client: client),
+      );
+
+      await service.createEmbeddings(
+        model: _model(
+          protocol: AiProtocolType.openai,
+          baseUrl: 'https://api.jina.ai/v1',
+          modelId: 'jina-embeddings-v3',
+        ),
+        input: const <String>['alpha'],
+        dimensions: 256,
+        taskType: 'retrieval.query',
+      );
+
+      expect(client.bodies.single, <String, Object?>{
+        'model': 'jina-embeddings-v3',
+        'input': <String>['alpha'],
+        'task': 'retrieval.query',
+        'dimensions': 256,
+        'embedding_type': 'float',
+      });
     });
 
     test('returns an empty result without network for empty batches', () async {
@@ -246,7 +359,7 @@ void main() {
       expect(qwen?.embeddingDimensions, 1024);
       expect(qwen?.embeddingBatchSize, 10);
       expect(glm?.supportsEmbeddings, isTrue);
-      expect(glm?.embeddingDimensions, 1024);
+      expect(glm?.embeddingDimensions, 2048);
       expect(claude?.supportsEmbeddings ?? false, isFalse);
     });
 
@@ -269,8 +382,11 @@ void main() {
         final profile = model.profileFor('gemini-embedding-001');
 
         expect(profile.supportsEmbeddings, isTrue);
+        expect(profile.embeddingDimensions, 3072);
+        expect(profile.embeddingBatchSize, 100);
         expect(profile.embeddingSupportsCustomDimensions, isTrue);
         expect(profile.embeddingRequiresSpecialBody, isTrue);
+        expect(profile.embeddingDefaultQueryTaskType, 'RETRIEVAL_QUERY');
       },
     );
   });

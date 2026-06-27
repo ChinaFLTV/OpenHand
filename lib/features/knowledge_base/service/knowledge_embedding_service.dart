@@ -30,16 +30,24 @@ class KnowledgeEmbeddingService {
         embeddingModelId: settings.modelId,
       ),
     );
-    final configuredBatchSize = profile.embeddingBatchSize;
-    final batchSize = configuredBatchSize == null || configuredBatchSize <= 0
-        ? inputs.length
-        : configuredBatchSize > inputs.length
-        ? inputs.length
-        : configuredBatchSize;
+    _validateDimensions(settings, profile);
+    final batchSize = _boundedBatchSize(
+      inputs.length,
+      settings.batchSize,
+      profile.embeddingBatchSize,
+      profile.embeddingMaxInputsPerBatch,
+    );
+    final taskType = _resolvedTaskType(profile, isQuery: isQuery);
+    final inputType = _resolvedInputType(profile, isQuery: isQuery);
     final vectors = <List<double>>[];
-    for (var start = 0; start < inputs.length; start += batchSize) {
-      final nextEnd = start + batchSize;
-      final end = nextEnd > inputs.length ? inputs.length : nextEnd;
+    var start = 0;
+    while (start < inputs.length) {
+      final end = _boundedBatchEnd(
+        inputs,
+        start,
+        batchSize,
+        profile.embeddingMaxTokensPerBatch,
+      );
       final batch = inputs.sublist(start, end);
       final result = await _embeddings.createEmbeddings(
         model: embeddingModel,
@@ -47,6 +55,11 @@ class KnowledgeEmbeddingService {
         dimensions: profile.embeddingSupportsCustomDimensions
             ? settings.dimensions
             : null,
+        encodingFormat: profile.embeddingDefaultEncodingFormat,
+        inputType: inputType,
+        taskType: taskType,
+        outputDType: profile.embeddingDefaultOutputDType,
+        truncation: profile.embeddingDefaultTruncation,
         timeout: Duration(seconds: settings.requestTimeoutSeconds),
       );
       if (result.vectors.length != batch.length) {
@@ -55,6 +68,7 @@ class KnowledgeEmbeddingService {
         );
       }
       vectors.addAll(result.vectors);
+      start = end;
     }
     for (final vector in vectors) {
       if (vector.length != settings.dimensions) {
@@ -66,5 +80,96 @@ class KnowledgeEmbeddingService {
     return vectors;
   }
 
+  int _boundedBatchSize(
+    int inputCount,
+    int settingsBatchSize,
+    int? profileBatchSize,
+    int? maxInputsPerBatch,
+  ) {
+    var size = settingsBatchSize > 0 ? settingsBatchSize : inputCount;
+    if (profileBatchSize != null && profileBatchSize > 0) {
+      size = size < profileBatchSize ? size : profileBatchSize;
+    }
+    if (maxInputsPerBatch != null && maxInputsPerBatch > 0) {
+      size = size < maxInputsPerBatch ? size : maxInputsPerBatch;
+    }
+    if (size <= 0) return 1;
+    return size > inputCount ? inputCount : size;
+  }
+
+  int _boundedBatchEnd(
+    List<String> inputs,
+    int start,
+    int batchSize,
+    int? maxTokensPerBatch,
+  ) {
+    final countBound = start + batchSize;
+    final hardEnd = countBound > inputs.length ? inputs.length : countBound;
+    if (maxTokensPerBatch == null || maxTokensPerBatch <= 0) {
+      return hardEnd;
+    }
+    var tokens = 0;
+    for (var index = start; index < hardEnd; index += 1) {
+      tokens += _roughTokenCount(inputs[index]);
+      if (index > start && tokens > maxTokensPerBatch) {
+        return index;
+      }
+    }
+    return hardEnd;
+  }
+
+  int _roughTokenCount(String value) {
+    final trimmedLength = value.trim().length;
+    if (trimmedLength <= 0) return 1;
+    return (trimmedLength / 4).ceil();
+  }
+
+  void _validateDimensions(
+    KnowledgeBaseSettings settings,
+    AiModelProfile profile,
+  ) {
+    final expectedDimensions = profile.embeddingDimensions;
+    if (!profile.embeddingSupportsCustomDimensions &&
+        expectedDimensions != null &&
+        settings.dimensions != expectedDimensions) {
+      throw StateError(
+        '当前嵌入模型固定输出 $expectedDimensions 维，知识库配置为 ${settings.dimensions} 维。',
+      );
+    }
+    final minDimensions = profile.embeddingMinDimensions;
+    if (minDimensions != null && settings.dimensions < minDimensions) {
+      throw StateError(
+        '当前嵌入模型最小支持 $minDimensions 维，知识库配置为 ${settings.dimensions} 维。',
+      );
+    }
+    final maxDimensions = profile.embeddingMaxDimensions;
+    if (maxDimensions != null && settings.dimensions > maxDimensions) {
+      throw StateError(
+        '当前嵌入模型最大支持 $maxDimensions 维，知识库配置为 ${settings.dimensions} 维。',
+      );
+    }
+  }
+
+  String? _resolvedTaskType(AiModelProfile profile, {required bool isQuery}) {
+    final value = isQuery
+        ? profile.embeddingDefaultQueryTaskType
+        : profile.embeddingDefaultDocumentTaskType;
+    return _trimmedOrNull(value) ??
+        _trimmedOrNull(profile.embeddingDefaultTaskType);
+  }
+
+  String? _resolvedInputType(AiModelProfile profile, {required bool isQuery}) {
+    final value = isQuery
+        ? profile.embeddingQueryInputType
+        : profile.embeddingDocumentInputType;
+    return _trimmedOrNull(value) ??
+        _trimmedOrNull(profile.embeddingDefaultInputType);
+  }
+
   void dispose() => _embeddings.dispose();
+}
+
+String? _trimmedOrNull(String? value) {
+  final trimmed = value?.trim() ?? '';
+  return trimmed.isEmpty ? null : trimmed;
 }
