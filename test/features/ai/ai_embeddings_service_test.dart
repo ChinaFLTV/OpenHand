@@ -129,6 +129,99 @@ void main() {
     );
 
     test(
+      'matches Cohere strategy with case-insensitive supported parameters',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'embeddings': <String, Object?>{
+              'float': <Object?>[
+                <num>[0.1, 0.2],
+              ],
+            },
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        final result = await service.createEmbeddings(
+          model:
+              _model(
+                protocol: AiProtocolType.openai,
+                baseUrl: 'https://gateway.example',
+                modelId: 'custom-cohere-embed',
+              ).copyWith(
+                modelProfiles: const <String, AiModelProfile>{
+                  'custom-cohere-embed': AiModelProfile(
+                    supportedParameters: <String>['Texts', 'Input_Type'],
+                    embeddingEndpointPath: 'v2/embed',
+                    embeddingDefaultInputType: 'search_document',
+                    embeddingDefaultEncodingFormat: 'float',
+                  ),
+                },
+              ),
+          input: const <String>['alpha'],
+        );
+
+        expect(client.requests.single.url.path, '/v2/embed');
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'custom-cohere-embed',
+          'texts': <String>['alpha'],
+          'input_type': 'search_document',
+          'embedding_types': <String>['float'],
+        });
+        expect(result.vectors, <List<double>>[
+          <double>[0.1, 0.2],
+        ]);
+      },
+    );
+
+    test(
+      'matches Jina strategy with case-insensitive supported parameters',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'data': <Object?>[
+              <String, Object?>{
+                'embedding': <num>[1, 2],
+              },
+            ],
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        await service.createEmbeddings(
+          model:
+              _model(
+                protocol: AiProtocolType.openai,
+                baseUrl: 'https://gateway.example',
+                modelId: 'custom-jina-embed',
+              ).copyWith(
+                modelProfiles: const <String, AiModelProfile>{
+                  'custom-jina-embed': AiModelProfile(
+                    supportedParameters: <String>['Embedding_Type', 'Task'],
+                    embeddingDefaultTaskType: 'retrieval.passage',
+                    embeddingDefaultEncodingFormat: 'float',
+                    embeddingOutputsNormalized: true,
+                  ),
+                },
+              ),
+          input: const <String>['alpha'],
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'custom-jina-embed',
+          'input': <String>['alpha'],
+          'task': 'retrieval.passage',
+          'embedding_type': 'float',
+          'normalized': true,
+        });
+      },
+    );
+
+    test(
       'merges profile embedding defaults below explicit payload and extras',
       () async {
         final client = _RecordingHttpClient(

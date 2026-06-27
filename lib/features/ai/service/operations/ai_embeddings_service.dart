@@ -536,8 +536,8 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
   bool matches(_EmbeddingRequestContext context) {
     final baseUrl = context.model.baseUrl.toLowerCase();
     return baseUrl.contains('cohere') ||
-        context.profile.supportedParameters.contains('texts') &&
-            context.profile.supportedParameters.contains('input_type');
+        context.supportsParameter('texts') &&
+            context.supportsParameter('input_type');
   }
 
   @override
@@ -612,8 +612,8 @@ class _JinaEmbeddingStrategy extends _EmbeddingRequestStrategy {
     final baseUrl = context.model.baseUrl.toLowerCase();
     return context.normalizedModelId.startsWith('jina-') ||
         baseUrl.contains('jina.ai') ||
-        context.profile.supportedParameters.contains('embedding_type') &&
-            context.profile.supportedParameters.contains('task');
+        context.supportsParameter('embedding_type') &&
+            context.supportsParameter('task');
   }
 
   @override
@@ -651,10 +651,9 @@ class _PerplexityContextualizedEmbeddingStrategy
 
   @override
   bool matches(_EmbeddingRequestContext context) {
+    final endpointPath = context.profileEndpointPath?.toLowerCase() ?? '';
     return context.normalizedModelId.startsWith('pplx-embed-context') ||
-        (context.profileEndpointPath ?? '').contains(
-          'embeddings/contextualized',
-        );
+        endpointPath.contains('embeddings/contextualized');
   }
 
   @override
