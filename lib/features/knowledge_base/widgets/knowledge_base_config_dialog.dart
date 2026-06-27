@@ -925,6 +925,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ].join(' / '),
       ),
       (
+        isZh ? '文本前缀' : 'Text Prefixes',
+        _listLabel(<String>[
+          if (profile.embeddingQueryTextPrefix != null)
+            'query ${profile.embeddingQueryTextPrefix}',
+          if (profile.embeddingDocumentTextPrefix != null)
+            'doc ${profile.embeddingDocumentTextPrefix}',
+        ]),
+      ),
+      (
         isZh ? '编码格式' : 'Encoding Formats',
         [
           _listLabel(profile.embeddingEncodingFormats),

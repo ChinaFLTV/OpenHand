@@ -277,6 +277,8 @@ class AiModelProfile {
     this.embeddingDefaultTaskType,
     this.embeddingDefaultQueryTaskType,
     this.embeddingDefaultDocumentTaskType,
+    this.embeddingQueryTextPrefix,
+    this.embeddingDocumentTextPrefix,
     this.embeddingEncodingFormats = const <String>[],
     this.embeddingDefaultEncodingFormat,
     this.embeddingOutputDTypes = const <String>[],
@@ -366,6 +368,9 @@ class AiModelProfile {
           json['embedding_default_query_task_type'] as String?,
       embeddingDefaultDocumentTaskType:
           json['embedding_default_document_task_type'] as String?,
+      embeddingQueryTextPrefix: json['embedding_query_text_prefix'] as String?,
+      embeddingDocumentTextPrefix:
+          json['embedding_document_text_prefix'] as String?,
       embeddingEncodingFormats: _parseStringList(
         json['embedding_encoding_formats'],
       ),
@@ -474,6 +479,8 @@ class AiModelProfile {
   final String? embeddingDefaultTaskType;
   final String? embeddingDefaultQueryTaskType;
   final String? embeddingDefaultDocumentTaskType;
+  final String? embeddingQueryTextPrefix;
+  final String? embeddingDocumentTextPrefix;
   final List<String> embeddingEncodingFormats;
   final String? embeddingDefaultEncodingFormat;
   final List<String> embeddingOutputDTypes;
@@ -532,6 +539,8 @@ class AiModelProfile {
       embeddingDefaultTaskType != null ||
       embeddingDefaultQueryTaskType != null ||
       embeddingDefaultDocumentTaskType != null ||
+      embeddingQueryTextPrefix != null ||
+      embeddingDocumentTextPrefix != null ||
       embeddingEncodingFormats.isNotEmpty ||
       embeddingDefaultEncodingFormat != null ||
       embeddingOutputDTypes.isNotEmpty ||
@@ -616,6 +625,10 @@ class AiModelProfile {
     bool clearEmbeddingDefaultQueryTaskType = false,
     String? embeddingDefaultDocumentTaskType,
     bool clearEmbeddingDefaultDocumentTaskType = false,
+    String? embeddingQueryTextPrefix,
+    bool clearEmbeddingQueryTextPrefix = false,
+    String? embeddingDocumentTextPrefix,
+    bool clearEmbeddingDocumentTextPrefix = false,
     List<String>? embeddingEncodingFormats,
     String? embeddingDefaultEncodingFormat,
     bool clearEmbeddingDefaultEncodingFormat = false,
@@ -737,6 +750,12 @@ class AiModelProfile {
           ? null
           : embeddingDefaultDocumentTaskType ??
                 this.embeddingDefaultDocumentTaskType,
+      embeddingQueryTextPrefix: clearEmbeddingQueryTextPrefix
+          ? null
+          : embeddingQueryTextPrefix ?? this.embeddingQueryTextPrefix,
+      embeddingDocumentTextPrefix: clearEmbeddingDocumentTextPrefix
+          ? null
+          : embeddingDocumentTextPrefix ?? this.embeddingDocumentTextPrefix,
       embeddingEncodingFormats:
           embeddingEncodingFormats ?? this.embeddingEncodingFormats,
       embeddingDefaultEncodingFormat: clearEmbeddingDefaultEncodingFormat
@@ -841,6 +860,10 @@ class AiModelProfile {
       if (embeddingDefaultDocumentTaskType != null)
         'embedding_default_document_task_type':
             embeddingDefaultDocumentTaskType,
+      if (embeddingQueryTextPrefix != null)
+        'embedding_query_text_prefix': embeddingQueryTextPrefix,
+      if (embeddingDocumentTextPrefix != null)
+        'embedding_document_text_prefix': embeddingDocumentTextPrefix,
       if (embeddingEncodingFormats.isNotEmpty)
         'embedding_encoding_formats': embeddingEncodingFormats,
       if (embeddingDefaultEncodingFormat != null)
@@ -1222,6 +1245,11 @@ class AiModelConfig {
       embeddingDefaultDocumentTaskType:
           override.embeddingDefaultDocumentTaskType ??
           catalog.embeddingDefaultDocumentTaskType,
+      embeddingQueryTextPrefix:
+          override.embeddingQueryTextPrefix ?? catalog.embeddingQueryTextPrefix,
+      embeddingDocumentTextPrefix:
+          override.embeddingDocumentTextPrefix ??
+          catalog.embeddingDocumentTextPrefix,
       embeddingEncodingFormats: override.embeddingEncodingFormats.isNotEmpty
           ? override.embeddingEncodingFormats
           : catalog.embeddingEncodingFormats,

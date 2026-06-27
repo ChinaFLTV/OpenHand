@@ -2155,6 +2155,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _embeddingDefaultTaskTypeController;
   late final TextEditingController _embeddingDefaultQueryTaskTypeController;
   late final TextEditingController _embeddingDefaultDocumentTaskTypeController;
+  late final TextEditingController _embeddingQueryTextPrefixController;
+  late final TextEditingController _embeddingDocumentTextPrefixController;
   late final TextEditingController _embeddingEncodingFormatsController;
   late final TextEditingController _embeddingDefaultEncodingFormatController;
   late final TextEditingController _embeddingOutputDTypesController;
@@ -2321,6 +2323,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       text:
           p.embeddingDefaultDocumentTaskType ??
           effective.embeddingDefaultDocumentTaskType ??
+          '',
+    );
+    _embeddingQueryTextPrefixController = TextEditingController(
+      text:
+          p.embeddingQueryTextPrefix ??
+          effective.embeddingQueryTextPrefix ??
+          '',
+    );
+    _embeddingDocumentTextPrefixController = TextEditingController(
+      text:
+          p.embeddingDocumentTextPrefix ??
+          effective.embeddingDocumentTextPrefix ??
           '',
     );
     _embeddingEncodingFormatsController = TextEditingController(
@@ -2513,6 +2527,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _embeddingDefaultTaskTypeController.dispose();
     _embeddingDefaultQueryTaskTypeController.dispose();
     _embeddingDefaultDocumentTaskTypeController.dispose();
+    _embeddingQueryTextPrefixController.dispose();
+    _embeddingDocumentTextPrefixController.dispose();
     _embeddingEncodingFormatsController.dispose();
     _embeddingDefaultEncodingFormatController.dispose();
     _embeddingOutputDTypesController.dispose();
@@ -2632,6 +2648,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       ),
       embeddingDefaultDocumentTaskType: _optionalText(
         _embeddingDefaultDocumentTaskTypeController.text,
+      ),
+      embeddingQueryTextPrefix: _optionalText(
+        _embeddingQueryTextPrefixController.text,
+      ),
+      embeddingDocumentTextPrefix: _optionalText(
+        _embeddingDocumentTextPrefixController.text,
       ),
       embeddingEncodingFormats: _parseCsv(
         _embeddingEncodingFormatsController.text,
@@ -3168,6 +3190,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         controller: _embeddingDefaultDocumentTaskTypeController,
                         label: zh ? 'Document 任务类型' : 'Document Task Type',
                         hint: 'RETRIEVAL_DOCUMENT',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingQueryTextPrefixController,
+                        label: zh ? 'Query 文本前缀' : 'Query Text Prefix',
+                        hint: 'query:',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildCompactTextField(
+                        controller: _embeddingDocumentTextPrefixController,
+                        label: zh ? 'Document 文本前缀' : 'Document Text Prefix',
+                        hint: 'passage:',
                       ),
                     ),
                   ],

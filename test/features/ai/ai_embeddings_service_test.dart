@@ -520,6 +520,8 @@ void main() {
       expect(e5?.embeddingMaxInputTokens, 512);
       expect(e5?.embeddingDefaultQueryTaskType, 'query');
       expect(e5?.embeddingDefaultDocumentTaskType, 'passage');
+      expect(e5?.embeddingQueryTextPrefix, 'query:');
+      expect(e5?.embeddingDocumentTextPrefix, 'passage:');
 
       expect(gteQwen?.displayName, 'GTE Qwen2 Embedding');
       expect(gteQwen?.embeddingDimensions, 3584);
@@ -578,6 +580,8 @@ void main() {
         embeddingDefaultTaskType: 'retrieval.passage',
         embeddingDefaultQueryTaskType: 'retrieval.query',
         embeddingDefaultDocumentTaskType: 'retrieval.passage',
+        embeddingQueryTextPrefix: 'query:',
+        embeddingDocumentTextPrefix: 'passage:',
         embeddingEncodingFormats: <String>['float'],
         embeddingDefaultEncodingFormat: 'float',
         embeddingOutputDTypes: <String>['float', 'int8'],
@@ -597,6 +601,8 @@ void main() {
         roundTripped.embeddingDefaultDocumentTaskType,
         'retrieval.passage',
       );
+      expect(roundTripped.embeddingQueryTextPrefix, 'query:');
+      expect(roundTripped.embeddingDocumentTextPrefix, 'passage:');
       expect(roundTripped.embeddingDefaultOutputDType, 'float');
       expect(roundTripped.embeddingDefaultTruncation, 'END');
       expect(roundTripped.embeddingOutputsNormalized, isTrue);

@@ -39,16 +39,20 @@ class KnowledgeEmbeddingService {
     );
     final taskType = _resolvedTaskType(profile, isQuery: isQuery);
     final inputType = _resolvedInputType(profile, isQuery: isQuery);
+    final preparedInputs = _applyTextPrefix(
+      inputs,
+      _resolvedTextPrefix(profile, isQuery: isQuery),
+    );
     final vectors = <List<double>>[];
     var start = 0;
-    while (start < inputs.length) {
+    while (start < preparedInputs.length) {
       final end = _boundedBatchEnd(
-        inputs,
+        preparedInputs,
         start,
         batchSize,
         profile.embeddingMaxTokensPerBatch,
       );
-      final batch = inputs.sublist(start, end);
+      final batch = preparedInputs.sublist(start, end);
       final result = await _embeddings.createEmbeddings(
         model: embeddingModel,
         input: batch,
@@ -164,6 +168,27 @@ class KnowledgeEmbeddingService {
         : profile.embeddingDocumentInputType;
     return _trimmedOrNull(value) ??
         _trimmedOrNull(profile.embeddingDefaultInputType);
+  }
+
+  String? _resolvedTextPrefix(AiModelProfile profile, {required bool isQuery}) {
+    final value = isQuery
+        ? profile.embeddingQueryTextPrefix
+        : profile.embeddingDocumentTextPrefix;
+    return _trimmedOrNull(value);
+  }
+
+  List<String> _applyTextPrefix(List<String> inputs, String? prefix) {
+    final normalizedPrefix = _trimmedOrNull(prefix);
+    if (normalizedPrefix == null) return inputs;
+    return inputs
+        .map((value) => _prefixedText(value, normalizedPrefix))
+        .toList(growable: false);
+  }
+
+  String _prefixedText(String value, String prefix) {
+    final trimmedLeft = value.trimLeft();
+    if (trimmedLeft.startsWith(prefix)) return value;
+    return '$prefix $value';
   }
 
   void dispose() => _embeddings.dispose();
