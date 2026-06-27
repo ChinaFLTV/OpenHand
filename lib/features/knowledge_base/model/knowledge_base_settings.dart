@@ -27,6 +27,13 @@ class KnowledgeBaseSettings {
     this.copyImportedFiles = true,
     this.watchOriginalFiles = false,
     this.maxFileSizeMb = 50,
+    this.documentParsingEngine = 'auto',
+    this.officeParsingEngine = 'open_xml',
+    this.pdfParsingEngine = 'basic_text_stream',
+    this.htmlParsingMode = 'readable_text',
+    this.structuredDataParsingMode = 'readable_markdown',
+    this.spreadsheetParsingMode = 'markdown_table',
+    this.presentationParsingMode = 'slide_text',
     this.chunkStrategy = 'markdown_heading_recursive',
     this.targetTokens = 700,
     this.hardMaxTokens = 1200,
@@ -106,6 +113,25 @@ class KnowledgeBaseSettings {
       copyImportedFiles: _bool(json['copy_imported_files'], true),
       watchOriginalFiles: _bool(json['watch_original_files']),
       maxFileSizeMb: _positiveInt(json['max_file_size_mb'], 50),
+      documentParsingEngine: _string(json['document_parsing_engine'], 'auto'),
+      officeParsingEngine: _string(json['office_parsing_engine'], 'open_xml'),
+      pdfParsingEngine: _string(
+        json['pdf_parsing_engine'],
+        'basic_text_stream',
+      ),
+      htmlParsingMode: _string(json['html_parsing_mode'], 'readable_text'),
+      structuredDataParsingMode: _string(
+        json['structured_data_parsing_mode'],
+        'readable_markdown',
+      ),
+      spreadsheetParsingMode: _string(
+        json['spreadsheet_parsing_mode'],
+        'markdown_table',
+      ),
+      presentationParsingMode: _string(
+        json['presentation_parsing_mode'],
+        'slide_text',
+      ),
       chunkStrategy: _string(
         json['chunk_strategy'],
         'markdown_heading_recursive',
@@ -199,6 +225,13 @@ class KnowledgeBaseSettings {
   final bool copyImportedFiles;
   final bool watchOriginalFiles;
   final int maxFileSizeMb;
+  final String documentParsingEngine;
+  final String officeParsingEngine;
+  final String pdfParsingEngine;
+  final String htmlParsingMode;
+  final String structuredDataParsingMode;
+  final String spreadsheetParsingMode;
+  final String presentationParsingMode;
   final String chunkStrategy;
   final int targetTokens;
   final int hardMaxTokens;
@@ -287,6 +320,13 @@ class KnowledgeBaseSettings {
     bool? copyImportedFiles,
     bool? watchOriginalFiles,
     int? maxFileSizeMb,
+    String? documentParsingEngine,
+    String? officeParsingEngine,
+    String? pdfParsingEngine,
+    String? htmlParsingMode,
+    String? structuredDataParsingMode,
+    String? spreadsheetParsingMode,
+    String? presentationParsingMode,
     String? chunkStrategy,
     int? targetTokens,
     int? hardMaxTokens,
@@ -365,6 +405,17 @@ class KnowledgeBaseSettings {
       copyImportedFiles: copyImportedFiles ?? this.copyImportedFiles,
       watchOriginalFiles: watchOriginalFiles ?? this.watchOriginalFiles,
       maxFileSizeMb: maxFileSizeMb ?? this.maxFileSizeMb,
+      documentParsingEngine:
+          documentParsingEngine ?? this.documentParsingEngine,
+      officeParsingEngine: officeParsingEngine ?? this.officeParsingEngine,
+      pdfParsingEngine: pdfParsingEngine ?? this.pdfParsingEngine,
+      htmlParsingMode: htmlParsingMode ?? this.htmlParsingMode,
+      structuredDataParsingMode:
+          structuredDataParsingMode ?? this.structuredDataParsingMode,
+      spreadsheetParsingMode:
+          spreadsheetParsingMode ?? this.spreadsheetParsingMode,
+      presentationParsingMode:
+          presentationParsingMode ?? this.presentationParsingMode,
       chunkStrategy: chunkStrategy ?? this.chunkStrategy,
       targetTokens: targetTokens ?? this.targetTokens,
       hardMaxTokens: hardMaxTokens ?? this.hardMaxTokens,
@@ -451,6 +502,13 @@ class KnowledgeBaseSettings {
       'copy_imported_files': copyImportedFiles,
       'watch_original_files': watchOriginalFiles,
       'max_file_size_mb': maxFileSizeMb,
+      'document_parsing_engine': documentParsingEngine,
+      'office_parsing_engine': officeParsingEngine,
+      'pdf_parsing_engine': pdfParsingEngine,
+      'html_parsing_mode': htmlParsingMode,
+      'structured_data_parsing_mode': structuredDataParsingMode,
+      'spreadsheet_parsing_mode': spreadsheetParsingMode,
+      'presentation_parsing_mode': presentationParsingMode,
       'chunk_strategy': chunkStrategy,
       'target_tokens': targetTokens,
       'hard_max_tokens': hardMaxTokens,

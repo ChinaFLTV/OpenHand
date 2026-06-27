@@ -13,6 +13,7 @@ import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_source.dart';
+import '../service/knowledge_document_parser.dart';
 import 'knowledge_base_config_dialog.dart';
 import 'knowledge_import_dialog.dart';
 import 'knowledge_source_detail_dialog.dart';
@@ -130,19 +131,7 @@ class KnowledgeBaseView extends StatelessWidget {
       acceptedTypeGroups: <XTypeGroup>[
         XTypeGroup(
           label: isZh ? '知识库文档' : 'Knowledge documents',
-          extensions: const <String>[
-            'md',
-            'markdown',
-            'txt',
-            'dart',
-            'js',
-            'ts',
-            'py',
-            'java',
-            'kt',
-            'swift',
-            'html',
-          ],
+          extensions: KnowledgeDocumentParserRegistry.supportedExtensions,
         ),
       ],
     );
@@ -202,8 +191,8 @@ class _KnowledgeBaseBody extends StatelessWidget {
           icon: Icons.library_books_outlined,
           title: isZh ? '知识库为空' : 'Knowledge Base is empty',
           body: isZh
-              ? '导入 Markdown、TXT 或代码文件，或新建一条笔记来生成本地向量索引。'
-              : 'Import Markdown, TXT, or code files, or create a note to build the local vector index.',
+              ? '导入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT 或代码文件，或新建一条笔记来生成本地向量索引。'
+              : 'Import Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT, or code files, or create a note to build the local vector index.',
           action: FilledButton.icon(
             onPressed: embeddingModel == null || !dependenciesReady
                 ? () => showKnowledgeBaseConfigDialog(
@@ -430,6 +419,11 @@ class _KnowledgeSourceCard extends StatelessWidget {
       'code' => Icons.code_rounded,
       'pdf' => Icons.picture_as_pdf_outlined,
       'html' => Icons.language_rounded,
+      'docx' => Icons.article_outlined,
+      'spreadsheet' => Icons.table_chart_outlined,
+      'presentation' => Icons.slideshow_outlined,
+      'table' => Icons.dataset_outlined,
+      'structured' => Icons.data_object_rounded,
       _ => Icons.description_outlined,
     };
   }

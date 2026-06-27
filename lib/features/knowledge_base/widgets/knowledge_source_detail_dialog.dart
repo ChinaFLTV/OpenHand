@@ -170,6 +170,11 @@ class _SourceDetailBody extends StatelessWidget {
       'code' => isZh ? '代码' : 'Code',
       'pdf' => isZh ? 'PDF' : 'PDF',
       'html' => isZh ? '网页 HTML' : 'HTML',
+      'docx' => isZh ? 'Word 文档' : 'Word document',
+      'spreadsheet' => isZh ? '电子表格' : 'Spreadsheet',
+      'presentation' => isZh ? '演示文稿' : 'Presentation',
+      'table' => isZh ? '表格数据' : 'Table data',
+      'structured' => isZh ? '结构化数据' : 'Structured data',
       'note' => isZh ? '笔记' : 'Note',
       _ => kind.trim().isEmpty ? '-' : kind,
     };

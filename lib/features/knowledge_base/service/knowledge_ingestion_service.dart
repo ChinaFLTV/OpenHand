@@ -11,6 +11,7 @@ import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
 import '../model/knowledge_source.dart';
 import 'knowledge_chunker.dart';
+import 'knowledge_document_parser.dart';
 import 'knowledge_embedding_service.dart';
 import 'knowledge_vector_store.dart';
 
@@ -20,15 +21,19 @@ class KnowledgeIngestionService {
     required KnowledgeEmbeddingService embeddingService,
     required KnowledgeVectorStore vectorStore,
     KnowledgeChunker chunker = const KnowledgeChunker(),
+    KnowledgeDocumentParserRegistry parserRegistry =
+        const KnowledgeDocumentParserRegistry(),
   }) : _store = store,
        _embeddingService = embeddingService,
        _vectorStore = vectorStore,
-       _chunker = chunker;
+       _chunker = chunker,
+       _parserRegistry = parserRegistry;
 
   final KnowledgeBaseStore _store;
   final KnowledgeEmbeddingService _embeddingService;
   final KnowledgeVectorStore _vectorStore;
   final KnowledgeChunker _chunker;
+  final KnowledgeDocumentParserRegistry _parserRegistry;
   final Uuid _uuid = const Uuid();
 
   Future<KnowledgeSource> importFile({
@@ -46,21 +51,31 @@ class KnowledgeIngestionService {
     if (stat.size > maxBytes) {
       throw StateError('文件超过知识库最大单文件大小 ${settings.maxFileSizeMb}MB。');
     }
-    final text = await file.readAsString();
+    final parsed = await _parserRegistry.parse(
+      KnowledgeDocumentParseRequest(
+        file: file,
+        settings: settings,
+        stat: stat,
+        tags: tags,
+      ),
+    );
     final now = DateTime.now().toUtc();
     final sourceId = _uuid.v4();
     final storedPath = settings.copyImportedFiles
         ? await _copyToKnowledgeStorage(file, sourceId)
         : file.path;
+    final title = parsed.title?.trim().isNotEmpty == true
+        ? parsed.title!.trim()
+        : p.basename(file.path);
     var source = KnowledgeSource(
       id: sourceId,
-      title: p.basename(file.path),
-      kind: _kindForPath(file.path),
+      title: title,
+      kind: parsed.kind,
       originalPath: file.path,
       storedPath: storedPath,
-      mimeType: _mimeForPath(file.path),
+      mimeType: parsed.mimeType,
       sizeBytes: stat.size,
-      contentHash: stableFnv1a32Hex(text),
+      contentHash: stableFnv1a32Hex(parsed.text),
       status: 'indexing',
       errorMessage: '',
       documentTime: stat.modified.toUtc(),
@@ -70,16 +85,23 @@ class KnowledgeIngestionService {
       metadata: <String, Object?>{
         'tags': tags,
         'copied_to_openhand_storage': settings.copyImportedFiles,
+        'parser_id': parsed.parserId,
+        'parsed_text_char_count': parsed.text.length,
+        'parsed_text_hash': stableFnv1a32Hex(parsed.text),
+        ...parsed.metadata,
       },
     );
     await _store.upsertSource(source);
     try {
       final chunks = _chunker.chunk(
         source: source,
-        text: text,
+        text: parsed.text,
         settings: settings,
         tags: tags,
       );
+      if (chunks.isEmpty) {
+        throw StateError('文档解析后没有可索引内容。');
+      }
       await _store.replaceChunks(sourceId: source.id, chunks: chunks);
       await _vectorStore.ensureCollection(
         collectionName: settings.effectiveCollectionName,
@@ -145,34 +167,7 @@ class KnowledgeIngestionService {
     }
     final ext = p.extension(file.path);
     final target = File(p.join(root.path, '$sourceId$ext'));
-    await writeFileAtomically(target, await file.readAsString());
+    await writeFileBytesAtomically(target, await file.readAsBytes());
     return target.path;
-  }
-
-  String _kindForPath(String path) {
-    final ext = p.extension(path).toLowerCase();
-    return switch (ext) {
-      '.md' || '.markdown' => 'markdown',
-      '.html' || '.htm' => 'html',
-      '.pdf' => 'pdf',
-      '.dart' ||
-      '.js' ||
-      '.ts' ||
-      '.py' ||
-      '.java' ||
-      '.kt' ||
-      '.swift' => 'code',
-      _ => 'text',
-    };
-  }
-
-  String _mimeForPath(String path) {
-    final ext = p.extension(path).toLowerCase();
-    return switch (ext) {
-      '.md' || '.markdown' => 'text/markdown',
-      '.html' || '.htm' => 'text/html',
-      '.pdf' => 'application/pdf',
-      _ => 'text/plain',
-    };
   }
 }

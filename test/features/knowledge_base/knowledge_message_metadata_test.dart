@@ -17,6 +17,10 @@ void main() {
         topN: 40,
         topK: 5,
         allowQueryCloudEmbedding: true,
+        htmlParsingMode: 'plain_text',
+        structuredDataParsingMode: 'raw_fenced',
+        spreadsheetParsingMode: 'row_blocks',
+        presentationParsingMode: 'outline',
       );
 
       final decoded = KnowledgeBaseSettings.decode(settings.encode());
@@ -28,6 +32,13 @@ void main() {
       expect(decoded.topN, 40);
       expect(decoded.topK, 5);
       expect(decoded.allowQueryCloudEmbedding, isTrue);
+      expect(decoded.documentParsingEngine, 'auto');
+      expect(decoded.officeParsingEngine, 'open_xml');
+      expect(decoded.pdfParsingEngine, 'basic_text_stream');
+      expect(decoded.htmlParsingMode, 'plain_text');
+      expect(decoded.structuredDataParsingMode, 'raw_fenced');
+      expect(decoded.spreadsheetParsingMode, 'row_blocks');
+      expect(decoded.presentationParsingMode, 'outline');
       expect(
         decoded.effectiveCollectionName,
         'openhand_knowledge_provider_a_text_embedding_3_large_1024',

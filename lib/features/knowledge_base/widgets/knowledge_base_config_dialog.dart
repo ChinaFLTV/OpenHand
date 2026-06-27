@@ -12,6 +12,7 @@ import '../../plugin_service/index.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_base_settings.dart';
 import '../service/knowledge_dependency_service.dart';
+import '../service/knowledge_document_parser.dart';
 import 'knowledge_dialog_widgets.dart';
 
 Future<void> showKnowledgeBaseConfigDialog(
@@ -324,8 +325,129 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     context,
                     isZh ? '支持文件' : 'Supported files',
                     isZh
-                        ? 'Markdown、TXT、代码、HTML（PDF 预留）'
-                        : 'Markdown, TXT, code, HTML (PDF reserved)',
+                        ? KnowledgeDocumentParserRegistry.supportedFilesLabelZh
+                        : KnowledgeDocumentParserRegistry.supportedFilesLabelEn,
+                  ),
+                  _dropdown(
+                    label: isZh ? '文档解析引擎' : 'Document parser engine',
+                    value: _settings.documentParsingEngine,
+                    values: const ['auto'],
+                    itemLabel: (value) => switch (value) {
+                      'auto' => isZh ? '自动选择' : 'Auto registry',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          documentParsingEngine: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? 'Office 解析引擎' : 'Office parser engine',
+                    value: _settings.officeParsingEngine,
+                    values: const ['open_xml'],
+                    itemLabel: (value) => switch (value) {
+                      'open_xml' =>
+                        isZh ? 'Open XML 内置解析' : 'Built-in Open XML',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          officeParsingEngine: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? 'PDF 解析引擎' : 'PDF parser engine',
+                    value: _settings.pdfParsingEngine,
+                    values: const ['basic_text_stream'],
+                    itemLabel: (value) => switch (value) {
+                      'basic_text_stream' =>
+                        isZh ? '基础文本流解析' : 'Basic text-stream extraction',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          pdfParsingEngine: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? 'HTML 解析策略' : 'HTML parsing strategy',
+                    value: _settings.htmlParsingMode,
+                    values: const ['readable_text', 'plain_text'],
+                    itemLabel: (value) => switch (value) {
+                      'readable_text' =>
+                        isZh ? '结构化可读文本' : 'Readable structure',
+                      'plain_text' => isZh ? '纯文本提取' : 'Plain text',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          htmlParsingMode: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? '结构化数据策略' : 'Structured data strategy',
+                    value: _settings.structuredDataParsingMode,
+                    values: const ['readable_markdown', 'raw_fenced'],
+                    itemLabel: (value) => switch (value) {
+                      'readable_markdown' =>
+                        isZh ? '可读 Markdown' : 'Readable Markdown',
+                      'raw_fenced' => isZh ? '原文代码块' : 'Raw fenced block',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          structuredDataParsingMode: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? '表格解析策略' : 'Table parsing strategy',
+                    value: _settings.spreadsheetParsingMode,
+                    values: const ['markdown_table', 'row_blocks'],
+                    itemLabel: (value) => switch (value) {
+                      'markdown_table' =>
+                        isZh ? 'Markdown 表格' : 'Markdown table',
+                      'row_blocks' => isZh ? '行块文本' : 'Row blocks',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          spreadsheetParsingMode: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? '演示文稿策略' : 'Presentation strategy',
+                    value: _settings.presentationParsingMode,
+                    values: const ['slide_text', 'outline'],
+                    itemLabel: (value) => switch (value) {
+                      'slide_text' => isZh ? '按幻灯片文本' : 'Slide text',
+                      'outline' => isZh ? '大纲文本' : 'Outline',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          presentationParsingMode: value,
+                        ),
+                      );
+                    },
                   ),
                   _field(
                     _targetTokens,

@@ -81,7 +81,44 @@ Future<void> writeFileAtomically(File targetFile, String content) {
   return current;
 }
 
+/// Writes binary [bytes] to [targetFile] with the same lock/rename/rollback
+/// behavior as [writeFileAtomically].
+Future<void> writeFileBytesAtomically(File targetFile, List<int> bytes) {
+  final key = targetFile.absolute.path;
+  final previous = _writeLocks[key] ?? Future<void>.value();
+  final current = previous
+      .catchError((Object _, StackTrace _) {})
+      .then((_) => _writeFileBytesAtomicallyLocked(targetFile, bytes));
+  _writeLocks[key] = current;
+  current.whenComplete(() {
+    if (identical(_writeLocks[key], current)) {
+      _writeLocks.remove(key);
+    }
+  });
+  return current;
+}
+
 Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
+  await _writeAtomicallyLocked(
+    targetFile,
+    (tempFile) => tempFile.writeAsString(content, flush: true),
+  );
+}
+
+Future<void> _writeFileBytesAtomicallyLocked(
+  File targetFile,
+  List<int> bytes,
+) async {
+  await _writeAtomicallyLocked(
+    targetFile,
+    (tempFile) => tempFile.writeAsBytes(bytes, flush: true),
+  );
+}
+
+Future<void> _writeAtomicallyLocked(
+  File targetFile,
+  Future<void> Function(File tempFile) writeTempFile,
+) async {
   // Ensure the parent directory exists before writing. Without this, writing
   // the `.tmp` file will fail on fresh installs or after the user deletes
   // storage directories.
@@ -101,7 +138,7 @@ Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
   if (await tempFile.exists()) {
     await tempFile.delete();
   }
-  await tempFile.writeAsString(content, flush: true);
+  await writeTempFile(tempFile);
 
   var movedExistingFile = false;
   try {
