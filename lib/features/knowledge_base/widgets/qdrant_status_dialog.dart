@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
@@ -57,7 +58,7 @@ class QdrantStatusDialog extends StatelessWidget {
           ),
           actions: [
             if (data != null)
-              TextButton.icon(
+              OpenHandDialogActionButton.secondary(
                 onPressed: () async {
                   await Clipboard.setData(
                     ClipboardData(
@@ -73,12 +74,12 @@ class QdrantStatusDialog extends StatelessWidget {
                     );
                   }
                 },
-                icon: const Icon(Icons.copy_rounded),
-                label: Text(isZh ? '复制诊断' : 'Copy diagnostics'),
+                icon: Icons.copy_rounded,
+                label: isZh ? '复制诊断' : 'Copy diagnostics',
               ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(isZh ? '关闭' : 'Close'),
+              label: isZh ? '关闭' : 'Close',
             ),
           ],
         );

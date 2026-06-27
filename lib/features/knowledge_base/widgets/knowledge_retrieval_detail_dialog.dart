@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_message_metadata.dart';
@@ -92,7 +93,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton.icon(
+        OpenHandDialogActionButton.secondary(
           onPressed: () async {
             await Clipboard.setData(
               ClipboardData(
@@ -106,12 +107,12 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
               );
             }
           },
-          icon: const Icon(Icons.copy_rounded),
-          label: Text(isZh ? '复制 metadata' : 'Copy metadata'),
+          icon: Icons.copy_rounded,
+          label: isZh ? '复制 metadata' : 'Copy metadata',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '关闭' : 'Close'),
+          label: isZh ? '关闭' : 'Close',
         ),
       ],
     );

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
@@ -114,20 +115,15 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton.icon(
+        OpenHandDialogActionButton.primary(
           onPressed: _saving ? null : _save,
-          icon: _saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save_rounded),
-          label: Text(isZh ? '保存并索引' : 'Save and Index'),
+          icon: Icons.save_rounded,
+          busy: _saving,
+          label: isZh ? '保存并索引' : 'Save and Index',
         ),
       ],
     );

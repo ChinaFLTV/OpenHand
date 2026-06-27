@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
@@ -54,21 +55,21 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
           ),
           actions: [
             if (source != null)
-              TextButton.icon(
+              OpenHandDialogActionButton.secondary(
                 onPressed: () =>
                     Clipboard.setData(ClipboardData(text: source.originalPath)),
-                icon: const Icon(Icons.copy_rounded),
-                label: Text(isZh ? '复制路径' : 'Copy Path'),
+                icon: Icons.copy_rounded,
+                label: isZh ? '复制路径' : 'Copy Path',
               ),
             if (source != null)
-              TextButton.icon(
+              OpenHandDialogActionButton.destructive(
                 onPressed: () => _confirmDelete(context, source),
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: Text(isZh ? '删除' : 'Delete'),
+                icon: Icons.delete_outline_rounded,
+                label: isZh ? '删除' : 'Delete',
               ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(isZh ? '关闭' : 'Close'),
+              label: isZh ? '关闭' : 'Close',
             ),
           ],
         );

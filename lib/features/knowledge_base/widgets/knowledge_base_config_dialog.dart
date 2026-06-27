@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
@@ -617,14 +618,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(isZh ? '取消' : 'Cancel'),
+          label: isZh ? '取消' : 'Cancel',
         ),
-        FilledButton.icon(
+        OpenHandDialogActionButton.primary(
           onPressed: _save,
-          icon: const Icon(Icons.save_rounded),
-          label: Text(isZh ? '保存' : 'Save'),
+          icon: Icons.save_rounded,
+          label: isZh ? '保存' : 'Save',
         ),
       ],
     );

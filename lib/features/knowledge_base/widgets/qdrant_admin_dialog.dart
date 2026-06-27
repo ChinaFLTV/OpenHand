@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
@@ -302,14 +303,14 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         ),
       ),
       actions: [
-        TextButton.icon(
+        OpenHandDialogActionButton.secondary(
           onPressed: _refresh,
-          icon: const Icon(Icons.refresh_rounded),
-          label: Text(isZh ? '刷新' : 'Refresh'),
+          icon: Icons.refresh_rounded,
+          label: isZh ? '刷新' : 'Refresh',
         ),
-        FilledButton(
+        OpenHandDialogActionButton.primary(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: Text(isZh ? '关闭' : 'Close'),
+          label: isZh ? '关闭' : 'Close',
         ),
       ],
     );
