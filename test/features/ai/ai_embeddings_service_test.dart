@@ -142,6 +142,28 @@ void main() {
       expect(profile?.embeddingMaxDimensions, 3072);
       expect(profile?.supportsEmbeddings, isTrue);
     });
+
+    test('recognizes generic local embedding model ids conservatively', () {
+      final embedProfile = AiModelCatalog.lookup(
+        'team/fusion-embed-text',
+        AiProtocolType.ollama,
+      );
+      final vectorProfile = AiModelCatalog.lookup(
+        'semantic-vector-v1',
+        AiProtocolType.vllm,
+      );
+      final chatProfile = AiModelCatalog.lookup(
+        'local-chat-model',
+        AiProtocolType.ollama,
+      );
+
+      expect(embedProfile?.supportsEmbeddings, isTrue);
+      expect(embedProfile?.displayName, 'Generic Embedding');
+      expect(embedProfile?.embeddingDimensions, isNull);
+      expect(embedProfile?.supportedParameters, <String>['input', 'model']);
+      expect(vectorProfile?.supportsEmbeddings, isTrue);
+      expect(chatProfile?.supportsEmbeddings ?? false, isFalse);
+    });
   });
 }
 

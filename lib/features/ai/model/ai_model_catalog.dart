@@ -3357,7 +3357,39 @@ class AiModelCatalog {
         dimensions: 768,
       );
     }
+    if (_looksLikeGenericEmbeddingId(id)) {
+      return _p(
+        name: 'Generic Embedding',
+        desc: 'Generic OpenAI-compatible embedding model',
+        context: 8192,
+        capabilities: _embeddingGen,
+        supportedParameters: _openAiCompatibleEmbeddingParameters,
+        embeddingMaxInputTokens: 8192,
+        embeddingBatchSize: 16,
+        embeddingInputTypes: const <String>['text'],
+        embeddingSimilarityMetric: 'cosine',
+      );
+    }
     return null;
+  }
+
+  static bool _looksLikeGenericEmbeddingId(String id) {
+    if (id.contains('embedding')) return true;
+    if (id.contains('retrieval-vector') || id.contains('semantic-vector')) {
+      return true;
+    }
+    if (id == 'embed' ||
+        id.startsWith('embed-') ||
+        id.startsWith('embed_') ||
+        id.startsWith('embed/') ||
+        id.endsWith('-embed') ||
+        id.endsWith('_embed') ||
+        id.endsWith('/embed')) {
+      return true;
+    }
+    return id.contains('-embed-') ||
+        id.contains('_embed_') ||
+        id.contains('/embed/');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -17,6 +17,35 @@ import '../service/knowledge_dependency_service.dart';
 import '../service/knowledge_document_parser.dart';
 import 'knowledge_dialog_widgets.dart';
 
+const List<String> _knowledgeDistanceMetrics = <String>[
+  'cosine',
+  'dot',
+  'euclidean',
+];
+
+const List<String> _knowledgeChunkStrategies = <String>[
+  'markdown_heading_recursive',
+];
+
+const List<String> _knowledgeDocumentTimeSources = <String>[
+  'front_matter',
+  'file_modified_at',
+  'imported_at',
+];
+
+const List<String> _knowledgeTagFilterModes = <String>['any', 'all'];
+
+const List<String> _knowledgeDateFilterModes = <String>[
+  'hard_when_explicit',
+  'soft_boost',
+  'off',
+];
+
+const List<String> _knowledgeFailureStrategies = <String>[
+  'fail_open',
+  'fail_closed',
+];
+
 Future<void> showKnowledgeBaseConfigDialog(
   BuildContext context, {
   VoidCallback? onOpenPlugins,
@@ -43,13 +72,20 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   late final TextEditingController _maxInputTokens;
   late final TextEditingController _batchSize;
   late final TextEditingController _timeout;
+  late final TextEditingController _retryCount;
+  late final TextEditingController _retryBackoffMs;
+  late final TextEditingController _concurrentRequests;
   late final TextEditingController _qdrantHost;
   late final TextEditingController _qdrantRestPort;
   late final TextEditingController _qdrantGrpcPort;
   late final TextEditingController _collectionName;
+  late final TextEditingController _hnswM;
+  late final TextEditingController _hnswEfConstruct;
+  late final TextEditingController _searchEf;
   late final TextEditingController _targetTokens;
   late final TextEditingController _hardMaxTokens;
   late final TextEditingController _overlapTokens;
+  late final TextEditingController _maxFileSizeMb;
   late final TextEditingController _topN;
   late final TextEditingController _topK;
   late final TextEditingController _minSimilarity;
@@ -58,8 +94,17 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   late final TextEditingController _titleWeight;
   late final TextEditingController _tagWeight;
   late final TextEditingController _timeWeight;
+  late final TextEditingController _exactPhraseWeight;
+  late final TextEditingController _sourceQualityWeight;
+  late final TextEditingController _mmrLambda;
+  late final TextEditingController _maxChunksPerSource;
+  late final TextEditingController _rerankModelId;
+  late final TextEditingController _rerankTopN;
+  late final TextEditingController _rerankTimeout;
   late final TextEditingController _maxPromptChunks;
   late final TextEditingController _maxPromptTokens;
+  late final TextEditingController _qdrantMetricsRefreshSeconds;
+  late final TextEditingController _qdrantLogRetainLines;
 
   @override
   void initState() {
@@ -73,6 +118,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     _timeout = TextEditingController(
       text: '${_settings.requestTimeoutSeconds}',
     );
+    _retryCount = TextEditingController(text: '${_settings.retryCount}');
+    _retryBackoffMs = TextEditingController(
+      text: '${_settings.retryBackoffMs}',
+    );
+    _concurrentRequests = TextEditingController(
+      text: '${_settings.concurrentRequests}',
+    );
     _qdrantHost = TextEditingController(text: _settings.qdrantHost);
     _qdrantRestPort = TextEditingController(
       text: '${_settings.qdrantRestPort}',
@@ -81,9 +133,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       text: '${_settings.qdrantGrpcPort}',
     );
     _collectionName = TextEditingController(text: _settings.collectionName);
+    _hnswM = TextEditingController(text: '${_settings.hnswM}');
+    _hnswEfConstruct = TextEditingController(
+      text: '${_settings.hnswEfConstruct}',
+    );
+    _searchEf = TextEditingController(text: '${_settings.searchEf}');
     _targetTokens = TextEditingController(text: '${_settings.targetTokens}');
     _hardMaxTokens = TextEditingController(text: '${_settings.hardMaxTokens}');
     _overlapTokens = TextEditingController(text: '${_settings.overlapTokens}');
+    _maxFileSizeMb = TextEditingController(text: '${_settings.maxFileSizeMb}');
     _topN = TextEditingController(text: '${_settings.topN}');
     _topK = TextEditingController(text: '${_settings.topK}');
     _minSimilarity = TextEditingController(text: '${_settings.minSimilarity}');
@@ -92,11 +150,32 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     _titleWeight = TextEditingController(text: '${_settings.titleWeight}');
     _tagWeight = TextEditingController(text: '${_settings.tagWeight}');
     _timeWeight = TextEditingController(text: '${_settings.timeWeight}');
+    _exactPhraseWeight = TextEditingController(
+      text: '${_settings.exactPhraseWeight}',
+    );
+    _sourceQualityWeight = TextEditingController(
+      text: '${_settings.sourceQualityWeight}',
+    );
+    _mmrLambda = TextEditingController(text: '${_settings.mmrLambda}');
+    _maxChunksPerSource = TextEditingController(
+      text: '${_settings.maxChunksPerSource}',
+    );
+    _rerankModelId = TextEditingController(text: _settings.rerankModelId);
+    _rerankTopN = TextEditingController(text: '${_settings.rerankTopN}');
+    _rerankTimeout = TextEditingController(
+      text: '${_settings.rerankTimeoutSeconds}',
+    );
     _maxPromptChunks = TextEditingController(
       text: '${_settings.maxPromptChunks}',
     );
     _maxPromptTokens = TextEditingController(
       text: '${_settings.maxPromptTokens}',
+    );
+    _qdrantMetricsRefreshSeconds = TextEditingController(
+      text: '${_settings.qdrantMetricsRefreshSeconds}',
+    );
+    _qdrantLogRetainLines = TextEditingController(
+      text: '${_settings.qdrantLogRetainLines}',
     );
   }
 
@@ -107,13 +186,20 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       _maxInputTokens,
       _batchSize,
       _timeout,
+      _retryCount,
+      _retryBackoffMs,
+      _concurrentRequests,
       _qdrantHost,
       _qdrantRestPort,
       _qdrantGrpcPort,
       _collectionName,
+      _hnswM,
+      _hnswEfConstruct,
+      _searchEf,
       _targetTokens,
       _hardMaxTokens,
       _overlapTokens,
+      _maxFileSizeMb,
       _topN,
       _topK,
       _minSimilarity,
@@ -122,8 +208,17 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       _titleWeight,
       _tagWeight,
       _timeWeight,
+      _exactPhraseWeight,
+      _sourceQualityWeight,
+      _mmrLambda,
+      _maxChunksPerSource,
+      _rerankModelId,
+      _rerankTopN,
+      _rerankTimeout,
       _maxPromptChunks,
       _maxPromptTokens,
+      _qdrantMetricsRefreshSeconds,
+      _qdrantLogRetainLines,
     ]) {
       controller.dispose();
     }
@@ -163,6 +258,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     return parsed == null || parsed <= 0 ? fallback : parsed;
   }
 
+  int _nonNegativeInt(TextEditingController controller, int fallback) {
+    final parsed = int.tryParse(controller.text.trim());
+    return parsed == null || parsed < 0 ? fallback : parsed;
+  }
+
   double _double(TextEditingController controller, double fallback) {
     final parsed = double.tryParse(controller.text.trim());
     if (parsed == null || parsed.isNaN || !parsed.isFinite) return fallback;
@@ -175,16 +275,25 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       maxInputTokens: _int(_maxInputTokens, _settings.maxInputTokens),
       batchSize: _int(_batchSize, _settings.batchSize),
       requestTimeoutSeconds: _int(_timeout, _settings.requestTimeoutSeconds),
+      retryCount: _nonNegativeInt(_retryCount, _settings.retryCount),
+      retryBackoffMs: _int(_retryBackoffMs, _settings.retryBackoffMs),
+      concurrentRequests: _int(
+        _concurrentRequests,
+        _settings.concurrentRequests,
+      ),
       qdrantHost: _qdrantHost.text.trim().isEmpty
           ? _settings.qdrantHost
           : _qdrantHost.text.trim(),
       qdrantRestPort: _int(_qdrantRestPort, _settings.qdrantRestPort),
       qdrantGrpcPort: _int(_qdrantGrpcPort, _settings.qdrantGrpcPort),
       collectionName: _collectionName.text.trim(),
+      hnswM: _int(_hnswM, _settings.hnswM),
+      hnswEfConstruct: _int(_hnswEfConstruct, _settings.hnswEfConstruct),
+      searchEf: _int(_searchEf, _settings.searchEf),
       targetTokens: _int(_targetTokens, _settings.targetTokens),
       hardMaxTokens: _int(_hardMaxTokens, _settings.hardMaxTokens),
-      overlapTokens:
-          int.tryParse(_overlapTokens.text.trim()) ?? _settings.overlapTokens,
+      overlapTokens: _nonNegativeInt(_overlapTokens, _settings.overlapTokens),
+      maxFileSizeMb: _int(_maxFileSizeMb, _settings.maxFileSizeMb),
       topN: _int(_topN, _settings.topN),
       topK: _int(_topK, _settings.topK),
       minSimilarity: _double(_minSimilarity, _settings.minSimilarity),
@@ -193,8 +302,35 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       titleWeight: _double(_titleWeight, _settings.titleWeight),
       tagWeight: _double(_tagWeight, _settings.tagWeight),
       timeWeight: _double(_timeWeight, _settings.timeWeight),
+      exactPhraseWeight: _double(
+        _exactPhraseWeight,
+        _settings.exactPhraseWeight,
+      ),
+      sourceQualityWeight: _double(
+        _sourceQualityWeight,
+        _settings.sourceQualityWeight,
+      ),
+      mmrLambda: _double(_mmrLambda, _settings.mmrLambda),
+      maxChunksPerSource: _int(
+        _maxChunksPerSource,
+        _settings.maxChunksPerSource,
+      ),
+      rerankModelId: _rerankModelId.text.trim(),
+      rerankTopN: _int(_rerankTopN, _settings.rerankTopN),
+      rerankTimeoutSeconds: _int(
+        _rerankTimeout,
+        _settings.rerankTimeoutSeconds,
+      ),
       maxPromptChunks: _int(_maxPromptChunks, _settings.maxPromptChunks),
       maxPromptTokens: _int(_maxPromptTokens, _settings.maxPromptTokens),
+      qdrantMetricsRefreshSeconds: _int(
+        _qdrantMetricsRefreshSeconds,
+        _settings.qdrantMetricsRefreshSeconds,
+      ),
+      qdrantLogRetainLines: _int(
+        _qdrantLogRetainLines,
+        _settings.qdrantLogRetainLines,
+      ),
     );
     await context.read<KnowledgeBaseController>().updateSettings(next);
     if (!mounted) return;
@@ -297,6 +433,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   ),
                   _field(_batchSize, isZh ? '批量大小' : 'Batch size'),
                   _field(_timeout, isZh ? '请求超时秒数' : 'Request timeout seconds'),
+                  _field(_retryCount, isZh ? '失败重试次数' : 'Retry count'),
+                  _field(_retryBackoffMs, isZh ? '重试退避毫秒' : 'Retry backoff ms'),
+                  _field(
+                    _concurrentRequests,
+                    isZh ? '并发请求数' : 'Concurrent requests',
+                  ),
                 ],
               ),
               _section(
@@ -314,6 +456,30 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ? 'Collection 名称（留空自动生成）'
                         : 'Collection name (auto when empty)',
                   ),
+                  _dropdown(
+                    label: isZh ? '距离度量' : 'Distance metric',
+                    value: _settings.distanceMetric,
+                    values: _knowledgeDistanceMetrics,
+                    itemLabel: (value) => switch (value) {
+                      'cosine' => 'Cosine',
+                      'dot' => 'Dot',
+                      'euclidean' => 'Euclidean',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          distanceMetric: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _field(_hnswM, isZh ? 'HNSW M' : 'HNSW M'),
+                  _field(
+                    _hnswEfConstruct,
+                    isZh ? 'HNSW ef_construct' : 'HNSW ef_construct',
+                  ),
+                  _field(_searchEf, isZh ? '搜索 hnsw_ef' : 'Search hnsw_ef'),
                   _switch(
                     isZh ? '自动启动 sidecar' : 'Auto-start sidecar',
                     _settings.autoStartSidecar,
@@ -336,6 +502,25 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     isZh
                         ? KnowledgeDocumentParserRegistry.supportedFilesLabelZh
                         : KnowledgeDocumentParserRegistry.supportedFilesLabelEn,
+                  ),
+                  _dropdown(
+                    label: isZh ? '分块策略' : 'Chunk strategy',
+                    value: _settings.chunkStrategy,
+                    values: _knowledgeChunkStrategies,
+                    itemLabel: (value) => switch (value) {
+                      'markdown_heading_recursive' =>
+                        isZh
+                            ? 'Markdown 标题递归窗口'
+                            : 'Markdown heading recursive windows',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          chunkStrategy: value,
+                        ),
+                      );
+                    },
                   ),
                   _dropdown(
                     label: isZh ? '文档解析引擎' : 'Document parser engine',
@@ -467,6 +652,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     isZh ? '子分块硬上限 token' : 'Child hard max tokens',
                   ),
                   _field(_overlapTokens, isZh ? '重叠 token' : 'Overlap tokens'),
+                  _field(_maxFileSizeMb, isZh ? '单文件 MB 上限' : 'Max file MB'),
                   _switch(
                     isZh ? '复制导入文件' : 'Copy imported files',
                     _settings.copyImportedFiles,
@@ -474,6 +660,17 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       setState(
                         () => _settings = _settings.copyWith(
                           copyImportedFiles: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _switch(
+                    isZh ? '监听原始文件' : 'Watch original files',
+                    _settings.watchOriginalFiles,
+                    (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          watchOriginalFiles: value,
                         ),
                       );
                     },
@@ -518,6 +715,36 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
+                    isZh ? '自动标签建议' : 'Auto tag suggestions',
+                    _settings.autoTagSuggestions,
+                    (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          autoTagSuggestions: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? '文档时间来源' : 'Document time source',
+                    value: _settings.defaultDocumentTimeSource,
+                    values: _knowledgeDocumentTimeSources,
+                    itemLabel: (value) => switch (value) {
+                      'front_matter' => isZh ? 'Front matter' : 'Front matter',
+                      'file_modified_at' =>
+                        isZh ? '文件修改时间' : 'File modified time',
+                      'imported_at' => isZh ? '导入时间' : 'Imported time',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          defaultDocumentTimeSource: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _switch(
                     isZh ? '解析自然语言时间' : 'Parse natural language time',
                     _settings.parseNaturalLanguageTime,
                     (value) {
@@ -550,10 +777,54 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   _field(_topK, isZh ? '最终 topK' : 'topK final'),
                   _field(_minSimilarity, isZh ? '最低相似度' : 'Min similarity'),
                   _field(_sourceCap, isZh ? '单来源上限' : 'Source cap'),
+                  _dropdown(
+                    label: isZh ? '标签过滤模式' : 'Tag filter mode',
+                    value: _settings.tagFilterMode,
+                    values: _knowledgeTagFilterModes,
+                    itemLabel: (value) => switch (value) {
+                      'any' => isZh ? '任一标签命中' : 'Any tag',
+                      'all' => isZh ? '全部标签命中' : 'All tags',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          tagFilterMode: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _dropdown(
+                    label: isZh ? '日期过滤模式' : 'Date filter mode',
+                    value: _settings.dateFilterMode,
+                    values: _knowledgeDateFilterModes,
+                    itemLabel: (value) => switch (value) {
+                      'hard_when_explicit' =>
+                        isZh ? '显式时间硬过滤' : 'Hard when explicit',
+                      'soft_boost' => isZh ? '软加权' : 'Soft boost',
+                      'off' => isZh ? '关闭' : 'Off',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          dateFilterMode: value,
+                        ),
+                      );
+                    },
+                  ),
                   _field(_vectorWeight, isZh ? '向量权重' : 'Vector weight'),
                   _field(_titleWeight, isZh ? '标题权重' : 'Title weight'),
                   _field(_tagWeight, isZh ? '标签权重' : 'Tag weight'),
                   _field(_timeWeight, isZh ? '时间权重' : 'Time weight'),
+                  _field(
+                    _exactPhraseWeight,
+                    isZh ? '精确短语权重' : 'Exact phrase weight',
+                  ),
+                  _field(
+                    _sourceQualityWeight,
+                    isZh ? '来源质量权重' : 'Source quality weight',
+                  ),
                 ],
               ),
               _section(
@@ -566,6 +837,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       () => _settings = _settings.copyWith(mmrEnabled: value),
                     );
                   }),
+                  _field(_mmrLambda, isZh ? 'MMR lambda' : 'MMR lambda'),
                   _switch(
                     isZh ? '邻居扩展' : 'Neighbor expansion',
                     _settings.neighborExpansionEnabled,
@@ -588,6 +860,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       );
                     },
                   ),
+                  _field(
+                    _maxChunksPerSource,
+                    isZh ? '单来源最终 chunk 上限' : 'Max chunks per source',
+                  ),
                   _switch(
                     isZh ? '云端 rerank' : 'Cloud rerank',
                     _settings.cloudRerankEnabled,
@@ -598,6 +874,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ),
                       );
                     },
+                  ),
+                  _field(
+                    _rerankModelId,
+                    isZh ? 'Rerank 模型 ID' : 'Rerank model ID',
+                  ),
+                  _field(_rerankTopN, isZh ? 'Rerank topN' : 'Rerank topN'),
+                  _field(
+                    _rerankTimeout,
+                    isZh ? 'Rerank 超时秒数' : 'Rerank timeout seconds',
                   ),
                 ],
               ),
@@ -655,6 +940,17 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       );
                     },
                   ),
+                  _switch(
+                    isZh ? '包含 chunk ID' : 'Include chunk ID',
+                    _settings.includeChunkId,
+                    (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          includeChunkId: value,
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
               _section(
@@ -665,7 +961,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   _dropdown(
                     label: isZh ? '检索失败策略' : 'Retrieval failure strategy',
                     value: _settings.failureStrategy,
-                    values: const ['fail_open', 'fail_closed'],
+                    values: _knowledgeFailureStrategies,
                     itemLabel: (value) => switch (value) {
                       'fail_open' => isZh ? '失败后继续发送' : 'Fail open',
                       'fail_closed' => isZh ? '失败后阻止发送' : 'Fail closed',
@@ -680,12 +976,36 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
+                    isZh ? 'Embedding 失败继续发送' : 'Fail open on embedding error',
+                    _settings.embeddingFailureStrategy == 'fail_open',
+                    (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          embeddingFailureStrategy: value
+                              ? 'fail_open'
+                              : 'fail_closed',
+                        ),
+                      );
+                    },
+                  ),
+                  _switch(
                     isZh ? '无命中继续发送' : 'Continue when no hits',
                     _settings.continueWhenNoHits,
                     (value) {
                       setState(
                         () => _settings = _settings.copyWith(
                           continueWhenNoHits: value,
+                        ),
+                      );
+                    },
+                  ),
+                  _switch(
+                    isZh ? '发送前预览' : 'Preview before send',
+                    _settings.showPreviewBeforeSend,
+                    (value) {
+                      setState(
+                        () => _settings = _settings.copyWith(
+                          showPreviewBeforeSend: value,
                         ),
                       );
                     },
@@ -762,10 +1082,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     isZh ? 'Collection' : 'Collection',
                     _settings.effectiveCollectionName,
                   ),
-                  _readonly(
-                    context,
-                    isZh ? '距离度量' : 'Distance',
-                    _settings.distanceMetric,
+                  _field(
+                    _qdrantMetricsRefreshSeconds,
+                    isZh ? 'Qdrant 指标刷新秒数' : 'Qdrant metrics refresh seconds',
+                  ),
+                  _field(
+                    _qdrantLogRetainLines,
+                    isZh ? 'Qdrant 日志保留行数' : 'Qdrant log retained lines',
                   ),
                   _switch(
                     isZh ? '启用危险管理操作' : 'Enable dangerous admin operations',
