@@ -203,6 +203,7 @@ class AiModelCatalog {
 
   static const _cohereEmbeddingParameters = <String>[
     'texts',
+    'images',
     'model',
     'input_type',
     'embedding_types',
@@ -2425,7 +2426,7 @@ class AiModelCatalog {
       endpointPath: 'v2/embed',
       batchSize: 96,
       supportedParameters: _cohereEmbeddingParameters,
-      inputTypes: const <String>['search_document', 'search_query'],
+      inputTypes: const <String>['search_document', 'search_query', 'image'],
       defaultInputType: 'search_document',
       queryInputType: 'search_query',
       documentInputType: 'search_document',

@@ -623,7 +623,7 @@ void main() {
         transport: AiTransportClient(client: client),
       );
 
-      await service.createEmbeddings(
+      await service.createEmbedding(
         model: _model(
           protocol: AiProtocolType.openai,
           baseUrl: 'https://api.cohere.com/v2',
@@ -643,6 +643,91 @@ void main() {
       });
       expect(client.bodies.single.containsKey('output_dimension'), isFalse);
     });
+
+    test(
+      'sends Cohere image embedding requests through images payload',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'embeddings': <String, Object?>{
+              'float': <Object?>[
+                <num>[0.1, 0.2],
+              ],
+            },
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+
+        await service.createEmbedding(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://api.cohere.com/v2',
+            modelId: 'embed-multilingual-v3.0',
+          ),
+          input: const <String>['data:image/png;base64,abc'],
+          inputType: 'image',
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'embed-multilingual-v3.0',
+          'images': <String>['data:image/png;base64,abc'],
+          'input_type': 'image',
+          'embedding_types': <String>['float'],
+          'truncate': 'END',
+        });
+        expect(client.bodies.single.containsKey('texts'), isFalse);
+        expect(client.bodies.single.containsKey('inputs'), isFalse);
+      },
+    );
+
+    test(
+      'sends Cohere v4 structured inputs without stringifying content',
+      () async {
+        final client = _RecordingHttpClient(
+          responseBody: <String, Object?>{
+            'embeddings': <String, Object?>{
+              'float': <Object?>[
+                <num>[0.1, 0.2],
+              ],
+            },
+          },
+        );
+        final service = AiEmbeddingsService(
+          transport: AiTransportClient(client: client),
+        );
+        final input = <String, Object?>{
+          'content': <Object?>[
+            <String, Object?>{'type': 'text', 'text': 'invoice'},
+            <String, Object?>{
+              'type': 'image',
+              'image': 'data:image/png;base64,abc',
+            },
+          ],
+        };
+
+        await service.createEmbedding(
+          model: _model(
+            protocol: AiProtocolType.openai,
+            baseUrl: 'https://api.cohere.com/v2',
+            modelId: 'embed-v4.0',
+          ),
+          input: input,
+          inputType: 'search_document',
+        );
+
+        expect(client.bodies.single, <String, Object?>{
+          'model': 'embed-v4.0',
+          'inputs': <Map<String, Object?>>[input],
+          'input_type': 'search_document',
+          'embedding_types': <String>['float'],
+          'truncate': 'END',
+        });
+        expect(client.bodies.single.containsKey('texts'), isFalse);
+        expect(client.bodies.single.containsKey('images'), isFalse);
+      },
+    );
 
     test(
       'sends Voyage embedding requests with typed retrieval params',
@@ -1051,11 +1136,22 @@ void main() {
         expect(cohereLight?.embeddingEndpointPath, 'v2/embed');
         expect(cohereLight?.embeddingMaxInputsPerBatch, 96);
         expect(cohereLight?.embeddingDefaultEncodingFormat, 'float');
+        expect(cohereLight?.embeddingInputTypes, contains('image'));
+        expect(cohereLight?.supportedParameters, contains('images'));
+        expect(cohereLight?.supportedParameters, isNot(contains('inputs')));
         expect(
           cohereLight?.supportedParameters,
           isNot(contains('output_dimension')),
         );
         expect(cohereMultilingualLight?.embeddingDimensions, 384);
+
+        final cohereV4 = AiModelCatalog.lookup(
+          'embed-v4.0',
+          AiProtocolType.openai,
+        );
+        expect(cohereV4?.supportedParameters, contains('inputs'));
+        expect(cohereV4?.supportedParameters, contains('images'));
+        expect(cohereV4?.embeddingSupportsCustomDimensions, isTrue);
 
         expect(voyageLite?.displayName, 'Voyage Embedding');
         expect(voyageLite?.embeddingDimensions, 1024);

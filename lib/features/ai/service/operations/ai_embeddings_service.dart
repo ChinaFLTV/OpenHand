@@ -606,7 +606,7 @@ class _CohereEmbeddingStrategy extends _EmbeddingRequestStrategy {
       family,
       context.withProfileDefaults(<String, Object?>{
         'model': context.modelId,
-        'texts': _stringInputList(context.input),
+        ..._cohereInputPayload(context),
         if (context.trimmedInputType != null)
           'input_type': context.trimmedInputType,
         if (embeddingType != null) 'embedding_types': <String>[embeddingType],
@@ -919,6 +919,54 @@ List<String> _stringInputList(Object input) {
     return input.map((item) => '$item').toList(growable: false);
   }
   return <String>['$input'];
+}
+
+Map<String, Object?> _cohereInputPayload(_EmbeddingRequestContext context) {
+  final structuredInputs = context.supportsParameter('inputs')
+      ? _cohereStructuredInputsOrNull(context.input)
+      : null;
+  if (structuredInputs != null) {
+    return <String, Object?>{'inputs': structuredInputs};
+  }
+  final inputType = context.trimmedInputType?.toLowerCase();
+  if (inputType == 'image' && context.supportsParameter('images')) {
+    return <String, Object?>{'images': _stringInputList(context.input)};
+  }
+  return <String, Object?>{'texts': _stringInputList(context.input)};
+}
+
+List<Map<String, Object?>>? _cohereStructuredInputsOrNull(Object input) {
+  if (input is Map<String, Object?>) {
+    return _isCohereStructuredInput(input)
+        ? <Map<String, Object?>>[input]
+        : null;
+  }
+  if (input is Map) {
+    final map = Map<String, Object?>.from(input);
+    return _isCohereStructuredInput(map) ? <Map<String, Object?>>[map] : null;
+  }
+  if (input is! List) return null;
+  final inputs = <Map<String, Object?>>[];
+  for (final item in input) {
+    if (item is Map<String, Object?>) {
+      if (!_isCohereStructuredInput(item)) return null;
+      inputs.add(item);
+      continue;
+    }
+    if (item is Map) {
+      final map = Map<String, Object?>.from(item);
+      if (!_isCohereStructuredInput(map)) return null;
+      inputs.add(map);
+      continue;
+    }
+    return null;
+  }
+  return inputs;
+}
+
+bool _isCohereStructuredInput(Map<String, Object?> value) {
+  final content = value['content'];
+  return content is List && content.isNotEmpty;
 }
 
 List<List<String>> _perplexityContextualizedInput(Object input) {
