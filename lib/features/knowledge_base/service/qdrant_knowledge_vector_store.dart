@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:uuid/uuid.dart';
+
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
 import 'knowledge_vector_store.dart';
+
+const Uuid _qdrantPointUuid = Uuid();
 
 class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   QdrantKnowledgeVectorStore({required this.settings});
@@ -85,7 +89,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         'points': points
             .map(
               (point) => <String, Object?>{
-                'id': point.id,
+                'id': qdrantPointIdForStableId(point.id),
                 'vector': point.vector,
                 'payload': point.payload,
               },
@@ -218,6 +222,20 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
       _ => 'Cosine',
     };
   }
+}
+
+Object qdrantPointIdForStableId(String value) {
+  final normalized = value.trim();
+  if (normalized.isEmpty) {
+    throw const FormatException('Qdrant point id cannot be empty.');
+  }
+  if (Uuid.isValidUUID(fromString: normalized)) return normalized;
+  final unsigned = int.tryParse(normalized);
+  if (unsigned != null && unsigned >= 0) return unsigned;
+  return _qdrantPointUuid.v5(
+    Namespace.url.value,
+    'openhand:qdrant-point:$normalized',
+  );
 }
 
 class _QdrantResponse {
