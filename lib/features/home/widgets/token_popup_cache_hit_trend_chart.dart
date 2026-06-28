@@ -42,7 +42,7 @@ List<Offset> tokenPopupCacheHitTrendAnimatedPolyline({
   Offset pointFor(int index) {
     final ratio = ratios[index].clamp(0.0, 1.0);
     return Offset(
-      chartRect.left + stepX * index,
+      ratios.length <= 1 ? chartRect.center.dx : chartRect.left + stepX * index,
       chartRect.bottom - chartRect.height * ratio,
     );
   }
@@ -211,7 +211,7 @@ class _TokenPopupCacheHitTrendChartState
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    if (!displayData.trend.hasEnoughPoints) {
+    if (displayData.trend.points.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -364,7 +364,10 @@ class _TokenPopupCacheHitTrendChartState
                 //   1) 首尾各偏 8px（Row 起点 = chartRect.left - 8，终点 = Stack 右边），
                 //   2) 中间标签落在 Row 几何中点，但可见点中点位于 chartRect.width
                 //      * (length/2) / (length-1) 处，对 4 点而言是 2/3 宽而非 1/2 宽。
-                final startX = chartRect.left;
+                final singlePoint = visiblePoints.length == 1;
+                final startX = singlePoint
+                    ? chartRect.center.dx
+                    : chartRect.left;
                 final endX = chartRect.right;
                 final middleIndex = visiblePoints.length ~/ 2;
                 final middleX = visiblePoints.length > 1
@@ -610,16 +613,17 @@ class _TokenPopupCacheHitTrendChartState
                                         ),
                                       ),
                                     ),
-                                  Positioned(
-                                    left: endX - 16,
-                                    width: 32,
-                                    child: Center(
-                                      child: Text(
-                                        '$endTurn',
-                                        style: valueStyle,
+                                  if (!singlePoint)
+                                    Positioned(
+                                      left: endX - 16,
+                                      width: 32,
+                                      child: Center(
+                                        child: Text(
+                                          '$endTurn',
+                                          style: valueStyle,
+                                        ),
                                       ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -869,9 +873,6 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.length < 2) {
-      return;
-    }
     const padding = EdgeInsets.fromLTRB(30, 8, 8, 22);
     final chart = Rect.fromLTWH(
       padding.left,
@@ -901,6 +902,13 @@ class _TokenPopupCacheHitTrendDynamicPainter extends CustomPainter {
       progress: progress,
     );
     if (polyline.length < 2) {
+      if (polyline.length == 1) {
+        canvas.drawCircle(
+          polyline.single,
+          3.8,
+          Paint()..color = colorScheme.primary,
+        );
+      }
       return;
     }
 

@@ -142,7 +142,7 @@ export default function CacheHitTrendChart({
   }, [points, displayMode]);
 
   const excludedCount = points.length - filteredPoints.length;
-  const hasEnough = filteredPoints.length >= 2;
+  const hasDrawablePoints = filteredPoints.length >= 1;
 
   const [viewport, setViewport] = useState<Viewport>(() =>
     viewportFull(filteredPoints.length),
@@ -220,7 +220,7 @@ export default function CacheHitTrendChart({
     const stepX =
       visiblePoints.length <= 1 ? chartW : chartW / (visiblePoints.length - 1);
     return visiblePoints.map((p, i) => ({
-      x: PAD_LEFT + stepX * i,
+      x: PAD_LEFT + (visiblePoints.length <= 1 ? chartW / 2 : stepX * i),
       y: PAD_TOP + chartH - chartH * Math.min(1, Math.max(0, p.hitRatio)),
       hitRatio: p.hitRatio,
       turnIndex: p.turnIndex,
@@ -318,7 +318,7 @@ export default function CacheHitTrendChart({
     [viewport, chartW, totalW],
   );
 
-  if (!hasEnough) {
+  if (!hasDrawablePoints) {
     return (
       <div
         ref={containerRef}
@@ -355,20 +355,16 @@ export default function CacheHitTrendChart({
           class="text-xs"
           style={{ color: 'var(--m3-on-surface-variant)' }}
         >
-          {filteredPoints.length === 0
-            ? t2(
-                'tokenPopup.trendNoData',
-                '尚无缓存命中率数据，发送消息后将在此展示走势。',
-              )
-            : t2(
-                'tokenPopup.trendNeedMore',
-                '需至少 2 轮对话方可绘制走势图。',
-              )}
+          {t2(
+            'tokenPopup.trendNoData',
+            '尚无缓存命中率数据，发送消息后将在此展示走势。',
+          )}
         </div>
       </div>
     );
   }
 
+  const singlePoint = visiblePoints.length === 1;
   const notFullRange = !viewportIsFullRange(viewport);
 
   return (
@@ -638,7 +634,7 @@ export default function CacheHitTrendChart({
 
           {/* X axis labels: first, middle (if distinct), last */}
           <text
-            x={PAD_LEFT}
+            x={singlePoint ? PAD_LEFT + chartW / 2 : PAD_LEFT}
             y={PAD_TOP + chartH + 14}
             text-anchor="middle"
             fill="var(--m3-on-surface-variant)"
@@ -659,16 +655,18 @@ export default function CacheHitTrendChart({
               {middleTurn}
             </text>
           ) : null}
-          <text
-            x={PAD_LEFT + chartW}
-            y={PAD_TOP + chartH + 14}
-            text-anchor="middle"
-            fill="var(--m3-on-surface-variant)"
-            font-size="9"
-            style={{ fontFeatureSettings: '"tnum" 1' }}
-          >
-            {lastTurn}
-          </text>
+          {!singlePoint ? (
+            <text
+              x={PAD_LEFT + chartW}
+              y={PAD_TOP + chartH + 14}
+              text-anchor="middle"
+              fill="var(--m3-on-surface-variant)"
+              font-size="9"
+              style={{ fontFeatureSettings: '"tnum" 1' }}
+            >
+              {lastTurn}
+            </text>
+          ) : null}
         </svg>
 
         {/* Hover overlay: glowing circle + tooltip */}
