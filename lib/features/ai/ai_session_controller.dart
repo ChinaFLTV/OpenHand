@@ -22,6 +22,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
@@ -11320,17 +11321,7 @@ $tail''';
   }
 
   bool? _readBool(Object? rawValue) {
-    if (rawValue is bool) {
-      return rawValue;
-    }
-    final normalized = '$rawValue'.trim().toLowerCase();
-    if (normalized == 'true') {
-      return true;
-    }
-    if (normalized == 'false') {
-      return false;
-    }
-    return null;
+    return optionalBoolFromValue(rawValue);
   }
 
   AiSession _mergeLiveSessionState(

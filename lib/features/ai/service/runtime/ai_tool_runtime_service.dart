@@ -1397,7 +1397,7 @@ class AiToolRuntimeService {
     var dispatchArguments = decodedArguments;
     var dispatchMetadata = const <String, Object?>{};
     if (kind == AiBuiltinToolKind.bash &&
-        _readBoolArgument(decodedArguments['run_in_background']) == true) {
+        AiToolUtils.readBool(decodedArguments['run_in_background']) == true) {
       final backgroundTool = _findResolvedBuiltinTool(
         catalog,
         AiBuiltinToolKind.bashBackground,
@@ -1489,14 +1489,6 @@ class AiToolRuntimeService {
         return tool;
       }
     }
-    return null;
-  }
-
-  bool? _readBoolArgument(Object? rawValue) {
-    if (rawValue is bool) return rawValue;
-    final normalized = '$rawValue'.trim().toLowerCase();
-    if (normalized == 'true') return true;
-    if (normalized == 'false') return false;
     return null;
   }
 
