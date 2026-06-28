@@ -3030,6 +3030,11 @@ class AiToolRuntimeService {
             'description':
                 'Optional list of file or directory paths to analyze. If empty, analyzes the whole workspace.',
           },
+          'working_directory': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Directory to run analysis from. Relative paths are resolved against the default working directory.',
+          },
         },
         'additionalProperties': false,
       },

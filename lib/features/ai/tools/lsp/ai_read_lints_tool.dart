@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_execution_registry.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -65,13 +66,11 @@ class AiReadLintsTool extends AiTool {
 
   List<String> _parsePaths(Object? value) {
     if (value is List) {
-      return value
-          .map((item) => '$item'.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false);
+      return stringListFromValue(value);
     }
     if (value is String && value.trim().isNotEmpty) {
-      return <String>[value.trim()];
+      final jsonList = optionalStringListFromJsonText(value, requireList: true);
+      return jsonList ?? <String>[value.trim()];
     }
     return const <String>[];
   }
@@ -87,12 +86,15 @@ class AiReadLintsTool extends AiTool {
         _pubspecMentionsFlutter(p.join(workingDirectory, 'pubspec.yaml'));
 
     final executable = usesFlutter ? 'flutter' : 'dart';
-    final analyzeArgs = <String>['analyze', '--no-fatal-infos'];
+    final analyzeArgs = <String>[
+      'analyze',
+      if (usesFlutter) '--no-fatal-infos',
+    ];
 
     // If specific paths given, analyze those; otherwise analyze from root
     if (paths.isNotEmpty) {
       for (final path in paths) {
-        analyzeArgs.add(AiToolUtils.resolvePath(path));
+        analyzeArgs.add(_resolveAnalyzePath(path, workingDirectory));
       }
     }
 
@@ -179,6 +181,14 @@ class AiReadLintsTool extends AiTool {
           '... (diagnostics truncated)';
     }
     return output;
+  }
+
+  String _resolveAnalyzePath(String path, String workingDirectory) {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty) return workingDirectory;
+    return p.isAbsolute(trimmed)
+        ? p.normalize(trimmed)
+        : p.normalize(p.join(workingDirectory, trimmed));
   }
 
   bool _pubspecMentionsFlutter(String pubspecPath) {
