@@ -3226,9 +3226,10 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.knowledgeSearch,
       name: 'KnowledgeSearch',
       description:
-          'Read-only search over the local OpenHand Knowledge Base SQLite metadata/chunks. '
-          'Use this when local Knowledge Base context may help answer the user. '
-          'Call KnowledgeRead with a returned chunk_id or source_id when full content is needed.',
+          'Read-only ranked search over local OpenHand Knowledge Base chunks. '
+          'Use this as the Knowledge Base search path; it returns chunk_id values ranked by chunk content, title, and heading. '
+          'Call KnowledgeRead with a returned chunk_id when exact chunk content is needed. '
+          'Do not use filesystem Read/Grep on source paths as a substitute for Knowledge Base retrieval.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3269,8 +3270,8 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.knowledgeRead,
       name: 'KnowledgeRead',
       description:
-          'Read-only fetch for Knowledge Base content by chunk_id or source_id. '
-          'Returns source, date, tags/metadata where available, and chunk content.',
+          'Read-only fetch for Knowledge Base chunks. Prefer chunk_id returned by KnowledgeSearch. '
+          'source_id is limited to a small preview and must not be used to dump a whole document.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3280,13 +3281,20 @@ class AiToolRuntimeService {
           },
           'source_id': <String, Object?>{
             'type': 'string',
-            'description': 'A source id; returns its first chunks.',
+            'description':
+                'Optional source id. Without chunk_id/around_chunk_id, returns only a small source preview.',
+          },
+          'around_chunk_id': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Read a small ordered window around a concrete chunk id.',
           },
           'limit': <String, Object?>{
             'type': 'integer',
             'minimum': 1,
-            'maximum': 50,
-            'description': 'For source_id reads, maximum chunks to return.',
+            'maximum': 8,
+            'description':
+                'Maximum chunks to return for a chunk window or source preview. Defaults to 4.',
           },
         },
         'anyOf': <Object?>[
@@ -3295,6 +3303,9 @@ class AiToolRuntimeService {
           },
           <String, Object?>{
             'required': <String>['source_id'],
+          },
+          <String, Object?>{
+            'required': <String>['around_chunk_id'],
           },
         ],
         'additionalProperties': false,

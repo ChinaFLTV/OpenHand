@@ -7147,11 +7147,23 @@ Map<String, Object?>? _knowledgeBaseMetadataFromRoundToolMessages(
   final results = <Map<String, Object?>>[];
   final queries = <String>[];
   final seen = <String>{};
+  Map<String, Object?>? embedding;
+  final retrievalSteps = <Map<String, Object?>>[];
+  final rerankSteps = <Map<String, Object?>>[];
+  Map<String, Object?>? vectorDistribution;
   for (final message in messages) {
     final extracted = _knowledgeBaseMetadataFromToolMessage(message);
     if (extracted == null) continue;
     final query = '${extracted['query'] ?? ''}'.trim();
     if (query.isNotEmpty) queries.add(query);
+    embedding ??= KnowledgeMessageMetadata.object(extracted['embedding']);
+    final retrieval = KnowledgeMessageMetadata.object(extracted['retrieval']);
+    if (retrieval != null) retrievalSteps.add(retrieval);
+    final rerank = KnowledgeMessageMetadata.object(extracted['rerank']);
+    if (rerank != null) rerankSteps.add(rerank);
+    vectorDistribution ??= KnowledgeMessageMetadata.object(
+      extracted['vector_distribution'],
+    );
     for (final result in _knowledgeBaseResultMaps(extracted)) {
       final label = _knowledgeBaseCitationLabel(result);
       final key = _knowledgeBaseCitationKey(result, label);
@@ -7164,6 +7176,18 @@ Map<String, Object?>? _knowledgeBaseMetadataFromRoundToolMessages(
     'enabled': true,
     'status': 'success',
     'query': queries.toSet().join(' | '),
+    if (embedding != null) 'embedding': embedding,
+    if (retrievalSteps.isNotEmpty)
+      'retrieval': _knowledgeToolStepMetadata(
+        strategy: 'knowledge_tools',
+        steps: retrievalSteps,
+      ),
+    if (rerankSteps.isNotEmpty)
+      'rerank': _knowledgeToolStepMetadata(
+        strategy: 'knowledge_tools',
+        steps: rerankSteps,
+      ),
+    if (vectorDistribution != null) 'vector_distribution': vectorDistribution,
     'results': results,
     'prompt_append': <String, Object?>{
       'chunk_count': results.length,
@@ -7205,17 +7229,32 @@ Map<String, Object?>? _knowledgeBaseMetadataFromToolMessage(
   }
   final rawResults = _knowledgeToolResultRows(message.metadata);
   if (rawResults.isEmpty) return null;
+  final toolKnowledgeMetadata = _knowledgeToolKnowledgeMetadata(
+    message.metadata,
+  );
   final results = rawResults
       .map(isRead ? _knowledgeReadRowToMessageHit : _knowledgeSearchRowToHit)
       .where((hit) => _knowledgeBaseCitationLabel(hit).isNotEmpty)
       .toList(growable: false);
   if (results.isEmpty) return null;
+  final promptAppend =
+      KnowledgeMessageMetadata.promptAppendInfo(toolKnowledgeMetadata ?? {}) ??
+      const <String, Object?>{};
   return <String, Object?>{
     'enabled': true,
     'status': 'success',
     'query': _knowledgeToolQuery(message.metadata, isRead: isRead),
+    if (toolKnowledgeMetadata?['embedding'] != null)
+      'embedding': toolKnowledgeMetadata!['embedding'],
+    if (toolKnowledgeMetadata?['retrieval'] != null)
+      'retrieval': toolKnowledgeMetadata!['retrieval'],
+    if (toolKnowledgeMetadata?['rerank'] != null)
+      'rerank': toolKnowledgeMetadata!['rerank'],
+    if (toolKnowledgeMetadata?['vector_distribution'] != null)
+      'vector_distribution': toolKnowledgeMetadata!['vector_distribution'],
     'results': results,
     'prompt_append': <String, Object?>{
+      ...promptAppend,
       'chunk_count': results.length,
       'token_estimate': results.fold<int>(
         0,
@@ -7226,10 +7265,40 @@ Map<String, Object?>? _knowledgeBaseMetadataFromToolMessage(
   };
 }
 
+Map<String, Object?> _knowledgeToolStepMetadata({
+  required String strategy,
+  required List<Map<String, Object?>> steps,
+}) {
+  if (steps.length == 1) return steps.single;
+  final durationMs = steps.fold<int>(
+    0,
+    (total, step) =>
+        total + nonNegativeIntFromValue(step['duration_ms'], fallback: 0),
+  );
+  return <String, Object?>{
+    'strategy': strategy,
+    'step_count': steps.length,
+    if (durationMs > 0) 'duration_ms': durationMs,
+    'steps': steps,
+  };
+}
+
+Map<String, Object?>? _knowledgeToolKnowledgeMetadata(
+  Map<String, Object?> metadata,
+) {
+  return KnowledgeMessageMetadata.object(
+        metadata[knowledgeBaseMessageMetadataKey],
+      ) ??
+      (metadata.containsKey('retrieval') || metadata.containsKey('rerank')
+          ? metadata
+          : null);
+}
+
 List<Map<String, Object?>> _knowledgeToolResultRows(
   Map<String, Object?> metadata,
 ) {
-  final direct = metadata['results'];
+  final toolKnowledgeMetadata = _knowledgeToolKnowledgeMetadata(metadata);
+  final direct = metadata['results'] ?? toolKnowledgeMetadata?['results'];
   if (direct is List) {
     return direct
         .whereType<Map>()
@@ -7261,7 +7330,9 @@ String _knowledgeToolQuery(
   Map<String, Object?> metadata, {
   required bool isRead,
 }) {
-  final direct = '${metadata['query'] ?? ''}'.trim();
+  final toolKnowledgeMetadata = _knowledgeToolKnowledgeMetadata(metadata);
+  final direct = '${metadata['query'] ?? toolKnowledgeMetadata?['query'] ?? ''}'
+      .trim();
   if (direct.isNotEmpty) return direct;
   final args = _knowledgeToolArguments(metadata['tool_arguments']);
   if (!isRead) return '${args['query'] ?? ''}'.trim();
