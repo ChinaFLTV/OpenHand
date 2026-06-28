@@ -16,6 +16,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 const double _kMockRulesDialogMaxWidth = 1080;
@@ -124,16 +125,13 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     try {
       final data = await Clipboard.getData('text/plain');
       final text = data?.text ?? '';
-      final decoded = jsonDecode(text);
-      if (decoded is! List) throw Exception('expected array');
+      final entries = decodeStringKeyedJsonMapList(text);
+      if (entries == null) throw const FormatException('expected array');
       if (!mounted) return;
       setState(() {
-        _draft = decoded
-            .whereType<Map>()
-            .map(
-              (e) => WebReverseMockRule.fromJson(Map<String, Object?>.from(e)),
-            )
-            .toList();
+        _draft = entries
+            .map(WebReverseMockRule.fromJson)
+            .toList(growable: false);
         _selected = _draft.isEmpty ? -1 : 0;
       });
       if (m != null) {

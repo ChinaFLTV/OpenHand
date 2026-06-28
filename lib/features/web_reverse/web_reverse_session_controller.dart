@@ -8737,17 +8737,23 @@ class WebReverseMockRule {
 
   factory WebReverseMockRule.fromJson(Map<String, Object?> j) =>
       WebReverseMockRule(
-        id: '${j['id'] ?? ''}',
-        name: '${j['name'] ?? ''}',
-        urlPattern: '${j['urlPattern'] ?? ''}',
-        enabled: j['enabled'] != false,
-        methodFilter: '${j['method'] ?? ''}',
-        statusCode: intFromValue(j['status'], fallback: 200),
-        contentType: '${j['contentType'] ?? 'application/json; charset=utf-8'}',
-        body: '${j['body'] ?? ''}',
-        extraHeaders:
-            (j['headers'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
-            const <String, String>{},
+        id: stringFromValue(j['id']),
+        name: stringFromValue(j['name']),
+        urlPattern: stringFromValue(j['urlPattern']),
+        enabled: boolFromValue(j['enabled'], defaultValue: true),
+        methodFilter: stringFromValue(j['method']),
+        statusCode: clampedIntFromValue(
+          j['status'],
+          fallback: 200,
+          min: 100,
+          max: 599,
+        ),
+        contentType: stringFromValue(
+          j['contentType'],
+          fallback: 'application/json; charset=utf-8',
+        ),
+        body: stringFromValue(j['body']),
+        extraHeaders: _mockRuleHeadersFromValue(j['headers']),
       );
 
   final String id;
@@ -8804,6 +8810,18 @@ class WebReverseMockRule {
     'body': body,
     'headers': extraHeaders,
   };
+}
+
+Map<String, String> _mockRuleHeadersFromValue(Object? value) {
+  final raw = stringKeyedMapFromValue(value);
+  if (raw.isEmpty) return const <String, String>{};
+  final headers = <String, String>{};
+  for (final entry in raw.entries) {
+    final name = stringFromValue(entry.key);
+    if (name.isEmpty) continue;
+    headers[name] = stringFromValue(entry.value);
+  }
+  return Map<String, String>.unmodifiable(headers);
 }
 
 /// 单次 mock 命中记录。
