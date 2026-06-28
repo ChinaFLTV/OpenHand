@@ -24,4 +24,22 @@ void main() {
     );
     expect(AiToolUtils.readClampedInt('12', fallback: 6, min: 20, max: 1), 12);
   });
+
+  test('tool boolean parsing accepts common finite flag forms', () {
+    expect(AiToolUtils.readBool(true), isTrue);
+    expect(AiToolUtils.readBool(false), isFalse);
+    expect(AiToolUtils.readBool(1), isTrue);
+    expect(AiToolUtils.readBool(0), isFalse);
+    expect(AiToolUtils.readBool('1.0'), isTrue);
+    expect(AiToolUtils.readBool('yes'), isTrue);
+    expect(AiToolUtils.readBool('on'), isTrue);
+    expect(AiToolUtils.readBool('enabled'), isTrue);
+    expect(AiToolUtils.readBool('no'), isFalse);
+    expect(AiToolUtils.readBool('off'), isFalse);
+    expect(AiToolUtils.readBool('disabled'), isFalse);
+    expect(AiToolUtils.readBool(2), isNull);
+    expect(AiToolUtils.readBool(0.5), isNull);
+    expect(AiToolUtils.readBool(double.nan), isNull);
+    expect(AiToolUtils.readBool('bad'), isNull);
+  });
 }

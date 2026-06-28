@@ -460,9 +460,24 @@ class AiToolUtils {
 
   static bool? readBool(Object? value) {
     if (value is bool) return value;
+    final integral = optionalIntegralIntFromValue(value);
+    if (integral == 1) return true;
+    if (integral == 0) return false;
     final normalized = '$value'.trim().toLowerCase();
-    if (normalized == 'true') return true;
-    if (normalized == 'false') return false;
+    if (normalized == 'true' ||
+        normalized == 'yes' ||
+        normalized == 'y' ||
+        normalized == 'on' ||
+        normalized == 'enabled') {
+      return true;
+    }
+    if (normalized == 'false' ||
+        normalized == 'no' ||
+        normalized == 'n' ||
+        normalized == 'off' ||
+        normalized == 'disabled') {
+      return false;
+    }
     return null;
   }
 

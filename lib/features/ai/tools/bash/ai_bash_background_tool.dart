@@ -654,12 +654,7 @@ class AiBashBackgroundTool extends AiTool {
   }
 
   bool _readBool(Object? rawValue, {required bool defaultValue}) {
-    if (rawValue == null) return defaultValue;
-    if (rawValue is bool) return rawValue;
-    final normalized = '$rawValue'.trim().toLowerCase();
-    if (normalized == 'true') return true;
-    if (normalized == 'false') return false;
-    return defaultValue;
+    return AiToolUtils.readBool(rawValue) ?? defaultValue;
   }
 
   int _normalizeTaskOutputTimeoutMs(int? value) {
