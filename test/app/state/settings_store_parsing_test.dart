@@ -42,6 +42,8 @@ void main() {
         'mcp_enabled': 'false',
         'memory_enabled': 0,
         'editor_word_wrap': 'off',
+        'ai_message_compression_threshold_chars': '24000',
+        'ai_tool_result_compression_threshold_chars': '2048',
         'ai_tool_result_compression_enabled': 'no',
         'ai_micro_compression_enabled': 'disabled',
         'ai_input_cache_enabled': 'false',
@@ -60,6 +62,30 @@ void main() {
         'show_self_learning_messages': 'false',
         'cron_auto_cleanup_enabled': 'no',
         'reduce_motion': 'on',
+        'ai_models': jsonEncode(<Object?>[
+          <String, Object?>{
+            'id': 'model-1',
+            'name': 'Model One',
+            'base_url': 'https://api.example.test/v1',
+            'auth_scheme': 'bearer',
+            'token': 'token',
+            'model_id': 'gpt-test',
+            'protocol_type': 'openai',
+          },
+          <String, Object?>{
+            'id': 'invalid-url',
+            'base_url': 'not-a-url',
+            'auth_scheme': 'bearer',
+            'token': 'token',
+            'model_id': 'bad',
+            'protocol_type': 'openai',
+          },
+        ]),
+        'selected_ai_model_id': 'model-1',
+        'recent_model_selections': jsonEncode(<Object?>[
+          <String, Object?>{'config_id': 123, 'model_id': 456},
+          <String, Object?>{'config_id': 'missing-model', 'model_id': ''},
+        ]),
       }),
     });
 
@@ -70,6 +96,8 @@ void main() {
     expect(snapshot.mcpEnabled, isFalse);
     expect(snapshot.memoryEnabled, isFalse);
     expect(snapshot.editorWordWrap, isFalse);
+    expect(snapshot.aiMessageCompressionThresholdChars, 24000);
+    expect(snapshot.aiToolResultCompressionThresholdChars, 2048);
     expect(snapshot.aiToolResultCompressionEnabled, isFalse);
     expect(snapshot.aiMicroCompressionEnabled, isFalse);
     expect(snapshot.aiInputCacheEnabled, isFalse);
@@ -88,5 +116,11 @@ void main() {
     expect(snapshot.showSelfLearningMessages, isFalse);
     expect(snapshot.cronAutoCleanupEnabled, isFalse);
     expect(snapshot.reduceMotion, isTrue);
+    expect(snapshot.aiModels, hasLength(1));
+    expect(snapshot.aiModels.single.id, 'model-1');
+    expect(snapshot.selectedAiModelId, 'model-1');
+    expect(snapshot.recentModelSelections, hasLength(1));
+    expect(snapshot.recentModelSelections.single.configId, '123');
+    expect(snapshot.recentModelSelections.single.modelId, '456');
   });
 }

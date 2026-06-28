@@ -14,6 +14,7 @@ import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/dialog_animation_settings.dart';
@@ -1221,10 +1222,11 @@ class AppSettingsSnapshot {
 class RecentModelSelection {
   const RecentModelSelection({required this.configId, required this.modelId});
 
-  factory RecentModelSelection.fromJson(Map<String, Object?> json) {
+  factory RecentModelSelection.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return RecentModelSelection(
-      configId: '${json['config_id'] ?? ''}'.trim(),
-      modelId: '${json['model_id'] ?? ''}'.trim(),
+      configId: stringFromValue(json['config_id']),
+      modelId: stringFromValue(json['model_id']),
     );
   }
 

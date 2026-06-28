@@ -462,17 +462,21 @@ class SettingsStore {
       };
     }
     final aiMessageCompressionThresholdChars =
-        json['ai_message_compression_threshold_chars'] is int
-        ? AppSettingsSnapshot.normalizeAiMessageCompressionThresholdChars(
-            json['ai_message_compression_threshold_chars'] as int,
-          )
-        : AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars;
+        AppSettingsSnapshot.normalizeAiMessageCompressionThresholdChars(
+          intFromValue(
+            json['ai_message_compression_threshold_chars'],
+            fallback:
+                AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars,
+          ),
+        );
     final aiToolResultCompressionThresholdChars =
-        json['ai_tool_result_compression_threshold_chars'] is int
-        ? AppSettingsSnapshot.normalizeAiToolResultCompressionThresholdChars(
-            json['ai_tool_result_compression_threshold_chars'] as int,
-          )
-        : AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars;
+        AppSettingsSnapshot.normalizeAiToolResultCompressionThresholdChars(
+          intFromValue(
+            json['ai_tool_result_compression_threshold_chars'],
+            fallback: AppSettingsSnapshot
+                .defaultAiToolResultCompressionThresholdChars,
+          ),
+        );
     final aiToolResultCompressionEnabled = boolFromValue(
       json['ai_tool_result_compression_enabled'],
       defaultValue: true,
@@ -800,22 +804,17 @@ class SettingsStore {
     );
 
     // AI models.
-    final rawModels = json['ai_models'];
     final aiModels = <AiModelConfig>[];
-    if (rawModels is List) {
-      for (final item in rawModels) {
-        if (item is Map) {
-          try {
-            final model = AiModelConfig.fromJson(
-              Map<String, Object?>.from(item),
-            );
-            if (model.id.trim().isNotEmpty && isValidHttpUrl(model.baseUrl)) {
-              aiModels.add(model);
-            }
-          } catch (error, stack) {
-            silentLog('settings_store', 'parse ai_models entry', error, stack);
-          }
+    for (final item in stringKeyedMapListFromValueOrJsonText(
+      json['ai_models'],
+    )) {
+      try {
+        final model = AiModelConfig.fromJson(item);
+        if (model.id.trim().isNotEmpty && isValidHttpUrl(model.baseUrl)) {
+          aiModels.add(model);
         }
+      } catch (error, stack) {
+        silentLog('settings_store', 'parse ai_models entry', error, stack);
       }
     }
 
@@ -826,27 +825,22 @@ class SettingsStore {
     }
 
     // Recent model selections.
-    final rawRecentSelections = json['recent_model_selections'];
     final recentModelSelections = <RecentModelSelection>[];
-    if (rawRecentSelections is List) {
-      for (final item in rawRecentSelections) {
-        if (item is Map) {
-          try {
-            final entry = RecentModelSelection.fromJson(
-              Map<String, Object?>.from(item),
-            );
-            if (entry.configId.isNotEmpty && entry.modelId.isNotEmpty) {
-              recentModelSelections.add(entry);
-            }
-          } catch (error, stack) {
-            silentLog(
-              'settings_store',
-              'parse recent_model_selections entry',
-              error,
-              stack,
-            );
-          }
+    for (final item in stringKeyedMapListFromValueOrJsonText(
+      json['recent_model_selections'],
+    )) {
+      try {
+        final entry = RecentModelSelection.fromJson(item);
+        if (entry.configId.isNotEmpty && entry.modelId.isNotEmpty) {
+          recentModelSelections.add(entry);
         }
+      } catch (error, stack) {
+        silentLog(
+          'settings_store',
+          'parse recent_model_selections entry',
+          error,
+          stack,
+        );
       }
     }
 
