@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_catalog.dart';
@@ -1432,15 +1433,11 @@ class AiImageGenerationService {
   }
 
   int? _stepsFromQuality(String? value) {
-    final trimmed = value?.trim();
-    if (trimmed == null || trimmed.isEmpty) return null;
-    return int.tryParse(trimmed);
+    return optionalPositiveIntFromValue(value);
   }
 
   double? _doubleFromStyle(String? value) {
-    final trimmed = value?.trim();
-    if (trimmed == null || trimmed.isEmpty) return null;
-    return double.tryParse(trimmed);
+    return optionalDoubleFromValue(value);
   }
 
   double _sourceWeightFromOptions(AiCreationOptions options) {
