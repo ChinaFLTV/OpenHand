@@ -90,6 +90,12 @@ class AiReadTool extends AiTool {
         'Read limit must be a positive integer.',
       );
     }
+    if (limit > AiToolUtils.maxReadLimit) {
+      return AiToolUtils.invalidResult(
+        'Read',
+        'Read limit must be at most ${AiToolUtils.maxReadLimit} lines.',
+      );
+    }
     final effectiveOffset = offset == null || offset <= 1 ? 1 : offset;
     if (fileTracker != null &&
         await fileTracker.isReadResultUnchanged(

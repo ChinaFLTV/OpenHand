@@ -2628,7 +2628,10 @@ class AiToolRuntimeService {
           },
           'limit': <String, Object?>{
             'type': 'integer',
-            'description': 'Maximum number of lines to read. Defaults to 2000.',
+            'minimum': 1,
+            'maximum': 20000,
+            'description':
+                'Maximum number of lines to read. Defaults to 2000, capped at 20000.',
           },
           'pages': <String, Object?>{
             'anyOf': <Object?>[

@@ -25,6 +25,7 @@ class AiToolUtils {
   static const int maxWebContentCharacters = 20000;
   static const int maxReadLineLength = 2000;
   static const int defaultReadLimit = 2000;
+  static const int maxReadLimit = 20000;
   static const int maxBinaryPreviewBytes = 32;
   static const int maxStructuredReadBytes = 16 * kBytesPerMiB;
   static const int maxLedgerCaptureBytes = 16 * kBytesPerMiB;
