@@ -106,6 +106,47 @@ void main() {
     expect(transport.body.containsKey('return_documents'), isFalse);
   });
 
+  test(
+    'Spark rerank uses versioned base path and compatible body fields',
+    () async {
+      final transport = _RecordingTransport(
+        responseBody: jsonEncode(<String, Object?>{
+          'results': <Object?>[
+            <String, Object?>{'index': 0, 'score': 0.88},
+          ],
+        }),
+      );
+      final service = AiRerankService(transport: transport);
+
+      final result = await service.rerank(
+        model: const AiModelConfig(
+          id: 'spark',
+          baseUrl: 'https://maas-api.cn-huabei-1.xf-yun.com/v2',
+          authScheme: AiAuthScheme.bearer,
+          token: 'test-token',
+          modelId: 'spark-rerank',
+          protocolType: AiProtocolType.openai,
+        ),
+        query: 'query',
+        documents: const <Object>['doc'],
+        topN: 1,
+        returnDocuments: true,
+        maxTokensPerDoc: 1024,
+        truncation: true,
+        instruction: 'prefer exact matches',
+      );
+
+      expect(transport.uri?.path, '/v2/rerank');
+      expect(transport.body['model'], 'spark-rerank');
+      expect(transport.body['top_n'], 1);
+      expect(transport.body['return_documents'], isTrue);
+      expect(transport.body['max_tokens_per_doc'], 1024);
+      expect(transport.body['truncation'], isTrue);
+      expect(transport.body['instruct'], 'prefer exact matches');
+      expect(result.items.single.score, 0.88);
+    },
+  );
+
   test('rerank response skips non-finite score values', () async {
     final transport = _RecordingTransport(
       responseBody:

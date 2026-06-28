@@ -441,8 +441,12 @@ class _CohereRerankStrategy extends _RerankRequestStrategy {
   @override
   bool matches(_RerankRequestContext context) {
     final baseUrl = context.model.baseUrl.toLowerCase();
+    final id = context.normalizedModelId;
     return baseUrl.contains('cohere') ||
-        context.normalizedModelId.contains('rerank') &&
+        (id.startsWith('rerank-v') ||
+                id.startsWith('rerank-english') ||
+                id.startsWith('rerank-multilingual') ||
+                id.contains('cohere-rerank')) &&
             context.profile.rerankSupportedParameters.contains(
               'max_tokens_per_doc',
             );
@@ -494,12 +498,19 @@ class _OpenAiCompatibleRerankStrategy extends _RerankRequestStrategy {
         'documents': context.documents,
         if (context.supportsParameter('top_n') && context.resolvedTopN != null)
           'top_n': context.resolvedTopN,
-        if (context.supportsParameter('return_documents') &&
+        if ((context.profile.rerankSupportsReturnDocuments ||
+                context.supportsParameter('return_documents')) &&
             context.resolvedReturnDocuments != null)
           'return_documents': context.resolvedReturnDocuments,
         if (context.supportsParameter('max_chunks_per_doc') &&
             context.positiveMaxChunksPerDoc != null)
           'max_chunks_per_doc': context.positiveMaxChunksPerDoc,
+        if (context.supportsParameter('max_tokens_per_doc') &&
+            context.positiveMaxTokensPerDoc != null)
+          'max_tokens_per_doc': context.positiveMaxTokensPerDoc,
+        if (context.supportsParameter('truncation') &&
+            context.resolvedTruncation != null)
+          'truncation': context.resolvedTruncation,
         if (context.supportsParameter('instruct') &&
             context.resolvedInstruction != null)
           'instruct': context.resolvedInstruction,

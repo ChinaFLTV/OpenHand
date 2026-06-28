@@ -2607,6 +2607,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _capabilities = _inferCapabilities();
       }
     }
+    if (_capabilities.contains(AiModelCapability.readerConversion)) {
+      _ensureDefaultReaderTypes();
+    }
   }
 
   /// Infer modalities from protocol type + model ID patterns.
@@ -2715,6 +2718,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       result.add(trimmed);
     }
     return result;
+  }
+
+  void _ensureDefaultReaderTypes() {
+    if (_readerSourceTypes.isEmpty) {
+      _readerSourceTypes = ReaderFileType.normalizeList(
+        ReaderFileType.sourceTypes,
+      ).toSet();
+    }
+    if (_readerTargetTypes.isEmpty) {
+      _readerTargetTypes = <String>{ReaderFileType.markdown};
+    }
   }
 
   Map<String, Object?> _parseJsonObject(String value) {
@@ -3048,6 +3062,25 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         Wrap(
           spacing: 8,
           runSpacing: 6,
+          children: <Widget>[
+            TextButton.icon(
+              onPressed: () {
+                onChanged(ReaderFileType.normalizeList(values).toSet());
+              },
+              icon: const Icon(Icons.done_all_rounded, size: 16),
+              label: Text(zh ? '全选' : 'Select All'),
+            ),
+            TextButton.icon(
+              onPressed: () => onChanged(<String>{}),
+              icon: const Icon(Icons.clear_all_rounded, size: 16),
+              label: Text(zh ? '清空' : 'Clear'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
           children: [
             for (final value in values)
               FilterChip(
@@ -3367,8 +3400,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                             if (selected) {
                               _capabilities.add(c);
                               if (c == AiModelCapability.readerConversion) {
-                                _readerSourceTypes.add(ReaderFileType.html);
-                                _readerTargetTypes.add(ReaderFileType.markdown);
+                                _ensureDefaultReaderTypes();
                               }
                             } else {
                               _capabilities.remove(c);

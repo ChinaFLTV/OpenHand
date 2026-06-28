@@ -81,10 +81,16 @@ class KnowledgeDocumentParserRegistry {
     'html',
     'htm',
     'csv',
+    'tsv',
     'json',
+    'jsonl',
+    'ndjson',
     'toml',
     'yaml',
     'yml',
+    'rtf',
+    'tex',
+    'latex',
     'docx',
     'xlsx',
     'pptx',
@@ -121,9 +127,9 @@ class KnowledgeDocumentParserRegistry {
   ];
 
   static const String supportedFilesLabelZh =
-      'Markdown、TXT、代码、HTML、PDF、Word DOCX、Excel XLSX、PowerPoint PPTX、CSV、JSON、TOML、YAML';
+      'Markdown、TXT、代码、HTML、PDF、Word DOCX、Excel XLSX、PowerPoint PPTX、CSV/TSV、JSON/JSONL、TOML、YAML、XML、RTF、LaTeX';
   static const String supportedFilesLabelEn =
-      'Markdown, TXT, code, HTML, PDF, Word DOCX, Excel XLSX, PowerPoint PPTX, CSV, JSON, TOML, YAML';
+      'Markdown, TXT, code, HTML, PDF, Word DOCX, Excel XLSX, PowerPoint PPTX, CSV/TSV, JSON/JSONL, TOML, YAML, XML, RTF, LaTeX';
 
   final List<KnowledgeDocumentParser> parsers;
 
@@ -190,7 +196,16 @@ class PlainTextKnowledgeDocumentParser extends KnowledgeDocumentParser {
   String get id => 'plain_text';
 
   @override
-  Set<String> get extensions => const <String>{'txt', 'text', 'log'};
+  Set<String> get extensions => const <String>{
+    'txt',
+    'text',
+    'log',
+    'jsonl',
+    'ndjson',
+    'rtf',
+    'tex',
+    'latex',
+  };
 
   @override
   Future<KnowledgeDocumentParseResult> parse(
@@ -308,21 +323,22 @@ class CsvKnowledgeDocumentParser extends KnowledgeDocumentParser {
   String get id => 'csv_markdown_table';
 
   @override
-  Set<String> get extensions => const <String>{'csv'};
+  Set<String> get extensions => const <String>{'csv', 'tsv'};
 
   @override
   Future<KnowledgeDocumentParseResult> parse(
     KnowledgeDocumentParseRequest request,
   ) async {
+    final extension = _extension(request.file.path);
     final rows = _parseDelimitedRows(
       _decodeText(await request.file.readAsBytes()),
-      delimiter: ',',
+      delimiter: extension == 'tsv' ? '\t' : ',',
     );
     final title = p.basename(request.file.path);
     return KnowledgeDocumentParseResult(
       text: _tableToMarkdown(title, rows),
       kind: 'table',
-      mimeType: 'text/csv',
+      mimeType: extension == 'tsv' ? 'text/tab-separated-values' : 'text/csv',
       parserId: id,
       title: title,
       metadata: <String, Object?>{

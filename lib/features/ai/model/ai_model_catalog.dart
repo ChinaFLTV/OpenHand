@@ -1,3 +1,4 @@
+import '../../../shared/util/reader_file_type.dart';
 import 'ai_model_config.dart';
 import 'openrouter_exact_model_catalog.dart';
 
@@ -29,6 +30,11 @@ class AiModelCatalog {
 
     final exact = _exactModelProfiles[id];
     if (exact != null) {
+      final operationProfile = _gatewayOperationProfile(id);
+      if (operationProfile != null &&
+          _shouldPreferOperationProfile(exact, operationProfile)) {
+        return operationProfile;
+      }
       return exact;
     }
 
@@ -59,6 +65,9 @@ class AiModelCatalog {
     };
     if (result != null) return result;
 
+    final gatewayOperationProfile = _gatewayOperationProfile(id);
+    if (gatewayOperationProfile != null) return gatewayOperationProfile;
+
     // Cross-protocol fallback: try all providers for well-known model-ID
     // patterns.  Handles cases like DeepSeek models served via Aliyun/Qwen,
     // or GLM models accessed through OpenAI-compatible endpoints.
@@ -85,6 +94,55 @@ class AiModelCatalog {
         _hunyuan(id) ??
         _genericRerank(id) ??
         _openSourceEmbedding(id);
+  }
+
+  static AiModelProfile? _gatewayOperationProfile(String id) {
+    return _spark(id) ??
+        _kling(id) ??
+        _sakana(id) ??
+        _readerConversionModel(id);
+  }
+
+  static bool _shouldPreferOperationProfile(
+    AiModelProfile exact,
+    AiModelProfile operation,
+  ) {
+    if (operation.supportsEmbeddings &&
+        (!exact.supportsEmbeddings ||
+            exact.embeddingEndpointPath == null &&
+                operation.embeddingEndpointPath != null)) {
+      return true;
+    }
+    if (operation.supportsRerank &&
+        (!exact.supportsRerank ||
+            exact.rerankEndpointPath == null &&
+                operation.rerankEndpointPath != null)) {
+      return true;
+    }
+    if (operation.supportsRerank && exact.supportsRerank) {
+      if (operation.rerankSupportsReturnDocuments &&
+          !exact.rerankSupportsReturnDocuments) {
+        return true;
+      }
+      if (operation.rerankSupportedParameters.length >
+          exact.rerankSupportedParameters.length) {
+        return true;
+      }
+    }
+    if (operation.supportsReaderConversion && !exact.supportsReaderConversion) {
+      return true;
+    }
+    for (final capability in const <AiModelCapability>[
+      AiModelCapability.imageGeneration,
+      AiModelCapability.videoGeneration,
+      AiModelCapability.audioGeneration,
+    ]) {
+      if (operation.capabilities.contains(capability) &&
+          !exact.capabilities.contains(capability)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -126,6 +184,10 @@ class AiModelCatalog {
   };
 
   static const _rerank = <AiModelCapability>{AiModelCapability.rerank};
+
+  static const _readerConversion = <AiModelCapability>{
+    AiModelCapability.readerConversion,
+  };
 
   static const _openAiEmbeddingParameters = <String>[
     'input',
@@ -319,6 +381,9 @@ class AiModelCatalog {
     'top_n',
     'return_documents',
     'max_chunks_per_doc',
+    'max_tokens_per_doc',
+    'truncation',
+    'instruct',
   ];
 
   static final Map<String, AiModelProfile> _exactModelProfiles =
@@ -385,6 +450,8 @@ class AiModelCatalog {
     String? rerankDefaultInstruction,
     bool rerankSupportsTruncation = false,
     bool? rerankDefaultTruncation,
+    List<String> readerSourceTypes = const <String>[],
+    List<String> readerTargetTypes = const <String>[],
   }) {
     return AiModelProfile(
       displayName: name,
@@ -444,6 +511,8 @@ class AiModelCatalog {
       rerankDefaultInstruction: rerankDefaultInstruction,
       rerankSupportsTruncation: rerankSupportsTruncation,
       rerankDefaultTruncation: rerankDefaultTruncation,
+      readerSourceTypes: readerSourceTypes,
+      readerTargetTypes: readerTargetTypes,
     );
   }
 
@@ -567,6 +636,23 @@ class AiModelCatalog {
     );
   }
 
+  static AiModelProfile _readerP({
+    required String name,
+    String? desc,
+    int context = 128000,
+    List<String> sourceTypes = ReaderFileType.sourceTypes,
+    List<String> targetTypes = ReaderFileType.targetTypes,
+  }) {
+    return _p(
+      name: name,
+      desc: desc ?? 'Document reader and format conversion model',
+      context: context,
+      capabilities: _readerConversion,
+      readerSourceTypes: sourceTypes,
+      readerTargetTypes: targetTypes,
+    );
+  }
+
   static AiModelProfile? _genericRerank(String id) {
     if (!_looksLikeRerankId(id)) return null;
     final name = id.contains('cohere')
@@ -601,6 +687,31 @@ class AiModelCatalog {
         id.contains('gte-rerank') ||
         id.contains('qwen3-reranker') ||
         id.contains('bce-reranker');
+  }
+
+  static AiModelProfile? _readerConversionModel(String id) {
+    if (!_looksLikeReaderId(id)) return null;
+    final name = id.contains('jina')
+        ? 'Jina Reader'
+        : id.contains('readerlm')
+        ? 'ReaderLM'
+        : id.contains('docling')
+        ? 'Docling Reader'
+        : id.contains('marker')
+        ? 'Marker Reader'
+        : id.contains('html2markdown') || id.contains('html-to-markdown')
+        ? 'HTML to Markdown Reader'
+        : 'Reader Conversion Model';
+    return _readerP(name: name);
+  }
+
+  static bool _looksLikeReaderId(String id) {
+    return id.contains('reader') ||
+        id.contains('readerlm') ||
+        id.contains('docling') ||
+        id.contains('marker') ||
+        id.contains('html2markdown') ||
+        id.contains('html-to-markdown');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3820,6 +3931,133 @@ class AiModelCatalog {
     }
 
     return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // iFlytek Spark / 讯飞星火 (usually OpenAI-compatible gateway)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _spark(String id) {
+    final isSpark =
+        id.contains('spark') ||
+        id.contains('sparkdesk') ||
+        id.contains('xinghuo') ||
+        id.contains('xfyun') ||
+        id.contains('xunfei');
+    if (!isSpark) return null;
+
+    if (_looksLikeRerankId(id)) {
+      return _rerankP(
+        name: 'Spark Rerank',
+        desc: 'iFlytek Spark OpenAI-compatible reranking model',
+        endpointPath: 'rerank',
+        maxInputTokens: 8192,
+        maxDocuments: 512,
+        defaultTopN: 20,
+      );
+    }
+    if (id.contains('embedding') || id.contains('embed')) {
+      return _embeddingP(
+        name: 'Spark Embedding',
+        desc: 'iFlytek Spark OpenAI-compatible embedding model',
+        context: 8192,
+        dimensions: 1024,
+        maxInputTokens: 8192,
+        endpointPath: 'embeddings',
+        batchSize: 64,
+        encodingFormats: const <String>['float'],
+        defaultEncodingFormat: 'float',
+        outputsNormalized: true,
+      );
+    }
+    if (id.contains('image') || id.contains('tti')) {
+      return _p(
+        name: 'Spark Image',
+        desc: 'iFlytek Spark image generation model',
+        capabilities: _imageGen,
+      );
+    }
+    if (id.contains('speech') ||
+        id.contains('audio') ||
+        id.contains('tts') ||
+        id.contains('iat')) {
+      return _p(
+        name: 'Spark Audio',
+        desc: 'iFlytek Spark audio model',
+        capabilities: _audioGen,
+      );
+    }
+    return _p(
+      name: 'Spark',
+      desc: 'iFlytek Spark model',
+      context: 128000,
+      output: 8192,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Kling / 可灵 (usually exposed through OpenAI-compatible media gateways)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _kling(String id) {
+    if (!id.contains('kling') && !id.contains('kolors')) return null;
+
+    const imageParameters = <String>[
+      'prompt',
+      'negative_prompt',
+      'size',
+      'aspect_ratio',
+      'image',
+      'n',
+      'seed',
+      'response_format',
+    ];
+    const videoParameters = <String>[
+      'prompt',
+      'negative_prompt',
+      'image',
+      'duration',
+      'aspect_ratio',
+      'mode',
+      'cfg_scale',
+      'camera_control',
+      'seed',
+    ];
+
+    if (id.contains('image') || id.contains('kolors')) {
+      return _p(
+        name: id.contains('kolors') ? 'Kolors' : 'Kling Image',
+        desc: 'Kling image generation/editing model',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        capabilities: _imageGen,
+        supportedParameters: imageParameters,
+      );
+    }
+    return _p(
+      name: 'Kling Video',
+      desc: 'Kling text/image-to-video generation model',
+      multimodal: true,
+      supportsAttachments: true,
+      modalities: _textImageVideo,
+      capabilities: _videoGen,
+      supportedParameters: videoParameters,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Sakana AI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _sakana(String id) {
+    if (!id.contains('sakana')) return null;
+    return _p(
+      name: 'Sakana AI',
+      desc: 'Sakana AI model',
+      context: 128000,
+      output: 8192,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

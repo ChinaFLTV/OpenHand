@@ -79,6 +79,40 @@ void main() {
     expect(result.vectors.single, <double>[1, 2, 3]);
     service.dispose();
   });
+
+  test(
+    'Spark embeddings keep provider base version and compatible body',
+    () async {
+      final transport = _RecordingTransport(
+        responseBody: jsonEncode(<String, Object?>{
+          'data': <Object?>[
+            <String, Object?>{
+              'embedding': <num>[0.1, 0.2],
+            },
+          ],
+        }),
+      );
+      final service = AiEmbeddingsService(transport: transport);
+
+      final result = await service.createEmbedding(
+        model: const AiModelConfig(
+          id: 'spark',
+          baseUrl: 'https://maas-api.cn-huabei-1.xf-yun.com/v2',
+          authScheme: AiAuthScheme.bearer,
+          token: 'test-token',
+          modelId: 'spark-embedding',
+          protocolType: AiProtocolType.openai,
+        ),
+        input: 'hello',
+      );
+
+      expect(transport.uri?.path, '/v2/embeddings');
+      expect(transport.body['model'], 'spark-embedding');
+      expect(transport.body['input'], 'hello');
+      expect(result.vectors.single, <double>[0.1, 0.2]);
+      service.dispose();
+    },
+  );
 }
 
 class _StaticResponseClient extends http.BaseClient {
@@ -107,6 +141,7 @@ class _RecordingTransport extends AiTransportClient {
     : super(client: _NoopClient());
 
   final String responseBody;
+  Uri? uri;
   Map<String, Object?> body = const <String, Object?>{};
 
   @override
@@ -117,6 +152,7 @@ class _RecordingTransport extends AiTransportClient {
     required Map<String, Object?> body,
     required Duration timeout,
   }) async {
+    this.uri = uri;
     this.body = body;
     return http.Response(responseBody, 200);
   }

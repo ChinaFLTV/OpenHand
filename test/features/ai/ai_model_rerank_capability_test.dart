@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/index.dart';
+import 'package:openhand/shared/util/reader_file_type.dart';
 
 void main() {
   test('catalog marks common reranker model ids as rerank capable', () {
@@ -29,13 +30,24 @@ void main() {
   test('model profile parses reader conversion capability and type ranges', () {
     final profile = AiModelProfile.fromJson(const <String, Object?>{
       'capabilities': <String>['reader_conversion'],
-      'reader_source_types': <String>['HTML', 'md', 'pdf'],
-      'reader_target_types': <String>['Markdown', 'json'],
+      'reader_source_types': <String>['HTML', 'md', 'pdf', 'ndjson', 'tex'],
+      'reader_target_types': <String>['Markdown', 'json', 'YML', 'tsv'],
     });
 
     expect(profile.supportsReaderConversion, isTrue);
-    expect(profile.readerSourceTypes, <String>['html', 'markdown', 'pdf']);
-    expect(profile.readerTargetTypes, <String>['markdown', 'json']);
+    expect(profile.readerSourceTypes, <String>[
+      'html',
+      'markdown',
+      'pdf',
+      'jsonl',
+      'latex',
+    ]);
+    expect(profile.readerTargetTypes, <String>[
+      'markdown',
+      'json',
+      'yaml',
+      'tsv',
+    ]);
     expect(
       profile.supportsReaderConversionFor(
         sourceType: 'htm',
@@ -45,6 +57,80 @@ void main() {
     );
     expect(profile.toJson()['reader_source_types'], isNotNull);
   });
+
+  test('reader file type covers structured text source and target formats', () {
+    expect(ReaderFileType.normalize('.ndjson'), ReaderFileType.jsonl);
+    expect(
+      ReaderFileType.normalize('tab separated values'),
+      ReaderFileType.tsv,
+    );
+    expect(ReaderFileType.normalize('tex'), ReaderFileType.latex);
+    expect(ReaderFileType.isTextLikeSource('rtf'), isTrue);
+    expect(
+      ReaderFileType.targetTypes,
+      containsAll(<String>[
+        ReaderFileType.html,
+        ReaderFileType.yaml,
+        ReaderFileType.csv,
+        ReaderFileType.tsv,
+        ReaderFileType.xml,
+      ]),
+    );
+  });
+
+  test('catalog marks common reader conversion model ids', () {
+    for (final modelId in const <String>[
+      'jina-reader',
+      'readerlm-v2',
+      'docling-parse',
+      'marker-html2markdown',
+    ]) {
+      final profile = AiModelCatalog.lookup(modelId, AiProtocolType.openai);
+
+      expect(profile, isNotNull, reason: modelId);
+      expect(profile!.supportsReaderConversion, isTrue, reason: modelId);
+      expect(profile.readerSourceTypes, contains(ReaderFileType.pdf));
+      expect(profile.readerTargetTypes, contains(ReaderFileType.markdown));
+      expect(profile.readerTargetTypes, contains(ReaderFileType.html));
+    }
+  });
+
+  test(
+    'catalog fills gateway provider model profiles without protocol enum',
+    () {
+      final sparkEmbedding = AiModelCatalog.lookup(
+        'spark-embedding',
+        AiProtocolType.openai,
+      );
+      final sparkRerank = AiModelCatalog.lookup(
+        'spark-rerank',
+        AiProtocolType.openai,
+      );
+      final klingVideo = AiModelCatalog.lookup(
+        'kling-v2-master',
+        AiProtocolType.openai,
+      );
+      final sakana = AiModelCatalog.lookup(
+        'sakana-chat',
+        AiProtocolType.openai,
+      );
+
+      expect(sparkEmbedding?.supportsEmbeddings, isTrue);
+      expect(sparkEmbedding?.embeddingEndpointPath, 'embeddings');
+      expect(sparkRerank?.supportsRerank, isTrue);
+      expect(sparkRerank?.rerankEndpointPath, 'rerank');
+      expect(sparkRerank?.rerankSupportsReturnDocuments, isTrue);
+      expect(
+        sparkRerank?.rerankSupportedParameters,
+        contains('return_documents'),
+      );
+      expect(
+        klingVideo?.capabilities,
+        contains(AiModelCapability.videoGeneration),
+      );
+      expect(sakana?.displayName, 'Sakana AI');
+    },
+  );
 
   test('model profile numeric metadata ignores invalid non-finite values', () {
     final profile = AiModelProfile.fromJson(<String, Object?>{

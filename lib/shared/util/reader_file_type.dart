@@ -5,10 +5,15 @@ class ReaderFileType {
   static const text = 'text';
   static const html = 'html';
   static const json = 'json';
+  static const jsonl = 'jsonl';
   static const yaml = 'yaml';
   static const toml = 'toml';
+  static const xml = 'xml';
   static const csv = 'csv';
+  static const tsv = 'tsv';
   static const code = 'code';
+  static const latex = 'latex';
+  static const rtf = 'rtf';
   static const docx = 'docx';
   static const xlsx = 'xlsx';
   static const pptx = 'pptx';
@@ -19,27 +24,47 @@ class ReaderFileType {
     markdown,
     text,
     json,
+    jsonl,
     yaml,
     toml,
+    xml,
     csv,
+    tsv,
     code,
+    latex,
+    rtf,
     docx,
     xlsx,
     pptx,
     pdf,
   ];
 
-  static const targetTypes = <String>[markdown, json, text];
+  static const targetTypes = <String>[
+    markdown,
+    json,
+    jsonl,
+    text,
+    html,
+    yaml,
+    csv,
+    tsv,
+    xml,
+  ];
 
   static const textLikeSourceTypes = <String>{
     html,
     markdown,
     text,
     json,
+    jsonl,
     yaml,
     toml,
+    xml,
     csv,
+    tsv,
     code,
+    latex,
+    rtf,
   };
 
   static String normalize(String value) {
@@ -53,9 +78,14 @@ class ReaderFileType {
       'txt' || 'text' || 'log' => text,
       'htm' || 'html' => html,
       'json' => json,
+      'jsonl' || 'ndjson' => jsonl,
       'yaml' || 'yml' => yaml,
       'toml' => toml,
+      'xml' || 'svg' => xml,
       'csv' => csv,
+      'tsv' || 'tabseparatedvalues' => tsv,
+      'tex' || 'latex' => latex,
+      'rtf' => rtf,
       'docx' => docx,
       'xlsx' => xlsx,
       'pptx' => pptx,
@@ -85,7 +115,6 @@ class ReaderFileType {
       'zsh' ||
       'fish' ||
       'sql' ||
-      'xml' ||
       'css' ||
       'scss' ||
       'less' => code,
@@ -114,10 +143,15 @@ class ReaderFileType {
       text => isZh ? '纯文本' : 'Text',
       html => 'HTML',
       json => 'JSON',
+      jsonl => 'JSONL',
       yaml => 'YAML',
       toml => 'TOML',
+      xml => 'XML',
       csv => 'CSV',
+      tsv => 'TSV',
       code => isZh ? '代码' : 'Code',
+      latex => 'LaTeX',
+      rtf => 'RTF',
       docx => 'Word DOCX',
       xlsx => 'Excel XLSX',
       pptx => 'PowerPoint PPTX',
@@ -132,10 +166,15 @@ class ReaderFileType {
       text => 'text/plain',
       html => 'text/html',
       json => 'application/json',
+      jsonl => 'application/x-ndjson',
       yaml => 'application/yaml',
       toml => 'application/toml',
+      xml => 'application/xml',
       csv => 'text/csv',
+      tsv => 'text/tab-separated-values',
       code => 'text/plain',
+      latex => 'application/x-latex',
+      rtf => 'application/rtf',
       docx =>
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       xlsx =>
