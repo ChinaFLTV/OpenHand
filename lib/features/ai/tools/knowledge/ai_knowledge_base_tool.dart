@@ -8,6 +8,13 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
+const int _defaultKnowledgeSearchTopK = 6;
+const int _minKnowledgeSearchTopK = 1;
+const int _maxKnowledgeSearchTopK = 20;
+const int _defaultKnowledgeReadLimit = 12;
+const int _minKnowledgeReadLimit = 1;
+const int _maxKnowledgeReadLimit = 50;
+
 class AiKnowledgeSearchTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.knowledgeSearch;
@@ -26,9 +33,12 @@ class AiKnowledgeSearchTool extends AiTool {
         'KnowledgeSearch requires non-empty query.',
       );
     }
-    final topK = args['top_k'] is num
-        ? (args['top_k'] as num).toInt().clamp(1, 20)
-        : 6;
+    final topK = AiToolUtils.readClampedInt(
+      args['top_k'],
+      fallback: _defaultKnowledgeSearchTopK,
+      min: _minKnowledgeSearchTopK,
+      max: _maxKnowledgeSearchTopK,
+    );
     final db = DatabaseService.instance.database;
     final like = '%${query.replaceAll('%', r'\%').replaceAll('_', r'\_')}%';
     final rows = await db.rawQuery(
@@ -113,9 +123,12 @@ class AiKnowledgeReadTool extends AiTool {
         'KnowledgeRead requires chunk_id or source_id.',
       );
     }
-    final limit = args['limit'] is num
-        ? (args['limit'] as num).toInt().clamp(1, 50)
-        : 12;
+    final limit = AiToolUtils.readClampedInt(
+      args['limit'],
+      fallback: _defaultKnowledgeReadLimit,
+      min: _minKnowledgeReadLimit,
+      max: _maxKnowledgeReadLimit,
+    );
     final db = DatabaseService.instance.database;
     final rows = chunkId.isNotEmpty
         ? await _readChunk(db, chunkId)

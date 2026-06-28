@@ -25,6 +25,10 @@ import '../ai_tool_utils.dart';
 class AiToolSearchTool extends AiTool {
   AiToolSearchTool();
 
+  static const int _defaultMaxResults = 5;
+  static const int _minMaxResults = 1;
+  static const int _maxMaxResults = 50;
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.toolSearch;
 
@@ -56,10 +60,12 @@ class AiToolSearchTool extends AiTool {
     final stopwatch = Stopwatch()..start();
     final args = context.decodedArguments;
     final query = '${args['query'] ?? ''}'.trim();
-    final maxResultsRaw = args['max_results'];
-    final maxResults = maxResultsRaw is num
-        ? maxResultsRaw.toInt().clamp(1, 50)
-        : 5;
+    final maxResults = AiToolUtils.readClampedInt(
+      args['max_results'],
+      fallback: _defaultMaxResults,
+      min: _minMaxResults,
+      max: _maxMaxResults,
+    );
     if (query.isEmpty) {
       return AiToolUtils.invalidResult(
         'ToolSearch',

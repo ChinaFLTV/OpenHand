@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../service/bash/ai_bash_tool_service.dart';
 import '../service/fs/ai_file_history_service.dart';
@@ -442,8 +443,19 @@ class AiToolUtils {
   }
 
   static int? readInt(Object? value) {
-    if (value is int) return value;
-    return int.tryParse('$value'.trim());
+    return optionalIntegralIntFromValue(value);
+  }
+
+  static int readClampedInt(
+    Object? value, {
+    required int fallback,
+    required int min,
+    required int max,
+  }) {
+    final lower = min <= max ? min : max;
+    final upper = min <= max ? max : min;
+    final safeFallback = fallback.clamp(lower, upper).toInt();
+    return (readInt(value) ?? safeFallback).clamp(lower, upper).toInt();
   }
 
   static bool? readBool(Object? value) {
