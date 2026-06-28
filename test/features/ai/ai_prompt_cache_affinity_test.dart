@@ -26,7 +26,7 @@ void main() {
   );
 
   test(
-    'grok-compatible custom gateways use model affinity heuristics',
+    'grok-compatible custom gateways use composite cache affinity',
     () async {
       const adapter = OpenAiProtocolAdapter(AiProtocolType.openai);
       final request = await adapter.buildChatRequest(
@@ -44,6 +44,44 @@ void main() {
         request.headers[AiPromptCacheAffinity.grokConversationHeader],
         'session-1',
       );
+      expect(
+        request.body[AiPromptCacheAffinity.openAiPromptCacheKeyBodyField],
+        'session-1',
+      );
+      final bodyKeys = request.body.keys.toList(growable: false);
+      expect(
+        bodyKeys.indexOf(AiPromptCacheAffinity.openAiPromptCacheKeyBodyField),
+        lessThan(bodyKeys.indexOf('messages')),
+      );
+    },
+  );
+
+  test(
+    'direct xai grok requests do not add openai cache body fields',
+    () async {
+      const adapter = OpenAiProtocolAdapter(AiProtocolType.grok);
+      final request = await adapter.buildChatRequest(
+        model: _model(
+          protocolType: AiProtocolType.grok,
+          baseUrl: 'https://api.x.ai',
+          modelId: 'grok-composer-2.5-fast',
+        ),
+        messages: _messages,
+        stream: true,
+        inputCacheConfig: _cacheConfig,
+      );
+
+      expect(
+        request.headers[AiPromptCacheAffinity.grokConversationHeader],
+        'session-1',
+      );
+      expect(
+        request.body.containsKey(
+          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
+        ),
+        isFalse,
+      );
+      expect(request.body.containsKey('session_id'), isFalse);
     },
   );
 
@@ -69,6 +107,12 @@ void main() {
       isFalse,
     );
     expect(
+      request.body.containsKey(
+        AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
+      ),
+      isFalse,
+    );
+    expect(
       request.body[AiPromptCacheAffinity.openRouterSessionBodyField],
       'session-1',
     );
@@ -78,6 +122,33 @@ void main() {
       lessThan(bodyKeys.indexOf('messages')),
     );
   });
+
+  test(
+    'openai-compatible requests use prompt cache key body affinity',
+    () async {
+      const adapter = OpenAiProtocolAdapter(AiProtocolType.openai);
+      final request = await adapter.buildChatRequest(
+        model: _model(
+          protocolType: AiProtocolType.openai,
+          baseUrl: 'https://api.openai.com',
+          modelId: 'gpt-5.1',
+        ),
+        messages: _messages,
+        stream: true,
+        inputCacheConfig: _cacheConfig,
+      );
+
+      expect(
+        request.body[AiPromptCacheAffinity.openAiPromptCacheKeyBodyField],
+        'session-1',
+      );
+      final bodyKeys = request.body.keys.toList(growable: false);
+      expect(
+        bodyKeys.indexOf(AiPromptCacheAffinity.openAiPromptCacheKeyBodyField),
+        lessThan(bodyKeys.indexOf('messages')),
+      );
+    },
+  );
 
   test(
     'cache affinity is omitted when input cache config is disabled',
@@ -97,6 +168,12 @@ void main() {
       expect(
         request.headers.containsKey(
           AiPromptCacheAffinity.grokConversationHeader,
+        ),
+        isFalse,
+      );
+      expect(
+        request.body.containsKey(
+          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
         ),
         isFalse,
       );

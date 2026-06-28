@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
@@ -175,7 +176,9 @@ class AiRequestBlueprint {
 enum AiPromptCacheAffinityKind {
   none('none'),
   grokConversationHeader('grok_conversation_header'),
-  openRouterSession('openrouter_session');
+  openRouterSession('openrouter_session'),
+  openAiPromptCacheKey('openai_prompt_cache_key'),
+  grokCompatibleGateway('grok_compatible_gateway');
 
   const AiPromptCacheAffinityKind(this.storageValue);
 
@@ -192,6 +195,7 @@ class AiPromptCacheAffinity {
   static const String grokConversationHeader = 'x-grok-conv-id';
   static const String openRouterSessionHeader = 'x-session-id';
   static const String openRouterSessionBodyField = 'session_id';
+  static const String openAiPromptCacheKeyBodyField = 'prompt_cache_key';
   static const int _maxIdLength = 128;
 
   final AiPromptCacheAffinityKind kind;
@@ -219,8 +223,15 @@ class AiPromptCacheAffinity {
       return AiPromptCacheAffinityKind.openRouterSession;
     }
     if (model.protocolType == AiProtocolType.grok ||
-        _modelIdLooksLikeGrok(model.modelId)) {
+        _isXaiEndpoint(model.baseUrl)) {
       return AiPromptCacheAffinityKind.grokConversationHeader;
+    }
+    if (_modelIdLooksLikeGrok(model.modelId)) {
+      return AiPromptCacheAffinityKind.grokCompatibleGateway;
+    }
+    if (model.providerKind == AiProviderKind.openai ||
+        _isOpenAiEndpoint(model.baseUrl)) {
+      return AiPromptCacheAffinityKind.openAiPromptCacheKey;
     }
     return AiPromptCacheAffinityKind.none;
   }
@@ -232,32 +243,83 @@ class AiPromptCacheAffinity {
     if (!applies) return;
     switch (kind) {
       case AiPromptCacheAffinityKind.grokConversationHeader:
+      case AiPromptCacheAffinityKind.grokCompatibleGateway:
         _putHeaderIfAbsent(headers, grokConversationHeader, id);
       case AiPromptCacheAffinityKind.openRouterSession:
         _putHeaderIfAbsent(headers, openRouterSessionHeader, id);
+      case AiPromptCacheAffinityKind.openAiPromptCacheKey:
       case AiPromptCacheAffinityKind.none:
         break;
     }
   }
 
   Map<String, Object?> applyToBody(Map<String, Object?> body) {
-    if (!applies || kind != AiPromptCacheAffinityKind.openRouterSession) {
+    if (!applies) {
       return body;
     }
-    if (body.containsKey(openRouterSessionBodyField)) {
+    switch (kind) {
+      case AiPromptCacheAffinityKind.openRouterSession:
+        return _putBodyFieldBeforeMessages(
+          body,
+          openRouterSessionBodyField,
+          id,
+        );
+      case AiPromptCacheAffinityKind.openAiPromptCacheKey:
+      case AiPromptCacheAffinityKind.grokCompatibleGateway:
+        return _putBodyFieldBeforeMessages(
+          body,
+          openAiPromptCacheKeyBodyField,
+          id,
+        );
+      case AiPromptCacheAffinityKind.grokConversationHeader:
+      case AiPromptCacheAffinityKind.none:
+        return body;
+    }
+  }
+
+  bool get usesBodyAffinityMarker {
+    return switch (kind) {
+      AiPromptCacheAffinityKind.openRouterSession ||
+      AiPromptCacheAffinityKind.openAiPromptCacheKey ||
+      AiPromptCacheAffinityKind.grokCompatibleGateway => applies,
+      AiPromptCacheAffinityKind.grokConversationHeader ||
+      AiPromptCacheAffinityKind.none => false,
+    };
+  }
+
+  static bool kindUsesBodyAffinityMarker(AiPromptCacheAffinityKind kind) {
+    return switch (kind) {
+      AiPromptCacheAffinityKind.openRouterSession ||
+      AiPromptCacheAffinityKind.openAiPromptCacheKey ||
+      AiPromptCacheAffinityKind.grokCompatibleGateway => true,
+      AiPromptCacheAffinityKind.grokConversationHeader ||
+      AiPromptCacheAffinityKind.none => false,
+    };
+  }
+
+  static bool kindRequiresGatewayForwarding(AiPromptCacheAffinityKind kind) {
+    return kind == AiPromptCacheAffinityKind.grokCompatibleGateway;
+  }
+
+  static Map<String, Object?> _putBodyFieldBeforeMessages(
+    Map<String, Object?> body,
+    String field,
+    String value,
+  ) {
+    if (body.containsKey(field)) {
       return body;
     }
     final updated = <String, Object?>{};
     var inserted = false;
     for (final entry in body.entries) {
       if (!inserted && entry.key == 'messages') {
-        updated[openRouterSessionBodyField] = id;
+        updated[field] = value;
         inserted = true;
       }
       updated[entry.key] = entry.value;
     }
     if (!inserted) {
-      updated[openRouterSessionBodyField] = id;
+      updated[field] = value;
     }
     return updated;
   }
@@ -280,6 +342,20 @@ class AiPromptCacheAffinity {
     final uri = Uri.tryParse(baseUrl.trim());
     final host = uri?.host.toLowerCase() ?? '';
     return host == 'openrouter.ai' || host.endsWith('.openrouter.ai');
+  }
+
+  static bool _isXaiEndpoint(String baseUrl) {
+    final uri = Uri.tryParse(baseUrl.trim());
+    final host = uri?.host.toLowerCase() ?? '';
+    return host == 'api.x.ai' || host.endsWith('.x.ai');
+  }
+
+  static bool _isOpenAiEndpoint(String baseUrl) {
+    final uri = Uri.tryParse(baseUrl.trim());
+    final host = uri?.host.toLowerCase() ?? '';
+    return host == 'api.openai.com' ||
+        host.endsWith('.openai.com') ||
+        host.endsWith('.openai.azure.com');
   }
 
   static bool _modelIdLooksLikeGrok(String modelId) {

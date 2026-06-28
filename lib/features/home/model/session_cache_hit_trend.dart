@@ -521,12 +521,18 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
     relatedMetadata['cache_control_strategy'],
     if (promptMetadata != null) promptMetadata['cache_control_strategy'],
   ]);
-  final automaticProviderCacheProtected =
+  final automaticProviderCacheProtected = firstBool([
+    primaryMetadata['cache_provider_automatic_cache_protected'],
+    relatedMetadata['cache_provider_automatic_cache_protected'],
+    if (promptMetadata != null)
+      promptMetadata['cache_provider_automatic_cache_protected'],
+  ]);
+  final automaticProviderCacheBestEffort =
       firstBool([
-        primaryMetadata['cache_provider_automatic_cache_protected'],
-        relatedMetadata['cache_provider_automatic_cache_protected'],
+        primaryMetadata['cache_provider_automatic_cache_best_effort'],
+        relatedMetadata['cache_provider_automatic_cache_best_effort'],
         if (promptMetadata != null)
-          promptMetadata['cache_provider_automatic_cache_protected'],
+          promptMetadata['cache_provider_automatic_cache_best_effort'],
       ]) ||
       cacheControlStrategy == 'automatic_provider_cache';
   final cacheAffinityEnabled = firstBool([
@@ -544,7 +550,9 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
   final explicitCacheControlsRequired =
       requiresExplicitCacheControls || protocolControlled;
   final stablePrefixCacheEnabled =
-      inputCacheEnabled || automaticProviderCacheProtected;
+      inputCacheEnabled ||
+      automaticProviderCacheProtected ||
+      automaticProviderCacheBestEffort;
   final requestCacheControlMarkerCount = firstInt([
     primaryMetadata['request_cache_control_marker_count'],
     relatedMetadata['request_cache_control_marker_count'],
@@ -582,7 +590,7 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
       !requestPrefixProbeComplete || requestPrefixContinuity;
   final automaticProviderMissSuspected =
       !explicitCacheControlsRequired &&
-      automaticProviderCacheProtected &&
+      (automaticProviderCacheProtected || automaticProviderCacheBestEffort) &&
       !ttlSuspected &&
       stablePrefixUnchanged &&
       toolCatalogStable &&

@@ -12803,6 +12803,9 @@ $tail''';
     if (body.containsKey(AiPromptCacheAffinity.openRouterSessionBodyField)) {
       paths.add('body.${AiPromptCacheAffinity.openRouterSessionBodyField}');
     }
+    if (body.containsKey(AiPromptCacheAffinity.openAiPromptCacheKeyBodyField)) {
+      paths.add('body.${AiPromptCacheAffinity.openAiPromptCacheKeyBodyField}');
+    }
     return <String, Object?>{
       'request_cache_affinity_marker_count': paths.length,
       if (paths.isNotEmpty)
@@ -12930,6 +12933,8 @@ $tail''';
       'cache_affinity_supported',
       'cache_affinity_enabled',
       'cache_affinity_strategy',
+      'cache_affinity_body_marker_supported',
+      'cache_affinity_requires_gateway_forwarding',
       'cache_background_requests_deferred',
       'tool_result_prompt_guard_enabled',
       'tool_result_prompt_threshold_chars',
@@ -12949,6 +12954,12 @@ $tail''';
       'previous_stable_cache_key',
       'idle_gap_seconds',
       'ttl_suspected',
+      'request_cache_affinity_marker_count',
+      'request_cache_affinity_marker_paths',
+      'request_cache_control_marker_count',
+      'request_cache_control_marker_paths',
+      'request_payload_prefix_continuity',
+      'request_payload_prefix_probe_complete',
     };
     final result = <String, Object?>{};
     for (final key in keys) {

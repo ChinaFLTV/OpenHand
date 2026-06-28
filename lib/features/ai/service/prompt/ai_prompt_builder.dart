@@ -649,6 +649,12 @@ class AiPromptBuilder {
         cacheAffinityKind != AiPromptCacheAffinityKind.none;
     final cacheAffinityEnabled =
         inputCachePolicy.stablePromptPrefixEnabled && cacheAffinitySupported;
+    final cacheAffinityRequiresGatewayForwarding =
+        AiPromptCacheAffinity.kindRequiresGatewayForwarding(cacheAffinityKind);
+    final cacheAffinityStrong =
+        cacheAffinityEnabled && !cacheAffinityRequiresGatewayForwarding;
+    final cacheAffinityBestEffort =
+        inputCachePolicy.usesAutomaticProviderCache && !cacheAffinityStrong;
     final stableCacheKey = _stableCacheKey(
       session: session,
       model: model,
@@ -702,12 +708,15 @@ class AiPromptBuilder {
       ..['cache_protocol_controlled'] =
           inputCachePolicy.injectsExplicitCacheControl
       ..['cache_provider_automatic_cache_protected'] =
-          inputCachePolicy.injectsExplicitCacheControl || cacheAffinityEnabled
-      ..['cache_provider_automatic_cache_best_effort'] =
-          inputCachePolicy.usesAutomaticProviderCache && !cacheAffinityEnabled
+          inputCachePolicy.injectsExplicitCacheControl || cacheAffinityStrong
+      ..['cache_provider_automatic_cache_best_effort'] = cacheAffinityBestEffort
       ..['cache_affinity_supported'] = cacheAffinitySupported
       ..['cache_affinity_enabled'] = cacheAffinityEnabled
       ..['cache_affinity_strategy'] = cacheAffinityKind.storageValue
+      ..['cache_affinity_body_marker_supported'] =
+          AiPromptCacheAffinity.kindUsesBodyAffinityMarker(cacheAffinityKind)
+      ..['cache_affinity_requires_gateway_forwarding'] =
+          cacheAffinityRequiresGatewayForwarding
       ..['cache_background_requests_deferred'] =
           inputCachePolicy.defersBackgroundRequests
       ..['tool_result_prompt_guard_enabled'] =

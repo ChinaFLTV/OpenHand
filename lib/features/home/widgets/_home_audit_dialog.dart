@@ -797,12 +797,18 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
       if (promptMetadataFromMsg != null)
         promptMetadataFromMsg['cache_control_strategy'],
     ]);
-    final automaticProviderCacheProtected =
+    final automaticProviderCacheProtected = _auditFirstBool([
+      metadata['cache_provider_automatic_cache_protected'],
+      relatedMetadata['cache_provider_automatic_cache_protected'],
+      if (promptMetadataFromMsg != null)
+        promptMetadataFromMsg['cache_provider_automatic_cache_protected'],
+    ]);
+    final automaticProviderCacheBestEffort =
         _auditFirstBool([
-          metadata['cache_provider_automatic_cache_protected'],
-          relatedMetadata['cache_provider_automatic_cache_protected'],
+          metadata['cache_provider_automatic_cache_best_effort'],
+          relatedMetadata['cache_provider_automatic_cache_best_effort'],
           if (promptMetadataFromMsg != null)
-            promptMetadataFromMsg['cache_provider_automatic_cache_protected'],
+            promptMetadataFromMsg['cache_provider_automatic_cache_best_effort'],
         ]) ||
         cacheControlStrategy == 'automatic_provider_cache';
     final protocolControlled =
@@ -847,7 +853,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
         toolCatalogHash == previousToolCatalogHash;
     final automaticProviderMissSuspected =
         !protocolControlled &&
-        automaticProviderCacheProtected &&
+        (automaticProviderCacheProtected || automaticProviderCacheBestEffort) &&
         !cacheTtlSuspected &&
         stablePrefixUnchanged &&
         toolCatalogStable &&
