@@ -4,12 +4,15 @@ import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_base.dart';
 import 'web_fetch_scrapling_bridge.dart';
+import 'web_fetch_value_parsing.dart';
 
 export '../web_engine/web_engine_base.dart' show WebEngineRequest;
 export '../web_engine/web_engine_http_exception.dart'
     show WebEngineHttpException;
 export '../web_engine/web_engine_json_utils.dart'
     show stringOf, readJsonPath, maybeJsonDecode;
+export 'web_fetch_value_parsing.dart'
+    show webFetchHttpStatusFromValue, webFetchScoreFromValue;
 
 /// 单个 URL 抓取的统一返回。
 class WebFetchEngineContent {
@@ -18,11 +21,12 @@ class WebFetchEngineContent {
     required this.title,
     required this.content,
     this.contentType,
-    this.statusCode,
+    int? statusCode,
     this.responseHeaders = const <String, String>{},
     this.publishedAt,
-    this.score,
-  });
+    double? score,
+  }) : statusCode = webFetchHttpStatusFromValue(statusCode),
+       score = webFetchScoreFromValue(score);
 
   final String url;
   final String title;

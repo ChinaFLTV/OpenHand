@@ -10,7 +10,8 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../model/ai_web_fetch_settings.dart';
-import 'web_fetch_engine.dart';
+import '../web_engine/web_engine_http_exception.dart';
+import 'web_fetch_value_parsing.dart';
 
 enum WebFetchScraplingRuntimeEventType {
   command,
@@ -226,9 +227,7 @@ class WebFetchScraplingBridge {
         content: '${response['content'] ?? ''}',
         contentType:
             '${response['content_type'] ?? headers['content-type'] ?? 'text/html'}',
-        statusCode: response['status_code'] is num
-            ? (response['status_code'] as num).toInt()
-            : null,
+        statusCode: webFetchHttpStatusFromValue(response['status_code']),
         responseHeaders: headers,
       );
     });
