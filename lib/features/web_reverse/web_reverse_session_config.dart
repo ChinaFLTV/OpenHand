@@ -78,13 +78,13 @@ class WebReverseSessionConfig {
 
   static WebReverseSessionConfig? fromJson(Object? raw) {
     if (raw is! Map) return null;
-    final map = Map<String, Object?>.from(raw);
-    final targetUrl = '${map['target_url'] ?? ''}'.trim();
-    final objective = '${map['objective'] ?? ''}'.trim();
+    final map = stringKeyedMapFromValue(raw);
+    final targetUrl = stringFromValue(map['target_url']);
+    final objective = stringFromValue(map['objective']);
     final cdpPort = optionalPositiveIntFromValue(map['cdp_port']) ?? 0;
-    final userDataDir = '${map['user_data_dir'] ?? ''}'.trim();
+    final userDataDir = stringFromValue(map['user_data_dir']);
     final browserKind = WebReverseBrowserKind.fromId(
-      '${map['browser_kind'] ?? ''}',
+      stringFromValue(map['browser_kind']),
     );
     if (targetUrl.isEmpty || cdpPort <= 0 || browserKind == null) return null;
     return WebReverseSessionConfig(
@@ -93,11 +93,11 @@ class WebReverseSessionConfig {
       cdpPort: cdpPort,
       userDataDir: userDataDir,
       browserKind: browserKind,
-      triggerActions: nullIfBlank(map['trigger_actions']?.toString()),
-      loginMode: WebReverseLoginMode.fromId('${map['login_mode'] ?? ''}'),
-      proxy: nullIfBlank(map['proxy']?.toString()),
+      triggerActions: optionalStringFromValue(map['trigger_actions']),
+      loginMode: WebReverseLoginMode.fromId(stringFromValue(map['login_mode'])),
+      proxy: optionalStringFromValue(map['proxy']),
       keywords: stringListFromValue(map['keywords']),
-      harPath: nullIfBlank(map['har_path']?.toString()),
+      harPath: optionalStringFromValue(map['har_path']),
       cdpMcpEnabled: boolFromValue(map['cdp_mcp_enabled']),
     );
   }

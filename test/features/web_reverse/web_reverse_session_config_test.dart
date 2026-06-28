@@ -50,4 +50,19 @@ void main() {
       isNull,
     );
   });
+
+  test('fromJson normalizes loose map keys without throwing', () {
+    final config = WebReverseSessionConfig.fromJson(<Object?, Object?>{
+      'target_url': 'https://example.test',
+      'cdp_port': '9222',
+      'browser_kind': 'chromium',
+      42: 'ignored',
+      'trigger_actions': '  click login  ',
+    });
+
+    expect(config, isNotNull);
+    expect(config!.targetUrl, 'https://example.test');
+    expect(config.cdpPort, 9222);
+    expect(config.triggerActions, 'click login');
+  });
 }
