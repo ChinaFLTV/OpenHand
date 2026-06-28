@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../knowledge_base/knowledge_base_controller.dart';
+import '../model/ai_model_config.dart';
 import '../service/bash/ai_bash_tool_service.dart';
 import '../service/chat/ai_chat_service.dart';
 import '../service/hook/ai_claude_hook_service.dart';
@@ -44,7 +46,10 @@ class AiToolRegistry {
   // ──────────────────────────────────────────────────────────────
   // 工厂：仅注册无外部 IO 依赖的轻量工具（用于测试和内部组合）
   // ──────────────────────────────────────────────────────────────
-  factory AiToolRegistry.lightweightOnly() {
+  factory AiToolRegistry.lightweightOnly({
+    KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
+    List<AiModelConfig> Function()? aiModelsProvider,
+  }) {
     return AiToolRegistry._()
       ..register(AiLsTool())
       ..register(AiGlobTool())
@@ -62,7 +67,12 @@ class AiToolRegistry {
       ..register(AiGitTool())
       ..register(AiDeleteFileTool())
       ..register(AiReadLintsTool())
-      ..register(AiKnowledgeSearchTool())
+      ..register(
+        AiKnowledgeSearchTool(
+          knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
+          aiModelsProvider: aiModelsProvider,
+        ),
+      )
       ..register(AiKnowledgeReadTool())
       ..register(AiToolSearchTool())
       ..register(AiAskUserChoiceTool());
@@ -80,8 +90,13 @@ class AiToolRegistry {
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
+    List<AiModelConfig> Function()? aiModelsProvider,
   }) {
-    final registry = AiToolRegistry.lightweightOnly();
+    final registry = AiToolRegistry.lightweightOnly(
+      knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
+      aiModelsProvider: aiModelsProvider,
+    );
 
     // Bash — 需要 AiBashToolService + AiClaudeHookService（Permission hooks）
     registry.register(

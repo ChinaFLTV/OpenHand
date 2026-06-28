@@ -215,10 +215,13 @@ Future<void> _bootstrap() async {
   });
   // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
   MemoryController? memoryControllerHandle;
+  KnowledgeBaseController? knowledgeBaseControllerHandle;
   final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
     memoryControllerProvider: () => memoryControllerHandle,
+    aiModelsProvider: () => settingsController.aiModels,
+    knowledgeBaseControllerProvider: () => knowledgeBaseControllerHandle,
   );
   AiLspClientService.instance.updateLanguageSettings(
     settingsController.editorLspSettings,
@@ -363,6 +366,7 @@ Future<void> _bootstrap() async {
   }());
 
   final knowledgeBase = await knowledgeBaseModuleFuture;
+  knowledgeBaseControllerHandle = knowledgeBase.controller;
   final messageGateway = await MessageGatewayModule.bootstrap(
     sessionController: aiSessionController,
     settingsController: settingsController,

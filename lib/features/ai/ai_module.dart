@@ -2,8 +2,10 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../hooks/index.dart';
+import '../knowledge_base/knowledge_base_controller.dart';
 import '../memory/index.dart';
 import 'ai_session_controller.dart';
+import 'model/ai_model_config.dart';
 import 'service/hook/ai_claude_hook_service.dart';
 
 /// Assembly point for the ai feature.
@@ -27,12 +29,17 @@ class AiModule {
     required HooksExecutor userHooksExecutor,
     required String Function() skillsDirProvider,
     required MemoryController? Function() memoryControllerProvider,
+    required List<AiModelConfig> Function() aiModelsProvider,
+    required KnowledgeBaseController? Function()
+    knowledgeBaseControllerProvider,
   }) async {
     final controller = await AiSessionController.create(
       hookService: AiClaudeHookService(),
       userHooksExecutor: userHooksExecutor,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
+      aiModelsProvider: aiModelsProvider,
+      knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
     );
     return AiModule._(controller: controller);
   }

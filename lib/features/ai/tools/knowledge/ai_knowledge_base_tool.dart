@@ -3,8 +3,10 @@ import 'dart:math' as math;
 
 import 'package:sqflite_common/sqlite_api.dart';
 
+import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/database_service.dart';
 import '../../../knowledge_base/index.dart';
+import '../../model/ai_model_config.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -24,6 +26,15 @@ const int _knowledgeToolPreviewMaxChars = 420;
 const int _knowledgeReadContentMaxChars = 4000;
 
 class AiKnowledgeSearchTool extends AiTool {
+  AiKnowledgeSearchTool({
+    KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
+    List<AiModelConfig> Function()? aiModelsProvider,
+  }) : _knowledgeBaseControllerProvider = knowledgeBaseControllerProvider,
+       _aiModelsProvider = aiModelsProvider;
+
+  final KnowledgeBaseController? Function()? _knowledgeBaseControllerProvider;
+  final List<AiModelConfig> Function()? _aiModelsProvider;
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.knowledgeSearch;
 
@@ -47,6 +58,12 @@ class AiKnowledgeSearchTool extends AiTool {
       min: _minKnowledgeSearchTopK,
       max: _maxKnowledgeSearchTopK,
     );
+    final vectorResult = await _executeVectorSearch(
+      query: query,
+      topK: topK,
+      stopwatch: sw,
+    );
+    if (vectorResult != null) return vectorResult;
     final terms = _knowledgeQueryTerms(query);
     final db = DatabaseService.instance.database;
     final rows = await _loadSearchCandidates(
@@ -102,6 +119,59 @@ class AiKnowledgeSearchTool extends AiTool {
       durationMs: sw.elapsedMilliseconds,
       metadata: metadata,
     );
+  }
+
+  Future<AiToolExecutionResult?> _executeVectorSearch({
+    required String query,
+    required int topK,
+    required Stopwatch stopwatch,
+  }) async {
+    final controller = _knowledgeBaseControllerProvider?.call();
+    final models = _aiModelsProvider?.call() ?? const <AiModelConfig>[];
+    if (controller == null || models.isEmpty) return null;
+    try {
+      final retrieval = await controller.retrieveForTool(
+        query: query,
+        topK: topK,
+        models: models,
+      );
+      if (retrieval == null) return null;
+      final result = retrieval.result;
+      final hits = result.hits.map(_retrievalHitJson).toList(growable: false);
+      final output = hits.isEmpty
+          ? 'No Knowledge Base chunks matched query="$query".'
+          : const JsonEncoder.withIndent(
+              '  ',
+            ).convert(<String, Object?>{'query': query, 'results': hits});
+      final knowledgeBase = <String, Object?>{
+        ...KnowledgeMessageMetadata.success(
+          settings: retrieval.settings,
+          result: result,
+          embeddingDurationMs: result.durationMs,
+          promptAppendContent: result.promptAppend,
+        ),
+        'results': hits,
+      };
+      return AiToolUtils.simpleSuccessResult(
+        command: 'KnowledgeSearch query=$query',
+        output: output,
+        durationMs: stopwatch.elapsedMilliseconds,
+        metadata: <String, Object?>{
+          ...knowledgeBase,
+          knowledgeBaseMessageMetadataKey: knowledgeBase,
+          'count': hits.length,
+          'duration_ms': stopwatch.elapsedMilliseconds,
+        },
+      );
+    } catch (error, stack) {
+      silentLog(
+        'ai_knowledge_base_tool',
+        'vector retrieval fallback',
+        error,
+        stack,
+      );
+      return null;
+    }
   }
 }
 
@@ -372,6 +442,14 @@ Map<String, Object?> _searchHitJson(
     'heading_path': row['heading_path'],
     'preview': preview,
     'matched_terms': ranked.score.matchedTerms,
+  };
+}
+
+Map<String, Object?> _retrievalHitJson(KnowledgeRetrievalHit hit) {
+  return <String, Object?>{
+    ...hit.toMessageJson()..remove('path'),
+    'source_kind': hit.source.kind,
+    'heading_path': hit.chunk.headingPath,
   };
 }
 

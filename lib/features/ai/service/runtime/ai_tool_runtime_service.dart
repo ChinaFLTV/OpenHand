@@ -12,6 +12,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
+import '../../../knowledge_base/knowledge_base_controller.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
@@ -264,6 +265,8 @@ class AiToolRuntimeService {
     AiFileMutationLedger? mutationLedger,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
+    List<AiModelConfig> Function()? aiModelsProvider,
     String Function(String sessionId)? toolOutputDirectoryProvider,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
@@ -287,6 +290,8 @@ class AiToolRuntimeService {
       hostLookup: _hostLookup,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
+      knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
+      aiModelsProvider: aiModelsProvider,
     );
   }
 

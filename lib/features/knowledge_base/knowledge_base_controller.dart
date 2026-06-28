@@ -12,6 +12,7 @@ import 'data/knowledge_base_settings_store.dart';
 import 'data/knowledge_base_store.dart';
 import 'model/knowledge_base_settings.dart';
 import 'model/knowledge_chunk.dart';
+import 'model/knowledge_retrieval_result.dart';
 import 'model/knowledge_source.dart';
 import 'model/knowledge_vector_distribution.dart';
 import 'service/knowledge_chunker.dart';
@@ -20,6 +21,7 @@ import 'service/knowledge_document_parser.dart';
 import 'service/knowledge_embedding_service.dart';
 import 'service/knowledge_indexing_control.dart';
 import 'service/knowledge_ingestion_service.dart';
+import 'service/knowledge_retrieval_service.dart';
 import 'service/knowledge_vector_store.dart';
 import 'service/qdrant_admin_service.dart';
 import 'service/qdrant_knowledge_vector_store.dart';
@@ -212,6 +214,41 @@ class KnowledgeBaseController extends ChangeNotifier {
 
   Future<KnowledgeSource?> loadSource(String sourceId) {
     return _store.loadSource(sourceId);
+  }
+
+  Future<({KnowledgeBaseSettings settings, KnowledgeRetrievalResult result})?>
+  retrieveForTool({
+    required String query,
+    required int topK,
+    required List<AiModelConfig> models,
+  }) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) return null;
+    final embeddingModel = resolveEmbeddingModel(models);
+    if (embeddingModel == null) return null;
+    final effectiveTopK = topK.clamp(1, 20).toInt();
+    final retrievalSettings = _settings.copyWith(
+      topK: effectiveTopK,
+      maxPromptChunks: math.max(effectiveTopK, _settings.maxPromptChunks),
+      topN: math.max(_settings.topN, effectiveTopK),
+    );
+    final vectorStore = QdrantKnowledgeVectorStore(settings: retrievalSettings);
+    final retrievalService = KnowledgeRetrievalService(
+      store: _store,
+      embeddingService: _embeddingService,
+      vectorStore: vectorStore,
+    );
+    try {
+      final result = await retrievalService.retrieve(
+        query: normalizedQuery,
+        settings: retrievalSettings,
+        embeddingModel: embeddingModel,
+        rerankModel: resolveRerankModel(models),
+      );
+      return (settings: retrievalSettings, result: result);
+    } finally {
+      retrievalService.dispose();
+    }
   }
 
   Future<List<KnowledgeChunk>> _restoreMissingChunksForSource(

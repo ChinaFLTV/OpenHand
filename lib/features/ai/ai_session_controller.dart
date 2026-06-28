@@ -26,6 +26,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
+import '../knowledge_base/knowledge_base_controller.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
@@ -264,6 +265,8 @@ class AiSessionController extends ChangeNotifier {
     DateTime Function()? clock,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
+    List<AiModelConfig> Function()? aiModelsProvider,
   }) async {
     final resolvedStore = store ?? AiSessionStore();
     final resolvedChatClient = chatClient ?? AiChatService();
@@ -293,6 +296,8 @@ class AiSessionController extends ChangeNotifier {
             backgroundChatClient: resolvedBackgroundChatClient,
             skillsDirProvider: skillsDirProvider,
             memoryControllerProvider: memoryControllerProvider,
+            knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
+            aiModelsProvider: aiModelsProvider,
             toolOutputDirectoryProvider:
                 resolvedStore.sessionToolResultsDirectoryPath,
           ),
