@@ -1,5 +1,6 @@
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../instructions/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
@@ -12,22 +13,17 @@ import 'ai_message_content_format.dart';
 import 'ai_sandbox_settings.dart';
 
 class AiRepositorySnapshot {
-  factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
-    final recentCommitsValue = json['recent_commits'];
+  factory AiRepositorySnapshot.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiRepositorySnapshot(
-      workingDirectory: '${json['working_directory'] ?? ''}',
-      isGitRepository: json['is_git_repository'] == true,
-      repositoryRootPath: '${json['repository_root_path'] ?? ''}',
-      currentBranch: '${json['current_branch'] ?? ''}',
-      mainBranch: '${json['main_branch'] ?? ''}',
-      statusSnapshot: '${json['status_snapshot'] ?? ''}',
-      recentCommits: recentCommitsValue is List
-          ? recentCommitsValue
-                .map((item) => '$item'.trim())
-                .where((item) => item.isNotEmpty)
-                .toList(growable: false)
-          : const <String>[],
-      capturedAtIso8601: '${json['captured_at'] ?? ''}',
+      workingDirectory: stringFromValue(json['working_directory']),
+      isGitRepository: boolFromValue(json['is_git_repository']),
+      repositoryRootPath: stringFromValue(json['repository_root_path']),
+      currentBranch: stringFromValue(json['current_branch']),
+      mainBranch: stringFromValue(json['main_branch']),
+      statusSnapshot: stringFromValue(json['status_snapshot']),
+      recentCommits: stringListFromValueOrJsonText(json['recent_commits']),
+      capturedAtIso8601: stringFromValue(json['captured_at']),
     );
   }
   const AiRepositorySnapshot({
