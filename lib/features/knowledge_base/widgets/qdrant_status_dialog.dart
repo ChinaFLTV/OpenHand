@@ -108,17 +108,22 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     }
     try {
       final controller = context.read<KnowledgeBaseController>();
-      final results = await Future.wait<Object?>([
-        controller.loadMonitoringSnapshot(),
-        controller.listQdrantCollections(),
+      QdrantMonitoringSnapshot? snapshot;
+      List<Map<String, Object?>>? collections;
+      await Future.wait<void>(<Future<void>>[
+        controller.loadMonitoringSnapshot().then((value) => snapshot = value),
+        controller.listQdrantCollections().then((value) => collections = value),
       ]).timeout(_qdrantRefreshTimeout);
-      final snapshot = results[0] as QdrantMonitoringSnapshot;
-      final collections = results[1] as List<Map<String, Object?>>;
+      final loadedSnapshot = snapshot;
+      final loadedCollections = collections;
+      if (loadedSnapshot == null || loadedCollections == null) {
+        throw StateError('Qdrant status refresh returned incomplete data.');
+      }
       if (!mounted) return;
       setState(() {
-        _snapshot = snapshot;
-        _collections = collections;
-        _samples.add(_QdrantMetricSample.fromSnapshot(snapshot));
+        _snapshot = loadedSnapshot;
+        _collections = loadedCollections;
+        _samples.add(_QdrantMetricSample.fromSnapshot(loadedSnapshot));
         if (_samples.length > _qdrantTrendSampleCap) {
           _samples.removeRange(0, _samples.length - _qdrantTrendSampleCap);
         }
