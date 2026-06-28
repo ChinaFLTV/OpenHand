@@ -8420,12 +8420,11 @@ class _PerTargetBuffer {
 /// 进入 Console 面板；持久化由 dashboard 写入 session metadata。
 class WebReverseSnippet {
   factory WebReverseSnippet.fromJson(Map<String, Object?> json) {
-    final ms = json['updated_ms'];
     return WebReverseSnippet(
-      id: '${json['id'] ?? ''}',
-      name: '${json['name'] ?? 'untitled'}',
-      code: '${json['code'] ?? ''}',
-      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+      id: stringFromValue(json['id']),
+      name: stringFromValue(json['name'], fallback: 'untitled'),
+      code: _webReverseRawTextFromValue(json['code']),
+      updatedAt: _webReverseTimestampMsFromValue(json['updated_ms']),
     );
   }
   const WebReverseSnippet({
@@ -8451,13 +8450,12 @@ class WebReverseSnippet {
 /// 用户保存的 JS Hook（每个文档加载前注入）。
 class WebReverseHook {
   factory WebReverseHook.fromJson(Map<String, Object?> json) {
-    final ms = json['updated_ms'];
     return WebReverseHook(
-      id: '${json['id'] ?? ''}',
-      name: '${json['name'] ?? 'untitled'}',
-      code: '${json['code'] ?? ''}',
-      enabled: json['enabled'] != false,
-      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+      id: stringFromValue(json['id']),
+      name: stringFromValue(json['name'], fallback: 'untitled'),
+      code: _webReverseRawTextFromValue(json['code']),
+      enabled: boolFromValue(json['enabled'], defaultValue: true),
+      updatedAt: _webReverseTimestampMsFromValue(json['updated_ms']),
     );
   }
   const WebReverseHook({
@@ -8485,15 +8483,14 @@ class WebReverseHook {
 
 class WebReverseCron {
   factory WebReverseCron.fromJson(Map<String, Object?> json) {
-    final ms = json['updated_ms'];
-    final iv = json['interval_s'];
+    final interval = optionalIntegralIntFromValue(json['interval_s']);
     return WebReverseCron(
-      id: '${json['id'] ?? ''}',
-      name: '${json['name'] ?? 'untitled'}',
-      code: '${json['code'] ?? ''}',
-      intervalSeconds: iv is int && iv >= 1 ? iv : 60,
-      enabled: json['enabled'] == true,
-      updatedAt: ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null,
+      id: stringFromValue(json['id']),
+      name: stringFromValue(json['name'], fallback: 'untitled'),
+      code: _webReverseRawTextFromValue(json['code']),
+      intervalSeconds: interval != null && interval >= 1 ? interval : 60,
+      enabled: boolFromValue(json['enabled']),
+      updatedAt: _webReverseTimestampMsFromValue(json['updated_ms']),
     );
   }
   const WebReverseCron({
@@ -8520,6 +8517,17 @@ class WebReverseCron {
     'enabled': enabled,
     'updated_ms': updatedAt?.millisecondsSinceEpoch,
   };
+}
+
+DateTime? _webReverseTimestampMsFromValue(Object? value) {
+  final timestamp = optionalIntegralIntFromValue(value);
+  return timestamp == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(timestamp);
+}
+
+String _webReverseRawTextFromValue(Object? value) {
+  return value?.toString() ?? '';
 }
 
 // ─── DOM 路径 JS 函数体 ────────────────────────────────────────────────
@@ -8593,13 +8601,13 @@ class WebReverseRequestBreakpoint {
 
   factory WebReverseRequestBreakpoint.fromJson(Map<String, Object?> j) =>
       WebReverseRequestBreakpoint(
-        id: '${j['id'] ?? ''}',
-        name: '${j['name'] ?? ''}',
-        enabled: j['enabled'] != false,
-        methodFilter: '${j['method'] ?? ''}',
-        urlContains: '${j['url_contains'] ?? ''}',
-        bodyContains: '${j['body_contains'] ?? ''}',
-        evalExpression: '${j['eval'] ?? ''}',
+        id: stringFromValue(j['id']),
+        name: stringFromValue(j['name']),
+        enabled: boolFromValue(j['enabled'], defaultValue: true),
+        methodFilter: stringFromValue(j['method']),
+        urlContains: stringFromValue(j['url_contains']),
+        bodyContains: stringFromValue(j['body_contains']),
+        evalExpression: _webReverseRawTextFromValue(j['eval']),
       );
 
   final String id;
