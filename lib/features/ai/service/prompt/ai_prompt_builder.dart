@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../instructions/index.dart';
@@ -1850,20 +1851,9 @@ class AiPromptBuilder {
     Map<String, Object?> parameters, {
     required bool requiredOnly,
   }) {
-    final propertiesValue = parameters['properties'];
-    if (propertiesValue is! Map && propertiesValue is! Map<String, Object?>) {
-      return const <String>[];
-    }
-    final properties = propertiesValue is Map<String, Object?>
-        ? propertiesValue
-        : Map<String, Object?>.from(propertiesValue as Map);
-    final requiredValue = parameters['required'];
-    final requiredNames = requiredValue is List
-        ? requiredValue
-              .map((item) => '$item'.trim())
-              .where((item) => item.isNotEmpty)
-              .toSet()
-        : const <String>{};
+    final properties = stringKeyedMapFromValue(parameters['properties']);
+    if (properties.isEmpty) return const <String>[];
+    final requiredNames = stringListFromValue(parameters['required']).toSet();
     return properties.keys
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)

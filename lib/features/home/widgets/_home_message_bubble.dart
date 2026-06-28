@@ -7886,16 +7886,19 @@ class _UserSkillSelectionChip extends StatelessWidget {
   final Color textColor;
 
   static String nameFromMetadata(Object? metadata) {
-    if (metadata is! Map) return '';
-    final map = Map<String, Object?>.from(metadata);
+    final map = stringKeyedMapFromValue(metadata);
+    return _nameFromMap(map);
+  }
+
+  static String _nameFromMap(Map<String, Object?> map) {
     return (map['name'] as String?)?.trim() ?? '';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (metadata is! Map) return const SizedBox.shrink();
-    final map = Map<String, Object?>.from(metadata as Map);
-    final name = nameFromMetadata(metadata);
+    final map = stringKeyedMapFromValue(metadata);
+    if (map.isEmpty) return const SizedBox.shrink();
+    final name = _nameFromMap(map);
     if (name.isEmpty) return const SizedBox.shrink();
     final emoji = (map['emoji'] as String?)?.trim();
     final iconPath = (map['icon_path'] as String?)?.trim();

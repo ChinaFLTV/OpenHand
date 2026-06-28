@@ -2416,10 +2416,10 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
 
   void _onMetricsMessage(JavaScriptMessage message) {
     try {
-      final decoded = jsonDecode(message.message);
-      if (decoded is! Map<String, dynamic>) return;
-      final width = (decoded['width'] as num?)?.toDouble();
-      final height = (decoded['height'] as num?)?.toDouble();
+      final decoded = stringKeyedMapFromValue(jsonDecode(message.message));
+      if (decoded.isEmpty) return;
+      final width = optionalDoubleFromValue(decoded['width']);
+      final height = optionalDoubleFromValue(decoded['height']);
       if (width == null || height == null) return;
       if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
         return;
