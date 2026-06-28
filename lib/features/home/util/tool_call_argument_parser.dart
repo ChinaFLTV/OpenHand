@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 String parseBashToolCommandFromArguments(String rawArguments) {
   return _readToolArgumentValue(
@@ -27,16 +28,12 @@ String _readToolArgumentValue(
   try {
     final decoded = jsonDecode(trimmed);
     if (decoded is Map) {
-      final argumentsMap = Map<String, Object?>.from(decoded);
-      for (final key in preferredKeys) {
-        final value = argumentsMap[key];
-        final normalized = '${value ?? ''}'.trim();
-        if (normalized.isNotEmpty) {
-          return normalized;
-        }
-      }
-      return '';
+      return _readPreferredArgumentValue(
+        stringKeyedMapFromValue(decoded),
+        preferredKeys,
+      );
     }
+    return '';
   } catch (_) {
     // Single jsonDecode failed. Try concatenated-objects recovery before
     // logging anything: some upstream tool_call accumulators merge two
@@ -45,13 +42,7 @@ String _readToolArgumentValue(
     // widget rebuild.
     final concatMerged = _mergeConcatenatedJsonObjects(trimmed);
     if (concatMerged != null) {
-      for (final key in preferredKeys) {
-        final value = concatMerged[key];
-        final normalized = '${value ?? ''}'.trim();
-        if (normalized.isNotEmpty) {
-          return normalized;
-        }
-      }
+      return _readPreferredArgumentValue(concatMerged, preferredKeys);
     } else {
       // Suppress the silent-log spam when the buffer looks like a still-
       // streaming partial object: the parser is invoked on every widget
@@ -71,6 +62,20 @@ String _readToolArgumentValue(
     }
   }
   return _readPartialJsonStringField(trimmed, preferredKeys);
+}
+
+String _readPreferredArgumentValue(
+  Map<String, Object?> argumentsMap,
+  List<String> preferredKeys,
+) {
+  for (final key in preferredKeys) {
+    final value = argumentsMap[key];
+    final normalized = '${value ?? ''}'.trim();
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+  }
+  return '';
 }
 
 /// Splits a string that looks like several balanced JSON objects glued
@@ -102,7 +107,7 @@ Map<String, Object?>? _mergeConcatenatedJsonObjects(String source) {
     try {
       final decoded = jsonDecode(slice);
       if (decoded is Map) {
-        merged.addAll(Map<String, Object?>.from(decoded));
+        merged.addAll(stringKeyedMapFromValue(decoded));
         foundAny = true;
       } else {
         return null;
