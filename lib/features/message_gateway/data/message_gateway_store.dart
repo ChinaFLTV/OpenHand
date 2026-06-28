@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/web_message_platform_config.dart';
 
 class MessageGatewayStore {
@@ -25,11 +26,9 @@ class MessageGatewayStore {
     }
     try {
       final raw = await file.readAsString();
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) {
-        return WebMessagePlatformConfig.fromJson(
-          Map<String, Object?>.from(decoded),
-        );
+      final decoded = optionalStringKeyedMapFromJsonText(raw);
+      if (decoded != null) {
+        return WebMessagePlatformConfig.fromJson(decoded);
       }
     } catch (error, stack) {
       silentLog('message_gateway_store', 'load config', error, stack);
