@@ -148,6 +148,11 @@ function resolveDefaultTitleModelKey(models: ApiMetaModel[], currentKey: string)
   if (current) return '';
   return models.find((model) => supportsTitleGeneration(model))?.key ?? '';
 }
+
+function nonEmptyString(value: unknown): string {
+  return stringFromUnknown(value);
+}
+
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
 const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 1;
@@ -155,6 +160,7 @@ const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 900;
 const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
 const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
+const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
 
 // 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -872,32 +878,306 @@ function messageKnowledgeBaseHasReferences(metadata: Record<string, unknown> | n
     results.length > 0;
 }
 
+function knowledgeBaseResultMaps(metadata: Record<string, unknown> | null): Record<string, unknown>[] {
+  const results = metadata?.['results'];
+  if (!Array.isArray(results)) return [];
+  return results
+    .map((item) => recordOrNullFromUnknown(item))
+    .filter((item): item is Record<string, unknown> => item != null);
+}
+
+function knowledgeBaseMetadataUsedByAnswer(
+  metadata: Record<string, unknown> | null,
+  answerText: string,
+): Record<string, unknown> | null {
+  if (!messageKnowledgeBaseHasReferences(metadata)) return null;
+  const usedResults = knowledgeBaseResultsUsedByAnswer(knowledgeBaseResultMaps(metadata), answerText);
+  if (usedResults.length === 0) return null;
+  const promptAppend = recordOrNullFromUnknown(metadata?.['prompt_append']) ?? {};
+  const tokenEstimate = usedResults.reduce((total, hit) => (
+    total + Math.max(0, Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0))
+  ), 0);
+  return {
+    ...(metadata ?? {}),
+    results: usedResults,
+    prompt_append: {
+      ...promptAppend,
+      chunk_count: usedResults.length,
+      ...(tokenEstimate > 0 ? { token_estimate: tokenEstimate } : {}),
+    },
+  };
+}
+
+function knowledgeBaseResultsUsedByAnswer(
+  results: Record<string, unknown>[],
+  answerText: string,
+): Record<string, unknown>[] {
+  const normalizedAnswer = knowledgeUsageNormalize(answerText);
+  if (!normalizedAnswer) return [];
+  const used: Record<string, unknown>[] = [];
+  const seen = new Set<string>();
+  for (const result of results) {
+    if (!knowledgeBaseHitUsedByAnswer(result, normalizedAnswer)) continue;
+    const key = knowledgeBaseCitationKey(result);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    used.push(result);
+  }
+  return used;
+}
+
+function knowledgeBaseHitUsedByAnswer(
+  hit: Record<string, unknown>,
+  normalizedAnswer: string,
+): boolean {
+  for (const term of knowledgeBaseHitUsageTerms(hit)) {
+    const normalizedTerm = knowledgeUsageNormalize(term);
+    if (!knowledgeUsageTermWorthMatching(term, normalizedTerm)) continue;
+    if (normalizedAnswer.includes(normalizedTerm)) return true;
+  }
+  return false;
+}
+
+function knowledgeBaseHitUsageTerms(hit: Record<string, unknown>): string[] {
+  const terms: string[] = [];
+  for (const key of ['source_title', 'title', 'path', 'chunk_id', 'source_id', 'heading_path']) {
+    const value = nonEmptyString(hit[key]);
+    if (!value) continue;
+    terms.push(value);
+    if (key === 'path') {
+      terms.push(basenameFromPath(value));
+    }
+    if (key === 'heading_path') {
+      for (const part of value.split(/[>/\\|]+/g)) {
+        const trimmed = part.trim();
+        if (trimmed) terms.push(trimmed);
+      }
+    }
+  }
+  for (const key of ['preview', 'content']) {
+    const value = nonEmptyString(hit[key]);
+    if (!value) continue;
+    terms.push(...knowledgeStableTextFragments(value));
+  }
+  return terms;
+}
+
+function knowledgeStableTextFragments(text: string): string[] {
+  return text
+    .split(/[\r\n。！？!?；;]+/g)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 12)
+    .map((part) => (part.length > 90 ? part.slice(0, 90) : part));
+}
+
+function knowledgeUsageTermWorthMatching(raw: string, normalized: string): boolean {
+  if (!normalized) return false;
+  const hasCjk = /[\u4e00-\u9fff]/.test(raw);
+  if (normalized.length < (hasCjk ? 4 : 8)) return false;
+  return !new Set([
+    'knowledgebase',
+    'knowledge',
+    'document',
+    'documents',
+    'chunk',
+    'chunks',
+    '知识库',
+    '文档',
+    '资料',
+    '片段',
+  ]).has(normalized);
+}
+
+function knowledgeUsageNormalize(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[\s`~!@#$%^&*()_\-+={}\[\]|\\:;"'<>,.?/，。、《》？；：‘’“”【】（）！￥…—·、]+/g, '')
+    .trim();
+}
+
+function knowledgeBaseCitationKey(hit: Record<string, unknown>): string {
+  const sourceId = nonEmptyString(hit['source_id']);
+  if (sourceId) return `source:${sourceId}`;
+  const path = nonEmptyString(hit['path']) || nonEmptyString(hit['original_path']);
+  if (path) return `path:${path}`;
+  const chunkId = nonEmptyString(hit['chunk_id']) || nonEmptyString(hit['id']);
+  if (chunkId) return `chunk:${chunkId}`;
+  return `label:${nonEmptyString(hit['source_title']) || nonEmptyString(hit['title'])}`;
+}
+
+function knowledgeBaseMetadataFromRoundToolMessages(
+  messages: SessionMessage[],
+  answerText: string,
+): Record<string, unknown> | null {
+  const results: Record<string, unknown>[] = [];
+  const queries: string[] = [];
+  const seen = new Set<string>();
+  for (const message of messages) {
+    const extracted = knowledgeBaseMetadataFromToolMessage(message);
+    if (!extracted) continue;
+    const query = nonEmptyString(extracted['query']);
+    if (query) queries.push(query);
+    for (const result of knowledgeBaseResultMaps(extracted)) {
+      const key = knowledgeBaseCitationKey(result);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(result);
+    }
+  }
+  if (results.length === 0) return null;
+  return knowledgeBaseMetadataUsedByAnswer({
+    enabled: true,
+    status: 'success',
+    query: Array.from(new Set(queries)).join(' | '),
+    results,
+    prompt_append: {
+      chunk_count: results.length,
+      token_estimate: results.reduce((total, hit) => (
+        total + Math.max(0, Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0))
+      ), 0),
+    },
+    source: 'knowledge_tools',
+  }, answerText);
+}
+
+function knowledgeBaseMetadataFromToolMessage(message: SessionMessage): Record<string, unknown> | null {
+  if (message.kind !== 'tool_call' && message.kind !== 'tool') return null;
+  const meta = recordOrNullFromUnknown(message.metadata);
+  if (!meta) return null;
+  const toolName = nonEmptyString(meta['tool_name']).toLowerCase();
+  const isSearch = toolName === 'knowledgesearch' || toolName === 'knowledge_search';
+  const isRead = toolName === 'knowledgeread' || toolName === 'knowledge_read';
+  if (!isSearch && !isRead) return null;
+  const status = nonEmptyString(meta['tool_execution_status'] ?? meta['status']).toLowerCase();
+  if (status && status !== 'success' && status !== 'ok' && status !== 'completed') return null;
+  const rawResults = knowledgeToolResultRows(meta);
+  if (rawResults.length === 0) return null;
+  const results = rawResults
+    .map((row) => (isRead ? knowledgeReadRowToMessageHit(row) : knowledgeSearchRowToHit(row)))
+    .filter((hit) => nonEmptyString(hit['source_title']) || nonEmptyString(hit['title']) || nonEmptyString(hit['path']) || nonEmptyString(hit['chunk_id']));
+  if (results.length === 0) return null;
+  return {
+    enabled: true,
+    status: 'success',
+    query: knowledgeToolQuery(meta, isRead),
+    results,
+    prompt_append: {
+      chunk_count: results.length,
+      token_estimate: results.reduce((total, hit) => (
+        total + Math.max(0, Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0))
+      ), 0),
+    },
+  };
+}
+
+function knowledgeToolResultRows(metadata: Record<string, unknown>): Record<string, unknown>[] {
+  const direct = metadata['results'];
+  if (Array.isArray(direct)) {
+    return direct
+      .map((item) => recordOrNullFromUnknown(item))
+      .filter((item): item is Record<string, unknown> => item != null);
+  }
+  const resultText = nonEmptyString(metadata['tool_execution_result'] ?? metadata['result_text']);
+  if (!resultText) return [];
+  try {
+    const decoded = JSON.parse(resultText) as unknown;
+    const results = recordOrNullFromUnknown(decoded)?.['results'];
+    if (!Array.isArray(results)) return [];
+    return results
+      .map((item) => recordOrNullFromUnknown(item))
+      .filter((item): item is Record<string, unknown> => item != null);
+  } catch {
+    return [];
+  }
+}
+
+function knowledgeToolQuery(metadata: Record<string, unknown>, isRead: boolean): string {
+  const direct = nonEmptyString(metadata['query']);
+  if (direct) return direct;
+  const args = knowledgeToolArguments(metadata['tool_arguments']);
+  if (!isRead) return nonEmptyString(args['query']);
+  const chunkId = nonEmptyString(args['chunk_id']) || nonEmptyString(metadata['chunk_id']);
+  if (chunkId) return `chunk_id:${chunkId}`;
+  const sourceId = nonEmptyString(args['source_id']) || nonEmptyString(metadata['source_id']);
+  return sourceId ? `source_id:${sourceId}` : '';
+}
+
+function knowledgeToolArguments(raw: unknown): Record<string, unknown> {
+  const direct = recordOrNullFromUnknown(raw);
+  if (direct) return direct;
+  const text = nonEmptyString(raw);
+  if (!text) return {};
+  try {
+    return recordOrNullFromUnknown(JSON.parse(text) as unknown) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function knowledgeSearchRowToHit(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...row,
+    title: row['title'] ?? row['source_title'],
+    path: row['path'] ?? row['original_path'],
+  };
+}
+
+function knowledgeReadRowToMessageHit(row: Record<string, unknown>): Record<string, unknown> {
+  const content = nonEmptyString(row['content']);
+  const existingPreview = nonEmptyString(row['preview']);
+  const previewSource = existingPreview || content;
+  return {
+    chunk_id: row['chunk_id'] ?? row['id'],
+    source_id: row['source_id'],
+    title: row['source_title'] ?? row['title'],
+    path: row['original_path'] ?? row['path'],
+    source_kind: row['kind'] ?? row['source_kind'],
+    document_time: row['document_time'],
+    updated_at: row['updated_at'],
+    token_estimate: row['token_estimate'],
+    heading_path: row['heading_path'],
+    preview: previewSource.length > KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS
+      ? `${previewSource.slice(0, KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS)}...`
+      : previewSource,
+  };
+}
+
 function buildAssociatedKnowledgeBaseMetadataByMessageId(
   messages: SessionMessage[],
 ): Map<string, Record<string, unknown>> {
   const result = new Map<string, Record<string, unknown>>();
+  let roundCandidates: SessionMessage[] = [];
   let pendingUserMetadata: Record<string, unknown> | null = null;
 
   for (const message of messages) {
     if (message.kind === 'user') {
       const metadata = messageKnowledgeBaseMetadata(message);
       pendingUserMetadata = messageKnowledgeBaseHasReferences(metadata) ? metadata : null;
+      roundCandidates = [];
       continue;
     }
 
     if (message.kind !== 'assistant') {
+      roundCandidates.push(message);
       continue;
     }
 
     const directMetadata = messageKnowledgeBaseMetadata(message);
-    if (directMetadata && messageKnowledgeBaseHasReferences(directMetadata)) {
-      result.set(message.id, directMetadata);
-    } else if (pendingUserMetadata) {
-      result.set(message.id, pendingUserMetadata);
+    const usedDirectMetadata = knowledgeBaseMetadataUsedByAnswer(directMetadata, message.content);
+    const usedUserMetadata = usedDirectMetadata
+      ? null
+      : knowledgeBaseMetadataUsedByAnswer(pendingUserMetadata, message.content);
+    const usedToolMetadata = usedDirectMetadata || usedUserMetadata
+      ? null
+      : knowledgeBaseMetadataFromRoundToolMessages(roundCandidates, message.content);
+    const metadata = usedDirectMetadata ?? usedUserMetadata ?? usedToolMetadata;
+    if (metadata) {
+      result.set(message.id, metadata);
     }
 
     if (message.content.trim().length > 0) {
       pendingUserMetadata = null;
+      roundCandidates = [];
     }
   }
 
@@ -2291,7 +2571,9 @@ export function SessionDetailPage() {
   };
 
   const shouldFollowPinnedMessages = () => {
-    return autoFollowRef.current && isNearBottomRef.current && !autoFollowPausedRef.current;
+    return autoFollowRef.current &&
+      isNearBottomRef.current &&
+      !autoFollowPausedRef.current;
   };
 
   const toggleBrowserFullscreen = async () => {

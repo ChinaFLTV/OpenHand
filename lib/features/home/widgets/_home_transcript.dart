@@ -3107,29 +3107,38 @@ Map<String, Object?>? _associatedKnowledgeBaseMetadataForMessage({
   final directMetadata = KnowledgeMessageMetadata.fromMessageMetadata(
     message.metadata,
   );
-  if (directMetadata != null &&
-      KnowledgeMessageMetadata.hasReferences(directMetadata)) {
-    return directMetadata;
+  final directUsedMetadata = _knowledgeBaseMetadataUsedByAnswer(
+    directMetadata,
+    message.content,
+  );
+  if (directUsedMetadata != null) {
+    return directUsedMetadata;
   }
   if (currentIndex == null || currentIndex <= 0) return null;
+  final roundMessages = <AiSessionMessage>[];
   for (var index = currentIndex - 1; index >= 0; index--) {
     final candidate = visibleMessages[index];
     if (candidate.kind == AiSessionMessageKind.user) {
       final metadata = KnowledgeMessageMetadata.fromMessageMetadata(
         candidate.metadata,
       );
-      if (metadata == null ||
-          !KnowledgeMessageMetadata.hasReferences(metadata)) {
-        return null;
-      }
-      return metadata;
+      final usedMetadata = _knowledgeBaseMetadataUsedByAnswer(
+        metadata,
+        message.content,
+      );
+      if (usedMetadata != null) return usedMetadata;
+      break;
     }
     if (candidate.kind == AiSessionMessageKind.assistant &&
         candidate.content.trim().isNotEmpty) {
-      return null;
+      break;
     }
+    roundMessages.insert(0, candidate);
   }
-  return null;
+  return _knowledgeBaseMetadataFromRoundToolMessages(
+    roundMessages,
+    message.content,
+  );
 }
 
 AiCreationRequest? _resolvePendingCreationPlaceholder({

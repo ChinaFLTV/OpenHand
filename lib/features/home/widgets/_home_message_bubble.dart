@@ -613,15 +613,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
         KnowledgeMessageMetadata.fromMessageMetadata(message.metadata);
     Map<String, Object?>? associatedKnowledgeBaseMetadata;
     if (isAssistantResponse && !isStreamingAssistant) {
-      if (directKnowledgeBaseMetadata != null &&
-          KnowledgeMessageMetadata.hasReferences(directKnowledgeBaseMetadata)) {
-        associatedKnowledgeBaseMetadata = directKnowledgeBaseMetadata;
-      } else if (widget.associatedKnowledgeBaseMetadata != null &&
-          KnowledgeMessageMetadata.hasReferences(
-            widget.associatedKnowledgeBaseMetadata!,
-          )) {
-        associatedKnowledgeBaseMetadata =
-            widget.associatedKnowledgeBaseMetadata;
+      final directUsedKnowledgeBaseMetadata =
+          _knowledgeBaseMetadataUsedByAnswer(
+            directKnowledgeBaseMetadata,
+            message.content,
+          );
+      if (directUsedKnowledgeBaseMetadata != null) {
+        associatedKnowledgeBaseMetadata = directUsedKnowledgeBaseMetadata;
+      } else {
+        associatedKnowledgeBaseMetadata = _knowledgeBaseMetadataUsedByAnswer(
+          widget.associatedKnowledgeBaseMetadata,
+          message.content,
+        );
       }
     }
     final isAiSideMessage =
@@ -6982,6 +6985,8 @@ class _KnowledgeBaseCitationSource {
   final String label;
 }
 
+const int _knowledgeBaseUsagePreviewMaxChars = 420;
+
 Map<String, Object?> _knowledgeBaseMetadataEnvelope(
   Map<String, Object?> metadata,
 ) {
@@ -6997,6 +7002,319 @@ List<Map<String, Object?>> _knowledgeBaseResultMaps(
       .whereType<Map>()
       .map((item) => Map<String, Object?>.from(item))
       .toList(growable: false);
+}
+
+Map<String, Object?>? _knowledgeBaseMetadataUsedByAnswer(
+  Map<String, Object?>? metadata,
+  String answerText,
+) {
+  if (metadata == null) return null;
+  if (metadata['enabled'] != true ||
+      '${metadata['status'] ?? ''}' != 'success') {
+    return null;
+  }
+  final usedResults = _knowledgeBaseResultsUsedByAnswer(
+    _knowledgeBaseResultMaps(metadata),
+    answerText,
+  );
+  if (usedResults.isEmpty) return null;
+  final promptAppend =
+      KnowledgeMessageMetadata.promptAppendInfo(metadata) ??
+      const <String, Object?>{};
+  final tokenEstimate = usedResults.fold<int>(
+    0,
+    (total, hit) =>
+        total + nonNegativeIntFromValue(hit['token_estimate'], fallback: 0),
+  );
+  return <String, Object?>{
+    ...metadata,
+    'results': usedResults,
+    'prompt_append': <String, Object?>{
+      ...promptAppend,
+      'chunk_count': usedResults.length,
+      if (tokenEstimate > 0) 'token_estimate': tokenEstimate,
+    },
+  };
+}
+
+List<Map<String, Object?>> _knowledgeBaseResultsUsedByAnswer(
+  List<Map<String, Object?>> results,
+  String answerText,
+) {
+  if (results.isEmpty || answerText.trim().isEmpty) {
+    return const <Map<String, Object?>>[];
+  }
+  final normalizedAnswer = _knowledgeUsageNormalize(answerText);
+  if (normalizedAnswer.isEmpty) return const <Map<String, Object?>>[];
+  final used = <Map<String, Object?>>[];
+  final seen = <String>{};
+  for (final result in results) {
+    if (!_knowledgeBaseHitUsedByAnswer(result, normalizedAnswer)) continue;
+    final label = _knowledgeBaseCitationLabel(result);
+    final key = _knowledgeBaseCitationKey(result, label);
+    if (!seen.add(key)) continue;
+    used.add(result);
+  }
+  return used;
+}
+
+bool _knowledgeBaseHitUsedByAnswer(
+  Map<String, Object?> hit,
+  String normalizedAnswer,
+) {
+  for (final term in _knowledgeBaseHitUsageTerms(hit)) {
+    final normalizedTerm = _knowledgeUsageNormalize(term);
+    if (!_knowledgeUsageTermWorthMatching(term, normalizedTerm)) continue;
+    if (normalizedAnswer.contains(normalizedTerm)) return true;
+  }
+  return false;
+}
+
+Iterable<String> _knowledgeBaseHitUsageTerms(Map<String, Object?> hit) sync* {
+  for (final key in const <String>[
+    'source_title',
+    'title',
+    'path',
+    'chunk_id',
+    'source_id',
+    'heading_path',
+  ]) {
+    final value = '${hit[key] ?? ''}'.trim();
+    if (value.isEmpty) continue;
+    yield value;
+    if (key == 'path') {
+      final normalized = value.replaceAll('\\', '/');
+      final slash = normalized.lastIndexOf('/');
+      if (slash >= 0 && slash + 1 < normalized.length) {
+        yield normalized.substring(slash + 1);
+      }
+    }
+    if (key == 'heading_path') {
+      for (final part in value.split(RegExp(r'[>/\\|]+'))) {
+        final trimmed = part.trim();
+        if (trimmed.isNotEmpty) yield trimmed;
+      }
+    }
+  }
+  for (final key in const <String>['preview', 'content']) {
+    final value = '${hit[key] ?? ''}'.trim();
+    if (value.isEmpty) continue;
+    yield* _knowledgeStableTextFragments(value);
+  }
+}
+
+Iterable<String> _knowledgeStableTextFragments(String text) sync* {
+  final parts = text.split(RegExp(r'[\r\n。！？!?；;]+'));
+  for (final part in parts) {
+    final trimmed = part.trim();
+    if (trimmed.length < 12) continue;
+    yield trimmed.length > 90 ? trimmed.substring(0, 90) : trimmed;
+  }
+}
+
+bool _knowledgeUsageTermWorthMatching(String raw, String normalized) {
+  if (normalized.isEmpty) return false;
+  final hasCjk = RegExp(r'[\u4e00-\u9fff]').hasMatch(raw);
+  final minLength = hasCjk ? 4 : 8;
+  if (normalized.length < minLength) return false;
+  final generic = <String>{
+    'knowledgebase',
+    'knowledge',
+    'document',
+    'documents',
+    'chunk',
+    'chunks',
+    '知识库',
+    '文档',
+    '资料',
+    '片段',
+  };
+  return !generic.contains(normalized);
+}
+
+String _knowledgeUsageNormalize(String value) {
+  return value
+      .toLowerCase()
+      .replaceAll(
+        RegExp(
+          r'''[\s`~!@#$%^&*()_\-+={}\[\]|\\:;"'<>,.?/，。、《》？；：‘’“”【】（）！￥…—·、]+''',
+        ),
+        '',
+      )
+      .trim();
+}
+
+Map<String, Object?>? _knowledgeBaseMetadataFromRoundToolMessages(
+  List<AiSessionMessage> messages,
+  String answerText,
+) {
+  final results = <Map<String, Object?>>[];
+  final queries = <String>[];
+  final seen = <String>{};
+  for (final message in messages) {
+    final extracted = _knowledgeBaseMetadataFromToolMessage(message);
+    if (extracted == null) continue;
+    final query = '${extracted['query'] ?? ''}'.trim();
+    if (query.isNotEmpty) queries.add(query);
+    for (final result in _knowledgeBaseResultMaps(extracted)) {
+      final label = _knowledgeBaseCitationLabel(result);
+      final key = _knowledgeBaseCitationKey(result, label);
+      if (!seen.add(key)) continue;
+      results.add(result);
+    }
+  }
+  if (results.isEmpty) return null;
+  return _knowledgeBaseMetadataUsedByAnswer(<String, Object?>{
+    'enabled': true,
+    'status': 'success',
+    'query': queries.toSet().join(' | '),
+    'results': results,
+    'prompt_append': <String, Object?>{
+      'chunk_count': results.length,
+      'token_estimate': results.fold<int>(
+        0,
+        (total, hit) =>
+            total + nonNegativeIntFromValue(hit['token_estimate'], fallback: 0),
+      ),
+    },
+    'source': 'knowledge_tools',
+  }, answerText);
+}
+
+Map<String, Object?>? _knowledgeBaseMetadataFromToolMessage(
+  AiSessionMessage message,
+) {
+  if (message.kind != AiSessionMessageKind.toolCall &&
+      message.kind != AiSessionMessageKind.tool) {
+    return null;
+  }
+  final toolName = '${message.metadata['tool_name'] ?? ''}'.trim();
+  final normalizedToolName = toolName.toLowerCase();
+  final isSearch =
+      normalizedToolName == 'knowledgesearch' ||
+      normalizedToolName == 'knowledge_search';
+  final isRead =
+      normalizedToolName == 'knowledgeread' ||
+      normalizedToolName == 'knowledge_read';
+  if (!isSearch && !isRead) return null;
+  final status =
+      '${message.metadata['tool_execution_status'] ?? message.metadata['status'] ?? ''}'
+          .trim()
+          .toLowerCase();
+  if (status.isNotEmpty &&
+      status != 'success' &&
+      status != 'ok' &&
+      status != 'completed') {
+    return null;
+  }
+  final rawResults = _knowledgeToolResultRows(message.metadata);
+  if (rawResults.isEmpty) return null;
+  final results = rawResults
+      .map(isRead ? _knowledgeReadRowToMessageHit : _knowledgeSearchRowToHit)
+      .where((hit) => _knowledgeBaseCitationLabel(hit).isNotEmpty)
+      .toList(growable: false);
+  if (results.isEmpty) return null;
+  return <String, Object?>{
+    'enabled': true,
+    'status': 'success',
+    'query': _knowledgeToolQuery(message.metadata, isRead: isRead),
+    'results': results,
+    'prompt_append': <String, Object?>{
+      'chunk_count': results.length,
+      'token_estimate': results.fold<int>(
+        0,
+        (total, hit) =>
+            total + nonNegativeIntFromValue(hit['token_estimate'], fallback: 0),
+      ),
+    },
+  };
+}
+
+List<Map<String, Object?>> _knowledgeToolResultRows(
+  Map<String, Object?> metadata,
+) {
+  final direct = metadata['results'];
+  if (direct is List) {
+    return direct
+        .whereType<Map>()
+        .map((item) => Map<String, Object?>.from(item))
+        .toList(growable: false);
+  }
+  final resultText =
+      '${metadata['tool_execution_result'] ?? metadata['result_text'] ?? ''}'
+          .trim();
+  if (resultText.isEmpty) return const <Map<String, Object?>>[];
+  try {
+    final decoded = jsonDecode(resultText);
+    if (decoded is Map) {
+      final results = decoded['results'];
+      if (results is List) {
+        return results
+            .whereType<Map>()
+            .map((item) => Map<String, Object?>.from(item))
+            .toList(growable: false);
+      }
+    }
+  } catch (_) {
+    return const <Map<String, Object?>>[];
+  }
+  return const <Map<String, Object?>>[];
+}
+
+String _knowledgeToolQuery(
+  Map<String, Object?> metadata, {
+  required bool isRead,
+}) {
+  final direct = '${metadata['query'] ?? ''}'.trim();
+  if (direct.isNotEmpty) return direct;
+  final args = _knowledgeToolArguments(metadata['tool_arguments']);
+  if (!isRead) return '${args['query'] ?? ''}'.trim();
+  final chunkId = '${args['chunk_id'] ?? metadata['chunk_id'] ?? ''}'.trim();
+  if (chunkId.isNotEmpty) return 'chunk_id:$chunkId';
+  final sourceId = '${args['source_id'] ?? metadata['source_id'] ?? ''}'.trim();
+  return sourceId.isNotEmpty ? 'source_id:$sourceId' : '';
+}
+
+Map<String, Object?> _knowledgeToolArguments(Object? raw) {
+  if (raw is Map) return Map<String, Object?>.from(raw);
+  if (raw is String && raw.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) return Map<String, Object?>.from(decoded);
+    } catch (_) {
+      return const <String, Object?>{};
+    }
+  }
+  return const <String, Object?>{};
+}
+
+Map<String, Object?> _knowledgeSearchRowToHit(Map<String, Object?> row) {
+  return <String, Object?>{
+    ...row,
+    'title': row['title'] ?? row['source_title'],
+    'path': row['path'] ?? row['original_path'],
+  };
+}
+
+Map<String, Object?> _knowledgeReadRowToMessageHit(Map<String, Object?> row) {
+  final content = '${row['content'] ?? ''}'.trim();
+  final existingPreview = '${row['preview'] ?? ''}'.trim();
+  final previewSource = existingPreview.isNotEmpty ? existingPreview : content;
+  final preview = previewSource.length > _knowledgeBaseUsagePreviewMaxChars
+      ? '${previewSource.substring(0, _knowledgeBaseUsagePreviewMaxChars)}...'
+      : previewSource;
+  return <String, Object?>{
+    'chunk_id': row['chunk_id'] ?? row['id'],
+    'source_id': row['source_id'],
+    'title': row['source_title'] ?? row['title'],
+    'path': row['original_path'] ?? row['path'],
+    'source_kind': row['kind'] ?? row['source_kind'],
+    'document_time': row['document_time'],
+    'updated_at': row['updated_at'],
+    'token_estimate': row['token_estimate'],
+    'heading_path': row['heading_path'],
+    'preview': preview,
+  };
 }
 
 List<_KnowledgeBaseCitationSource> _knowledgeBaseCitationSources(
@@ -7215,8 +7533,9 @@ class _SelectedMessageContextRow extends StatelessWidget {
       message.metadata[AiCreationRequest.metadataKey],
     );
     final skillMetadata = message.metadata[aiUserSkillSelectionMetadataKey];
-    final knowledgeBaseMetadata = KnowledgeMessageMetadata.fromMessageMetadata(
-      message.metadata,
+    final knowledgeBaseMetadata = _knowledgeBaseMetadataUsedByAnswer(
+      KnowledgeMessageMetadata.fromMessageMetadata(message.metadata),
+      message.content,
     );
     final associatedKnowledgeBaseSourceCount =
         associatedKnowledgeBaseMetadata == null

@@ -14,6 +14,7 @@ const int _maxKnowledgeSearchTopK = 20;
 const int _defaultKnowledgeReadLimit = 12;
 const int _minKnowledgeReadLimit = 1;
 const int _maxKnowledgeReadLimit = 50;
+const int _knowledgeToolPreviewMaxChars = 420;
 
 class AiKnowledgeSearchTool extends AiTool {
   @override
@@ -148,8 +149,28 @@ class AiKnowledgeReadTool extends AiTool {
         'chunk_id': chunkId,
         'source_id': sourceId,
         'count': rows.length,
+        'results': rows.map(_readHitJson).toList(growable: false),
       },
     );
+  }
+
+  Map<String, Object?> _readHitJson(Map<String, Object?> row) {
+    final content = '${row['content'] ?? ''}'.trim();
+    final preview = content.length > _knowledgeToolPreviewMaxChars
+        ? '${content.substring(0, _knowledgeToolPreviewMaxChars)}...'
+        : content;
+    return <String, Object?>{
+      'chunk_id': row['chunk_id'] ?? row['id'],
+      'source_id': row['source_id'],
+      'title': row['source_title'] ?? row['title'],
+      'path': row['original_path'] ?? row['path'],
+      'source_kind': row['kind'] ?? row['source_kind'],
+      'document_time': row['document_time'],
+      'updated_at': row['updated_at'],
+      'token_estimate': row['token_estimate'],
+      'heading_path': row['heading_path'],
+      'preview': preview,
+    };
   }
 
   Future<List<Map<String, Object?>>> _readChunk(Database db, String id) {
