@@ -2980,6 +2980,11 @@ class AiToolRuntimeService {
             'description':
                 'Target ref, commit hash, or file path depending on operation.',
           },
+          'working_directory': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Directory to run git from. Omit to use the working directory.',
+          },
           'file_path': <String, Object?>{
             'type': 'string',
             'description': 'File path for blame or scoped diff.',
@@ -2990,6 +2995,8 @@ class AiToolRuntimeService {
           },
           'count': <String, Object?>{
             'type': 'integer',
+            'minimum': 1,
+            'maximum': 100,
             'description': 'For log: max number of commits to show.',
           },
           'author': <String, Object?>{
@@ -3002,10 +3009,12 @@ class AiToolRuntimeService {
           },
           'start_line': <String, Object?>{
             'type': 'integer',
+            'minimum': 1,
             'description': 'For blame: start line (1-based).',
           },
           'end_line': <String, Object?>{
             'type': 'integer',
+            'minimum': 1,
             'description': 'For blame: end line (1-based).',
           },
         },

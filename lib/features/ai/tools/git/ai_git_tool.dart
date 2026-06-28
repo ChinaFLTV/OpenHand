@@ -91,7 +91,7 @@ class AiGitTool extends AiTool {
       case 'diff':
         final target = '${args['target'] ?? ''}'.trim();
         final filePath = '${args['file_path'] ?? ''}'.trim();
-        final staged = args['staged'] == true;
+        final staged = AiToolUtils.readBool(args['staged']) == true;
         if (target.isNotEmpty && target.startsWith('-')) {
           throw ArgumentError('Git diff target must not start with "-".');
         }
@@ -136,6 +136,17 @@ class AiGitTool extends AiTool {
         }
         final startLine = AiToolUtils.readInt(args['start_line']);
         final endLine = AiToolUtils.readInt(args['end_line']);
+        if ((startLine == null) != (endLine == null)) {
+          throw ArgumentError(
+            'Git blame start_line and end_line must be provided together.',
+          );
+        }
+        if (startLine != null &&
+            (startLine <= 0 || endLine == null || endLine < startLine)) {
+          throw ArgumentError(
+            'Git blame line range must use positive 1-based lines with end_line >= start_line.',
+          );
+        }
         final gitArgs = <String>['--no-pager', 'blame', '--date=short'];
         if (startLine != null && endLine != null) {
           gitArgs.add('-L');
