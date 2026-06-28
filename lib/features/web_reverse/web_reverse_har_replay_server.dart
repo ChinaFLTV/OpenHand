@@ -42,38 +42,35 @@ class WebReverseHarReplayServer {
       if (decoded is! Map) return null;
       final har = stringKeyedMapFromValue(decoded);
       final log = stringKeyedMapFromValue(har['log']);
-      final entries = log['entries'] is List
-          ? log['entries'] as List
-          : const <Object?>[];
+      final entries = stringKeyedMapListFromValue(log['entries']);
       map = <String, _HarHit>{};
       var accepted = 0;
-      for (final e in entries.whereType<Map>()) {
+      for (final entry in entries) {
         if (accepted >= _maxReplayEntries) break;
-        final entry = stringKeyedMapFromValue(e);
         final req = stringKeyedMapFromValue(entry['request']);
         final res = stringKeyedMapFromValue(entry['response']);
         if (req.isEmpty || res.isEmpty) continue;
-        final method = '${req['method'] ?? 'GET'}';
+        final method = stringFromValue(req['method'], fallback: 'GET');
         if (method.toUpperCase() != 'GET') continue;
-        final url = '${req['url'] ?? ''}';
+        final url = stringFromValue(req['url']);
         if (url.isEmpty) continue;
         final fullKey = _normalizeKey(url);
         final pathKey = _pathKey(url);
         final headers = <String, String>{};
-        for (final h
-            in (res['headers'] as List? ?? const []).whereType<Map>().take(
-              _maxReplayHeaders,
-            )) {
-          final name = '${h['name'] ?? ''}'.trim();
+        for (final h in stringKeyedMapListFromValue(
+          res['headers'],
+        ).take(_maxReplayHeaders)) {
+          final name = stringFromValue(h['name']);
           if (name.isEmpty) continue;
           headers[name] = _clipText(
-            '${h['value'] ?? ''}',
+            stringFromValue(h['value']),
             _maxReplayHeaderValueChars,
           );
         }
         final content = stringKeyedMapFromValue(res['content']);
-        final bodyRaw = '${content['text'] ?? ''}';
-        final isB64 = '${content['encoding'] ?? ''}'.toLowerCase() == 'base64';
+        final bodyRaw = content['text']?.toString() ?? '';
+        final isB64 =
+            stringFromValue(content['encoding']).toLowerCase() == 'base64';
         final body = _clipReplayBody(bodyRaw, isBase64: isB64);
         final hit = _HarHit(
           status: clampedIntFromValue(
@@ -85,7 +82,10 @@ class WebReverseHarReplayServer {
           headers: headers,
           body: body,
           isBase64: isB64,
-          mime: '${content['mimeType'] ?? 'application/octet-stream'}',
+          mime: stringFromValue(
+            content['mimeType'],
+            fallback: 'application/octet-stream',
+          ),
           truncated: body.length < bodyRaw.length,
         );
         // 同时按 full URL 与 path-only 两种 key 存：远端 origin 的 mock 走 full，

@@ -13,22 +13,23 @@ void main() {
             'entries': <Object?>[
               <String, Object?>{
                 'request': <String, Object?>{
-                  'method': 'GET',
-                  'url': 'https://example.test/api?b=2&a=1',
+                  'method': ' get ',
+                  'url': ' https://example.test/api?b=2&a=1 ',
                 },
                 'response': <String, Object?>{
                   'status': '201',
                   'headers': <Object?>[
-                    <String, Object?>{'name': 'x-test', 'value': 'ok'},
+                    <Object?, Object?>{'name': ' x-test ', 'value': ' ok '},
                     <String, Object?>{'name': ' ', 'value': 'skip'},
                     <String, Object?>{'name': 'content-length', 'value': '999'},
                   ],
                   'content': <String, Object?>{
                     'mimeType': 'text/plain',
-                    'text': 'hello',
+                    'text': ' hello ',
                   },
                 },
               },
+              'noise',
               <String, Object?>{
                 'request': <String, Object?>{
                   'method': 'GET',
@@ -58,7 +59,7 @@ void main() {
 
     final first = await _get(server!.port, '/api?a=1&b=2');
     expect(first.statusCode, 201);
-    expect(first.body, 'hello');
+    expect(first.body, ' hello ');
     expect(first.headers.value('x-test'), 'ok');
     expect(first.headers.value('content-length'), isNull);
 
