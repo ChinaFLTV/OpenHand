@@ -137,4 +137,53 @@ void main() {
       expect(callCount, 1);
     },
   );
+
+  test(
+    'stream does not retry cache errors when request has no body marker',
+    () async {
+      var callCount = 0;
+      final client = MockClient((request) async {
+        callCount += 1;
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'error': <String, Object?>{
+              'message': 'Unknown parameter: prompt_cache_key',
+            },
+          }),
+          400,
+          headers: const <String, String>{'content-type': 'application/json'},
+        );
+      });
+      final service = AiChatService(client: client);
+
+      await expectLater(
+        service.sendMessageStream(
+          model: const AiModelConfig(
+            id: 'model-1',
+            baseUrl: 'https://api.x.ai',
+            authScheme: AiAuthScheme.bearer,
+            token: 'token',
+            modelId: 'grok-composer-2.5-fast',
+            protocolType: AiProtocolType.grok,
+          ),
+          messages: const <AiChatTurn>[
+            AiChatTurn(
+              role: AiChatRole.system,
+              content: 'Stable system prompt.',
+            ),
+            AiChatTurn(role: AiChatRole.user, content: 'Hello'),
+          ],
+          inputCacheConfig: const AiInputCacheRuntimeConfig(
+            enabled: true,
+            mode: 'allMessages',
+            updateInterval: 10,
+            breakpointCount: 4,
+            cacheAffinityId: 'session-1',
+          ),
+        ),
+        throwsA(isA<AiChatException>()),
+      );
+      expect(callCount, 1);
+    },
+  );
 }
