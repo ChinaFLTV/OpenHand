@@ -153,7 +153,7 @@ class AiTranslationProviderSettings {
   }) {
     final defaults = AiTranslationProviderSettings.defaults(provider);
     if (raw is! Map) return defaults;
-    final json = Map<String, Object?>.from(raw);
+    final json = stringKeyedMapFromValue(raw);
     return defaults
         .copyWith(
           enabled: json['enabled'] is bool ? json['enabled'] as bool : null,
@@ -166,7 +166,7 @@ class AiTranslationProviderSettings {
           modelConfigId: _stringOrNull(json['model_config_id']),
           modelId: _stringOrNull(json['model_id']),
           extra: json['extra'] is Map
-              ? Map<String, Object?>.from(json['extra'] as Map)
+              ? stringKeyedMapFromValue(json['extra'])
               : null,
         )
         .normalized();
@@ -270,7 +270,7 @@ class AiTranslationSettings {
   factory AiTranslationSettings.fromJson(Object? raw) {
     final defaults = AiTranslationSettings.defaults();
     if (raw is! Map) return defaults;
-    final json = Map<String, Object?>.from(raw);
+    final json = stringKeyedMapFromValue(raw);
     final rawProviders = json['providers'];
     final providers = <AiTranslationProvider, AiTranslationProviderSettings>{
       for (final provider in AiTranslationProvider.values)

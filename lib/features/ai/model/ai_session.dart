@@ -8,7 +8,7 @@ Map<String, Object?> _aiSessionRequireMap(Object? value, String label) {
     return value;
   }
   if (value is Map) {
-    return Map<String, Object?>.from(value);
+    return stringKeyedMapFromValue(value);
   }
   throw FormatException('Invalid $label payload.');
 }
@@ -381,18 +381,12 @@ class AiSession {
                 )
                 .toList(growable: false)
           : const <AiSessionPlanRecord>[],
-      metadata: json['metadata'] is Map<String, Object?>
-          ? Map<String, Object?>.from(json['metadata'] as Map<String, Object?>)
-          : json['metadata'] is Map
-          ? Map<String, Object?>.from(json['metadata'] as Map)
-          : const <String, Object?>{},
-      lastPromptMetadata: json['last_prompt_metadata'] is Map<String, Object?>
-          ? Map<String, Object?>.from(
-              json['last_prompt_metadata'] as Map<String, Object?>,
-            )
-          : json['last_prompt_metadata'] is Map
-          ? Map<String, Object?>.from(json['last_prompt_metadata'] as Map)
-          : const <String, Object?>{},
+      metadata: Map<String, Object?>.of(
+        stringKeyedMapFromValue(json['metadata']),
+      ),
+      lastPromptMetadata: Map<String, Object?>.of(
+        stringKeyedMapFromValue(json['last_prompt_metadata']),
+      ),
       todoItems: todoItemsJson is List
           ? todoItemsJson
                 .map(
@@ -811,7 +805,7 @@ class AiSession {
       return value;
     }
     if (value is Map) {
-      return Map<String, Object?>.from(value);
+      return stringKeyedMapFromValue(value);
     }
     throw FormatException('Invalid $label payload.');
   }

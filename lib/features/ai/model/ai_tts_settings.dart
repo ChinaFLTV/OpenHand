@@ -266,7 +266,7 @@ class AiTtsProviderSettings {
   }) {
     final defaults = AiTtsProviderSettings.defaults(provider);
     if (raw is! Map) return defaults;
-    final json = Map<String, Object?>.from(raw);
+    final json = stringKeyedMapFromValue(raw);
     return defaults
         .copyWith(
           enabled: json['enabled'] is bool ? json['enabled'] as bool : null,
@@ -284,7 +284,7 @@ class AiTtsProviderSettings {
           modelConfigId: _stringOrNull(json['model_config_id']),
           modelId: _stringOrNull(json['model_id']),
           extra: json['extra'] is Map
-              ? Map<String, Object?>.from(json['extra'] as Map)
+              ? stringKeyedMapFromValue(json['extra'])
               : null,
         )
         .normalized();
@@ -414,7 +414,7 @@ class AiTtsSettings {
   factory AiTtsSettings.fromJson(Object? raw) {
     final defaults = AiTtsSettings.defaults();
     if (raw is! Map) return defaults;
-    final json = Map<String, Object?>.from(raw);
+    final json = stringKeyedMapFromValue(raw);
     final rawProviders = json['providers'];
     final providers = <AiTtsProvider, AiTtsProviderSettings>{
       for (final provider in AiTtsProvider.values)

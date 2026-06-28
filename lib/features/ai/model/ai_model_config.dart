@@ -331,13 +331,9 @@ class AiModelProfile {
       canonicalSlug: json['canonical_slug'] as String?,
       huggingFaceId: json['hugging_face_id'] as String?,
       created: _readNullableInt(json['created']),
-      architecture: json['architecture'] is Map<String, Object?>
+      architecture: json['architecture'] is Map
           ? AiModelArchitectureMetadata.fromJson(
-              json['architecture'] as Map<String, Object?>,
-            )
-          : json['architecture'] is Map
-          ? AiModelArchitectureMetadata.fromJson(
-              Map<String, Object?>.from(json['architecture'] as Map),
+              stringKeyedMapFromValue(json['architecture']),
             )
           : null,
       supportedParameters: _parseStringList(json['supported_parameters']),
@@ -345,11 +341,9 @@ class AiModelProfile {
       supportedVoices: _parseStringList(json['supported_voices']),
       knowledgeCutoff: json['knowledge_cutoff'] as String?,
       expirationDate: json['expiration_date'] as String?,
-      links: json['links'] is Map<String, Object?>
-          ? AiModelLinksMetadata.fromJson(json['links'] as Map<String, Object?>)
-          : json['links'] is Map
+      links: json['links'] is Map
           ? AiModelLinksMetadata.fromJson(
-              Map<String, Object?>.from(json['links'] as Map),
+              stringKeyedMapFromValue(json['links']),
             )
           : null,
       isGlobalDefaultTitleModel:
@@ -1054,11 +1048,8 @@ class AiModelProfile {
   }
 
   static Map<String, Object?> _parseObjectMap(Object? value) {
-    if (value is Map<String, Object?>) {
-      return Map<String, Object?>.from(value);
-    }
     if (value is Map) {
-      return Map<String, Object?>.from(value);
+      return Map<String, Object?>.of(stringKeyedMapFromValue(value));
     }
     return const <String, Object?>{};
   }
@@ -1807,16 +1798,16 @@ class AiModelConfig {
 
   static Map<String, AiModelProfile> _parseModelProfiles(Object? value) {
     if (value == null) return const <String, AiModelProfile>{};
-    Map<String, dynamic>? map;
+    Map<String, Object?>? map;
     if (value is Map) {
-      map = value.cast<String, dynamic>();
+      map = stringKeyedMapFromValue(value);
     } else if (value is String) {
       final trimmed = value.trim();
       if (trimmed.isEmpty) return const <String, AiModelProfile>{};
       try {
         final decoded = jsonDecode(trimmed);
         if (decoded is Map) {
-          map = decoded.cast<String, dynamic>();
+          map = stringKeyedMapFromValue(decoded);
         }
       } catch (_) {
         // Not valid JSON — ignore.
@@ -1829,7 +1820,7 @@ class AiModelConfig {
       if (key.isEmpty) continue;
       if (entry.value is Map) {
         result[key] = AiModelProfile.fromJson(
-          (entry.value as Map).cast<String, Object?>(),
+          stringKeyedMapFromValue(entry.value),
         );
       }
     }
@@ -1849,22 +1840,16 @@ class AiModelConfig {
   }
 
   static Map<String, Object?> _parseOperationExtras(Object? value) {
-    if (value is Map<String, Object?>) {
-      return Map<String, Object?>.from(value);
-    }
     if (value is Map) {
-      return Map<String, Object?>.from(value);
+      return Map<String, Object?>.of(stringKeyedMapFromValue(value));
     }
     if (value is String) {
       final trimmed = value.trim();
       if (trimmed.isEmpty) return const <String, Object?>{};
       try {
         final decoded = jsonDecode(trimmed);
-        if (decoded is Map<String, Object?>) {
-          return Map<String, Object?>.from(decoded);
-        }
         if (decoded is Map) {
-          return Map<String, Object?>.from(decoded);
+          return Map<String, Object?>.of(stringKeyedMapFromValue(decoded));
         }
       } catch (_) {
         // Not valid JSON — ignore.

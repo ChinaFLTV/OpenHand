@@ -1,5 +1,6 @@
 import 'package:characters/characters.dart';
 
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_token_usage.dart';
 
 enum AiSessionMessageKind {
@@ -138,13 +139,11 @@ class AiSessionMessage {
       usage: usageJson is Map<String, Object?>
           ? AiTokenUsage.fromJson(usageJson)
           : usageJson is Map
-          ? AiTokenUsage.fromJson(Map<String, Object?>.from(usageJson))
+          ? AiTokenUsage.fromJson(stringKeyedMapFromValue(usageJson))
           : null,
-      metadata: json['metadata'] is Map<String, Object?>
-          ? Map<String, Object?>.from(json['metadata'] as Map<String, Object?>)
-          : json['metadata'] is Map
-          ? Map<String, Object?>.from(json['metadata'] as Map)
-          : const <String, Object?>{},
+      metadata: Map<String, Object?>.of(
+        stringKeyedMapFromValue(json['metadata']),
+      ),
     );
   }
   const AiSessionMessage({
@@ -639,7 +638,7 @@ class _AiRequestCardCodec {
       return value;
     }
     if (value is Map) {
-      return Map<String, Object?>.from(value);
+      return stringKeyedMapFromValue(value);
     }
     return null;
   }
@@ -1344,7 +1343,7 @@ class AiSessionMessageResponseVariant {
       usage: usageJson is Map<String, Object?>
           ? AiTokenUsage.fromJson(usageJson)
           : usageJson is Map
-          ? AiTokenUsage.fromJson(Map<String, Object?>.from(usageJson))
+          ? AiTokenUsage.fromJson(stringKeyedMapFromValue(usageJson))
           : null,
       feedback: AiSessionMessageFeedback.fromStorage(
         json[aiSessionMessageFeedbackMetadataKey],
@@ -1444,7 +1443,7 @@ class AiSessionMessageResponseVariant {
       final map = item is Map<String, Object?>
           ? item
           : item is Map
-          ? Map<String, Object?>.from(item)
+          ? stringKeyedMapFromValue(item)
           : null;
       if (map == null) {
         continue;
