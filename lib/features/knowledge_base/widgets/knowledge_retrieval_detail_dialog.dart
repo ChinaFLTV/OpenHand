@@ -8,6 +8,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
@@ -49,12 +50,10 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
     final kb =
         KnowledgeMessageMetadata.fromMessageMetadata(metadata) ??
         const <String, Object?>{};
-    final results = _listOfMaps(kb['results']);
+    final results = stringKeyedMapListFromValue(kb['results']);
     final prompt = KnowledgeMessageMetadata.promptAppendContent(metadata);
-    final rerank = _map(kb['rerank']);
-    final distribution = KnowledgeVectorDistribution.fromJson(
-      kb['vector_distribution'],
-    );
+    final rerank = stringKeyedMapFromValue(kb['rerank']);
+    final distribution = KnowledgeMessageMetadata.vectorDistribution(metadata);
     return buildOpenHandAlertDialog(
       title: Text(isZh ? '引用知识库详情' : 'Knowledge Base References'),
       content: buildOpenHandDialogConstrainedContent(
@@ -79,21 +78,30 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 title: isZh ? '嵌入' : 'Embedding',
                 icon: Icons.hub_outlined,
                 child: KnowledgeDialogKeyValueList(
-                  rows: _localizedRows(_map(kb['embedding']), isZh),
+                  rows: _localizedRows(
+                    stringKeyedMapFromValue(kb['embedding']),
+                    isZh,
+                  ),
                 ),
               ),
               KnowledgeDialogSection(
                 title: isZh ? '检索参数' : 'Retrieval Parameters',
                 icon: Icons.manage_search_rounded,
                 child: KnowledgeDialogKeyValueList(
-                  rows: _localizedRows(_map(kb['retrieval']), isZh),
+                  rows: _localizedRows(
+                    stringKeyedMapFromValue(kb['retrieval']),
+                    isZh,
+                  ),
                 ),
               ),
               KnowledgeDialogSection(
                 title: isZh ? 'Prompt 追加' : 'Prompt Append',
                 icon: Icons.post_add_outlined,
                 child: KnowledgeDialogKeyValueList(
-                  rows: _localizedRows(_map(kb['prompt_append']), isZh),
+                  rows: _localizedRows(
+                    stringKeyedMapFromValue(kb['prompt_append']),
+                    isZh,
+                  ),
                 ),
               ),
               KnowledgeDialogSection(
@@ -167,20 +175,6 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Map<String, Object?> _map(Object? value) {
-    if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
-    return const <String, Object?>{};
-  }
-
-  List<Map<String, Object?>> _listOfMaps(Object? value) {
-    if (value is! List) return const <Map<String, Object?>>[];
-    return value
-        .whereType<Map>()
-        .map((item) => Map<String, Object?>.from(item))
-        .toList(growable: false);
   }
 
   Map<String, Object?> _localizedRows(Map<String, Object?> rows, bool isZh) {
