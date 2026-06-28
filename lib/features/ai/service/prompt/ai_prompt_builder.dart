@@ -29,7 +29,6 @@ import '../chat/ai_protocol_adapter.dart';
 import '../hook/ai_claude_hook_service.dart';
 import '../mcp_bridge/android_reverse_mcp_tool_policy.dart';
 import '../mcp_bridge/web_reverse_mcp_tool_policy.dart';
-import '../runtime/ai_plan_approval_detector.dart';
 import '../runtime/ai_plan_mode_guidance.dart';
 import '../runtime/ai_plan_mode_tool_gate.dart';
 import '../runtime/ai_tool_runtime_service.dart';
@@ -251,11 +250,6 @@ class AiPromptBuilder {
             : null,
       ),
     );
-    final planModeReminder = _buildPlanModeReminder(
-      session: session,
-      latestUserMessage: latestUserMessage,
-    );
-    final goalModeReminder = _buildGoalModeReminder(session);
     final latestUserTurns = (latestUserMessage == null || latestUserInline)
         ? const <AiChatTurn>[]
         : _mapUserMessage(
@@ -273,6 +267,8 @@ class AiPromptBuilder {
         .map((tool) => tool.name.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
+    final promptCatalogTools = displayCatalogOverride ?? availableTools;
+    final promptCatalogToolNames = _promptCatalogToolNames(promptCatalogTools);
     final currentFileEditingToolNames = availableToolNames
         .where(_isFileEditingToolName)
         .toList(growable: false);
@@ -287,14 +283,9 @@ class AiPromptBuilder {
       mcpServerInstructionsByName: mcpServerInstructionsByName,
       latestCompressionPoint: latestCompressionPoint,
     );
-    final planRecoveryRequired =
-        latestUserMessage != null &&
-        _shouldUsePlanRecoveryReminder(
-          session: session,
-          latestUserMessage: latestUserMessage,
-        );
     final effectivePlanModeRecoveryInspectionRequired =
-        planModeRecoveryInspectionRequired ?? planRecoveryRequired;
+        planModeRecoveryInspectionRequired ?? false;
+    final planRecoveryRequired = effectivePlanModeRecoveryInspectionRequired;
     final exitPlanModeAvailable = AiPlanModeToolGate.hasExitPlanModeTool(
       availableToolNames,
     );
@@ -309,6 +300,12 @@ class AiPromptBuilder {
       executionApprovedForSend: planModeExecutionApprovedForSend,
       recoveryInspectionRequired: effectivePlanModeRecoveryInspectionRequired,
     );
+    final planModeReminder = _buildPlanModeReminder(
+      session: session,
+      executionApprovedForSend: planModeExecutionApprovedForSend,
+      recoveryInspectionRequired: effectivePlanModeRecoveryInspectionRequired,
+    );
+    final goalModeReminder = _buildGoalModeReminder(session);
     // 2026-05-30 — metadata 中删除「纯遥测」字段：
     //   * session_updated_at：UI 元数据，模型无消费但会每轮变。
     //   * session_total_token_count / session_prompt_token_count /
@@ -501,7 +498,7 @@ class AiPromptBuilder {
       _systemSectionTurn(
         AiPromptSectionHeaders.toolCatalog,
         _renderRuntimeToolCatalog(
-          displayCatalogOverride ?? availableTools,
+          promptCatalogTools,
           compact: true,
           templatePolicy: templatePolicy,
           awaitingPlanApproval: session.awaitingPlanApproval,
@@ -637,7 +634,9 @@ class AiPromptBuilder {
     final stablePrefixHash = _promptFingerprint(
       stablePrefixTurns.map(_fingerprintTurn).join('\n\n'),
     );
-    final toolCatalogHash = _promptFingerprint(availableToolNames.join('\n'));
+    final toolCatalogHash = _promptFingerprint(
+      promptCatalogToolNames.join('\n'),
+    );
     final inputCachePolicy = AiInputCachePolicy.resolve(
       model: model,
       runtimeContext: runtimeContext,
@@ -1799,6 +1798,24 @@ class AiPromptBuilder {
       }
     }
     return buffer.toString();
+  }
+
+  List<String> _promptCatalogToolNames(List<AiToolDefinition> tools) {
+    final names = tools
+        .map((tool) => tool.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    names.sort((a, b) {
+      final normalizedA = _normalizeToolNameForPromptCatalog(a);
+      final normalizedB = _normalizeToolNameForPromptCatalog(b);
+      final normalizedCompare = normalizedA.compareTo(normalizedB);
+      if (normalizedCompare != 0) {
+        return normalizedCompare;
+      }
+      return a.compareTo(b);
+    });
+    return names;
   }
 
   String _promptFingerprint(String content) {
@@ -5756,23 +5773,21 @@ $content
 
   String? _buildPlanModeReminder({
     required AiSession session,
-    required AiSessionMessage? latestUserMessage,
+    required bool executionApprovedForSend,
+    required bool recoveryInspectionRequired,
   }) {
     if (session.awaitingPlanApproval) {
       return AiPlanModeGuidance.pendingApprovalReminder(
         session.pendingPlan ?? '',
       );
     }
-    if (session.mode != AiSessionMode.plan || latestUserMessage == null) {
+    if (session.mode != AiSessionMode.plan) {
       return null;
     }
-    if (_shouldUsePlanRecoveryReminder(
-      session: session,
-      latestUserMessage: latestUserMessage,
-    )) {
-      final completedButNeedsReview =
-          _hasCompletedTodoItemsOnly(session.todoItems) &&
-          _looksLikePlanRecoveryContinuation(latestUserMessage.content);
+    if (recoveryInspectionRequired) {
+      final completedButNeedsReview = _hasCompletedTodoItemsOnly(
+        session.todoItems,
+      );
       final failedSteps = session.todoItems
           .where((item) {
             return AiSessionTodoState.isFailureStatus(item.status);
@@ -5789,7 +5804,7 @@ $content
           : '';
       return 'The previous plan run stopped after a failed, timed-out, otherwise interrupted step, or a stale todo state. Before retrying, first review the current todo list and inspect the workspace, generated artifacts, and recent tool results to see what already succeeded.$completedTodoSummary Then decide whether to fully retry the failed step or only retry the unfinished portion. Use TodoWrite to refresh the relevant todo entries before resuming heavy execution. If a failed or stale-completed step should be retried now, set that step back to in_progress so the timeline reflects the retry, and keep the todo list current as the retry progresses.$failedStepSummary';
     }
-    if (_looksLikePlanApproval(latestUserMessage.content)) {
+    if (executionApprovedForSend) {
       return _buildPlanApprovalExecutionReminder(session);
     }
     return AiPlanModeGuidance.planningReminder;
@@ -5872,23 +5887,6 @@ $content
     return buffer.toString().trimRight();
   }
 
-  bool _shouldUsePlanRecoveryReminder({
-    required AiSession session,
-    required AiSessionMessage latestUserMessage,
-  }) {
-    if (session.mode != AiSessionMode.plan || session.awaitingPlanApproval) {
-      return false;
-    }
-    if (!_looksLikePlanRecoveryContinuation(latestUserMessage.content)) {
-      return false;
-    }
-    if (_hasCompletedTodoItemsOnly(session.todoItems)) {
-      return true;
-    }
-    return AiSessionTodoState.hasFailure(session.todoItems) ||
-        _hasRecentPlanToolFailure(session);
-  }
-
   bool _isFileEditingToolName(String toolName) {
     return switch (toolName.trim().toLowerCase()) {
       'edit' || 'multiedit' || 'write' || 'notebookedit' => true,
@@ -5933,16 +5931,6 @@ $content
           status == 'invalid_arguments';
     }
     return false;
-  }
-
-  bool _looksLikePlanApproval(String content) =>
-      AiPlanApprovalDetector.looksLikePlanApproval(content);
-
-  bool _looksLikePlanRecoveryContinuation(String content) {
-    return AiPlanApprovalDetector.looksLikePlanRecoveryContinuation(
-      content,
-      includeGenericContinuations: true,
-    );
   }
 }
 

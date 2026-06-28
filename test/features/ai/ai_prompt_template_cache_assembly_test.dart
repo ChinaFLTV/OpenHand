@@ -1,0 +1,200 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/model/ai_model_config.dart';
+import 'package:openhand/features/ai/model/ai_session.dart';
+import 'package:openhand/features/ai/model/ai_session_message.dart';
+import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
+import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
+import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
+import 'package:openhand/features/ai/service/runtime/ai_plan_mode_guidance.dart';
+import 'package:openhand/features/memory/model/user_memory_entry.dart';
+
+void main() {
+  test('all thread templates inherit the same baseline shared sections', () {
+    const expectedBaseline = <String>[
+      'identity',
+      'refusal_handling',
+      'tone_and_formatting',
+      'workflow',
+    ];
+
+    for (final entry in AiPromptTemplatePolicies.entries) {
+      final tags = entry.policy.sharedSections
+          .map((section) => section.tag)
+          .toList(growable: false);
+
+      expect(
+        tags.take(expectedBaseline.length).toList(growable: false),
+        expectedBaseline,
+        reason: '${entry.id} must use the unified prompt assembly baseline.',
+      );
+    }
+  });
+
+  test('plan reminder is controlled by runtime flags, not latest text', () {
+    final session = _session(mode: AiSessionMode.plan, latestUserContent: '继续');
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: _bundle(),
+      session: session,
+      model: _model,
+      runtimeContext: _runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session.messages,
+      latestUserMessageId: 'user-1',
+      availableTools: _tools,
+      planModeRecoveryInspectionRequired: false,
+    );
+    final promptText = result.messages
+        .map((message) => message.content)
+        .join('\n\n');
+
+    expect(promptText, contains(AiPlanModeGuidance.planningReminder));
+    expect(
+      promptText,
+      isNot(contains(AiPlanModeGuidance.approvalExecutionReminder)),
+    );
+  });
+
+  test('display catalog override drives stable cache metadata while gated', () {
+    final awaitingSession = _session(
+      mode: AiSessionMode.plan,
+      awaitingPlanApproval: true,
+      pendingPlan: '1. Inspect\n2. Implement',
+    );
+    final activeSession = _session(mode: AiSessionMode.plan);
+    const builder = AiPromptBuilder();
+    final awaitingResult = builder.buildSessionPrompt(
+      templateBundle: _bundle(),
+      session: awaitingSession,
+      model: _model,
+      runtimeContext: _runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: awaitingSession.messages,
+      latestUserMessageId: 'user-1',
+      displayCatalogOverride: _tools,
+      planModeRecoveryInspectionRequired: false,
+    );
+    final activeResult = builder.buildSessionPrompt(
+      templateBundle: _bundle(),
+      session: activeSession,
+      model: _model,
+      runtimeContext: _runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: activeSession.messages,
+      latestUserMessageId: 'user-1',
+      availableTools: _tools,
+      planModeRecoveryInspectionRequired: false,
+    );
+
+    expect(
+      awaitingResult.metadata['stable_prefix_hash'],
+      activeResult.metadata['stable_prefix_hash'],
+    );
+    expect(
+      awaitingResult.metadata['tool_catalog_hash'],
+      activeResult.metadata['tool_catalog_hash'],
+    );
+    expect(
+      awaitingResult.metadata['stable_cache_key'],
+      activeResult.metadata['stable_cache_key'],
+    );
+    expect(
+      awaitingResult.messages.map((message) => message.content).join('\n\n'),
+      contains('Write'),
+    );
+  });
+}
+
+AiPromptTemplateBundle _bundle() {
+  final template = AiPromptTemplateRepository().resolveTemplate(
+    AiPromptTemplatePolicies.defaultTemplateId,
+  );
+  return AiPromptTemplateBundle(
+    template: template,
+    systemInstructions: '<identity>Test system.</identity>',
+    developerInstructions: '<tool_catalog>Test developer.</tool_catalog>',
+    compressionSummaryInstructions: '<role>Summarize.</role>',
+  );
+}
+
+AiSession _session({
+  AiSessionMode mode = AiSessionMode.chat,
+  bool awaitingPlanApproval = false,
+  String? pendingPlan,
+  String latestUserContent = 'Do the work.',
+}) {
+  final now = DateTime.utc(2026, 6, 28, 12);
+  return AiSession(
+    id: 'session-1',
+    title: 'Prompt cache',
+    templateId: AiPromptTemplatePolicies.defaultTemplateId,
+    templateName: 'Default Assistant',
+    templateIconName: 'auto_awesome_rounded',
+    templateInternalVersion: '3.0.0',
+    createdAt: now,
+    updatedAt: now,
+    messages: <AiSessionMessage>[
+      AiSessionMessage.user(
+        id: 'user-1',
+        content: latestUserContent,
+        createdAt: now,
+      ),
+    ],
+    environment: const AiSessionEnvironment(
+      localeTag: 'zh-Hans',
+      platform: 'test',
+      appVersion: 'test',
+      appBuildNumber: '1',
+      applicationDirectory: '',
+      homeDirectory: '',
+      settingsFilePath: '',
+      skillsStoragePath: '',
+      mcpServersFilePath: '',
+      userMemoryFilePath: '',
+      sessionsDirectoryPath: '',
+      compressionThresholdChars: 100000,
+    ),
+    statistics: const AiSessionStatistics.initial(),
+    recentErrors: const <AiSessionErrorRecord>[],
+    mode: mode,
+    awaitingPlanApproval: awaitingPlanApproval,
+    pendingPlan: pendingPlan,
+  );
+}
+
+const AiSessionRuntimeContext _runtimeContext = AiSessionRuntimeContext(
+  localeTag: 'zh-Hans',
+  appVersion: 'test',
+  appBuildNumber: '1',
+  settingsFilePath: '',
+  skillsStoragePath: '',
+  mcpServersFilePath: '',
+  userMemoryFilePath: '',
+  compressionThresholdChars: 100000,
+  memoryEnabled: false,
+  memoryEntries: <UserMemoryEntry>[],
+  platformName: 'test',
+  workingDirectory: '/tmp/openhand-test',
+  timeZoneName: 'Asia/Shanghai',
+);
+
+const AiModelConfig _model = AiModelConfig(
+  id: 'model-1',
+  baseUrl: 'https://example.invalid',
+  authScheme: AiAuthScheme.bearer,
+  token: '',
+  modelId: 'claude-test',
+  protocolType: AiProtocolType.claude,
+);
+
+const List<AiToolDefinition> _tools = <AiToolDefinition>[
+  AiToolDefinition(
+    name: 'Write',
+    description: 'Write a file.',
+    parameters: <String, Object?>{
+      'type': 'object',
+      'properties': <String, Object?>{},
+    },
+  ),
+];

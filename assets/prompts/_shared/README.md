@@ -14,7 +14,14 @@
 | `tone.md` | 表达风格 / 格式化纪律 |
 | `workflow.md` | 四阶段 Research → Synthesis → Implementation → Verification 循环 |
 
-## 当前资源继承
+## 当前装配规则
+
+所有线程模板统一走同一套 system prompt 装配流程：
+
+1. 读取模板自己的 `system_instructions.md`。
+2. 按固定顺序追加 `_shared/{identity,refusal,tone,workflow}.md`。
+3. 若模板正文已含同名顶层标签（如 `<workflow>`），该共享片段自动跳过。
+4. 再追加模板专属扩展片段、通用纪律与 Memory Tone Policy。
 
 `siri_helper` 仅覆盖 `system_instructions.md`；`developer_instructions.md`
 与 `compression_summary_instructions.md` 通过
@@ -23,7 +30,7 @@
 
 ## 后续 manifest 工作
 
-未来引入 `assets/prompts/manifest.yaml`：
+若未来引入 `assets/prompts/manifest.yaml`：
 ```yaml
 presets:
   default:
