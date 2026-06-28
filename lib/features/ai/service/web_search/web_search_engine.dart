@@ -7,7 +7,12 @@ import '../web_engine/web_engine_base.dart';
 
 export '../web_engine/web_engine_base.dart' show WebEngineRequest;
 export '../web_engine/web_engine_json_utils.dart'
-    show stringOf, readJsonPath, maybeJsonDecode;
+    show
+        decodeJsonObjectBytes,
+        jsonObjectOf,
+        stringOf,
+        readJsonPath,
+        maybeJsonDecode;
 
 /// 单条搜索命中结果（统一抽象）。
 class WebSearchEngineHit {

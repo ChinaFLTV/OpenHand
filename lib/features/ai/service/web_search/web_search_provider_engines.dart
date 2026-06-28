@@ -62,7 +62,10 @@ class WebSearchGrokEngine extends WebSearchEngine {
         'Grok ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Grok response',
+    );
     final citations = readJsonPath<List>(body, ['citations']) ?? const [];
     final replyText =
         readJsonPath<String>(body, ['choices', 0, 'message', 'content']) ?? '';
@@ -137,7 +140,10 @@ class WebSearchGeminiEngine extends WebSearchEngine {
         'Gemini ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Gemini response',
+    );
     final chunks =
         readJsonPath<List>(body, [
           'candidates',

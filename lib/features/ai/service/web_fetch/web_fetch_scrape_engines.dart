@@ -45,10 +45,11 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
         'Firecrawl ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
-    final data = body['data'] is Map
-        ? Map<String, Object?>.from(body['data'] as Map)
-        : <String, Object?>{};
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Firecrawl response',
+    );
+    final data = jsonObjectOf(body['data']);
     final markdown = stringOf(data['markdown']);
     final title = stringOf(readJsonPath<String>(data, ['metadata', 'title']));
     final source = stringOf(
@@ -238,7 +239,10 @@ class WebFetchTavilyEngine extends WebFetchEngine {
         'Tavily-extract ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Tavily extract response',
+    );
     final results = (body['results'] as List?) ?? const [];
     return results
         .whereType<Map>()
@@ -281,7 +285,10 @@ class WebFetchExaEngine extends WebFetchEngine {
         'Exa-contents ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Exa contents response',
+    );
     final results = (body['results'] as List?) ?? const [];
     return results
         .whereType<Map>()

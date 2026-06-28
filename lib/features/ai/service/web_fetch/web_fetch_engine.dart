@@ -10,7 +10,12 @@ export '../web_engine/web_engine_base.dart' show WebEngineRequest;
 export '../web_engine/web_engine_http_exception.dart'
     show WebEngineHttpException;
 export '../web_engine/web_engine_json_utils.dart'
-    show stringOf, readJsonPath, maybeJsonDecode;
+    show
+        decodeJsonObjectBytes,
+        jsonObjectOf,
+        stringOf,
+        readJsonPath,
+        maybeJsonDecode;
 export 'web_fetch_value_parsing.dart'
     show webFetchHttpStatusFromValue, webFetchScoreFromValue;
 

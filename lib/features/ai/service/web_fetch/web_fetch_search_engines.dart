@@ -57,18 +57,17 @@ class WebFetchKimiEngine extends WebFetchEngine {
         'Kimi ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Kimi response',
+    );
     final references =
         readJsonPath<List>(body, ['choices', 0, 'message', 'references']) ??
         const [];
     final reply =
         readJsonPath<String>(body, ['choices', 0, 'message', 'content']) ?? '';
-    final hit = references.whereType<Map>().firstWhere(
-      (r) => stringOf(r['url']) == req.url,
-      orElse: () =>
-          references.whereType<Map>().isEmpty ? const {} : references.first,
-    );
-    final content = hit.isEmpty
+    final hit = _firstUrlMatchOrFirstMap(references, req.url);
+    final content = hit == null
         ? reply
         : (stringOf(hit['content']).isEmpty
               ? stringOf(hit['snippet'])
@@ -77,7 +76,7 @@ class WebFetchKimiEngine extends WebFetchEngine {
     return [
       WebFetchEngineContent(
         url: req.url,
-        title: stringOf(hit['title']).isEmpty
+        title: hit == null || stringOf(hit['title']).isEmpty
             ? req.url
             : stringOf(hit['title']),
         content: content,
@@ -115,15 +114,13 @@ class WebFetchBaiduEngine extends WebFetchEngine {
         'Baidu ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
-    final references = readJsonPath<List>(body, ['references']) ?? const [];
-    final hit = references.whereType<Map>().firstWhere(
-      (r) => stringOf(r['url']) == req.url,
-      orElse: () => references.whereType<Map>().isEmpty
-          ? const {}
-          : references.first as Map,
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Baidu response',
     );
-    if (hit.isEmpty) return const <WebFetchEngineContent>[];
+    final references = readJsonPath<List>(body, ['references']) ?? const [];
+    final hit = _firstUrlMatchOrFirstMap(references, req.url);
+    if (hit == null) return const <WebFetchEngineContent>[];
     final content = stringOf(hit['content']);
     if (content.isEmpty) return const <WebFetchEngineContent>[];
     return [
@@ -165,14 +162,13 @@ class WebFetchLinkupEngine extends WebFetchEngine {
         'Linkup ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
-    final results = (body['results'] as List?) ?? const [];
-    final hit = results.whereType<Map>().firstWhere(
-      (r) => stringOf(r['url']) == req.url,
-      orElse: () =>
-          results.whereType<Map>().isEmpty ? const {} : results.first as Map,
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Linkup response',
     );
-    if (hit.isEmpty) return const <WebFetchEngineContent>[];
+    final results = (body['results'] as List?) ?? const [];
+    final hit = _firstUrlMatchOrFirstMap(results, req.url);
+    if (hit == null) return const <WebFetchEngineContent>[];
     final content = stringOf(hit['content']);
     if (content.isEmpty) return const <WebFetchEngineContent>[];
     return [
@@ -206,15 +202,14 @@ class WebFetchBochaEngine extends WebFetchEngine {
         'Bocha ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Bocha response',
+    );
     final pages =
         readJsonPath<List>(body, ['data', 'webPages', 'value']) ?? const [];
-    final hit = pages.whereType<Map>().firstWhere(
-      (r) => stringOf(r['url']) == req.url,
-      orElse: () =>
-          pages.whereType<Map>().isEmpty ? const {} : pages.first as Map,
-    );
-    if (hit.isEmpty) return const <WebFetchEngineContent>[];
+    final hit = _firstUrlMatchOrFirstMap(pages, req.url);
+    if (hit == null) return const <WebFetchEngineContent>[];
     final content = stringOf(hit['summary']).isEmpty
         ? stringOf(hit['snippet'])
         : stringOf(hit['summary']);
@@ -280,7 +275,10 @@ class WebFetchGrokEngine extends WebFetchEngine {
         'Grok ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Grok response',
+    );
     final reply =
         readJsonPath<String>(body, ['choices', 0, 'message', 'content']) ?? '';
     if (reply.isEmpty) return const <WebFetchEngineContent>[];
@@ -334,7 +332,10 @@ class WebFetchGeminiEngine extends WebFetchEngine {
         'Gemini ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Gemini response',
+    );
     final parts =
         readJsonPath<List>(body, ['candidates', 0, 'content', 'parts']) ??
         const [];
@@ -352,6 +353,19 @@ class WebFetchGeminiEngine extends WebFetchEngine {
       WebFetchEngineContent(url: req.url, title: req.url, content: content),
     ];
   }
+}
+
+Map<Object?, Object?>? _firstUrlMatchOrFirstMap(
+  List<Object?> values,
+  String url,
+) {
+  Map<Object?, Object?>? first;
+  for (final value in values) {
+    if (value is! Map) continue;
+    first ??= value;
+    if (stringOf(value['url']) == url) return value;
+  }
+  return first;
 }
 
 WebFetchEngine? buildSearchAsFetchEngine({

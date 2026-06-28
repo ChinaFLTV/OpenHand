@@ -6,11 +6,34 @@ library;
 
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
+
 /// JSON 解析容错：忽略空值、自动 trim，统一返回 String。
 String stringOf(Object? raw, {String fallback = ''}) {
   if (raw == null) return fallback;
   if (raw is String) return raw.trim();
   return '$raw'.trim();
+}
+
+/// 把 JSON Map 统一收敛为 String key，非 Map 输入返回空 Map。
+Map<String, Object?> jsonObjectOf(Object? raw) {
+  return stringKeyedMapFromValue(raw);
+}
+
+/// 解码 HTTP 响应体，要求根节点必须是 JSON Object。
+Map<String, Object?> decodeJsonObjectBytes(
+  List<int> bodyBytes, {
+  String source = 'response body',
+}) {
+  final text = utf8.decode(bodyBytes, allowMalformed: true).trim();
+  if (text.isEmpty) {
+    throw FormatException('$source is empty.');
+  }
+  final decoded = jsonDecode(text);
+  if (decoded is! Map) {
+    throw FormatException('$source must be a JSON object.');
+  }
+  return stringKeyedMapFromValue(decoded);
 }
 
 /// 把任意 Map 解码成嵌套 Map / List 安全版本。

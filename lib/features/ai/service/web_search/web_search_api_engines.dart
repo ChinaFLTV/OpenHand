@@ -42,7 +42,10 @@ class WebSearchTavilyEngine extends WebSearchEngine {
         'Tavily ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Tavily response',
+    );
     final results = (body['results'] as List?) ?? const [];
     return results
         .whereType<Map>()
@@ -88,7 +91,10 @@ class WebSearchExaEngine extends WebSearchEngine {
         'Exa ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Exa response',
+    );
     final results = (body['results'] as List?) ?? const [];
     return results
         .whereType<Map>()
@@ -133,7 +139,10 @@ class WebSearchLinkupEngine extends WebSearchEngine {
         'Linkup ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Linkup response',
+    );
     final results = (body['results'] as List?) ?? const [];
     return results
         .whereType<Map>()
@@ -176,7 +185,10 @@ class WebSearchBochaEngine extends WebSearchEngine {
         'Bocha ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Bocha response',
+    );
     final pages =
         readJsonPath<List>(body, ['data', 'webPages', 'value']) ?? const [];
     return pages
@@ -226,7 +238,10 @@ class WebSearchBaiduEngine extends WebSearchEngine {
         'Baidu ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Baidu response',
+    );
     final references = readJsonPath<List>(body, ['references']) ?? const [];
     return references
         .whereType<Map>()
@@ -294,7 +309,10 @@ class WebSearchKimiEngine extends WebSearchEngine {
         'Kimi ${response.statusCode}: ${response.body}',
       );
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
+    final body = decodeJsonObjectBytes(
+      response.bodyBytes,
+      source: 'Kimi response',
+    );
     final references =
         readJsonPath<List>(body, ['choices', 0, 'message', 'references']) ??
         const [];
