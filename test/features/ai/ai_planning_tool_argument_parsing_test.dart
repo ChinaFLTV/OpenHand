@@ -28,8 +28,9 @@ void main() {
       );
 
       expect(result.status, BashToolExecutionStatus.success);
-      final todoItems =
-          result.metadata['todo_items'] as List<Map<String, Object?>>;
+      final todoItems = stringKeyedMapListFromValue(
+        result.metadata['todo_items'],
+      );
       expect(todoItems, hasLength(2));
       expect(todoItems.first['id'], '7');
       expect(todoItems.first['activeForm'], 'inspecting parsing');
