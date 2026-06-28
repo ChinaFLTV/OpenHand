@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
@@ -181,14 +178,14 @@ class AiWebSearchEngineConfig {
   }
 
   static AiWebSearchEngineConfig? fromJson(Map<String, Object?> json) {
-    final rawKind = '${json['kind'] ?? ''}'.trim();
+    final rawKind = stringFromValue(json['kind']);
     final kind = AiWebSearchEngineKind.values
         .where((e) => e.name == rawKind)
         .firstOrNull;
     if (kind == null) return null;
     return AiWebSearchEngineConfig(
       kind: kind,
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : false,
+      enabled: boolFromValue(json['enabled']),
       weight: clampedIntFromValue(
         json['weight'],
         fallback: defaultWeight,
@@ -207,13 +204,9 @@ class AiWebSearchEngineConfig {
         min: minTruncationChars,
         max: maxTruncationChars,
       ),
-      apiKey: json['api_key'] is String ? json['api_key'] as String : null,
-      providerConfigId: json['provider_config_id'] is String
-          ? json['provider_config_id'] as String
-          : null,
-      endpointOverride: json['endpoint_override'] is String
-          ? json['endpoint_override'] as String
-          : null,
+      apiKey: optionalStringFromValue(json['api_key']),
+      providerConfigId: optionalStringFromValue(json['provider_config_id']),
+      endpointOverride: optionalStringFromValue(json['endpoint_override']),
     );
   }
 }
@@ -432,20 +425,7 @@ class AiWebSearchSettings {
   }
 
   static AiWebSearchSettings? fromJson(Object? raw) {
-    Map<String, Object?>? json;
-    if (raw is Map) {
-      json = Map<String, Object?>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          json = Map<String, Object?>.from(decoded);
-        }
-      } catch (error, stack) {
-        silentLog('ai_web_search_settings', 'decode JSON string', error, stack);
-        return null;
-      }
-    }
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
 
     final rawEngines = json['engines'];
@@ -455,7 +435,7 @@ class AiWebSearchSettings {
       for (final entry in rawEngines) {
         if (entry is Map) {
           final cfg = AiWebSearchEngineConfig.fromJson(
-            Map<String, Object?>.from(entry),
+            stringKeyedMapFromValue(entry),
           );
           if (cfg != null && seenKinds.add(cfg.kind)) engines.add(cfg);
         }
@@ -468,21 +448,21 @@ class AiWebSearchSettings {
       }
     }
 
-    final rawModelMode = '${json['model_mode'] ?? ''}'.trim();
+    final rawModelMode = stringFromValue(json['model_mode']);
     final modelMode =
         AiWebSearchModelMode.values
             .where((m) => m.name == rawModelMode)
             .firstOrNull ??
         AiWebSearchModelMode.followSession;
 
-    final rawDetail = '${json['summary_detail'] ?? ''}'.trim();
+    final rawDetail = stringFromValue(json['summary_detail']);
     final summaryDetail =
         AiWebSearchSummaryDetail.values
             .where((d) => d.name == rawDetail)
             .firstOrNull ??
         AiWebSearchSummaryDetail.balanced;
 
-    final rawStyle = '${json['summary_style'] ?? ''}'.trim();
+    final rawStyle = stringFromValue(json['summary_style']);
     final summaryStyle =
         AiWebSearchSummaryStyle.values
             .where((s) => s.name == rawStyle)
@@ -498,14 +478,11 @@ class AiWebSearchSettings {
         max: maxResultCount,
       ),
       modelMode: modelMode,
-      fixedModelProviderConfigId:
-          json['fixed_model_provider_config_id'] is String
-          ? json['fixed_model_provider_config_id'] as String
-          : null,
-      fixedModelId: json['fixed_model_id'] is String
-          ? json['fixed_model_id'] as String
-          : null,
-      parallel: json['parallel'] is bool ? json['parallel'] as bool : true,
+      fixedModelProviderConfigId: optionalStringFromValue(
+        json['fixed_model_provider_config_id'],
+      ),
+      fixedModelId: optionalStringFromValue(json['fixed_model_id']),
+      parallel: boolFromValue(json['parallel'], defaultValue: true),
       parallelWorkers: clampedIntFromValue(
         json['parallel_workers'],
         fallback: defaultParallelWorkers,

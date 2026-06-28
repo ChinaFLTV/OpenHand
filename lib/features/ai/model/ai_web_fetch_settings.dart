@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 /// 受支持的 WebFetch 数据源种类。和 WebSearch 平行——很多源既能搜也能抓
@@ -159,14 +156,14 @@ class AiWebFetchEngineConfig {
   }
 
   static AiWebFetchEngineConfig? fromJson(Map<String, Object?> json) {
-    final rawKind = '${json['kind'] ?? ''}'.trim();
+    final rawKind = stringFromValue(json['kind']);
     final kind = AiWebFetchEngineKind.values
         .where((e) => e.name == rawKind)
         .firstOrNull;
     if (kind == null) return null;
     return AiWebFetchEngineConfig(
       kind: kind,
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : false,
+      enabled: boolFromValue(json['enabled']),
       weight: clampedIntFromValue(
         json['weight'],
         fallback: defaultWeight,
@@ -197,13 +194,9 @@ class AiWebFetchEngineConfig {
         min: minResponseTimeoutSeconds,
         max: maxResponseTimeoutSeconds,
       ),
-      apiKey: json['api_key'] is String ? json['api_key'] as String : null,
-      providerConfigId: json['provider_config_id'] is String
-          ? json['provider_config_id'] as String
-          : null,
-      endpointOverride: json['endpoint_override'] is String
-          ? json['endpoint_override'] as String
-          : null,
+      apiKey: optionalStringFromValue(json['api_key']),
+      providerConfigId: optionalStringFromValue(json['provider_config_id']),
+      endpointOverride: optionalStringFromValue(json['endpoint_override']),
     );
   }
 }
@@ -267,30 +260,10 @@ class AiWebFetchScraplingSettings {
   }
 
   static AiWebFetchScraplingSettings? fromJson(Object? raw) {
-    Map<String, Object?>? json;
-    if (raw is Map) {
-      json = Map<String, Object?>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          json = Map<String, Object?>.from(decoded);
-        }
-      } catch (error, stack) {
-        silentLog(
-          'ai_web_fetch_scrapling_settings',
-          'decode JSON string',
-          error,
-          stack,
-        );
-        return null;
-      }
-    }
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
     return AiWebFetchScraplingSettings(
-      pythonExecutable: json['python_executable'] is String
-          ? json['python_executable'] as String
-          : null,
+      pythonExecutable: optionalStringFromValue(json['python_executable']),
       startupTimeoutSeconds: clampedIntFromValue(
         json['startup_timeout_seconds'],
         fallback: defaultStartupTimeoutSeconds,
@@ -481,20 +454,7 @@ class AiWebFetchSettings {
   }
 
   static AiWebFetchSettings? fromJson(Object? raw) {
-    Map<String, Object?>? json;
-    if (raw is Map) {
-      json = Map<String, Object?>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          json = Map<String, Object?>.from(decoded);
-        }
-      } catch (error, stack) {
-        silentLog('ai_web_fetch_settings', 'decode JSON string', error, stack);
-        return null;
-      }
-    }
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
 
     final rawEngines = json['engines'];
@@ -504,7 +464,7 @@ class AiWebFetchSettings {
       for (final entry in rawEngines) {
         if (entry is Map) {
           final cfg = AiWebFetchEngineConfig.fromJson(
-            Map<String, Object?>.from(entry),
+            stringKeyedMapFromValue(entry),
           );
           if (cfg != null && seenKinds.add(cfg.kind)) engines.add(cfg);
         }
@@ -527,7 +487,7 @@ class AiWebFetchSettings {
         min: minResultCount,
         max: maxResultCount,
       ),
-      parallel: json['parallel'] is bool ? json['parallel'] as bool : true,
+      parallel: boolFromValue(json['parallel'], defaultValue: true),
       parallelWorkers: clampedIntFromValue(
         json['parallel_workers'],
         fallback: defaultParallelWorkers,
