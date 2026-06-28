@@ -84,7 +84,7 @@ class WebGatewayHealthCheckConfig {
 
   factory WebGatewayHealthCheckConfig.fromJson(Map<String, Object?> json) {
     return WebGatewayHealthCheckConfig(
-      enabled: json['enabled'] as bool? ?? true,
+      enabled: boolFromValue(json['enabled'], defaultValue: true),
       path: _nonEmptyString(json['path'], '/api/health'),
       method: _nonEmptyString(json['method'], 'GET').toUpperCase(),
       queryParameters: _stringMap(json['query_parameters']),
@@ -101,7 +101,7 @@ class WebGatewayHealthCheckConfig {
         max: 599,
       ),
       responseContains: _stringValue(json['response_contains']).trim(),
-      followRedirects: json['follow_redirects'] as bool? ?? false,
+      followRedirects: boolFromValue(json['follow_redirects']),
     );
   }
 
@@ -276,10 +276,18 @@ class WebMessagePlatformConfig {
   });
 
   factory WebMessagePlatformConfig.fromJson(Map<String, Object?> json) {
+    final healthCheckJson = _objectMap(json['health_check']);
+    final logConfigJson = _objectMap(json['log_config']);
     return WebMessagePlatformConfig(
-      enabled: json['enabled'] as bool? ?? false,
-      autoStartOnLaunch: json['auto_start_on_launch'] as bool? ?? true,
-      autoReloadOnChange: json['auto_reload_on_change'] as bool? ?? true,
+      enabled: boolFromValue(json['enabled']),
+      autoStartOnLaunch: boolFromValue(
+        json['auto_start_on_launch'],
+        defaultValue: true,
+      ),
+      autoReloadOnChange: boolFromValue(
+        json['auto_reload_on_change'],
+        defaultValue: true,
+      ),
       description: _nonEmptyString(json['description'], defaultDescription),
       listenHost: _nonEmptyString(json['listen_host'], '0.0.0.0'),
       listenPort: clampedIntFromValue(
@@ -288,12 +296,12 @@ class WebMessagePlatformConfig {
         min: 1,
         max: 65535,
       ),
-      authEnabled: json['auth_enabled'] as bool? ?? false,
+      authEnabled: boolFromValue(json['auth_enabled']),
       username: _nonEmptyString(json['username'], 'openhand'),
       password: _stringValue(json['password']),
-      telemetryEnabled: json['telemetry_enabled'] as bool? ?? false,
-      loggingEnabled: json['logging_enabled'] as bool? ?? false,
-      opsEnabled: json['ops_enabled'] as bool? ?? false,
+      telemetryEnabled: boolFromValue(json['telemetry_enabled']),
+      loggingEnabled: boolFromValue(json['logging_enabled']),
+      opsEnabled: boolFromValue(json['ops_enabled']),
       maxConcurrentRequests: clampedIntFromValue(
         json['max_concurrent_requests'],
         fallback: 200,
@@ -325,11 +333,23 @@ class WebMessagePlatformConfig {
         },
       ),
       allowedModelKeys: _stringList(json['allowed_model_keys']),
-      planModeEnabled: json['plan_mode_enabled'] as bool? ?? false,
-      readAloudEnabled: json['read_aloud_enabled'] as bool? ?? true,
-      translationEnabled: json['translation_enabled'] as bool? ?? true,
-      feedbackEnabled: json['feedback_enabled'] as bool? ?? true,
-      regenerationEnabled: json['regeneration_enabled'] as bool? ?? true,
+      planModeEnabled: boolFromValue(json['plan_mode_enabled']),
+      readAloudEnabled: boolFromValue(
+        json['read_aloud_enabled'],
+        defaultValue: true,
+      ),
+      translationEnabled: boolFromValue(
+        json['translation_enabled'],
+        defaultValue: true,
+      ),
+      feedbackEnabled: boolFromValue(
+        json['feedback_enabled'],
+        defaultValue: true,
+      ),
+      regenerationEnabled: boolFromValue(
+        json['regeneration_enabled'],
+        defaultValue: true,
+      ),
       singleMessageTokenLimit: clampedIntFromValue(
         json['single_message_token_limit'],
         fallback: 2000,
@@ -342,11 +362,17 @@ class WebMessagePlatformConfig {
         min: 1,
         max: 10000,
       ),
-      sessionManagementEnabled:
-          json['session_management_enabled'] as bool? ?? true,
-      workspaceFilesEnabled: json['workspace_files_enabled'] as bool? ?? true,
-      workspaceFileWriteEnabled:
-          json['workspace_file_write_enabled'] as bool? ?? false,
+      sessionManagementEnabled: boolFromValue(
+        json['session_management_enabled'],
+        defaultValue: true,
+      ),
+      workspaceFilesEnabled: boolFromValue(
+        json['workspace_files_enabled'],
+        defaultValue: true,
+      ),
+      workspaceFileWriteEnabled: boolFromValue(
+        json['workspace_file_write_enabled'],
+      ),
       workspaceFileMaxBytes: clampedIntFromValue(
         json['workspace_file_max_bytes'],
         fallback: 1024 * 1024,
@@ -368,16 +394,12 @@ class WebMessagePlatformConfig {
         min: 1024 * 1024,
         max: 10 * 1024 * 1024 * 1024,
       ),
-      healthCheck: json['health_check'] is Map
-          ? WebGatewayHealthCheckConfig.fromJson(
-              Map<String, Object?>.from(json['health_check'] as Map),
-            )
-          : const WebGatewayHealthCheckConfig(),
-      logConfig: json['log_config'] is Map
-          ? WebGatewayLogConfig.fromJson(
-              Map<String, Object?>.from(json['log_config'] as Map),
-            )
-          : const WebGatewayLogConfig(),
+      healthCheck: healthCheckJson.isEmpty
+          ? const WebGatewayHealthCheckConfig()
+          : WebGatewayHealthCheckConfig.fromJson(healthCheckJson),
+      logConfig: logConfigJson.isEmpty
+          ? const WebGatewayLogConfig()
+          : WebGatewayLogConfig.fromJson(logConfigJson),
     );
   }
 
@@ -581,12 +603,13 @@ List<String> _stringList(
   Object? raw, {
   List<String> fallback = const <String>[],
 }) {
-  if (raw is! List) return List<String>.from(fallback);
+  final parsed = stringListFromValue(raw);
+  if (parsed.isEmpty && raw is! List) {
+    return List<String>.from(fallback);
+  }
   final seen = <String>{};
   final values = <String>[];
-  for (final item in raw) {
-    final text = '$item'.trim();
-    if (text.isEmpty) continue;
+  for (final text in parsed) {
     if (seen.add(text.toLowerCase())) values.add(text);
   }
   return values;
@@ -617,11 +640,17 @@ Map<String, String> _stringMap(Object? raw) {
   if (raw is! Map) return const <String, String>{};
   final result = <String, String>{};
   raw.forEach((key, value) {
+    if (value == null) return;
     final k = '$key'.trim();
     final v = '$value'.trim();
     if (k.isNotEmpty) result[k] = v;
   });
   return result;
+}
+
+Map<String, Object?> _objectMap(Object? raw) {
+  if (raw is! Map) return const <String, Object?>{};
+  return stringKeyedMapFromValue(raw);
 }
 
 Set<T> _enumSet<T>(Object? raw, T? Function(String?) parser, Set<T> fallback) {
