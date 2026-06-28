@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import '../../../shared/util/input_value_parsing.dart';
+import '../../ai/index.dart';
+
 /// 把 [AiToolSearchLoadHistoryEntry] 序列化为 CSV / Markdown 的纯函数集合。
 ///
 /// 所有函数均为纯函数：不读 BuildContext、不写剪贴板、不依赖 setState；
@@ -15,8 +18,6 @@ import 'dart:convert';
 ///   - timestamp 用反引号包裹便于阅读
 ///   - `+Added / Deferred` 列固定形如 `+3 / 7`
 ///   - 单元格内 `|` 转义为 `\|`、`\n` 折成空格，以避免破坏表格
-import '../../ai/index.dart';
-
 class ToolSearchHistorySerializer {
   const ToolSearchHistorySerializer._();
 
@@ -122,13 +123,14 @@ class ToolSearchHistorySerializer {
         'ToolSearchHistorySerializer.fromJson: root must be a JSON object',
       );
     }
-    final version = decoded['version'];
+    final root = stringKeyedMapFromValue(decoded);
+    final version = intFromValue(root['version'], fallback: -1);
     if (version != 1) {
       throw FormatException(
         'ToolSearchHistorySerializer.fromJson: unsupported version $version',
       );
     }
-    final raw = decoded['entries'];
+    final raw = root['entries'];
     if (raw is! List) {
       throw const FormatException(
         'ToolSearchHistorySerializer.fromJson: "entries" must be a JSON array',
@@ -142,27 +144,27 @@ class ToolSearchHistorySerializer {
           'ToolSearchHistorySerializer.fromJson: entries[$i] must be a JSON object',
         );
       }
-      final tsRaw = row['timestamp'];
+      final rowMap = stringKeyedMapFromValue(row);
+      final tsRaw = rowMap['timestamp'];
       if (tsRaw is! String) {
         throw FormatException(
           'ToolSearchHistorySerializer.fromJson: entries[$i].timestamp missing or not a string',
         );
       }
       final timestamp = DateTime.parse(tsRaw);
-      final sourceName = row['source'];
+      final sourceName = rowMap['source'];
       final src = AiToolSearchLoadSource.values.firstWhere(
         (s) => s.name == sourceName,
         orElse: () => AiToolSearchLoadSource.aiSession,
       );
-      final query = (row['query'] is String) ? row['query'] as String : '';
-      final addedNames = <String>[
-        if (row['added_names'] is List)
-          for (final n in row['added_names'] as List)
-            if (n is String) n,
-      ];
-      final totalDeferred = (row['total_deferred'] is num)
-          ? (row['total_deferred'] as num).toInt()
-          : 0;
+      final query = (rowMap['query'] is String)
+          ? rowMap['query'] as String
+          : '';
+      final addedNames = stringListFromValue(rowMap['added_names']);
+      final totalDeferred = nonNegativeIntFromValue(
+        rowMap['total_deferred'],
+        fallback: 0,
+      );
       result.add(
         AiToolSearchLoadHistoryEntry(
           timestamp: timestamp,
