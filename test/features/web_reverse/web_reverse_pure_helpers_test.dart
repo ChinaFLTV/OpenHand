@@ -69,4 +69,17 @@ void main() {
       expect(vlqDecode('!@#'), isEmpty);
     });
   });
+
+  group('jwtNumericDateFromValue', () {
+    test('parses finite integral epoch seconds only', () {
+      expect(
+        jwtNumericDateFromValue('1700000000.0'),
+        DateTime.fromMillisecondsSinceEpoch(1700000000000),
+      );
+      expect(jwtNumericDateFromValue(1700000000.25), isNull);
+      expect(jwtNumericDateFromValue(-1), isNull);
+      expect(jwtNumericDateFromValue(double.nan), isNull);
+      expect(jwtNumericDateFromValue('999999999999999'), isNull);
+    });
+  });
 }

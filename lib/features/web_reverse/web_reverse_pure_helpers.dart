@@ -8,6 +8,7 @@ import '../../shared/util/input_value_parsing.dart';
 
 const String _vlqAlphabet =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const int _maxJwtNumericDateSeconds = 253402300799; // 9999-12-31T23:59:59Z.
 
 /// 解码 source-map 中的 Base64 VLQ 段（不含 `,` 与 `;` 分隔符），
 /// 返回该段内全部带符号整数。空串返回空列表，未知字符直接跳过。
@@ -86,6 +87,14 @@ List<Object?>? decodeJsonList(String raw) {
 List<Map<String, Object?>>? decodeStringKeyedJsonMapList(String raw) {
   final decoded = decodeJsonList(raw);
   return decoded == null ? null : stringKeyedMapListFromValue(decoded);
+}
+
+DateTime? jwtNumericDateFromValue(Object? value) {
+  final seconds = optionalIntegralIntFromValue(value);
+  if (seconds == null || seconds < 0 || seconds > _maxJwtNumericDateSeconds) {
+    return null;
+  }
+  return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
 }
 
 Map<String, Object?>? cdpJsonMapStringResultValue(Object? response) {

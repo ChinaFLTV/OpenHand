@@ -170,30 +170,21 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     final value = cdpStringResultValue(r);
     if (value == null) return const <_JwtSample>[];
     try {
-      final list = jsonDecode(value);
-      if (list is! List) return const <_JwtSample>[];
-      return list
-          .whereType<Map>()
+      final entries = decodeStringKeyedJsonMapList(value);
+      if (entries == null) return const <_JwtSample>[];
+      return entries
           .map(
-            (e) => _JwtSample(
-              source: '${e['source'] ?? ''}',
-              key: '${e['key'] ?? ''}',
-              value: '${e['value'] ?? ''}',
-              exp: e['exp'] is int
-                  ? DateTime.fromMillisecondsSinceEpoch(
-                      (e['exp'] as int) * 1000,
-                    )
-                  : null,
-              iat: e['iat'] is int
-                  ? DateTime.fromMillisecondsSinceEpoch(
-                      (e['iat'] as int) * 1000,
-                    )
-                  : null,
-              iss: e['iss']?.toString(),
-              sub: e['sub']?.toString(),
+            (entry) => _JwtSample(
+              source: stringFromValue(entry['source']),
+              key: stringFromValue(entry['key']),
+              value: stringFromValue(entry['value']),
+              exp: jwtNumericDateFromValue(entry['exp']),
+              iat: jwtNumericDateFromValue(entry['iat']),
+              iss: optionalStringFromValue(entry['iss']),
+              sub: optionalStringFromValue(entry['sub']),
             ),
           )
-          .toList();
+          .toList(growable: false);
     } catch (e, st) {
       silentLog('web_reverse_jwt', 'parse', e, st);
       return const <_JwtSample>[];
