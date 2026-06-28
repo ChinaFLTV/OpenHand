@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_session_goal.dart';
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
@@ -1292,12 +1293,7 @@ class AiSessionStatistics {
   }
 
   static double? _readNullableDouble(Object? value) {
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      final parsed = double.tryParse(value);
-      if (parsed != null) return parsed;
-    }
-    return null;
+    return optionalDoubleFromValue(value);
   }
 
   static List<AiSessionCacheHitTrendPoint> _readTrendPoints(Object? value) {
@@ -1326,27 +1322,15 @@ class AiSessionCacheHitTrendPoint {
 
   factory AiSessionCacheHitTrendPoint.fromJson(Map<String, Object?> json) {
     return AiSessionCacheHitTrendPoint(
-      turnIndex: (json[turnIndexJsonKey] is num)
-          ? (json[turnIndexJsonKey] as num).toInt()
-          : 0,
-      hitRatio: (json[hitRatioJsonKey] is num)
-          ? (json[hitRatioJsonKey] as num).toDouble().clamp(0.0, 1.0)
-          : 0.0,
-      promptTokens: (json[promptTokensJsonKey] is num)
-          ? (json[promptTokensJsonKey] as num).toInt()
-          : 0,
-      cacheReadTokens: (json[cacheReadTokensJsonKey] is num)
-          ? (json[cacheReadTokensJsonKey] as num).toInt()
-          : 0,
-      cacheWriteTokens: (json[cacheWriteTokensJsonKey] is num)
-          ? (json[cacheWriteTokensJsonKey] as num).toInt()
-          : 0,
+      turnIndex: _readNonNegativeInt(json[turnIndexJsonKey]),
+      hitRatio: _readHitRatio(json[hitRatioJsonKey]),
+      promptTokens: _readNonNegativeInt(json[promptTokensJsonKey]),
+      cacheReadTokens: _readNonNegativeInt(json[cacheReadTokensJsonKey]),
+      cacheWriteTokens: _readNonNegativeInt(json[cacheWriteTokensJsonKey]),
       starterMessageId: _readString(json[starterMessageIdJsonKey]),
       starterMessageKind: _readString(json[starterMessageKindJsonKey]),
       starterOrigin: _readString(json[starterOriginJsonKey]),
-      idleGapSeconds: (json[idleGapSecondsJsonKey] is num)
-          ? (json[idleGapSecondsJsonKey] as num).toInt()
-          : null,
+      idleGapSeconds: _readNullableNonNegativeInt(json[idleGapSecondsJsonKey]),
     );
   }
 
@@ -1387,6 +1371,20 @@ class AiSessionCacheHitTrendPoint {
     final text = '${value ?? ''}'.trim();
     if (text.isEmpty || text == 'null') return null;
     return text;
+  }
+
+  static int _readNonNegativeInt(Object? value) {
+    return _readNullableNonNegativeInt(value) ?? 0;
+  }
+
+  static int? _readNullableNonNegativeInt(Object? value) {
+    final parsed = optionalIntFromValue(value);
+    return parsed == null || parsed < 0 ? null : parsed;
+  }
+
+  static double _readHitRatio(Object? value) {
+    final parsed = optionalDoubleFromValue(value);
+    return parsed == null ? 0.0 : parsed.clamp(0.0, 1.0).toDouble();
   }
 }
 
