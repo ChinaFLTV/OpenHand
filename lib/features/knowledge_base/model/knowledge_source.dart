@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../shared/util/input_value_parsing.dart';
 import 'knowledge_model_codec.dart';
 
 class KnowledgeSource {
@@ -99,7 +100,7 @@ class KnowledgeSource {
       originalPath: '${row['original_path'] ?? ''}',
       storedPath: '${row['stored_path'] ?? ''}',
       mimeType: '${row['mime_type'] ?? ''}',
-      sizeBytes: (row['size_bytes'] as num?)?.toInt() ?? 0,
+      sizeBytes: nonNegativeIntFromValue(row['size_bytes'], fallback: 0),
       contentHash: '${row['content_hash'] ?? ''}',
       status: '${row['status'] ?? 'pending'}',
       errorMessage: '${row['error_message'] ?? ''}',

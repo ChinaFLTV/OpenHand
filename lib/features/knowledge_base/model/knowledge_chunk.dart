@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../shared/util/input_value_parsing.dart';
 import 'knowledge_model_codec.dart';
 
 class KnowledgeChunk {
@@ -105,17 +106,20 @@ class KnowledgeChunk {
     return KnowledgeChunk(
       id: '${row['id'] ?? ''}',
       sourceId: '${row['source_id'] ?? ''}',
-      chunkIndex: (row['chunk_index'] as num?)?.toInt() ?? 0,
+      chunkIndex: nonNegativeIntFromValue(row['chunk_index'], fallback: 0),
       parentChunkId: knowledgeNullableString(row['parent_chunk_id']),
       title: '${row['title'] ?? ''}',
       headingPath: '${row['heading_path'] ?? ''}',
       content: '${row['content'] ?? ''}',
       contentHash: '${row['content_hash'] ?? ''}',
-      charCount: (row['char_count'] as num?)?.toInt() ?? 0,
-      tokenEstimate: (row['token_estimate'] as num?)?.toInt() ?? 0,
-      startOffset: (row['start_offset'] as num?)?.toInt(),
-      endOffset: (row['end_offset'] as num?)?.toInt(),
-      pageNumber: (row['page_number'] as num?)?.toInt(),
+      charCount: nonNegativeIntFromValue(row['char_count'], fallback: 0),
+      tokenEstimate: nonNegativeIntFromValue(
+        row['token_estimate'],
+        fallback: 0,
+      ),
+      startOffset: optionalNonNegativeIntFromValue(row['start_offset']),
+      endOffset: optionalNonNegativeIntFromValue(row['end_offset']),
+      pageNumber: optionalNonNegativeIntFromValue(row['page_number']),
       documentTime: knowledgeDate(row['document_time']),
       createdAt: knowledgeDate(row['created_at']) ?? DateTime.now().toUtc(),
       updatedAt: knowledgeDate(row['updated_at']) ?? DateTime.now().toUtc(),

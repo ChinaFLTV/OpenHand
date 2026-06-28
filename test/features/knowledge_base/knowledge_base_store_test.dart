@@ -130,4 +130,35 @@ void main() {
       expect((await store.loadStats()).chunkCount, 1);
     },
   );
+
+  test('row models normalize persisted numeric fields', () {
+    final source = KnowledgeSource.fromRow(<String, Object?>{
+      'id': 'source-1',
+      'title': 'Doc',
+      'size_bytes': double.infinity,
+      'imported_at': '2026-06-28T00:00:00Z',
+      'created_at': '2026-06-28T00:00:00Z',
+      'updated_at': '2026-06-28T00:00:00Z',
+    });
+    expect(source.sizeBytes, 0);
+
+    final chunk = KnowledgeChunk.fromRow(<String, Object?>{
+      'id': 'chunk-1',
+      'source_id': 'source-1',
+      'chunk_index': '-1',
+      'char_count': '128',
+      'token_estimate': double.nan,
+      'start_offset': -5,
+      'end_offset': '256',
+      'page_number': double.infinity,
+      'created_at': '2026-06-28T00:00:00Z',
+      'updated_at': '2026-06-28T00:00:00Z',
+    });
+    expect(chunk.chunkIndex, 0);
+    expect(chunk.charCount, 128);
+    expect(chunk.tokenEstimate, 0);
+    expect(chunk.startOffset, isNull);
+    expect(chunk.endOffset, 256);
+    expect(chunk.pageNumber, isNull);
+  });
 }

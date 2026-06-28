@@ -1,6 +1,7 @@
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
 
@@ -137,7 +138,7 @@ class KnowledgeBaseStore {
     Future<int> scalar(String sql) async {
       final rows = await _db.rawQuery(sql);
       final value = rows.isEmpty ? null : rows.first.values.first;
-      return (value as num?)?.toInt() ?? 0;
+      return nonNegativeIntFromValue(value, fallback: 0);
     }
 
     return (
