@@ -46,6 +46,29 @@ void main() {
     expect(controller.entries.first.tags, <String>['Work', 'extra']);
     expect(controller.entries, hasLength(2));
   });
+
+  test('memory tags schema documents text and array inputs', () {
+    final tool = AiToolRuntimeService.builtinToolDefault(
+      AiBuiltinToolKind.memory,
+    );
+
+    final parameters = tool!.definition.parameters;
+    final properties = parameters['properties']! as Map<String, Object?>;
+    final tags = properties['tags']! as Map<String, Object?>;
+    final anyOf = tags['anyOf']! as List<Object?>;
+
+    expect(anyOf, hasLength(2));
+    expect(anyOf, contains(equals(<String, Object?>{'type': 'string'})));
+    expect(
+      anyOf,
+      contains(
+        equals(<String, Object?>{
+          'type': 'array',
+          'items': <String, Object?>{'type': 'string'},
+        }),
+      ),
+    );
+  });
 }
 
 Future<void> _createMemoryTable(Database db) {

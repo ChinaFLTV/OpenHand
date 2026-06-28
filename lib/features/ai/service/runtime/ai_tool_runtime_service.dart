@@ -3435,9 +3435,15 @@ class AiToolRuntimeService {
                 'keep the existing title, pass an empty string to clear it.',
           },
           'tags': <String, Object?>{
-            'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
-            'description': 'Optional list of tags to attach to the entry.',
+            'anyOf': <Object?>[
+              <String, Object?>{'type': 'string'},
+              <String, Object?>{
+                'type': 'array',
+                'items': <String, Object?>{'type': 'string'},
+              },
+            ],
+            'description':
+                'Optional tags to attach to the entry. Accepts an array, comma-separated text, or JSON array text.',
           },
           'tag': <String, Object?>{
             'type': 'string',

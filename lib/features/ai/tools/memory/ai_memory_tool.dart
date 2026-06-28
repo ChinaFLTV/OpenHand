@@ -72,13 +72,13 @@ class AiMemoryTool extends AiTool {
           'Unknown action "$action". Valid: list | append | upsert_profile | update | delete.',
         ),
       };
-    } catch (error) {
+    } catch (error, stackTrace) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: _toolName,
         workingDirectory: '',
         stdout: '',
-        stderr: '$error',
+        stderr: '$error\n$stackTrace',
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: 'status: failure\nerror: $error',
       );
@@ -124,8 +124,7 @@ class AiMemoryTool extends AiTool {
   ) async {
     final content = '${args['content'] ?? ''}';
     final title = '${args['title'] ?? ''}';
-    final rawTags = args['tags'];
-    final tags = _readStringList(rawTags);
+    final tags = stringListFromValueOrJsonText(args['tags']);
     if (content.trim().isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -157,7 +156,7 @@ class AiMemoryTool extends AiTool {
     Stopwatch sw,
   ) async {
     final content = '${args['content'] ?? ''}';
-    final tags = _readStringList(args['tags']);
+    final tags = stringListFromValueOrJsonText(args['tags']);
     if (content.trim().isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -183,9 +182,7 @@ class AiMemoryTool extends AiTool {
   ) async {
     final id = '${args['id'] ?? ''}'.trim();
     final content = '${args['content'] ?? ''}';
-    final tags = _readStringList(args['tags']);
-    // 2026-04-25: title 是可选。传 null 表示保留原有标题，
-    // 传空串 / 非空串表示显式覆盖。
+    final tags = stringListFromValueOrJsonText(args['tags']);
     final titleArg = args['title'];
     final String? title = titleArg == null ? null : '$titleArg';
     if (id.isEmpty) {
@@ -267,10 +264,6 @@ class AiMemoryTool extends AiTool {
 
   static const String _toolName = 'Memory';
   static const int _previewChars = 200;
-
-  List<String> _readStringList(Object? raw) {
-    return stringListFromValueOrJsonText(raw);
-  }
 
   String _preview(String content) {
     final flat = content.replaceAll(RegExp(r'\s+'), ' ').trim();
