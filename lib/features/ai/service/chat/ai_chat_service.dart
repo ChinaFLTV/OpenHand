@@ -318,6 +318,62 @@ class AiChatService implements AiChatClient {
     return message.contains('404') || message.contains('405');
   }
 
+  bool _shouldRetryWithoutCacheBodyAffinity({
+    required int statusCode,
+    required String errorBody,
+    required Map<String, Object?> requestBody,
+  }) {
+    if (statusCode < 400 || statusCode >= 500) {
+      return false;
+    }
+    final hasBodyAffinity =
+        requestBody.containsKey(
+          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
+        ) ||
+        requestBody.containsKey(
+          AiPromptCacheAffinity.openRouterSessionBodyField,
+        );
+    if (!hasBodyAffinity) {
+      return false;
+    }
+    final normalized = errorBody.toLowerCase();
+    final mentionsAffinityField =
+        normalized.contains(
+          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
+        ) ||
+        normalized.contains(AiPromptCacheAffinity.openRouterSessionBodyField);
+    if (!mentionsAffinityField) {
+      return false;
+    }
+    return normalized.contains('unknown') ||
+        normalized.contains('unrecognized') ||
+        normalized.contains('unsupported') ||
+        normalized.contains('unexpected') ||
+        normalized.contains('not allowed') ||
+        normalized.contains('additional') ||
+        normalized.contains('invalid');
+  }
+
+  Map<String, Object?> _withoutCacheBodyAffinityMarkers(
+    Map<String, Object?> body,
+  ) {
+    if (!body.containsKey(
+          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
+        ) &&
+        !body.containsKey(AiPromptCacheAffinity.openRouterSessionBodyField)) {
+      return body;
+    }
+    final updated = <String, Object?>{};
+    for (final entry in body.entries) {
+      if (entry.key == AiPromptCacheAffinity.openAiPromptCacheKeyBodyField ||
+          entry.key == AiPromptCacheAffinity.openRouterSessionBodyField) {
+        continue;
+      }
+      updated[entry.key] = entry.value;
+    }
+    return updated;
+  }
+
   /// Throws an [AiChatException] with a user-friendly message when the caller
   /// asks for video/audio output but the active model has no generation
   /// capability. Without this guard the request would fall through to the
@@ -732,7 +788,7 @@ class AiChatService implements AiChatClient {
     final isClaudeProtocol = adapter is ClaudeProtocolAdapter;
     final isGeminiProtocol = adapter is GeminiProtocolAdapter;
 
-    final blueprint = await adapter.buildChatRequest(
+    var blueprint = await adapter.buildChatRequest(
       model: model,
       messages: messages,
       tools: tools,
@@ -743,18 +799,9 @@ class AiChatService implements AiChatClient {
     final effectiveMethod = model.requestMethod.trim().isNotEmpty
         ? model.requestMethod.trim()
         : 'POST';
-    final streamStartedAt = DateTime.now().toUtc();
-    final capturedHeaders = Map<String, String>.unmodifiable(blueprint.headers);
-    final capturedBody = blueprint.body;
-    onRequestStarted?.call(
-      AiChatRequestTelemetry(
-        requestUrl: blueprint.url,
-        requestMethod: effectiveMethod,
-        requestHeaders: capturedHeaders,
-        requestBody: capturedBody,
-        startedAt: streamStartedAt,
-      ),
-    );
+    late DateTime streamStartedAt;
+    late Map<String, String> capturedHeaders;
+    late Map<String, Object?> capturedBody;
 
     AiChatRequestTelemetry telemetrySnapshot({
       String? rawResponse,
@@ -780,32 +827,113 @@ class AiChatService implements AiChatClient {
       );
     }
 
-    final request = http.Request(effectiveMethod, Uri.parse(blueprint.url))
-      ..headers.addAll(blueprint.headers)
-      ..body = jsonEncode(blueprint.body);
-    final streamedResponseFuture = _sendHttpRequestWithRedirects(
-      client: _client,
-      method: request.method,
-      uri: request.url,
-      headers: request.headers,
-      body: request.body,
-      timeout: timeout,
-    );
-    late final http.StreamedResponse streamedResponse;
-    try {
-      if (cancelSignal == null) {
-        streamedResponse = await streamedResponseFuture;
-      } else {
-        final firstResult = await Future.any(<Future<Object?>>[
+    Future<http.StreamedResponse?> openStream(
+      AiRequestBlueprint nextBlueprint,
+    ) async {
+      blueprint = nextBlueprint;
+      streamStartedAt = DateTime.now().toUtc();
+      capturedHeaders = Map<String, String>.unmodifiable(blueprint.headers);
+      capturedBody = blueprint.body;
+      onRequestStarted?.call(
+        AiChatRequestTelemetry(
+          requestUrl: blueprint.url,
+          requestMethod: effectiveMethod,
+          requestHeaders: capturedHeaders,
+          requestBody: capturedBody,
+          startedAt: streamStartedAt,
+        ),
+      );
+      final request = http.Request(effectiveMethod, Uri.parse(blueprint.url))
+        ..headers.addAll(blueprint.headers)
+        ..body = jsonEncode(blueprint.body);
+      final streamedResponseFuture = _sendHttpRequestWithRedirects(
+        client: _client,
+        method: request.method,
+        uri: request.url,
+        headers: request.headers,
+        body: request.body,
+        timeout: timeout,
+      );
+      try {
+        if (cancelSignal == null) {
+          return await streamedResponseFuture;
+        }
+        final firstResult = await Future.any<Object?>(<Future<Object?>>[
           streamedResponseFuture,
           cancelSignal.then((_) => _cancelledStreamSentinel),
         ]);
-        if (identical(firstResult, _cancelledStreamSentinel)) {
-          unawaited(
-            streamedResponseFuture
-                .then((response) => response.stream.drain<void>())
-                .catchError((Object _, StackTrace stackTrace) {}),
-          );
+        if (!identical(firstResult, _cancelledStreamSentinel)) {
+          return firstResult as http.StreamedResponse;
+        }
+        unawaited(
+          streamedResponseFuture
+              .then((response) => response.stream.drain<void>())
+              .catchError((Object _, StackTrace stackTrace) {}),
+        );
+        return null;
+      } on TimeoutException {
+        final message = AiTransportDiagnosticMessages.timeout(timeout);
+        throw AiChatException(
+          message,
+          telemetry: telemetrySnapshot(error: message),
+        );
+      } on HandshakeException catch (error) {
+        final message = AiTransportDiagnosticMessages.handshake(error);
+        throw AiChatException(
+          message,
+          telemetry: telemetrySnapshot(error: message),
+        );
+      } on TlsException catch (error) {
+        final message = AiTransportDiagnosticMessages.tls(error);
+        throw AiChatException(
+          message,
+          telemetry: telemetrySnapshot(error: message),
+        );
+      } on SocketException catch (error) {
+        final message = AiTransportDiagnosticMessages.socket(error);
+        throw AiChatException(
+          message,
+          telemetry: telemetrySnapshot(error: message),
+        );
+      } on http.ClientException catch (error) {
+        final message = AiTransportDiagnosticMessages.httpClient(error);
+        throw AiChatException(
+          message,
+          telemetry: telemetrySnapshot(error: message),
+        );
+      }
+    }
+
+    var streamedResponse = await openStream(blueprint);
+    if (streamedResponse == null) {
+      return AiChatStreamingResponse(
+        events: const Stream<AiChatStreamEvent>.empty(),
+        result: Future<AiChatStreamResult>.value(
+          const AiChatStreamResult(
+            reply: '',
+            reasoning: '',
+            toolCalls: <AiToolCall>[],
+            wasCancelled: true,
+          ),
+        ),
+      );
+    }
+    if (streamedResponse.statusCode < 200 ||
+        streamedResponse.statusCode >= 300) {
+      var errorBody = await streamedResponse.stream.bytesToString();
+      if (_shouldRetryWithoutCacheBodyAffinity(
+        statusCode: streamedResponse.statusCode,
+        errorBody: errorBody,
+        requestBody: blueprint.body,
+      )) {
+        final retryBody = _withoutCacheBodyAffinityMarkers(blueprint.body);
+        final retryBlueprint = AiRequestBlueprint(
+          url: blueprint.url,
+          headers: blueprint.headers,
+          body: retryBody,
+        );
+        streamedResponse = await openStream(retryBlueprint);
+        if (streamedResponse == null) {
           return AiChatStreamingResponse(
             events: const Stream<AiChatStreamEvent>.empty(),
             result: Future<AiChatStreamResult>.value(
@@ -818,52 +946,30 @@ class AiChatService implements AiChatClient {
             ),
           );
         }
-        streamedResponse = firstResult as http.StreamedResponse;
       }
-    } on TimeoutException {
-      final message = AiTransportDiagnosticMessages.timeout(timeout);
-      throw AiChatException(
-        message,
-        telemetry: telemetrySnapshot(error: message),
-      );
-    } on HandshakeException catch (error) {
-      final message = AiTransportDiagnosticMessages.handshake(error);
-      throw AiChatException(
-        message,
-        telemetry: telemetrySnapshot(error: message),
-      );
-    } on TlsException catch (error) {
-      final message = AiTransportDiagnosticMessages.tls(error);
-      throw AiChatException(
-        message,
-        telemetry: telemetrySnapshot(error: message),
-      );
-    } on SocketException catch (error) {
-      final message = AiTransportDiagnosticMessages.socket(error);
-      throw AiChatException(
-        message,
-        telemetry: telemetrySnapshot(error: message),
-      );
-    } on http.ClientException catch (error) {
-      final message = AiTransportDiagnosticMessages.httpClient(error);
-      throw AiChatException(
-        message,
-        telemetry: telemetrySnapshot(error: message),
-      );
-    }
-
-    if (streamedResponse.statusCode < 200 ||
-        streamedResponse.statusCode >= 300) {
-      final errorBody = await streamedResponse.stream.bytesToString();
-      final errorMessage = adapter.extractErrorMessage(errorBody);
-      final message = AiTransportDiagnosticMessages.httpStatus(
-        streamedResponse.statusCode,
-        serverMessage: errorMessage,
-      );
-      throw AiChatException(
-        message,
-        telemetry: telemetrySnapshot(rawResponse: errorBody, error: message),
-      );
+      if (streamedResponse.statusCode >= 200 &&
+          streamedResponse.statusCode < 300) {
+        errorBody = '';
+      }
+      if (errorBody.isEmpty &&
+          (streamedResponse.statusCode < 200 ||
+              streamedResponse.statusCode >= 300)) {
+        errorBody = await streamedResponse.stream.bytesToString();
+      }
+      if (streamedResponse.statusCode >= 200 &&
+          streamedResponse.statusCode < 300) {
+        // Retry succeeded; continue into the normal SSE reader below.
+      } else {
+        final errorMessage = adapter.extractErrorMessage(errorBody);
+        final message = AiTransportDiagnosticMessages.httpStatus(
+          streamedResponse.statusCode,
+          serverMessage: errorMessage,
+        );
+        throw AiChatException(
+          message,
+          telemetry: telemetrySnapshot(rawResponse: errorBody, error: message),
+        );
+      }
     }
     final eventController = StreamController<AiChatStreamEvent>(sync: true);
     final resultCompleter = Completer<AiChatStreamResult>();
