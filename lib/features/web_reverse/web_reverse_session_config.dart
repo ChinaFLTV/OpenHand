@@ -1,3 +1,4 @@
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_browser_kind.dart';
 
 /// Web 逆向会话的运行时配置，序列化进 session metadata。
@@ -80,7 +81,7 @@ class WebReverseSessionConfig {
     final map = Map<String, Object?>.from(raw);
     final targetUrl = '${map['target_url'] ?? ''}'.trim();
     final objective = '${map['objective'] ?? ''}'.trim();
-    final cdpPort = (map['cdp_port'] as num?)?.toInt() ?? 0;
+    final cdpPort = optionalPositiveIntFromValue(map['cdp_port']) ?? 0;
     final userDataDir = '${map['user_data_dir'] ?? ''}'.trim();
     final browserKind = WebReverseBrowserKind.fromId(
       '${map['browser_kind'] ?? ''}',
@@ -92,12 +93,12 @@ class WebReverseSessionConfig {
       cdpPort: cdpPort,
       userDataDir: userDataDir,
       browserKind: browserKind,
-      triggerActions: map['trigger_actions'] as String?,
+      triggerActions: nullIfBlank(map['trigger_actions']?.toString()),
       loginMode: WebReverseLoginMode.fromId('${map['login_mode'] ?? ''}'),
-      proxy: map['proxy'] as String?,
-      keywords: (map['keywords'] as List?)?.cast<String>() ?? const <String>[],
-      harPath: map['har_path'] as String?,
-      cdpMcpEnabled: _boolFromJson(map['cdp_mcp_enabled']),
+      proxy: nullIfBlank(map['proxy']?.toString()),
+      keywords: stringListFromValue(map['keywords']),
+      harPath: nullIfBlank(map['har_path']?.toString()),
+      cdpMcpEnabled: boolFromValue(map['cdp_mcp_enabled']),
     );
   }
 
@@ -136,12 +137,6 @@ class WebReverseSessionConfig {
     );
     buf.write('- 验收标准：【可在 curl / Dart / Python 中独立复现，无需浏览器】');
     return buf.toString();
-  }
-
-  static bool _boolFromJson(Object? raw) {
-    if (raw is bool) return raw;
-    final value = '${raw ?? ''}'.trim().toLowerCase();
-    return value == 'true' || value == '1' || value == 'yes';
   }
 }
 

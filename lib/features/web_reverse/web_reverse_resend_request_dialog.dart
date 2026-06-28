@@ -21,6 +21,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_select_button.dart';
@@ -257,18 +258,20 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       if (!mounted || generation != _sendGeneration) return;
       setState(() {
         _lastResp = _ResponseSnapshot(
-          status: (map['status'] as num?)?.toInt() ?? 0,
+          status: nonNegativeIntFromValue(map['status'], fallback: 0),
           reason: '${map['reason'] ?? ''}',
           headers: _stringMap(map['headers']),
           body: '${map['body'] ?? ''}',
-          bodyIsBase64: map['bodyIsBase64'] == true,
-          byteSize: (map['byteSize'] as num?)?.toInt() ?? 0,
+          bodyIsBase64: boolFromValue(map['bodyIsBase64']),
+          byteSize: nonNegativeIntFromValue(map['byteSize'], fallback: 0),
           elapsed: Duration(
-            milliseconds:
-                (map['elapsedMs'] as num?)?.round() ?? sw.elapsedMilliseconds,
+            milliseconds: nonNegativeIntFromValue(
+              map['elapsedMs'],
+              fallback: sw.elapsedMilliseconds,
+            ),
           ),
           transport: _ReplayTransport.browser,
-          truncated: map['truncated'] == true,
+          truncated: boolFromValue(map['truncated']),
         );
         _sending = false;
       });

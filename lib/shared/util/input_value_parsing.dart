@@ -24,6 +24,7 @@ List<String> splitLooseDelimitedValues(String value) {
 List<String> stringListFromValue(Object? value, {Pattern separator = ','}) {
   if (value is List) {
     return value
+        .where((item) => item != null)
         .map((item) => '$item'.trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);

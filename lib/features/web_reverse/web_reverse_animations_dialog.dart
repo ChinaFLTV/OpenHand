@@ -23,6 +23,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
@@ -225,14 +226,14 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       for (final item in decoded.whereType<Map>()) {
         rows.add(
           _AnimationRow(
-            handle: (item['handle'] as num?)?.toInt() ?? 0,
+            handle: nonNegativeIntFromValue(item['handle'], fallback: 0),
             id: (item['id'] ?? '').toString(),
             animationName: (item['animationName'] ?? '').toString(),
             playState: (item['playState'] ?? 'idle').toString(),
-            currentTime: (item['currentTime'] as num?)?.toDouble() ?? 0,
-            duration: (item['duration'] as num?)?.toDouble() ?? 0,
-            playbackRate: (item['playbackRate'] as num?)?.toDouble() ?? 1,
-            iterations: (item['iterations'] as num?)?.toDouble() ?? 1,
+            currentTime: doubleFromValue(item['currentTime'], fallback: 0),
+            duration: doubleFromValue(item['duration'], fallback: 0),
+            playbackRate: doubleFromValue(item['playbackRate'], fallback: 1),
+            iterations: doubleFromValue(item['iterations'], fallback: 1),
             targetSelector: (item['target'] ?? '').toString(),
           ),
         );
@@ -273,7 +274,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
       final result = (r?['result'] is Map)
           ? Map<String, Object?>.from(r!['result'] as Map)
           : const <String, Object?>{};
-      final n = (result['value'] as num?)?.toInt() ?? 0;
+      final n = nonNegativeIntFromValue(result['value'], fallback: 0);
       if (!mounted) return;
       setState(() {
         _busy = false;

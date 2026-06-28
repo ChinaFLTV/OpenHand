@@ -15,6 +15,15 @@ void main() {
     });
   });
 
+  group('string list parsing', () {
+    test('drops null and blank list entries while keeping scalar values', () {
+      expect(
+        stringListFromValue(<Object?>[' alpha ', null, 42, '', ' beta ']),
+        <String>['alpha', '42', 'beta'],
+      );
+    });
+  });
+
   group('numeric fallback parsing', () {
     test('keeps only positive integers when requested', () {
       expect(optionalPositiveIntFromText('12'), 12);
