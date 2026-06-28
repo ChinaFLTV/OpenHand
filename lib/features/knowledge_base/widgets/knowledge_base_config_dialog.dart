@@ -383,6 +383,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final rerankModels = _rerankModels(settingsController.aiModels);
     final dependencies = knowledgeController.dependencies(pluginController);
     final isZh = openHandIsChineseLocale(context);
+    final embeddingModelSupportsRerank =
+        _selectedEmbeddingProfile(embeddingModels)?.supportsRerank == true;
+    final skipModelRerankEffective =
+        _settings.rerankMode == KnowledgeRerankMode.model &&
+        _settings.skipModelRerankWhenEmbeddingSupportsRerank &&
+        embeddingModelSupportsRerank;
     return buildOpenHandAlertDialog(
       title: Text(isZh ? '知识库配置' : 'Knowledge Base Settings'),
       content: buildOpenHandDialogConstrainedContent(
@@ -881,8 +887,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       var next = _settings.copyWith(
                         rerankMode: value,
                         mmrEnabled: value == KnowledgeRerankMode.mmr,
-                        cloudRerankEnabled:
-                            value == KnowledgeRerankMode.model,
+                        cloudRerankEnabled: value == KnowledgeRerankMode.model,
                       );
                       if (value == KnowledgeRerankMode.model &&
                           !_selectedRerankModelAvailable(rerankModels) &&
@@ -903,18 +908,52 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                             key: const ValueKey('rerank-model-selector'),
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (rerankModels.isEmpty)
+                              _switch(
+                                isZh
+                                    ? '双能力嵌入模型跳过额外重排'
+                                    : 'Skip extra rerank for dual-capability embeddings',
+                                _settings
+                                    .skipModelRerankWhenEmbeddingSupportsRerank,
+                                (value) {
+                                  setState(
+                                    () => _settings = _settings.copyWith(
+                                      skipModelRerankWhenEmbeddingSupportsRerank:
+                                          value,
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              if (skipModelRerankEffective)
+                                KnowledgeDialogNotice(
+                                  icon: Icons.check_circle_outline_rounded,
+                                  message: isZh
+                                      ? '当前嵌入模型同时具备“嵌入生成”和“重排序”能力，检索时会直接采用向量召回顺序，不再额外请求重排序模型。'
+                                      : 'The current embedding model also supports rerank. Retrieval will use vector recall order without an extra rerank request.',
+                                )
+                              else if (rerankModels.isEmpty)
                                 KnowledgeDialogNotice(
                                   icon: Icons.filter_alt_outlined,
                                   message: isZh
                                       ? '没有已开启“重排序”的模型。请先在设置的模型配置中启用该能力。'
                                       : 'No model profile has Rerank enabled. Enable it in model settings first.',
                                 )
-                              else
+                              else ...[
+                                if (_settings
+                                        .skipModelRerankWhenEmbeddingSupportsRerank &&
+                                    !embeddingModelSupportsRerank) ...[
+                                  KnowledgeDialogNotice(
+                                    icon: Icons.info_outline_rounded,
+                                    message: isZh
+                                        ? '当前嵌入模型未标记“重排序”能力，仍会请求下方选择的重排序模型。'
+                                        : 'The current embedding model is not marked rerank-capable, so the selected rerank model will still be requested.',
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
                                 OpenHandModelSelectorField(
                                   models: rerankModels,
-                                  recentSelections: settingsController
-                                      .recentModelSelections,
+                                  recentSelections:
+                                      settingsController.recentModelSelections,
                                   selectedConfigId:
                                       _settings.rerankProviderConfigId,
                                   selectedModelId: _settings.rerankModelId,
@@ -924,9 +963,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                                   helperZh: '仅显示已开启“重排序”的模型配置。',
                                   helperEn:
                                       'Only rerank-capable model profiles are shown.',
-                                  modelFilter: (config, modelId) => config
-                                      .profileFor(modelId)
-                                      .supportsRerank,
+                                  modelFilter: (config, modelId) =>
+                                      config.profileFor(modelId).supportsRerank,
                                   onSelected: (selection) {
                                     setState(() {
                                       _settings = _settings.copyWith(
@@ -936,6 +974,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                                     });
                                   },
                                 ),
+                              ],
                             ],
                           )
                         : const SizedBox.shrink(
@@ -970,7 +1009,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     _maxChunksPerSource,
                     isZh ? '单来源最终 chunk 上限' : 'Max chunks per source',
                   ),
-                  if (_settings.rerankMode == KnowledgeRerankMode.model) ...[
+                  if (_settings.rerankMode == KnowledgeRerankMode.model &&
+                      !skipModelRerankEffective) ...[
                     _field(_rerankTopN, isZh ? 'Rerank topN' : 'Rerank topN'),
                     _field(
                       _rerankTimeout,

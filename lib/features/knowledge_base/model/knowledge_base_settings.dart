@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+const _skipDualCapabilityRerankJsonKey =
+    'skip_model_rerank_when_embedding_supports_rerank';
+
 class KnowledgeChunkStrategy {
   const KnowledgeChunkStrategy._();
 
@@ -103,6 +106,7 @@ class KnowledgeBaseSettings {
     this.rerankMode = KnowledgeRerankMode.localHybrid,
     this.rerankProviderConfigId = '',
     this.rerankModelId = '',
+    this.skipModelRerankWhenEmbeddingSupportsRerank = false,
     this.rerankTopN = 24,
     this.rerankTimeoutSeconds = 30,
     this.maxPromptChunks = 6,
@@ -228,6 +232,9 @@ class KnowledgeBaseSettings {
         _string(json['provider_config_id']),
       ),
       rerankModelId: _string(json['rerank_model_id']),
+      skipModelRerankWhenEmbeddingSupportsRerank: _bool(
+        json[_skipDualCapabilityRerankJsonKey],
+      ),
       rerankTopN: _positiveInt(json['rerank_top_n'], 24),
       rerankTimeoutSeconds: _positiveInt(json['rerank_timeout_seconds'], 30),
       maxPromptChunks: _positiveInt(json['max_prompt_chunks'], 6),
@@ -321,6 +328,7 @@ class KnowledgeBaseSettings {
   final String rerankMode;
   final String rerankProviderConfigId;
   final String rerankModelId;
+  final bool skipModelRerankWhenEmbeddingSupportsRerank;
   final int rerankTopN;
   final int rerankTimeoutSeconds;
   final int maxPromptChunks;
@@ -424,6 +432,7 @@ class KnowledgeBaseSettings {
     String? rerankMode,
     String? rerankProviderConfigId,
     String? rerankModelId,
+    bool? skipModelRerankWhenEmbeddingSupportsRerank,
     int? rerankTopN,
     int? rerankTimeoutSeconds,
     int? maxPromptChunks,
@@ -524,6 +533,9 @@ class KnowledgeBaseSettings {
       rerankProviderConfigId:
           rerankProviderConfigId ?? this.rerankProviderConfigId,
       rerankModelId: rerankModelId ?? this.rerankModelId,
+      skipModelRerankWhenEmbeddingSupportsRerank:
+          skipModelRerankWhenEmbeddingSupportsRerank ??
+          this.skipModelRerankWhenEmbeddingSupportsRerank,
       rerankTopN: rerankTopN ?? this.rerankTopN,
       rerankTimeoutSeconds: rerankTimeoutSeconds ?? this.rerankTimeoutSeconds,
       maxPromptChunks: maxPromptChunks ?? this.maxPromptChunks,
@@ -615,6 +627,8 @@ class KnowledgeBaseSettings {
       'rerank_mode': rerankMode,
       'rerank_provider_config_id': rerankProviderConfigId,
       'rerank_model_id': rerankModelId,
+      _skipDualCapabilityRerankJsonKey:
+          skipModelRerankWhenEmbeddingSupportsRerank,
       'rerank_top_n': rerankTopN,
       'rerank_timeout_seconds': rerankTimeoutSeconds,
       'max_prompt_chunks': maxPromptChunks,

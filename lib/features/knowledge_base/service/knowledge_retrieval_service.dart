@@ -89,6 +89,7 @@ class KnowledgeRetrievalService {
       query: query,
       hits: scored,
       settings: settings,
+      embeddingModel: embeddingModel,
       rerankModel: rerankModel,
     );
     final capped = <KnowledgeRetrievalHit>[];
@@ -123,6 +124,7 @@ class KnowledgeRetrievalService {
     required String query,
     required List<KnowledgeRetrievalHit> hits,
     required KnowledgeBaseSettings settings,
+    required AiModelConfig embeddingModel,
     required AiModelConfig? rerankModel,
   }) async {
     if (hits.isEmpty) return hits;
@@ -133,8 +135,10 @@ class KnowledgeRetrievalService {
       KnowledgeRerankMode.mmr => _mmrRank(localRanked, settings),
       KnowledgeRerankMode.model => await _modelRerank(
         query: query,
+        vectorRanked: _vectorRank(hits),
         localRanked: localRanked,
         settings: settings,
+        embeddingModel: embeddingModel,
         rerankModel: rerankModel,
       ),
       _ => localRanked,
@@ -196,10 +200,18 @@ class KnowledgeRetrievalService {
 
   Future<List<KnowledgeRetrievalHit>> _modelRerank({
     required String query,
+    required List<KnowledgeRetrievalHit> vectorRanked,
     required List<KnowledgeRetrievalHit> localRanked,
     required KnowledgeBaseSettings settings,
+    required AiModelConfig embeddingModel,
     required AiModelConfig? rerankModel,
   }) async {
+    if (_shouldSkipModelRerankForDualCapability(
+      settings: settings,
+      embeddingModel: embeddingModel,
+    )) {
+      return vectorRanked;
+    }
     if (!settings.hasRerankModel || rerankModel == null) {
       if (settings.failureStrategy == 'fail_closed') {
         throw StateError('已选择模型重排序，但未配置可用的 rerank 模型。');
@@ -251,6 +263,17 @@ class KnowledgeRetrievalService {
       );
       return localRanked;
     }
+  }
+
+  bool _shouldSkipModelRerankForDualCapability({
+    required KnowledgeBaseSettings settings,
+    required AiModelConfig embeddingModel,
+  }) {
+    if (!settings.skipModelRerankWhenEmbeddingSupportsRerank) return false;
+    final selectedEmbeddingModelId = settings.modelId.trim();
+    if (selectedEmbeddingModelId.isEmpty) return false;
+    final profile = embeddingModel.profileFor(selectedEmbeddingModelId);
+    return profile.supportsEmbeddings && profile.supportsRerank;
   }
 
   String _rerankDocumentText(KnowledgeRetrievalHit hit) {

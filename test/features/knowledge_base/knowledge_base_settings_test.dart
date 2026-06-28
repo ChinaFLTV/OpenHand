@@ -6,6 +6,7 @@ void main() {
     final settings = KnowledgeBaseSettings.fromJson(const <String, Object?>{
       'chunk_strategy': 'unknown',
       'rerank_mode': 'invalid',
+      'skip_model_rerank_when_embedding_supports_rerank': true,
     });
 
     expect(
@@ -13,6 +14,7 @@ void main() {
       KnowledgeChunkStrategy.markdownHeadingRecursive,
     );
     expect(settings.rerankMode, KnowledgeRerankMode.localHybrid);
+    expect(settings.skipModelRerankWhenEmbeddingSupportsRerank, isTrue);
   });
 
   test('migrates legacy cloud rerank settings to model rerank mode', () {
@@ -33,11 +35,13 @@ void main() {
       rerankMode: KnowledgeRerankMode.model,
       rerankProviderConfigId: 'provider-b',
       rerankModelId: 'bge-reranker-v2-m3',
+      skipModelRerankWhenEmbeddingSupportsRerank: true,
     ).toJson();
 
     expect(json['cloud_rerank_enabled'], isTrue);
     expect(json['rerank_mode'], KnowledgeRerankMode.model);
     expect(json['rerank_provider_config_id'], 'provider-b');
     expect(json['rerank_model_id'], 'bge-reranker-v2-m3');
+    expect(json['skip_model_rerank_when_embedding_supports_rerank'], isTrue);
   });
 }
