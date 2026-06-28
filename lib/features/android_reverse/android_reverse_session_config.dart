@@ -1,3 +1,5 @@
+import '../../shared/util/input_value_parsing.dart';
+
 /// Android 逆向会话的运行时配置，序列化进 session metadata。
 class AndroidReverseSessionConfig {
   const AndroidReverseSessionConfig({
@@ -88,17 +90,17 @@ class AndroidReverseSessionConfig {
     if (objective.isEmpty) return null;
     return AndroidReverseSessionConfig(
       objective: objective,
-      packageName: map['package_name'] as String?,
-      apkPath: map['apk_path'] as String?,
-      deviceSerial: map['device_serial'] as String?,
-      authorizationScope: map['authorization_scope'] as String?,
+      packageName: nullIfBlank(map['package_name']?.toString()),
+      apkPath: nullIfBlank(map['apk_path']?.toString()),
+      deviceSerial: nullIfBlank(map['device_serial']?.toString()),
+      authorizationScope: nullIfBlank(map['authorization_scope']?.toString()),
       analysisMode: AndroidReverseAnalysisMode.fromStorage(
         '${map['analysis_mode'] ?? ''}',
       ),
-      adbMcpEnabled: _boolFromJson(map['adb_mcp_enabled']),
-      fridaMcpEnabled: _boolFromJson(map['frida_mcp_enabled']),
-      keywords: _stringListFromJson(map['keywords']),
-      notes: map['notes'] as String?,
+      adbMcpEnabled: boolFromValue(map['adb_mcp_enabled']),
+      fridaMcpEnabled: boolFromValue(map['frida_mcp_enabled']),
+      keywords: stringListFromValue(map['keywords']),
+      notes: nullIfBlank(map['notes']?.toString()),
     );
   }
 
@@ -141,20 +143,6 @@ class AndroidReverseSessionConfig {
       )
       ..write('- 验收标准：【结论有证据路径；若生成脚本/命令，需可在无 IDE 环境下独立运行】');
     return buf.toString();
-  }
-
-  static bool _boolFromJson(Object? raw) {
-    if (raw is bool) return raw;
-    final value = '${raw ?? ''}'.trim().toLowerCase();
-    return value == 'true' || value == '1' || value == 'yes';
-  }
-
-  static List<String> _stringListFromJson(Object? raw) {
-    if (raw is! List) return const <String>[];
-    return raw
-        .map((item) => '$item'.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
   }
 }
 
