@@ -62,6 +62,12 @@ class AiGrepTool extends AiTool {
     final after = AiToolUtils.readInt(args['-A']);
     final contextLines =
         AiToolUtils.readInt(args['-C']) ?? AiToolUtils.readInt(args['context']);
+    if (_hasNegativeContextLineOption(before, after, contextLines)) {
+      return AiToolUtils.invalidResult(
+        'Grep',
+        'Grep context line options (-B, -A, -C/context) must be non-negative integers.',
+      );
+    }
     final showLineNumbers = AiToolUtils.readBool(args['-n']) ?? true;
     final caseInsensitive = AiToolUtils.readBool(args['-i']) == true;
     final type = '${args['type'] ?? ''}'.trim();
@@ -280,6 +286,14 @@ class AiGrepTool extends AiTool {
       }
     }
     return patterns;
+  }
+
+  bool _hasNegativeContextLineOption(
+    int? before,
+    int? after,
+    int? contextLines,
+  ) {
+    return (before ?? 0) < 0 || (after ?? 0) < 0 || (contextLines ?? 0) < 0;
   }
 
   _GrepPaginationResult _applyPagination(

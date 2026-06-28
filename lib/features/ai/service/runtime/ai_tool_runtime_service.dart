@@ -2466,11 +2466,12 @@ class AiToolRuntimeService {
             'type': 'string',
             'enum': <String>['content', 'files_with_matches', 'count'],
           },
-          '-B': <String, Object?>{'type': 'integer'},
-          '-A': <String, Object?>{'type': 'integer'},
-          '-C': <String, Object?>{'type': 'integer'},
+          '-B': <String, Object?>{'type': 'integer', 'minimum': 0},
+          '-A': <String, Object?>{'type': 'integer', 'minimum': 0},
+          '-C': <String, Object?>{'type': 'integer', 'minimum': 0},
           'context': <String, Object?>{
             'type': 'integer',
+            'minimum': 0,
             'description': 'Claude-style alias for -C context lines.',
           },
           '-n': <String, Object?>{
@@ -2482,11 +2483,13 @@ class AiToolRuntimeService {
           'type': <String, Object?>{'type': 'string'},
           'head_limit': <String, Object?>{
             'type': 'integer',
+            'minimum': 0,
             'description':
                 'Limit output to the first N lines or entries after offset. Defaults to 250; pass 0 only when unlimited output is intentional.',
           },
           'offset': <String, Object?>{
             'type': 'integer',
+            'minimum': 0,
             'description':
                 'Skip the first N output lines or entries before applying head_limit.',
           },
