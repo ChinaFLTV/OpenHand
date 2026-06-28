@@ -890,7 +890,10 @@ function associatedKnowledgeBaseMetadataForMessage(
   currentIndex: number,
   message: SessionMessage,
 ): Record<string, unknown> | null {
-  if (currentIndex <= 0 || message.kind !== 'assistant') return null;
+  if (message.kind !== 'assistant') return null;
+  const directMetadata = messageKnowledgeBaseMetadata(message);
+  if (messageKnowledgeBaseHasReferences(directMetadata)) return directMetadata;
+  if (currentIndex <= 0) return null;
   for (let index = currentIndex - 1; index >= 0; index -= 1) {
     const candidate = messages[index];
     if (!candidate) continue;

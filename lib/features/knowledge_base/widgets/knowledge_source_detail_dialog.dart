@@ -226,10 +226,6 @@ class _ChunkTile extends StatelessWidget {
                       icon: Icons.fingerprint_rounded,
                       label: chunk.id,
                     ),
-                    KnowledgeDialogChip(
-                      icon: Icons.open_in_new_rounded,
-                      label: isZh ? '查看详情' : 'Details',
-                    ),
                   ],
                 ),
                 if (heading.trim().isNotEmpty) ...[

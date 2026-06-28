@@ -611,15 +611,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
         !isToolResult &&
         !isStatus &&
         !isSelfLearning;
-    final associatedKnowledgeBaseMetadata =
-        isAssistantResponse &&
-            !isStreamingAssistant &&
-            widget.associatedKnowledgeBaseMetadata != null &&
-            KnowledgeMessageMetadata.hasReferences(
-              widget.associatedKnowledgeBaseMetadata!,
-            )
-        ? widget.associatedKnowledgeBaseMetadata
-        : null;
+    final directKnowledgeBaseMetadata =
+        KnowledgeMessageMetadata.fromMessageMetadata(message.metadata);
+    Map<String, Object?>? associatedKnowledgeBaseMetadata;
+    if (isAssistantResponse && !isStreamingAssistant) {
+      if (directKnowledgeBaseMetadata != null &&
+          KnowledgeMessageMetadata.hasReferences(directKnowledgeBaseMetadata)) {
+        associatedKnowledgeBaseMetadata = directKnowledgeBaseMetadata;
+      } else if (widget.associatedKnowledgeBaseMetadata != null &&
+          KnowledgeMessageMetadata.hasReferences(
+            widget.associatedKnowledgeBaseMetadata!,
+          )) {
+        associatedKnowledgeBaseMetadata =
+            widget.associatedKnowledgeBaseMetadata;
+      }
+    }
     final isAiSideMessage =
         message.isAiSideConversationMessage && !isGoalEvaluationMessage;
     final selectedFeedback = message.feedback;

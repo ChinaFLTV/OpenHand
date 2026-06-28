@@ -3101,8 +3101,15 @@ Map<String, Object?>? _associatedKnowledgeBaseMetadataForMessage({
   required int? currentIndex,
   required AiSessionMessage message,
 }) {
-  if (currentIndex == null || currentIndex <= 0) return null;
   if (message.kind != AiSessionMessageKind.assistant) return null;
+  final directMetadata = KnowledgeMessageMetadata.fromMessageMetadata(
+    message.metadata,
+  );
+  if (directMetadata != null &&
+      KnowledgeMessageMetadata.hasReferences(directMetadata)) {
+    return directMetadata;
+  }
+  if (currentIndex == null || currentIndex <= 0) return null;
   for (var index = currentIndex - 1; index >= 0; index--) {
     final candidate = visibleMessages[index];
     if (candidate.kind == AiSessionMessageKind.user) {

@@ -262,10 +262,6 @@ class _HitTile extends StatelessWidget {
                         icon: Icons.event_rounded,
                         label: '${hit['document_time']}',
                       ),
-                    KnowledgeDialogChip(
-                      icon: Icons.open_in_new_rounded,
-                      label: isZh ? '查看详情' : 'Details',
-                    ),
                   ],
                 ),
                 if (preview.isNotEmpty) ...[

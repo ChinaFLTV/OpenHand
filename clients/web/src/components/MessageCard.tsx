@@ -2428,13 +2428,22 @@ function MessageCardImpl({
   const ttsPlaying = readAloudPlaying;
   const hasMultimediaContent = messageHasMultimedia(message);
   const isFormalAssistantResponse = isFormalAssistantResponseMessage(message);
-  const associatedKbReferenceMetadata =
+  const directKbReferenceMetadata =
+    !isUserBubble &&
+    isFormalAssistantResponse &&
+    !activelyStreaming &&
+    knowledgeBaseMetadataHasReferences(kbMetadata)
+      ? kbMetadata
+      : null;
+  const associatedKbFallbackMetadata =
     !isUserBubble &&
     isFormalAssistantResponse &&
     !activelyStreaming &&
     knowledgeBaseMetadataHasReferences(associatedKnowledgeBaseMetadata)
       ? associatedKnowledgeBaseMetadata
       : null;
+  const associatedKbReferenceMetadata =
+    directKbReferenceMetadata ?? associatedKbFallbackMetadata;
   const textActionKindSupported =
     !goalMessageView &&
     (isUserBubble || message.kind === 'reasoning' || isFormalAssistantResponse);

@@ -9,6 +9,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
+import '../../knowledge_base/index.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
 import '../model/ai_token_usage.dart';
@@ -342,6 +343,7 @@ class AiSessionStore {
   static const int _kMessageBatchSize = 500;
   static const int _kMessageDecodeYieldBatchSize = 96;
   static const int _kSessionDecodeYieldBatchSize = 8;
+  static const int _kKnowledgeBaseAssociationBackwardScanLimit = 200;
   // 协作式解码的字节预算：仅按"条数"让步在首屏尾窗（≤24 条）下永不触发，
   // 一旦窗口里夹着大消息（长工具结果 / 大 metadata），整窗会在一帧内同步
   // jsonDecode + 模型构建，直接撑爆帧预算造成卡死 / ANR。改为额外按累计
@@ -669,6 +671,11 @@ class AiSessionStore {
       rawRows,
       characterBudget: characterBudget,
     );
+    final leadingKnowledgeBaseMetadata =
+        await _leadingKnowledgeBaseMetadataForWindowStart(
+          normalizedId,
+          messageRows,
+        );
     final offset = _messageWindowStartOffset(
       messageRows,
       fallback: math.max(0, totalCount - messageRows.length),
@@ -682,6 +689,7 @@ class AiSessionStore {
       messageLoadState: loadState,
       messageWindowStartIndex: offset,
       messageTotalCount: totalCount,
+      leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
     );
     // Tail-window hydration is for first paint only. Restoring an older
     // compression sidecar into a partial tail would both add extra disk I/O to
@@ -803,7 +811,12 @@ class AiSessionStore {
       offset: offset,
     );
 
-    final messages = await _decodeMessagesCooperatively(rows);
+    final leadingKnowledgeBaseMetadata =
+        await _leadingKnowledgeBaseMetadataForWindowStart(sessionId, rows);
+    final messages = await _decodeMessagesCooperatively(
+      rows,
+      leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
+    );
     final hasMore = offset + messages.length < totalCount;
 
     return AiSessionMessagePage(
@@ -1001,7 +1014,9 @@ class AiSessionStore {
     int messageWindowStartIndex = 0,
     int? messageTotalCount,
   }) {
-    final messages = messageRows.map(_messageFromRow).toList(growable: false);
+    final messages = _normalizeKnowledgeBaseAssistantMetadata(
+      messageRows.map(_messageFromRow).toList(growable: false),
+    );
     return _sessionFromRowWithMessages(
       row,
       messages,
@@ -1018,8 +1033,12 @@ class AiSessionStore {
         AiSessionMessageLoadState.complete,
     int messageWindowStartIndex = 0,
     int? messageTotalCount,
+    Map<String, Object?>? leadingKnowledgeBaseMetadata,
   }) async {
-    final messages = await _decodeMessagesCooperatively(messageRows);
+    final messages = await _decodeMessagesCooperatively(
+      messageRows,
+      leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
+    );
     return _sessionFromRowWithMessages(
       row,
       messages,
@@ -1030,8 +1049,9 @@ class AiSessionStore {
   }
 
   Future<List<AiSessionMessage>> _decodeMessagesCooperatively(
-    List<Map<String, Object?>> messageRows,
-  ) async {
+    List<Map<String, Object?>> messageRows, {
+    Map<String, Object?>? leadingKnowledgeBaseMetadata,
+  }) async {
     if (messageRows.isEmpty) {
       return const <AiSessionMessage>[];
     }
@@ -1051,7 +1071,105 @@ class AiSessionStore {
         await Future<void>.delayed(Duration.zero);
       }
     }
-    return List<AiSessionMessage>.unmodifiable(messages);
+    return _normalizeKnowledgeBaseAssistantMetadata(
+      messages,
+      leadingKnowledgeBaseMetadata: leadingKnowledgeBaseMetadata,
+    );
+  }
+
+  Future<Map<String, Object?>?> _leadingKnowledgeBaseMetadataForWindowStart(
+    String sessionId,
+    List<Map<String, Object?>> messageRows,
+  ) async {
+    if (messageRows.isEmpty) return null;
+    final firstSortOrder = messageRows.first['sort_order'];
+    if (firstSortOrder is! int || firstSortOrder <= 0) return null;
+    final rows = await _db.query(
+      'messages',
+      columns: const <String>['kind', 'content', 'metadata_json'],
+      where: 'session_id = ? AND sort_order < ?',
+      whereArgs: <Object?>[sessionId, firstSortOrder],
+      orderBy: 'sort_order DESC',
+      limit: _kKnowledgeBaseAssociationBackwardScanLimit,
+    );
+    for (final row in rows) {
+      final kind = AiSessionMessageKind.fromStorage('${row['kind'] ?? ''}');
+      if (kind == AiSessionMessageKind.user) {
+        return _knowledgeBaseReferenceMetadata(
+          _decodeJsonMap(row['metadata_json']),
+        );
+      }
+      if (kind == AiSessionMessageKind.assistant &&
+          '${row['content'] ?? ''}'.trim().isNotEmpty) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  List<AiSessionMessage> _normalizeKnowledgeBaseAssistantMetadata(
+    List<AiSessionMessage> messages, {
+    Map<String, Object?>? leadingKnowledgeBaseMetadata,
+  }) {
+    if (messages.isEmpty) return const <AiSessionMessage>[];
+    var activeKnowledgeBaseMetadata = _knowledgeBaseReferenceMetadata(
+      leadingKnowledgeBaseMetadata,
+    );
+    List<AiSessionMessage>? updatedMessages;
+
+    for (var index = 0; index < messages.length; index++) {
+      final message = updatedMessages?[index] ?? messages[index];
+      if (message.kind == AiSessionMessageKind.user) {
+        activeKnowledgeBaseMetadata = _knowledgeBaseReferenceMetadata(
+          message.metadata,
+        );
+        continue;
+      }
+      if (message.kind != AiSessionMessageKind.assistant ||
+          message.content.trim().isEmpty) {
+        continue;
+      }
+
+      final existingKnowledgeBaseMetadata = _knowledgeBaseReferenceMetadata(
+        message.metadata,
+      );
+      if (existingKnowledgeBaseMetadata == null &&
+          activeKnowledgeBaseMetadata != null) {
+        updatedMessages ??= List<AiSessionMessage>.from(messages);
+        updatedMessages[index] = message.copyWith(
+          metadata: <String, Object?>{
+            ...message.metadata,
+            knowledgeBaseMessageMetadataKey:
+                _assistantDisplayKnowledgeBaseMetadata(
+                  activeKnowledgeBaseMetadata,
+                ),
+          },
+        );
+      }
+      activeKnowledgeBaseMetadata = null;
+    }
+
+    return List<AiSessionMessage>.unmodifiable(updatedMessages ?? messages);
+  }
+
+  Map<String, Object?>? _knowledgeBaseReferenceMetadata(
+    Map<String, Object?>? messageMetadata,
+  ) {
+    if (messageMetadata == null) return null;
+    final metadata = KnowledgeMessageMetadata.fromMessageMetadata(
+      messageMetadata,
+    );
+    if (metadata == null || !KnowledgeMessageMetadata.hasReferences(metadata)) {
+      return null;
+    }
+    return metadata;
+  }
+
+  Map<String, Object?> _assistantDisplayKnowledgeBaseMetadata(
+    Map<String, Object?> metadata,
+  ) {
+    return <String, Object?>{...metadata}
+      ..remove(knowledgeBasePromptAppendMetadataKey);
   }
 
   Future<void> _yieldAfterSessionDecodeIfNeeded(int decodedCount) async {
