@@ -31,8 +31,8 @@ class AiMultiEditTool extends AiTool {
       filePath: filePath,
     );
     if (notebookValidation != null) return notebookValidation;
-    final edits = args['edits'];
-    if (edits is! List || edits.isEmpty) {
+    final edits = AiToolUtils.readList(args['edits']);
+    if (edits == null || edits.isEmpty) {
       return AiToolUtils.invalidResult(
         'MultiEdit',
         'MultiEdit requires a non-empty edits array.',

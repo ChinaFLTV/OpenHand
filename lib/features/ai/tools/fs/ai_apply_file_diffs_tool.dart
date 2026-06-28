@@ -40,8 +40,8 @@ class AiApplyFileDiffsTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final diffs = args['diffs'];
-    if (diffs is! List || diffs.isEmpty) {
+    final diffs = AiToolUtils.readList(args['diffs']);
+    if (diffs == null || diffs.isEmpty) {
       return AiToolUtils.invalidResult(
         'ApplyFileDiffs',
         'ApplyFileDiffs requires a non-empty diffs array.',
@@ -92,8 +92,8 @@ class AiApplyFileDiffsTool extends AiTool {
           'diffs[$i] duplicates file_path already planned in this call: $filePath',
         );
       }
-      final hunks = entry['hunks'];
-      if (hunks is! List || hunks.isEmpty) {
+      final hunks = AiToolUtils.readList(entry['hunks']);
+      if (hunks == null || hunks.isEmpty) {
         return AiToolUtils.invalidResult(
           'ApplyFileDiffs',
           'diffs[$i] (file=$filePath) requires non-empty hunks array.',

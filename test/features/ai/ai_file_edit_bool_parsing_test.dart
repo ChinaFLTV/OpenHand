@@ -62,6 +62,25 @@ void main() {
     expect(await file.readAsString(), 'bar bar');
   });
 
+  test('MultiEdit accepts edits encoded as JSON text', () async {
+    final file = await _seedFile(tempDir, 'multi_edit_json.txt', 'alpha beta');
+    final result = await AiMultiEditTool().execute(
+      _context(
+        toolName: 'MultiEdit',
+        args: <String, Object?>{
+          'file_path': file.path,
+          'edits': jsonEncode(<Object?>[
+            <String, Object?>{'old_string': 'alpha', 'new_string': 'gamma'},
+          ]),
+        },
+        previouslyReadFiles: <String>{file.path},
+      ),
+    );
+
+    expect(result.status, BashToolExecutionStatus.success);
+    expect(await file.readAsString(), 'gamma beta');
+  });
+
   test('ApplyFileDiffs accepts replace_all encoded as text', () async {
     final file = await _seedFile(tempDir, 'apply_diffs.txt', 'foo foo');
     final result = await AiApplyFileDiffsTool().execute(
@@ -87,6 +106,29 @@ void main() {
 
     expect(result.status, BashToolExecutionStatus.success);
     expect(await file.readAsString(), 'bar bar');
+  });
+
+  test('ApplyFileDiffs accepts diffs and hunks encoded as JSON text', () async {
+    final file = await _seedFile(tempDir, 'apply_diffs_json.txt', 'red blue');
+    final result = await AiApplyFileDiffsTool().execute(
+      _context(
+        toolName: 'ApplyFileDiffs',
+        args: <String, Object?>{
+          'diffs': jsonEncode(<Object?>[
+            <String, Object?>{
+              'file_path': file.path,
+              'hunks': jsonEncode(<Object?>[
+                <String, Object?>{'old_string': 'blue', 'new_string': 'green'},
+              ]),
+            },
+          ]),
+        },
+        previouslyReadFiles: <String>{file.path},
+      ),
+    );
+
+    expect(result.status, BashToolExecutionStatus.success);
+    expect(await file.readAsString(), 'red green');
   });
 }
 
