@@ -10,7 +10,6 @@ import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
-import '../knowledge_base/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../plugin_service/index.dart';
@@ -60,7 +59,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
     required MemoryController memoryController,
     required CronsController cronsController,
     required InstructionsController instructionsController,
-    KnowledgeBaseController? knowledgeBaseController,
     required AppInfo appInfo,
     MessageGatewayStore? store,
     WebMessagePlatformService? service,
@@ -81,7 +79,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
              memoryController: memoryController,
              cronsController: cronsController,
              instructionsController: instructionsController,
-             knowledgeBaseController: knowledgeBaseController,
              appInfo: appInfo,
            ) {
     _logSub = _service.logStream.listen((_) => _scheduleLogNotify());

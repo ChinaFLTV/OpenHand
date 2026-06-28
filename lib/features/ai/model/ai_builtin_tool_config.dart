@@ -475,6 +475,8 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.edit:
       case AiBuiltinToolKind.todoWrite:
       case AiBuiltinToolKind.toolSearch:
+      case AiBuiltinToolKind.knowledgeSearch:
+      case AiBuiltinToolKind.knowledgeRead:
         return AiBuiltinToolLoadStrategy.eager;
       case AiBuiltinToolKind.bashBackground:
       case AiBuiltinToolKind.taskOutput:
@@ -493,8 +495,6 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
-      case AiBuiltinToolKind.knowledgeSearch:
-      case AiBuiltinToolKind.knowledgeRead:
         return AiBuiltinToolLoadStrategy.lazy;
     }
   }

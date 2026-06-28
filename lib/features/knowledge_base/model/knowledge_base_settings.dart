@@ -206,7 +206,7 @@ class KnowledgeBaseSettings {
     this.continueWhenNoHits = true,
     this.showPreviewBeforeSend = false,
     this.cacheQueryEmbedding = true,
-    this.exposeReadonlyTools = false,
+    this.exposeReadonlyTools = true,
     this.qdrantMetricsRefreshSeconds = 10,
     this.qdrantLogRetainLines = 300,
     this.enableDangerousAdminOperations = false,
@@ -338,7 +338,7 @@ class KnowledgeBaseSettings {
       continueWhenNoHits: _bool(json['continue_when_no_hits'], true),
       showPreviewBeforeSend: _bool(json['show_preview_before_send']),
       cacheQueryEmbedding: _bool(json['cache_query_embedding'], true),
-      exposeReadonlyTools: _bool(json['expose_readonly_tools']),
+      exposeReadonlyTools: _bool(json['expose_readonly_tools'], true),
       qdrantMetricsRefreshSeconds: _positiveInt(
         json['qdrant_metrics_refresh_seconds'],
         10,

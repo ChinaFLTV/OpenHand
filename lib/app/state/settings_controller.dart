@@ -201,7 +201,7 @@ class SettingsController extends ChangeNotifier {
        _panelAnimationSettings = snapshot.panelAnimationSettings,
        _chipAnimationSettings = snapshot.chipAnimationSettings,
        _listItemAnimationSettings = snapshot.listItemAnimationSettings,
-       _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
+       _builtinToolConfigs = _normalizeBuiltinToolConfigs(
          snapshot.builtinToolConfigs,
        ),
        _telemetryDebugEnabled = snapshot.telemetryDebugEnabled,
@@ -228,6 +228,11 @@ class SettingsController extends ChangeNotifier {
 
   static const int _maxRecentModelSelections = 10;
   static const Uuid _uuid = Uuid();
+  static const Set<AiBuiltinToolKind> _knowledgeBuiltinToolKinds =
+      <AiBuiltinToolKind>{
+        AiBuiltinToolKind.knowledgeSearch,
+        AiBuiltinToolKind.knowledgeRead,
+      };
 
   static Future<SettingsController> create({SettingsStore? store}) async {
     final effectiveStore = store ?? SettingsStore();
@@ -585,6 +590,14 @@ class SettingsController extends ChangeNotifier {
       _listItemAnimationSettings;
   List<AiBuiltinToolConfig> get builtinToolConfigs =>
       List<AiBuiltinToolConfig>.unmodifiable(_builtinToolConfigs);
+  bool get knowledgeBuiltinToolsEnabled {
+    final configs = _builtinToolConfigs.where(
+      (config) => _knowledgeBuiltinToolKinds.contains(config.kind),
+    );
+    if (configs.isEmpty) return true;
+    return configs.every((config) => config.enabled);
+  }
+
   bool get telemetryDebugEnabled => _telemetryDebugEnabled;
   bool get telemetryCaptureRawPayload => _telemetryCaptureRawPayload;
   bool get telemetryCaptureEnvironment => _telemetryCaptureEnvironment;
@@ -2587,21 +2600,38 @@ class SettingsController extends ChangeNotifier {
     List<AiBuiltinToolConfig> configs,
   ) async {
     return _commitMutation(() {
-      _builtinToolConfigs = List<AiBuiltinToolConfig>.from(configs);
+      _builtinToolConfigs = _normalizeBuiltinToolConfigs(configs);
       return _MutationDisposition.apply;
     });
   }
 
   Future<bool> updateBuiltinToolConfig(AiBuiltinToolConfig config) async {
     return _commitMutation(() {
+      final nextConfigs = List<AiBuiltinToolConfig>.from(_builtinToolConfigs);
       final index = _builtinToolConfigs.indexWhere(
         (c) => c.kind == config.kind,
       );
       if (index >= 0) {
-        _builtinToolConfigs[index] = config;
+        nextConfigs[index] = config;
       } else {
-        _builtinToolConfigs.add(config);
+        nextConfigs.add(config);
       }
+      _builtinToolConfigs = _normalizeBuiltinToolConfigs(
+        nextConfigs,
+        knowledgeToolsEnabled: _knowledgeBuiltinToolKinds.contains(config.kind)
+            ? config.enabled
+            : null,
+      );
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> setKnowledgeBuiltinToolsEnabled(bool enabled) async {
+    return _commitMutation(() {
+      _builtinToolConfigs = _normalizeBuiltinToolConfigs(
+        _builtinToolConfigs,
+        knowledgeToolsEnabled: enabled,
+      );
       return _MutationDisposition.apply;
     });
   }
@@ -2609,6 +2639,7 @@ class SettingsController extends ChangeNotifier {
   Future<bool> removeBuiltinToolConfig(AiBuiltinToolKind kind) async {
     return _commitMutation(() {
       _builtinToolConfigs.removeWhere((c) => c.kind == kind && c.isCustom);
+      _builtinToolConfigs = _normalizeBuiltinToolConfigs(_builtinToolConfigs);
       return _MutationDisposition.apply;
     });
   }
@@ -2881,7 +2912,7 @@ class SettingsController extends ChangeNotifier {
     _panelAnimationSettings = snapshot.panelAnimationSettings;
     _chipAnimationSettings = snapshot.chipAnimationSettings;
     _listItemAnimationSettings = snapshot.listItemAnimationSettings;
-    _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
+    _builtinToolConfigs = _normalizeBuiltinToolConfigs(
       snapshot.builtinToolConfigs,
     );
     _telemetryDebugEnabled = snapshot.telemetryDebugEnabled;
@@ -2920,6 +2951,47 @@ class SettingsController extends ChangeNotifier {
       }
       return disposition;
     });
+  }
+
+  static List<AiBuiltinToolConfig> _normalizeBuiltinToolConfigs(
+    List<AiBuiltinToolConfig> configs, {
+    bool? knowledgeToolsEnabled,
+  }) {
+    final enabled =
+        knowledgeToolsEnabled ?? _resolveKnowledgeToolsEnabled(configs);
+    final result = <AiBuiltinToolConfig>[];
+    final seenBuiltinKinds = <AiBuiltinToolKind>{};
+    for (final config in configs) {
+      if (!config.isCustom && !seenBuiltinKinds.add(config.kind)) {
+        continue;
+      }
+      result.add(_normalizeKnowledgeBuiltinToolConfig(config, enabled));
+    }
+    for (final defaults in AiBuiltinToolConfig.defaults()) {
+      if (seenBuiltinKinds.contains(defaults.kind)) continue;
+      result.add(_normalizeKnowledgeBuiltinToolConfig(defaults, enabled));
+    }
+    return result;
+  }
+
+  static bool _resolveKnowledgeToolsEnabled(List<AiBuiltinToolConfig> configs) {
+    final knowledgeConfigs = configs.where(
+      (config) => _knowledgeBuiltinToolKinds.contains(config.kind),
+    );
+    if (knowledgeConfigs.isEmpty) return true;
+    return knowledgeConfigs.every((config) => config.enabled);
+  }
+
+  static AiBuiltinToolConfig _normalizeKnowledgeBuiltinToolConfig(
+    AiBuiltinToolConfig config,
+    bool enabled,
+  ) {
+    if (!_knowledgeBuiltinToolKinds.contains(config.kind)) return config;
+    return config.copyWith(
+      enabled: enabled,
+      loadStrategy: AiBuiltinToolLoadStrategy.eager,
+      forceLoad: true,
+    );
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

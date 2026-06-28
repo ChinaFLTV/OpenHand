@@ -6,8 +6,6 @@ import 'knowledge_vector_distribution.dart';
 
 const String knowledgeBaseMessageMetadataKey = 'knowledge_base';
 const String knowledgeBasePromptAppendMetadataKey = 'prompt_append_content';
-const String knowledgeBaseSessionToggleMetadataKey =
-    'knowledge_base_reference_enabled';
 
 class KnowledgeMessageMetadata {
   const KnowledgeMessageMetadata._();

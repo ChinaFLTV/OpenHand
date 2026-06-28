@@ -3227,8 +3227,8 @@ class AiToolRuntimeService {
       name: 'KnowledgeSearch',
       description:
           'Read-only search over the local OpenHand Knowledge Base SQLite metadata/chunks. '
-          'Use this when you need to inspect local KB references proactively. '
-          'Automatic user-message RAG uses Qdrant dense vector retrieval separately; this tool is for explicit read-only lookup and audit.',
+          'Use this when local Knowledge Base context may help answer the user. '
+          'Call KnowledgeRead with a returned chunk_id or source_id when full content is needed.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -363,6 +364,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }
 
   Future<void> _save() async {
+    final settingsController = context.read<SettingsController>();
+    final knowledgeController = context.read<KnowledgeBaseController>();
     final next = _settings.copyWith(
       dimensions: _int(_dimensions, _settings.dimensions),
       maxInputTokens: _int(_maxInputTokens, _settings.maxInputTokens),
@@ -423,8 +426,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         _qdrantLogRetainLines,
         _settings.qdrantLogRetainLines,
       ),
+      exposeReadonlyTools: settingsController.knowledgeBuiltinToolsEnabled,
     );
-    await context.read<KnowledgeBaseController>().updateSettings(next);
+    await settingsController.setKnowledgeBuiltinToolsEnabled(
+      next.exposeReadonlyTools,
+    );
+    await knowledgeController.updateSettings(next);
     if (!mounted) return;
     Navigator.of(context).pop();
     OpenHandSnackBar.showSuccess(
@@ -447,6 +454,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final readerModels = _readerModels(settingsController.aiModels);
     final dependencies = knowledgeController.dependencies(pluginController);
     final isZh = openHandIsChineseLocale(context);
+    final knowledgeBuiltinToolsEnabled =
+        settingsController.knowledgeBuiltinToolsEnabled;
     final embeddingModelSupportsRerank =
         _selectedEmbeddingProfile(embeddingModels)?.supportsRerank == true;
     final skipModelRerankEffective =
@@ -1263,15 +1272,23 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '暴露只读知识库工具' : 'Expose readonly KB tools',
-                    _settings.exposeReadonlyTools,
+                    isZh ? '暴露知识库内建工具' : 'Expose Knowledge Base built-in tools',
+                    knowledgeBuiltinToolsEnabled,
                     (value) {
                       setState(
                         () => _settings = _settings.copyWith(
                           exposeReadonlyTools: value,
                         ),
                       );
+                      unawaited(
+                        settingsController.setKnowledgeBuiltinToolsEnabled(
+                          value,
+                        ),
+                      );
                     },
+                    subtitle: isZh
+                        ? '开启后 KnowledgeSearch / KnowledgeRead 会直接出现在工具目录，由 AI 自主检索和读取；关闭后两个工具同时禁用。'
+                        : 'When enabled, KnowledgeSearch / KnowledgeRead are exposed directly and the AI can decide when to search or read. Disabling turns both tools off.',
                   ),
                 ],
               ),
@@ -1990,7 +2007,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     );
   }
 
-  Widget _switch(String label, bool value, ValueChanged<bool> onChanged) {
+  Widget _switch(
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged, {
+    String? subtitle,
+  }) {
     return Builder(
       builder: (context) {
         final theme = Theme.of(context);
@@ -1998,7 +2020,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         final metrics = _KnowledgeConfigGridScope.of(context);
         return Container(
           width: metrics.itemWidth,
-          height: _knowledgeConfigItemHeight,
+          height: subtitle == null ? _knowledgeConfigItemHeight : 92,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
@@ -2010,14 +2032,32 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: subtitle == null ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(width: 10),

@@ -28,7 +28,6 @@ import '../../hardness/index.dart';
 import '../../home/index.dart'
     show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../../instructions/index.dart';
-import '../../knowledge_base/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
@@ -160,7 +159,6 @@ class WebMessagePlatformService {
     required MemoryController memoryController,
     required CronsController cronsController,
     required InstructionsController instructionsController,
-    KnowledgeBaseController? knowledgeBaseController,
     required AppInfo appInfo,
     String? cacheDirectoryPath,
     String? logsDirectoryPath,
@@ -172,7 +170,6 @@ class WebMessagePlatformService {
        _memoryController = memoryController,
        _cronsController = cronsController,
        _instructionsController = instructionsController,
-       _knowledgeBaseController = knowledgeBaseController,
        _appInfo = appInfo,
        _cacheDirectoryPath =
            cacheDirectoryPath ?? OpenHandPaths.defaultCacheDirectoryPath(),
@@ -193,7 +190,6 @@ class WebMessagePlatformService {
   final MemoryController _memoryController;
   final CronsController _cronsController;
   final InstructionsController _instructionsController;
-  final KnowledgeBaseController? _knowledgeBaseController;
   final AppInfo _appInfo;
   PluginServiceController? _pluginServiceController;
 
@@ -2529,9 +2525,6 @@ class WebMessagePlatformService {
     final hasTitle = body.containsKey('title');
     final hasMode = body.containsKey('mode');
     final hasFullAccess = body.containsKey('full_access_permission');
-    final hasKnowledgeBaseReference =
-        body.containsKey(knowledgeBaseSessionToggleMetadataKey) ||
-        body.containsKey('knowledgeBaseReferenceEnabled');
     if (!_config.sessionManagementEnabled &&
         (hasTitle || hasMode || hasFullAccess)) {
       return _json(HttpStatus.forbidden, <String, Object?>{
@@ -2544,7 +2537,7 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    if (!hasTitle && !hasMode && !hasFullAccess && !hasKnowledgeBaseReference) {
+    if (!hasTitle && !hasMode && !hasFullAccess) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'session_patch_empty',
       });
@@ -2617,22 +2610,6 @@ class WebMessagePlatformService {
       changed['full_access_permission'] = enabled;
     }
 
-    if (hasKnowledgeBaseReference) {
-      final raw = body.containsKey(knowledgeBaseSessionToggleMetadataKey)
-          ? body[knowledgeBaseSessionToggleMetadataKey]
-          : body['knowledgeBaseReferenceEnabled'];
-      final enabled = _boolishWebValue(raw);
-      final updatedMetadata = await _sessionController.updateSessionMetadata(
-        session.id,
-        <String, Object?>{knowledgeBaseSessionToggleMetadataKey: enabled},
-      );
-      ok = ok && updatedMetadata;
-      updated = _sessionController.sessions.firstWhere(
-        (item) => item.id == session.id,
-        orElse: () => updated,
-      );
-      changed[knowledgeBaseSessionToggleMetadataKey] = enabled;
-    }
     _log(
       WebGatewayLogLevel.info,
       'SESSION',
@@ -3077,16 +3054,6 @@ class WebMessagePlatformService {
         'error': 'goal_options_required',
       });
     }
-    final hasKnowledgeBaseReferenceFlag =
-        body.containsKey(knowledgeBaseSessionToggleMetadataKey) ||
-        body.containsKey('knowledgeBaseReferenceEnabled');
-    final knowledgeBaseReferenceEnabled = hasKnowledgeBaseReferenceFlag
-        ? _boolishWebValue(
-            body.containsKey(knowledgeBaseSessionToggleMetadataKey)
-                ? body[knowledgeBaseSessionToggleMetadataKey]
-                : body['knowledgeBaseReferenceEnabled'],
-          )
-        : session.metadata[knowledgeBaseSessionToggleMetadataKey] == true;
     // 单一发送通道 + 互斥：同一会话若已在 sending/responding/streaming/finalizing
     // 等任一非 idle 阶段，立刻拒绝新的 web 端发送，避免并发触发同一控制器。
     // 这与 AiSessionController._enqueueSessionOperation 内部排队一起构成两层防护：
@@ -3106,42 +3073,6 @@ class WebMessagePlatformService {
           'model_key': _modelKey(model.id, model.modelId),
           'attachment_count': attachments.length,
         });
-    if (knowledgeBaseReferenceEnabled) {
-      final knowledgeBaseController = _knowledgeBaseController;
-      if (knowledgeBaseController == null) {
-        await _deleteMaterializedAttachments(attachments);
-        return _json(HttpStatus.serviceUnavailable, <String, Object?>{
-          'error': 'knowledge_base_unavailable',
-          'message': '知识库服务未初始化。',
-        });
-      }
-      try {
-        final embeddingModel = knowledgeBaseController.resolveEmbeddingModel(
-          _settingsController.aiModels,
-        );
-        final rerankModel = knowledgeBaseController.resolveRerankModel(
-          _settingsController.aiModels,
-        );
-        final knowledgeBaseMetadata = await knowledgeBaseController
-            .buildMessageAugmentation(
-              query: content,
-              enabled: true,
-              embeddingModel: embeddingModel,
-              rerankModel: rerankModel,
-            );
-        if (knowledgeBaseMetadata != null && knowledgeBaseMetadata.isNotEmpty) {
-          userMessageMetadata[knowledgeBaseMessageMetadataKey] =
-              knowledgeBaseMetadata;
-        }
-      } catch (error, stack) {
-        silentLog('WebGateway', 'knowledgeBaseAugmentation', error, stack);
-        await _deleteMaterializedAttachments(attachments);
-        return _json(HttpStatus.badGateway, <String, Object?>{
-          'error': 'knowledge_base_augmentation_failed',
-          'message': '$error',
-        });
-      }
-    }
     // 关键：不能 await 整轮助手对话完成。原实现 `await sendMessage(...)` 会
     // 卡住 HTTP 响应直到 30s 后整轮回复结束，导致 web 端长时间「发送中」+
     // 一次性 dump 所有消息（无法看到流式）。改为 fire-and-forget：
@@ -3191,7 +3122,6 @@ class WebMessagePlatformService {
         'chars': content.length,
         'attachments': attachments.length,
         'mode': conversationMode.storageValue,
-        'knowledge_base_reference_enabled': knowledgeBaseReferenceEnabled,
       },
     );
     return _json(HttpStatus.accepted, <String, Object?>{

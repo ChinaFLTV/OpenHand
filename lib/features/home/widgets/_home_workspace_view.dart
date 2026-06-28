@@ -32,8 +32,6 @@ class _WorkspaceView extends StatelessWidget {
     required this.onPlanTimelineCollapsedChanged,
     required this.sessionMode,
     required this.onSessionModeChanged,
-    required this.knowledgeBaseReferenceEnabled,
-    required this.onKnowledgeBaseReferenceChanged,
     required this.goalModeAvailable,
     required this.suppressGoalControlsForQueue,
     required this.onPauseGoal,
@@ -114,8 +112,6 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final AiSessionMode sessionMode;
   final ValueChanged<AiSessionMode> onSessionModeChanged;
-  final bool knowledgeBaseReferenceEnabled;
-  final ValueChanged<bool> onKnowledgeBaseReferenceChanged;
   final bool goalModeAvailable;
   final bool suppressGoalControlsForQueue;
   final Future<void> Function() onPauseGoal;
@@ -391,10 +387,6 @@ class _WorkspaceView extends StatelessWidget {
                       canStopSending: canStopSending,
                       sessionMode: sessionMode,
                       onSessionModeChanged: onSessionModeChanged,
-                      knowledgeBaseReferenceEnabled:
-                          knowledgeBaseReferenceEnabled,
-                      onKnowledgeBaseReferenceChanged:
-                          onKnowledgeBaseReferenceChanged,
                       goalModeAvailable: goalModeAvailable,
                       suppressGoalControlsForQueue:
                           suppressGoalControlsForQueue,

@@ -12,8 +12,6 @@ import 'data/knowledge_base_settings_store.dart';
 import 'data/knowledge_base_store.dart';
 import 'model/knowledge_base_settings.dart';
 import 'model/knowledge_chunk.dart';
-import 'model/knowledge_message_metadata.dart';
-import 'model/knowledge_retrieval_result.dart';
 import 'model/knowledge_source.dart';
 import 'model/knowledge_vector_distribution.dart';
 import 'service/knowledge_chunker.dart';
@@ -22,7 +20,6 @@ import 'service/knowledge_document_parser.dart';
 import 'service/knowledge_embedding_service.dart';
 import 'service/knowledge_indexing_control.dart';
 import 'service/knowledge_ingestion_service.dart';
-import 'service/knowledge_retrieval_service.dart';
 import 'service/knowledge_vector_store.dart';
 import 'service/qdrant_admin_service.dart';
 import 'service/qdrant_knowledge_vector_store.dart';
@@ -52,7 +49,6 @@ class KnowledgeBaseController extends ChangeNotifier {
   bool _busy = false;
   String _query = '';
   String? _error;
-  KnowledgeRetrievalResult? _lastRetrieval;
 
   KnowledgeBaseSettings get settings => _settings;
   List<KnowledgeSource> get sources => _sources;
@@ -60,7 +56,6 @@ class KnowledgeBaseController extends ChangeNotifier {
   bool get busy => _busy;
   String get query => _query;
   String? get error => _error;
-  KnowledgeRetrievalResult? get lastRetrieval => _lastRetrieval;
   List<QdrantAdminOperationLog> get qdrantAdminLogs => _qdrantAdminService.logs;
 
   void clearError() {
@@ -434,83 +429,6 @@ class KnowledgeBaseController extends ChangeNotifier {
 
   Future<void> deleteQdrantCollection(String collection) {
     return _qdrantAdminService.deleteCollection(_settings, collection);
-  }
-
-  Future<Map<String, Object?>?> buildMessageAugmentation({
-    required String query,
-    required bool enabled,
-    required AiModelConfig? embeddingModel,
-    AiModelConfig? rerankModel,
-  }) async {
-    final normalized = query.trim();
-    if (!enabled) {
-      return KnowledgeMessageMetadata.skipped(
-        enabled: false,
-        reason: 'session_toggle_off',
-        query: normalized,
-      );
-    }
-    if (normalized.isEmpty) {
-      return KnowledgeMessageMetadata.skipped(
-        enabled: true,
-        reason: 'empty_query',
-        query: normalized,
-      );
-    }
-    if (!_settings.hasEmbeddingModel) {
-      return KnowledgeMessageMetadata.failed(
-        query: normalized,
-        error: '未配置知识库 embedding 模型。',
-        settings: _settings,
-      );
-    }
-    if (embeddingModel == null) {
-      return KnowledgeMessageMetadata.failed(
-        query: normalized,
-        error: '找不到知识库配置中指定的 embedding 模型。',
-        settings: _settings,
-      );
-    }
-    final embeddingStopwatch = Stopwatch()..start();
-    try {
-      final vectorStore = QdrantKnowledgeVectorStore(settings: _settings);
-      final retrieval = KnowledgeRetrievalService(
-        store: _store,
-        embeddingService: _embeddingService,
-        vectorStore: vectorStore,
-      );
-      try {
-        final result = await retrieval.retrieve(
-          query: normalized,
-          settings: _settings,
-          embeddingModel: embeddingModel,
-          rerankModel: rerankModel,
-        );
-        _lastRetrieval = result;
-        embeddingStopwatch.stop();
-        return KnowledgeMessageMetadata.success(
-          settings: _settings,
-          result: result,
-          embeddingDurationMs: embeddingStopwatch.elapsedMilliseconds,
-          promptAppendContent: result.promptAppend,
-        );
-      } finally {
-        retrieval.dispose();
-      }
-    } catch (error) {
-      embeddingStopwatch.stop();
-      if (_settings.failureStrategy == 'fail_closed') {
-        rethrow;
-      }
-      return KnowledgeMessageMetadata.failed(
-        query: normalized,
-        error: '$error',
-        settings: _settings,
-        embeddingDurationMs: embeddingStopwatch.elapsedMilliseconds,
-      );
-    } finally {
-      notifyListeners();
-    }
   }
 
   AiModelConfig? resolveEmbeddingModel(List<AiModelConfig> models) {

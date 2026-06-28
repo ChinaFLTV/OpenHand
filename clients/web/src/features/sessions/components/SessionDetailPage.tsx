@@ -22,7 +22,6 @@ import {
   GOAL_DEFAULT_MAX_AUTO_TURNS,
   GOAL_HARD_MAX_AUTO_TURNS,
   KNOWLEDGE_BASE_MESSAGE_METADATA_KEY,
-  KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY,
   clearSessionThrottle,
   compactSession,
   deleteMessage,
@@ -52,7 +51,6 @@ import {
   toggleMessageTtsPlayback,
   translateMessage,
   updateSessionFullAccessPermission,
-  updateSessionKnowledgeBaseReference,
   updateSessionMode,
   type CompactSessionResponse,
   type CompactSessionStatus,
@@ -861,21 +859,6 @@ function goalOptionsFromRecord(goal: SessionGoalRecord | null): GoalStartOptions
   };
 }
 
-function sessionKnowledgeBaseReferenceEnabled(session: SessionSummary | null | undefined): boolean {
-  const metadata = recordOrNullFromUnknown(session?.metadata);
-  return booleanFromUnknown(metadata?.[KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY]);
-}
-
-function sessionWithKnowledgeBaseReference(session: SessionSummary, enabled: boolean): SessionSummary {
-  return {
-    ...session,
-    metadata: {
-      ...(session.metadata ?? {}),
-      [KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY]: enabled,
-    },
-  };
-}
-
 function messageKnowledgeBaseMetadata(message: SessionMessage): Record<string, unknown> | null {
   const metadata = recordOrNullFromUnknown(message.metadata);
   return recordOrNullFromUnknown(metadata?.[KNOWLEDGE_BASE_MESSAGE_METADATA_KEY]);
@@ -1660,7 +1643,6 @@ interface QueuedComposerMessage {
   modelKey: string;
   modelLabel: string;
   mode: string;
-  knowledgeBaseReferenceEnabled: boolean;
   selectedSkill: {
     name: string;
     relative_directory_path: string;
@@ -1817,7 +1799,6 @@ export function SessionDetailPage() {
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [composerSending, setComposerSending] = useState<boolean>(false);
   const [composerError, setComposerError] = useState<string | null>(null);
-  const [knowledgeBaseReferenceSaving, setKnowledgeBaseReferenceSaving] = useState(false);
   const [queuedComposerMessages, setQueuedComposerMessages] = useState<QueuedComposerMessage[]>([]);
   const [exitingQueuedMessageIds, setExitingQueuedMessageIds] = useState<string[]>([]);
   const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(null);
@@ -2873,7 +2854,6 @@ export function SessionDetailPage() {
   const goalPaused = currentGoal?.status === 'paused';
   const hasRunnableQueuedMessages = queuedComposerMessages.length > 0 && blockedQueuedMessageId !== queuedComposerMessages[0]?.id;
   const goalModeAvailable = Boolean(session && isGoalModeAllowedForTemplate(session.template_id));
-  const knowledgeBaseReferenceEnabled = sessionKnowledgeBaseReferenceEnabled(session);
   const routeMessages = detailBelongsToRoute ? messages : EMPTY_SESSION_MESSAGES;
   const messageWindowView = useMemo(() => deriveMessageWindowView(routeMessages), [routeMessages]);
   const messageMembershipKey = useMemo(() => {
@@ -3567,7 +3547,6 @@ export function SessionDetailPage() {
       modelKey: composerModelKey,
       modelLabel: selectedModel?.label ?? composerModelKey,
       mode: composerMode,
-      knowledgeBaseReferenceEnabled,
       selectedSkill: queuedSelectedSkillPayload(),
       skillLabel: selectedSkill?.name ?? null,
       skippedInstructionIds: Array.from(skippedInstructionIds),
@@ -3655,7 +3634,6 @@ export function SessionDetailPage() {
         attachments: next.attachments,
         selectedSkill: next.selectedSkill,
         skippedInstructionIds: next.skippedInstructionIds,
-        knowledgeBaseReferenceEnabled: next.knowledgeBaseReferenceEnabled,
         allowQueuedGoalInterruption: true,
       });
       if (!ownsSessionAsyncResult(dispatchSessionId)) return false;
@@ -4636,7 +4614,6 @@ export function SessionDetailPage() {
         modelKey: composerModelKey,
         mode: composerMode,
         attachments: composerAttachments,
-        knowledgeBaseReferenceEnabled,
         creationOptions:
           composerMode === 'image' || composerMode === 'video' || composerMode === 'audio'
             ? {
@@ -4884,43 +4861,6 @@ export function SessionDetailPage() {
       const message = e instanceof Error ? e.message : String(e);
       setLastError(message);
       showSnackbar(`${t('topbar.mode.failed', '更新会话模式失败')}：${message}`, { tone: 'error' });
-    }
-  }
-
-  async function setKnowledgeBaseReferenceEnabled(next: boolean): Promise<void> {
-    if (!sessionId || !session || knowledgeBaseReferenceSaving) return;
-    const requestSessionId = sessionId;
-    const previous = knowledgeBaseReferenceEnabled;
-    setKnowledgeBaseReferenceSaving(true);
-    setDetail((prev) => (
-      prev
-        ? { ...prev, session: sessionWithKnowledgeBaseReference(prev.session, next) }
-        : prev
-    ));
-    try {
-      const res = await updateSessionKnowledgeBaseReference(requestSessionId, next);
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      setDetail((prev) => (prev ? { ...prev, session: mergeSessionSummary(prev.session, res.session) } : prev));
-      showSnackbar(
-        next
-          ? t('composer.knowledgeBase.enabled', '已开启引用知识库')
-          : t('composer.knowledgeBase.disabled', '已关闭引用知识库'),
-        { tone: 'success' },
-      );
-    } catch (e: unknown) {
-      if (!ownsSessionAsyncResult(requestSessionId)) return;
-      setDetail((prev) => (
-        prev
-          ? { ...prev, session: sessionWithKnowledgeBaseReference(prev.session, previous) }
-          : prev
-      ));
-      if (handleAuthError(e)) return;
-      if (handleSessionGoneError(e)) return;
-      const message = e instanceof Error ? e.message : String(e);
-      setLastError(message);
-      showSnackbar(`${t('composer.knowledgeBase.failed', '更新知识库引用失败')}：${message}`, { tone: 'error' });
-    } finally {
-      if (mountedRef.current) setKnowledgeBaseReferenceSaving(false);
     }
   }
 
@@ -5492,22 +5432,6 @@ export function SessionDetailPage() {
 
                 <button
                   type="button"
-                  onClick={() => void setKnowledgeBaseReferenceEnabled(!knowledgeBaseReferenceEnabled)}
-                  disabled={!session || knowledgeBaseReferenceSaving}
-                  aria-pressed={knowledgeBaseReferenceEnabled ? 'true' : 'false'}
-                  class={`oh-composer-control oh-composer-kb-control oh-tap-press ${knowledgeBaseReferenceEnabled ? 'is-tonal' : 'is-muted'} disabled:opacity-50`}
-                  title={knowledgeBaseReferenceEnabled
-                    ? t('composer.knowledgeBase.onTitle', '引用知识库已开启')
-                    : t('composer.knowledgeBase.offTitle', '引用知识库已关闭')}
-                >
-                  <span class={`oh-composer-control-icon ${knowledgeBaseReferenceSaving ? 'oh-spin' : ''}`}>
-                    <ComposerIcon name={knowledgeBaseReferenceSaving ? 'refresh' : 'knowledge'} />
-                  </span>
-                  <span>{t('composer.knowledgeBase.button', '引用知识库')}</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => {
                     if (permissionSaving) return;
                     const next = session?.full_access_permission !== true;
@@ -5600,14 +5524,6 @@ export function SessionDetailPage() {
                 </span>
                 {composerModeLabel(composerMode)}
               </span>
-              {knowledgeBaseReferenceEnabled ? (
-                <span class="oh-composer-pill oh-composer-kb-pill oh-composer-chip-motion">
-                  <span class="oh-composer-pill-icon">
-                    <ComposerIcon name="knowledge" size={16} />
-                  </span>
-                  {t('composer.knowledgeBase.short', '引用知识库')}
-                </span>
-              ) : null}
               {selectedSkill ? (
                 <span class={`oh-composer-pill oh-composer-skill-pill oh-composer-chip-motion ${composerChipIsExiting(`skill-${selectedSkill.relative_directory_path}-${selectedSkill.name}`) ? 'is-exiting' : ''}`} title={selectedSkill.name}>
                   <span class="oh-composer-pill-icon">{selectedSkill.emoji_icon || <ComposerIcon name="spark" size={16} />}</span>
@@ -5710,7 +5626,6 @@ export function SessionDetailPage() {
                               <div class="oh-queued-message-meta">
                                 <span>{composerModeLabel(item.mode)}</span>
                                 <span>{item.modelLabel || item.modelKey}</span>
-                                {item.knowledgeBaseReferenceEnabled ? <span>{t('composer.knowledgeBase.short', '引用知识库')}</span> : null}
                                 {item.selectedSkill ? <span>{item.skillLabel ?? item.selectedSkill.name}</span> : null}
                                 {item.attachments.length > 0 ? (
                                   <span>

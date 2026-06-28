@@ -20,7 +20,6 @@ class _QueuedMessage {
     this.creationRequest = AiCreationRequest.none,
     this.systemReminders = const <String>[],
     this.skillMetadata,
-    this.knowledgeBaseReferenceEnabled = false,
   });
 
   final String id;
@@ -29,7 +28,6 @@ class _QueuedMessage {
   final AiCreationRequest creationRequest;
   final List<String> systemReminders;
   final Map<String, Object?>? skillMetadata;
-  final bool knowledgeBaseReferenceEnabled;
 }
 
 enum _SubmitTextOutcome { submitted, stoppedBeforeSubmit, failedBeforeSubmit }

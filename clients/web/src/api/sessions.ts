@@ -35,7 +35,6 @@ export interface SessionPlanRecord {
 
 export type SessionMode = 'chat' | 'plan' | 'goal' | (string & {});
 
-export const KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY = 'knowledge_base_reference_enabled';
 export const KNOWLEDGE_BASE_MESSAGE_METADATA_KEY = 'knowledge_base';
 
 export const GOAL_MODE_BLOCKED_TEMPLATE_IDS = new Set([
@@ -384,19 +383,6 @@ export function updateSessionFullAccessPermission(
   );
 }
 
-export function updateSessionKnowledgeBaseReference(
-  id: string,
-  enabled: boolean,
-): Promise<{ ok: boolean; session: SessionSummary }> {
-  return apiRequest<{ ok: boolean; session: SessionSummary }>(
-    `/api/sessions/${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      body: { [KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY]: enabled },
-    },
-  );
-}
-
 export function deleteSession(
   id: string,
 ): Promise<{ ok: boolean; deleted_session_id: string }> {
@@ -462,7 +448,6 @@ export interface SendMessageInput {
   /// `AiSessionRuntimeContext.skippedInstructionIds` 会被注入，
   /// prompt builder 仅拼装 enabled 且未跳过的指令。
   skippedInstructionIds?: string[];
-  knowledgeBaseReferenceEnabled?: boolean;
   goalOptions?: GoalStartOptions | null;
   allowQueuedGoalInterruption?: boolean;
 }
@@ -498,12 +483,6 @@ export function sendMessage(
         attachments: input.attachments ?? [],
         selected_skill: input.selectedSkill ?? null,
         skipped_instruction_ids: input.skippedInstructionIds ?? [],
-        ...(input.knowledgeBaseReferenceEnabled == null
-          ? {}
-          : {
-              [KNOWLEDGE_BASE_REFERENCE_ENABLED_METADATA_KEY]:
-                input.knowledgeBaseReferenceEnabled,
-            }),
         creation_options: input.creationOptions ?? null,
         goal_options: input.goalOptions ?? null,
         allow_queued_goal_interruption: input.allowQueuedGoalInterruption ?? false,

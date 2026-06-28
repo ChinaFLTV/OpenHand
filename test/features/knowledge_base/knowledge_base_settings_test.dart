@@ -110,4 +110,20 @@ void main() {
       256,
     );
   });
+
+  test('exposes readonly knowledge tools by default', () {
+    expect(const KnowledgeBaseSettings().exposeReadonlyTools, isTrue);
+    expect(
+      KnowledgeBaseSettings.fromJson(
+        const <String, Object?>{},
+      ).exposeReadonlyTools,
+      isTrue,
+    );
+    expect(
+      KnowledgeBaseSettings.fromJson(const <String, Object?>{
+        'expose_readonly_tools': false,
+      }).exposeReadonlyTools,
+      isFalse,
+    );
+  });
 }
