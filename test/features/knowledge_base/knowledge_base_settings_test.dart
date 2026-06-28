@@ -65,6 +65,20 @@ void main() {
     expect(settings.topK, 12);
   });
 
+  test('parses persisted strings and rejects ambiguous boolean numbers', () {
+    final settings = KnowledgeBaseSettings.fromJson(<String, Object?>{
+      'provider_config_id': '  provider-a  ',
+      'copy_imported_files': double.nan,
+      'allow_query_cloud_embedding': 2,
+      'enable_dangerous_admin_operations': 'enabled',
+    });
+
+    expect(settings.providerConfigId, 'provider-a');
+    expect(settings.copyImportedFiles, isTrue);
+    expect(settings.allowQueryCloudEmbedding, isFalse);
+    expect(settings.enableDangerousAdminOperations, isTrue);
+  });
+
   test('decode falls back for malformed persisted settings', () {
     expect(KnowledgeBaseSettings.decode('{').dimensions, 1536);
     expect(KnowledgeBaseSettings.decode('[]').dimensions, 1536);

@@ -664,17 +664,11 @@ class KnowledgeBaseSettings {
   }
 
   static String _string(Object? value, [String fallback = '']) {
-    final text = '${value ?? ''}'.trim();
-    return text.isEmpty ? fallback : text;
+    return stringFromValue(value, fallback: fallback);
   }
 
   static bool _bool(Object? value, [bool fallback = false]) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    final text = '${value ?? ''}'.trim().toLowerCase();
-    if (text == 'true' || text == '1' || text == 'yes') return true;
-    if (text == 'false' || text == '0' || text == 'no') return false;
-    return fallback;
+    return boolFromValue(value, defaultValue: fallback);
   }
 
   static int _positiveInt(Object? value, int fallback) {

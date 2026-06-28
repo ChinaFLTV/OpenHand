@@ -37,6 +37,16 @@ List<String> stringListFromValue(Object? value, {Pattern separator = ','}) {
   return const <String>[];
 }
 
+String stringFromValue(Object? value, {String fallback = ''}) {
+  return optionalStringFromValue(value) ?? fallback;
+}
+
+String? optionalStringFromValue(Object? value) {
+  if (value == null) return null;
+  final text = '$value'.trim();
+  return text.isEmpty ? null : text;
+}
+
 Map<String, Object?> stringKeyedMapFromValue(Object? value) {
   if (value is Map<String, Object?>) return value;
   if (value is! Map) return const <String, Object?>{};

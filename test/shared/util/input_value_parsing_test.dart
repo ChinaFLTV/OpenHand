@@ -24,6 +24,17 @@ void main() {
     });
   });
 
+  group('string scalar parsing', () {
+    test('trims scalar values and falls back for blank input', () {
+      expect(stringFromValue(' alpha '), 'alpha');
+      expect(stringFromValue(42), '42');
+      expect(stringFromValue(null, fallback: 'fallback'), 'fallback');
+      expect(stringFromValue('   ', fallback: 'fallback'), 'fallback');
+      expect(optionalStringFromValue(false), 'false');
+      expect(optionalStringFromValue(''), isNull);
+    });
+  });
+
   group('string keyed map parsing', () {
     test('normalizes loose map keys without dropping values', () {
       expect(
