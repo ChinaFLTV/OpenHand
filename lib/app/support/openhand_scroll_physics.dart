@@ -1,13 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-/// 线程会话窗口实验性禁用所有自定义滚动物理与滚动纠偏逻辑。
-///
-/// 本轮仅保留最基础的 Flutter 原生滚动行为，排除自定义 ScrollPosition /
-/// content-dimensions 修正 / 额外物理干预对线程会话窗口的影响。
+/// 线程会话窗口使用的稳定滚动控制器。
+/// 保持 Flutter 原生 [ScrollPosition] 行为，滚动活动分类与自动贴底保护
+/// 统一在 Home transcript 的 ScrollNotification 状态机中处理。
 class OpenHandStableScrollController extends ScrollController {
   OpenHandStableScrollController({
-    ValueListenable<bool>? userScrollActivity,
     super.initialScrollOffset,
     super.keepScrollOffset,
     super.debugLabel,
