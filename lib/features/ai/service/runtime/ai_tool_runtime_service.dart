@@ -2422,10 +2422,12 @@ class AiToolRuntimeService {
           },
           'line': <String, Object?>{
             'type': 'integer',
+            'minimum': 1,
             'description': 'The line number (1-based, as shown in editors)',
           },
           'character': <String, Object?>{
             'type': 'integer',
+            'minimum': 1,
             'description':
                 'The character offset (1-based, as shown in editors)',
           },

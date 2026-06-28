@@ -12,6 +12,18 @@ import '../ai_tool_utils.dart';
 
 /// Multi-language LSP code intelligence tool backed by [AiLspClientService].
 class AiLspTool extends AiTool {
+  static const Set<String> _supportedOperations = <String>{
+    'goToDefinition',
+    'findReferences',
+    'hover',
+    'documentSymbol',
+    'workspaceSymbol',
+    'goToImplementation',
+    'prepareCallHierarchy',
+    'incomingCalls',
+    'outgoingCalls',
+  };
+
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.lsp;
 
@@ -32,10 +44,22 @@ class AiLspTool extends AiTool {
         'operation and filePath (or file_path) are required.',
       );
     }
+    if (!_supportedOperations.contains(operation)) {
+      return AiToolUtils.invalidResult(
+        'LSP',
+        'Unsupported LSP operation "$operation".',
+      );
+    }
 
     final resolvedPath = AiToolUtils.resolvePath(filePath);
-    final line = AiToolUtils.readInt(args['line']) ?? 1;
-    final character = AiToolUtils.readInt(args['character']) ?? 1;
+    final line = AiToolUtils.readInt(args['line']);
+    final character = AiToolUtils.readInt(args['character']);
+    if (line == null || line <= 0 || character == null || character <= 0) {
+      return AiToolUtils.invalidResult(
+        'LSP',
+        'line and character must be positive 1-based integers.',
+      );
+    }
     final language = context.metadata['language']?.toString();
 
     try {
