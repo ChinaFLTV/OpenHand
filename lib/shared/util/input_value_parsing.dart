@@ -115,8 +115,21 @@ DateTime? dateTimeFromValue(Object? value) {
 bool boolFromValue(Object? value, {bool defaultValue = false}) {
   if (value is bool) return value;
   if (value is num) return value.isFinite ? value.toInt() == 1 : defaultValue;
+  return optionalBoolFromValue(value) ?? defaultValue;
+}
+
+bool? optionalBoolFromValue(Object? value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) {
+    if (!value.isFinite) return null;
+    if (value == 1) return true;
+    if (value == 0) return false;
+    return null;
+  }
   if (value is String) {
     final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
     if (normalized == '1' ||
         normalized == 'true' ||
         normalized == 'yes' ||
@@ -133,8 +146,11 @@ bool boolFromValue(Object? value, {bool defaultValue = false}) {
         normalized == 'disabled') {
       return false;
     }
+    final integral = optionalIntegralIntFromValue(normalized);
+    if (integral == 1) return true;
+    if (integral == 0) return false;
   }
-  return defaultValue;
+  return null;
 }
 
 int intFromValue(Object? value, {required int fallback}) {

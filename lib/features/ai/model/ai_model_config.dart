@@ -1076,17 +1076,7 @@ class AiModelProfile {
   }
 
   static bool? _readBool(Object? value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    final normalized = '${value ?? ''}'.trim().toLowerCase();
-    if (normalized.isEmpty) return null;
-    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-      return true;
-    }
-    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
-      return false;
-    }
-    return null;
+    return optionalBoolFromValue(value);
   }
 }
 
@@ -1721,21 +1711,7 @@ class AiModelConfig {
   }
 
   static bool? _readBool(Object? value) {
-    if (value is bool) return value;
-    if (value is String) {
-      final normalized = value.trim().toLowerCase();
-      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-        return true;
-      }
-      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
-        return false;
-      }
-    }
-    if (value is num) {
-      if (value == 1) return true;
-      if (value == 0) return false;
-    }
-    return null;
+    return optionalBoolFromValue(value);
   }
 
   static int? _readNullablePositiveInt(Object? value) {

@@ -61,6 +61,25 @@ void main() {
   });
 
   group('boolean parsing', () {
+    test('parses optional booleans from explicit flag values only', () {
+      expect(optionalBoolFromValue(true), isTrue);
+      expect(optionalBoolFromValue(false), isFalse);
+      expect(optionalBoolFromValue(1), isTrue);
+      expect(optionalBoolFromValue(0), isFalse);
+      expect(optionalBoolFromValue('1.0'), isTrue);
+      expect(optionalBoolFromValue('yes'), isTrue);
+      expect(optionalBoolFromValue('on'), isTrue);
+      expect(optionalBoolFromValue('enabled'), isTrue);
+      expect(optionalBoolFromValue('0.0'), isFalse);
+      expect(optionalBoolFromValue('no'), isFalse);
+      expect(optionalBoolFromValue('off'), isFalse);
+      expect(optionalBoolFromValue('disabled'), isFalse);
+      expect(optionalBoolFromValue(2), isNull);
+      expect(optionalBoolFromValue(0.5), isNull);
+      expect(optionalBoolFromValue(double.nan), isNull);
+      expect(optionalBoolFromValue('bad'), isNull);
+    });
+
     test('falls back for non-finite numeric values', () {
       expect(boolFromValue(double.nan), isFalse);
       expect(boolFromValue(double.infinity, defaultValue: true), isTrue);

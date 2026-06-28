@@ -1167,12 +1167,8 @@ String _singleTextInput(Object input, {required String provider}) {
 Object? _truncationValue(String? value) {
   final normalized = value?.trim().toLowerCase() ?? '';
   if (normalized.isEmpty) return null;
-  if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-    return true;
-  }
-  if (normalized == 'false' || normalized == '0' || normalized == 'no') {
-    return false;
-  }
+  final parsedBool = optionalBoolFromValue(normalized);
+  if (parsedBool != null) return parsedBool;
   return value!.trim();
 }
 

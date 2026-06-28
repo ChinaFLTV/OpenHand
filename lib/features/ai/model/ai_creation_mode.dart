@@ -223,14 +223,7 @@ class AiCreationOptions {
     }
 
     bool? asBool(Object? v) {
-      if (v is bool) return v;
-      if (v is num) return v != 0;
-      if (v is String) {
-        final normalized = v.trim().toLowerCase();
-        if (normalized == 'true' || normalized == '1') return true;
-        if (normalized == 'false' || normalized == '0') return false;
-      }
-      return null;
+      return optionalBoolFromValue(v);
     }
 
     String? asString(Object? v) =>
