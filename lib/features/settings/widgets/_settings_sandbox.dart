@@ -718,7 +718,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
   }
 
   int _parsePort(String value) {
-    final parsed = int.tryParse(value.trim());
+    final parsed = optionalIntFromText(value);
     if (parsed == null || parsed <= 0 || parsed > 65535) return 0;
     return parsed;
   }

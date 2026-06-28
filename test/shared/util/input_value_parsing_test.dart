@@ -17,6 +17,10 @@ void main() {
 
   group('numeric fallback parsing', () {
     test('keeps only positive integers when requested', () {
+      expect(optionalPositiveIntFromText('12'), 12);
+      expect(optionalPositiveIntFromText('0'), isNull);
+      expect(optionalPositiveIntFromText('-1'), isNull);
+      expect(optionalPositiveIntFromText('bad'), isNull);
       expect(positiveIntFromText('12', fallback: 7), 12);
       expect(positiveIntFromText('0', fallback: 7), 7);
       expect(positiveIntFromText('-1', fallback: 7), 7);

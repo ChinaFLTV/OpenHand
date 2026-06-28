@@ -115,9 +115,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
   }
 
   int? _readPositiveInt(TextEditingController controller) {
-    final parsed = int.tryParse(controller.text.trim());
-    if (parsed == null || parsed <= 0) return null;
-    return parsed;
+    return optionalPositiveIntFromText(controller.text);
   }
 
   void _submit() {
@@ -1610,8 +1608,6 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   }
 
   int? _positiveIntOrNull(String raw) {
-    final parsed = int.tryParse(raw.trim());
-    if (parsed == null || parsed <= 0) return null;
-    return parsed;
+    return optionalPositiveIntFromText(raw);
   }
 }

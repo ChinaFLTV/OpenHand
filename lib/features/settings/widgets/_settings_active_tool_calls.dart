@@ -245,7 +245,7 @@ class _ToolHardeningParamsPanelState extends State<_ToolHardeningParamsPanel> {
     required void Function(String?) setError,
   }) async {
     final l10n = AppLocalizations.of(context)!;
-    final raw = int.tryParse(controller.text.trim());
+    final raw = optionalIntFromText(controller.text);
     if (raw == null || raw < min || raw > max) {
       setState(() => setError(l10n.settingsToolHardeningInvalid));
       return;

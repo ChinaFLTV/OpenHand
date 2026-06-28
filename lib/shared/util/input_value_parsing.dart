@@ -180,9 +180,13 @@ int? optionalIntFromValue(Object? value) {
   return null;
 }
 
-int positiveIntFromValue(Object? value, {required int fallback}) {
+int? optionalPositiveIntFromValue(Object? value) {
   final parsed = optionalIntFromValue(value);
-  return parsed == null || parsed <= 0 ? fallback : parsed;
+  return parsed == null || parsed <= 0 ? null : parsed;
+}
+
+int positiveIntFromValue(Object? value, {required int fallback}) {
+  return optionalPositiveIntFromValue(value) ?? fallback;
 }
 
 int nonNegativeIntFromValue(Object? value, {required int fallback}) {
@@ -233,6 +237,10 @@ double clampedDoubleFromText(
 
 int? optionalIntFromText(String value) {
   return optionalIntFromValue(value);
+}
+
+int? optionalPositiveIntFromText(String value) {
+  return optionalPositiveIntFromValue(value);
 }
 
 double? optionalDoubleFromText(String value) {

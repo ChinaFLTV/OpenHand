@@ -4620,8 +4620,8 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null || parsedValue <= 0) {
+    final parsedValue = optionalPositiveIntFromText(rawValue);
+    if (parsedValue == null) {
       _showSnackBar(
         context,
         l10n.aiCompressionThresholdInvalid,
@@ -4655,8 +4655,8 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null || parsedValue <= 0) {
+    final parsedValue = optionalPositiveIntFromText(rawValue);
+    if (parsedValue == null) {
       _showSnackBar(
         context,
         l10n.aiToolResultCompressionThresholdInvalid,
@@ -4892,8 +4892,8 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Future<void> _saveToolCallLimit(BuildContext context, String rawValue) async {
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null || parsedValue <= 0) {
+    final parsedValue = optionalPositiveIntFromText(rawValue);
+    if (parsedValue == null) {
       _showSnackBar(
         context,
         AppLocalizations.of(context)!.settingsEnterAToolCallLimitGreater,
@@ -4923,8 +4923,8 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final parsedValue = int.tryParse(rawValue.trim());
-    if (parsedValue == null || parsedValue <= 0) {
+    final parsedValue = optionalPositiveIntFromText(rawValue);
+    if (parsedValue == null) {
       _showSnackBar(
         context,
         AppLocalizations.of(context)!.settingsEnterASequentialToolRoundLimit,
@@ -5081,7 +5081,7 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final parsedValue = double.tryParse(rawValue.trim());
+    final parsedValue = optionalDoubleFromText(rawValue);
     if (parsedValue == null || parsedValue <= 0) {
       _showSnackBar(
         context,
@@ -6035,7 +6035,7 @@ class _McpKeywordIndexIntervalFormState
   }
 
   Future<void> _saveValue(String text) async {
-    final parsed = int.tryParse(text.trim());
+    final parsed = optionalIntFromText(text);
     if (parsed == null) {
       _valueController.text = '${widget.intervalValue}';
       return;
