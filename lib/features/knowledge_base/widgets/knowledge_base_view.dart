@@ -51,68 +51,11 @@ class KnowledgeBaseView extends StatelessWidget {
       subtitle: isZh
           ? '本地文档、笔记与 Qdrant 向量检索。'
           : 'Local documents, notes, and Qdrant vector retrieval.',
-      actions: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        alignment: WrapAlignment.end,
-        children: [
-          FilledButton.tonalIcon(
-            onPressed: controller.loading || controller.busy
-                ? null
-                : () => controller.initialize(),
-            icon: const Icon(Icons.refresh_rounded),
-            label: Text(isZh ? '刷新' : 'Refresh'),
-          ),
-          OutlinedButton.icon(
-            onPressed: () => showQdrantStatusDialog(context),
-            icon: const Icon(Icons.monitor_heart_outlined),
-            label: Text(isZh ? 'Qdrant 运维' : 'Qdrant Ops'),
-          ),
-          OutlinedButton.icon(
-            onPressed: () => showQdrantAdminDialog(context),
-            icon: const Icon(Icons.storage_outlined),
-            label: Text(isZh ? 'Qdrant 管理' : 'Qdrant Admin'),
-          ),
-          OutlinedButton.icon(
-            onPressed: controller.loading || controller.busy
-                ? null
-                : () => showKnowledgeVectorDistributionDialog(context),
-            icon: const Icon(Icons.scatter_plot_rounded),
-            label: Text(isZh ? '向量分布' : 'Vector Map'),
-          ),
-          OutlinedButton.icon(
-            onPressed: () => _showReindexNotice(context),
-            icon: const Icon(Icons.manage_search_rounded),
-            label: Text(isZh ? '重建索引' : 'Reindex'),
-          ),
-          FilledButton.tonalIcon(
-            onPressed: controller.busy
-                ? null
-                : () => showKnowledgeImportDialog(context),
-            icon: const Icon(Icons.note_add_outlined),
-            label: Text(isZh ? '新建笔记' : 'New Note'),
-          ),
-          FilledButton.icon(
-            onPressed: controller.busy
-                ? null
-                : () => _pickAndImportFile(
-                    context,
-                    controller: controller,
-                    embeddingModel: embeddingModel,
-                    aiModels: settingsController.aiModels,
-                  ),
-            icon: const Icon(Icons.upload_file_rounded),
-            label: Text(isZh ? '导入' : 'Import'),
-          ),
-          FilledButton.tonalIcon(
-            onPressed: () => showKnowledgeBaseConfigDialog(
-              context,
-              onOpenPlugins: onOpenPlugins,
-            ),
-            icon: const Icon(Icons.settings_rounded),
-            label: Text(isZh ? '配置' : 'Configure'),
-          ),
-        ],
+      actions: _KnowledgeToolbarActions(
+        controller: controller,
+        embeddingModel: embeddingModel,
+        aiModels: settingsController.aiModels,
+        onOpenPlugins: onOpenPlugins,
       ),
       notices: [
         if (controller.error != null)
@@ -220,6 +163,229 @@ class KnowledgeBaseView extends StatelessWidget {
         en: 'Reindex entry is available; use Qdrant Admin to inspect consistency and rebuild collections.',
       ),
     );
+  }
+}
+
+class _KnowledgeToolbarActions extends StatelessWidget {
+  const _KnowledgeToolbarActions({
+    required this.controller,
+    required this.embeddingModel,
+    required this.aiModels,
+    this.onOpenPlugins,
+  });
+
+  static const double _spacing = 8;
+  static const double _compactBreakpoint = 560;
+  static const Size _iconButtonSize = Size.square(40);
+
+  final KnowledgeBaseController controller;
+  final AiModelConfig? embeddingModel;
+  final List<AiModelConfig> aiModels;
+  final VoidCallback? onOpenPlugins;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth.isFinite
+            ? constraints.maxWidth < _compactBreakpoint
+            : MediaQuery.sizeOf(context).width < 1180;
+        return _buildToolbar(context, compact: compact);
+      },
+    );
+  }
+
+  Widget _buildToolbar(BuildContext context, {required bool compact}) {
+    final isZh = openHandIsChineseLocale(context);
+    final refreshButton = FilledButton.tonalIcon(
+      onPressed: controller.loading || controller.busy
+          ? null
+          : () => controller.initialize(),
+      icon: const Icon(Icons.refresh_rounded),
+      label: Text(isZh ? '刷新' : 'Refresh'),
+    );
+    final importButton = FilledButton.icon(
+      onPressed: controller.busy
+          ? null
+          : () => KnowledgeBaseView._pickAndImportFile(
+              context,
+              controller: controller,
+              embeddingModel: embeddingModel,
+              aiModels: aiModels,
+            ),
+      icon: const Icon(Icons.upload_file_rounded),
+      label: Text(isZh ? '导入' : 'Import'),
+    );
+    final configButton = FilledButton.tonalIcon(
+      onPressed: () =>
+          showKnowledgeBaseConfigDialog(context, onOpenPlugins: onOpenPlugins),
+      icon: const Icon(Icons.settings_rounded),
+      label: Text(isZh ? '配置' : 'Configure'),
+    );
+
+    if (compact) {
+      return _KnowledgeToolbarRows(
+        rows: [
+          [refreshButton, importButton, configButton],
+          [
+            _KnowledgeToolbarIconButton(
+              tooltip: isZh ? '新建笔记' : 'New Note',
+              icon: Icons.note_add_outlined,
+              onPressed: controller.busy
+                  ? null
+                  : () => showKnowledgeImportDialog(context),
+              filled: true,
+            ),
+            _KnowledgeToolbarIconButton(
+              tooltip: isZh ? '向量分布' : 'Vector Map',
+              icon: Icons.scatter_plot_rounded,
+              onPressed: controller.loading || controller.busy
+                  ? null
+                  : () => showKnowledgeVectorDistributionDialog(context),
+            ),
+            _KnowledgeToolbarIconButton(
+              tooltip: isZh ? '重建索引' : 'Reindex',
+              icon: Icons.manage_search_rounded,
+              onPressed: () => KnowledgeBaseView._showReindexNotice(context),
+            ),
+            _KnowledgeToolbarIconButton(
+              tooltip: isZh ? 'Qdrant 运维' : 'Qdrant Ops',
+              icon: Icons.monitor_heart_outlined,
+              onPressed: () => showQdrantStatusDialog(context),
+            ),
+            _KnowledgeToolbarIconButton(
+              tooltip: isZh ? 'Qdrant 管理' : 'Qdrant Admin',
+              icon: Icons.storage_outlined,
+              onPressed: () => showQdrantAdminDialog(context),
+            ),
+          ],
+        ],
+      );
+    }
+
+    return _KnowledgeToolbarRows(
+      rows: [
+        [
+          refreshButton,
+          OutlinedButton.icon(
+            onPressed: () => showQdrantStatusDialog(context),
+            icon: const Icon(Icons.monitor_heart_outlined),
+            label: Text(isZh ? 'Qdrant 运维' : 'Qdrant Ops'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => showQdrantAdminDialog(context),
+            icon: const Icon(Icons.storage_outlined),
+            label: Text(isZh ? 'Qdrant 管理' : 'Qdrant Admin'),
+          ),
+          OutlinedButton.icon(
+            onPressed: controller.loading || controller.busy
+                ? null
+                : () => showKnowledgeVectorDistributionDialog(context),
+            icon: const Icon(Icons.scatter_plot_rounded),
+            label: Text(isZh ? '向量分布' : 'Vector Map'),
+          ),
+        ],
+        [
+          OutlinedButton.icon(
+            onPressed: () => KnowledgeBaseView._showReindexNotice(context),
+            icon: const Icon(Icons.manage_search_rounded),
+            label: Text(isZh ? '重建索引' : 'Reindex'),
+          ),
+          FilledButton.tonalIcon(
+            onPressed: controller.busy
+                ? null
+                : () => showKnowledgeImportDialog(context),
+            icon: const Icon(Icons.note_add_outlined),
+            label: Text(isZh ? '新建笔记' : 'New Note'),
+          ),
+          importButton,
+          configButton,
+        ],
+      ],
+    );
+  }
+}
+
+class _KnowledgeToolbarRows extends StatelessWidget {
+  const _KnowledgeToolbarRows({required this.rows});
+
+  final List<List<Widget>> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var index = 0; index < rows.length; index++) ...[
+          _KnowledgeToolbarRow(children: rows[index]),
+          if (index != rows.length - 1)
+            const SizedBox(height: _KnowledgeToolbarActions._spacing),
+        ],
+      ],
+    );
+  }
+}
+
+class _KnowledgeToolbarRow extends StatelessWidget {
+  const _KnowledgeToolbarRow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      reverse: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            if (index > 0)
+              const SizedBox(width: _KnowledgeToolbarActions._spacing),
+            children[index],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _KnowledgeToolbarIconButton extends StatelessWidget {
+  const _KnowledgeToolbarIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = SizedBox.fromSize(
+      size: _KnowledgeToolbarActions._iconButtonSize,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        style: filled
+            ? IconButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.secondaryContainer.withValues(alpha: 0.88),
+                foregroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSecondaryContainer,
+              )
+            : IconButton.styleFrom(
+                side: BorderSide(color: Theme.of(context).colorScheme.outline),
+              ),
+      ),
+    );
+    return Tooltip(message: tooltip, child: child);
   }
 }
 

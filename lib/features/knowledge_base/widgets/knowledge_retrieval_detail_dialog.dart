@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
@@ -113,17 +114,8 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                       ),
               ),
               if (distribution != null)
-                KnowledgeDialogSection(
-                  title: isZh ? '向量空间' : 'Vector Space',
-                  subtitle: isZh
-                      ? '红色为查询向量，橙色为当前命中结果。'
-                      : 'Red is the query vector; orange points are matched chunks.',
-                  icon: Icons.scatter_plot_rounded,
-                  child: KnowledgeVectorDistributionView(
-                    distribution: distribution,
-                    height: 380,
-                    compact: true,
-                  ),
+                _KnowledgeRetrievalVectorSpaceSection(
+                  distribution: distribution,
                 ),
               KnowledgeDialogSection(
                 title: isZh
@@ -237,6 +229,7 @@ class _HitTile extends StatelessWidget {
         '${hit['title'] ?? hit['source_title'] ?? hit['chunk_id'] ?? ''}';
     final path = '${hit['path'] ?? ''}'.trim();
     final preview = '${hit['preview'] ?? ''}'.trim();
+    final documentTimeLabel = _formatKnowledgeDateTime(hit['document_time']);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -300,10 +293,10 @@ class _HitTile extends StatelessWidget {
                             ? '${hit['token_estimate']} token'
                             : '${hit['token_estimate']} tokens',
                       ),
-                    if ('${hit['document_time'] ?? ''}'.trim().isNotEmpty)
+                    if (documentTimeLabel.isNotEmpty)
                       KnowledgeDialogChip(
                         icon: Icons.event_rounded,
-                        label: '${hit['document_time']}',
+                        label: documentTimeLabel,
                       ),
                   ],
                 ),
@@ -398,6 +391,186 @@ class _KnowledgeRetrievalHitDetailDialogState
   }
 }
 
+class _KnowledgeRetrievalVectorSpaceSection extends StatefulWidget {
+  const _KnowledgeRetrievalVectorSpaceSection({required this.distribution});
+
+  final KnowledgeVectorDistribution distribution;
+
+  @override
+  State<_KnowledgeRetrievalVectorSpaceSection> createState() =>
+      _KnowledgeRetrievalVectorSpaceSectionState();
+}
+
+class _KnowledgeRetrievalVectorSpaceSectionState
+    extends State<_KnowledgeRetrievalVectorSpaceSection> {
+  bool _showCorpus = false;
+  bool _loadingCorpus = false;
+  KnowledgeVectorDistribution? _corpusDistribution;
+  Object? _corpusError;
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
+    final visibleDistribution = _showCorpus && _corpusDistribution != null
+        ? _mergeCorpusDistribution(
+            corpus: _corpusDistribution!,
+            retrieval: widget.distribution,
+          )
+        : widget.distribution;
+    final corpusCount = _corpusDistribution?.points.length ?? 0;
+    return KnowledgeDialogSection(
+      title: isZh ? '向量空间' : 'Vector Space',
+      subtitle: _showCorpus
+          ? (isZh
+                ? '天蓝色为全量采样，橙色为当前命中结果，红色为查询向量。'
+                : 'Sky blue points are corpus samples; orange points are matched chunks; red is the query vector.')
+          : (isZh
+                ? '红色为查询向量，橙色为当前命中结果。'
+                : 'Red is the query vector; orange points are matched chunks.'),
+      icon: Icons.scatter_plot_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonalIcon(
+              onPressed: _toggleCorpusOverlay,
+              icon: Icon(
+                _showCorpus
+                    ? Icons.visibility_off_outlined
+                    : Icons.blur_on_rounded,
+              ),
+              label: Text(
+                _showCorpus
+                    ? (isZh ? '隐藏全量' : 'Hide Corpus')
+                    : (isZh ? '叠加全量' : 'Overlay Corpus'),
+              ),
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: _buildCorpusStatus(context, isZh, corpusCount),
+          ),
+          const SizedBox(height: 10),
+          KnowledgeVectorDistributionView(
+            distribution: visibleDistribution,
+            height: 380,
+            compact: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCorpusStatus(BuildContext context, bool isZh, int corpusCount) {
+    if (_loadingCorpus && _showCorpus) {
+      return Padding(
+        key: const ValueKey('corpus-loading'),
+        padding: const EdgeInsets.only(top: 10),
+        child: KnowledgeDialogNotice(
+          icon: Icons.hourglass_top_rounded,
+          message: isZh
+              ? '正在按需采样并叠加全量向量。'
+              : 'Sampling and overlaying corpus vectors on demand.',
+        ),
+      );
+    }
+    if (_showCorpus && _corpusError != null) {
+      return Padding(
+        key: const ValueKey('corpus-error'),
+        padding: const EdgeInsets.only(top: 10),
+        child: KnowledgeDialogNotice(
+          icon: Icons.error_outline_rounded,
+          message:
+              '${isZh ? '全量向量加载失败：' : 'Failed to load corpus vectors: '}${_corpusError!}',
+          tone: KnowledgeDialogNoticeTone.error,
+        ),
+      );
+    }
+    if (_showCorpus && _corpusDistribution != null) {
+      final sampled = _corpusDistribution!.hasMore;
+      return Padding(
+        key: const ValueKey('corpus-ready'),
+        padding: const EdgeInsets.only(top: 10),
+        child: KnowledgeDialogNotice(
+          icon: sampled
+              ? Icons.filter_center_focus_rounded
+              : Icons.done_rounded,
+          message: sampled
+              ? (isZh
+                    ? '已叠加 $corpusCount 个全量采样点；数据量较大时会采样展示以保持流畅。'
+                    : 'Overlaying $corpusCount sampled corpus points; large collections are sampled to keep the view responsive.')
+              : (isZh
+                    ? '已叠加 $corpusCount 个全量向量点。'
+                    : 'Overlaying $corpusCount corpus points.'),
+        ),
+      );
+    }
+    return const SizedBox.shrink(key: ValueKey('corpus-empty-status'));
+  }
+
+  void _toggleCorpusOverlay() {
+    if (_showCorpus) {
+      setState(() => _showCorpus = false);
+      return;
+    }
+    setState(() {
+      _showCorpus = true;
+      _corpusError = null;
+    });
+    _loadCorpusDistribution();
+  }
+
+  Future<void> _loadCorpusDistribution() async {
+    if (_corpusDistribution != null || _loadingCorpus) return;
+    setState(() => _loadingCorpus = true);
+    try {
+      final distribution = await context
+          .read<KnowledgeBaseController>()
+          .loadVectorDistribution();
+      if (!mounted) return;
+      setState(() {
+        _corpusDistribution = distribution;
+        _loadingCorpus = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _corpusError = error;
+        _loadingCorpus = false;
+      });
+    }
+  }
+
+  KnowledgeVectorDistribution _mergeCorpusDistribution({
+    required KnowledgeVectorDistribution corpus,
+    required KnowledgeVectorDistribution retrieval,
+  }) {
+    final highlightedIds = retrieval.points
+        .where((point) => point.kind != KnowledgeVectorPointKind.corpus)
+        .map((point) => point.id)
+        .where((id) => id.trim().isNotEmpty)
+        .toSet();
+    final points = <KnowledgeVectorDistributionPoint>[
+      for (final point in corpus.points)
+        if (!highlightedIds.contains(point.id)) point,
+      ...retrieval.points,
+    ];
+    return retrieval.copyWith(
+      points: points,
+      originalDimensions: retrieval.originalDimensions > 0
+          ? retrieval.originalDimensions
+          : corpus.originalDimensions,
+      sampledCount: points.length,
+      hasMore: corpus.hasMore,
+      durationMs: corpus.durationMs,
+      generatedAt: corpus.generatedAt ?? retrieval.generatedAt,
+    );
+  }
+}
+
 class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
   const _KnowledgeRetrievalHitFallbackDialog({required this.hit});
 
@@ -458,9 +631,13 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                     if (_hasValue(hit['time_field']))
                       isZh ? '时间字段' : 'Time field': hit['time_field'],
                     if (_hasValue(hit['document_time']))
-                      isZh ? '文档时间' : 'Document time': hit['document_time'],
+                      isZh ? '文档时间' : 'Document time': _formatKnowledgeDateTime(
+                        hit['document_time'],
+                      ),
                     if (_hasValue(hit['updated_at']))
-                      isZh ? '更新时间' : 'Updated at': hit['updated_at'],
+                      isZh ? '更新时间' : 'Updated at': _formatKnowledgeDateTime(
+                        hit['updated_at'],
+                      ),
                   },
                 ),
               ),
@@ -546,7 +723,29 @@ class _ResolvedKnowledgeHit {
 
 String _text(Object? value) => value == null ? '' : '$value'.trim();
 
-bool _hasValue(Object? value) => _text(value).isNotEmpty;
+bool _hasValue(Object? value) {
+  final text = _text(value);
+  return text.isNotEmpty && text != 'null';
+}
+
+String _formatKnowledgeDateTime(Object? value) {
+  final parsed = _dateTimeFromValue(value);
+  if (parsed == null) return _hasValue(value) ? _text(value) : '';
+  return formatYearMonthDayHms(parsed.toLocal());
+}
+
+DateTime? _dateTimeFromValue(Object? value) {
+  if (value is DateTime) return value;
+  if (value is num && value.isFinite) {
+    final raw = value.toInt();
+    if (raw <= 0) return null;
+    final milliseconds = raw > 1000000000000 ? raw : raw * 1000;
+    return DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true);
+  }
+  final text = _text(value);
+  if (text.isEmpty || text == 'null') return null;
+  return DateTime.tryParse(text);
+}
 
 List<String> _stringList(Object? value) {
   if (value is! Iterable) return const <String>[];

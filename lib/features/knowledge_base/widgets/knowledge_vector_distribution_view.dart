@@ -81,6 +81,7 @@ class _KnowledgeVectorDistributionViewState
       );
     }
 
+    final visibleKinds = points.map((point) => point.kind).toSet();
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = math.max(
@@ -163,10 +164,10 @@ class _KnowledgeVectorDistributionViewState
                 top: 12,
                 child: _VectorSceneStats(distribution: widget.distribution),
               ),
-              const PositionedDirectional(
+              PositionedDirectional(
                 start: 14,
                 bottom: 12,
-                child: _VectorLegend(),
+                child: _VectorLegend(visibleKinds: visibleKinds),
               ),
               if (selectedProjection != null)
                 _VectorPointPopover(
@@ -249,22 +250,30 @@ class _VectorSceneStats extends StatelessWidget {
 }
 
 class _VectorLegend extends StatelessWidget {
-  const _VectorLegend();
+  const _VectorLegend({required this.visibleKinds});
+
+  final Set<String> visibleKinds;
 
   @override
   Widget build(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
-    final items = <({Color color, String label})>[
+    final items = <({String kind, Color color, String label})>[
       (
+        kind: KnowledgeVectorPointKind.corpus,
         color: _KnowledgeVectorSceneColors.corpus,
         label: isZh ? '全量' : 'Corpus',
       ),
       (
+        kind: KnowledgeVectorPointKind.match,
         color: _KnowledgeVectorSceneColors.match,
         label: isZh ? '匹配' : 'Matches',
       ),
-      (color: _KnowledgeVectorSceneColors.query, label: isZh ? '查询' : 'Query'),
-    ];
+      (
+        kind: KnowledgeVectorPointKind.query,
+        color: _KnowledgeVectorSceneColors.query,
+        label: isZh ? '查询' : 'Query',
+      ),
+    ].where((item) => visibleKinds.contains(item.kind)).toList(growable: false);
     return Wrap(
       spacing: 7,
       runSpacing: 7,
