@@ -5,6 +5,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/database_service.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../knowledge_base/index.dart';
 import '../../model/ai_model_config.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -690,23 +691,9 @@ int _intValue(Object? value) {
 }
 
 List<String> _stringList(Object? value) {
-  if (value is List) {
-    return value
-        .map((item) => '$item'.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet()
-        .take(32)
-        .toList(growable: false);
-  }
-  final raw = '$value'.trim();
-  if (raw.isEmpty || raw == 'null') return const <String>[];
-  return raw
-      .split(',')
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toSet()
-      .take(32)
-      .toList(growable: false);
+  return stringListFromValueOrJsonText(
+    value,
+  ).where((item) => item.isNotEmpty).toSet().take(32).toList(growable: false);
 }
 
 class _KnowledgeRankedRow {

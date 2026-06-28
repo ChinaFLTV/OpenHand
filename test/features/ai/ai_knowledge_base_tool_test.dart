@@ -83,6 +83,24 @@ void main() {
     },
   );
 
+  test('search accepts source_ids encoded as JSON text', () async {
+    final result = await AiKnowledgeSearchTool().execute(
+      _context(
+        toolName: 'KnowledgeSearch',
+        args: <String, Object?>{'query': '纪录片', 'source_ids': '["source-1"]'},
+      ),
+    );
+
+    expect(result.status, BashToolExecutionStatus.success);
+    final decoded = jsonDecode(result.resultText) as Map<String, Object?>;
+    final rows = decoded['results'] as List;
+    expect(rows, isNotEmpty);
+    expect(
+      rows.whereType<Map>().map((row) => row['source_id']).toSet(),
+      <String>{'source-1'},
+    );
+  });
+
   test(
     'chunk reads return exact chunk content without exposing source paths',
     () async {
