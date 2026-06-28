@@ -560,16 +560,16 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         final total = entries.length;
         final parsed = math.min(total, kWebReverseHarDiffEntryLimit);
         for (final e in entries.take(parsed).whereType<Map>()) {
-          final req = e['request'] as Map?;
-          final res = e['response'] as Map?;
-          final method = '${req?['method'] ?? ''}';
-          final url = '${req?['url'] ?? ''}';
-          final status = (res?['status'] as num?)?.toInt() ?? 0;
-          final content = res?['content'] as Map?;
-          final size = (content?['size'] as num?)?.toInt() ?? 0;
-          final mime = '${content?['mimeType'] ?? ''}';
-          final text = content?['text'] is String
-              ? content!['text'] as String
+          final req = stringKeyedMapFromValue(e['request']);
+          final res = stringKeyedMapFromValue(e['response']);
+          final method = '${req['method'] ?? ''}';
+          final url = '${req['url'] ?? ''}';
+          final status = intFromValue(res['status'], fallback: 0);
+          final content = stringKeyedMapFromValue(res['content']);
+          final size = nonNegativeIntFromValue(content['size'], fallback: 0);
+          final mime = '${content['mimeType'] ?? ''}';
+          final text = content['text'] is String
+              ? content['text'] as String
               : '';
           final digest = crypto.sha256.convert(utf8.encode(text)).toString();
           final key = '$method $url';

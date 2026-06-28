@@ -91,9 +91,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     // 暂停状态变更时刷新调试器侧栏 + 把当前栈帧位置滚到视野中央。
     final paused = widget.controller.pausedState;
     if (paused != null && paused.callFrames.isNotEmpty) {
-      final loc = paused.callFrames.first['location'] as Map?;
+      final loc = stringKeyedMapFromValue(paused.callFrames.first['location']);
       final url = '${paused.callFrames.first['url'] ?? ''}';
-      final line = (loc?['lineNumber'] as num?)?.toInt() ?? -1;
+      final line = intFromValue(loc['lineNumber'], fallback: -1);
       if (line >= 0 && url.isNotEmpty) {
         // 异步避免在 listener 回调里直接 setState 触发框架告警。
         WidgetsBinding.instance.addPostFrameCallback((_) {

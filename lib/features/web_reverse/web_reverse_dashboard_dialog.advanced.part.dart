@@ -1504,13 +1504,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       for (final e in entries) {
         final kind = '${e['kind'] ?? ''}';
         if (kind == 'stats') {
-          final id = (e['id'] as num?)?.toInt() ?? 0;
+          final id = nonNegativeIntFromValue(e['id'], fallback: 0);
           final s = _series.putIfAbsent(id, () => _RtcSeries());
           s.push(
-            bytesSent: (e['bytesSent'] as num?)?.toDouble() ?? 0,
-            bytesReceived: (e['bytesReceived'] as num?)?.toDouble() ?? 0,
-            packetsLost: (e['packetsLost'] as num?)?.toDouble() ?? 0,
-            rttMs: ((e['rtt'] as num?)?.toDouble() ?? 0) * 1000.0,
+            bytesSent: optionalNonNegativeDoubleFromValue(e['bytesSent']) ?? 0,
+            bytesReceived:
+                optionalNonNegativeDoubleFromValue(e['bytesReceived']) ?? 0,
+            packetsLost:
+                optionalNonNegativeDoubleFromValue(e['packetsLost']) ?? 0,
+            rttMs: (optionalNonNegativeDoubleFromValue(e['rtt']) ?? 0) * 1000.0,
           );
           if (_selected == 0 && _series.isNotEmpty) {
             _selected = _series.keys.first;
@@ -1520,7 +1522,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
           // datachannel / icecandidate / connectionstatechange / SDP
           // result）分类塞进 _iceLog 与 _sdps；原始 JSON 仍保留事件
           // 流 tab 用。
-          final id = (e['id'] as num?)?.toInt() ?? 0;
+          final id = nonNegativeIntFromValue(e['id'], fallback: 0);
           if (id > 0) {
             if (kind == 'icecandidate' ||
                 kind == 'pc.create' ||

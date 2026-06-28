@@ -27,6 +27,7 @@ import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/resizable_splitter.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/rolling_hash.dart';
 import '../../shared/util/timer_safety.dart';
@@ -65,6 +66,7 @@ import 'web_reverse_mock_rules_dialog.dart';
 import 'web_reverse_perf_trace_dialog.dart';
 import 'web_reverse_postmessage_dialog.dart';
 import 'web_reverse_profile_actions.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_rendering_dialog.dart';
 import 'web_reverse_repl_dialog.dart';
 import 'web_reverse_replay_dialog.dart';
@@ -548,9 +550,8 @@ class _WebReverseDashboardDialogState
       for (final entry in urlsRaw.entries) '${entry.key}': '${entry.value}',
     };
     final wantUrls = order
-        .map((id) => urls[id])
-        .where((u) => u != null && u.isNotEmpty && !u.startsWith('about:'))
-        .cast<String>()
+        .map((id) => (urls[id] ?? '').trim())
+        .where((url) => url.isNotEmpty && !url.startsWith('about:'))
         .toList(growable: false);
     if (wantUrls.isEmpty) return;
     final ctrl = widget.controller;
@@ -697,9 +698,7 @@ class _WebReverseDashboardDialogState
     final cmd = session.metadata[_kLspCommandMetaKey];
     final args = session.metadata[_kLspArgsMetaKey];
     if (cmd is! String || cmd.trim().isEmpty) return null;
-    final argList = args is List
-        ? args.whereType<String>().toList(growable: false)
-        : const <String>[];
+    final argList = stringListFromValue(args);
     return (command: cmd.trim(), args: argList);
   }
 
@@ -751,10 +750,11 @@ class _WebReverseDashboardDialogState
     final session = _dashboardSession();
     if (session == null) return null;
     ({String json, int bytes, DateTime ts})? parse(Object? raw) {
-      if (raw is! Map) return null;
-      final json = raw['json'];
-      final bytes = (raw['bytes'] as num?)?.toInt() ?? 0;
-      final tsMs = (raw['ts_ms'] as num?)?.toInt();
+      final map = stringKeyedMapFromValue(raw);
+      if (map.isEmpty) return null;
+      final json = map['json'];
+      final bytes = nonNegativeIntFromValue(map['bytes'], fallback: 0);
+      final tsMs = optionalIntFromValue(map['ts_ms']);
       if (json is! String || json.isEmpty || tsMs == null) return null;
       return (
         json: json,
@@ -814,7 +814,7 @@ class _WebReverseDashboardDialogState
       for (final item in rawBps) {
         if (item is! Map) continue;
         final url = '${item['url'] ?? ''}';
-        final line = (item['line'] as num?)?.toInt() ?? -1;
+        final line = intFromValue(item['line'], fallback: -1);
         final condition = (item['condition'] as String?)?.trim() ?? '';
         if (url.isEmpty || line < 0) continue;
         try {

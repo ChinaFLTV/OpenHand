@@ -945,8 +945,8 @@ class _StackFrame extends StatelessWidget {
     final cs = theme.colorScheme;
     final fn = '${frame['functionName'] ?? '(anonymous)'}';
     final url = '${frame['url'] ?? ''}';
-    final line = (frame['lineNumber'] as num?)?.toInt();
-    final col = (frame['columnNumber'] as num?)?.toInt();
+    final line = optionalIntFromValue(frame['lineNumber']);
+    final col = optionalIntFromValue(frame['columnNumber']);
     final hasJump = url.isNotEmpty;
     final lineDisp = line == null ? '' : ':${line + 1}';
     final colDisp = (col == null || col == 0) ? '' : ':${col + 1}';

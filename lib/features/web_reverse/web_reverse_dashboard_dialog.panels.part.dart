@@ -902,7 +902,9 @@ class _LongTasksPane extends StatelessWidget {
                     itemCount: tasks.length,
                     itemBuilder: (_, idx) {
                       final t = tasks[tasks.length - 1 - idx];
-                      final dur = (t['duration'] as num?)?.toDouble() ?? 0;
+                      final dur =
+                          optionalNonNegativeDoubleFromValue(t['duration']) ??
+                          0;
                       final color = dur >= 200
                           ? cs.error
                           : (dur >= 100 ? Colors.orange : cs.primary);
@@ -4570,13 +4572,16 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
     var maxT = -1;
     final all = <_FlameEvent>[];
     try {
-      final decoded = jsonDecode(widget.traceJson) as Map<String, Object?>;
+      final decoded = decodeStringKeyedJsonMap(widget.traceJson);
+      if (decoded == null) {
+        throw const FormatException('Trace JSON must be an object.');
+      }
       final raw = decoded['traceEvents'];
       final list = raw is List ? raw : const <Object?>[];
       for (final item in list.whereType<Map>()) {
         if (item['ph'] != 'X') continue;
-        final ts = (item['ts'] as num?)?.toInt();
-        final dur = (item['dur'] as num?)?.toInt();
+        final ts = optionalIntFromValue(item['ts']);
+        final dur = optionalIntFromValue(item['dur']);
         if (ts == null || dur == null || dur <= 0) continue;
         all.add(
           _FlameEvent(
@@ -4586,9 +4591,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
             dur: dur,
             cat: '${item['cat'] ?? ''}',
             pid: '${item['pid'] ?? ''}',
-            args: item['args'] is Map
-                ? Map<String, Object?>.from(item['args'] as Map)
-                : const <String, Object?>{},
+            args: stringKeyedMapFromValue(item['args']),
           ),
         );
         if (ts < minT) minT = ts;
@@ -5054,6 +5057,21 @@ class _HeapAggResult {
   final int totalSelf;
 }
 
+List<String> _heapStringList(Object? value, List<String> fallback) {
+  final parsed = stringListFromValue(value);
+  return parsed.isEmpty ? fallback : parsed;
+}
+
+List<String> _heapFirstStringList(Object? value, List<String> fallback) {
+  if (value is! List || value.isEmpty) return fallback;
+  return _heapStringList(value.first, fallback);
+}
+
+int _heapIntAt(List<Object?> values, int index, {int fallback = 0}) {
+  if (index < 0 || index >= values.length) return fallback;
+  return intFromValue(values[index], fallback: fallback);
+}
+
 /// 解析 .heapsnapshot 头：
 /// snapshot.meta.node_fields 给出每节点字段顺序，含 type/name/self_size 等；
 /// snapshot.meta.node_types[0] 为 type 名称表（如 hidden/object/string）；
@@ -5061,31 +5079,38 @@ class _HeapAggResult {
 /// strings 是字符串表，name 字段是其下标。
 /// 我们按 type==object 时 ctor=strings\[name]，其他类型用 `<type>` 字面聚合。
 _HeapAggResult _aggregateHeap(String src) {
-  final m = jsonDecode(src) as Map<String, Object?>;
-  final snapshot = m['snapshot'] as Map<String, Object?>? ?? const {};
-  final meta = snapshot['meta'] as Map<String, Object?>? ?? const {};
-  final fields =
-      (meta['node_fields'] as List?)?.cast<String>() ??
-      const ['type', 'name', 'id', 'self_size', 'edge_count'];
+  final m = decodeStringKeyedJsonMap(src);
+  if (m == null) {
+    throw const FormatException('Heap snapshot JSON must be an object.');
+  }
+  final snapshot = stringKeyedMapFromValue(m['snapshot']);
+  final meta = stringKeyedMapFromValue(snapshot['meta']);
+  final fields = _heapStringList(meta['node_fields'], const [
+    'type',
+    'name',
+    'id',
+    'self_size',
+    'edge_count',
+  ]);
   final fLen = fields.length;
   final iType = fields.indexOf('type');
   final iName = fields.indexOf('name');
   final iSelf = fields.indexOf('self_size');
-  final typesRaw = meta['node_types'] as List?;
-  final typeNames = (typesRaw != null && typesRaw.isNotEmpty)
-      ? (typesRaw.first as List).cast<String>()
-      : const <String>['object'];
-  final nodesAny = m['nodes'];
-  final stringsAny = m['strings'];
-  final strings = (stringsAny as List?)?.cast<String>() ?? const <String>[];
-  final nodes = (nodesAny as List?) ?? const [];
+  final typeNames = _heapFirstStringList(meta['node_types'], const ['object']);
+  final strings = stringListFromValue(m['strings']);
+  final nodes = m['nodes'] is List
+      ? List<Object?>.of(m['nodes'] as List, growable: false)
+      : const <Object?>[];
   final byCtor = <String, ({int bytes, int count})>{};
   var totalSelf = 0;
-  // nodes 内可能是 int 也可能是 num；用 toInt() 兜底。
+  if (fLen <= 0 || iType < 0) {
+    return _HeapAggResult(byCtor: byCtor, nodeCount: 0, totalSelf: totalSelf);
+  }
+  // nodes 内可能是 int / num / string，统一用共享解析兜底。
   for (var i = 0; i + fLen <= nodes.length; i += fLen) {
-    final type = (nodes[i + iType] as num).toInt();
-    final nameIdx = iName >= 0 ? (nodes[i + iName] as num).toInt() : 0;
-    final self = iSelf >= 0 ? (nodes[i + iSelf] as num).toInt() : 0;
+    final type = _heapIntAt(nodes, i + iType);
+    final nameIdx = iName >= 0 ? _heapIntAt(nodes, i + iName) : 0;
+    final self = iSelf >= 0 ? _heapIntAt(nodes, i + iSelf) : 0;
     final typeName = (type >= 0 && type < typeNames.length)
         ? typeNames[type]
         : '?';
@@ -5112,8 +5137,7 @@ _HeapAggResult _aggregateHeap(String src) {
   return _HeapAggResult(
     byCtor: byCtor,
     nodeCount:
-        (snapshot['node_count'] as num?)?.toInt() ??
-        (nodes.length ~/ (fLen == 0 ? 1 : fLen)),
+        optionalIntFromValue(snapshot['node_count']) ?? (nodes.length ~/ fLen),
     totalSelf: totalSelf,
   );
 }
@@ -5441,15 +5465,24 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
   final src = input['json'] ?? '';
   final wantLabel = input['label'] ?? '';
   try {
-    final m = jsonDecode(src) as Map<String, Object?>;
-    final snapshot = m['snapshot'] as Map<String, Object?>? ?? const {};
-    final meta = snapshot['meta'] as Map<String, Object?>? ?? const {};
-    final nodeFields =
-        (meta['node_fields'] as List?)?.cast<String>() ??
-        const ['type', 'name', 'id', 'self_size', 'edge_count'];
-    final edgeFields =
-        (meta['edge_fields'] as List?)?.cast<String>() ??
-        const ['type', 'name_or_index', 'to_node'];
+    final m = decodeStringKeyedJsonMap(src);
+    if (m == null) {
+      throw const FormatException('Heap snapshot JSON must be an object.');
+    }
+    final snapshot = stringKeyedMapFromValue(m['snapshot']);
+    final meta = stringKeyedMapFromValue(snapshot['meta']);
+    final nodeFields = _heapStringList(meta['node_fields'], const [
+      'type',
+      'name',
+      'id',
+      'self_size',
+      'edge_count',
+    ]);
+    final edgeFields = _heapStringList(meta['edge_fields'], const [
+      'type',
+      'name_or_index',
+      'to_node',
+    ]);
     final nLen = nodeFields.length;
     final eLen = edgeFields.length;
     final iType = nodeFields.indexOf('type');
@@ -5457,18 +5490,24 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     final iEdgeCount = nodeFields.indexOf('edge_count');
     final iEdgeTo = edgeFields.indexOf('to_node');
     final iEdgeName = edgeFields.indexOf('name_or_index');
-    final typesRaw = meta['node_types'] as List?;
-    final typeNames = (typesRaw != null && typesRaw.isNotEmpty)
-        ? (typesRaw.first as List).cast<String>()
-        : const <String>['object'];
-    final nodes = (m['nodes'] as List?) ?? const [];
-    final edges = (m['edges'] as List?) ?? const [];
-    final strings = (m['strings'] as List?)?.cast<String>() ?? const <String>[];
+    if (nLen <= 0 || eLen <= 0 || iType < 0 || iEdgeTo < 0) {
+      throw const FormatException('Invalid heap snapshot field metadata.');
+    }
+    final typeNames = _heapFirstStringList(meta['node_types'], const [
+      'object',
+    ]);
+    final nodes = m['nodes'] is List
+        ? List<Object?>.of(m['nodes'] as List, growable: false)
+        : const <Object?>[];
+    final edges = m['edges'] is List
+        ? List<Object?>.of(m['edges'] as List, growable: false)
+        : const <Object?>[];
+    final strings = stringListFromValue(m['strings']);
 
     String labelOfNode(int nodeIdx) {
       final base = nodeIdx;
-      final type = (nodes[base + iType] as num).toInt();
-      final nameIdx = iName >= 0 ? (nodes[base + iName] as num).toInt() : 0;
+      final type = _heapIntAt(nodes, base + iType);
+      final nameIdx = iName >= 0 ? _heapIntAt(nodes, base + iName) : 0;
       final typeName = (type >= 0 && type < typeNames.length)
           ? typeNames[type]
           : '?';
@@ -5488,9 +5527,7 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     // 第一遍：累计每个 node 的 edges 起始位置（在 edges 数组里的偏移）。
     final edgeOffsets = List<int>.filled(nodeCount + 1, 0);
     for (var i = 0; i < nodeCount; i++) {
-      final ec = iEdgeCount >= 0
-          ? (nodes[i * nLen + iEdgeCount] as num).toInt()
-          : 0;
+      final ec = iEdgeCount >= 0 ? _heapIntAt(nodes, i * nLen + iEdgeCount) : 0;
       edgeOffsets[i + 1] = edgeOffsets[i] + ec * eLen;
     }
 
@@ -5513,7 +5550,7 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     if (iSelf >= 0) {
       var bestSelf = -1;
       for (final c in candidates) {
-        final s = (nodes[c * nLen + iSelf] as num).toInt();
+        final s = _heapIntAt(nodes, c * nLen + iSelf);
         if (s > bestSelf) {
           bestSelf = s;
           leader = c;
@@ -5533,12 +5570,10 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
       final start = edgeOffsets[src];
       final end = edgeOffsets[src + 1];
       for (var e = start; e + eLen <= end; e += eLen) {
-        final to = (edges[e + iEdgeTo] as num).toInt();
+        final to = _heapIntAt(edges, e + iEdgeTo);
         final tIdx = to ~/ nLen;
         if (tIdx < 0 || tIdx >= nodeCount) continue;
-        final nameIdx = iEdgeName >= 0
-            ? (edges[e + iEdgeName] as num).toInt()
-            : 0;
+        final nameIdx = iEdgeName >= 0 ? _heapIntAt(edges, e + iEdgeName) : 0;
         // edge 的 name_or_index 对 element 边是数字索引、对 property/internal
         // 边是 strings[name] 的下标。这里只展示前者数字、后者字符串。
         final n = (nameIdx >= 0 && nameIdx < strings.length)
@@ -5767,23 +5802,20 @@ class _TraceLaneParseResult {
 /// 仅识别 `ph == 'X'`（complete）类型，时长 < 0.05ms 的噪声事件丢弃。
 /// 最多保留 8000 条，避免 isolate-free 主线程渲染卡顿。
 _TraceLaneParseResult _parseTraceLanes(String json) {
-  final decoded = jsonDecode(json);
-  final List<dynamic> events;
-  if (decoded is Map && decoded['traceEvents'] is List) {
-    events = (decoded['traceEvents'] as List).cast<dynamic>();
-  } else if (decoded is List) {
-    events = decoded;
-  } else {
-    return _TraceLaneParseResult(const [], 0, 0);
-  }
+  final decodedMap = decodeStringKeyedJsonMap(json);
+  final rawEvents = decodedMap == null
+      ? decodeJsonList(json)
+      : decodedMap['traceEvents'];
+  final events = rawEvents is List ? rawEvents : const <Object?>[];
+  if (events.isEmpty) return _TraceLaneParseResult(const [], 0, 0);
   final out = <_TraceLaneEvent>[];
   double minTs = double.infinity;
   double maxTs = -double.infinity;
   for (final raw in events) {
     if (raw is! Map) continue;
     if (raw['ph'] != 'X') continue;
-    final ts = (raw['ts'] as num?)?.toDouble();
-    final dur = (raw['dur'] as num?)?.toDouble();
+    final ts = optionalNonNegativeDoubleFromValue(raw['ts']);
+    final dur = optionalNonNegativeDoubleFromValue(raw['dur']);
     if (ts == null || dur == null) continue;
     if (dur < 50) continue; // <0.05ms 噪声
     final name = (raw['name'] as String?) ?? '';
