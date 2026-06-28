@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/xml_escape.dart';
 import '../../model/ai_creation_mode.dart';
@@ -1763,16 +1764,13 @@ class AiTtsPlaybackService {
   }) {
     final value = settings.extra[key];
     if (value is int) return value;
-    if (value is num) return value.round();
+    if (value is num) return value.isFinite ? value.round() : fallback;
     if (value is String) return int.tryParse(value.trim()) ?? fallback;
     return fallback;
   }
 
   static bool _extraBool(AiTtsProviderSettings settings, String key) {
-    final value = settings.extra[key];
-    if (value is bool) return value;
-    if (value is String) return value.trim().toLowerCase() == 'true';
-    return false;
+    return optionalBoolFromValue(settings.extra[key]) ?? false;
   }
 
   static String _windowsSpeechScript(
