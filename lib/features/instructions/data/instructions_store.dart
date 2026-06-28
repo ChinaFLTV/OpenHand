@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/user_instruction_entry.dart';
 
 class InstructionsStore {
@@ -99,37 +100,67 @@ class InstructionsStore {
   }
 
   UserInstructionEntry _rowToEntry(Map<String, Object?> row) {
-    final notes = _decodeStringList(row['notes_json']);
-    final taskTypes = _decodeStringList(row['task_types_json']);
-    final keywords = _decodeStringList(row['keywords_json']);
+    final notes = _decodeStringList(
+      row['notes_json'],
+      maxItems: UserInstructionEntry.maxNotes,
+      maxItemLength: UserInstructionEntry.maxNoteLength,
+    );
+    final taskTypes = _decodeStringList(
+      row['task_types_json'],
+      maxItems: UserInstructionEntry.maxTaskTypes,
+      maxItemLength: 64,
+      dedupeCaseInsensitive: true,
+    );
+    final keywords = _decodeStringList(
+      row['keywords_json'],
+      maxItems: UserInstructionEntry.maxKeywords,
+      maxItemLength: 64,
+      dedupeCaseInsensitive: true,
+    );
     final createdAt =
         DateTime.tryParse('${row['created_at'] ?? ''}') ?? DateTime.now();
     final updatedAt =
         DateTime.tryParse('${row['updated_at'] ?? ''}') ?? createdAt;
     return UserInstructionEntry(
       id: '${row['id'] ?? ''}',
-      name: '${row['name'] ?? ''}',
-      body: '${row['body'] ?? ''}',
-      description: '${row['description'] ?? ''}',
-      version: '${row['version'] ?? '1.0'}',
-      applyTo: '${row['apply_to'] ?? ''}',
+      name: UserInstructionEntry.normalizeName('${row['name'] ?? ''}'),
+      body: UserInstructionEntry.normalizeBody('${row['body'] ?? ''}'),
+      description: UserInstructionEntry.normalizeOneLine(
+        '${row['description'] ?? ''}',
+        UserInstructionEntry.maxDescriptionLength,
+      ),
+      version: UserInstructionEntry.normalizeVersion(
+        '${row['version'] ?? '1.0'}',
+      ),
+      applyTo: UserInstructionEntry.normalizeOneLine(
+        '${row['apply_to'] ?? ''}',
+        UserInstructionEntry.maxApplyToLength,
+      ),
       notes: notes,
       taskTypes: taskTypes,
       keywords: keywords,
-      enabled: (row['enabled'] as int? ?? 1) != 0,
-      sortOrder: row['sort_order'] as int? ?? 0,
+      enabled: boolFromValue(row['enabled'], defaultValue: true),
+      sortOrder: intFromValue(row['sort_order'], fallback: 0),
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
   }
 
-  List<String> _decodeStringList(Object? raw) {
+  List<String> _decodeStringList(
+    Object? raw, {
+    required int maxItems,
+    required int maxItemLength,
+    bool dedupeCaseInsensitive = false,
+  }) {
     if (raw is! String || raw.isEmpty) return const <String>[];
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is List) {
-        return decoded.map((e) => '$e').toList(growable: false);
-      }
+      return UserInstructionEntry.normalizeStringList(
+        stringListFromValue(decoded),
+        maxItems: maxItems,
+        maxItemLength: maxItemLength,
+        dedupeCaseInsensitive: dedupeCaseInsensitive,
+      );
     } catch (_) {}
     return const <String>[];
   }
