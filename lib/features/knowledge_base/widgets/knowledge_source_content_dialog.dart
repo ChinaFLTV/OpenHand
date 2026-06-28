@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_search.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
@@ -24,7 +25,6 @@ import 'knowledge_dialog_widgets.dart';
 
 const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
 const int _kKnowledgeEditorHistoryLimit = 160;
-const int _kKnowledgeEditorFindMatchLimit = 10000;
 const double _kKnowledgeEditorInlineControlSize = 48;
 
 Future<void> showKnowledgeSourceContentDialog(
@@ -284,18 +284,12 @@ class _KnowledgeSourceContentDialogState
       });
       return;
     }
-    final text = _sourceController.text;
-    final pattern = _findCaseSensitive ? query : query.toLowerCase();
-    final searchText = _findCaseSensitive ? text : text.toLowerCase();
-    final offsets = <int>[];
-    var startIndex = 0;
-    while (true) {
-      final index = searchText.indexOf(pattern, startIndex);
-      if (index < 0) break;
-      offsets.add(index);
-      startIndex = index + math.max(pattern.length, 1);
-      if (offsets.length >= _kKnowledgeEditorFindMatchLimit) break;
-    }
+    final offsets = findTextMatchOffsets(
+      text: _sourceController.text,
+      query: query,
+      caseSensitive: _findCaseSensitive,
+      allowOverlapping: false,
+    );
     final selectionBase = _sourceController.selection.baseOffset;
     var selectedIndex = offsets.isEmpty ? -1 : 0;
     if (offsets.isNotEmpty && selectionBase >= 0) {

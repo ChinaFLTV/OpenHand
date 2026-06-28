@@ -10,7 +10,6 @@ const double _kFileTreeIndentBase = 16;
 const double _kFileTreeIndentPerLevel = 16;
 const double _kFileTreeActiveBorderWidth = 2.5;
 const double _kFileTreeRowTrailingPadding = 16;
-const int _kFindMatchSafetyLimit = 10000;
 const int _kEditorUnifiedDiffMaxMyersLineTotal = 10000;
 
 class _FileExplorerPanel extends StatefulWidget {
@@ -1696,7 +1695,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     // Schedule a commit: when the gesture settles, apply the real font size
     // change once (re-highlights only once instead of every frame).
     _zoomCommitTimer?.cancel();
-    _zoomCommitTimer = Timer(
+    _zoomCommitTimer = startSafeTimer(
       const Duration(milliseconds: 180),
       _commitZoomScale,
     );
@@ -1870,9 +1869,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   void _scheduleDiagnosticsRefresh(String filePath) {
     _lspDiagnosticsTimers.remove(filePath)?.cancel();
-    _lspDiagnosticsTimers[filePath] = Timer(_editorLspDiagnosticsDebounce, () {
-      unawaited(_refreshDiagnostics(filePath));
-    });
+    _lspDiagnosticsTimers[filePath] = startSafeTimer(
+      _editorLspDiagnosticsDebounce,
+      () {
+        unawaited(_refreshDiagnostics(filePath));
+      },
+    );
   }
 
   /// Called by the LSP push callback whenever the server publishes fresh
@@ -2054,7 +2056,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       unawaited(_refreshSymbols());
       return;
     }
-    _symbolRefreshTimer = Timer(_editorLspSymbolsDebounce, () {
+    _symbolRefreshTimer = startSafeTimer(_editorLspSymbolsDebounce, () {
       unawaited(_refreshSymbols());
     });
   }
@@ -4431,18 +4433,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
     final controller = _textControllers[widget.activeFilePath];
     if (controller == null) return;
-    final text = controller.text;
-    final pattern = _findCaseSensitive ? query : query.toLowerCase();
-    final searchText = _findCaseSensitive ? text : text.toLowerCase();
-    final offsets = <int>[];
-    var startIndex = 0;
-    while (true) {
-      final idx = searchText.indexOf(pattern, startIndex);
-      if (idx < 0) break;
-      offsets.add(idx);
-      startIndex = idx + 1;
-      if (offsets.length > _kFindMatchSafetyLimit) break;
-    }
+    final offsets = findTextMatchOffsets(
+      text: controller.text,
+      query: query,
+      caseSensitive: _findCaseSensitive,
+    );
     setState(() {
       _findMatchOffsets = offsets;
       _currentMatchIndex = offsets.isEmpty ? -1 : 0;
@@ -6008,7 +6003,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
       return;
     }
-    _signatureHelpDebounceTimer = Timer(delay, () {
+    _signatureHelpDebounceTimer = startSafeTimer(delay, () {
       if (!mounted) {
         return;
       }
@@ -6211,7 +6206,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final debounce = controller.useReducedInteractionMode
         ? const Duration(milliseconds: 260)
         : const Duration(milliseconds: 150);
-    _completionDebounceTimer = Timer(debounce, () {
+    _completionDebounceTimer = startSafeTimer(debounce, () {
       if (!mounted) return;
       _requestCompletion(isRetrigger: _completionVisible);
     });
@@ -12204,7 +12199,7 @@ class _HighlightingTextController extends TextEditingController {
     final delay = forceFullEditorHighlighting && _lineCount > 3000
         ? const Duration(milliseconds: 600)
         : const Duration(milliseconds: 350);
-    _debounceTimer = Timer(delay, () {
+    _debounceTimer = startSafeTimer(delay, () {
       if (highlighter == null || _disableHighlighting) return;
       _rebuildHighlight();
       notifyListeners();
@@ -12339,7 +12334,7 @@ class _HighlightingTextController extends TextEditingController {
 
     // Debounce to avoid re-highlighting every frame during fast scrolling.
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 80), () {
+    _debounceTimer = startSafeTimer(const Duration(milliseconds: 80), () {
       if (highlighter == null) return;
       _rebuildViewportHighlight(style, startLine, endLine);
       notifyListeners();
@@ -13045,12 +13040,15 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     if (_hoveringDiagnosticTooltip) {
       return;
     }
-    _diagnosticTooltipHideTimer = Timer(const Duration(milliseconds: 120), () {
-      if (!mounted || _hoveringDiagnosticTooltip) {
-        return;
-      }
-      _removeDiagnosticTooltip();
-    });
+    _diagnosticTooltipHideTimer = startSafeTimer(
+      const Duration(milliseconds: 120),
+      () {
+        if (!mounted || _hoveringDiagnosticTooltip) {
+          return;
+        }
+        _removeDiagnosticTooltip();
+      },
+    );
   }
 
   void _scheduleDiagnosticTooltipUpdate() {

@@ -3,6 +3,8 @@ String? nullIfBlank(String? value) {
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
+final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
+
 List<String> splitTrimmedNonEmpty(String value, {Pattern separator = ','}) {
   if (separator is String && separator.isEmpty) {
     final trimmed = value.trim();
@@ -13,6 +15,10 @@ List<String> splitTrimmedNonEmpty(String value, {Pattern separator = ','}) {
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
+}
+
+List<String> splitLooseDelimitedValues(String value) {
+  return splitTrimmedNonEmpty(value, separator: _looseDelimitedValueSeparator);
 }
 
 List<String> stringListFromValue(Object? value, {Pattern separator = ','}) {
@@ -179,6 +185,11 @@ int positiveIntFromValue(Object? value, {required int fallback}) {
   return parsed == null || parsed <= 0 ? fallback : parsed;
 }
 
+int nonNegativeIntFromValue(Object? value, {required int fallback}) {
+  final parsed = optionalIntFromValue(value);
+  return parsed == null || parsed < 0 ? fallback : parsed;
+}
+
 int clampedIntFromValue(
   Object? value, {
   required int fallback,
@@ -230,6 +241,10 @@ double? optionalDoubleFromText(String value) {
 
 int positiveIntFromText(String value, {required int fallback}) {
   return positiveIntFromValue(value, fallback: fallback);
+}
+
+int nonNegativeIntFromText(String value, {required int fallback}) {
+  return nonNegativeIntFromValue(value, fallback: fallback);
 }
 
 String _effectiveKeyValueSeparator(String separator) {

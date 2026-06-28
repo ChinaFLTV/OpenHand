@@ -132,7 +132,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
         ? _reasoningElapsedMs(widget.message)
         : fixedElapsedMs;
     final elapsedText = elapsedMs != null
-        ? ' (${_formatToolExecutionDuration(elapsedMs)})'
+        ? ' (${formatCompactDurationMs(elapsedMs)})'
         : '';
     final pillContent = Row(
       mainAxisSize: MainAxisSize.min,
@@ -251,7 +251,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
     final theme = Theme.of(context);
     final labelText = _localizedText(context, zh: '响应', en: 'Response');
     final elapsedText = widget.showSweep
-        ? ' (${_formatToolExecutionDuration(_reasoningElapsedMs(widget.message))})'
+        ? ' (${formatCompactDurationMs(_reasoningElapsedMs(widget.message))})'
         : '';
     final palette = _responseMetaCapsulePalette(
       theme,

@@ -10,7 +10,9 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../knowledge_base_controller.dart';
 import '../service/qdrant_monitoring_service.dart';
 import 'knowledge_dialog_widgets.dart';
@@ -20,6 +22,7 @@ const int _qdrantMinRefreshSeconds = 3;
 const int _qdrantMaxRefreshSeconds = 60;
 const double _qdrantOpsDialogWidth = 980;
 const double _qdrantOpsChartHeight = 172;
+const Duration _qdrantRefreshTimeout = Duration(seconds: 30);
 
 Future<void> showQdrantStatusDialog(BuildContext context) {
   return showAnimatedDialog<void>(
@@ -48,6 +51,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   final List<_QdrantMetricSample> _samples = <_QdrantMetricSample>[];
   Map<String, Object?>? _operationResult;
   String? _error;
+  bool _refreshInFlight = false;
   bool _refreshing = false;
   bool _operating = false;
 
@@ -79,14 +83,23 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       _qdrantMaxRefreshSeconds,
     );
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(Duration(seconds: seconds), (_) {
-      if (!_refreshing && !_operating) {
-        _refresh(silent: true);
-      }
-    });
+    _refreshTimer = startNonOverlappingPeriodicTimer(
+      Duration(seconds: seconds),
+      (_) async {
+        if (!_refreshInFlight && !_operating) {
+          await _refresh(silent: true);
+        }
+      },
+      min: const Duration(seconds: _qdrantMinRefreshSeconds),
+      max: const Duration(seconds: _qdrantMaxRefreshSeconds),
+    );
   }
 
   Future<void> _refresh({bool silent = false}) async {
+    if (_refreshInFlight) {
+      return;
+    }
+    _refreshInFlight = true;
     if (!silent) {
       setState(() {
         _refreshing = true;
@@ -98,7 +111,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       final results = await Future.wait<Object?>([
         controller.loadMonitoringSnapshot(),
         controller.listQdrantCollections(),
-      ]);
+      ]).timeout(_qdrantRefreshTimeout);
       final snapshot = results[0] as QdrantMonitoringSnapshot;
       final collections = results[1] as List<Map<String, Object?>>;
       if (!mounted) return;
@@ -116,6 +129,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
         setState(() => _error = '$error');
       }
     } finally {
+      _refreshInFlight = false;
       if (mounted && !silent) {
         setState(() => _refreshing = false);
       }
@@ -123,21 +137,14 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   }
 
   List<String> _parseIds() {
-    return _pointIds.text
-        .split(RegExp(r'[\s,，;；]+'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    return splitLooseDelimitedValues(
+      _pointIds.text,
+    ).toSet().toList(growable: false);
   }
 
   List<double>? _parseVector(BuildContext context) {
     final isZh = openHandIsChineseLocale(context);
-    final values = _rawVector.text
-        .split(RegExp(r'[\s,，;；]+'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    final values = splitLooseDelimitedValues(_rawVector.text);
     if (values.isEmpty) {
       OpenHandSnackBar.showError(
         context,
@@ -174,9 +181,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   }
 
   int _limitValue() {
-    final parsed = int.tryParse(_limit.text.trim());
-    if (parsed == null) return 20;
-    return parsed.clamp(1, 200);
+    return clampedIntFromText(_limit.text, fallback: 20, min: 1, max: 200);
   }
 
   Map<String, Object?>? _filter() {

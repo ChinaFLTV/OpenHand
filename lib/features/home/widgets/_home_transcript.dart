@@ -178,7 +178,7 @@ class _TranscriptScrollDispatcher {
         }
       }
 
-      timeout = Timer(const Duration(milliseconds: 250), () {
+      timeout = startSafeTimer(const Duration(milliseconds: 250), () {
         pollTimer?.cancel();
         if (!completer.isCompleted) completer.complete();
       });
@@ -2105,7 +2105,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _lastActiveCreationPlaceholder = null;
     _retiringCreationPlaceholder = last;
     _retiringCreationPlaceholderTimer?.cancel();
-    _retiringCreationPlaceholderTimer = Timer(
+    _retiringCreationPlaceholderTimer = startSafeTimer(
       _PendingCreationPlaceholderCard.exitDuration,
       () {
         if (!mounted || !identical(_retiringCreationPlaceholder, last)) {

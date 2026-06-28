@@ -360,7 +360,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       _ToolExecutionChip(
                         icon: Icons.timer_outlined,
                         label:
-                            '${AppLocalizations.of(context)!.tlCallElapsed}: ${_formatToolExecutionDuration(toolCall.durationMs)}',
+                            '${AppLocalizations.of(context)!.tlCallElapsed}: ${formatCompactDurationMs(toolCall.durationMs)}',
                       ),
                     if (toolCall.exitCode != null)
                       _ToolExecutionChip(
@@ -2679,7 +2679,7 @@ String _toolCallStatusLabelForData(
 ) {
   final suffix = durationMs <= 0
       ? ''
-      : ' (${_formatToolExecutionDuration(durationMs)})';
+      : ' (${formatCompactDurationMs(durationMs)})';
   final toolLabel = presentation.displayName.trim().isEmpty
       ? presentation.categoryLabel
       : presentation.displayName.trim();
@@ -2802,16 +2802,6 @@ int _toolExecutionDurationMs(AiSessionMessage message) {
     return rawValue;
   }
   return int.tryParse('$rawValue'.trim()) ?? 0;
-}
-
-String _formatToolExecutionDuration(int durationMs) {
-  final totalSeconds = (durationMs / 1000).floor();
-  if (totalSeconds < 60) {
-    return '${totalSeconds}s';
-  }
-  final minutes = totalSeconds ~/ 60;
-  final seconds = totalSeconds % 60;
-  return '${minutes}m ${seconds}s';
 }
 
 Future<void> _openResolvedMessagePath(

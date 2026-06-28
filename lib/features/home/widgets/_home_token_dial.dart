@@ -121,7 +121,7 @@ class _TokenDialState extends State<_TokenDial>
     _hideTimer?.cancel();
     _showQueued = false;
     _webClickPinned = false;
-    _hideTimer = Timer(const Duration(milliseconds: 60), () {
+    _hideTimer = startSafeTimer(const Duration(milliseconds: 60), () {
       _runAfterFrame(() async {
         await _transitionController.reverse();
         if (!mounted) return;

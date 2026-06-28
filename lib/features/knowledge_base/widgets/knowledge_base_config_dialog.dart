@@ -8,6 +8,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
@@ -284,19 +285,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }
 
   int _int(TextEditingController controller, int fallback) {
-    final parsed = int.tryParse(controller.text.trim());
-    return parsed == null || parsed <= 0 ? fallback : parsed;
+    return positiveIntFromText(controller.text, fallback: fallback);
   }
 
   int _nonNegativeInt(TextEditingController controller, int fallback) {
-    final parsed = int.tryParse(controller.text.trim());
-    return parsed == null || parsed < 0 ? fallback : parsed;
+    return nonNegativeIntFromText(controller.text, fallback: fallback);
   }
 
   double _double(TextEditingController controller, double fallback) {
-    final parsed = double.tryParse(controller.text.trim());
-    if (parsed == null || parsed.isNaN || !parsed.isFinite) return fallback;
-    return parsed;
+    return doubleFromValue(controller.text, fallback: fallback);
   }
 
   Future<void> _save() async {
