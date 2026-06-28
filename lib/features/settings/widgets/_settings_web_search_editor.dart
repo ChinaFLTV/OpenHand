@@ -477,13 +477,18 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
             ),
           ),
           onChanged: (s) {
-            final parsed = int.tryParse(s.trim());
+            final parsed = optionalIntFromText(s);
             if (parsed == null) return;
-            final clamped = parsed.clamp(
-              AiWebSearchSettings.minResultCount,
-              AiWebSearchSettings.maxResultCount,
+            _emit(
+              v.copyWith(
+                resultCount: parsed
+                    .clamp(
+                      AiWebSearchSettings.minResultCount,
+                      AiWebSearchSettings.maxResultCount,
+                    )
+                    .toInt(),
+              ),
             );
-            _emit(v.copyWith(resultCount: clamped));
           },
         ),
         const SizedBox(height: 14),
@@ -625,12 +630,13 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   ),
                 ),
                 onChanged: (s) {
-                  final parsed = int.tryParse(s.trim()) ?? 0;
                   _emit(
                     v.copyWith(
-                      summaryMinChars: parsed.clamp(
-                        0,
-                        AiWebSearchSettings.maxSummaryMaxChars,
+                      summaryMinChars: clampedIntFromText(
+                        s,
+                        fallback: 0,
+                        min: 0,
+                        max: AiWebSearchSettings.maxSummaryMaxChars,
                       ),
                     ),
                   );
@@ -656,12 +662,13 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   ),
                 ),
                 onChanged: (s) {
-                  final parsed = int.tryParse(s.trim()) ?? 0;
                   _emit(
                     v.copyWith(
-                      summaryMaxChars: parsed.clamp(
-                        0,
-                        AiWebSearchSettings.maxSummaryMaxChars,
+                      summaryMaxChars: clampedIntFromText(
+                        s,
+                        fallback: 0,
+                        min: 0,
+                        max: AiWebSearchSettings.maxSummaryMaxChars,
                       ),
                     ),
                   );
@@ -714,12 +721,13 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                   ),
                 ),
                 onChanged: (s) {
-                  final parsed = int.tryParse(s.trim()) ?? 0;
                   _emit(
                     v.copyWith(
-                      cacheTtlSeconds: parsed.clamp(
-                        AiWebSearchSettings.minCacheTtlSeconds,
-                        AiWebSearchSettings.maxCacheTtlSeconds,
+                      cacheTtlSeconds: clampedIntFromText(
+                        s,
+                        fallback: 0,
+                        min: AiWebSearchSettings.minCacheTtlSeconds,
+                        max: AiWebSearchSettings.maxCacheTtlSeconds,
                       ),
                     ),
                   );
@@ -1887,12 +1895,13 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                               ),
                             ),
                             onChanged: (s) {
-                              final parsed = int.tryParse(s.trim()) ?? 0;
                               widget.onChanged(
                                 cfg.copyWith(
-                                  maxRetries: parsed.clamp(
-                                    0,
-                                    AiWebSearchEngineConfig
+                                  maxRetries: clampedIntFromText(
+                                    s,
+                                    fallback: 0,
+                                    min: 0,
+                                    max: AiWebSearchEngineConfig
                                         .maxRetriesUpperBound,
                                   ),
                                 ),
@@ -1916,15 +1925,16 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
                               ),
                             ),
                             onChanged: (s) {
-                              final parsed =
-                                  int.tryParse(s.trim()) ??
-                                  AiWebSearchEngineConfig
-                                      .defaultTruncationChars;
                               widget.onChanged(
                                 cfg.copyWith(
-                                  truncationChars: parsed.clamp(
-                                    AiWebSearchEngineConfig.minTruncationChars,
-                                    AiWebSearchEngineConfig.maxTruncationChars,
+                                  truncationChars: clampedIntFromText(
+                                    s,
+                                    fallback: AiWebSearchEngineConfig
+                                        .defaultTruncationChars,
+                                    min: AiWebSearchEngineConfig
+                                        .minTruncationChars,
+                                    max: AiWebSearchEngineConfig
+                                        .maxTruncationChars,
                                   ),
                                 ),
                               );

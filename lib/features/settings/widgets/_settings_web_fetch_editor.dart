@@ -493,13 +493,18 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
             ),
           ),
           onChanged: (s) {
-            final parsed = int.tryParse(s.trim());
+            final parsed = optionalIntFromText(s);
             if (parsed == null) return;
-            final clamped = parsed.clamp(
-              AiWebFetchSettings.minResultCount,
-              AiWebFetchSettings.maxResultCount,
+            _emit(
+              v.copyWith(
+                resultCount: parsed
+                    .clamp(
+                      AiWebFetchSettings.minResultCount,
+                      AiWebFetchSettings.maxResultCount,
+                    )
+                    .toInt(),
+              ),
             );
-            _emit(v.copyWith(resultCount: clamped));
           },
         ),
         const SizedBox(height: 14),
@@ -610,12 +615,13 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                   ),
                 ),
                 onChanged: (s) {
-                  final parsed = int.tryParse(s.trim()) ?? 0;
                   _emit(
                     v.copyWith(
-                      cacheTtlSeconds: parsed.clamp(
-                        AiWebFetchSettings.minCacheTtlSeconds,
-                        AiWebFetchSettings.maxCacheTtlSeconds,
+                      cacheTtlSeconds: clampedIntFromText(
+                        s,
+                        fallback: 0,
+                        min: AiWebFetchSettings.minCacheTtlSeconds,
+                        max: AiWebFetchSettings.maxCacheTtlSeconds,
                       ),
                     ),
                   );
@@ -1718,16 +1724,15 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                               ),
                             ),
                             onChanged: (value) {
-                              final parsed =
-                                  int.tryParse(value.trim()) ??
-                                  AiWebFetchScraplingSettings
-                                      .defaultStartupTimeoutSeconds;
                               widget.onSettingsChanged(
                                 widget.settings.copyWith(
-                                  startupTimeoutSeconds: parsed.clamp(
-                                    AiWebFetchScraplingSettings
+                                  startupTimeoutSeconds: clampedIntFromText(
+                                    value,
+                                    fallback: AiWebFetchScraplingSettings
+                                        .defaultStartupTimeoutSeconds,
+                                    min: AiWebFetchScraplingSettings
                                         .minStartupTimeoutSeconds,
-                                    AiWebFetchScraplingSettings
+                                    max: AiWebFetchScraplingSettings
                                         .maxStartupTimeoutSeconds,
                                   ),
                                 ),
@@ -1751,16 +1756,15 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                               ),
                             ),
                             onChanged: (value) {
-                              final parsed =
-                                  int.tryParse(value.trim()) ??
-                                  AiWebFetchScraplingSettings
-                                      .defaultRequestTimeoutSeconds;
                               widget.onSettingsChanged(
                                 widget.settings.copyWith(
-                                  requestTimeoutSeconds: parsed.clamp(
-                                    AiWebFetchScraplingSettings
+                                  requestTimeoutSeconds: clampedIntFromText(
+                                    value,
+                                    fallback: AiWebFetchScraplingSettings
+                                        .defaultRequestTimeoutSeconds,
+                                    min: AiWebFetchScraplingSettings
                                         .minRequestTimeoutSeconds,
-                                    AiWebFetchScraplingSettings
+                                    max: AiWebFetchScraplingSettings
                                         .maxRequestTimeoutSeconds,
                                   ),
                                 ),
@@ -1783,16 +1787,15 @@ class _ScraplingSettingsCardState extends State<_ScraplingSettingsCard> {
                         ),
                       ),
                       onChanged: (value) {
-                        final parsed =
-                            int.tryParse(value.trim()) ??
-                            AiWebFetchScraplingSettings
-                                .defaultInstallTimeoutSeconds;
                         widget.onSettingsChanged(
                           widget.settings.copyWith(
-                            installTimeoutSeconds: parsed.clamp(
-                              AiWebFetchScraplingSettings
+                            installTimeoutSeconds: clampedIntFromText(
+                              value,
+                              fallback: AiWebFetchScraplingSettings
+                                  .defaultInstallTimeoutSeconds,
+                              min: AiWebFetchScraplingSettings
                                   .minInstallTimeoutSeconds,
-                              AiWebFetchScraplingSettings
+                              max: AiWebFetchScraplingSettings
                                   .maxInstallTimeoutSeconds,
                             ),
                           ),
@@ -2252,12 +2255,14 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                               ),
                             ),
                             onChanged: (s) {
-                              final parsed = int.tryParse(s.trim()) ?? 0;
                               widget.onChanged(
                                 cfg.copyWith(
-                                  maxRetries: parsed.clamp(
-                                    0,
-                                    AiWebFetchEngineConfig.maxRetriesUpperBound,
+                                  maxRetries: clampedIntFromText(
+                                    s,
+                                    fallback: 0,
+                                    min: 0,
+                                    max: AiWebFetchEngineConfig
+                                        .maxRetriesUpperBound,
                                   ),
                                 ),
                               );
@@ -2280,14 +2285,16 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                               ),
                             ),
                             onChanged: (s) {
-                              final parsed =
-                                  int.tryParse(s.trim()) ??
-                                  AiWebFetchEngineConfig.defaultTruncationChars;
                               widget.onChanged(
                                 cfg.copyWith(
-                                  truncationChars: parsed.clamp(
-                                    AiWebFetchEngineConfig.minTruncationChars,
-                                    AiWebFetchEngineConfig.maxTruncationChars,
+                                  truncationChars: clampedIntFromText(
+                                    s,
+                                    fallback: AiWebFetchEngineConfig
+                                        .defaultTruncationChars,
+                                    min: AiWebFetchEngineConfig
+                                        .minTruncationChars,
+                                    max: AiWebFetchEngineConfig
+                                        .maxTruncationChars,
                                   ),
                                 ),
                               );
@@ -2318,18 +2325,18 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                                     '${AiWebFetchEngineConfig.maxConnectionTimeoutSeconds}',
                               ),
                               onChanged: (s) {
-                                final parsed =
-                                    int.tryParse(s.trim()) ??
-                                    AiWebFetchEngineConfig
-                                        .defaultConnectionTimeoutSeconds;
                                 widget.onChanged(
                                   cfg.copyWith(
-                                    connectionTimeoutSeconds: parsed.clamp(
-                                      AiWebFetchEngineConfig
-                                          .minConnectionTimeoutSeconds,
-                                      AiWebFetchEngineConfig
-                                          .maxConnectionTimeoutSeconds,
-                                    ),
+                                    connectionTimeoutSeconds:
+                                        clampedIntFromText(
+                                          s,
+                                          fallback: AiWebFetchEngineConfig
+                                              .defaultConnectionTimeoutSeconds,
+                                          min: AiWebFetchEngineConfig
+                                              .minConnectionTimeoutSeconds,
+                                          max: AiWebFetchEngineConfig
+                                              .maxConnectionTimeoutSeconds,
+                                        ),
                                   ),
                                 );
                               },
@@ -2354,16 +2361,15 @@ class _WebFetchEngineCardState extends State<_WebFetchEngineCard> {
                                     '${AiWebFetchEngineConfig.maxResponseTimeoutSeconds}',
                               ),
                               onChanged: (s) {
-                                final parsed =
-                                    int.tryParse(s.trim()) ??
-                                    AiWebFetchEngineConfig
-                                        .defaultResponseTimeoutSeconds;
                                 widget.onChanged(
                                   cfg.copyWith(
-                                    responseTimeoutSeconds: parsed.clamp(
-                                      AiWebFetchEngineConfig
+                                    responseTimeoutSeconds: clampedIntFromText(
+                                      s,
+                                      fallback: AiWebFetchEngineConfig
+                                          .defaultResponseTimeoutSeconds,
+                                      min: AiWebFetchEngineConfig
                                           .minResponseTimeoutSeconds,
-                                      AiWebFetchEngineConfig
+                                      max: AiWebFetchEngineConfig
                                           .maxResponseTimeoutSeconds,
                                     ),
                                   ),
