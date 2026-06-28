@@ -1,22 +1,26 @@
 export const TRANSCRIPT_SCROLL_ACTIVITY_ATTR = 'data-transcript-scroll-active';
-export const TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS = 220;
+export const TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS = 360;
 
 let active = false;
 let settleTimer: number | null = null;
+const listeners = new Set<(active: boolean) => void>();
 
 function rootElement(): HTMLElement | null {
   return typeof document === 'undefined' ? null : document.documentElement;
 }
 
 function setRootActivity(value: boolean): void {
+  if (active === value) return;
   active = value;
   const root = rootElement();
-  if (!root) return;
-  if (value) {
-    root.setAttribute(TRANSCRIPT_SCROLL_ACTIVITY_ATTR, 'true');
-  } else {
-    root.removeAttribute(TRANSCRIPT_SCROLL_ACTIVITY_ATTR);
+  if (root) {
+    if (value) {
+      root.setAttribute(TRANSCRIPT_SCROLL_ACTIVITY_ATTR, 'true');
+    } else {
+      root.removeAttribute(TRANSCRIPT_SCROLL_ACTIVITY_ATTR);
+    }
   }
+  for (const listener of listeners) listener(value);
 }
 
 export function isTranscriptScrollActive(): boolean {
@@ -32,7 +36,7 @@ export function markTranscriptScrollActivity(
   if (settleTimer != null) {
     window.clearTimeout(settleTimer);
   }
-  const safeDuration = Math.max(80, Math.min(1000, durationMs));
+  const safeDuration = Math.max(80, Math.min(2000, durationMs));
   settleTimer = window.setTimeout(() => {
     settleTimer = null;
     setRootActivity(false);
@@ -45,6 +49,15 @@ export function clearTranscriptScrollActivity(): void {
   }
   settleTimer = null;
   setRootActivity(false);
+}
+
+export function subscribeTranscriptScrollActivity(
+  listener: (active: boolean) => void,
+): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function scheduleAfterTranscriptScrollSettles(task: () => void): () => void {

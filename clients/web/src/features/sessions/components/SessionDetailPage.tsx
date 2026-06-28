@@ -155,8 +155,9 @@ function nonEmptyString(value: unknown): string {
 
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
-const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 1;
-const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 900;
+const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 0.05;
+const AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX = 0;
+const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 1200;
 const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
 const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
@@ -2444,6 +2445,8 @@ export function SessionDetailPage() {
 
   const markUserScrollIntent = useCallback(() => {
     lastUserScrollIntentAtRef.current = Date.now();
+    markTranscriptScrollActivity(AUTO_FOLLOW_USER_SCROLL_INTENT_MS);
+    cancelFollowSettle();
   }, []);
 
   const hasRecentUserScrollIntent = useCallback(() => {
@@ -2573,7 +2576,8 @@ export function SessionDetailPage() {
   const shouldFollowPinnedMessages = () => {
     return autoFollowRef.current &&
       isNearBottomRef.current &&
-      !autoFollowPausedRef.current;
+      !autoFollowPausedRef.current &&
+      !hasRecentUserScrollIntent();
   };
 
   const toggleBrowserFullscreen = async () => {
@@ -3018,9 +3022,8 @@ export function SessionDetailPage() {
       return event.clientX <= rect.right && event.clientX >= rect.right - hitInset;
     };
     const handleWheel = (event: WheelEvent) => {
-      if (event.deltaY < -AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX) {
+      if (event.deltaY < -AUTO_FOLLOW_WHEEL_INTENT_EPSILON_PX) {
         markUserScrollIntent();
-        cancelFollowSettle();
       }
     };
     const handlePointerDown = (event: PointerEvent) => {
@@ -3103,7 +3106,10 @@ export function SessionDetailPage() {
     // 是否 ≤64px 都跟随到底部。修复 tool-call 内容暴涨一帧 >64px、isNearBottom
     // 已翻 false 时 ResizeObserver 不再 follow 的 BUG。仅 autoFollowPaused
     // (= 用户主动上滑) 时不跟随。
-    const shouldFollowOnGrow = () => autoFollowRef.current && !autoFollowPausedRef.current;
+    const shouldFollowOnGrow = () =>
+      autoFollowRef.current &&
+      !autoFollowPausedRef.current &&
+      !hasRecentUserScrollIntent();
     const observer = new ResizeObserver(() => {
       if (!shouldFollowOnGrow()) return;
       if (resizeFollowFrameRef.current != null) return;
@@ -3121,7 +3127,7 @@ export function SessionDetailPage() {
         resizeFollowFrameRef.current = null;
       }
     };
-  }, [autoFollow, autoFollowPaused]);
+  }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -3258,7 +3264,10 @@ export function SessionDetailPage() {
     lastTailIdRef.current = tail.id;
     lastTailSignatureRef.current = tailSignature;
     lastFollowSignatureRef.current = followSignature;
-    const shouldFollow = autoFollowRef.current && !autoFollowPausedRef.current;
+    const shouldFollow =
+      autoFollowRef.current &&
+      !autoFollowPausedRef.current &&
+      !hasRecentUserScrollIntent();
     if (shouldFollow) {
       const streamingChange = tailContentChanged || followContentChanged;
       const behavior = reduceMotion || streamingChange ? 'auto' : 'smooth';
@@ -3273,6 +3282,7 @@ export function SessionDetailPage() {
     messageWindowView.followSignature,
     autoFollow,
     autoFollowPaused,
+    hasRecentUserScrollIntent,
     reduceMotion,
   ]);
 

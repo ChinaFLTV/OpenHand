@@ -51,8 +51,8 @@ const int _scrollToBottomPositionRetryLimit = 16;
 const int _scrollToBottomSettleFrameLimit = 36;
 const int _scrollToBottomSettleStableFrameLimit = 4;
 const double _scrollToBottomSettleTolerance = 0.75;
-const double _messageScrollActivityDeltaThreshold = 0.5;
-const double _messageDistanceToBottomDeltaThreshold = 0.75;
+const double _messageScrollActivityDeltaThreshold = 0.05;
+const double _messageDistanceToBottomDeltaThreshold = 0.15;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 const double _autoFollowResumeDistance = 24;
 // Frame-driven reveal keeps long transcript switches smooth without a fixed

@@ -1205,17 +1205,30 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
       markdownContent.length < renderedMarkdownContent.length // 内容回退/截断
       || delta >= MARKDOWN_STREAM_FLUSH_DELTA
       || ageMs >= MARKDOWN_STREAM_FLUSH_MS;
-    if (shouldFlushNow) {
-      lastFlushAtRef.current = now;
+    const flush = () => {
+      lastFlushAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
       setRenderedMarkdownContent(markdownContent);
+    };
+    if (isTranscriptScrollActive()) {
+      return scheduleAfterTranscriptScrollSettles(flush);
+    }
+    if (shouldFlushNow) {
+      flush();
       return;
     }
     const wait = Math.max(0, MARKDOWN_STREAM_FLUSH_MS - ageMs);
+    let cancelAfterSettle: (() => void) | null = null;
     const handle = window.setTimeout(() => {
-      lastFlushAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      setRenderedMarkdownContent(markdownContent);
+      if (isTranscriptScrollActive()) {
+        cancelAfterSettle = scheduleAfterTranscriptScrollSettles(flush);
+        return;
+      }
+      flush();
     }, wait);
-    return () => window.clearTimeout(handle);
+    return () => {
+      window.clearTimeout(handle);
+      cancelAfterSettle?.();
+    };
   }, [parseReady, markdownContent, renderedMarkdownContent]);
   const renderedContent = useMemo(
     () => normalizeMarkdownMathDelimiters(renderedMarkdownContent),

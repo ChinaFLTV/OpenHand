@@ -1674,31 +1674,27 @@ class _SelectedMessageActionPanelSlotState
         onSelectResponseVariant: widget.onSelectResponseVariant,
       ),
     );
-    return ClipRect(
-      child: SizeTransition(
-        sizeFactor: _motion,
-        axisAlignment: -1,
-        child: AnimatedBuilder(
-          animation: _motion,
-          child: panel,
-          builder: (context, child) {
-            final t = _motion.value.clamp(0.0, 1.0);
-            return IgnorePointer(
-              ignoring: !widget.visible,
-              child: Opacity(
-                opacity: t,
-                child: Transform.scale(
-                  scale: 0.97 + 0.03 * t,
-                  alignment: alignment,
-                  child: Transform.translate(
-                    offset: Offset(0, 5 * (1 - t)),
-                    child: child,
-                  ),
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _motion,
+        child: panel,
+        builder: (context, child) {
+          final t = _motion.value.clamp(0.0, 1.0);
+          return IgnorePointer(
+            ignoring: !widget.visible || t < 0.96,
+            child: Opacity(
+              opacity: t,
+              child: Transform.scale(
+                scale: 0.97 + 0.03 * t,
+                alignment: alignment,
+                child: Transform.translate(
+                  offset: Offset(0, 5 * (1 - t)),
+                  child: child,
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

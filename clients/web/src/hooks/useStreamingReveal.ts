@@ -19,6 +19,10 @@ import {
   useRef,
   useState,
 } from 'preact/hooks';
+import {
+  isTranscriptScrollActive,
+  subscribeTranscriptScrollActivity,
+} from '../shared/ui/transcript_scroll_activity';
 
 const DURATION_MS = 520;
 const MAX_SEGMENTS = 24;
@@ -106,6 +110,17 @@ function stepForBacklog(backlog: number): number {
   return MAX_CHARS_PER_FRAME;
 }
 
+function useTranscriptScrollActiveState(): boolean {
+  const [scrollActive, setScrollActive] = useState(() => isTranscriptScrollActive());
+
+  useEffect(() => {
+    setScrollActive(isTranscriptScrollActive());
+    return subscribeTranscriptScrollActivity(setScrollActive);
+  }, []);
+
+  return scrollActive;
+}
+
 export function useStreamingStagedText(
   content: string,
   streaming: boolean,
@@ -114,18 +129,31 @@ export function useStreamingStagedText(
   visibleContent: string;
   staging: boolean;
 } {
-  const revealAllowed = content.length <= STAGED_REVEAL_MAX_CHARS;
+  const transcriptScrollActive = useTranscriptScrollActiveState();
+  const freezeLiveUpdates = streaming && transcriptScrollActive;
+  const [displayContent, setDisplayContent] = useState(content);
+  const displayContentRef = useRef(content);
+
+  useEffect(() => {
+    if (freezeLiveUpdates) return;
+    if (displayContentRef.current === content) return;
+    displayContentRef.current = content;
+    setDisplayContent(content);
+  }, [content, freezeLiveUpdates]);
+
+  const stagedContent = freezeLiveUpdates ? displayContent : content;
+  const revealAllowed = stagedContent.length <= STAGED_REVEAL_MAX_CHARS;
   const ends = useMemo(() => (
-    revealAllowed ? codePointEnds(content) : []
-  ), [content, revealAllowed]);
+    revealAllowed ? codePointEnds(stagedContent) : []
+  ), [stagedContent, revealAllowed]);
   const targetUnits = ends.length;
-  const shouldStage = streaming && !reduceMotion && revealAllowed;
+  const shouldStage = streaming && !transcriptScrollActive && !reduceMotion && revealAllowed;
   const [visibleUnits, setVisibleUnits] = useState(() => (
     shouldStage ? 0 : targetUnits
   ));
   const visibleUnitsRef = useRef(visibleUnits);
   const targetUnitsRef = useRef(targetUnits);
-  const previousContentRef = useRef(content);
+  const previousContentRef = useRef(stagedContent);
   const rafRef = useRef<number | null>(null);
   const lastFrameRef = useRef(0);
 
@@ -170,30 +198,30 @@ export function useStreamingStagedText(
       stop();
       visibleUnitsRef.current = targetUnits;
       setVisibleUnits(targetUnits);
-      previousContentRef.current = content;
+      previousContentRef.current = stagedContent;
       return;
     }
 
     const previous = previousContentRef.current;
-    if (content.length < previous.length) {
+    if (stagedContent.length < previous.length) {
       const next = Math.min(visibleUnitsRef.current, targetUnits);
       visibleUnitsRef.current = next;
       setVisibleUnits(next);
-    } else if (!content.startsWith(previous)) {
+    } else if (!stagedContent.startsWith(previous)) {
       visibleUnitsRef.current = 0;
       setVisibleUnits(0);
     }
-    previousContentRef.current = content;
+    previousContentRef.current = stagedContent;
     if (visibleUnitsRef.current < targetUnits) start();
-  }, [content, shouldStage, start, stop, targetUnits]);
+  }, [shouldStage, stagedContent, start, stop, targetUnits]);
 
   useEffect(() => () => stop(), [stop]);
 
   const visibleContent = useMemo(() => {
-    if (!shouldStage || visibleUnits >= targetUnits) return content;
+    if (!shouldStage || visibleUnits >= targetUnits) return stagedContent;
     if (visibleUnits <= 0) return '';
-    return content.slice(0, ends[visibleUnits - 1] ?? 0);
-  }, [content, ends, shouldStage, targetUnits, visibleUnits]);
+    return stagedContent.slice(0, ends[visibleUnits - 1] ?? 0);
+  }, [ends, shouldStage, stagedContent, targetUnits, visibleUnits]);
 
   return {
     visibleContent,
@@ -225,6 +253,7 @@ export function useStreamingReveal(
   const stableLengthRef = useRef(contentLength);
   const segmentsRef = useRef<FadeSegment[]>([]);
   const onRestRef = useRef(onRest);
+  const transcriptScrollActive = useTranscriptScrollActiveState();
 
   useEffect(() => {
     onRestRef.current = onRest;
@@ -265,8 +294,8 @@ export function useStreamingReveal(
       rafRef.current = requestAnimationFrame(tick);
     };
 
-    if (reduceMotion) {
-      stopAnimation();
+    if (reduceMotion || transcriptScrollActive) {
+      stopAnimation(false);
       lastLengthRef.current = contentLength;
       stableLengthRef.current = contentLength;
       lastContentKeyRef.current = contentKey;
@@ -304,7 +333,7 @@ export function useStreamingReveal(
       lastContentKeyRef.current = contentKey;
       return;
     }
-  }, [streaming, contentLength, contentKey, reduceMotion]);
+  }, [streaming, contentLength, contentKey, reduceMotion, transcriptScrollActive]);
 
   // 组件卸载时取消 rAF
   useEffect(() => {
@@ -313,7 +342,7 @@ export function useStreamingReveal(
     };
   }, []);
 
-  const streamingClass = !reduceMotion && streaming;
+  const streamingClass = !reduceMotion && !transcriptScrollActive && streaming;
 
   return { containerRef, streamingClass };
 }
