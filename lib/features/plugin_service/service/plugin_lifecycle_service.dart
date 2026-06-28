@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 
 const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
@@ -15,6 +18,16 @@ const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
 const Duration _pluginLifecycleTerminateGrace = Duration(milliseconds: 500);
 const int _pluginLifecycleMaxCapturedLines = 500;
 const int _pluginLifecycleMaxProgressLineChars = 4000;
+
+@visibleForTesting
+String? homebrewStableVersionFromDecoded(Object? decoded) {
+  final root = stringKeyedMapFromValue(decoded);
+  final formulae = stringKeyedMapListFromValue(root['formulae']);
+  if (formulae.isEmpty) return null;
+  final versions = stringKeyedMapFromValue(formulae.first['versions']);
+  final stable = '${versions['stable'] ?? ''}'.trim();
+  return stable.isEmpty ? null : stable;
+}
 
 /// 插件生命周期操作结果。
 class PluginOperationResult {
@@ -342,16 +355,7 @@ fi
     if (result.exitCode != 0) return null;
     try {
       final decoded = jsonDecode(result.stdout.toString());
-      final formulae = decoded is Map<String, Object?>
-          ? decoded['formulae']
-          : null;
-      if (formulae is! List || formulae.isEmpty) return null;
-      final item = formulae.first;
-      if (item is! Map<String, Object?>) return null;
-      final versions = item['versions'];
-      if (versions is! Map<String, Object?>) return null;
-      final stable = versions['stable'];
-      return stable is String && stable.isNotEmpty ? stable : null;
+      return homebrewStableVersionFromDecoded(decoded);
     } catch (_) {
       return null;
     }
