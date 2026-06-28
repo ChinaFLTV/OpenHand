@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 
 /// WebSearch / WebFetch 调用日志的共用 cooldown 阈值配置。
 ///
@@ -180,7 +181,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final stats = await rawEngineStats();
     final entry = stats[kind.name];
     if (entry == null) return 0;
-    final until = (entry['cooldown_until_ms'] as num?)?.toInt() ?? 0;
+    final until = _readTelemetryInt(entry['cooldown_until_ms']);
     final now = DateTime.now().millisecondsSinceEpoch;
     return until > now ? (until - now) : 0;
   }
@@ -221,7 +222,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final cutoff = DateTime.now().millisecondsSinceEpoch - 60 * 1000;
     var count = 0;
     for (final s in samples) {
-      final ts = (s['ts'] as num?)?.toInt() ?? 0;
+      final ts = _readTelemetryInt(s['ts']);
       if (ts >= cutoff) count++;
     }
     return count;
@@ -288,7 +289,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         /* corrupted: drop */
       }
     }
-    calls.add(callJson);
+    calls.add(_jsonSafeTelemetryMap(callJson));
     if (calls.length > maxRecentCalls) {
       calls.removeRange(0, calls.length - maxRecentCalls);
     }
@@ -318,17 +319,19 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     for (final per in perEngine) {
       final key = per.kindName;
       final cur = agg[key] ?? <String, Object?>{};
-      final totalCalls = ((cur['total_calls'] as num?)?.toInt() ?? 0) + 1;
+      final totalCalls = _readTelemetryInt(cur['total_calls']) + 1;
       final successCalls =
-          ((cur['success_calls'] as num?)?.toInt() ?? 0) +
-          (per.success ? 1 : 0);
+          _readTelemetryInt(cur['success_calls']) + (per.success ? 1 : 0);
+      final safeElapsedMs = _nonNegativeEventInt(per.elapsedMs);
       final totalDur =
-          ((cur['total_duration_ms'] as num?)?.toInt() ?? 0) + per.elapsedMs;
+          _readTelemetryInt(cur['total_duration_ms']) + safeElapsedMs;
 
-      var consecFail = (cur['consecutive_failures'] as num?)?.toInt() ?? 0;
-      int? cooldownUntilMs = (cur['cooldown_until_ms'] as num?)?.toInt();
+      var consecFail = _readTelemetryInt(cur['consecutive_failures']);
+      int? cooldownUntilMs = _readOptionalTelemetryInt(
+        cur['cooldown_until_ms'],
+      );
       String? lastQuotaError = cur['last_quota_error'] as String?;
-      int? lastQuotaAt = (cur['last_quota_at'] as num?)?.toInt();
+      int? lastQuotaAt = _readOptionalTelemetryInt(cur['last_quota_at']);
       if (per.success) {
         consecFail = 0;
         cooldownUntilMs = null;
@@ -359,15 +362,16 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       };
       // 累加领域专属计数（total_hits / total_bytes 等）
       for (final bump in per.aggregateBumps.entries) {
-        final base = (cur[bump.key] as num?)?.toInt() ?? 0;
-        updated[bump.key] = base + bump.value.toInt();
+        final base = _readTelemetryInt(cur[bump.key]);
+        updated[bump.key] = base + _nonNegativeEventInt(bump.value);
       }
       if (!per.success) {
         updated['last_error'] = per.error ?? cur['last_error'];
         updated['last_failure_at'] = timestampMs;
       } else {
         updated['last_error'] = cur['last_error'];
-        updated['last_failure_at'] = cur['last_failure_at'];
+        final lastFailureAt = _readOptionalTelemetryInt(cur['last_failure_at']);
+        if (lastFailureAt != null) updated['last_failure_at'] = lastFailureAt;
       }
       agg[key] = updated;
     }
@@ -386,7 +390,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
               if (entry.value is List) {
                 hist['${entry.key}'] = (entry.value as List)
                     .whereType<Map>()
-                    .map((m) => Map<String, Object?>.from(m))
+                    .map((m) => _jsonSafeTelemetryMap(Map.from(m)))
                     .toList();
               }
             }
@@ -398,12 +402,14 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       for (final per in perEngine) {
         final key = per.kindName;
         final list = hist[key] ?? <Map<String, Object?>>[];
-        list.add(<String, Object?>{
-          'ts': timestampMs,
-          'dur': per.elapsedMs,
-          'ok': per.success,
-          ...per.historyExtras,
-        });
+        list.add(
+          _jsonSafeTelemetryMap(<String, Object?>{
+            'ts': timestampMs,
+            'dur': _nonNegativeEventInt(per.elapsedMs),
+            'ok': per.success,
+            ...per.historyExtras,
+          }),
+        );
         if (list.length > maxHistorySamples) {
           list.removeRange(0, list.length - maxHistorySamples);
         }
@@ -412,4 +418,33 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       await histFile.writeAsString(jsonEncode(hist), flush: true);
     }
   }
+}
+
+int _readTelemetryInt(Object? value) {
+  return nonNegativeIntFromValue(value, fallback: 0);
+}
+
+int? _readOptionalTelemetryInt(Object? value) {
+  return optionalNonNegativeIntFromValue(value);
+}
+
+int _nonNegativeEventInt(num value) {
+  final parsed = optionalNonNegativeIntFromValue(value);
+  return parsed ?? 0;
+}
+
+Map<String, Object?> _jsonSafeTelemetryMap(Map<Object?, Object?> value) {
+  return <String, Object?>{
+    for (final entry in value.entries)
+      '${entry.key}': _jsonSafeTelemetryValue(entry.value),
+  };
+}
+
+Object? _jsonSafeTelemetryValue(Object? value) {
+  if (value is num && !value.isFinite) return 0;
+  if (value is Map) return _jsonSafeTelemetryMap(value);
+  if (value is List) {
+    return value.map(_jsonSafeTelemetryValue).toList(growable: false);
+  }
+  return value;
 }
