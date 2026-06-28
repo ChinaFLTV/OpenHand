@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 enum AiAttachmentKind {
   image('image'),
@@ -60,17 +61,7 @@ class AiMessageAttachment {
         return value.isEmpty ? null : value;
       }(),
       pixelCount: _readNullableInt(json['pixel_count']),
-      compressionRatio: () {
-        final raw = json['compression_ratio'];
-        if (raw is num) {
-          return raw.toDouble();
-        }
-        final text = '${raw ?? ''}'.trim();
-        if (text.isEmpty || text == 'null') {
-          return null;
-        }
-        return double.tryParse(text);
-      }(),
+      compressionRatio: optionalDoubleFromValue(json['compression_ratio']),
     );
   }
   const AiMessageAttachment({
@@ -202,18 +193,8 @@ class AiMessageAttachment {
   }
 
   static int? _readNullableInt(Object? value) {
-    if (value is int) {
-      return value < 0 ? null : value;
-    }
-    if (value is num) {
-      return value < 0 ? null : value.toInt();
-    }
-    final text = '${value ?? ''}'.trim();
-    if (text.isEmpty || text == 'null') {
-      return null;
-    }
-    final parsed = int.tryParse(text);
-    return (parsed != null && parsed < 0) ? null : parsed;
+    final parsed = optionalIntFromValue(value);
+    return parsed == null || parsed < 0 ? null : parsed;
   }
 }
 
