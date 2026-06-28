@@ -23,7 +23,7 @@ class HooksStore {
         script_path     TEXT NOT NULL DEFAULT '',
         script_content  TEXT NOT NULL DEFAULT '',
         enabled         INTEGER NOT NULL DEFAULT 1,
-        timeout_seconds INTEGER NOT NULL DEFAULT 12,
+        timeout_seconds INTEGER NOT NULL DEFAULT ${HookEntry.defaultTimeoutSeconds},
         sort_order      INTEGER NOT NULL DEFAULT 0
       )
     ''');
@@ -47,7 +47,12 @@ class HooksStore {
             scriptPath: nullIfBlank('${row['script_path'] ?? ''}'),
             scriptContent: nullIfBlank('${row['script_content'] ?? ''}'),
             enabled: (row['enabled'] as int?) == 1,
-            timeoutSeconds: (row['timeout_seconds'] as int?) ?? 12,
+            timeoutSeconds: clampedIntFromValue(
+              row['timeout_seconds'],
+              fallback: HookEntry.defaultTimeoutSeconds,
+              min: HookEntry.minTimeoutSeconds,
+              max: HookEntry.maxTimeoutSeconds,
+            ),
           ),
         );
       } catch (error, stack) {

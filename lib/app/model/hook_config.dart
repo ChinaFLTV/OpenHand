@@ -39,22 +39,32 @@ class HookEntry {
     this.scriptPath,
     this.scriptContent,
     this.enabled = true,
-    this.timeoutSeconds = 12,
+    this.timeoutSeconds = defaultTimeoutSeconds,
   });
 
-  factory HookEntry.fromJson(Map<String, Object?> json) {
+  factory HookEntry.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return HookEntry(
-      id: '${json['id'] ?? ''}'.trim(),
+      id: stringFromValue(json['id']),
       event:
-          HookEvent.fromStorage('${json['event'] ?? ''}') ??
+          HookEvent.fromStorage(stringFromValue(json['event'])) ??
           HookEvent.sessionStart,
-      label: '${json['label'] ?? ''}'.trim(),
-      scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
-      scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
+      label: stringFromValue(json['label']),
+      scriptPath: optionalStringFromValue(json['script_path']),
+      scriptContent: optionalStringFromValue(json['script_content']),
       enabled: boolFromValue(json['enabled'], defaultValue: true),
-      timeoutSeconds: intFromValue(json['timeout_seconds'], fallback: 12),
+      timeoutSeconds: clampedIntFromValue(
+        json['timeout_seconds'],
+        fallback: defaultTimeoutSeconds,
+        min: minTimeoutSeconds,
+        max: maxTimeoutSeconds,
+      ),
     );
   }
+
+  static const int defaultTimeoutSeconds = 12;
+  static const int minTimeoutSeconds = 1;
+  static const int maxTimeoutSeconds = 60;
 
   final String id;
   final HookEvent event;

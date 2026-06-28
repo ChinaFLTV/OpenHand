@@ -288,7 +288,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       text: existing?.scriptContent ?? '',
     );
     _timeoutController = TextEditingController(
-      text: '${existing?.timeoutSeconds ?? 12}',
+      text: '${existing?.timeoutSeconds ?? HookEntry.defaultTimeoutSeconds}',
     );
     _enabled = existing?.enabled ?? true;
     _scriptSource =
@@ -561,9 +561,9 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
 
     final timeout = clampedIntFromText(
       _timeoutController.text,
-      fallback: 12,
-      min: 1,
-      max: 60,
+      fallback: HookEntry.defaultTimeoutSeconds,
+      min: HookEntry.minTimeoutSeconds,
+      max: HookEntry.maxTimeoutSeconds,
     );
     final entry = HookEntry(
       id: widget.existing?.id ?? _uuid.v4(),

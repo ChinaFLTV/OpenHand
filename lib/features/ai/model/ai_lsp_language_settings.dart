@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_lsp_backend_catalog.dart';
 
 class AiLspLanguageSettings {
@@ -49,12 +50,13 @@ class AiLspLanguageSettings {
     };
   }
 
-  static AiLspLanguageSettings fromJson(Map<String, Object?> json) {
+  static AiLspLanguageSettings fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiLspLanguageSettings(
-      backendId: '${json['backend_id'] ?? ''}'.trim(),
-      rootPath: '${json['root_path'] ?? ''}'.trim(),
-      sdkPath: '${json['sdk_path'] ?? ''}'.trim(),
-      version: '${json['version'] ?? ''}'.trim(),
+      backendId: stringFromValue(json['backend_id']),
+      rootPath: stringFromValue(json['root_path']),
+      sdkPath: stringFromValue(json['sdk_path']),
+      version: stringFromValue(json['version']),
     );
   }
 

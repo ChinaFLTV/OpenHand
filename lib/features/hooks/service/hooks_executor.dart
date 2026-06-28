@@ -13,9 +13,6 @@ import '../hooks_controller.dart';
 /// Maximum characters to collect from hook script stdout / stderr.
 const int _maxHookOutputCharacters = 4000;
 
-/// Hard ceiling to prevent a misconfigured timeout from blocking indefinitely.
-const int _maxHookTimeoutSeconds = 60;
-
 /// Maximum size (bytes) of the context JSON written to the temp file.
 /// Prevents a misconfigured or malicious payload from exhausting disk space.
 const int _maxContextJsonBytes = 512 * 1024; // 512 KB
@@ -280,7 +277,10 @@ class HooksExecutor {
     required Map<String, Object?> payload,
   }) async {
     final timeout = Duration(
-      seconds: hook.timeoutSeconds.clamp(1, _maxHookTimeoutSeconds),
+      seconds: hook.timeoutSeconds.clamp(
+        HookEntry.minTimeoutSeconds,
+        HookEntry.maxTimeoutSeconds,
+      ),
     );
     final shellCommand = _buildCommand(hook);
     final workingDirectory = OpenHandPaths.applicationDirectoryPath();

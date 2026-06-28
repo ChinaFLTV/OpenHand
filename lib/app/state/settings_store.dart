@@ -420,14 +420,12 @@ class SettingsStore {
     final rawEditorLspSettings = json['editor_lsp_settings'];
     if (rawEditorLspSettings is Map) {
       for (final entry in rawEditorLspSettings.entries) {
-        if (entry.value is! Map) {
-          continue;
-        }
+        final language = stringFromValue(entry.key);
+        if (language.isEmpty) continue;
+        final value = optionalStringKeyedMapFromValueOrJsonText(entry.value);
+        if (value == null) continue;
         try {
-          editorLspSettings['${entry.key}'
-              .trim()] = AiLspLanguageSettings.fromJson(
-            Map<String, Object?>.from(entry.value as Map),
-          );
+          editorLspSettings[language] = AiLspLanguageSettings.fromJson(value);
         } catch (error, stack) {
           silentLog(
             'settings_store',
