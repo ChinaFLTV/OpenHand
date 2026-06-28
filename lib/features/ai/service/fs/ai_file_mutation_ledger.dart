@@ -378,9 +378,13 @@ class AiFileMutationLedger {
       if (await f.exists()) {
         final raw = await f.readAsString();
         if (raw.trim().isNotEmpty) {
-          final json = jsonDecode(raw) as Map<String, Object?>;
-          _cachedConfig = LedgerConfig.fromJson(json);
-          return _cachedConfig!;
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) {
+            _cachedConfig = LedgerConfig.fromJson(
+              stringKeyedMapFromValue(decoded),
+            );
+            return _cachedConfig!;
+          }
         }
       }
     } on FileSystemException catch (error, stack) {
@@ -571,9 +575,10 @@ class AiFileMutationLedger {
         final trimmed = raw.trim();
         if (trimmed.isEmpty) continue;
         try {
-          final json = jsonDecode(trimmed) as Map<String, Object?>;
+          final decoded = jsonDecode(trimmed);
+          if (decoded is! Map) continue;
           final record = FileMutationRecord.tryFromJson(
-            json,
+            stringKeyedMapFromValue(decoded),
             sessionId: sessionId,
           );
           if (record != null) records.add(record);
