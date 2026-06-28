@@ -14,6 +14,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
 import 'openhand_dialog_action_button.dart';
@@ -2519,7 +2520,8 @@ Future<(Uint8List, int, int)?> _runRenderInIsolate(
 (Uint8List, int, int)? _renderInIsolateFromMessage(
   Map<String, Object?> message,
 ) {
-  return _renderInIsolate(_IsolateRenderParams.fromMessage(message));
+  final params = _IsolateRenderParams.fromMessage(message);
+  return params == null ? null : _renderInIsolate(params);
 }
 
 /// All the parameters needed to render an image in a background isolate.
@@ -2651,48 +2653,83 @@ class _IsolateRenderParams {
     };
   }
 
-  static _IsolateRenderParams fromMessage(Map<String, Object?> message) {
+  static _IsolateRenderParams? fromMessage(Map<String, Object?> message) {
+    final imageBytes = message['imageBytes'];
+    if (imageBytes is! Uint8List || imageBytes.isEmpty) return null;
+    final previewWidth = _positiveDoubleFromMessage(message['previewWidth']);
+    final previewHeight = _positiveDoubleFromMessage(message['previewHeight']);
+    if (previewWidth == null || previewHeight == null) return null;
+    final hasCropRect = optionalBoolFromValue(message['hasCropRect']) ?? false;
+    final cropWidth = _doubleFromMessage(message['cropWidth']);
+    final cropHeight = _doubleFromMessage(message['cropHeight']);
+    if (hasCropRect && (cropWidth <= 0 || cropHeight <= 0)) return null;
     return _IsolateRenderParams(
-      imageBytes: message['imageBytes']! as Uint8List,
-      previewWidth: (message['previewWidth']! as num).toDouble(),
-      previewHeight: (message['previewHeight']! as num).toDouble(),
-      hasCropRect: message['hasCropRect']! as bool,
-      cropLeft: (message['cropLeft']! as num).toDouble(),
-      cropTop: (message['cropTop']! as num).toDouble(),
-      cropWidth: (message['cropWidth']! as num).toDouble(),
-      cropHeight: (message['cropHeight']! as num).toDouble(),
-      rotation: (message['rotation']! as num).toDouble(),
-      flipHorizontal: message['flipHorizontal']! as bool,
-      flipVertical: message['flipVertical']! as bool,
-      brightness: (message['brightness']! as num).toDouble(),
-      contrast: (message['contrast']! as num).toDouble(),
-      saturation: (message['saturation']! as num).toDouble(),
-      exposure: (message['exposure']! as num).toDouble(),
-      hue: (message['hue']! as num).toDouble(),
-      gamma: (message['gamma']! as num).toDouble(),
-      temperature: (message['temperature']! as num).toDouble(),
-      tint: (message['tint']! as num).toDouble(),
-      shadowHue: (message['shadowHue']! as num).toDouble(),
-      shadowStrength: (message['shadowStrength']! as num).toDouble(),
-      highlightHue: (message['highlightHue']! as num).toDouble(),
-      highlightStrength: (message['highlightStrength']! as num).toDouble(),
-      clarity: (message['clarity']! as num).toDouble(),
-      sharpness: (message['sharpness']! as num).toDouble(),
-      denoise: (message['denoise']! as num).toDouble(),
-      grain: (message['grain']! as num).toDouble(),
-      dispersion: (message['dispersion']! as num).toDouble(),
-      distort: (message['distort']! as num).toDouble(),
-      vignette: (message['vignette']! as num).toDouble(),
+      imageBytes: imageBytes,
+      previewWidth: previewWidth,
+      previewHeight: previewHeight,
+      hasCropRect: hasCropRect,
+      cropLeft: _doubleFromMessage(message['cropLeft']),
+      cropTop: _doubleFromMessage(message['cropTop']),
+      cropWidth: cropWidth,
+      cropHeight: cropHeight,
+      rotation: _doubleFromMessage(message['rotation']),
+      flipHorizontal: optionalBoolFromValue(message['flipHorizontal']) ?? false,
+      flipVertical: optionalBoolFromValue(message['flipVertical']) ?? false,
+      brightness: _doubleFromMessage(message['brightness'], fallback: 1),
+      contrast: _doubleFromMessage(message['contrast'], fallback: 1),
+      saturation: _doubleFromMessage(message['saturation'], fallback: 1),
+      exposure: _doubleFromMessage(message['exposure']),
+      hue: _doubleFromMessage(message['hue']),
+      gamma: _doubleFromMessage(message['gamma'], fallback: 1),
+      temperature: _doubleFromMessage(message['temperature']),
+      tint: _doubleFromMessage(message['tint']),
+      shadowHue: _doubleFromMessage(message['shadowHue'], fallback: 210),
+      shadowStrength: _doubleFromMessage(message['shadowStrength']),
+      highlightHue: _doubleFromMessage(message['highlightHue'], fallback: 45),
+      highlightStrength: _doubleFromMessage(message['highlightStrength']),
+      clarity: _doubleFromMessage(message['clarity']),
+      sharpness: _doubleFromMessage(message['sharpness']),
+      denoise: _doubleFromMessage(message['denoise']),
+      grain: _doubleFromMessage(message['grain']),
+      dispersion: _doubleFromMessage(message['dispersion']),
+      distort: _doubleFromMessage(message['distort']),
+      vignette: _doubleFromMessage(message['vignette']),
       watermarkText: (message['watermarkText'] as String?) ?? '',
-      watermarkSize: (message['watermarkSize']! as num).toDouble(),
-      watermarkOpacity: (message['watermarkOpacity']! as num).toDouble(),
-      watermarkPositionIndex: message['watermarkPositionIndex']! as int,
-      watermarkColorArgb: message['watermarkColorArgb']! as int,
-      isCircle: message['isCircle']! as bool,
-      forcePng: message['forcePng']! as bool,
-      maxOutputLongSide: message['maxOutputLongSide'] as int?,
-      imageSizeLimitBytes: message['imageSizeLimitBytes'] as int?,
+      watermarkSize: _doubleFromMessage(message['watermarkSize'], fallback: 48),
+      watermarkOpacity: _doubleFromMessage(
+        message['watermarkOpacity'],
+        fallback: 0.85,
+      ),
+      watermarkPositionIndex: _intFromMessage(
+        message['watermarkPositionIndex'],
+        fallback: _WatermarkPosition.bottomRight.index,
+      ).clamp(0, _WatermarkPosition.values.length - 1),
+      watermarkColorArgb: _intFromMessage(
+        message['watermarkColorArgb'],
+        fallback: Colors.white.toARGB32(),
+      ),
+      isCircle: optionalBoolFromValue(message['isCircle']) ?? false,
+      forcePng: optionalBoolFromValue(message['forcePng']) ?? false,
+      maxOutputLongSide: optionalPositiveIntFromValue(
+        message['maxOutputLongSide'],
+      ),
+      imageSizeLimitBytes: optionalPositiveIntFromValue(
+        message['imageSizeLimitBytes'],
+      ),
     );
+  }
+
+  static double _doubleFromMessage(Object? value, {double fallback = 0}) {
+    return optionalDoubleFromValue(value) ?? fallback;
+  }
+
+  static double? _positiveDoubleFromMessage(Object? value) {
+    final parsed = optionalDoubleFromValue(value);
+    return parsed == null || parsed <= 0 ? null : parsed;
+  }
+
+  static int _intFromMessage(Object? value, {required int fallback}) {
+    return optionalIntegralIntFromValue(value) ?? fallback;
   }
 }
 
