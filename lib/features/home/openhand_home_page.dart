@@ -6500,11 +6500,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final embeddingModel = knowledgeBaseController.resolveEmbeddingModel(
           settingsController.aiModels,
         );
+        final rerankModel = knowledgeBaseController.resolveRerankModel(
+          settingsController.aiModels,
+        );
         final knowledgeBaseMetadata = await knowledgeBaseController
             .buildMessageAugmentation(
               query: prompt,
               enabled: true,
               embeddingModel: embeddingModel,
+              rerankModel: rerankModel,
             );
         knowledgeBaseStopwatch.stop();
         submitPreflightTimingsMs['knowledge_base_retrieval'] =

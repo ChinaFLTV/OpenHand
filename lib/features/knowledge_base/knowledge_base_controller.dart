@@ -365,6 +365,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     required String query,
     required bool enabled,
     required AiModelConfig? embeddingModel,
+    AiModelConfig? rerankModel,
   }) async {
     final normalized = query.trim();
     if (!enabled) {
@@ -403,19 +404,24 @@ class KnowledgeBaseController extends ChangeNotifier {
         embeddingService: _embeddingService,
         vectorStore: vectorStore,
       );
-      final result = await retrieval.retrieve(
-        query: normalized,
-        settings: _settings,
-        embeddingModel: embeddingModel,
-      );
-      _lastRetrieval = result;
-      embeddingStopwatch.stop();
-      return KnowledgeMessageMetadata.success(
-        settings: _settings,
-        result: result,
-        embeddingDurationMs: embeddingStopwatch.elapsedMilliseconds,
-        promptAppendContent: result.promptAppend,
-      );
+      try {
+        final result = await retrieval.retrieve(
+          query: normalized,
+          settings: _settings,
+          embeddingModel: embeddingModel,
+          rerankModel: rerankModel,
+        );
+        _lastRetrieval = result;
+        embeddingStopwatch.stop();
+        return KnowledgeMessageMetadata.success(
+          settings: _settings,
+          result: result,
+          embeddingDurationMs: embeddingStopwatch.elapsedMilliseconds,
+          promptAppendContent: result.promptAppend,
+        );
+      } finally {
+        retrieval.dispose();
+      }
     } catch (error) {
       embeddingStopwatch.stop();
       if (_settings.failureStrategy == 'fail_closed') {
@@ -443,6 +449,20 @@ class KnowledgeBaseController extends ChangeNotifier {
     return null;
   }
 
+  AiModelConfig? resolveRerankModel(List<AiModelConfig> models) {
+    if (!_settings.modelRerankEnabled || !_settings.hasRerankModel) {
+      return null;
+    }
+    for (final model in models) {
+      if (model.id == _settings.rerankProviderConfigId) {
+        final profile = model.profileFor(_settings.rerankModelId);
+        if (!profile.supportsRerank) return null;
+        return model.copyWith(modelId: _settings.rerankModelId);
+      }
+    }
+    return null;
+  }
+
   List<AiModelConfig> embeddingCapableModels(List<AiModelConfig> models) {
     return models
         .where(
@@ -451,6 +471,16 @@ class KnowledgeBaseController extends ChangeNotifier {
                 .profileFor(id)
                 .capabilities
                 .contains(AiModelCapability.embeddingGeneration),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<AiModelConfig> rerankCapableModels(List<AiModelConfig> models) {
+    return models
+        .where(
+          (model) => model.allModelIds.any(
+            (id) => model.profileFor(id).supportsRerank,
           ),
         )
         .toList(growable: false);

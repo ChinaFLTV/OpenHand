@@ -2659,6 +2659,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (AiImageGenerationService.supportsAudioGeneration(widget.protocolType)) {
       result.add(AiModelCapability.audioGeneration);
     }
+    final normalizedModelId = widget.modelId.toLowerCase();
+    if (normalizedModelId.contains('rerank') ||
+        normalizedModelId.contains('reranker')) {
+      result.add(AiModelCapability.rerank);
+    }
     return result;
   }
 
@@ -3313,6 +3318,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                           openHandIsChineseLocale(context)
                               ? '嵌入生成'
                               : 'Embeddings',
+                        AiModelCapability.rerank =>
+                          openHandIsChineseLocale(context) ? '重排序' : 'Rerank',
                       };
                       return FilterChip(
                         label: Text(label),

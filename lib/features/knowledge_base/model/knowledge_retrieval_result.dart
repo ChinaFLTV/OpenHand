@@ -18,6 +18,22 @@ class KnowledgeRetrievalHit {
   final double? finalScore;
   final String timeField;
 
+  KnowledgeRetrievalHit copyWith({
+    double? score,
+    double? rerankScore,
+    double? finalScore,
+    String? timeField,
+  }) {
+    return KnowledgeRetrievalHit(
+      chunk: chunk,
+      source: source,
+      score: score ?? this.score,
+      rerankScore: rerankScore ?? this.rerankScore,
+      finalScore: finalScore ?? this.finalScore,
+      timeField: timeField ?? this.timeField,
+    );
+  }
+
   Map<String, Object?> toMessageJson() {
     final preview = chunk.content.trim();
     return <String, Object?>{

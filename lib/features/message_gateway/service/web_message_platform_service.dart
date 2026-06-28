@@ -2245,6 +2245,7 @@ class WebMessagePlatformService {
               'supports_text_title_generation':
                   item.supportsTextTitleGeneration,
               'supports_embeddings': item.supportsEmbeddings,
+              'supports_rerank': item.supportsRerank,
               'provider_default_title_model_key':
                   item.providerDefaultTitleModelKey,
               'is_global_default_title_model': item.isGlobalDefaultTitleModel,
@@ -3117,11 +3118,15 @@ class WebMessagePlatformService {
         final embeddingModel = knowledgeBaseController.resolveEmbeddingModel(
           _settingsController.aiModels,
         );
+        final rerankModel = knowledgeBaseController.resolveRerankModel(
+          _settingsController.aiModels,
+        );
         final knowledgeBaseMetadata = await knowledgeBaseController
             .buildMessageAugmentation(
               query: content,
               enabled: true,
               embeddingModel: embeddingModel,
+              rerankModel: rerankModel,
             );
         if (knowledgeBaseMetadata != null && knowledgeBaseMetadata.isNotEmpty) {
           userMessageMetadata[knowledgeBaseMessageMetadataKey] =
@@ -6097,6 +6102,7 @@ class WebMessagePlatformService {
             supportsTextTitleGeneration:
                 AiTitleModelResolver.supportsTextTitleGeneration(resolved),
             supportsEmbeddings: profile.supportsEmbeddings,
+            supportsRerank: profile.supportsRerank,
             providerDefaultTitleModelKey: providerDefaultTitleModelKey,
             isGlobalDefaultTitleModel:
                 profile.isGlobalDefaultTitleModel ||
@@ -6890,6 +6896,7 @@ class _AllowedWebModel {
     required this.supportsAudioGeneration,
     required this.supportsTextTitleGeneration,
     required this.supportsEmbeddings,
+    required this.supportsRerank,
     required this.providerDefaultTitleModelKey,
     required this.isGlobalDefaultTitleModel,
   });
@@ -6908,6 +6915,7 @@ class _AllowedWebModel {
   final bool supportsAudioGeneration;
   final bool supportsTextTitleGeneration;
   final bool supportsEmbeddings;
+  final bool supportsRerank;
   final String? providerDefaultTitleModelKey;
   final bool isGlobalDefaultTitleModel;
 }

@@ -23,9 +23,7 @@ const List<String> _knowledgeDistanceMetrics = <String>[
   'euclidean',
 ];
 
-const List<String> _knowledgeChunkStrategies = <String>[
-  'markdown_heading_recursive',
-];
+const List<String> _knowledgeChunkStrategies = KnowledgeChunkStrategy.values;
 
 const List<String> _knowledgeDocumentTimeSources = <String>[
   'front_matter',
@@ -105,7 +103,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   late final TextEditingController _sourceQualityWeight;
   late final TextEditingController _mmrLambda;
   late final TextEditingController _maxChunksPerSource;
-  late final TextEditingController _rerankModelId;
   late final TextEditingController _rerankTopN;
   late final TextEditingController _rerankTimeout;
   late final TextEditingController _maxPromptChunks;
@@ -167,7 +164,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     _maxChunksPerSource = TextEditingController(
       text: '${_settings.maxChunksPerSource}',
     );
-    _rerankModelId = TextEditingController(text: _settings.rerankModelId);
     _rerankTopN = TextEditingController(text: '${_settings.rerankTopN}');
     _rerankTimeout = TextEditingController(
       text: '${_settings.rerankTimeoutSeconds}',
@@ -219,7 +215,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       _sourceQualityWeight,
       _mmrLambda,
       _maxChunksPerSource,
-      _rerankModelId,
       _rerankTopN,
       _rerankTimeout,
       _maxPromptChunks,
@@ -250,12 +245,40 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     return filtered;
   }
 
+  List<AiModelConfig> _rerankModels(List<AiModelConfig> models) {
+    final filtered = <AiModelConfig>[];
+    for (final model in models) {
+      final ids = model.allModelIds
+          .where((id) => model.profileFor(id).supportsRerank)
+          .toList(growable: false);
+      if (ids.isEmpty) continue;
+      filtered.add(
+        model.copyWith(
+          modelId: ids.contains(model.modelId) ? model.modelId : ids.first,
+          availableModelIds: ids,
+          defaultTitleModelId: '',
+        ),
+      );
+    }
+    return filtered;
+  }
+
   bool _selectedEmbeddingModelAvailable(List<AiModelConfig> models) {
     if (!_settings.hasEmbeddingModel) return false;
     for (final model in models) {
       if (model.id != _settings.providerConfigId) continue;
       return model.allModelIds.contains(_settings.modelId) &&
           model.profileFor(_settings.modelId).supportsEmbeddings;
+    }
+    return false;
+  }
+
+  bool _selectedRerankModelAvailable(List<AiModelConfig> models) {
+    if (!_settings.hasRerankModel) return false;
+    for (final model in models) {
+      if (model.id != _settings.rerankProviderConfigId) continue;
+      return model.allModelIds.contains(_settings.rerankModelId) &&
+          model.profileFor(_settings.rerankModelId).supportsRerank;
     }
     return false;
   }
@@ -322,7 +345,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         _maxChunksPerSource,
         _settings.maxChunksPerSource,
       ),
-      rerankModelId: _rerankModelId.text.trim(),
       rerankTopN: _int(_rerankTopN, _settings.rerankTopN),
       rerankTimeoutSeconds: _int(
         _rerankTimeout,
@@ -357,7 +379,8 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final knowledgeController = context.watch<KnowledgeBaseController>();
     final pluginController = context.watch<PluginServiceController>();
     final settingsController = context.watch<SettingsController>();
-    final models = _embeddingModels(settingsController.aiModels);
+    final embeddingModels = _embeddingModels(settingsController.aiModels);
+    final rerankModels = _rerankModels(settingsController.aiModels);
     final dependencies = knowledgeController.dependencies(pluginController);
     final isZh = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
@@ -373,7 +396,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 context,
                 dependencies: dependencies,
                 embeddingModelAvailable: _selectedEmbeddingModelAvailable(
-                  models,
+                  embeddingModels,
                 ),
               ),
               _section(
@@ -381,12 +404,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 title: isZh ? '嵌入模型' : 'Embedding Model',
                 icon: Icons.hub_outlined,
                 children: [
-                  if (models.isEmpty)
+                  if (embeddingModels.isEmpty)
                     _emptyModelState(context)
                   else
                     _fullRow(
                       OpenHandModelSelectorField(
-                        models: models,
+                        models: embeddingModels,
                         recentSelections:
                             settingsController.recentModelSelections,
                         selectedConfigId: _settings.providerConfigId,
@@ -400,7 +423,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         modelFilter: (config, modelId) =>
                             config.profileFor(modelId).supportsEmbeddings,
                         onSelected: (selection) {
-                          final model = models.firstWhere(
+                          final model = embeddingModels.firstWhere(
                             (item) => item.id == selection.$1,
                           );
                           final profile = model.profileFor(selection.$2);
@@ -431,7 +454,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       ),
                     ),
                   if (_settings.hasEmbeddingModel)
-                    _embeddingProfileSummary(context, models),
+                    _embeddingProfileSummary(context, embeddingModels),
                   _field(_dimensions, isZh ? '默认向量维度' : 'Default dimensions'),
                   _field(
                     _maxInputTokens,
@@ -510,10 +533,16 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     value: _settings.chunkStrategy,
                     values: _knowledgeChunkStrategies,
                     itemLabel: (value) => switch (value) {
-                      'markdown_heading_recursive' =>
+                      KnowledgeChunkStrategy.markdownHeadingRecursive =>
                         isZh
                             ? 'Markdown 标题递归窗口'
                             : 'Markdown heading recursive windows',
+                      KnowledgeChunkStrategy.paragraphWindow =>
+                        isZh ? '段落窗口' : 'Paragraph windows',
+                      KnowledgeChunkStrategy.fixedTokenWindow =>
+                        isZh ? '固定 token 窗口' : 'Fixed token windows',
+                      KnowledgeChunkStrategy.semanticLight =>
+                        isZh ? '轻量语义边界' : 'Light semantic boundaries',
                       _ => value,
                     },
                     onChanged: (value) {
@@ -834,12 +863,87 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 title: isZh ? '重排与去重' : 'Rerank and Deduplication',
                 icon: Icons.filter_alt_outlined,
                 children: [
-                  _switch('MMR', _settings.mmrEnabled, (value) {
-                    setState(
-                      () => _settings = _settings.copyWith(mmrEnabled: value),
-                    );
-                  }),
-                  _field(_mmrLambda, isZh ? 'MMR lambda' : 'MMR lambda'),
+                  _dropdown(
+                    label: isZh ? '重排序方式' : 'Rerank mode',
+                    value: _settings.rerankMode,
+                    values: KnowledgeRerankMode.values,
+                    itemLabel: (value) => switch (value) {
+                      KnowledgeRerankMode.off => isZh ? '关闭' : 'Off',
+                      KnowledgeRerankMode.localHybrid =>
+                        isZh ? '本地混合评分' : 'Local hybrid scoring',
+                      KnowledgeRerankMode.mmr =>
+                        isZh ? 'MMR 多样性重排' : 'MMR diversity',
+                      KnowledgeRerankMode.model =>
+                        isZh ? '模型重排序' : 'Model rerank',
+                      _ => value,
+                    },
+                    onChanged: (value) {
+                      var next = _settings.copyWith(
+                        rerankMode: value,
+                        mmrEnabled: value == KnowledgeRerankMode.mmr,
+                        cloudRerankEnabled:
+                            value == KnowledgeRerankMode.model,
+                      );
+                      if (value == KnowledgeRerankMode.model &&
+                          !_selectedRerankModelAvailable(rerankModels) &&
+                          rerankModels.isNotEmpty) {
+                        final firstConfig = rerankModels.first;
+                        final firstModelId = firstConfig.allModelIds.first;
+                        next = next.copyWith(
+                          rerankProviderConfigId: firstConfig.id,
+                          rerankModelId: firstModelId,
+                        );
+                      }
+                      setState(() => _settings = next);
+                    },
+                  ),
+                  _animatedFullRow(
+                    _settings.rerankMode == KnowledgeRerankMode.model
+                        ? Column(
+                            key: const ValueKey('rerank-model-selector'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (rerankModels.isEmpty)
+                                KnowledgeDialogNotice(
+                                  icon: Icons.filter_alt_outlined,
+                                  message: isZh
+                                      ? '没有已开启“重排序”的模型。请先在设置的模型配置中启用该能力。'
+                                      : 'No model profile has Rerank enabled. Enable it in model settings first.',
+                                )
+                              else
+                                OpenHandModelSelectorField(
+                                  models: rerankModels,
+                                  recentSelections: settingsController
+                                      .recentModelSelections,
+                                  selectedConfigId:
+                                      _settings.rerankProviderConfigId,
+                                  selectedModelId: _settings.rerankModelId,
+                                  required: true,
+                                  labelZh: '重排序模型',
+                                  labelEn: 'Rerank model',
+                                  helperZh: '仅显示已开启“重排序”的模型配置。',
+                                  helperEn:
+                                      'Only rerank-capable model profiles are shown.',
+                                  modelFilter: (config, modelId) => config
+                                      .profileFor(modelId)
+                                      .supportsRerank,
+                                  onSelected: (selection) {
+                                    setState(() {
+                                      _settings = _settings.copyWith(
+                                        rerankProviderConfigId: selection.$1,
+                                        rerankModelId: selection.$2,
+                                      );
+                                    });
+                                  },
+                                ),
+                            ],
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('rerank-model-selector-empty'),
+                          ),
+                  ),
+                  if (_settings.rerankMode == KnowledgeRerankMode.mmr)
+                    _field(_mmrLambda, isZh ? 'MMR lambda' : 'MMR lambda'),
                   _switch(
                     isZh ? '邻居扩展' : 'Neighbor expansion',
                     _settings.neighborExpansionEnabled,
@@ -866,26 +970,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     _maxChunksPerSource,
                     isZh ? '单来源最终 chunk 上限' : 'Max chunks per source',
                   ),
-                  _switch(
-                    isZh ? '云端 rerank' : 'Cloud rerank',
-                    _settings.cloudRerankEnabled,
-                    (value) {
-                      setState(
-                        () => _settings = _settings.copyWith(
-                          cloudRerankEnabled: value,
-                        ),
-                      );
-                    },
-                  ),
-                  _field(
-                    _rerankModelId,
-                    isZh ? 'Rerank 模型 ID' : 'Rerank model ID',
-                  ),
-                  _field(_rerankTopN, isZh ? 'Rerank topN' : 'Rerank topN'),
-                  _field(
-                    _rerankTimeout,
-                    isZh ? 'Rerank 超时秒数' : 'Rerank timeout seconds',
-                  ),
+                  if (_settings.rerankMode == KnowledgeRerankMode.model) ...[
+                    _field(_rerankTopN, isZh ? 'Rerank topN' : 'Rerank topN'),
+                    _field(
+                      _rerankTimeout,
+                      isZh ? 'Rerank 超时秒数' : 'Rerank timeout seconds',
+                    ),
+                  ],
                 ],
               ),
               _section(
@@ -1439,6 +1530,32 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         final metrics = _KnowledgeConfigGridScope.of(context);
         return SizedBox(width: metrics.fullWidth, child: child);
       },
+    );
+  }
+
+  Widget _animatedFullRow(Widget child) {
+    return _fullRow(
+      AnimatedSize(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutBack,
+        alignment: Alignment.topCenter,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.98, end: 1).animate(animation),
+                alignment: Alignment.topCenter,
+                child: child,
+              ),
+            );
+          },
+          child: child,
+        ),
+      ),
     );
   }
 

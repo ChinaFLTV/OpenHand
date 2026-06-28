@@ -68,7 +68,6 @@ class AiModelCatalog {
         _cohere(id) ??
         _voyage(id) ??
         _jina(id) ??
-        _openSourceEmbedding(id) ??
         _claude(id) ??
         _deepseek(id) ??
         _qwen(id) ??
@@ -83,7 +82,9 @@ class AiModelCatalog {
         _wenxin(id) ??
         _meta(id) ??
         _grok(id) ??
-        _hunyuan(id);
+        _hunyuan(id) ??
+        _genericRerank(id) ??
+        _openSourceEmbedding(id);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -123,6 +124,8 @@ class AiModelCatalog {
   static const _embeddingGen = <AiModelCapability>{
     AiModelCapability.embeddingGeneration,
   };
+
+  static const _rerank = <AiModelCapability>{AiModelCapability.rerank};
 
   static const _openAiEmbeddingParameters = <String>[
     'input',
@@ -266,6 +269,58 @@ class AiModelCatalog {
     'embeddingConfig.outputEmbeddingLength',
   ];
 
+  static const _cohereRerankParameters = <String>[
+    'model',
+    'query',
+    'documents',
+    'top_n',
+    'max_tokens_per_doc',
+    'priority',
+  ];
+
+  static const _jinaRerankParameters = <String>[
+    'model',
+    'query',
+    'documents',
+    'top_n',
+    'return_documents',
+  ];
+
+  static const _voyageRerankParameters = <String>[
+    'model',
+    'query',
+    'documents',
+    'top_k',
+    'return_documents',
+    'truncation',
+  ];
+
+  static const _dashScopeCompatibleRerankParameters = <String>[
+    'model',
+    'query',
+    'documents',
+    'top_n',
+    'instruct',
+  ];
+
+  static const _dashScopeLegacyRerankParameters = <String>[
+    'model',
+    'input.query',
+    'input.documents',
+    'parameters.top_n',
+    'parameters.return_documents',
+    'parameters.instruct',
+  ];
+
+  static const _openAiCompatibleRerankParameters = <String>[
+    'model',
+    'query',
+    'documents',
+    'top_n',
+    'return_documents',
+    'max_chunks_per_doc',
+  ];
+
   static final Map<String, AiModelProfile> _exactModelProfiles =
       openRouterExactModelProfiles;
 
@@ -320,6 +375,16 @@ class AiModelCatalog {
     int? embeddingMaxInputsPerBatch,
     int? embeddingMaxTokensPerBatch,
     bool embeddingSupportsTruncation = false,
+    String? rerankEndpointPath,
+    int? rerankMaxInputTokens,
+    int? rerankMaxDocuments,
+    int? rerankDefaultTopN,
+    List<String> rerankSupportedParameters = const <String>[],
+    bool rerankSupportsReturnDocuments = false,
+    bool rerankSupportsInstruction = false,
+    String? rerankDefaultInstruction,
+    bool rerankSupportsTruncation = false,
+    bool? rerankDefaultTruncation,
   }) {
     return AiModelProfile(
       displayName: name,
@@ -369,6 +434,16 @@ class AiModelCatalog {
       embeddingMaxInputsPerBatch: embeddingMaxInputsPerBatch,
       embeddingMaxTokensPerBatch: embeddingMaxTokensPerBatch,
       embeddingSupportsTruncation: embeddingSupportsTruncation,
+      rerankEndpointPath: rerankEndpointPath,
+      rerankMaxInputTokens: rerankMaxInputTokens,
+      rerankMaxDocuments: rerankMaxDocuments,
+      rerankDefaultTopN: rerankDefaultTopN,
+      rerankSupportedParameters: rerankSupportedParameters,
+      rerankSupportsReturnDocuments: rerankSupportsReturnDocuments,
+      rerankSupportsInstruction: rerankSupportsInstruction,
+      rerankDefaultInstruction: rerankDefaultInstruction,
+      rerankSupportsTruncation: rerankSupportsTruncation,
+      rerankDefaultTruncation: rerankDefaultTruncation,
     );
   }
 
@@ -451,6 +526,81 @@ class AiModelCatalog {
       embeddingMaxTokensPerBatch: maxTokensPerBatch,
       embeddingSupportsTruncation: supportsTruncation,
     );
+  }
+
+  static AiModelProfile _rerankP({
+    required String name,
+    String? desc,
+    bool multimodal = false,
+    Set<AiModelModality> modalities = const <AiModelModality>{
+      AiModelModality.text,
+    },
+    int? context,
+    String? endpointPath,
+    int? maxInputTokens,
+    int? maxDocuments,
+    int? defaultTopN,
+    List<String> supportedParameters = _openAiCompatibleRerankParameters,
+    bool supportsReturnDocuments = true,
+    bool supportsInstruction = false,
+    String? defaultInstruction,
+    bool supportsTruncation = false,
+    bool? defaultTruncation,
+  }) {
+    return _p(
+      name: name,
+      desc: desc,
+      multimodal: multimodal,
+      modalities: modalities,
+      context: context,
+      capabilities: _rerank,
+      rerankEndpointPath: endpointPath,
+      rerankMaxInputTokens: maxInputTokens,
+      rerankMaxDocuments: maxDocuments,
+      rerankDefaultTopN: defaultTopN,
+      rerankSupportedParameters: supportedParameters,
+      rerankSupportsReturnDocuments: supportsReturnDocuments,
+      rerankSupportsInstruction: supportsInstruction,
+      rerankDefaultInstruction: defaultInstruction,
+      rerankSupportsTruncation: supportsTruncation,
+      rerankDefaultTruncation: defaultTruncation,
+    );
+  }
+
+  static AiModelProfile? _genericRerank(String id) {
+    if (!_looksLikeRerankId(id)) return null;
+    final name = id.contains('cohere')
+        ? 'Cohere Rerank'
+        : id.contains('jina')
+        ? 'Jina Reranker'
+        : id.contains('qwen3')
+        ? 'Qwen3 Reranker'
+        : id.contains('gte')
+        ? 'GTE Reranker'
+        : id.contains('bge')
+        ? 'BAAI BGE Reranker'
+        : id.contains('bce')
+        ? 'BCE Reranker'
+        : 'Rerank Model';
+    return _rerankP(
+      name: name,
+      desc: 'Query-document reranking model',
+      context: 8192,
+      endpointPath: 'v1/rerank',
+      maxInputTokens: 8192,
+      defaultTopN: 20,
+    );
+  }
+
+  static bool _looksLikeRerankId(String id) {
+    return id.contains('rerank') ||
+        id.contains('reranker') ||
+        id.contains('ranker') ||
+        id.contains('bge-reranker') ||
+        id.contains('jina-reranker') ||
+        id.contains('gte-rerank') ||
+        id.contains('qwen3-reranker') ||
+        id.contains('bce-reranker');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1306,6 +1456,45 @@ class AiModelCatalog {
       'parameters.speed',
       'parameters.sample_rate',
     ];
+
+    // ── Rerank ───────────────────────────────────────────────────────────
+    if (id.startsWith('qwen3-rerank')) {
+      return _rerankP(
+        name: 'Qwen3 Rerank',
+        desc: 'DashScope text reranking model',
+        endpointPath: 'compatible-mode/v1/reranks',
+        maxInputTokens: 8192,
+        maxDocuments: 500,
+        defaultTopN: 20,
+        supportedParameters: _dashScopeCompatibleRerankParameters,
+        supportsReturnDocuments: false,
+        supportsInstruction: true,
+      );
+    }
+    if (id.startsWith('qwen3-vl-rerank')) {
+      return _rerankP(
+        name: 'Qwen3-VL Rerank',
+        desc: 'DashScope multimodal reranking model',
+        multimodal: true,
+        modalities: _textImageVideo,
+        endpointPath: 'api/v1/services/rerank/text-rerank/text-rerank',
+        maxInputTokens: 32000,
+        defaultTopN: 20,
+        supportedParameters: _dashScopeLegacyRerankParameters,
+        supportsInstruction: true,
+      );
+    }
+    if (id.startsWith('gte-rerank-v2')) {
+      return _rerankP(
+        name: 'GTE Rerank v2',
+        desc: 'DashScope text reranking model',
+        endpointPath: 'api/v1/services/rerank/text-rerank/text-rerank',
+        maxInputTokens: 8192,
+        defaultTopN: 20,
+        supportedParameters: _dashScopeLegacyRerankParameters,
+        supportsInstruction: true,
+      );
+    }
 
     // ── Embedding ────────────────────────────────────────────────────────
     if (id.startsWith('text-embedding-v4')) {
@@ -2476,6 +2665,21 @@ class AiModelCatalog {
   }
 
   static AiModelProfile? _cohere(String id) {
+    if (id.startsWith('rerank-v') ||
+        id.startsWith('rerank-english') ||
+        id.startsWith('rerank-multilingual') ||
+        id.contains('cohere-rerank')) {
+      return _rerankP(
+        name: 'Cohere Rerank',
+        desc: 'Cohere reranking model',
+        endpointPath: 'v2/rerank',
+        maxInputTokens: 4096,
+        maxDocuments: 1000,
+        defaultTopN: 20,
+        supportedParameters: _cohereRerankParameters,
+        supportsReturnDocuments: false,
+      );
+    }
     if (id.contains('embed-v4') || id.contains('embed-4')) {
       return _embeddingP(
         name: 'Cohere Embed v4.0',
@@ -2553,6 +2757,21 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _voyage(String id) {
+    if (id.startsWith('voyage-rerank') ||
+        id.startsWith('rerank-2') ||
+        id.startsWith('rerank-lite')) {
+      return _rerankP(
+        name: id.contains('lite') ? 'Voyage Rerank Lite' : 'Voyage Rerank',
+        desc: 'Voyage AI reranking model',
+        endpointPath: 'v1/rerank',
+        maxInputTokens: 8000,
+        maxDocuments: 1000,
+        defaultTopN: 20,
+        supportedParameters: _voyageRerankParameters,
+        supportsTruncation: true,
+        defaultTruncation: true,
+      );
+    }
     if (!id.startsWith('voyage-')) return null;
     final isVoyage4 = id.startsWith('voyage-4');
     final isVoyage35 = id.startsWith('voyage-3.5');
@@ -2642,6 +2861,18 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _jina(String id) {
+    if (id.startsWith('jina-reranker') || id.startsWith('jina-colbert')) {
+      return _rerankP(
+        name: id.startsWith('jina-colbert')
+            ? 'Jina ColBERT Reranker'
+            : 'Jina Reranker',
+        desc: 'Jina AI reranking model',
+        endpointPath: 'v1/rerank',
+        maxInputTokens: 8192,
+        defaultTopN: 20,
+        supportedParameters: _jinaRerankParameters,
+      );
+    }
     if (id.startsWith('jina-code-embeddings')) {
       final large = id.contains('1.5b') || id.contains('1-5b');
       return _embeddingP(

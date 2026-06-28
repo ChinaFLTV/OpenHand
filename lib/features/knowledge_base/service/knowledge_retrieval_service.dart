@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../../../app/support/silent_log.dart';
 import '../../ai/index.dart';
 import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
@@ -14,18 +15,24 @@ class KnowledgeRetrievalService {
     required KnowledgeBaseStore store,
     required KnowledgeEmbeddingService embeddingService,
     required KnowledgeVectorStore vectorStore,
+    AiRerankService? rerankService,
   }) : _store = store,
        _embeddingService = embeddingService,
-       _vectorStore = vectorStore;
+       _vectorStore = vectorStore,
+       _rerankService = rerankService ?? AiRerankService(),
+       _ownsRerankService = rerankService == null;
 
   final KnowledgeBaseStore _store;
   final KnowledgeEmbeddingService _embeddingService;
   final KnowledgeVectorStore _vectorStore;
+  final AiRerankService _rerankService;
+  final bool _ownsRerankService;
 
   Future<KnowledgeRetrievalResult> retrieve({
     required String query,
     required KnowledgeBaseSettings settings,
     required AiModelConfig embeddingModel,
+    AiModelConfig? rerankModel,
   }) async {
     final stopwatch = Stopwatch()..start();
     final vectors = await _embeddingService.embedBatch(
@@ -78,8 +85,11 @@ class KnowledgeRetrievalService {
         ),
       );
     }
-    scored.sort(
-      (a, b) => (b.finalScore ?? b.score).compareTo(a.finalScore ?? a.score),
+    final ranked = await _rankHits(
+      query: query,
+      hits: scored,
+      settings: settings,
+      rerankModel: rerankModel,
     );
     final capped = <KnowledgeRetrievalHit>[];
     final perSource = <String, int>{};
@@ -87,7 +97,7 @@ class KnowledgeRetrievalService {
       settings.sourceCap,
       settings.maxChunksPerSource,
     );
-    for (final hit in scored) {
+    for (final hit in ranked) {
       final count = perSource[hit.source.id] ?? 0;
       if (count >= perSourceLimit) continue;
       perSource[hit.source.id] = count + 1;
@@ -107,6 +117,177 @@ class KnowledgeRetrievalService {
       promptAppend: prompt.text,
       promptTokenEstimate: prompt.tokenEstimate,
     );
+  }
+
+  Future<List<KnowledgeRetrievalHit>> _rankHits({
+    required String query,
+    required List<KnowledgeRetrievalHit> hits,
+    required KnowledgeBaseSettings settings,
+    required AiModelConfig? rerankModel,
+  }) async {
+    if (hits.isEmpty) return hits;
+    final mode = KnowledgeRerankMode.normalize(settings.rerankMode);
+    final localRanked = _localHybridRank(hits);
+    return switch (mode) {
+      KnowledgeRerankMode.off => _vectorRank(hits),
+      KnowledgeRerankMode.mmr => _mmrRank(localRanked, settings),
+      KnowledgeRerankMode.model => await _modelRerank(
+        query: query,
+        localRanked: localRanked,
+        settings: settings,
+        rerankModel: rerankModel,
+      ),
+      _ => localRanked,
+    };
+  }
+
+  List<KnowledgeRetrievalHit> _localHybridRank(
+    List<KnowledgeRetrievalHit> hits,
+  ) {
+    return List<KnowledgeRetrievalHit>.of(hits)..sort(
+      (a, b) => (b.finalScore ?? b.score).compareTo(a.finalScore ?? a.score),
+    );
+  }
+
+  List<KnowledgeRetrievalHit> _vectorRank(List<KnowledgeRetrievalHit> hits) {
+    return List<KnowledgeRetrievalHit>.of(hits)
+      ..sort((a, b) => b.score.compareTo(a.score));
+  }
+
+  List<KnowledgeRetrievalHit> _mmrRank(
+    List<KnowledgeRetrievalHit> localRanked,
+    KnowledgeBaseSettings settings,
+  ) {
+    if (localRanked.length <= 2) return localRanked;
+    final lambda = settings.mmrLambda.clamp(0.0, 1.0).toDouble();
+    final candidateLimit = math.min(settings.rerankTopN, localRanked.length);
+    final candidates = localRanked.take(candidateLimit).toList(growable: true);
+    final tail = localRanked.skip(candidateLimit).toList(growable: false);
+    final selected = <KnowledgeRetrievalHit>[];
+    final topScore = candidates
+        .map((hit) => hit.finalScore ?? hit.score)
+        .fold<double>(0, math.max);
+    while (candidates.isNotEmpty) {
+      KnowledgeRetrievalHit? best;
+      var bestScore = double.negativeInfinity;
+      for (final candidate in candidates) {
+        final relevance = topScore <= 0
+            ? (candidate.finalScore ?? candidate.score)
+            : ((candidate.finalScore ?? candidate.score) / topScore)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+        final redundancy = selected.isEmpty
+            ? 0.0
+            : selected
+                  .map((hit) => _chunkSimilarity(candidate, hit))
+                  .fold<double>(0, math.max);
+        final mmrScore = lambda * relevance - (1 - lambda) * redundancy;
+        if (mmrScore > bestScore) {
+          bestScore = mmrScore;
+          best = candidate;
+        }
+      }
+      final chosen = best ?? candidates.first;
+      selected.add(chosen.copyWith(finalScore: bestScore));
+      candidates.remove(chosen);
+    }
+    return <KnowledgeRetrievalHit>[...selected, ...tail];
+  }
+
+  Future<List<KnowledgeRetrievalHit>> _modelRerank({
+    required String query,
+    required List<KnowledgeRetrievalHit> localRanked,
+    required KnowledgeBaseSettings settings,
+    required AiModelConfig? rerankModel,
+  }) async {
+    if (!settings.hasRerankModel || rerankModel == null) {
+      if (settings.failureStrategy == 'fail_closed') {
+        throw StateError('已选择模型重排序，但未配置可用的 rerank 模型。');
+      }
+      return localRanked;
+    }
+    final candidateLimit = math.min(settings.rerankTopN, localRanked.length);
+    final candidates = localRanked.take(candidateLimit).toList(growable: false);
+    if (candidates.length <= 1) return localRanked;
+    try {
+      final result = await _rerankService.rerank(
+        model: rerankModel,
+        query: query,
+        documents: candidates
+            .map<Object>(_rerankDocumentText)
+            .toList(growable: false),
+        topN: candidateLimit,
+        returnDocuments: false,
+        timeout: Duration(seconds: settings.rerankTimeoutSeconds),
+      );
+      if (result.items.isEmpty) return localRanked;
+      final ordered = List<AiRerankItem>.of(result.items)
+        ..sort((a, b) => b.score.compareTo(a.score));
+      final usedIndexes = <int>{};
+      final reranked = <KnowledgeRetrievalHit>[];
+      for (final item in ordered) {
+        if (item.index < 0 || item.index >= candidates.length) continue;
+        if (!usedIndexes.add(item.index)) continue;
+        reranked.add(
+          candidates[item.index].copyWith(
+            rerankScore: item.score,
+            finalScore: item.score,
+          ),
+        );
+      }
+      if (reranked.isEmpty) return localRanked;
+      for (var i = 0; i < candidates.length; i++) {
+        if (!usedIndexes.contains(i)) reranked.add(candidates[i]);
+      }
+      reranked.addAll(localRanked.skip(candidateLimit));
+      return reranked;
+    } catch (error, stackTrace) {
+      if (settings.failureStrategy == 'fail_closed') rethrow;
+      silentLog(
+        'knowledge_retrieval',
+        'model rerank failed',
+        error,
+        stackTrace,
+      );
+      return localRanked;
+    }
+  }
+
+  String _rerankDocumentText(KnowledgeRetrievalHit hit) {
+    return <String>[
+      'Title: ${hit.source.title}',
+      if (hit.source.originalPath.trim().isNotEmpty)
+        'Source: ${hit.source.originalPath}',
+      if (hit.chunk.headingPath.trim().isNotEmpty)
+        'Heading: ${hit.chunk.headingPath}',
+      if (hit.chunk.tags.isNotEmpty) 'Tags: ${hit.chunk.tags.join(", ")}',
+      '',
+      hit.chunk.content.trim(),
+    ].join('\n');
+  }
+
+  double _chunkSimilarity(KnowledgeRetrievalHit a, KnowledgeRetrievalHit b) {
+    var score = 0.0;
+    if (a.source.id == b.source.id) score = math.max(score, 0.72);
+    if (a.chunk.headingPath.isNotEmpty &&
+        a.chunk.headingPath == b.chunk.headingPath) {
+      score = math.max(score, 0.55);
+    }
+    final tokensA = _tokenSet(a.chunk.content);
+    final tokensB = _tokenSet(b.chunk.content);
+    if (tokensA.isEmpty || tokensB.isEmpty) return score;
+    final shared = tokensA.intersection(tokensB).length;
+    final union = tokensA.union(tokensB).length;
+    if (union == 0) return score;
+    return math.max(score, shared / union);
+  }
+
+  Set<String> _tokenSet(String value) {
+    return RegExp(r'[A-Za-z0-9_\u4e00-\u9fff-]{2,}')
+        .allMatches(value.toLowerCase())
+        .take(96)
+        .map((match) => match.group(0)!)
+        .toSet();
   }
 
   Map<String, Object?>? _filterForQuery(
@@ -315,5 +496,11 @@ class KnowledgeRetrievalService {
     }
     buffer.write('</OpenHandKnowledgeBaseContext>');
     return (text: buffer.toString(), tokenEstimate: tokenEstimate);
+  }
+
+  void dispose() {
+    if (_ownsRerankService) {
+      _rerankService.dispose();
+    }
   }
 }

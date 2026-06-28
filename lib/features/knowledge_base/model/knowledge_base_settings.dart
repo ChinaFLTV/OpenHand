@@ -1,5 +1,42 @@
 import 'dart:convert';
 
+class KnowledgeChunkStrategy {
+  const KnowledgeChunkStrategy._();
+
+  static const markdownHeadingRecursive = 'markdown_heading_recursive';
+  static const paragraphWindow = 'paragraph_window';
+  static const fixedTokenWindow = 'fixed_token_window';
+  static const semanticLight = 'semantic_light';
+
+  static const values = <String>[
+    markdownHeadingRecursive,
+    paragraphWindow,
+    fixedTokenWindow,
+    semanticLight,
+  ];
+
+  static String normalize(String value) {
+    final normalized = value.trim();
+    return values.contains(normalized) ? normalized : markdownHeadingRecursive;
+  }
+}
+
+class KnowledgeRerankMode {
+  const KnowledgeRerankMode._();
+
+  static const off = 'off';
+  static const localHybrid = 'local_hybrid';
+  static const mmr = 'mmr';
+  static const model = 'model';
+
+  static const values = <String>[off, localHybrid, mmr, model];
+
+  static String normalize(String value) {
+    final normalized = value.trim();
+    return values.contains(normalized) ? normalized : localHybrid;
+  }
+}
+
 class KnowledgeBaseSettings {
   const KnowledgeBaseSettings({
     this.providerConfigId = '',
@@ -34,7 +71,7 @@ class KnowledgeBaseSettings {
     this.structuredDataParsingMode = 'readable_markdown',
     this.spreadsheetParsingMode = 'markdown_table',
     this.presentationParsingMode = 'slide_text',
-    this.chunkStrategy = 'markdown_heading_recursive',
+    this.chunkStrategy = KnowledgeChunkStrategy.markdownHeadingRecursive,
     this.targetTokens = 700,
     this.hardMaxTokens = 1200,
     this.overlapTokens = 120,
@@ -63,6 +100,8 @@ class KnowledgeBaseSettings {
     this.parentExpansionEnabled = true,
     this.maxChunksPerSource = 3,
     this.cloudRerankEnabled = false,
+    this.rerankMode = KnowledgeRerankMode.localHybrid,
+    this.rerankProviderConfigId = '',
     this.rerankModelId = '',
     this.rerankTopN = 24,
     this.rerankTimeoutSeconds = 30,
@@ -85,6 +124,15 @@ class KnowledgeBaseSettings {
   });
 
   factory KnowledgeBaseSettings.fromJson(Map<String, Object?> json) {
+    final legacyCloudRerankEnabled = _bool(json['cloud_rerank_enabled']);
+    final parsedRerankMode = KnowledgeRerankMode.normalize(
+      _string(
+        json['rerank_mode'],
+        legacyCloudRerankEnabled
+            ? KnowledgeRerankMode.model
+            : KnowledgeRerankMode.localHybrid,
+      ),
+    );
     return KnowledgeBaseSettings(
       providerConfigId: _string(json['provider_config_id']),
       modelId: _string(json['model_id']),
@@ -132,9 +180,11 @@ class KnowledgeBaseSettings {
         json['presentation_parsing_mode'],
         'slide_text',
       ),
-      chunkStrategy: _string(
-        json['chunk_strategy'],
-        'markdown_heading_recursive',
+      chunkStrategy: KnowledgeChunkStrategy.normalize(
+        _string(
+          json['chunk_strategy'],
+          KnowledgeChunkStrategy.markdownHeadingRecursive,
+        ),
       ),
       targetTokens: _positiveInt(json['target_tokens'], 700),
       hardMaxTokens: _positiveInt(json['hard_max_tokens'], 1200),
@@ -169,7 +219,14 @@ class KnowledgeBaseSettings {
       neighborExpansionEnabled: _bool(json['neighbor_expansion_enabled'], true),
       parentExpansionEnabled: _bool(json['parent_expansion_enabled'], true),
       maxChunksPerSource: _positiveInt(json['max_chunks_per_source'], 3),
-      cloudRerankEnabled: _bool(json['cloud_rerank_enabled']),
+      cloudRerankEnabled:
+          parsedRerankMode == KnowledgeRerankMode.model ||
+          legacyCloudRerankEnabled,
+      rerankMode: parsedRerankMode,
+      rerankProviderConfigId: _string(
+        json['rerank_provider_config_id'],
+        _string(json['provider_config_id']),
+      ),
       rerankModelId: _string(json['rerank_model_id']),
       rerankTopN: _positiveInt(json['rerank_top_n'], 24),
       rerankTimeoutSeconds: _positiveInt(json['rerank_timeout_seconds'], 30),
@@ -261,6 +318,8 @@ class KnowledgeBaseSettings {
   final bool parentExpansionEnabled;
   final int maxChunksPerSource;
   final bool cloudRerankEnabled;
+  final String rerankMode;
+  final String rerankProviderConfigId;
   final String rerankModelId;
   final int rerankTopN;
   final int rerankTimeoutSeconds;
@@ -283,6 +342,12 @@ class KnowledgeBaseSettings {
 
   bool get hasEmbeddingModel =>
       providerConfigId.trim().isNotEmpty && modelId.trim().isNotEmpty;
+
+  bool get modelRerankEnabled => rerankMode == KnowledgeRerankMode.model;
+
+  bool get hasRerankModel =>
+      rerankProviderConfigId.trim().isNotEmpty &&
+      rerankModelId.trim().isNotEmpty;
 
   String get effectiveCollectionName {
     if (collectionName.trim().isNotEmpty) return collectionName.trim();
@@ -356,6 +421,8 @@ class KnowledgeBaseSettings {
     bool? parentExpansionEnabled,
     int? maxChunksPerSource,
     bool? cloudRerankEnabled,
+    String? rerankMode,
+    String? rerankProviderConfigId,
     String? rerankModelId,
     int? rerankTopN,
     int? rerankTimeoutSeconds,
@@ -376,6 +443,7 @@ class KnowledgeBaseSettings {
     int? qdrantLogRetainLines,
     bool? enableDangerousAdminOperations,
   }) {
+    final nextRerankMode = rerankMode ?? this.rerankMode;
     return KnowledgeBaseSettings(
       providerConfigId: providerConfigId ?? this.providerConfigId,
       modelId: modelId ?? this.modelId,
@@ -416,7 +484,9 @@ class KnowledgeBaseSettings {
           spreadsheetParsingMode ?? this.spreadsheetParsingMode,
       presentationParsingMode:
           presentationParsingMode ?? this.presentationParsingMode,
-      chunkStrategy: chunkStrategy ?? this.chunkStrategy,
+      chunkStrategy: chunkStrategy == null
+          ? this.chunkStrategy
+          : KnowledgeChunkStrategy.normalize(chunkStrategy),
       targetTokens: targetTokens ?? this.targetTokens,
       hardMaxTokens: hardMaxTokens ?? this.hardMaxTokens,
       overlapTokens: overlapTokens ?? this.overlapTokens,
@@ -448,7 +518,11 @@ class KnowledgeBaseSettings {
       parentExpansionEnabled:
           parentExpansionEnabled ?? this.parentExpansionEnabled,
       maxChunksPerSource: maxChunksPerSource ?? this.maxChunksPerSource,
-      cloudRerankEnabled: cloudRerankEnabled ?? this.cloudRerankEnabled,
+      cloudRerankEnabled:
+          cloudRerankEnabled ?? (nextRerankMode == KnowledgeRerankMode.model),
+      rerankMode: KnowledgeRerankMode.normalize(nextRerankMode),
+      rerankProviderConfigId:
+          rerankProviderConfigId ?? this.rerankProviderConfigId,
       rerankModelId: rerankModelId ?? this.rerankModelId,
       rerankTopN: rerankTopN ?? this.rerankTopN,
       rerankTimeoutSeconds: rerankTimeoutSeconds ?? this.rerankTimeoutSeconds,
@@ -537,7 +611,9 @@ class KnowledgeBaseSettings {
       'neighbor_expansion_enabled': neighborExpansionEnabled,
       'parent_expansion_enabled': parentExpansionEnabled,
       'max_chunks_per_source': maxChunksPerSource,
-      'cloud_rerank_enabled': cloudRerankEnabled,
+      'cloud_rerank_enabled': modelRerankEnabled,
+      'rerank_mode': rerankMode,
+      'rerank_provider_config_id': rerankProviderConfigId,
       'rerank_model_id': rerankModelId,
       'rerank_top_n': rerankTopN,
       'rerank_timeout_seconds': rerankTimeoutSeconds,

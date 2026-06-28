@@ -217,7 +217,8 @@ enum AiModelCapability {
   audioGeneration('audio_generation'),
   pdfGeneration('pdf_generation'),
   pptGeneration('ppt_generation'),
-  embeddingGeneration('embedding_generation');
+  embeddingGeneration('embedding_generation'),
+  rerank('rerank');
 
   const AiModelCapability(this.storageValue);
   final String storageValue;
@@ -293,6 +294,16 @@ class AiModelProfile {
     this.embeddingMaxInputsPerBatch,
     this.embeddingMaxTokensPerBatch,
     this.embeddingSupportsTruncation = false,
+    this.rerankEndpointPath,
+    this.rerankMaxInputTokens,
+    this.rerankMaxDocuments,
+    this.rerankDefaultTopN,
+    this.rerankSupportedParameters = const <String>[],
+    this.rerankSupportsReturnDocuments = false,
+    this.rerankSupportsInstruction = false,
+    this.rerankDefaultInstruction,
+    this.rerankSupportsTruncation = false,
+    this.rerankDefaultTruncation,
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -403,6 +414,25 @@ class AiModelProfile {
       ),
       embeddingSupportsTruncation:
           _readBool(json['embedding_supports_truncation']) ?? false,
+      rerankEndpointPath: json['rerank_endpoint_path'] as String?,
+      rerankMaxInputTokens: _readNullablePositiveInt(
+        json['rerank_max_input_tokens'],
+      ),
+      rerankMaxDocuments: _readNullablePositiveInt(
+        json['rerank_max_documents'],
+      ),
+      rerankDefaultTopN: _readNullablePositiveInt(json['rerank_default_top_n']),
+      rerankSupportedParameters: _parseStringList(
+        json['rerank_supported_parameters'],
+      ),
+      rerankSupportsReturnDocuments:
+          _readBool(json['rerank_supports_return_documents']) ?? false,
+      rerankSupportsInstruction:
+          _readBool(json['rerank_supports_instruction']) ?? false,
+      rerankDefaultInstruction: json['rerank_default_instruction'] as String?,
+      rerankSupportsTruncation:
+          _readBool(json['rerank_supports_truncation']) ?? false,
+      rerankDefaultTruncation: _readBool(json['rerank_default_truncation']),
     );
   }
 
@@ -500,8 +530,21 @@ class AiModelProfile {
   final int? embeddingMaxTokensPerBatch;
   final bool embeddingSupportsTruncation;
 
+  final String? rerankEndpointPath;
+  final int? rerankMaxInputTokens;
+  final int? rerankMaxDocuments;
+  final int? rerankDefaultTopN;
+  final List<String> rerankSupportedParameters;
+  final bool rerankSupportsReturnDocuments;
+  final bool rerankSupportsInstruction;
+  final String? rerankDefaultInstruction;
+  final bool rerankSupportsTruncation;
+  final bool? rerankDefaultTruncation;
+
   bool get supportsEmbeddings =>
       capabilities.contains(AiModelCapability.embeddingGeneration);
+
+  bool get supportsRerank => capabilities.contains(AiModelCapability.rerank);
 
   /// Whether user explicitly configured this profile (not just empty defaults).
   bool get hasUserOverrides =>
@@ -560,7 +603,17 @@ class AiModelProfile {
       embeddingMaxDimensions != null ||
       embeddingMaxInputsPerBatch != null ||
       embeddingMaxTokensPerBatch != null ||
-      embeddingSupportsTruncation;
+      embeddingSupportsTruncation ||
+      rerankEndpointPath != null ||
+      rerankMaxInputTokens != null ||
+      rerankMaxDocuments != null ||
+      rerankDefaultTopN != null ||
+      rerankSupportedParameters.isNotEmpty ||
+      rerankSupportsReturnDocuments ||
+      rerankSupportsInstruction ||
+      rerankDefaultInstruction != null ||
+      rerankSupportsTruncation ||
+      rerankDefaultTruncation != null;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -662,6 +715,22 @@ class AiModelProfile {
     int? embeddingMaxTokensPerBatch,
     bool clearEmbeddingMaxTokensPerBatch = false,
     bool? embeddingSupportsTruncation,
+    String? rerankEndpointPath,
+    bool clearRerankEndpointPath = false,
+    int? rerankMaxInputTokens,
+    bool clearRerankMaxInputTokens = false,
+    int? rerankMaxDocuments,
+    bool clearRerankMaxDocuments = false,
+    int? rerankDefaultTopN,
+    bool clearRerankDefaultTopN = false,
+    List<String>? rerankSupportedParameters,
+    bool? rerankSupportsReturnDocuments,
+    bool? rerankSupportsInstruction,
+    String? rerankDefaultInstruction,
+    bool clearRerankDefaultInstruction = false,
+    bool? rerankSupportsTruncation,
+    bool? rerankDefaultTruncation,
+    bool clearRerankDefaultTruncation = false,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -808,6 +877,32 @@ class AiModelProfile {
           : embeddingMaxTokensPerBatch ?? this.embeddingMaxTokensPerBatch,
       embeddingSupportsTruncation:
           embeddingSupportsTruncation ?? this.embeddingSupportsTruncation,
+      rerankEndpointPath: clearRerankEndpointPath
+          ? null
+          : rerankEndpointPath ?? this.rerankEndpointPath,
+      rerankMaxInputTokens: clearRerankMaxInputTokens
+          ? null
+          : rerankMaxInputTokens ?? this.rerankMaxInputTokens,
+      rerankMaxDocuments: clearRerankMaxDocuments
+          ? null
+          : rerankMaxDocuments ?? this.rerankMaxDocuments,
+      rerankDefaultTopN: clearRerankDefaultTopN
+          ? null
+          : rerankDefaultTopN ?? this.rerankDefaultTopN,
+      rerankSupportedParameters:
+          rerankSupportedParameters ?? this.rerankSupportedParameters,
+      rerankSupportsReturnDocuments:
+          rerankSupportsReturnDocuments ?? this.rerankSupportsReturnDocuments,
+      rerankSupportsInstruction:
+          rerankSupportsInstruction ?? this.rerankSupportsInstruction,
+      rerankDefaultInstruction: clearRerankDefaultInstruction
+          ? null
+          : rerankDefaultInstruction ?? this.rerankDefaultInstruction,
+      rerankSupportsTruncation:
+          rerankSupportsTruncation ?? this.rerankSupportsTruncation,
+      rerankDefaultTruncation: clearRerankDefaultTruncation
+          ? null
+          : rerankDefaultTruncation ?? this.rerankDefaultTruncation,
     );
   }
 
@@ -909,6 +1004,23 @@ class AiModelProfile {
       if (embeddingMaxTokensPerBatch != null)
         'embedding_max_tokens_per_batch': embeddingMaxTokensPerBatch,
       if (embeddingSupportsTruncation) 'embedding_supports_truncation': true,
+      if (rerankEndpointPath != null)
+        'rerank_endpoint_path': rerankEndpointPath,
+      if (rerankMaxInputTokens != null)
+        'rerank_max_input_tokens': rerankMaxInputTokens,
+      if (rerankMaxDocuments != null)
+        'rerank_max_documents': rerankMaxDocuments,
+      if (rerankDefaultTopN != null) 'rerank_default_top_n': rerankDefaultTopN,
+      if (rerankSupportedParameters.isNotEmpty)
+        'rerank_supported_parameters': rerankSupportedParameters,
+      if (rerankSupportsReturnDocuments)
+        'rerank_supports_return_documents': true,
+      if (rerankSupportsInstruction) 'rerank_supports_instruction': true,
+      if (rerankDefaultInstruction != null)
+        'rerank_default_instruction': rerankDefaultInstruction,
+      if (rerankSupportsTruncation) 'rerank_supports_truncation': true,
+      if (rerankDefaultTruncation != null)
+        'rerank_default_truncation': rerankDefaultTruncation,
     };
   }
 
@@ -1310,6 +1422,29 @@ class AiModelConfig {
       embeddingSupportsTruncation:
           override.embeddingSupportsTruncation ||
           catalog.embeddingSupportsTruncation,
+      rerankEndpointPath:
+          override.rerankEndpointPath ?? catalog.rerankEndpointPath,
+      rerankMaxInputTokens:
+          override.rerankMaxInputTokens ?? catalog.rerankMaxInputTokens,
+      rerankMaxDocuments:
+          override.rerankMaxDocuments ?? catalog.rerankMaxDocuments,
+      rerankDefaultTopN:
+          override.rerankDefaultTopN ?? catalog.rerankDefaultTopN,
+      rerankSupportedParameters: override.rerankSupportedParameters.isNotEmpty
+          ? override.rerankSupportedParameters
+          : catalog.rerankSupportedParameters,
+      rerankSupportsReturnDocuments:
+          override.rerankSupportsReturnDocuments ||
+          catalog.rerankSupportsReturnDocuments,
+      rerankSupportsInstruction:
+          override.rerankSupportsInstruction ||
+          catalog.rerankSupportsInstruction,
+      rerankDefaultInstruction:
+          override.rerankDefaultInstruction ?? catalog.rerankDefaultInstruction,
+      rerankSupportsTruncation:
+          override.rerankSupportsTruncation || catalog.rerankSupportsTruncation,
+      rerankDefaultTruncation:
+          override.rerankDefaultTruncation ?? catalog.rerankDefaultTruncation,
     );
   }
 
