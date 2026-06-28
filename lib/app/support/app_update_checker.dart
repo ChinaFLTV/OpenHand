@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
 
@@ -92,8 +93,10 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         );
       }
       final body = await response.transform(utf8.decoder).join();
-      final json = jsonDecode(body) as Map<String, Object?>;
-      final release = _parseRelease(json);
+      final release = parseGitHubReleaseInfo(
+        jsonDecode(body),
+        platformAssetSuffix: _platformAssetSuffix(),
+      );
       if (release == null) {
         return AppUpdateCheckError(message: 'Failed to parse release info.');
       }
@@ -161,52 +164,6 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     }
   }
 
-  AppReleaseInfo? _parseRelease(Map<String, Object?> json) {
-    final tagName = '${json['tag_name'] ?? ''}'.trim();
-    if (tagName.isEmpty) return null;
-    final version = tagName.replaceFirst(RegExp(r'^v'), '');
-    final releaseName = '${json['name'] ?? tagName}'.trim();
-    final releaseNotes = '${json['body'] ?? ''}'.trim();
-    final publishedAtStr = '${json['published_at'] ?? ''}'.trim();
-    final publishedAt =
-        DateTime.tryParse(publishedAtStr)?.toLocal() ?? DateTime.now();
-    final isPreRelease = json['prerelease'] == true;
-    // 解析平台对应的下载资产
-    final assets = json['assets'];
-    String downloadUrl = '';
-    int downloadSize = 0;
-    if (assets is List) {
-      final platformSuffix = _platformAssetSuffix();
-      for (final asset in assets) {
-        if (asset is! Map) continue;
-        final name = '${asset['name'] ?? ''}'.toLowerCase();
-        if (platformSuffix.isNotEmpty && name.contains(platformSuffix)) {
-          downloadUrl = '${asset['browser_download_url'] ?? ''}'.trim();
-          downloadSize = (asset['size'] as num?)?.toInt() ?? 0;
-          break;
-        }
-      }
-      // 如果没有匹配到平台特定资产，取第一个
-      if (downloadUrl.isEmpty && assets.isNotEmpty) {
-        final first = assets.first;
-        if (first is Map) {
-          downloadUrl = '${first['browser_download_url'] ?? ''}'.trim();
-          downloadSize = (first['size'] as num?)?.toInt() ?? 0;
-        }
-      }
-    }
-    return AppReleaseInfo(
-      version: version,
-      tagName: tagName,
-      releaseName: releaseName,
-      releaseNotes: releaseNotes,
-      publishedAt: publishedAt,
-      downloadUrl: downloadUrl,
-      downloadSize: downloadSize,
-      isPreRelease: isPreRelease,
-    );
-  }
-
   String _platformAssetSuffix() {
     if (Platform.isMacOS) return 'macos';
     if (Platform.isWindows) return '.exe';
@@ -215,4 +172,43 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (Platform.isIOS) return '.ipa';
     return '';
   }
+}
+
+@visibleForTesting
+AppReleaseInfo? parseGitHubReleaseInfo(
+  Object? raw, {
+  String platformAssetSuffix = '',
+}) {
+  final json = stringKeyedMapFromValue(raw);
+  final tagName = stringFromValue(json['tag_name']);
+  if (tagName.isEmpty) return null;
+  final suffix = platformAssetSuffix.trim().toLowerCase();
+  final version = tagName.replaceFirst(RegExp(r'^v'), '');
+  final assets = stringKeyedMapListFromValue(json['assets']);
+  final selectedAsset = _selectReleaseAsset(assets, suffix);
+  return AppReleaseInfo(
+    version: version,
+    tagName: tagName,
+    releaseName: stringFromValue(json['name'], fallback: tagName),
+    releaseNotes: stringFromValue(json['body']),
+    publishedAt:
+        dateTimeFromValue(json['published_at'])?.toLocal() ?? DateTime.now(),
+    downloadUrl: stringFromValue(selectedAsset?['browser_download_url']),
+    downloadSize: nonNegativeIntFromValue(selectedAsset?['size'], fallback: 0),
+    isPreRelease: boolFromValue(json['prerelease']),
+  );
+}
+
+Map<String, Object?>? _selectReleaseAsset(
+  List<Map<String, Object?>> assets,
+  String platformAssetSuffix,
+) {
+  if (assets.isEmpty) return null;
+  if (platformAssetSuffix.isNotEmpty) {
+    for (final asset in assets) {
+      final name = stringFromValue(asset['name']).toLowerCase();
+      if (name.contains(platformAssetSuffix)) return asset;
+    }
+  }
+  return assets.first;
 }
