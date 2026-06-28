@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_token_usage.dart';
 
 const String aiSessionGoalStateMetadataKey = 'goal_state';
@@ -529,8 +530,8 @@ String? _goalNullableString(Object? value) {
 
 int? _goalInt(Object? value) {
   if (value is int) return value;
-  if (value is num) return value.round();
-  return int.tryParse(_goalString(value));
+  if (value is num) return value.isFinite ? value.round() : null;
+  return optionalIntFromValue(_goalString(value));
 }
 
 int? _positiveGoalInt(Object? value) {
@@ -540,9 +541,7 @@ int? _positiveGoalInt(Object? value) {
 }
 
 double? _goalDouble(Object? value) {
-  if (value is double) return value;
-  if (value is num) return value.toDouble();
-  return double.tryParse(_goalString(value));
+  return optionalDoubleFromValue(value);
 }
 
 List<String> _goalStringList(Object? value) {
