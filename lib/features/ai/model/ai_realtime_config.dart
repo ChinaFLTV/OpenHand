@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 class AiRealtimeConfig {
@@ -79,44 +76,21 @@ class AiRealtimeConfig {
   }
 
   static AiRealtimeConfig? fromJson(Object? raw) {
-    Map<String, Object?>? json;
-    if (raw is Map) {
-      json = Map<String, Object?>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          json = Map<String, Object?>.from(decoded);
-        }
-      } catch (error, stack) {
-        silentLog('ai_realtime_config', 'decode JSON string', error, stack);
-      }
-    }
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
     return AiRealtimeConfig(
-      transport: _parseString(json['transport']),
-      urlOverride: _parseString(json['url_override']),
-      voice: _parseString(json['voice']),
+      transport: optionalStringFromValue(json['transport']),
+      urlOverride: optionalStringFromValue(json['url_override']),
+      voice: optionalStringFromValue(json['voice']),
       sampleRate: _parseNullableInt(json['sample_rate']),
-      inputFormat: _parseString(json['input_format']),
-      outputFormat: _parseString(json['output_format']),
-      sessionDefaults: _parseObjectMap(json['session_defaults']),
+      inputFormat: optionalStringFromValue(json['input_format']),
+      outputFormat: optionalStringFromValue(json['output_format']),
+      sessionDefaults: stringKeyedMapFromValue(json['session_defaults']),
     );
-  }
-
-  static String? _parseString(Object? raw) {
-    final trimmed = '${raw ?? ''}'.trim();
-    return trimmed.isEmpty ? null : trimmed;
   }
 
   static int? _parseNullableInt(Object? raw) {
     final parsed = optionalIntFromValue(raw);
     return parsed != null && parsed > 0 ? parsed : null;
-  }
-
-  static Map<String, Object?> _parseObjectMap(Object? raw) {
-    if (raw is Map<String, Object?>) return Map<String, Object?>.from(raw);
-    if (raw is Map) return Map<String, Object?>.from(raw);
-    return const <String, Object?>{};
   }
 }

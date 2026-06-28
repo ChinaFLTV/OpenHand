@@ -61,7 +61,7 @@ class AiEndpointOverride {
   }
 
   static AiEndpointOverride? fromJson(Object? raw) {
-    final json = _mapFromValueOrJsonText(raw);
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
     return AiEndpointOverride(
       path: optionalStringFromValue(json['path']),
@@ -87,7 +87,7 @@ class AiEndpointOverride {
 }
 
 Map<AiApiFamily, AiEndpointOverride> parseAiEndpointOverrides(Object? raw) {
-  final json = _mapFromValueOrJsonText(raw);
+  final json = optionalStringKeyedMapFromValueOrJsonText(raw);
   if (json == null) return const <AiApiFamily, AiEndpointOverride>{};
   final result = <AiApiFamily, AiEndpointOverride>{};
   for (final entry in json.entries) {
@@ -97,12 +97,6 @@ Map<AiApiFamily, AiEndpointOverride> parseAiEndpointOverrides(Object? raw) {
     result[family] = override;
   }
   return result;
-}
-
-Map<String, Object?>? _mapFromValueOrJsonText(Object? raw) {
-  if (raw is Map) return stringKeyedMapFromValue(raw);
-  if (raw is String) return optionalStringKeyedMapFromJsonText(raw);
-  return null;
 }
 
 Map<String, Object?> aiEndpointOverridesToJson(

@@ -96,6 +96,17 @@ Map<String, Object?> stringKeyedMapFromJsonText(String value) {
   return optionalStringKeyedMapFromJsonText(value) ?? const <String, Object?>{};
 }
 
+Map<String, Object?> stringKeyedMapFromValueOrJsonText(Object? value) {
+  return optionalStringKeyedMapFromValueOrJsonText(value) ??
+      const <String, Object?>{};
+}
+
+Map<String, Object?>? optionalStringKeyedMapFromValueOrJsonText(Object? value) {
+  if (value is Map) return stringKeyedMapFromValue(value);
+  if (value is String) return optionalStringKeyedMapFromJsonText(value);
+  return null;
+}
+
 Map<String, Object?>? optionalStringKeyedMapFromJsonText(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return null;

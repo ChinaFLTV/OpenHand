@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_api_family.dart';
 
 class AiOperationRouting {
@@ -183,42 +181,27 @@ class AiOperationRouting {
   }
 
   static AiOperationRouting? fromJson(Object? raw) {
-    Map<String, Object?>? json;
-    if (raw is Map) {
-      json = Map<String, Object?>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          json = Map<String, Object?>.from(decoded);
-        }
-      } catch (error, stack) {
-        silentLog('ai_operation_routing', 'decode JSON string', error, stack);
-      }
-    }
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
     return AiOperationRouting(
-      chatModelId: _parseString(json['chat_model_id']),
-      responsesModelId: _parseString(json['responses_model_id']),
-      completionModelId: _parseString(json['completion_model_id']),
-      embeddingModelId: _parseString(json['embedding_model_id']),
-      moderationModelId: _parseString(json['moderation_model_id']),
-      rerankModelId: _parseString(json['rerank_model_id']),
-      imageModelId: _parseString(json['image_model_id']),
-      imageEditModelId: _parseString(json['image_edit_model_id']),
-      videoModelId: _parseString(json['video_model_id']),
-      speechModelId: _parseString(json['speech_model_id']),
-      transcriptionModelId: _parseString(json['transcription_model_id']),
-      translationModelId: _parseString(json['translation_model_id']),
-      realtimeModelId: _parseString(json['realtime_model_id']),
-      defaultVoice: _parseString(json['default_voice']),
+      chatModelId: optionalStringFromValue(json['chat_model_id']),
+      responsesModelId: optionalStringFromValue(json['responses_model_id']),
+      completionModelId: optionalStringFromValue(json['completion_model_id']),
+      embeddingModelId: optionalStringFromValue(json['embedding_model_id']),
+      moderationModelId: optionalStringFromValue(json['moderation_model_id']),
+      rerankModelId: optionalStringFromValue(json['rerank_model_id']),
+      imageModelId: optionalStringFromValue(json['image_model_id']),
+      imageEditModelId: optionalStringFromValue(json['image_edit_model_id']),
+      videoModelId: optionalStringFromValue(json['video_model_id']),
+      speechModelId: optionalStringFromValue(json['speech_model_id']),
+      transcriptionModelId: optionalStringFromValue(
+        json['transcription_model_id'],
+      ),
+      translationModelId: optionalStringFromValue(json['translation_model_id']),
+      realtimeModelId: optionalStringFromValue(json['realtime_model_id']),
+      defaultVoice: optionalStringFromValue(json['default_voice']),
     );
   }
 
   static bool _isBlank(String? value) => value == null || value.trim().isEmpty;
-
-  static String? _parseString(Object? raw) {
-    final trimmed = '${raw ?? ''}'.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
 }

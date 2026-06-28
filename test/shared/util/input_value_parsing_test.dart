@@ -65,6 +65,22 @@ void main() {
       expect(stringKeyedMapFromJsonText('[1, 2]'), isEmpty);
       expect(optionalStringKeyedMapFromJsonText('not-json'), isNull);
     });
+
+    test('parses map values or JSON object text through one entrypoint', () {
+      expect(
+        optionalStringKeyedMapFromValueOrJsonText(<Object?, Object?>{
+          1: 'one',
+          'two': 2,
+        }),
+        <String, Object?>{'1': 'one', 'two': 2},
+      );
+      expect(
+        stringKeyedMapFromValueOrJsonText('{"answer": 42}'),
+        <String, Object?>{'answer': 42},
+      );
+      expect(optionalStringKeyedMapFromValueOrJsonText('[1, 2]'), isNull);
+      expect(optionalStringKeyedMapFromValueOrJsonText(42), isNull);
+    });
   });
 
   group('numeric fallback parsing', () {
