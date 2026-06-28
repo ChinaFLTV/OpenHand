@@ -209,52 +209,40 @@ class AiCreationOptions {
   }
 
   static AiCreationOptions fromMetadata(Object? raw) {
-    if (raw is! Map) return AiCreationOptions.empty;
-    final map = <String, Object?>{};
-    raw.forEach((key, value) {
-      if (key is String) map[key] = value;
-    });
-    int? asInt(Object? v) {
-      return optionalIntFromValue(v);
-    }
-
-    double? asDouble(Object? v) {
-      return optionalDoubleFromValue(v);
-    }
-
-    bool? asBool(Object? v) {
-      return optionalBoolFromValue(v);
-    }
-
-    String? asString(Object? v) =>
-        v is String && v.trim().isNotEmpty ? v : null;
+    final map = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (map == null) return AiCreationOptions.empty;
     return AiCreationOptions(
-      size: asString(map['size']),
-      aspectRatio: asString(map['aspect_ratio']),
-      durationSeconds: asInt(map['duration_seconds']),
-      count: asInt(map['count']) ?? 1,
-      quality: asString(map['quality']),
-      style: asString(map['style']),
-      outputFormat: asString(map['output_format']),
-      background: asString(map['background']),
-      negativePrompt: asString(map['negative_prompt']),
+      size: optionalStringFromValue(map['size']),
+      aspectRatio: optionalStringFromValue(map['aspect_ratio']),
+      durationSeconds: optionalIntFromValue(map['duration_seconds']),
+      count: optionalIntFromValue(map['count']) ?? 1,
+      quality: optionalStringFromValue(map['quality']),
+      style: optionalStringFromValue(map['style']),
+      outputFormat: optionalStringFromValue(map['output_format']),
+      background: optionalStringFromValue(map['background']),
+      negativePrompt: optionalStringFromValue(map['negative_prompt']),
       promptEnhance:
-          asBool(map['prompt_enhance']) ??
-          asBool(map['prompt_extend']) ??
-          asBool(map['prompt_optimizer']),
-      watermark: asBool(map['watermark']),
-      seed: asInt(map['seed']),
+          optionalBoolFromValue(map['prompt_enhance']) ??
+          optionalBoolFromValue(map['prompt_extend']) ??
+          optionalBoolFromValue(map['prompt_optimizer']),
+      watermark: optionalBoolFromValue(map['watermark']),
+      seed: optionalIntFromValue(map['seed']),
       resolution:
-          asString(map['resolution']) ?? asString(map['resolution_name']),
-      frameRate: asInt(map['frame_rate']) ?? asInt(map['fps']),
-      numFrames: asInt(map['num_frames']),
-      mode: asString(map['mode']),
-      voice: asString(map['voice']),
-      speed: asDouble(map['speed']),
-      sampleRate: asInt(map['sample_rate']),
-      bitrate: asInt(map['bitrate']),
-      volume: asDouble(map['volume']) ?? asDouble(map['vol']),
-      pitch: asDouble(map['pitch']),
+          optionalStringFromValue(map['resolution']) ??
+          optionalStringFromValue(map['resolution_name']),
+      frameRate:
+          optionalIntFromValue(map['frame_rate']) ??
+          optionalIntFromValue(map['fps']),
+      numFrames: optionalIntFromValue(map['num_frames']),
+      mode: optionalStringFromValue(map['mode']),
+      voice: optionalStringFromValue(map['voice']),
+      speed: optionalDoubleFromValue(map['speed']),
+      sampleRate: optionalIntFromValue(map['sample_rate']),
+      bitrate: optionalIntFromValue(map['bitrate']),
+      volume:
+          optionalDoubleFromValue(map['volume']) ??
+          optionalDoubleFromValue(map['vol']),
+      pitch: optionalDoubleFromValue(map['pitch']),
     );
   }
 }
@@ -309,10 +297,10 @@ class AiCreationRequest {
   }
 
   static AiCreationRequest fromMetadata(Object? raw) {
-    if (raw is! Map) return AiCreationRequest.none;
-    final map = raw.cast<String, Object?>();
+    final map = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (map == null) return AiCreationRequest.none;
     return AiCreationRequest(
-      mode: AiCreationMode.fromStorage(map['mode'] as String?),
+      mode: AiCreationMode.fromStorage(optionalStringFromValue(map['mode'])),
       options: AiCreationOptions.fromMetadata(map['options']),
     );
   }

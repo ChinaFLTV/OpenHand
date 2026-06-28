@@ -18,6 +18,37 @@ void main() {
     expect(options.volume, 0.8);
   });
 
+  test('creation metadata accepts JSON text and loose map keys', () {
+    final options = AiCreationOptions.fromMetadata(<Object?, Object?>{
+      1: 'ignored',
+      'size': 1024,
+      'duration_seconds': '5',
+      'prompt_extend': 'yes',
+      'fps': '24',
+      'vol': '0.75',
+    });
+
+    expect(options.size, '1024');
+    expect(options.durationSeconds, 5);
+    expect(options.promptEnhance, isTrue);
+    expect(options.frameRate, 24);
+    expect(options.volume, 0.75);
+
+    final request = AiCreationRequest.fromMetadata('''
+      {
+        "mode": "video",
+        "options": {
+          "resolution_name": "720p",
+          "watermark": "off"
+        }
+      }
+    ''');
+
+    expect(request.mode, AiCreationMode.video);
+    expect(request.options.resolution, '720p');
+    expect(request.options.watermark, isFalse);
+  });
+
   test('translation settings fall back for non-finite numeric values', () {
     final settings = AiTranslationSettings.fromJson(<String, Object?>{
       'timeout_seconds': double.infinity,
