@@ -83,6 +83,10 @@ import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
 import { basenameFromPath } from '../../../shared/util/path';
 import {
+  clearTranscriptScrollActivity,
+  markTranscriptScrollActivity,
+} from '../../../shared/ui/transcript_scroll_activity';
+import {
   arrayFromUnknown,
   finiteNumberFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -2809,7 +2813,11 @@ export function SessionDetailPage() {
     el?.addEventListener('touchstart', markUserScrollIntent, { passive: true });
     el?.addEventListener('touchmove', markUserScrollIntent, { passive: true });
     el?.addEventListener('pointerdown', handlePointerDown, { passive: true });
-    el?.addEventListener('scroll', recalc, { passive: true });
+    const handleScroll = () => {
+      markTranscriptScrollActivity();
+      recalc();
+    };
+    el?.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', recalc);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -2817,9 +2825,10 @@ export function SessionDetailPage() {
       el?.removeEventListener('touchstart', markUserScrollIntent);
       el?.removeEventListener('touchmove', markUserScrollIntent);
       el?.removeEventListener('pointerdown', handlePointerDown);
-      el?.removeEventListener('scroll', recalc);
+      el?.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', recalc);
       window.removeEventListener('keydown', handleKeyDown);
+      clearTranscriptScrollActivity();
     };
   }, [autoFollow, autoFollowPaused, hasRecentUserScrollIntent, markUserScrollIntent, unreadCount]);
 

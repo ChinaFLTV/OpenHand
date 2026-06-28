@@ -22,6 +22,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { fnv1aHashBase36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
+import {
+  isTranscriptScrollActive,
+  scheduleAfterTranscriptScrollSettles,
+} from '../shared/ui/transcript_scroll_activity';
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
 import { downloadBlobWithAnchor } from '../utils/save_blob';
@@ -185,6 +189,10 @@ class MarkdownFrameScheduler {
         this.draining = false;
       }
     };
+    if (isTranscriptScrollActive()) {
+      scheduleAfterTranscriptScrollSettles(() => this.scheduleDrain());
+      return;
+    }
     const ric = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => unknown }).requestIdleCallback;
     if (typeof ric === 'function') {
       ric(cb, { timeout: 100 });
@@ -687,8 +695,11 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { sour
       if (cancelled) return;
       const visible = entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0);
       if (!visible) return;
-      nearViewportRef.current = true;
-      setNearViewport(true);
+      scheduleAfterTranscriptScrollSettles(() => {
+        if (cancelled) return;
+        nearViewportRef.current = true;
+        setNearViewport(true);
+      });
       observer.disconnect();
     }, {
       root: null,

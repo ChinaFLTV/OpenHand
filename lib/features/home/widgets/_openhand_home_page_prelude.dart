@@ -152,6 +152,12 @@ class _FrameTaskScheduler {
       _draining = false;
       return;
     }
+    if (_transcriptScrollActive()) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (timestamp) => _drain(timestamp, generation),
+      );
+      return;
+    }
     final batchSize = math.min(_pending.length, math.max(1, maxPerFrame));
     final batch = _pending.sublist(0, batchSize);
     _pending.removeRange(0, batchSize);
@@ -165,6 +171,14 @@ class _FrameTaskScheduler {
     WidgetsBinding.instance.addPostFrameCallback(
       (timestamp) => _drain(timestamp, generation),
     );
+  }
+
+  bool _transcriptScrollActive() {
+    return _OpenHandHomePageState
+            ._activeHomeState
+            ?._transcriptScrollActivity
+            .value ??
+        false;
   }
 }
 

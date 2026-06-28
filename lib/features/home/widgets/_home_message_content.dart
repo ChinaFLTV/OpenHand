@@ -106,9 +106,7 @@ class _CollapsedPreviewFade extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final transcriptScrolling = context.select<TranscriptScrollActivity, bool>(
-      (activity) => activity.value,
-    );
+    final transcriptScrolling = context.read<TranscriptScrollActivity>().value;
     final duration = reduceMotion || transcriptScrolling || !animate
         ? Duration.zero
         : _collapsedMessageFadeDuration;
@@ -739,7 +737,6 @@ class _CollapsibleMessageMarkdownBodyState
         inlineSyntaxes: widget.inlineSyntaxes,
         pathRoots: widget.pathRoots,
         parseKey: widget.parseKey,
-        deferredPlaceholderKind: _MarkdownDeferredPlaceholderKind.shimmer,
       );
     }
 
@@ -791,8 +788,6 @@ class _CollapsibleMessageMarkdownBodyState
                     inlineSyntaxes: widget.inlineSyntaxes,
                     pathRoots: widget.pathRoots,
                     parseKey: widget.parseKey,
-                    deferredPlaceholderKind:
-                        _MarkdownDeferredPlaceholderKind.shimmer,
                   ),
                 ),
         ),
@@ -1146,8 +1141,6 @@ class _CollapsedFullMarkdownBodyState
                               inlineSyntaxes: widget.inlineSyntaxes,
                               pathRoots: widget.pathRoots,
                               parseKey: widget.parseKey,
-                              deferredPlaceholderKind:
-                                  _MarkdownDeferredPlaceholderKind.shimmer,
                             ),
                           ),
                         ),
@@ -1643,7 +1636,6 @@ class _SafeMarkdownBody extends StatefulWidget {
     this.inlineSyntaxes = const <md.InlineSyntax>[],
     this.pathRoots = const <String>[],
     this.parseKey = '',
-    this.deferredPlaceholderKind = _MarkdownDeferredPlaceholderKind.plainText,
   });
 
   final String data;
@@ -1654,7 +1646,6 @@ class _SafeMarkdownBody extends StatefulWidget {
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
   final String parseKey;
-  final _MarkdownDeferredPlaceholderKind deferredPlaceholderKind;
 
   @override
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
@@ -1712,8 +1703,6 @@ class _MarkdownAstCache {
 
 final _MarkdownAstCache _markdownAstCache = _MarkdownAstCache();
 final Set<int> _pendingMarkdownWarmups = <int>{};
-
-enum _MarkdownDeferredPlaceholderKind { plainText, shimmer }
 
 int _markdownAstCacheKeyForInputs({
   required String normalizedSource,
@@ -2223,14 +2212,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   void _renderDeferredPlaceholder(String normalizedSource) {
-    if (widget.deferredPlaceholderKind ==
-        _MarkdownDeferredPlaceholderKind.shimmer) {
-      _disposeRecognizers();
-      _children = const <Widget>[
-        RepaintBoundary(child: _MarkdownDeferredShimmer()),
-      ];
-      return;
-    }
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
@@ -4259,6 +4240,8 @@ class _HtmlBubbleShimmer extends StatefulWidget {
 class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
+  TranscriptScrollActivity? _scrollActivity;
+  bool _transcriptScrolling = false;
 
   @override
   void initState() {
@@ -4270,7 +4253,36 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final activity = context.read<TranscriptScrollActivity>();
+    if (identical(activity, _scrollActivity)) {
+      return;
+    }
+    _scrollActivity?.removeListener(_handleScrollActivityChanged);
+    _scrollActivity = activity;
+    _transcriptScrolling = activity.value;
+    activity.addListener(_handleScrollActivityChanged);
+  }
+
+  void _handleScrollActivityChanged() {
+    final activity = _scrollActivity;
+    if (activity == null || !mounted) {
+      return;
+    }
+    final next = activity.value;
+    if (next == _transcriptScrolling) {
+      return;
+    }
+    setState(() {
+      _transcriptScrolling = next;
+    });
+  }
+
+  @override
   void dispose() {
+    _scrollActivity?.removeListener(_handleScrollActivityChanged);
+    _scrollActivity = null;
     _ctrl.dispose();
     super.dispose();
   }
@@ -4282,7 +4294,8 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
     final highlightColor = cs.onSurface.withValues(alpha: 0.18);
     final animationsEnabled =
         TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
+        !MediaQuery.disableAnimationsOf(context) &&
+        !_transcriptScrolling;
     if (!animationsEnabled) {
       _ctrl.stop();
       return _buildContent(baseColor, highlightColor, 0.5);
@@ -4336,15 +4349,6 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
         ],
       ),
     );
-  }
-}
-
-class _MarkdownDeferredShimmer extends StatelessWidget {
-  const _MarkdownDeferredShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _HtmlBubbleShimmer();
   }
 }
 
@@ -6319,9 +6323,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     }
 
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final transcriptScrolling = context.select<TranscriptScrollActivity, bool>(
-      (activity) => activity.value,
-    );
+    final transcriptScrolling = context.read<TranscriptScrollActivity>().value;
     final shouldAnimateBodySwitch = isStreaming || contentMotionKey != null;
     final motionEnabled =
         shouldAnimateBodySwitch &&

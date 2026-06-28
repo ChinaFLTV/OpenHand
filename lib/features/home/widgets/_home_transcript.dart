@@ -2138,7 +2138,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     required AiTtsSettings ttsSettings,
     required AiTranslationSettings translationSettings,
     required SettingsController settingsController,
-    required bool transcriptScrollActive,
     required bool telemetryDebugEnabled,
     required AiSessionController aiSessionController,
   }) {
@@ -2304,7 +2303,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               isLastVisibleMessage: isLastVisibleMessage,
             ),
         onLayoutChanged: widget.onLayoutChanged,
-        transcriptScrollActive: transcriptScrollActive,
         isSelected: isSelected,
         actionPanelEntranceMotionKey: _messageActionPanelMotionKey,
         animateActionPanelEntrance:
@@ -2561,8 +2559,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         pendingPlaceholderCount +
         retiringPlaceholderCount +
         failureCardCount;
-    final transcriptScrollActive = context
-        .select<TranscriptScrollActivity, bool>((activity) => activity.value);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2639,7 +2635,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     ttsSettings: ttsSettings,
                     translationSettings: translationSettings,
                     settingsController: settingsController,
-                    transcriptScrollActive: transcriptScrollActive,
                     telemetryDebugEnabled: telemetryDebugEnabled,
                     aiSessionController: aiSessionController,
                   ),

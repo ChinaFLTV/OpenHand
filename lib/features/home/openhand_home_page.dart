@@ -138,7 +138,7 @@ part 'widgets/_openhand_home_page_prelude.dart';
 
 /// 2026-06-07：HTML WebView 抽搐 bug 真凶的关键协调信号。
 /// 外层 ListView 检测到"用户正在主动滚动"时标记 active，滚动结束（含
-/// 800 ms 宽限期）后标记 inactive。`_HtmlBubbleWebView` 订阅此信号：
+/// 宽限期）后标记 inactive。`_HtmlBubbleWebView` 订阅此信号：
 /// active 期间只缓存最新高度、不调用 setState，避免平台视图异步测高
 /// 反复修改 `maxScrollExtent` 把视口拽回底部；inactive 后才一次性应用
 /// 滚动期间累积的最新高度。
@@ -2340,10 +2340,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final explicitUserDirectionChange =
         notification is UserScrollNotification &&
         notification.direction != ScrollDirection.idle &&
-        !programmaticScroll &&
-        (_userDragActive ||
-            recentPointerSignalScroll ||
-            positionActivelyScrolling);
+        !programmaticScroll;
     final explicitUserScroll =
         explicitUserScrollStart ||
         explicitUserScrollUpdate ||
