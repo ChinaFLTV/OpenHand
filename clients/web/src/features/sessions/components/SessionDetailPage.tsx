@@ -885,27 +885,36 @@ function messageKnowledgeBaseHasReferences(metadata: Record<string, unknown> | n
     results.length > 0;
 }
 
-function associatedKnowledgeBaseMetadataForMessage(
+function buildAssociatedKnowledgeBaseMetadataByMessageId(
   messages: SessionMessage[],
-  currentIndex: number,
-  message: SessionMessage,
-): Record<string, unknown> | null {
-  if (message.kind !== 'assistant') return null;
-  const directMetadata = messageKnowledgeBaseMetadata(message);
-  if (messageKnowledgeBaseHasReferences(directMetadata)) return directMetadata;
-  if (currentIndex <= 0) return null;
-  for (let index = currentIndex - 1; index >= 0; index -= 1) {
-    const candidate = messages[index];
-    if (!candidate) continue;
-    if (candidate.kind === 'user') {
-      const metadata = messageKnowledgeBaseMetadata(candidate);
-      return messageKnowledgeBaseHasReferences(metadata) ? metadata : null;
+): Map<string, Record<string, unknown>> {
+  const result = new Map<string, Record<string, unknown>>();
+  let pendingUserMetadata: Record<string, unknown> | null = null;
+
+  for (const message of messages) {
+    if (message.kind === 'user') {
+      const metadata = messageKnowledgeBaseMetadata(message);
+      pendingUserMetadata = messageKnowledgeBaseHasReferences(metadata) ? metadata : null;
+      continue;
     }
-    if (candidate.kind === 'assistant' && candidate.content.trim().length > 0) {
-      return null;
+
+    if (message.kind !== 'assistant') {
+      continue;
+    }
+
+    const directMetadata = messageKnowledgeBaseMetadata(message);
+    if (directMetadata && messageKnowledgeBaseHasReferences(directMetadata)) {
+      result.set(message.id, directMetadata);
+    } else if (pendingUserMetadata) {
+      result.set(message.id, pendingUserMetadata);
+    }
+
+    if (message.content.trim().length > 0) {
+      pendingUserMetadata = null;
     }
   }
-  return null;
+
+  return result;
 }
 
 type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'image' | 'knowledge' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
@@ -5145,6 +5154,10 @@ export function SessionDetailPage() {
   }, [applyTtsPlayback, readAloudEnabled, ttsPlayback.playing]);
 
   const visibleSortedMessages = sortedMessages;
+  const associatedKnowledgeBaseByMessageId = useMemo(
+    () => buildAssociatedKnowledgeBaseMetadataByMessageId(visibleSortedMessages),
+    [visibleSortedMessages],
+  );
 
   const resumeToLatest = () => {
     setAutoFollowEnabled(true);
@@ -5321,17 +5334,12 @@ export function SessionDetailPage() {
                   <>
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
                     <ul class="oh-session-message-list flex flex-col gap-3">
-                      {visibleSortedMessages.map((m, index) => {
+                      {visibleSortedMessages.map((m) => {
                         const translation = messageTranslations[m.id];
                         const translationMatches =
                           translation?.source === (m.content ?? '') &&
                           translation.settingsFingerprint === translationRequestFingerprint;
-                        const associatedKnowledgeBaseMetadata =
-                          associatedKnowledgeBaseMetadataForMessage(
-                            visibleSortedMessages,
-                            index,
-                            m,
-                          );
+                        const associatedKnowledgeBaseMetadata = associatedKnowledgeBaseByMessageId.get(m.id) ?? null;
                         return (
                           <li key={m.id} class="oh-session-message-row">
                             <MessageCard

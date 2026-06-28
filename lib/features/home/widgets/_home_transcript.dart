@@ -2598,43 +2598,50 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               }
               return NotificationListener<ScrollNotification>(
                 onNotification: widget.onScrollNotification,
-                child: SingleChildScrollView(
+                child: ListView.builder(
                   key: const ValueKey<String>('session-transcript-list'),
                   controller: widget.controller,
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.only(bottom: 12),
                   physics: kOpenHandClampingPhysics,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var index = 0; index < listItemCount; index += 1)
-                        _buildTranscriptListItem(
-                          context: context,
-                          index: index,
-                          session: session,
-                          listItemCount: listItemCount,
-                          hiddenLoadMoreCount: hiddenLoadMoreCount,
-                          hiddenMessageCount: hiddenMessageCount,
-                          pendingPlaceholderCount: pendingPlaceholderCount,
-                          retiringPlaceholderCount: retiringPlaceholderCount,
-                          failureCardCount: failureCardCount,
-                          pendingCreationRequest: pendingCreationRequest,
-                          retiringCreationRequest: retiringCreationRequest,
-                          failedCreationRequest: failedCreationRequest,
-                          userVisibleError: userVisibleError,
-                          showSelfLearningMessages: showSelfLearningMessages,
-                          visibleMessages: visibleMessages,
-                          visibleMessageIndexById: visibleMessageIndexById,
-                          ttsSnapshot: ttsSnapshot,
-                          ttsSettings: ttsSettings,
-                          translationSettings: translationSettings,
-                          settingsController: settingsController,
-                          transcriptScrollActive: transcriptScrollActive,
-                          telemetryDebugEnabled: telemetryDebugEnabled,
-                          aiSessionController: aiSessionController,
-                        ),
-                    ],
+                  cacheExtent: _transcriptListCacheExtent,
+                  itemCount: listItemCount,
+                  findChildIndexCallback: (key) {
+                    if (key is! ValueKey<String>) return null;
+                    const prefix = 'transcript-entry-';
+                    final value = key.value;
+                    if (!value.startsWith(prefix)) return null;
+                    final messageId = value.substring(prefix.length);
+                    final visibleIndex = visibleMessageIndexById[messageId];
+                    return visibleIndex == null
+                        ? null
+                        : hiddenLoadMoreCount + visibleIndex;
+                  },
+                  itemBuilder: (context, index) => _buildTranscriptListItem(
+                    context: context,
+                    index: index,
+                    session: session,
+                    listItemCount: listItemCount,
+                    hiddenLoadMoreCount: hiddenLoadMoreCount,
+                    hiddenMessageCount: hiddenMessageCount,
+                    pendingPlaceholderCount: pendingPlaceholderCount,
+                    retiringPlaceholderCount: retiringPlaceholderCount,
+                    failureCardCount: failureCardCount,
+                    pendingCreationRequest: pendingCreationRequest,
+                    retiringCreationRequest: retiringCreationRequest,
+                    failedCreationRequest: failedCreationRequest,
+                    userVisibleError: userVisibleError,
+                    showSelfLearningMessages: showSelfLearningMessages,
+                    visibleMessages: visibleMessages,
+                    visibleMessageIndexById: visibleMessageIndexById,
+                    ttsSnapshot: ttsSnapshot,
+                    ttsSettings: ttsSettings,
+                    translationSettings: translationSettings,
+                    settingsController: settingsController,
+                    transcriptScrollActive: transcriptScrollActive,
+                    telemetryDebugEnabled: telemetryDebugEnabled,
+                    aiSessionController: aiSessionController,
                   ),
                 ),
               );
