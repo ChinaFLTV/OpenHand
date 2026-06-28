@@ -64,4 +64,13 @@ void main() {
     expect(settings.overlapTokens, 0);
     expect(settings.topK, 12);
   });
+
+  test('decode falls back for malformed persisted settings', () {
+    expect(KnowledgeBaseSettings.decode('{').dimensions, 1536);
+    expect(KnowledgeBaseSettings.decode('[]').dimensions, 1536);
+    expect(
+      KnowledgeBaseSettings.decode('{"dimensions":"256"}').dimensions,
+      256,
+    );
+  });
 }

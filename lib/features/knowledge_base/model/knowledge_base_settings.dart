@@ -656,9 +656,15 @@ class KnowledgeBaseSettings {
 
   static KnowledgeBaseSettings decode(String value) {
     if (value.trim().isEmpty) return const KnowledgeBaseSettings();
-    final decoded = jsonDecode(value);
-    if (decoded is Map) {
-      return KnowledgeBaseSettings.fromJson(Map<String, Object?>.from(decoded));
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) {
+        return KnowledgeBaseSettings.fromJson(
+          Map<String, Object?>.from(decoded),
+        );
+      }
+    } catch (_) {
+      return const KnowledgeBaseSettings();
     }
     return const KnowledgeBaseSettings();
   }
