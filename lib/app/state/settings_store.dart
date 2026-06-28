@@ -978,19 +978,18 @@ class SettingsStore {
     if (rawBuiltinToolConfigs is List) {
       final parsed = <AiBuiltinToolConfig>[];
       for (final item in rawBuiltinToolConfigs) {
-        if (item is Map) {
-          try {
-            parsed.add(
-              AiBuiltinToolConfig.fromJson(Map<String, Object?>.from(item)),
-            );
-          } catch (error, stack) {
-            silentLog(
-              'settings_store',
-              'parse builtin_tool_configs entry',
-              error,
-              stack,
-            );
-          }
+        if (optionalStringKeyedMapFromValueOrJsonText(item) == null) {
+          continue;
+        }
+        try {
+          parsed.add(AiBuiltinToolConfig.fromJson(item));
+        } catch (error, stack) {
+          silentLog(
+            'settings_store',
+            'parse builtin_tool_configs entry',
+            error,
+            stack,
+          );
         }
       }
       if (parsed.isNotEmpty) {

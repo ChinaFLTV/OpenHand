@@ -65,6 +65,38 @@ List<String>? optionalStringListFromJsonText(
   return null;
 }
 
+List<String> stringListFromValueOrJsonText(
+  Object? value, {
+  Pattern separator = ',',
+  bool requireList = false,
+}) {
+  return optionalStringListFromValueOrJsonText(
+        value,
+        separator: separator,
+        requireList: requireList,
+      ) ??
+      const <String>[];
+}
+
+List<String>? optionalStringListFromValueOrJsonText(
+  Object? value, {
+  Pattern separator = ',',
+  bool requireList = false,
+}) {
+  if (value is List) {
+    return stringListFromValue(value, separator: separator);
+  }
+  if (value is String) {
+    return optionalStringListFromJsonText(
+          value,
+          separator: separator,
+          requireList: requireList,
+        ) ??
+        (requireList ? null : stringListFromValue(value, separator: separator));
+  }
+  return null;
+}
+
 String stringFromValue(Object? value, {String fallback = ''}) {
   return optionalStringFromValue(value) ?? fallback;
 }

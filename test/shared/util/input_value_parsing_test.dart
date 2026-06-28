@@ -36,6 +36,26 @@ void main() {
       );
       expect(stringListFromJsonText('not-json'), isEmpty);
     });
+
+    test('parses list values or JSON text through one entrypoint', () {
+      expect(
+        stringListFromValueOrJsonText(<Object?>[' alpha ', null, 42, 'beta']),
+        <String>['alpha', '42', 'beta'],
+      );
+      expect(
+        stringListFromValueOrJsonText('[" alpha ", 42, "", "beta"]'),
+        <String>['alpha', '42', 'beta'],
+      );
+      expect(stringListFromValueOrJsonText('alpha,beta'), <String>[
+        'alpha',
+        'beta',
+      ]);
+      expect(
+        optionalStringListFromValueOrJsonText('alpha,beta', requireList: true),
+        isNull,
+      );
+      expect(optionalStringListFromValueOrJsonText(42), isNull);
+    });
   });
 
   group('string scalar parsing', () {

@@ -424,7 +424,7 @@ class AiTtsSettings {
         ),
     };
     final rawPriority = json['provider_priority'];
-    final rawPriorityValues = stringListFromValue(rawPriority);
+    final rawPriorityValues = stringListFromValueOrJsonText(rawPriority);
     final priority = rawPriorityValues.isNotEmpty
         ? _uniqueProviders(rawPriorityValues.map(AiTtsProvider.fromStorageKey))
         : defaultProviderPriority;

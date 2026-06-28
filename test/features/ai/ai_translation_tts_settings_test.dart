@@ -62,7 +62,7 @@ void main() {
         'enabled': 'on',
         'timeout_seconds': '1',
         'max_text_characters': '999999',
-        'provider_priority': 'ai,system,ai',
+        'provider_priority': '["ai", "system", "ai"]',
         'providers': <Object?, Object?>{
           'ai': '''
             {

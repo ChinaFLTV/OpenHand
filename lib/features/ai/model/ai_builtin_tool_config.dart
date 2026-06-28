@@ -356,8 +356,12 @@ class AiBuiltinToolConfig {
     };
   }
 
-  static AiBuiltinToolConfig fromJson(Map<String, Object?> json) {
-    final kindStr = '${json['kind'] ?? ''}'.trim();
+  static AiBuiltinToolConfig fromJson(Object? raw) {
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) {
+      throw const FormatException('Expected AiBuiltinToolConfig object');
+    }
+    final kindStr = stringFromValue(json['kind']);
     final kind = AiBuiltinToolKind.values
         .where((k) => k.name == kindStr)
         .firstOrNull;
@@ -381,51 +385,37 @@ class AiBuiltinToolConfig {
         );
       }
     } else if (rawSchema is Map) {
-      schemaOverride = Map<String, Object?>.from(rawSchema);
+      schemaOverride = stringKeyedMapFromValue(rawSchema);
     }
 
-    final rawLoadStrategy = '${json['load_strategy'] ?? ''}'.trim();
+    final rawLoadStrategy = stringFromValue(json['load_strategy']);
     final loadStrategy =
         AiBuiltinToolLoadStrategy.values
             .where((s) => s.name == rawLoadStrategy)
             .firstOrNull ??
         AiBuiltinToolLoadStrategy.eager;
 
-    final rawTags = json['tags'];
-    final tags = <String>[];
-    if (rawTags is List) {
-      for (final t in rawTags) {
-        final s = '$t'.trim();
-        if (s.isNotEmpty) tags.add(s);
-      }
-    }
+    final tags = stringListFromValueOrJsonText(json['tags']);
 
     return AiBuiltinToolConfig(
       kind: kind,
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
-      displayName: json['display_name'] is String
-          ? json['display_name'] as String
-          : null,
-      summary: json['summary'] is String ? json['summary'] as String : null,
-      promptOverride: json['prompt_override'] is String
-          ? json['prompt_override'] as String
-          : null,
+      enabled: boolFromValue(json['enabled'], defaultValue: true),
+      displayName: optionalStringFromValue(json['display_name']),
+      summary: optionalStringFromValue(json['summary']),
+      promptOverride: optionalStringFromValue(json['prompt_override']),
       schemaOverride: schemaOverride,
       priority: intFromValue(json['priority'], fallback: 100),
       sortOrder: intFromValue(json['sort_order'], fallback: 0),
       loadStrategy: loadStrategy,
-      forceLoad: json['force_load'] is bool
-          ? json['force_load'] as bool
-          : defaultForceLoadForKind(kind),
+      forceLoad: boolFromValue(
+        json['force_load'],
+        defaultValue: defaultForceLoadForKind(kind),
+      ),
       tags: tags,
       maxOutputChars: optionalIntFromValue(json['max_output_chars']),
       timeoutSeconds: optionalIntFromValue(json['timeout_seconds']),
-      requireConfirmation: json['require_confirmation'] is bool
-          ? json['require_confirmation'] as bool
-          : null,
-      retryOnFailure: json['retry_on_failure'] is bool
-          ? json['retry_on_failure'] as bool
-          : false,
+      requireConfirmation: optionalBoolFromValue(json['require_confirmation']),
+      retryOnFailure: boolFromValue(json['retry_on_failure']),
       maxRetries: clampedIntFromValue(
         json['max_retries'],
         fallback: 0,
@@ -438,16 +428,10 @@ class AiBuiltinToolConfig {
         min: 0,
         max: maxRetryBackoffMs,
       ),
-      isCustom: json['is_custom'] is bool ? json['is_custom'] as bool : false,
-      customToolName: json['custom_tool_name'] is String
-          ? json['custom_tool_name'] as String
-          : null,
-      customDescription: json['custom_description'] is String
-          ? json['custom_description'] as String
-          : null,
-      customParameters: json['custom_parameters'] is String
-          ? json['custom_parameters'] as String
-          : null,
+      isCustom: boolFromValue(json['is_custom']),
+      customToolName: optionalStringFromValue(json['custom_tool_name']),
+      customDescription: optionalStringFromValue(json['custom_description']),
+      customParameters: optionalStringFromValue(json['custom_parameters']),
       webSearchSettings: AiWebSearchSettings.fromJson(
         json['web_search_settings'],
       ),
