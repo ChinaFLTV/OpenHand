@@ -32,6 +32,90 @@ void main() {
     }
   });
 
+  test(
+    'all thread templates preserve stable prefix across appended history',
+    () {
+      const builder = AiPromptBuilder();
+      final now = DateTime.utc(2026, 6, 28, 12);
+
+      for (final entry in AiPromptTemplatePolicies.entries) {
+        final initialSession = _session(
+          templateEntry: entry,
+          messages: <AiSessionMessage>[
+            AiSessionMessage.user(
+              id: 'user-1',
+              content: 'First turn.',
+              createdAt: now,
+            ),
+          ],
+        );
+        final followUpSession = _session(
+          templateEntry: entry,
+          messages: <AiSessionMessage>[
+            AiSessionMessage.user(
+              id: 'user-1',
+              content: 'First turn.',
+              createdAt: now,
+            ),
+            AiSessionMessage.assistant(
+              id: 'assistant-1',
+              content: 'Reply.',
+              createdAt: now.add(const Duration(seconds: 1)),
+            ),
+            AiSessionMessage.user(
+              id: 'user-2',
+              content: 'Second turn.',
+              createdAt: now.add(const Duration(seconds: 2)),
+            ),
+          ],
+          lastPromptMetadata: const <String, Object?>{
+            'stable_prefix_hash': 'previous',
+            'tool_catalog_hash': 'previous-tools',
+            'stable_cache_key': 'previous-key',
+          },
+        );
+        final initialResult = builder.buildSessionPrompt(
+          templateBundle: _bundle(entry.id),
+          session: initialSession,
+          model: _model,
+          runtimeContext: _runtimeContext,
+          memoryEntries: const <UserMemoryEntry>[],
+          sessionMessages: initialSession.messages,
+          latestUserMessageId: 'user-1',
+          availableTools: _tools,
+          planModeRecoveryInspectionRequired: false,
+        );
+        final followUpResult = builder.buildSessionPrompt(
+          templateBundle: _bundle(entry.id),
+          session: followUpSession,
+          model: _model,
+          runtimeContext: _runtimeContext,
+          memoryEntries: const <UserMemoryEntry>[],
+          sessionMessages: followUpSession.messages,
+          latestUserMessageId: 'user-2',
+          availableTools: _tools,
+          planModeRecoveryInspectionRequired: false,
+        );
+
+        expect(
+          followUpResult.metadata['stable_prefix_hash'],
+          initialResult.metadata['stable_prefix_hash'],
+          reason: '${entry.id} must not vary stable prefix when history grows.',
+        );
+        expect(
+          followUpResult.metadata['stable_prefix_message_count'],
+          initialResult.metadata['stable_prefix_message_count'],
+          reason: '${entry.id} must keep the same stable assembly skeleton.',
+        );
+        expect(
+          followUpResult.metadata['latest_user_message_count'],
+          1,
+          reason: '${entry.id} must keep latest user outside stable prefix.',
+        );
+      }
+    },
+  );
+
   test('plan reminder is controlled by runtime flags, not latest text', () {
     final session = _session(mode: AiSessionMode.plan, latestUserContent: '继续');
     final result = const AiPromptBuilder().buildSessionPrompt(
@@ -134,10 +218,10 @@ void main() {
   });
 }
 
-AiPromptTemplateBundle _bundle() {
-  final template = AiPromptTemplateRepository().resolveTemplate(
-    AiPromptTemplatePolicies.defaultTemplateId,
-  );
+AiPromptTemplateBundle _bundle([
+  String templateId = AiPromptTemplatePolicies.defaultTemplateId,
+]) {
+  final template = AiPromptTemplateRepository().resolveTemplate(templateId);
   return AiPromptTemplateBundle(
     template: template,
     systemInstructions: '<identity>Test system.</identity>',
@@ -147,28 +231,37 @@ AiPromptTemplateBundle _bundle() {
 }
 
 AiSession _session({
+  AiPromptTemplateCatalogEntry? templateEntry,
   AiSessionMode mode = AiSessionMode.chat,
   bool awaitingPlanApproval = false,
   String? pendingPlan,
   String latestUserContent = 'Do the work.',
+  List<AiSessionMessage>? messages,
+  Map<String, Object?> lastPromptMetadata = const <String, Object?>{},
 }) {
   final now = DateTime.utc(2026, 6, 28, 12);
+  final entry =
+      templateEntry ??
+      AiPromptTemplatePolicies.byTemplateId[AiPromptTemplatePolicies
+          .defaultTemplateId]!;
   return AiSession(
     id: 'session-1',
     title: 'Prompt cache',
-    templateId: AiPromptTemplatePolicies.defaultTemplateId,
-    templateName: 'Default Assistant',
-    templateIconName: 'auto_awesome_rounded',
-    templateInternalVersion: '3.0.0',
+    templateId: entry.info.id,
+    templateName: entry.info.name,
+    templateIconName: entry.info.iconName,
+    templateInternalVersion: entry.info.internalVersion,
     createdAt: now,
     updatedAt: now,
-    messages: <AiSessionMessage>[
-      AiSessionMessage.user(
-        id: 'user-1',
-        content: latestUserContent,
-        createdAt: now,
-      ),
-    ],
+    messages:
+        messages ??
+        <AiSessionMessage>[
+          AiSessionMessage.user(
+            id: 'user-1',
+            content: latestUserContent,
+            createdAt: now,
+          ),
+        ],
     environment: const AiSessionEnvironment(
       localeTag: 'zh-Hans',
       platform: 'test',
@@ -188,6 +281,7 @@ AiSession _session({
     mode: mode,
     awaitingPlanApproval: awaitingPlanApproval,
     pendingPlan: pendingPlan,
+    lastPromptMetadata: lastPromptMetadata,
   );
 }
 
