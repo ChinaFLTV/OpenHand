@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_telemetry_store_base.dart';
 
@@ -89,10 +90,10 @@ class WebSearchTelemetryStore
       out[kind] = entry.value
           .map(
             (m) => WebSearchEngineSample(
-              timestampMs: (m['ts'] as num?)?.toInt() ?? 0,
-              durationMs: (m['dur'] as num?)?.toInt() ?? 0,
+              timestampMs: _readTelemetryInt(m['ts']),
+              durationMs: _readTelemetryInt(m['dur']),
               success: m['ok'] == true,
-              hitCount: (m['hits'] as num?)?.toInt() ?? 0,
+              hitCount: _readTelemetryInt(m['hits']),
             ),
           )
           .toList(growable: false);
@@ -134,14 +135,14 @@ class WebSearchCallLog {
               .toList(growable: false)
         : const <WebSearchPerEngineLog>[];
     return WebSearchCallLog(
-      timestampMs: (m['timestamp_ms'] as num?)?.toInt() ?? 0,
+      timestampMs: _readTelemetryInt(m['timestamp_ms']),
       query: '${m['query'] ?? ''}',
       cacheStatus: '${m['cache_status'] ?? ''}',
       success: m['success'] == true,
-      totalDurationMs: (m['total_duration_ms'] as num?)?.toInt() ?? 0,
-      mergedHitCount: (m['merged_hit_count'] as num?)?.toInt() ?? 0,
+      totalDurationMs: _readTelemetryInt(m['total_duration_ms']),
+      mergedHitCount: _readTelemetryInt(m['merged_hit_count']),
       fallbackUsed: m['fallback_used'] == true,
-      summaryChars: (m['summary_chars'] as num?)?.toInt() ?? 0,
+      summaryChars: _readTelemetryInt(m['summary_chars']),
       errorMessage: m['error_message'] as String?,
       modelProtocol: m['model_protocol'] as String?,
       modelId: m['model_id'] as String?,
@@ -197,8 +198,8 @@ class WebSearchPerEngineLog {
     return WebSearchPerEngineLog(
       kind: kind,
       success: m['success'] == true,
-      hitCount: (m['hit_count'] as num?)?.toInt() ?? 0,
-      elapsedMs: (m['elapsed_ms'] as num?)?.toInt() ?? 0,
+      hitCount: _readTelemetryInt(m['hit_count']),
+      elapsedMs: _readTelemetryInt(m['elapsed_ms']),
       error: m['error'] as String?,
     );
   }
@@ -235,17 +236,17 @@ class WebSearchEngineStat {
 
   factory WebSearchEngineStat.fromJson(Map<String, Object?> m) =>
       WebSearchEngineStat(
-        totalCalls: (m['total_calls'] as num?)?.toInt() ?? 0,
-        successCalls: (m['success_calls'] as num?)?.toInt() ?? 0,
-        totalDurationMs: (m['total_duration_ms'] as num?)?.toInt() ?? 0,
-        totalHits: (m['total_hits'] as num?)?.toInt() ?? 0,
+        totalCalls: _readTelemetryInt(m['total_calls']),
+        successCalls: _readTelemetryInt(m['success_calls']),
+        totalDurationMs: _readTelemetryInt(m['total_duration_ms']),
+        totalHits: _readTelemetryInt(m['total_hits']),
         lastError: m['last_error'] as String?,
-        lastFailureAt: (m['last_failure_at'] as num?)?.toInt(),
-        lastInvokedAt: (m['last_invoked_at'] as num?)?.toInt(),
-        consecutiveFailures: (m['consecutive_failures'] as num?)?.toInt() ?? 0,
-        cooldownUntilMs: (m['cooldown_until_ms'] as num?)?.toInt(),
+        lastFailureAt: _readOptionalTelemetryInt(m['last_failure_at']),
+        lastInvokedAt: _readOptionalTelemetryInt(m['last_invoked_at']),
+        consecutiveFailures: _readTelemetryInt(m['consecutive_failures']),
+        cooldownUntilMs: _readOptionalTelemetryInt(m['cooldown_until_ms']),
         lastQuotaError: m['last_quota_error'] as String?,
-        lastQuotaAt: (m['last_quota_at'] as num?)?.toInt(),
+        lastQuotaAt: _readOptionalTelemetryInt(m['last_quota_at']),
       );
 
   final int totalCalls;
@@ -283,4 +284,12 @@ class WebSearchEngineSample {
   final int durationMs;
   final bool success;
   final int hitCount;
+}
+
+int _readTelemetryInt(Object? value) {
+  return nonNegativeIntFromValue(value, fallback: 0);
+}
+
+int? _readOptionalTelemetryInt(Object? value) {
+  return optionalNonNegativeIntFromValue(value);
 }

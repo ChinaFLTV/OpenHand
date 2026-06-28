@@ -28,6 +28,10 @@ void main() {
     });
 
     test('keeps zero for non-negative integer fields', () {
+      expect(optionalNonNegativeIntFromValue('0'), 0);
+      expect(optionalNonNegativeIntFromValue(9), 9);
+      expect(optionalNonNegativeIntFromValue(double.infinity), isNull);
+      expect(optionalNonNegativeIntFromValue(-1), isNull);
       expect(nonNegativeIntFromText('0', fallback: 7), 0);
       expect(nonNegativeIntFromText('9', fallback: 7), 9);
       expect(nonNegativeIntFromText('-1', fallback: 7), 7);
