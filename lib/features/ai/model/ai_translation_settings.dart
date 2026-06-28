@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 
 enum AiTranslationProvider {
@@ -473,7 +474,5 @@ String? _normalizeLanguage(String? value) {
 String? _stringOrNull(Object? value) => value is String ? value : null;
 
 int? _intOrNull(Object? value) {
-  if (value is int) return value;
-  if (value is String) return int.tryParse(value.trim());
-  return null;
+  return optionalIntFromValue(value);
 }

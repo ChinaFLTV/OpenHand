@@ -9,6 +9,8 @@
 /// without breaking callers.
 library;
 
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiCreationMode {
   none('none'),
   image('image'),
@@ -213,16 +215,11 @@ class AiCreationOptions {
       if (key is String) map[key] = value;
     });
     int? asInt(Object? v) {
-      if (v is int) return v;
-      if (v is num) return v.toInt();
-      if (v is String) return int.tryParse(v.trim());
-      return null;
+      return optionalIntFromValue(v);
     }
 
     double? asDouble(Object? v) {
-      if (v is num) return v.toDouble();
-      if (v is String) return double.tryParse(v.trim());
-      return null;
+      return optionalDoubleFromValue(v);
     }
 
     bool? asBool(Object? v) {

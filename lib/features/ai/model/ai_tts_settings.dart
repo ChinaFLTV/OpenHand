@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiTtsProvider {
   ai('ai'),
   system('system'),
@@ -545,13 +547,9 @@ List<AiTtsProvider> _uniqueProviders(Iterable<AiTtsProvider> providers) {
 String? _stringOrNull(Object? value) => value is String ? value : null;
 
 double? _doubleOrNull(Object? value) {
-  if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value.trim());
-  return null;
+  return optionalDoubleFromValue(value);
 }
 
 int? _intOrNull(Object? value) {
-  if (value is int) return value;
-  if (value is String) return int.tryParse(value.trim());
-  return null;
+  return optionalIntFromValue(value);
 }
