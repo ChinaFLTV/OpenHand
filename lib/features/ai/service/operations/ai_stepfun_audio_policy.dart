@@ -1,3 +1,4 @@
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_tts_provider_catalog.dart';
 
@@ -98,21 +99,16 @@ final class AiStepFunAudioPolicy {
   }
 
   static int? _intValue(Object? raw) {
-    if (raw is int) return raw;
-    if (raw is num) return raw.toInt();
-    return int.tryParse('${raw ?? ''}'.trim());
+    return optionalIntFromValue(raw);
   }
 
   static double? _boundedDouble(Object? raw, double min, double max) {
     final value = _doubleValue(raw);
-    if (value == null || value.isNaN || value.isInfinite) return null;
+    if (value == null) return null;
     return value.clamp(min, max).toDouble();
   }
 
   static double? _doubleValue(Object? raw) {
-    if (raw is double) return raw;
-    if (raw is int) return raw.toDouble();
-    if (raw is num) return raw.toDouble();
-    return double.tryParse('${raw ?? ''}'.trim());
+    return optionalDoubleFromValue(raw);
   }
 }
