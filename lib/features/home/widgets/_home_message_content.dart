@@ -6322,8 +6322,11 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     final transcriptScrolling = context.select<TranscriptScrollActivity, bool>(
       (activity) => activity.value,
     );
+    final shouldAnimateBodySwitch = isStreaming || contentMotionKey != null;
     final motionEnabled =
-        !reduceMotion && (!transcriptScrolling || forceMotionWhenScrolling);
+        shouldAnimateBodySwitch &&
+        !reduceMotion &&
+        (!transcriptScrolling || forceMotionWhenScrolling);
     final motionDuration = motionEnabled
         ? cardMotionDurationFor(context, expanding: !isStreaming)
         : Duration.zero;

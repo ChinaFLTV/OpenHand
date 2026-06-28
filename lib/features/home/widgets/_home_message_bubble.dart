@@ -1507,7 +1507,7 @@ class _MessageActionSpec {
   final bool selected;
 }
 
-class _SelectedMessageActionPanelSlot extends StatelessWidget {
+class _SelectedMessageActionPanelSlot extends StatefulWidget {
   const _SelectedMessageActionPanelSlot({
     super.key,
     required this.visible,
@@ -1540,112 +1540,173 @@ class _SelectedMessageActionPanelSlot extends StatelessWidget {
   final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
-  Widget build(BuildContext context) {
-    final duration = cardMotionDurationFor(context, expanding: visible);
-    return ClipRect(
-      child: AnimatedSwitcher(
-        duration: duration,
-        switchInCurve: kCardMotionCurve,
-        switchOutCurve: Curves.easeInCubic,
-        layoutBuilder: (currentChild, previousChildren) => Stack(
-          alignment: alignEnd ? Alignment.topRight : Alignment.topLeft,
-          children: [
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        ),
-        transitionBuilder: (child, animation) =>
-            _SelectedMessageActionPanelPresenceTransition(
-              animation: animation,
-              alignEnd: alignEnd,
-              child: child,
-            ),
-        child: visible
-            ? Padding(
-                key: const ValueKey<String>('message-action-panel-visible'),
-                padding: const EdgeInsets.only(top: 8),
-                child: _SelectedMessageActionPanel(
-                  alignEnd: alignEnd,
-                  motionKey: motionKey,
-                  animateEntrance: animateEntrance,
-                  onEntranceConsumed: onEntranceConsumed,
-                  actions: actions,
-                  message: message,
-                  attachments: attachments,
-                  hardnessAnnotation: hardnessAnnotation,
-                  textColor: textColor,
-                  showModelLabel: showModelLabel,
-                  associatedKnowledgeBaseMetadata:
-                      associatedKnowledgeBaseMetadata,
-                  onSelectResponseVariant: onSelectResponseVariant,
-                ),
-              )
-            : const SizedBox.shrink(
-                key: ValueKey<String>('message-action-panel-hidden'),
-              ),
-      ),
-    );
-  }
+  State<_SelectedMessageActionPanelSlot> createState() =>
+      _SelectedMessageActionPanelSlotState();
 }
 
-class _SelectedMessageActionPanelPresenceTransition extends StatelessWidget {
-  const _SelectedMessageActionPanelPresenceTransition({
-    required this.animation,
-    required this.alignEnd,
-    required this.child,
-  });
+class _SelectedMessageActionPanelSlotState
+    extends State<_SelectedMessageActionPanelSlot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this)
+    ..addStatusListener(_handleStatusChanged);
+  late final Animation<double> _motion = openHandBoundedCurveAnimation(
+    parent: _controller,
+    curve: kCardMotionCurve,
+    reverseCurve: Curves.easeInCubic,
+  );
+  int? _consumedMotionKey;
 
-  final Animation<double> animation;
-  final bool alignEnd;
-  final Widget child;
+  bool get _shouldBuildPanel =>
+      widget.visible ||
+      _controller.value > 0 ||
+      _controller.status != AnimationStatus.dismissed;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.value = widget.visible ? 1.0 : 0.0;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotionDuration();
+    if (widget.visible && _controller.value == 0.0) {
+      _showPanel(restart: widget.animateEntrance);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SelectedMessageActionPanelSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncMotionDuration();
+    if (!widget.visible) {
+      if (oldWidget.visible) {
+        _hidePanel();
+      }
+      return;
+    }
+    final shouldRestart =
+        !oldWidget.visible || oldWidget.motionKey != widget.motionKey;
+    if (shouldRestart) {
+      _showPanel(restart: widget.animateEntrance);
+    } else if (_controller.status == AnimationStatus.dismissed) {
+      _showPanel(restart: false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeStatusListener(_handleStatusChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _syncMotionDuration() {
+    final duration = cardMotionDurationFor(context, expanding: true);
+    final reverseDuration = cardMotionDurationFor(context, expanding: false);
+    if (_controller.duration != duration) {
+      _controller.duration = duration;
+    }
+    if (_controller.reverseDuration != reverseDuration) {
+      _controller.reverseDuration = reverseDuration;
+    }
+  }
+
+  void _handleStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed && mounted) {
+      setState(() {});
+    }
+  }
+
+  void _consumeEntranceMotion() {
+    if (!widget.animateEntrance || _consumedMotionKey == widget.motionKey) {
+      return;
+    }
+    _consumedMotionKey = widget.motionKey;
+    widget.onEntranceConsumed(widget.motionKey);
+  }
+
+  void _showPanel({required bool restart}) {
+    _consumeEntranceMotion();
+    if (mounted) {
+      setState(() {});
+    }
+    if (_controller.duration == Duration.zero) {
+      _controller.value = 1.0;
+      return;
+    }
+    if (restart) {
+      _controller.forward(from: 0.0);
+      return;
+    }
+    _controller.forward();
+  }
+
+  void _hidePanel() {
+    if (_controller.reverseDuration == Duration.zero) {
+      _controller.value = 0.0;
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
+    _controller.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final size = openHandBoundedCurveAnimation(
-      parent: animation,
-      curve: kCardMotionCurve,
-      reverseCurve: kCardMotionCurve,
+    if (!_shouldBuildPanel) {
+      return const SizedBox.shrink();
+    }
+    final alignment = widget.alignEnd ? Alignment.topRight : Alignment.topLeft;
+    final panel = Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: _SelectedMessageActionPanel(
+        alignEnd: widget.alignEnd,
+        actions: widget.actions,
+        message: widget.message,
+        attachments: widget.attachments,
+        hardnessAnnotation: widget.hardnessAnnotation,
+        textColor: widget.textColor,
+        showModelLabel: widget.showModelLabel,
+        associatedKnowledgeBaseMetadata: widget.associatedKnowledgeBaseMetadata,
+        onSelectResponseVariant: widget.onSelectResponseVariant,
+      ),
     );
-    final alignment = alignEnd ? Alignment.topRight : Alignment.topLeft;
-    return SizeTransition(
-      sizeFactor: size,
-      axisAlignment: -1,
-      child: AnimatedBuilder(
-        animation: animation,
-        child: child,
-        builder: (context, child) {
-          final isExiting =
-              animation.status == AnimationStatus.reverse ||
-              animation.status == AnimationStatus.dismissed;
-          if (!isExiting) {
-            return child!;
-          }
-          final t = size.value.clamp(0.0, 1.0);
-          return IgnorePointer(
-            child: Opacity(
-              opacity: Curves.easeInCubic.transform(t),
-              child: Transform.scale(
-                scale: 0.96 + 0.04 * t,
-                alignment: alignment,
-                child: Transform.translate(
-                  offset: Offset(0, 5 * (1 - t)),
-                  child: child,
+    return ClipRect(
+      child: SizeTransition(
+        sizeFactor: _motion,
+        axisAlignment: -1,
+        child: AnimatedBuilder(
+          animation: _motion,
+          child: panel,
+          builder: (context, child) {
+            final t = _motion.value.clamp(0.0, 1.0);
+            return IgnorePointer(
+              ignoring: !widget.visible,
+              child: Opacity(
+                opacity: t,
+                child: Transform.scale(
+                  scale: 0.97 + 0.03 * t,
+                  alignment: alignment,
+                  child: Transform.translate(
+                    offset: Offset(0, 5 * (1 - t)),
+                    child: child,
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-class _SelectedMessageActionPanel extends StatefulWidget {
+class _SelectedMessageActionPanel extends StatelessWidget {
   const _SelectedMessageActionPanel({
     required this.alignEnd,
-    required this.motionKey,
-    required this.animateEntrance,
-    required this.onEntranceConsumed,
     required this.actions,
     required this.message,
     required this.attachments,
@@ -1657,9 +1718,6 @@ class _SelectedMessageActionPanel extends StatefulWidget {
   });
 
   final bool alignEnd;
-  final int motionKey;
-  final bool animateEntrance;
-  final ValueChanged<int> onEntranceConsumed;
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
   final List<AiMessageAttachment> attachments;
@@ -1670,123 +1728,42 @@ class _SelectedMessageActionPanel extends StatefulWidget {
   final Future<void> Function(int index)? onSelectResponseVariant;
 
   @override
-  State<_SelectedMessageActionPanel> createState() =>
-      _SelectedMessageActionPanelState();
-}
-
-class _SelectedMessageActionPanelState
-    extends State<_SelectedMessageActionPanel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _motion;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this);
-    _motion = CurvedAnimation(parent: _controller, curve: kCardMotionCurve);
-    _prepareEntrance();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncMotionDuration();
-  }
-
-  @override
-  void didUpdateWidget(covariant _SelectedMessageActionPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _syncMotionDuration();
-    if (oldWidget.motionKey != widget.motionKey) {
-      _prepareEntrance();
-    }
-  }
-
-  void _prepareEntrance() {
-    if (widget.animateEntrance) {
-      _controller.value = 0;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (!widget.animateEntrance) return;
-        widget.onEntranceConsumed(widget.motionKey);
-        _controller.forward(from: 0);
-      });
-      return;
-    }
-    _controller.value = 1;
-  }
-
-  void _syncMotionDuration() {
-    final duration = cardMotionDurationFor(context, expanding: true);
-    if (_controller.duration != duration) {
-      _controller.duration = duration;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _motion,
-      child: SizedBox(
-        width: double.infinity,
-        child: Column(
-          crossAxisAlignment: widget.alignEnd
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              alignment: widget.alignEnd
-                  ? WrapAlignment.end
-                  : WrapAlignment.start,
-              children: [
-                for (final action in widget.actions)
-                  _MessageActionButton(
-                    key: ValueKey<String>(action.id),
-                    onPressed: action.onPressed,
-                    icon: action.icon,
-                    label: action.label,
-                    selected: action.selected,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            _SelectedMessageContextRow(
-              message: widget.message,
-              attachments: widget.attachments,
-              hardnessAnnotation: widget.hardnessAnnotation,
-              textColor: widget.textColor,
-              alignEnd: widget.alignEnd,
-              showModelLabel: widget.showModelLabel,
-              associatedKnowledgeBaseMetadata:
-                  widget.associatedKnowledgeBaseMetadata,
-              onSelectResponseVariant: widget.onSelectResponseVariant,
-            ),
-          ],
-        ),
-      ),
-      builder: (context, child) {
-        final t = _motion.value.clamp(0.0, 1.0);
-        return Opacity(
-          opacity: t,
-          child: Transform.scale(
-            scale: 0.88 + 0.12 * t,
-            alignment: widget.alignEnd ? Alignment.topRight : Alignment.topLeft,
-            child: Transform.translate(
-              offset: Offset(0, 5 * (1 - t)),
-              child: child,
-            ),
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: alignEnd
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: alignEnd ? WrapAlignment.end : WrapAlignment.start,
+            children: [
+              for (final action in actions)
+                _MessageActionButton(
+                  key: ValueKey<String>(action.id),
+                  onPressed: action.onPressed,
+                  icon: action.icon,
+                  label: action.label,
+                  selected: action.selected,
+                ),
+            ],
           ),
-        );
-      },
+          const SizedBox(height: 6),
+          _SelectedMessageContextRow(
+            message: message,
+            attachments: attachments,
+            hardnessAnnotation: hardnessAnnotation,
+            textColor: textColor,
+            alignEnd: alignEnd,
+            showModelLabel: showModelLabel,
+            associatedKnowledgeBaseMetadata: associatedKnowledgeBaseMetadata,
+            onSelectResponseVariant: onSelectResponseVariant,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -153,424 +153,420 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         : isConstructing
         ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
         : Colors.transparent;
-    return SettingsAwareAppearOnce(
-      child: ClipRect(
-        child: AnimatedSize(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 360),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topLeft,
-          child: AnimatedBuilder(
-            animation: Listenable.merge(<Listenable>[
-              _completionGlowCtrl,
-              _settleBounceCtrl,
-            ]),
-            builder: (context, child) {
-              // Compose completion glow on top of the steady-state tint.
-              // Curve: ease-out from 1 → 0 (alpha decays). The glow fully
-              // fades within ~620ms so the card settles into its neutral
-              // post-execution look without lingering color.
-              final glowProgress = _completionGlowCtrl.value;
-              final glowActive = glowProgress > 0 && glowProgress < 1;
-              Color glowFill = Colors.transparent;
-              Color glowBorder = Colors.transparent;
-              if (glowActive) {
-                final fade = (1.0 - glowProgress).clamp(0.0, 1.0);
-                final eased = Curves.easeOutCubic.transform(fade);
-                final isFail = _isFailureStatus(_lastTerminalStatus ?? '');
-                final tone = isFail ? cs.error : cs.primary;
-                final container = isFail
-                    ? cs.errorContainer
-                    : cs.primaryContainer;
-                glowFill = container.withValues(alpha: 0.32 * eased);
-                glowBorder = tone.withValues(alpha: 0.55 * eased);
-              }
-              final composedFill = glowActive ? glowFill : tintColor;
-              final composedBorder = glowActive ? glowBorder : borderColor;
-              // Q 弹回弹：settle 进度走 easeOutBack 曲线（~6% 过冲），
-              // 用同一进度同时驱动 radius 由 14→10、scale 由 0.97→1.0
-              // 与一次轻微的 padding 保留过渡，让颜色/形状/尺寸同步收
-              // 束为正式卡片。pre-execution 阶段保持稳定 radius=14。
-              final settleRaw = _settleBounceCtrl.value;
-              final settleEased = reduceMotion
-                  ? 1.0
-                  : Curves.easeOutBack.transform(settleRaw);
-              final radius = isPreExecution
-                  ? 14.0
-                  : 14.0 + (10.0 - 14.0) * settleEased.clamp(0.0, 1.0);
-              final settleScale = isPreExecution
-                  ? 1.0
-                  : (0.97 + 0.03 * settleEased).clamp(0.96, 1.04);
-              final container = AnimatedContainer(
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 360),
-                curve: Curves.easeOutCubic,
-                padding: isPreExecution || glowActive
-                    ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
-                    : EdgeInsets.zero,
-                decoration: BoxDecoration(
-                  color: composedFill,
-                  borderRadius: BorderRadius.circular(radius),
-                  border: Border.all(color: composedBorder),
-                ),
-                child: child,
-              );
-              if (reduceMotion || isPreExecution) {
-                return container;
-              }
-              // 始终用 Transform.scale 包裹（settled 时 scale=1）以保持
-              // widget tree 结构稳定，避免 conditional wrap 导致的
-              // Element 重建/AnimatedSize ticker 重建。
-              return Transform.scale(
-                scale: settleScale,
-                alignment: Alignment.topLeft,
-                child: container,
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
+    return ClipRect(
+      child: AnimatedSize(
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topLeft,
+        child: AnimatedBuilder(
+          animation: Listenable.merge(<Listenable>[
+            _completionGlowCtrl,
+            _settleBounceCtrl,
+          ]),
+          builder: (context, child) {
+            // Compose completion glow on top of the steady-state tint.
+            // Curve: ease-out from 1 → 0 (alpha decays). The glow fully
+            // fades within ~620ms so the card settles into its neutral
+            // post-execution look without lingering color.
+            final glowProgress = _completionGlowCtrl.value;
+            final glowActive = glowProgress > 0 && glowProgress < 1;
+            Color glowFill = Colors.transparent;
+            Color glowBorder = Colors.transparent;
+            if (glowActive) {
+              final fade = (1.0 - glowProgress).clamp(0.0, 1.0);
+              final eased = Curves.easeOutCubic.transform(fade);
+              final isFail = _isFailureStatus(_lastTerminalStatus ?? '');
+              final tone = isFail ? cs.error : cs.primary;
+              final container = isFail
+                  ? cs.errorContainer
+                  : cs.primaryContainer;
+              glowFill = container.withValues(alpha: 0.32 * eased);
+              glowBorder = tone.withValues(alpha: 0.55 * eased);
+            }
+            final composedFill = glowActive ? glowFill : tintColor;
+            final composedBorder = glowActive ? glowBorder : borderColor;
+            // Q 弹回弹：settle 进度走 easeOutBack 曲线（~6% 过冲），
+            // 用同一进度同时驱动 radius 由 14→10、scale 由 0.97→1.0
+            // 与一次轻微的 padding 保留过渡，让颜色/形状/尺寸同步收
+            // 束为正式卡片。pre-execution 阶段保持稳定 radius=14。
+            final settleRaw = _settleBounceCtrl.value;
+            final settleEased = reduceMotion
+                ? 1.0
+                : Curves.easeOutBack.transform(settleRaw);
+            final radius = isPreExecution
+                ? 14.0
+                : 14.0 + (10.0 - 14.0) * settleEased.clamp(0.0, 1.0);
+            final settleScale = isPreExecution
+                ? 1.0
+                : (0.97 + 0.03 * settleEased).clamp(0.96, 1.04);
+            final container = AnimatedContainer(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 360),
+              curve: Curves.easeOutCubic,
+              padding: isPreExecution || glowActive
+                  ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
+                  : EdgeInsets.zero,
+              decoration: BoxDecoration(
+                color: composedFill,
+                borderRadius: BorderRadius.circular(radius),
+                border: Border.all(color: composedBorder),
+              ),
+              child: child,
+            );
+            if (reduceMotion || isPreExecution) {
+              return container;
+            }
+            // 始终用 Transform.scale 包裹（settled 时 scale=1）以保持
+            // widget tree 结构稳定，避免 conditional wrap 导致的
+            // Element 重建/AnimatedSize ticker 重建。
+            return Transform.scale(
+              scale: settleScale,
+              alignment: Alignment.topLeft,
+              child: container,
+            );
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ToolExecutionChip(
+                    icon: toolCall.presentation.icon,
+                    label: toolCall.primaryChipLabel,
+                  ),
+                  // Badge cross-fades on phase boundaries instead of
+                  // popping in/out, so constructing→submitting→running
+                  // feels like a single fluid morph.
+                  AnimatedSwitcher(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.92,
+                          end: 1.0,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: isPreExecution
+                        ? _ToolConstructingBadge(
+                            key: ValueKey<String>(
+                              isSubmitting ? 'submitting' : 'constructing',
+                            ),
+                            label: isSubmitting
+                                ? AppLocalizations.of(context)!.tlCallSubmitting
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.tlCallArgumentsConstructing,
+                            hint: isSubmitting
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.tlCallSubmittingHint
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.tlCallArgumentsConstructingHint,
+                            tone: isSubmitting
+                                ? _ToolConstructingTone.submitting
+                                : _ToolConstructingTone.constructing,
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey<String>('no-badge'),
+                          ),
+                  ),
+                  if (toolCall.workingDirectory.isNotEmpty)
                     _ToolExecutionChip(
-                      icon: toolCall.presentation.icon,
-                      label: toolCall.primaryChipLabel,
+                      icon: Icons.folder_outlined,
+                      label:
+                          '${AppLocalizations.of(context)!.tlCallDir}: ${toolCall.workingDirectory}',
                     ),
-                    // Badge cross-fades on phase boundaries instead of
-                    // popping in/out, so constructing→submitting→running
-                    // feels like a single fluid morph.
-                    AnimatedSwitcher(
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 280),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(
-                          scale: Tween<double>(
-                            begin: 0.92,
-                            end: 1.0,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      ),
-                      child: isPreExecution
-                          ? _ToolConstructingBadge(
-                              key: ValueKey<String>(
-                                isSubmitting ? 'submitting' : 'constructing',
-                              ),
-                              label: isSubmitting
-                                  ? AppLocalizations.of(
-                                      context,
-                                    )!.tlCallSubmitting
-                                  : AppLocalizations.of(
-                                      context,
-                                    )!.tlCallArgumentsConstructing,
-                              hint: isSubmitting
-                                  ? AppLocalizations.of(
-                                      context,
-                                    )!.tlCallSubmittingHint
-                                  : AppLocalizations.of(
-                                      context,
-                                    )!.tlCallArgumentsConstructingHint,
-                              tone: isSubmitting
-                                  ? _ToolConstructingTone.submitting
-                                  : _ToolConstructingTone.constructing,
-                            )
-                          : const SizedBox.shrink(
-                              key: ValueKey<String>('no-badge'),
-                            ),
+                  if (toolCall.status.isNotEmpty)
+                    _ToolExecutionChip(
+                      icon: toolCall.statusIcon,
+                      label: toolCall.outcomeLabel,
                     ),
-                    if (toolCall.workingDirectory.isNotEmpty)
-                      _ToolExecutionChip(
-                        icon: Icons.folder_outlined,
-                        label:
-                            '${AppLocalizations.of(context)!.tlCallDir}: ${toolCall.workingDirectory}',
+                  if (message.metadata['sandbox_applied'] == true ||
+                      message.metadata['sandbox_blocked'] == true ||
+                      '${message.metadata['sandbox_unavailable_reason'] ?? ''}'
+                          .trim()
+                          .isNotEmpty)
+                    Tooltip(
+                      message:
+                          '${message.metadata['sandbox_unavailable_reason'] ?? message.metadata['sandbox_backend'] ?? ''}',
+                      child: _ToolExecutionChip(
+                        icon: message.metadata['sandbox_blocked'] == true
+                            ? Icons.lock_outline_rounded
+                            : Icons.security_rounded,
+                        label: message.metadata['sandbox_blocked'] == true
+                            ? _localizedText(
+                                context,
+                                zh: '沙盒拦截',
+                                en: 'Sandbox blocked',
+                              )
+                            : '${_localizedText(context, zh: '沙盒', en: 'Sandbox')}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
                       ),
-                    if (toolCall.status.isNotEmpty)
-                      _ToolExecutionChip(
-                        icon: toolCall.statusIcon,
-                        label: toolCall.outcomeLabel,
-                      ),
-                    if (message.metadata['sandbox_applied'] == true ||
-                        message.metadata['sandbox_blocked'] == true ||
-                        '${message.metadata['sandbox_unavailable_reason'] ?? ''}'
-                            .trim()
-                            .isNotEmpty)
-                      Tooltip(
-                        message:
-                            '${message.metadata['sandbox_unavailable_reason'] ?? message.metadata['sandbox_backend'] ?? ''}',
-                        child: _ToolExecutionChip(
-                          icon: message.metadata['sandbox_blocked'] == true
-                              ? Icons.lock_outline_rounded
-                              : Icons.security_rounded,
-                          label: message.metadata['sandbox_blocked'] == true
-                              ? _localizedText(
-                                  context,
-                                  zh: '沙盒拦截',
-                                  en: 'Sandbox blocked',
-                                )
-                              : '${_localizedText(context, zh: '沙盒', en: 'Sandbox')}${'${message.metadata['sandbox_backend'] ?? ''}'.trim().isEmpty ? '' : ' · ${message.metadata['sandbox_backend']}'}',
-                        ),
-                      ),
-                    if (message.metadata['sandbox_proxy_enabled'] == true)
-                      Tooltip(
-                        message:
-                            'HTTP ${message.metadata['sandbox_proxy_http_port'] ?? '-'}${message.metadata['sandbox_proxy_socks_port'] == null ? '' : ' · SOCKS ${message.metadata['sandbox_proxy_socks_port']}'}',
-                        child: _ToolExecutionChip(
-                          icon: Icons.hub_outlined,
-                          label: _localizedText(
-                            context,
-                            zh: '沙盒代理',
-                            en: 'Sandbox proxy',
-                          ),
-                        ),
-                      ),
-                    // WebSearch 工具特有：从 metadata 读取 websearch_cache
-                    // 状态，给卡片附一个一眼能识别的「闪电=命中 / 云下载=
-                    // 落盘 / 关闭=未启用」徽标，悬停显示详细信息。
-                    if (message.metadata['websearch_cache'] is String)
-                      _WebSearchCacheChip(
-                        status: message.metadata['websearch_cache'] as String,
-                        cachedAt:
-                            message.metadata['websearch_cache_cached_at']
-                                as String?,
-                        expiresAt:
-                            message.metadata['websearch_cache_expires_at']
-                                as String?,
-                      ),
-                    // WebFetch 工具特有：复用同一套缓存徽标 UX，但读取
-                    // webfetch_cache 系列 metadata。
-                    if (message.metadata['webfetch_cache'] is String)
-                      _WebFetchCacheChip(
-                        status: message.metadata['webfetch_cache'] as String,
-                        cachedAt:
-                            message.metadata['webfetch_cache_cached_at']
-                                as String?,
-                        expiresAt:
-                            message.metadata['webfetch_cache_expires_at']
-                                as String?,
-                      ),
-                    if (toolCall.durationMs > 0 || toolCall.status == 'running')
-                      _ToolExecutionChip(
-                        icon: Icons.timer_outlined,
-                        label:
-                            '${AppLocalizations.of(context)!.tlCallElapsed}: ${formatCompactDurationMs(toolCall.durationMs)}',
-                      ),
-                    if (toolCall.exitCode != null)
-                      _ToolExecutionChip(
-                        icon: Icons.flag_outlined,
-                        label:
-                            '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
-                      ),
-                    // 停滞 chip：runtime 通过 metadata 上报 stall warning 时显现，
-                    // 命令重新有输出后会被清空（仅在 running 状态保留）。
-                    if (message.metadata['tool_execution_stall_warning']
-                            is String &&
-                        (message.metadata['tool_execution_stall_warning']
-                                as String)
-                            .trim()
-                            .isNotEmpty &&
-                        toolCall.status == 'running')
-                      Tooltip(
-                        message:
-                            message.metadata['tool_execution_stall_warning']
-                                as String,
-                        child: const _ToolExecutionChip(
-                          icon: Icons.warning_amber_outlined,
-                          label: '可能停滞',
-                        ),
-                      ),
-                    // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
-                    // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
-                    _ToolCancelButton(
-                      toolCallId: '${message.metadata['tool_call_id'] ?? ''}',
                     ),
-                  ],
+                  if (message.metadata['sandbox_proxy_enabled'] == true)
+                    Tooltip(
+                      message:
+                          'HTTP ${message.metadata['sandbox_proxy_http_port'] ?? '-'}${message.metadata['sandbox_proxy_socks_port'] == null ? '' : ' · SOCKS ${message.metadata['sandbox_proxy_socks_port']}'}',
+                      child: _ToolExecutionChip(
+                        icon: Icons.hub_outlined,
+                        label: _localizedText(
+                          context,
+                          zh: '沙盒代理',
+                          en: 'Sandbox proxy',
+                        ),
+                      ),
+                    ),
+                  // WebSearch 工具特有：从 metadata 读取 websearch_cache
+                  // 状态，给卡片附一个一眼能识别的「闪电=命中 / 云下载=
+                  // 落盘 / 关闭=未启用」徽标，悬停显示详细信息。
+                  if (message.metadata['websearch_cache'] is String)
+                    _WebSearchCacheChip(
+                      status: message.metadata['websearch_cache'] as String,
+                      cachedAt:
+                          message.metadata['websearch_cache_cached_at']
+                              as String?,
+                      expiresAt:
+                          message.metadata['websearch_cache_expires_at']
+                              as String?,
+                    ),
+                  // WebFetch 工具特有：复用同一套缓存徽标 UX，但读取
+                  // webfetch_cache 系列 metadata。
+                  if (message.metadata['webfetch_cache'] is String)
+                    _WebFetchCacheChip(
+                      status: message.metadata['webfetch_cache'] as String,
+                      cachedAt:
+                          message.metadata['webfetch_cache_cached_at']
+                              as String?,
+                      expiresAt:
+                          message.metadata['webfetch_cache_expires_at']
+                              as String?,
+                    ),
+                  if (toolCall.durationMs > 0 || toolCall.status == 'running')
+                    _ToolExecutionChip(
+                      icon: Icons.timer_outlined,
+                      label:
+                          '${AppLocalizations.of(context)!.tlCallElapsed}: ${formatCompactDurationMs(toolCall.durationMs)}',
+                    ),
+                  if (toolCall.exitCode != null)
+                    _ToolExecutionChip(
+                      icon: Icons.flag_outlined,
+                      label:
+                          '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
+                    ),
+                  // 停滞 chip：runtime 通过 metadata 上报 stall warning 时显现，
+                  // 命令重新有输出后会被清空（仅在 running 状态保留）。
+                  if (message.metadata['tool_execution_stall_warning']
+                          is String &&
+                      (message.metadata['tool_execution_stall_warning']
+                              as String)
+                          .trim()
+                          .isNotEmpty &&
+                      toolCall.status == 'running')
+                    Tooltip(
+                      message:
+                          message.metadata['tool_execution_stall_warning']
+                              as String,
+                      child: const _ToolExecutionChip(
+                        icon: Icons.warning_amber_outlined,
+                        label: '可能停滞',
+                      ),
+                    ),
+                  // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：
+                  // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
+                  _ToolCancelButton(
+                    toolCallId: '${message.metadata['tool_call_id'] ?? ''}',
+                  ),
+                ],
+              ),
+              // Phase swap: keys-row (pre-execution) ⇄ expandable-sections
+              // (executed). Single AnimatedSwitcher keyed on the binary phase
+              // so toggling expand/collapse INSIDE the executed phase does NOT
+              // re-trigger the cross-fade; only the structural transition
+              // does. Slide+fade gives the swap a soft, slick feel; the outer
+              // AnimatedSize already handles overall height.
+              const SizedBox(height: 10),
+              AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: Alignment.topLeft,
+                  children: [...previous, if (current != null) current],
                 ),
-                // Phase swap: keys-row (pre-execution) ⇄ expandable-sections
-                // (executed). Single AnimatedSwitcher keyed on the binary phase
-                // so toggling expand/collapse INSIDE the executed phase does NOT
-                // re-trigger the cross-fade; only the structural transition
-                // does. Slide+fade gives the swap a soft, slick feel; the outer
-                // AnimatedSize already handles overall height.
-                const SizedBox(height: 10),
-                AnimatedSwitcher(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 320),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: Alignment.topLeft,
-                    children: [...previous, if (current != null) current],
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position:
+                        Tween<Offset>(
+                          begin: const Offset(0, 0.06),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          ),
+                        ),
+                    child: child,
                   ),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0, 0.06),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
+                ),
+                child: isPreExecution
+                    ? KeyedSubtree(
+                        key: const ValueKey<String>('phase-pre'),
+                        child: _ConstructingArgumentKeysRow(
+                          keys: toolCall.argumentKeys,
+                          collectedLabel: AppLocalizations.of(
+                            context,
+                          )!.tlCallCollectedParameters,
+                          emptyLabel: AppLocalizations.of(
+                            context,
+                          )!.tlCallNoParametersYet,
+                        ),
+                      )
+                    : KeyedSubtree(
+                        key: const ValueKey<String>('phase-done'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ExpandableToolSection(
+                              title: AppLocalizations.of(
+                                context,
+                              )!.tlCallToolInput,
+                              preview: toolCall.argumentsPreview,
+                              expanded: argumentsExpanded,
+                              onToggle: () {
+                                setState(() {
+                                  _argumentsExpandedOverride =
+                                      !argumentsExpanded;
+                                });
+                              },
+                              expandedBuilder: (context) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (toolCall.command.isNotEmpty)
+                                    _ToolOutputPanel(
+                                      label: AppLocalizations.of(
+                                        context,
+                                      )!.tlCallCommand,
+                                      content: toolCall.formattedCommand,
+                                      theme: theme,
+                                      selectable: widget.selectable,
+                                    ),
+                                  if (toolCall.command.isNotEmpty)
+                                    const SizedBox(height: 10),
+                                  _ToolOutputPanel(
+                                    label: AppLocalizations.of(
+                                      context,
+                                    )!.tlCallArguments,
+                                    content: toolCall.formattedArguments,
+                                    theme: theme,
+                                    selectable: widget.selectable,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                      child: child,
-                    ),
-                  ),
-                  child: isPreExecution
-                      ? KeyedSubtree(
-                          key: const ValueKey<String>('phase-pre'),
-                          child: _ConstructingArgumentKeysRow(
-                            keys: toolCall.argumentKeys,
-                            collectedLabel: AppLocalizations.of(
-                              context,
-                            )!.tlCallCollectedParameters,
-                            emptyLabel: AppLocalizations.of(
-                              context,
-                            )!.tlCallNoParametersYet,
-                          ),
-                        )
-                      : KeyedSubtree(
-                          key: const ValueKey<String>('phase-done'),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _ExpandableToolSection(
-                                title: AppLocalizations.of(
-                                  context,
-                                )!.tlCallToolInput,
-                                preview: toolCall.argumentsPreview,
-                                expanded: argumentsExpanded,
-                                onToggle: () {
-                                  setState(() {
-                                    _argumentsExpandedOverride =
-                                        !argumentsExpanded;
-                                  });
-                                },
-                                expandedBuilder: (context) => Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (toolCall.command.isNotEmpty)
-                                      _ToolOutputPanel(
-                                        label: AppLocalizations.of(
-                                          context,
-                                        )!.tlCallCommand,
-                                        content: toolCall.formattedCommand,
-                                        theme: theme,
-                                        selectable: widget.selectable,
-                                      ),
-                                    if (toolCall.command.isNotEmpty)
+                            const SizedBox(height: 10),
+                            _ExpandableToolSection(
+                              title: AppLocalizations.of(
+                                context,
+                              )!.tlCallToolOutput,
+                              preview: toolCall.hasResultContent
+                                  ? toolCall.resultPreview
+                                  : AppLocalizations.of(
+                                      context,
+                                    )!.tlCallNoOutputYet,
+                              expanded: resultExpanded,
+                              onToggle: () {
+                                setState(() {
+                                  _resultExpandedOverride = !resultExpanded;
+                                });
+                              },
+                              expandedBuilder: (context) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (toolCall.stdout.isNotEmpty)
+                                    _ToolOutputPanel(
+                                      label: AppLocalizations.of(
+                                        context,
+                                      )!.tlCallStdout,
+                                      content: toolCall.formattedStdout,
+                                      theme: theme,
+                                      selectable: widget.selectable,
+                                      fullContentFile: toolCall.stdoutFile,
+                                    ),
+                                  if (toolCall.stderr.isNotEmpty) ...[
+                                    if (toolCall.stdout.isNotEmpty)
                                       const SizedBox(height: 10),
                                     _ToolOutputPanel(
                                       label: AppLocalizations.of(
                                         context,
-                                      )!.tlCallArguments,
-                                      content: toolCall.formattedArguments,
+                                      )!.tlCallStderr,
+                                      content: toolCall.formattedStderr,
+                                      theme: theme,
+                                      isError: true,
+                                      selectable: widget.selectable,
+                                      fullContentFile: toolCall.stderrFile,
+                                    ),
+                                  ],
+                                  if (toolCall.showResultText) ...[
+                                    if (toolCall.stdout.isNotEmpty ||
+                                        toolCall.stderr.isNotEmpty)
+                                      const SizedBox(height: 10),
+                                    _ToolOutputPanel(
+                                      label: AppLocalizations.of(
+                                        context,
+                                      )!.tlCallResult,
+                                      content: toolCall.formattedResult,
                                       theme: theme,
                                       selectable: widget.selectable,
                                     ),
                                   ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              _ExpandableToolSection(
-                                title: AppLocalizations.of(
-                                  context,
-                                )!.tlCallToolOutput,
-                                preview: toolCall.hasResultContent
-                                    ? toolCall.resultPreview
-                                    : AppLocalizations.of(
+                                  if (toolCall.stdout.isEmpty &&
+                                      toolCall.stderr.isEmpty &&
+                                      !toolCall.showResultText)
+                                    Text(
+                                      AppLocalizations.of(
                                         context,
-                                      )!.tlCallNoOutputYet,
-                                expanded: resultExpanded,
-                                onToggle: () {
-                                  setState(() {
-                                    _resultExpandedOverride = !resultExpanded;
-                                  });
-                                },
-                                expandedBuilder: (context) => Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (toolCall.stdout.isNotEmpty)
-                                      _ToolOutputPanel(
-                                        label: AppLocalizations.of(
-                                          context,
-                                        )!.tlCallStdout,
-                                        content: toolCall.formattedStdout,
-                                        theme: theme,
-                                        selectable: widget.selectable,
-                                        fullContentFile: toolCall.stdoutFile,
-                                      ),
-                                    if (toolCall.stderr.isNotEmpty) ...[
-                                      if (toolCall.stdout.isNotEmpty)
-                                        const SizedBox(height: 10),
-                                      _ToolOutputPanel(
-                                        label: AppLocalizations.of(
-                                          context,
-                                        )!.tlCallStderr,
-                                        content: toolCall.formattedStderr,
-                                        theme: theme,
-                                        isError: true,
-                                        selectable: widget.selectable,
-                                        fullContentFile: toolCall.stderrFile,
-                                      ),
-                                    ],
-                                    if (toolCall.showResultText) ...[
-                                      if (toolCall.stdout.isNotEmpty ||
-                                          toolCall.stderr.isNotEmpty)
-                                        const SizedBox(height: 10),
-                                      _ToolOutputPanel(
-                                        label: AppLocalizations.of(
-                                          context,
-                                        )!.tlCallResult,
-                                        content: toolCall.formattedResult,
-                                        theme: theme,
-                                        selectable: widget.selectable,
-                                      ),
-                                    ],
-                                    if (toolCall.stdout.isEmpty &&
-                                        toolCall.stderr.isEmpty &&
-                                        !toolCall.showResultText)
-                                      Text(
-                                        AppLocalizations.of(
-                                          context,
-                                        )!.tlCallThereIsNoToolOutputYet,
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                  ],
-                                ),
+                                      )!.tlCallThereIsNoToolOutputYet,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                ),
-                // ── File mutation card (Codex-style multi-file list + ledger undo/redo) ──
-                if (_fileMutationPaths(message).isNotEmpty &&
-                    _toolExecutionStatus(message) == 'success') ...[
-                  const SizedBox(height: 10),
-                  _FileMutationCard(
-                    key: ValueKey<String>(
-                      'file-mutation-${message.id}-${message.metadata['tool_call_id'] ?? ''}',
-                    ),
-                    message: message,
+                      ),
+              ),
+              // ── File mutation card (Codex-style multi-file list + ledger undo/redo) ──
+              if (_fileMutationPaths(message).isNotEmpty &&
+                  _toolExecutionStatus(message) == 'success') ...[
+                const SizedBox(height: 10),
+                _FileMutationCard(
+                  key: ValueKey<String>(
+                    'file-mutation-${message.id}-${message.metadata['tool_call_id'] ?? ''}',
                   ),
-                ],
+                  message: message,
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
