@@ -190,8 +190,6 @@ class _KnowledgeVectorDistributionViewState
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 260),
                   reverseDuration: const Duration(milliseconds: 210),
-                  switchInCurve: Curves.easeOutBack,
-                  switchOutCurve: Curves.easeInCubic,
                   transitionBuilder: (child, animation) {
                     final curved = CurvedAnimation(
                       parent: animation,
