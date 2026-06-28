@@ -275,8 +275,12 @@ class AiReadTool extends AiTool {
     required String filePath,
   }) {
     if (rawPages == null) return const _PdfPagesParseResult();
-    final raw = '$rawPages'.trim();
-    if (raw.isEmpty) return const _PdfPagesParseResult();
+    final raw = _pdfPagesRawLabel(rawPages);
+    final segments = _pdfPageRangeSegments(rawPages);
+    if (segments.isEmpty && raw.isEmpty) return const _PdfPagesParseResult();
+    if (segments.isEmpty && _isEmptyPdfPagesCollection(rawPages)) {
+      return const _PdfPagesParseResult();
+    }
     if (p.extension(filePath).toLowerCase() != '.pdf') {
       return _PdfPagesParseResult(
         error: AiToolUtils.invalidResult(
@@ -287,7 +291,7 @@ class AiReadTool extends AiTool {
     }
 
     final pages = <int>{};
-    for (final segment in raw.split(',')) {
+    for (final segment in segments) {
       final part = segment.trim();
       if (part.isEmpty) {
         return _invalidPdfPages(raw);
@@ -314,8 +318,57 @@ class AiReadTool extends AiTool {
       }
     }
     return _PdfPagesParseResult(
-      pages: AiPdfPageRange(label: raw, pageCount: pages.length),
+      pages: AiPdfPageRange(label: segments.join(','), pageCount: pages.length),
     );
+  }
+
+  String _pdfPagesRawLabel(Object rawPages) {
+    if (rawPages is String) return rawPages.trim();
+    if (rawPages is Iterable) {
+      return rawPages.map(_pdfPageRangeSegmentText).join(',').trim();
+    }
+    return _pdfPageRangeSegmentText(rawPages).trim();
+  }
+
+  List<String> _pdfPageRangeSegments(Object rawPages) {
+    if (rawPages is Iterable) {
+      return rawPages.map(_pdfPageRangeSegmentText).toList(growable: false);
+    }
+    if (rawPages is String) {
+      final trimmed = rawPages.trim();
+      if (trimmed.isEmpty) return const <String>[];
+      final jsonList = _pdfPageRangeSegmentsFromJsonList(trimmed);
+      if (jsonList != null) return jsonList;
+      return trimmed
+          .split(',')
+          .map((part) => part.trim())
+          .toList(growable: false);
+    }
+    return <String>[_pdfPageRangeSegmentText(rawPages)];
+  }
+
+  List<String>? _pdfPageRangeSegmentsFromJsonList(String rawPages) {
+    try {
+      final decoded = jsonDecode(rawPages);
+      if (decoded is! List) return null;
+      return decoded.map(_pdfPageRangeSegmentText).toList(growable: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _pdfPageRangeSegmentText(Object? value) {
+    final page = AiToolUtils.readInt(value);
+    if (page != null) return page.toString();
+    return '$value'.trim();
+  }
+
+  bool _isEmptyPdfPagesCollection(Object rawPages) {
+    if (rawPages is Iterable) return rawPages.isEmpty;
+    if (rawPages is String) {
+      return _pdfPageRangeSegmentsFromJsonList(rawPages)?.isEmpty ?? false;
+    }
+    return false;
   }
 
   _PdfPagesParseResult _invalidPdfPages(String raw) {
