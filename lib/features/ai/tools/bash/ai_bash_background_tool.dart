@@ -470,9 +470,26 @@ class AiBashBackgroundTool extends AiTool {
   }) async {
     final startedAt = Stopwatch()..start();
     final handle = _handleFromArgs(args);
-    final maxBytes = _normalizeReadBytes(
-      AiToolUtils.readInt(args['max_bytes']),
-    );
+    final rawMaxBytes = AiToolUtils.readInt(args['max_bytes']);
+    if (rawMaxBytes != null &&
+        (rawMaxBytes < 0 || rawMaxBytes > _maxBufferBytes)) {
+      return AiToolUtils.invalidResult(
+        toolName,
+        'max_bytes must be between 0 and $_maxBufferBytes.',
+      );
+    }
+    final rawTimeoutMs =
+        AiToolUtils.readInt(args['timeout']) ??
+        AiToolUtils.readInt(args['timeout_ms']);
+    if (rawTimeoutMs != null &&
+        (rawTimeoutMs < 0 || rawTimeoutMs > _maxTaskOutputTimeoutMs)) {
+      return AiToolUtils.invalidResult(
+        toolName,
+        'timeout must be between 0 and $_maxTaskOutputTimeoutMs milliseconds.',
+      );
+    }
+    final maxBytes = _normalizeReadBytes(rawMaxBytes);
+    final timeoutMs = _normalizeTaskOutputTimeoutMs(rawTimeoutMs);
     final session = _sessions[handle];
     if (session == null) {
       return AiToolUtils.invalidResult(
@@ -484,10 +501,6 @@ class AiBashBackgroundTool extends AiTool {
     }
     final isTaskOutputAlias = toolName == 'TaskOutput';
     final block = _readBool(args['block'], defaultValue: isTaskOutputAlias);
-    final timeoutMs = _normalizeTaskOutputTimeoutMs(
-      AiToolUtils.readInt(args['timeout']) ??
-          AiToolUtils.readInt(args['timeout_ms']),
-    );
     var cancelled = false;
     if (block && session.alive) {
       cancelled = await _waitForSessionExit(

@@ -2275,7 +2275,22 @@ class AiToolRuntimeService {
           'working_directory': <String, Object?>{'type': 'string'},
           'handle': <String, Object?>{'type': 'string'},
           'input': <String, Object?>{'type': 'string'},
-          'max_bytes': <String, Object?>{'type': 'integer'},
+          'block': <String, Object?>{'type': 'boolean'},
+          'timeout': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 600000,
+          },
+          'timeout_ms': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 600000,
+          },
+          'max_bytes': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 65536,
+          },
         },
         'required': <String>['action'],
         'additionalProperties': false,
@@ -2308,15 +2323,21 @@ class AiToolRuntimeService {
           },
           'timeout': <String, Object?>{
             'type': 'integer',
+            'minimum': 0,
+            'maximum': 600000,
             'description':
                 'Maximum wait time in milliseconds when block=true. Defaults to 30000 and is capped at 600000.',
           },
           'timeout_ms': <String, Object?>{
             'type': 'integer',
+            'minimum': 0,
+            'maximum': 600000,
             'description': 'Alias for timeout.',
           },
           'max_bytes': <String, Object?>{
             'type': 'integer',
+            'minimum': 0,
+            'maximum': 65536,
             'description':
                 'Maximum stdout/stderr bytes to drain from each stream.',
           },
