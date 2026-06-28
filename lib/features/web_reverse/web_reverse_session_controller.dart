@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
@@ -1985,9 +1986,9 @@ class WebReverseSessionController extends ChangeNotifier {
     // DevTools。重定向链按时间顺序：[第1跳响应, 第2跳响应, …, 当前请求前
     // 一跳]，再加上"当前请求"自己。
     final existing = _networkByRequestId[requestId];
-    final redirect = p['redirectResponse'] as Map?;
+    final redirect = stringKeyedMapFromValue(p['redirectResponse']);
     CdpNetworkEntry entry;
-    if (existing != null && redirect != null) {
+    if (existing != null && redirect.isNotEmpty) {
       entry = existing
         ..url = url
         ..method = method
@@ -1996,7 +1997,7 @@ class WebReverseSessionController extends ChangeNotifier {
       entry.redirectChain.add(
         CdpRedirectStep(
           url: '${redirect['url'] ?? ''}',
-          status: (redirect['status'] as num?)?.toInt(),
+          status: optionalIntFromValue(redirect['status']),
           statusText: redirect['statusText'] as String?,
           responseHeaders: _flattenHeaders(redirect['headers']),
           at: DateTime.now(),
@@ -2014,15 +2015,16 @@ class WebReverseSessionController extends ChangeNotifier {
             ..requestHeaders = headers
             ..requestPostData = request['postData'] as String?;
     }
-    final initiator = p['initiator'] as Map?;
-    if (initiator != null) {
+    final initiator = stringKeyedMapFromValue(p['initiator']);
+    if (initiator.isNotEmpty) {
       entry.initiatorType = initiator['type'] as String?;
       entry.initiatorUrl = initiator['url'] as String?;
-      entry.initiatorLineNumber = (initiator['lineNumber'] as num?)?.toInt();
-      entry.initiatorColumnNumber = (initiator['columnNumber'] as num?)
-          ?.toInt();
-      final stack = initiator['stack'] as Map?;
-      final frames = stack?['callFrames'] as List?;
+      entry.initiatorLineNumber = optionalIntFromValue(initiator['lineNumber']);
+      entry.initiatorColumnNumber = optionalIntFromValue(
+        initiator['columnNumber'],
+      );
+      final stack = stringKeyedMapFromValue(initiator['stack']);
+      final frames = stack['callFrames'] as List?;
       if (frames != null) {
         entry.initiatorStack = frames
             .whereType<Map>()
@@ -2060,11 +2062,11 @@ class WebReverseSessionController extends ChangeNotifier {
 
   void _onResponseReceived(Map<String, Object?> p) {
     final requestId = '${p['requestId']}';
-    final response = p['response'] as Map?;
-    if (response == null) return;
+    final response = stringKeyedMapFromValue(p['response']);
+    if (response.isEmpty) return;
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
-    final status = (response['status'] as num?)?.toInt();
+    final status = optionalIntFromValue(response['status']);
     final mime = '${response['mimeType'] ?? ''}';
     final headers = _flattenHeaders(response['headers']);
     entry
@@ -2074,7 +2076,9 @@ class WebReverseSessionController extends ChangeNotifier {
       ..responseHeaders = headers
       ..remoteAddress = _formatRemoteAddress(response)
       ..protocol = response['protocol'] as String?
-      ..encodedDataLength = (response['encodedDataLength'] as num?)?.toInt()
+      ..encodedDataLength = optionalNonNegativeIntFromValue(
+        response['encodedDataLength'],
+      )
       ..fromCache =
           response['fromDiskCache'] == true ||
           response['fromMemoryCache'] == true ||
@@ -2136,7 +2140,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
     entry.loadingFinishedAt = DateTime.now();
-    final encoded = (p['encodedDataLength'] as num?)?.toInt();
+    final encoded = optionalNonNegativeIntFromValue(p['encodedDataLength']);
     if (encoded != null) entry.encodedDataLength = encoded;
     _artifacts.recordHarFinished(requestId, DateTime.now());
     _safeNotify();
@@ -2170,10 +2174,10 @@ class WebReverseSessionController extends ChangeNotifier {
     final requestId = '${p['requestId']}';
     final entry = _networkByRequestId[requestId];
     if (entry == null) return;
-    final response = p['response'] as Map?;
-    final opcode = (response?['opcode'] as num?)?.toInt() ?? 0;
-    final mask = response?['mask'] == true;
-    var payload = '${response?['payloadData'] ?? ''}';
+    final response = stringKeyedMapFromValue(p['response']);
+    final opcode = intFromValue(response['opcode'], fallback: 0);
+    final mask = response['mask'] == true;
+    var payload = '${response['payloadData'] ?? ''}';
     if (payload.length > _maxWebSocketFramePayloadChars) {
       payload = '${payload.substring(0, _maxWebSocketFramePayloadChars)}…';
     }
@@ -4860,10 +4864,12 @@ class WebReverseSessionController extends ChangeNotifier {
           sessionId: _pageSessionId,
           timeout: const Duration(seconds: 10),
         );
-        final content = metrics['cssContentSize'] as Map?;
-        if (content != null) {
-          final width = (content['width'] as num?)?.toDouble() ?? 0;
-          final height = (content['height'] as num?)?.toDouble() ?? 0;
+        final content = stringKeyedMapFromValue(metrics['cssContentSize']);
+        if (content.isNotEmpty) {
+          final width =
+              optionalNonNegativeDoubleFromValue(content['width']) ?? 0;
+          final height =
+              optionalNonNegativeDoubleFromValue(content['height']) ?? 0;
           if (width <= 0 ||
               height <= 0 ||
               width > _maxFullPageScreenshotCssSide ||
@@ -4947,23 +4953,23 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       _samplingProfileRunning = false;
       _safeNotify();
-      final profile = r['profile'] as Map?;
-      if (profile == null) return null;
+      final profile = stringKeyedMapFromValue(r['profile']);
+      if (profile.isEmpty) return null;
       // V8 SamplingHeapProfile 的 head 是火焰图根，递归累加 selfSize 并保留
       // 完整 callFrame 链。点击下钻看 stack 时直接读 entry.stack。
       final tally = <String, ({int size, List<String> stack})>{};
       var total = 0;
-      void walk(Map node, List<String> parentStack) {
-        final cf = (node['callFrame'] as Map?) ?? const <String, Object?>{};
+      void walk(Map<String, Object?> node, List<String> parentStack) {
+        final cf = stringKeyedMapFromValue(node['callFrame']);
         final fnName = '${cf['functionName'] ?? '(anon)'}';
         final url = '${cf['url'] ?? ''}';
-        final line = (cf['lineNumber'] as num?)?.toInt() ?? 0;
-        final col = (cf['columnNumber'] as num?)?.toInt() ?? 0;
+        final line = intFromValue(cf['lineNumber'], fallback: 0);
+        final col = intFromValue(cf['columnNumber'], fallback: 0);
         final stackEntry = url.isEmpty
             ? fnName
             : '${fnName.isEmpty ? "(anonymous)" : fnName} @ $url:${line + 1}:${col + 1}';
         final stack = [...parentStack, stackEntry];
-        final self = (node['selfSize'] as num?)?.toInt() ?? 0;
+        final self = nonNegativeIntFromValue(node['selfSize'], fallback: 0);
         total += self;
         final old = tally[fnName];
         if (old == null) {
@@ -4974,12 +4980,14 @@ class WebReverseSessionController extends ChangeNotifier {
         final children = node['children'] as List?;
         if (children != null) {
           for (final c in children.whereType<Map>()) {
-            walk(c, stack);
+            walk(stringKeyedMapFromValue(c), stack);
           }
         }
       }
 
-      walk(Map<String, Object?>.from(profile['head'] as Map), const []);
+      final head = stringKeyedMapFromValue(profile['head']);
+      if (head.isEmpty) return null;
+      walk(head, const []);
       final entries = tally.entries.toList()
         ..sort((a, b) => b.value.size.compareTo(a.value.size));
       final top = entries
@@ -5020,7 +5028,7 @@ class WebReverseSessionController extends ChangeNotifier {
       double tot = 0;
       for (final m in list.whereType<Map>()) {
         final name = '${m['name']}';
-        final v = (m['value'] as num?)?.toDouble() ?? 0;
+        final v = optionalNonNegativeDoubleFromValue(m['value']) ?? 0;
         if (name == 'JSHeapUsedSize') used = v;
         if (name == 'JSHeapTotalSize') tot = v;
       }
