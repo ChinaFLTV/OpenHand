@@ -16,6 +16,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
 const double _kAccountSnapshotsDialogMaxWidth = 720;
@@ -147,13 +148,11 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     if (text.isEmpty) return;
     if (!mounted) return;
     try {
-      final parsed = jsonDecode(text);
-      if (parsed is! List) throw const FormatException('expect JSON array');
+      final entries = decodeStringKeyedJsonMapList(text);
+      if (entries == null) throw const FormatException('expect JSON array');
       final merged = <WebReverseAccountSnapshot>[
         ...widget.controller.accountSnapshots,
-        for (final raw in parsed)
-          if (raw is Map)
-            WebReverseAccountSnapshot.fromJson(Map<String, Object?>.from(raw)),
+        for (final raw in entries) WebReverseAccountSnapshot.fromJson(raw),
       ];
       widget.controller.setAccountSnapshots(merged);
       if (!mounted) return;
@@ -161,8 +160,8 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          loc?.webReverseAccountSnapImportedCount(parsed.length) ??
-              'Imported ${parsed.length} snapshots',
+          loc?.webReverseAccountSnapImportedCount(entries.length) ??
+              'Imported ${entries.length} snapshots',
         );
       }
     } catch (e, st) {

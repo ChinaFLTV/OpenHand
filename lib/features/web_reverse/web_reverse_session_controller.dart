@@ -8678,26 +8678,17 @@ class WebReverseAccountSnapshot {
   });
 
   factory WebReverseAccountSnapshot.fromJson(Map<String, Object?> j) {
-    final ts = j['captured_ms'];
+    final timestampMs = optionalIntegralIntFromValue(j['captured_ms']);
     return WebReverseAccountSnapshot(
-      id: '${j['id'] ?? ''}',
-      name: '${j['name'] ?? ''}',
-      origin: '${j['origin'] ?? ''}',
-      capturedAt: ts is int
-          ? DateTime.fromMillisecondsSinceEpoch(ts)
-          : DateTime.now(),
-      cookies:
-          (j['cookies'] as List?)
-              ?.whereType<Map>()
-              .map((m) => Map<String, Object?>.from(m))
-              .toList(growable: false) ??
-          const <Map<String, Object?>>[],
-      localStorage:
-          (j['localStorage'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
-          const <String, String>{},
-      sessionStorage:
-          (j['sessionStorage'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
-          const <String, String>{},
+      id: stringFromValue(j['id']),
+      name: stringFromValue(j['name']),
+      origin: stringFromValue(j['origin']),
+      capturedAt: timestampMs == null
+          ? DateTime.now()
+          : DateTime.fromMillisecondsSinceEpoch(timestampMs),
+      cookies: stringKeyedMapListFromValue(j['cookies']),
+      localStorage: _accountSnapshotStorageFromValue(j['localStorage']),
+      sessionStorage: _accountSnapshotStorageFromValue(j['sessionStorage']),
     );
   }
 
@@ -8718,6 +8709,14 @@ class WebReverseAccountSnapshot {
     'localStorage': localStorage,
     'sessionStorage': sessionStorage,
   };
+}
+
+Map<String, String> _accountSnapshotStorageFromValue(Object? value) {
+  final raw = stringKeyedMapFromValue(value);
+  if (raw.isEmpty) return const <String, String>{};
+  return Map<String, String>.unmodifiable(
+    raw.map((key, item) => MapEntry(key, item?.toString() ?? '')),
+  );
 }
 
 /// 本地 Mock 规则：URL 通配命中即用 Fetch.fulfillRequest 直接回 [statusCode]
