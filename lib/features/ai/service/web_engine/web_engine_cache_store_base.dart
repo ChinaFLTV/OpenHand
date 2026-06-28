@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 
 /// WebSearch / WebFetch 共用的「prewarm/cleanup 报告」数据。
 ///
@@ -172,7 +173,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
               keysToRemove.add(entry.key);
               continue;
             }
-            final expiresAt = (value['expires_at'] as num?)?.toInt() ?? 0;
+            final expiresAt = _readCacheInt(value['expires_at']);
             final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
             if (expiresAt <= now) {
               keysToRemove.add(entry.key);
@@ -223,7 +224,10 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
           root['entries'] = entries;
           try {
-            await indexFile.writeAsString(jsonEncode(root), flush: true);
+            await indexFile.writeAsString(
+              jsonEncode(_jsonSafeCacheMap(root)),
+              flush: true,
+            );
           } catch (error, stack) {
             silentLog(logTag, 'prewarm/writeIndex', error, stack);
           }
@@ -272,7 +276,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       final entries = (decoded['entries'] as Map?) ?? const {};
       final entry = entries[key];
       if (entry is! Map) return null;
-      final expiresAt = (entry['expires_at'] as num?)?.toInt() ?? 0;
+      final expiresAt = _readCacheInt(entry['expires_at']);
       final now = DateTime.now().millisecondsSinceEpoch;
       if (expiresAt <= now) return null;
       final payloadRel = '${entry[payloadPathField] ?? ''}'.trim();
@@ -283,11 +287,12 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       chain = chain.then((_) => _touchAccess(key)).catchError((_) {});
       return WebEngineCacheRawLookup(
         payload: payload,
-        metadata: Map<String, Object?>.from(entry),
-        cachedAt: DateTime.fromMillisecondsSinceEpoch(
-          (entry['created_at'] as num?)?.toInt() ?? now,
+        metadata: _jsonSafeCacheMap(Map.from(entry)),
+        cachedAt: _dateTimeFromCacheMs(
+          _readOptionalCacheInt(entry['created_at']) ?? now,
+          fallbackMs: now,
         ),
-        expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAt),
+        expiresAt: _dateTimeFromCacheMs(expiresAt, fallbackMs: now),
       );
     } catch (error, stack) {
       silentLog(logTag, 'lookup', error, stack);
@@ -364,11 +369,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       'created_at': now,
       'expires_at': expiresAt,
       'last_accessed_at': now,
-      ...extraEntryFields,
+      ..._jsonSafeCacheMap(extraEntryFields),
     };
 
     root['entries'] = entries;
-    await indexFile.writeAsString(jsonEncode(root), flush: true);
+    await indexFile.writeAsString(
+      jsonEncode(_jsonSafeCacheMap(root)),
+      flush: true,
+    );
 
     final cap = cacheMaxBytes(settings);
     if (cap > 0) {
@@ -394,7 +402,10 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       updated['last_accessed_at'] = DateTime.now().millisecondsSinceEpoch;
       entries[key] = updated;
       root['entries'] = entries;
-      await indexFile.writeAsString(jsonEncode(root), flush: true);
+      await indexFile.writeAsString(
+        jsonEncode(_jsonSafeCacheMap(root)),
+        flush: true,
+      );
     } catch (error, stack) {
       silentLog(logTag, 'touchAccess', error, stack);
     }
@@ -423,7 +434,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     var estimatedTotal = 0;
     for (final entry in entries.values) {
       if (entry is! Map) continue;
-      estimatedTotal += ((entry[payloadBytesField] as num?)?.toInt() ?? 0);
+      estimatedTotal += _readCacheInt(entry[payloadBytesField]);
     }
     if (estimatedTotal <= maxBytes) return;
 
@@ -434,14 +445,12 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
     final ordered = entries.entries.toList()
       ..sort((a, b) {
-        final av =
-            (a.value is Map ? (a.value as Map)['last_accessed_at'] : 0)
-                as num? ??
-            0;
-        final bv =
-            (b.value is Map ? (b.value as Map)['last_accessed_at'] : 0)
-                as num? ??
-            0;
+        final av = a.value is Map
+            ? _readCacheInt((a.value as Map)['last_accessed_at'])
+            : 0;
+        final bv = b.value is Map
+            ? _readCacheInt((b.value as Map)['last_accessed_at'])
+            : 0;
         return av.compareTo(bv);
       });
 
@@ -470,9 +479,44 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
     root['entries'] = entries;
     try {
-      await indexFile.writeAsString(jsonEncode(root), flush: true);
+      await indexFile.writeAsString(
+        jsonEncode(_jsonSafeCacheMap(root)),
+        flush: true,
+      );
     } catch (error, stack) {
       silentLog(logTag, 'enforceCap/writeIndex', error, stack);
     }
   }
+}
+
+int _readCacheInt(Object? value) {
+  return nonNegativeIntFromValue(value, fallback: 0);
+}
+
+int? _readOptionalCacheInt(Object? value) {
+  return optionalNonNegativeIntFromValue(value);
+}
+
+DateTime _dateTimeFromCacheMs(int value, {required int fallbackMs}) {
+  try {
+    return DateTime.fromMillisecondsSinceEpoch(value);
+  } on RangeError {
+    return DateTime.fromMillisecondsSinceEpoch(fallbackMs);
+  }
+}
+
+Map<String, Object?> _jsonSafeCacheMap(Map<Object?, Object?> value) {
+  return <String, Object?>{
+    for (final entry in value.entries)
+      '${entry.key}': _jsonSafeCacheValue(entry.value),
+  };
+}
+
+Object? _jsonSafeCacheValue(Object? value) {
+  if (value is num && !value.isFinite) return 0;
+  if (value is Map) return _jsonSafeCacheMap(value);
+  if (value is List) {
+    return value.map(_jsonSafeCacheValue).toList(growable: false);
+  }
+  return value;
 }
