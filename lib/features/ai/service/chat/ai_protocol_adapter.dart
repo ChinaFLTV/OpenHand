@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
@@ -2369,27 +2370,7 @@ Future<String> _markdownFromOpenAiMediaPayload(
 }
 
 int? _readInt(Object? value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num) {
-    final coercedValue = value.toInt();
-    return value == coercedValue ? coercedValue : null;
-  }
-  final rawText = '${value ?? ''}'.trim();
-  if (rawText.isEmpty) {
-    return null;
-  }
-  final parsedInt = int.tryParse(rawText);
-  if (parsedInt != null) {
-    return parsedInt;
-  }
-  final parsedDouble = double.tryParse(rawText);
-  if (parsedDouble == null) {
-    return null;
-  }
-  final coercedValue = parsedDouble.toInt();
-  return parsedDouble == coercedValue ? coercedValue : null;
+  return optionalIntegralIntFromValue(value);
 }
 
 bool _containsAny(String value, List<String> candidates) {

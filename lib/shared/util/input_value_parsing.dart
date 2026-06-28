@@ -185,6 +185,27 @@ int? optionalIntFromValue(Object? value) {
   return null;
 }
 
+int? optionalIntegralIntFromValue(Object? value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) {
+    if (!value.isFinite) return null;
+    final coerced = value.toInt();
+    return value == coerced ? coerced : null;
+  }
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    final parsed = int.tryParse(trimmed);
+    if (parsed != null) return parsed;
+    final parsedDouble = double.tryParse(trimmed);
+    if (parsedDouble == null || !parsedDouble.isFinite) return null;
+    final coerced = parsedDouble.toInt();
+    return parsedDouble == coerced ? coerced : null;
+  }
+  return null;
+}
+
 int? optionalPositiveIntFromValue(Object? value) {
   final parsed = optionalIntFromValue(value);
   return parsed == null || parsed <= 0 ? null : parsed;

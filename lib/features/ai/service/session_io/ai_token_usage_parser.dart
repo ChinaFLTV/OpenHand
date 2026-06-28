@@ -1,3 +1,4 @@
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_token_usage.dart';
 
 /// 统一的 token usage 解析器：把各家 AI 服务商的 usage 字段差异收敛在此处。
@@ -230,19 +231,7 @@ class AiTokenUsageParser {
 }
 
 int? _readInt(Object? value) {
-  if (value is int) return value;
-  if (value is num) {
-    final coerced = value.toInt();
-    return value == coerced ? coerced : null;
-  }
-  final raw = '${value ?? ''}'.trim();
-  if (raw.isEmpty) return null;
-  final parsed = int.tryParse(raw);
-  if (parsed != null) return parsed;
-  final parsedDouble = double.tryParse(raw);
-  if (parsedDouble == null) return null;
-  final coerced = parsedDouble.toInt();
-  return parsedDouble == coerced ? coerced : null;
+  return optionalIntegralIntFromValue(value);
 }
 
 int? _firstInt(List<Object?> candidates) {

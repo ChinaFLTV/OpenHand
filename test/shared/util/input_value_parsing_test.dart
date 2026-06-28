@@ -34,6 +34,17 @@ void main() {
       expect(nonNegativeIntFromText('bad', fallback: 7), 7);
     });
 
+    test('keeps only integral numeric values when requested', () {
+      expect(optionalIntegralIntFromValue(3), 3);
+      expect(optionalIntegralIntFromValue(3.0), 3);
+      expect(optionalIntegralIntFromValue('3'), 3);
+      expect(optionalIntegralIntFromValue('3.0'), 3);
+      expect(optionalIntegralIntFromValue(3.25), isNull);
+      expect(optionalIntegralIntFromValue('3.25'), isNull);
+      expect(optionalIntegralIntFromValue(double.nan), isNull);
+      expect(optionalIntegralIntFromValue('Infinity'), isNull);
+    });
+
     test('keeps finite non-negative doubles when requested', () {
       expect(optionalNonNegativeDoubleFromText('0'), 0);
       expect(optionalNonNegativeDoubleFromText('1.25'), 1.25);

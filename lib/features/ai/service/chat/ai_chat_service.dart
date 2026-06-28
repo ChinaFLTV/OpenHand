@@ -10,6 +10,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
@@ -2422,25 +2423,5 @@ String? _streamingMediaKindFromField(String key) {
 }
 
 int? _readInt(Object? value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num) {
-    final coercedValue = value.toInt();
-    return value == coercedValue ? coercedValue : null;
-  }
-  final rawText = '${value ?? ''}'.trim();
-  if (rawText.isEmpty) {
-    return null;
-  }
-  final parsedInt = int.tryParse(rawText);
-  if (parsedInt != null) {
-    return parsedInt;
-  }
-  final parsedDouble = double.tryParse(rawText);
-  if (parsedDouble == null) {
-    return null;
-  }
-  final coercedValue = parsedDouble.toInt();
-  return parsedDouble == coercedValue ? coercedValue : null;
+  return optionalIntegralIntFromValue(value);
 }
