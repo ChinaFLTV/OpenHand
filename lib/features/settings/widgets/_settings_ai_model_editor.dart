@@ -2167,14 +2167,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     if (trimmed.isEmpty) {
       return const <String, Object?>{};
     }
-    final decoded = jsonDecode(trimmed);
-    if (decoded is Map<String, Object?>) {
-      return Map<String, Object?>.from(decoded);
-    }
-    if (decoded is Map) {
-      return Map<String, Object?>.from(decoded);
-    }
-    throw const FormatException('高级 JSON 配置必须是合法的 JSON 对象。');
+    return optionalStringKeyedMapFromJsonText(trimmed) ??
+        (throw const FormatException('高级 JSON 配置必须是合法的 JSON 对象。'));
   }
 
   String _prettyJson(Map<String, Object?> map) {
@@ -2712,10 +2706,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   List<String> _parseCsv(String value) {
     final seen = <String>{};
     final result = <String>[];
-    for (final part in value.split(',')) {
-      final trimmed = part.trim();
-      if (trimmed.isEmpty || !seen.add(trimmed)) continue;
-      result.add(trimmed);
+    for (final item in splitTrimmedNonEmpty(value)) {
+      if (!seen.add(item)) continue;
+      result.add(item);
     }
     return result;
   }
@@ -2734,14 +2727,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Map<String, Object?> _parseJsonObject(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return const <String, Object?>{};
-    final decoded = jsonDecode(trimmed);
-    if (decoded is Map<String, Object?>) {
-      return Map<String, Object?>.from(decoded);
-    }
-    if (decoded is Map) {
-      return Map<String, Object?>.from(decoded);
-    }
-    throw const FormatException('JSON value must be an object.');
+    return optionalStringKeyedMapFromJsonText(trimmed) ??
+        (throw const FormatException('JSON value must be an object.'));
   }
 
   String _prettyJson(Map<String, Object?> map) {
