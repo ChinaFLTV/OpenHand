@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_api_dialect.dart';
 import 'ai_api_family.dart';
 import 'ai_endpoint_override.dart';
@@ -1063,34 +1064,15 @@ class AiModelProfile {
   }
 
   static int? _readNullableInt(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    final parsed = int.tryParse('${value ?? ''}'.trim());
-    return parsed;
+    return optionalIntFromValue(value);
   }
 
   static int? _readNullablePositiveInt(Object? value) {
-    if (value is int) return value > 0 ? value : null;
-    if (value is num) {
-      final n = value.toInt();
-      return n > 0 ? n : null;
-    }
-    final parsed = int.tryParse('${value ?? ''}'.trim());
-    if (parsed == null || parsed <= 0) return null;
-    return parsed;
+    return optionalPositiveIntFromValue(value);
   }
 
   static double? _readNullableNonNegativeDouble(Object? value) {
-    double? d;
-    if (value is double) {
-      d = value;
-    } else if (value is num) {
-      d = value.toDouble();
-    } else if (value is String) {
-      d = double.tryParse(value.trim());
-    }
-    if (d == null || !d.isFinite || d.isNaN || d < 0) return null;
-    return d;
+    return optionalNonNegativeDoubleFromValue(value);
   }
 
   static bool? _readBool(Object? value) {
@@ -1757,18 +1739,7 @@ class AiModelConfig {
   }
 
   static int? _readNullablePositiveInt(Object? value) {
-    if (value is int) {
-      return value > 0 ? value : null;
-    }
-    if (value is num) {
-      final normalized = value.toInt();
-      return normalized > 0 ? normalized : null;
-    }
-    final parsed = int.tryParse('${value ?? ''}'.trim());
-    if (parsed == null || parsed <= 0) {
-      return null;
-    }
-    return parsed;
+    return optionalPositiveIntFromValue(value);
   }
 
   static bool _readExplicitPromptCacheEnabled({
@@ -1849,17 +1820,7 @@ class AiModelConfig {
   }
 
   static double? _readNullableDouble(Object? value) {
-    if (value is double) {
-      return value;
-    }
-    if (value is int) {
-      return value.toDouble();
-    }
-    if (value is num) {
-      return value.toDouble();
-    }
-    final parsed = double.tryParse('${value ?? ''}'.trim());
-    return parsed;
+    return optionalDoubleFromValue(value);
   }
 
   static String _parseRequestMethod(Object? value) {

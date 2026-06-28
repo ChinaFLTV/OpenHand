@@ -25,4 +25,40 @@ void main() {
 
     expect(profile.supportsRerank, isTrue);
   });
+
+  test('model profile numeric metadata ignores invalid non-finite values', () {
+    final profile = AiModelProfile.fromJson(<String, Object?>{
+      'max_context_length': '0',
+      'max_output_length': '8192',
+      'input_usd_per_1m': 'NaN',
+      'output_usd_per_1m': '-1',
+      'cache_read_usd_per_1m': '0.25',
+      'created': double.infinity,
+      'embedding_dimensions': '1024',
+    });
+
+    expect(profile.maxContextLength, isNull);
+    expect(profile.maxOutputLength, 8192);
+    expect(profile.inputUsdPer1M, isNull);
+    expect(profile.outputUsdPer1M, isNull);
+    expect(profile.cacheReadUsdPer1M, 0.25);
+    expect(profile.created, isNull);
+    expect(profile.embeddingDimensions, 1024);
+  });
+
+  test('model config numeric parsing ignores invalid non-finite values', () {
+    final model = AiModelConfig.fromJson(<String, Object?>{
+      'id': 'model',
+      'name': 'Model',
+      'base_url': 'https://example.test/',
+      'model_id': 'example-model',
+      'max_context_tokens': '4096',
+      'max_tokens': double.infinity,
+      'temperature': 'NaN',
+    });
+
+    expect(model.maxContextTokens, 4096);
+    expect(model.maxTokens, isNull);
+    expect(model.temperature, isNull);
+  });
 }
