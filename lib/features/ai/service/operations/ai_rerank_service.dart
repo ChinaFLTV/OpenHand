@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -558,17 +559,11 @@ Object? _documentAt(List<Object> documents, int index) {
 }
 
 int? _intValue(Object? value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value.trim());
-  return null;
+  return optionalIntFromValue(value);
 }
 
 double? _doubleValue(Object? value) {
-  if (value is double) return value;
-  if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value.trim());
-  return null;
+  return optionalDoubleFromValue(value);
 }
 
 Map<String, Object?> _deepMergeObjectMaps(

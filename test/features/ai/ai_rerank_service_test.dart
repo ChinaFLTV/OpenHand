@@ -105,6 +105,32 @@ void main() {
     expect(transport.body['max_tokens_per_doc'], 1024);
     expect(transport.body.containsKey('return_documents'), isFalse);
   });
+
+  test('rerank response skips non-finite score values', () async {
+    final transport = _RecordingTransport(
+      responseBody:
+          '{"results":[{"index":"0","relevance_score":"NaN"},{"index":"1","relevance_score":"0.8"}]}',
+    );
+    final service = AiRerankService(transport: transport);
+
+    final result = await service.rerank(
+      model: const AiModelConfig(
+        id: 'cohere',
+        baseUrl: 'https://api.cohere.com',
+        authScheme: AiAuthScheme.bearer,
+        token: 'test-token',
+        modelId: 'rerank-v3.5',
+        protocolType: AiProtocolType.openai,
+      ),
+      query: 'query',
+      documents: const <Object>['bad', 'good'],
+      topN: 2,
+    );
+
+    expect(result.items, hasLength(1));
+    expect(result.items.single.index, 1);
+    expect(result.items.single.score, 0.8);
+  });
 }
 
 class _RecordingTransport extends AiTransportClient {

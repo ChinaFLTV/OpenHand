@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
@@ -757,10 +758,7 @@ class AiStepFunOperationsService {
   }
 
   int? _readInt(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim());
-    return null;
+    return optionalIntFromValue(value);
   }
 
   void _checkRequiredId(String value, String name) {
