@@ -101,6 +101,43 @@ void main() {
       expect(result.resultText, isNot(contains('/tmp/jjy.md')));
     },
   );
+
+  test('vector provider failures fall back to local chunk search', () async {
+    final result =
+        await AiKnowledgeSearchTool(
+          knowledgeBaseControllerProvider: () {
+            throw StateError('provider unavailable');
+          },
+          aiModelsProvider: () => const <AiModelConfig>[
+            AiModelConfig(
+              id: 'embedding-provider',
+              baseUrl: 'https://example.invalid',
+              authScheme: AiAuthScheme.bearer,
+              token: '',
+              modelId: 'embedding-model',
+              protocolType: AiProtocolType.openai,
+            ),
+          ],
+        ).execute(
+          _context(
+            toolName: 'KnowledgeSearch',
+            args: <String, Object?>{'query': '鞠婧祎 纪录片', 'top_k': 2},
+          ),
+        );
+
+    expect(result.status, BashToolExecutionStatus.success);
+    final decoded = jsonDecode(result.resultText) as Map<String, Object?>;
+    final rows = decoded['results'] as List;
+    expect(rows, isNotEmpty);
+    expect((rows.first as Map)['chunk_id'], 'source-1_chunk_2');
+    final kb =
+        result.metadata[knowledgeBaseMessageMetadataKey]
+            as Map<String, Object?>;
+    expect(
+      (kb['retrieval'] as Map<String, Object?>)['strategy'],
+      'local_chunk_rank',
+    );
+  });
 }
 
 AiToolExecutionContext _context({

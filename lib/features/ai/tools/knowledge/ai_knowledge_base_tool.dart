@@ -126,10 +126,10 @@ class AiKnowledgeSearchTool extends AiTool {
     required int topK,
     required Stopwatch stopwatch,
   }) async {
-    final controller = _knowledgeBaseControllerProvider?.call();
-    final models = _aiModelsProvider?.call() ?? const <AiModelConfig>[];
-    if (controller == null || models.isEmpty) return null;
     try {
+      final controller = _knowledgeBaseControllerProvider?.call();
+      final models = _aiModelsProvider?.call() ?? const <AiModelConfig>[];
+      if (controller == null || models.isEmpty) return null;
       final retrieval = await controller.retrieveForTool(
         query: query,
         topK: topK,
