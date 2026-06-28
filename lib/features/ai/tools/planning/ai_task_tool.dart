@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/chat/ai_chat_service.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
@@ -650,8 +651,7 @@ class AiTaskTool extends AiTool {
   Map<String, Object?> _decodeArguments(String rawArguments) {
     try {
       final decoded = jsonDecode(rawArguments);
-      if (decoded is Map<String, Object?>) return decoded;
-      if (decoded is Map) return Map<String, Object?>.from(decoded);
+      if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } catch (error, stack) {
       silentLog('ai_task_tool', 'decode task tool arguments', error, stack);
     }

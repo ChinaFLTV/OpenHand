@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_plan_approval_detector.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -135,8 +136,9 @@ class AiAskUserChoiceTool extends AiTool {
           '$commandName option #$i must be an object with {value, label}.',
         );
       }
-      final value = '${entry['value'] ?? ''}'.trim();
-      final label = '${entry['label'] ?? ''}'.trim();
+      final entryMap = stringKeyedMapFromValue(entry);
+      final value = '${entryMap['value'] ?? ''}'.trim();
+      final label = '${entryMap['label'] ?? ''}'.trim();
       if (value.isEmpty || label.isEmpty) {
         return AiToolUtils.invalidResult(
           commandName,
@@ -149,8 +151,8 @@ class AiAskUserChoiceTool extends AiTool {
           '$commandName option values must be unique; duplicate: "$value".',
         );
       }
-      final optDescription = entry['description'] is String
-          ? (entry['description'] as String).trim()
+      final optDescription = entryMap['description'] is String
+          ? (entryMap['description'] as String).trim()
           : null;
       parsedOptions.add(
         AskUserChoiceOption(
@@ -160,9 +162,10 @@ class AiAskUserChoiceTool extends AiTool {
         ),
       );
     }
-    final allowCustomInput = args['allow_custom_input'] is bool
-        ? args['allow_custom_input'] as bool
-        : true;
+    final allowCustomInput = boolFromValue(
+      args['allow_custom_input'],
+      defaultValue: true,
+    );
     if (_looksLikePlanApprovalQuestion(
       metadata: context.metadata,
       title: title,
@@ -362,7 +365,7 @@ class AiAskUserChoiceTool extends AiTool {
         ),
       );
     }
-    final questionMap = Map<String, Object?>.from(questionRaw);
+    final questionMap = stringKeyedMapFromValue(questionRaw);
     final multiSelect = _optionalBool(questionMap['multiSelect']);
     if (multiSelect == true) {
       return _AskUserChoiceArgumentNormalization.error(
@@ -412,7 +415,7 @@ class AiAskUserChoiceTool extends AiTool {
           ),
         );
       }
-      final optionMap = Map<String, Object?>.from(optionRaw);
+      final optionMap = stringKeyedMapFromValue(optionRaw);
       if (optionMap.containsKey('preview')) {
         return _AskUserChoiceArgumentNormalization.error(
           AiToolUtils.invalidResult(

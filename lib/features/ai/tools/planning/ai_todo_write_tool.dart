@@ -1,3 +1,4 @@
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -53,7 +54,7 @@ class AiTodoWriteTool extends AiTool {
           'Each todo must be an object.',
         );
       }
-      final todo = Map<String, Object?>.from(rawTodo);
+      final todo = stringKeyedMapFromValue(rawTodo);
       final id = _resolveTodoId(
         todo: todo,
         providedIds: providedIds,
@@ -171,7 +172,7 @@ class AiTodoWriteTool extends AiTool {
     final seenIds = <String>{};
     for (final rawTodo in rawTodos) {
       if (rawTodo is! Map) continue;
-      final todo = Map<String, Object?>.from(rawTodo);
+      final todo = stringKeyedMapFromValue(rawTodo);
       final id = '${todo['id'] ?? ''}'.trim();
       final content = '${todo['content'] ?? ''}'.trim();
       final status = '${todo['status'] ?? ''}'.trim();
