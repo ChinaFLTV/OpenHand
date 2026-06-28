@@ -1,22 +1,16 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 bool webReverseRuntimeBoolTrue(Object? raw) {
-  if (raw is bool) return raw;
-  final normalized = '${raw ?? ''}'.trim().toLowerCase();
-  return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  return boolFromValue(raw);
 }
 
 bool webReverseRuntimeBoolFalse(Object? raw) {
-  if (raw is bool) return !raw;
-  final normalized = '${raw ?? ''}'.trim().toLowerCase();
-  return normalized == 'false' || normalized == '0' || normalized == 'no';
+  return !boolFromValue(raw, defaultValue: true);
 }
 
 bool webReverseCdpRuntimeHasLiveLocator(Map<Object?, Object?> value) {
   bool hasText(Object? raw) => raw is String && raw.trim().isNotEmpty;
-  bool hasPort(Object? raw) {
-    if (raw is num) return raw.toInt() > 0;
-    final parsed = int.tryParse('${raw ?? ''}'.trim());
-    return parsed != null && parsed > 0;
-  }
+  bool hasPort(Object? raw) => optionalPositiveIntFromValue(raw) != null;
 
   return hasPort(value['cdp_port']) ||
       hasText(value['cdp_http_endpoint']) ||
@@ -40,10 +34,7 @@ bool webReverseCdpRuntimeIsLive(Object? raw) {
 }
 
 int? webReverseRuntimeInt(Object? raw) {
-  if (raw is num) return raw.toInt();
-  final value = '${raw ?? ''}'.trim();
-  if (value.isEmpty) return null;
-  return int.tryParse(value);
+  return optionalIntFromValue(raw);
 }
 
 class WebReverseCdpMcpRuntimeStatus {
@@ -67,15 +58,14 @@ class WebReverseCdpMcpRuntimeStatus {
     final runtimeMap = webReverseRuntimeObjectMap(runtime);
     final bridge = webReverseRuntimeObjectMap(runtimeMap?['cdp_mcp_bridge']);
     final controllerSaysOffline = controllerBrowserAlive == false;
-    final bridgePort = webReverseRuntimeInt(bridge?['cdp_port']);
-    final runtimePort = webReverseRuntimeInt(runtimeMap?['cdp_port']);
+    final bridgePort = optionalPositiveIntFromValue(bridge?['cdp_port']);
+    final runtimePort = optionalPositiveIntFromValue(runtimeMap?['cdp_port']);
+    final controllerPositivePort = controllerPort != null && controllerPort > 0
+        ? controllerPort
+        : null;
     final port = controllerSaysOffline
         ? null
-        : bridgePort != null && bridgePort > 0
-        ? bridgePort
-        : runtimePort != null && runtimePort > 0
-        ? runtimePort
-        : controllerPort;
+        : bridgePort ?? runtimePort ?? controllerPositivePort;
     final browserAlive =
         !controllerSaysOffline &&
         (controllerBrowserAlive == true ||
@@ -84,7 +74,7 @@ class WebReverseCdpMcpRuntimeStatus {
 
     return WebReverseCdpMcpRuntimeStatus(
       rawStatus: '${bridge?['status'] ?? ''}'.trim(),
-      toolCount: webReverseRuntimeInt(bridge?['tool_count']) ?? 0,
+      toolCount: nonNegativeIntFromValue(bridge?['tool_count'], fallback: 0),
       liveActionsCallable:
           !controllerSaysOffline &&
           webReverseRuntimeBoolTrue(bridge?['live_actions_callable']),

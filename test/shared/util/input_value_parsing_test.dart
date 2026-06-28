@@ -44,4 +44,12 @@ void main() {
       expect(optionalNonNegativeDoubleFromText('bad'), isNull);
     });
   });
+
+  group('boolean parsing', () {
+    test('falls back for non-finite numeric values', () {
+      expect(boolFromValue(double.nan), isFalse);
+      expect(boolFromValue(double.infinity, defaultValue: true), isTrue);
+      expect(boolFromValue(double.negativeInfinity), isFalse);
+    });
+  });
 }
