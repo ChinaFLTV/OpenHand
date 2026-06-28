@@ -7793,70 +7793,12 @@ class _KnowledgeBaseContextCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 280),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: () {
-            _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
-            onPressed();
-          },
-          child: Ink(
-            height: _messageActionChipHeight,
-            padding: const EdgeInsetsDirectional.only(start: 7, end: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              color: colorScheme.primaryContainer.withValues(alpha: 0.60),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.primary.withValues(alpha: 0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 7),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface.withValues(alpha: 0.66),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.auto_stories_rounded,
-                    size: 14,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: textColor.withValues(alpha: 0.92),
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return _MessageContextCapsule(
+      icon: Icons.auto_stories_rounded,
+      label: label,
+      textColor: textColor,
+      maxLabelWidth: 280,
+      onPressed: onPressed,
     );
   }
 }
