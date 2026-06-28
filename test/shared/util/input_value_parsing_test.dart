@@ -22,6 +22,20 @@ void main() {
         <String>['alpha', '42', 'beta'],
       );
     });
+
+    test('parses JSON text lists with malformed input fallback', () {
+      expect(
+        optionalStringListFromJsonText('[" alpha ", null, 42, "", "beta"]'),
+        <String>['alpha', '42', 'beta'],
+      );
+      expect(optionalStringListFromJsonText(''), isEmpty);
+      expect(optionalStringListFromJsonText('not-json'), isNull);
+      expect(
+        optionalStringListFromJsonText('"alpha,beta"', requireList: true),
+        isNull,
+      );
+      expect(stringListFromJsonText('not-json'), isEmpty);
+    });
   });
 
   group('string scalar parsing', () {

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:sqflite_common/sqlite_api.dart';
 
-import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/user_memory_entry.dart';
 
 enum MemoryPersistenceIssueKind {
@@ -32,83 +32,64 @@ class MemoryLoadResult {
 }
 
 class MemoryStore {
-  MemoryStore();
+  MemoryStore({Database? database}) : _database = database;
 
-  Database get _db => DatabaseService.instance.database;
+  final Database? _database;
+
+  static const String _table = 'memories';
+  static const String _storageUri = 'db://memories';
+  static const String _storageDirectoryUri = 'db://openhand';
+  static const Set<String> _allowedTypes = <String>{
+    UserMemoryEntry.userType,
+    UserMemoryEntry.userProfileType,
+  };
+
+  Database get _db => _database ?? DatabaseService.instance.database;
 
   /// Retained for backward compatibility with controllers that expose this.
-  String get userMemoryFilePath => 'db://memories';
-  String get storageDirectoryPath => 'db://openhand';
+  String get userMemoryFilePath => _storageUri;
+  String get storageDirectoryPath => _storageDirectoryUri;
 
   Future<MemoryLoadResult> load() async {
     try {
-      final rows = await _db.query('memories', orderBy: 'created_at DESC');
+      final rows = await _db.query(_table, orderBy: 'created_at DESC');
 
       final entries = <UserMemoryEntry>[];
       final seenIds = <String>{};
       var didSanitize = false;
 
       for (final row in rows) {
-        final id = (row['id'] as String?) ?? '';
+        final id = stringFromValue(row['id']);
         if (id.isEmpty || !seenIds.add(id)) {
           didSanitize = true;
           continue;
         }
 
-        final createdAtRaw = (row['created_at'] as String?) ?? '';
-        final createdAt = DateTime.tryParse(createdAtRaw);
+        final createdAt = dateTimeFromValue(row['created_at']);
         if (createdAt == null) {
           didSanitize = true;
           continue;
         }
 
         final content = UserMemoryEntry.normalizeContent(
-          (row['content'] as String?) ?? '',
+          stringFromValue(row['content']),
         );
         if (content.isEmpty) {
           didSanitize = true;
           continue;
         }
 
-        final rawType = (row['type'] as String?) ?? '';
-        const allowedTypes = <String>{
-          UserMemoryEntry.userType,
-          UserMemoryEntry.userProfileType,
-        };
+        final rawType = stringFromValue(row['type']);
         final String type;
-        if (allowedTypes.contains(rawType)) {
+        if (_allowedTypes.contains(rawType)) {
           type = rawType;
         } else {
           type = UserMemoryEntry.userType;
           didSanitize = true;
         }
 
-        List<String> tags;
-        final tagsJson = row['tags_json'] as String?;
-        if (tagsJson != null && tagsJson.isNotEmpty) {
-          try {
-            final decoded = jsonDecode(tagsJson);
-            if (decoded is List) {
-              tags = UserMemoryEntry.normalizeTags(
-                decoded.map((item) => '$item'),
-              );
-            } else {
-              tags = const <String>[];
-              didSanitize = true;
-            }
-          } catch (error, stack) {
-            silentLog(
-              'memory_store',
-              'decode tags for memory $id',
-              error,
-              stack,
-            );
-            tags = const <String>[];
-            didSanitize = true;
-          }
-        } else {
-          tags = const <String>[];
-        }
+        final parsedTags = _parseTags(row['tags_json']);
+        didSanitize = didSanitize || parsedTags.didSanitize;
 
         entries.add(
           UserMemoryEntry(
@@ -116,9 +97,9 @@ class MemoryStore {
             type: type,
             createdAt: createdAt.toUtc(),
             content: content,
-            tags: tags,
+            tags: parsedTags.tags,
             title: UserMemoryEntry.normalizeTitle(
-              (row['title'] as String?) ?? '',
+              stringFromValue(row['title']),
             ),
           ),
         );
@@ -129,7 +110,7 @@ class MemoryStore {
           entries: entries,
           issue: const MemoryPersistenceIssue(
             kind: MemoryPersistenceIssueKind.sanitizedInvalidContent,
-            filePath: 'db://memories',
+            filePath: _storageUri,
           ),
         );
       }
@@ -140,7 +121,7 @@ class MemoryStore {
         entries: const <UserMemoryEntry>[],
         issue: MemoryPersistenceIssue(
           kind: MemoryPersistenceIssueKind.saveFailed,
-          filePath: 'db://memories',
+          filePath: _storageUri,
           detail: '$error',
         ),
       );
@@ -149,11 +130,11 @@ class MemoryStore {
 
   Future<void> save(List<UserMemoryEntry> entries) async {
     await _db.transaction((txn) async {
-      await txn.delete('memories');
+      await txn.delete(_table);
 
       final batch = txn.batch();
       for (final entry in entries) {
-        batch.insert('memories', _entryToRow(entry));
+        batch.insert(_table, _entryToRow(entry));
       }
       await batch.commit(noResult: true);
     });
@@ -162,7 +143,7 @@ class MemoryStore {
   /// Inserts a single entry without replacing the entire table.
   Future<void> insertEntry(UserMemoryEntry entry) async {
     await _db.insert(
-      'memories',
+      _table,
       _entryToRow(entry),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -170,13 +151,13 @@ class MemoryStore {
 
   /// Deletes a single entry by id.
   Future<void> deleteEntry(String id) async {
-    await _db.delete('memories', where: 'id = ?', whereArgs: <Object?>[id]);
+    await _db.delete(_table, where: 'id = ?', whereArgs: <Object?>[id]);
   }
 
   /// Updates a single entry.
   Future<void> updateEntry(UserMemoryEntry entry) async {
     await _db.update(
-      'memories',
+      _table,
       _entryToRow(entry),
       where: 'id = ?',
       whereArgs: <Object?>[entry.id],
@@ -229,7 +210,7 @@ class MemoryStore {
     // cannot race between the SELECT, DELETE-extras, and INSERT steps.
     return _db.transaction<UserMemoryEntry>((txn) async {
       final existingRows = await txn.query(
-        'memories',
+        _table,
         where: 'type = ?',
         whereArgs: <Object?>[UserMemoryEntry.userProfileType],
       );
@@ -243,7 +224,7 @@ class MemoryStore {
             UserMemoryEntry.userProfileEntryId;
         if (existingRows.length > 1) {
           await txn.delete(
-            'memories',
+            _table,
             where: 'type = ? AND id != ?',
             whereArgs: <Object?>[UserMemoryEntry.userProfileType, entryId],
           );
@@ -259,7 +240,7 @@ class MemoryStore {
       );
 
       await txn.insert(
-        'memories',
+        _table,
         _entryToRow(entry),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -282,5 +263,17 @@ class MemoryStore {
       'title': UserMemoryEntry.normalizeTitle(entry.title),
       'tags_json': jsonEncode(entry.tags),
     };
+  }
+
+  ({List<String> tags, bool didSanitize}) _parseTags(Object? raw) {
+    final tagsJson = optionalStringFromValue(raw);
+    if (tagsJson == null) {
+      return (tags: const <String>[], didSanitize: false);
+    }
+    final tags = optionalStringListFromJsonText(tagsJson, requireList: true);
+    if (tags == null) {
+      return (tags: const <String>[], didSanitize: true);
+    }
+    return (tags: UserMemoryEntry.normalizeTags(tags), didSanitize: false);
   }
 }

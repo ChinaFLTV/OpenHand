@@ -37,6 +37,34 @@ List<String> stringListFromValue(Object? value, {Pattern separator = ','}) {
   return const <String>[];
 }
 
+List<String> stringListFromJsonText(
+  String value, {
+  Pattern separator = ',',
+  bool requireList = false,
+}) {
+  return optionalStringListFromJsonText(
+        value,
+        separator: separator,
+        requireList: requireList,
+      ) ??
+      const <String>[];
+}
+
+List<String>? optionalStringListFromJsonText(
+  String value, {
+  Pattern separator = ',',
+  bool requireList = false,
+}) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return const <String>[];
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (requireList && decoded is! List) return null;
+    return stringListFromValue(decoded, separator: separator);
+  } catch (_) {}
+  return null;
+}
+
 String stringFromValue(Object? value, {String fallback = ''}) {
   return optionalStringFromValue(value) ?? fallback;
 }

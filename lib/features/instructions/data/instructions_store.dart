@@ -153,15 +153,11 @@ class InstructionsStore {
     bool dedupeCaseInsensitive = false,
   }) {
     if (raw is! String || raw.isEmpty) return const <String>[];
-    try {
-      final decoded = jsonDecode(raw);
-      return UserInstructionEntry.normalizeStringList(
-        stringListFromValue(decoded),
-        maxItems: maxItems,
-        maxItemLength: maxItemLength,
-        dedupeCaseInsensitive: dedupeCaseInsensitive,
-      );
-    } catch (_) {}
-    return const <String>[];
+    return UserInstructionEntry.normalizeStringList(
+      stringListFromJsonText(raw),
+      maxItems: maxItems,
+      maxItemLength: maxItemLength,
+      dedupeCaseInsensitive: dedupeCaseInsensitive,
+    );
   }
 }
