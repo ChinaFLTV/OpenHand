@@ -155,14 +155,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
             try {
               final raw = await indexFile.readAsString();
               final decoded = jsonDecode(raw);
-              if (decoded is Map) root = Map<String, Object?>.from(decoded);
+              if (decoded is Map) root = stringKeyedMapFromValue(decoded);
             } catch (_) {
               /* corrupt index: 视作空 */
             }
           }
-          final entries = root['entries'] is Map
-              ? Map<String, Object?>.from(root['entries'] as Map)
-              : <String, Object?>{};
+          final entries = Map<String, Object?>.of(
+            stringKeyedMapFromValue(root['entries']),
+          );
 
           final now = DateTime.now().millisecondsSinceEpoch;
           final keysToRemove = <String>[];
@@ -273,7 +273,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       final raw = await indexFile.readAsString();
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
-      final entries = (decoded['entries'] as Map?) ?? const {};
+      final entries = stringKeyedMapFromValue(
+        stringKeyedMapFromValue(decoded)['entries'],
+      );
       final entry = entries[key];
       if (entry is! Map) return null;
       final expiresAt = _readCacheInt(entry['expires_at']);
@@ -350,14 +352,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       try {
         final raw = await indexFile.readAsString();
         final decoded = jsonDecode(raw);
-        if (decoded is Map) root = Map<String, Object?>.from(decoded);
+        if (decoded is Map) root = stringKeyedMapFromValue(decoded);
       } catch (_) {
         /* keep empty root */
       }
     }
-    final entries = root['entries'] is Map
-        ? Map<String, Object?>.from(root['entries'] as Map)
-        : <String, Object?>{};
+    final entries = Map<String, Object?>.of(
+      stringKeyedMapFromValue(root['entries']),
+    );
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final expiresAt = now + cacheTtlSeconds(settings) * 1000;
@@ -392,13 +394,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       final raw = await indexFile.readAsString();
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return;
-      final root = Map<String, Object?>.from(decoded);
-      final entries = root['entries'] is Map
-          ? Map<String, Object?>.from(root['entries'] as Map)
-          : <String, Object?>{};
+      final root = stringKeyedMapFromValue(decoded);
+      final entries = Map<String, Object?>.of(
+        stringKeyedMapFromValue(root['entries']),
+      );
       final entry = entries[key];
       if (entry is! Map) return;
-      final updated = Map<String, Object?>.from(entry);
+      final updated = Map<String, Object?>.of(stringKeyedMapFromValue(entry));
       updated['last_accessed_at'] = DateTime.now().millisecondsSinceEpoch;
       entries[key] = updated;
       root['entries'] = entries;
@@ -423,13 +425,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     try {
       final raw = await indexFile.readAsString();
       final decoded = jsonDecode(raw);
-      root = decoded is Map ? Map<String, Object?>.from(decoded) : {};
+      root = decoded is Map ? stringKeyedMapFromValue(decoded) : {};
     } catch (_) {
       return;
     }
-    final entries = root['entries'] is Map
-        ? Map<String, Object?>.from(root['entries'] as Map)
-        : <String, Object?>{};
+    final entries = Map<String, Object?>.of(
+      stringKeyedMapFromValue(root['entries']),
+    );
 
     var estimatedTotal = 0;
     for (final entry in entries.values) {

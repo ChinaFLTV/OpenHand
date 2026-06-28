@@ -105,10 +105,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       final raw = await f.readAsString();
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
-      return decoded
-          .whereType<Map>()
-          .map((m) => Map<String, Object?>.from(m))
-          .toList(growable: false);
+      return stringKeyedMapListFromValue(decoded);
     } catch (error, stack) {
       silentLog(logTag, 'rawCalls', error, stack);
       return const [];
@@ -126,7 +123,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       final out = <String, Map<String, Object?>>{};
       for (final entry in decoded.entries) {
         if (entry.value is Map) {
-          out['${entry.key}'] = Map<String, Object?>.from(entry.value as Map);
+          out['${entry.key}'] = stringKeyedMapFromValue(entry.value);
         }
       }
       return out;
@@ -147,10 +144,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       final out = <String, List<Map<String, Object?>>>{};
       for (final entry in decoded.entries) {
         if (entry.value is List) {
-          out['${entry.key}'] = (entry.value as List)
-              .whereType<Map>()
-              .map((m) => Map<String, Object?>.from(m))
-              .toList(growable: false);
+          out['${entry.key}'] = stringKeyedMapListFromValue(entry.value);
         }
       }
       return out;
@@ -198,7 +192,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         final agg = <String, Map<String, Object?>>{};
         for (final entry in decoded.entries) {
           if (entry.value is Map) {
-            agg['${entry.key}'] = Map<String, Object?>.from(entry.value as Map);
+            agg['${entry.key}'] = stringKeyedMapFromValue(entry.value);
           }
         }
         final cur = agg[kind.name];
@@ -282,7 +276,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
           for (final item in decoded) {
-            if (item is Map) calls.add(Map<String, Object?>.from(item));
+            if (item is Map) calls.add(stringKeyedMapFromValue(item));
           }
         }
       } catch (_) {
@@ -305,9 +299,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         if (decoded is Map) {
           for (final entry in decoded.entries) {
             if (entry.value is Map) {
-              agg['${entry.key}'] = Map<String, Object?>.from(
-                entry.value as Map,
-              );
+              agg['${entry.key}'] = stringKeyedMapFromValue(entry.value);
             }
           }
         }
@@ -390,7 +382,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
               if (entry.value is List) {
                 hist['${entry.key}'] = (entry.value as List)
                     .whereType<Map>()
-                    .map((m) => _jsonSafeTelemetryMap(Map.from(m)))
+                    .map(
+                      (m) => _jsonSafeTelemetryMap(stringKeyedMapFromValue(m)),
+                    )
                     .toList();
               }
             }
