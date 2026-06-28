@@ -25,6 +25,7 @@ import 'knowledge_import_dialog.dart';
 import 'knowledge_indexing_progress_dialog.dart';
 import 'knowledge_source_content_dialog.dart';
 import 'knowledge_source_detail_dialog.dart';
+import 'knowledge_vector_distribution_dialog.dart';
 import 'qdrant_admin_dialog.dart';
 import 'qdrant_status_dialog.dart';
 
@@ -71,6 +72,13 @@ class KnowledgeBaseView extends StatelessWidget {
             onPressed: () => showQdrantAdminDialog(context),
             icon: const Icon(Icons.storage_outlined),
             label: Text(isZh ? 'Qdrant 管理' : 'Qdrant Admin'),
+          ),
+          OutlinedButton.icon(
+            onPressed: controller.loading || controller.busy
+                ? null
+                : () => showKnowledgeVectorDistributionDialog(context),
+            icon: const Icon(Icons.scatter_plot_rounded),
+            label: Text(isZh ? '向量分布' : 'Vector Map'),
           ),
           OutlinedButton.icon(
             onPressed: () => _showReindexNotice(context),

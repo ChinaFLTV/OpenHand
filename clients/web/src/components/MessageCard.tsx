@@ -38,6 +38,10 @@ import {
   recordOrNullFromUnknown,
   stringFromUnknown,
 } from '../shared/util/value';
+import {
+  isTranscriptScrollActive,
+  scheduleAfterTranscriptScrollSettles,
+} from '../shared/ui/transcript_scroll_activity';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -375,12 +379,33 @@ interface MessageContextChip {
   label: string;
   icon?: MessageIconName;
   emoji?: string;
+  tone?: 'knowledge';
   onClick?: () => void;
 }
 
 interface KnowledgeBaseCitationSource {
   key: string;
   label: string;
+}
+
+interface KnowledgeVectorDistributionPoint {
+  id: string;
+  kind: 'corpus' | 'match' | 'query';
+  title: string;
+  preview: string;
+  x: number;
+  y: number;
+  z: number;
+  score?: number;
+  rerankScore?: number;
+}
+
+interface KnowledgeVectorDistributionData {
+  algorithm: string;
+  originalDimensions: number;
+  sampledCount: number;
+  hasMore: boolean;
+  points: KnowledgeVectorDistributionPoint[];
 }
 
 interface MachineExpertRequestViewModel {
@@ -512,6 +537,45 @@ function knowledgeBaseTokenEstimate(kb: Record<string, unknown> | null): number 
 
 function knowledgeBaseContextContent(kb: Record<string, unknown> | null): string {
   return nonEmptyString(kb?.['prompt_append_content']);
+}
+
+function knowledgeBaseVectorDistribution(kb: Record<string, unknown> | null): KnowledgeVectorDistributionData | null {
+  const raw = recordOrNullFromUnknown(kb?.['vector_distribution']);
+  if (!raw) return null;
+  const points = Array.isArray(raw['points'])
+    ? raw['points'].map((item): KnowledgeVectorDistributionPoint | null => {
+      const record = recordOrNullFromUnknown(item);
+      if (!record) return null;
+      const id = nonEmptyString(record['id']);
+      const kind = nonEmptyString(record['kind']);
+      const x = finiteNumberOrNullFromUnknown(record['x']);
+      const y = finiteNumberOrNullFromUnknown(record['y']);
+      const z = finiteNumberOrNullFromUnknown(record['z']);
+      if (!id || (kind !== 'corpus' && kind !== 'match' && kind !== 'query') || x == null || y == null || z == null) return null;
+      const point: KnowledgeVectorDistributionPoint = {
+        id,
+        kind,
+        title: nonEmptyString(record['title']),
+        preview: nonEmptyString(record['preview']),
+        x,
+        y,
+        z,
+      };
+      const score = finiteNumberOrNullFromUnknown(record['score']);
+      const rerankScore = finiteNumberOrNullFromUnknown(record['rerank_score']);
+      if (score != null) point.score = score;
+      if (rerankScore != null) point.rerankScore = rerankScore;
+      return point;
+    }).filter((item): item is KnowledgeVectorDistributionPoint => item != null)
+    : [];
+  if (points.length === 0) return null;
+  return {
+    algorithm: nonEmptyString(raw['algorithm']) || 'deterministic_random_projection_3d',
+    originalDimensions: Math.max(0, Math.round(finiteNumberOrNullFromUnknown(raw['original_dimensions']) ?? 0)),
+    sampledCount: Math.max(points.length, Math.round(finiteNumberOrNullFromUnknown(raw['sampled_count']) ?? points.length)),
+    hasMore: raw['has_more'] === true,
+    points,
+  };
 }
 
 function knowledgeBaseCitationSources(
@@ -1344,7 +1408,7 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
     return (
       <button
         type="button"
-        class="oh-message-context-capsule oh-soft-replace"
+        class={`oh-message-context-capsule oh-soft-replace ${chip.tone === 'knowledge' ? 'is-knowledge' : ''}`}
         title={chip.label}
         onClick={(event) => {
           event.stopPropagation();
@@ -1356,7 +1420,7 @@ function MessageContextCapsule({ chip }: { chip: MessageContextChip }) {
     );
   }
   return (
-    <span class="oh-message-context-capsule oh-soft-replace" title={chip.label}>
+    <span class={`oh-message-context-capsule oh-soft-replace ${chip.tone === 'knowledge' ? 'is-knowledge' : ''}`} title={chip.label}>
       {content}
     </span>
   );
@@ -1658,6 +1722,7 @@ function selectedMessageInfoChips(
     chips.push({
       key: 'associated-knowledge-base',
       icon: 'knowledge',
+      tone: 'knowledge',
       label: t('message.context.knowledgeBaseSources', `引用 ${associatedSources.length} 篇知识库`)
         .replace('{count}', String(associatedSources.length)),
       onClick: onOpenAssociatedKnowledgeBase,
@@ -1718,6 +1783,15 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
   // 再让 useLayoutEffect 体走完整路径并初始化 lastHeightRef。
   const [everVisible, setEverVisible] = useState(false);
 
+  const restoreOverflow = useCallback((element: HTMLElement) => {
+    animationRef.current?.cancel();
+    animationRef.current = null;
+    if (overflowBeforeAnimationRef.current != null) {
+      element.style.overflow = overflowBeforeAnimationRef.current;
+      overflowBeforeAnimationRef.current = null;
+    }
+  }, []);
+
   useEffect(() => () => {
     animationRef.current?.cancel();
     animationRef.current = null;
@@ -1732,11 +1806,14 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
       setEverVisible(true);
       return;
     }
+    let cancelRevealAfterScroll: (() => void) | null = null;
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
           if (e.isIntersecting) {
-            setEverVisible(true);
+            cancelRevealAfterScroll = scheduleAfterTranscriptScrollSettles(() => {
+              setEverVisible(true);
+            });
             io.disconnect();
             return;
           }
@@ -1745,7 +1822,10 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
       { rootMargin: '50px 0px 50px 0px' },
     );
     io.observe(element);
-    return () => io.disconnect();
+    return () => {
+      cancelRevealAfterScroll?.();
+      io.disconnect();
+    };
   }, [everVisible]);
 
   useLayoutEffect(() => {
@@ -1753,13 +1833,8 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
     const element = ref.current;
     if (!element) return;
 
-    if (!enabled) {
-      animationRef.current?.cancel();
-      animationRef.current = null;
-      if (overflowBeforeAnimationRef.current != null) {
-        element.style.overflow = overflowBeforeAnimationRef.current;
-        overflowBeforeAnimationRef.current = null;
-      }
+    if (!enabled || isTranscriptScrollActive()) {
+      restoreOverflow(element);
       lastHeightRef.current = null;
       return;
     }
@@ -1768,12 +1843,7 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
     const currentVisualHeight = activeAnimation
       ? element.getBoundingClientRect().height
       : null;
-    activeAnimation?.cancel();
-    animationRef.current = null;
-    if (overflowBeforeAnimationRef.current != null) {
-      element.style.overflow = overflowBeforeAnimationRef.current;
-      overflowBeforeAnimationRef.current = null;
-    }
+    restoreOverflow(element);
 
     const nextHeight = element.getBoundingClientRect().height;
     const previousHeight = lastHeightRef.current;
@@ -1819,7 +1889,7 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
       overflowBeforeAnimationRef.current = null;
     };
     void animation.finished.then(restore, restore);
-  }, [enabled, signal, everVisible]);
+  }, [enabled, restoreOverflow, signal, everVisible]);
 
   return ref;
 }
@@ -2539,6 +2609,7 @@ function MessageCardImpl({
             : t('message.context.knowledgeBaseHitsTokens', `知识库 · ${kbResults.length} 条 · ${Math.round(kbTokenEstimate).toLocaleString()} tokens`)
               .replace('{count}', String(kbResults.length))
               .replace('{tokens}', Math.round(kbTokenEstimate).toLocaleString()),
+          tone: 'knowledge' as const,
           onClick: () => setKnowledgeBaseDialogOpen(true),
         },
       ]
@@ -3119,6 +3190,8 @@ function KnowledgeBaseRetrievalDialog({
   const embedding = recordOrNullFromUnknown(metadata['embedding']);
   const retrieval = recordOrNullFromUnknown(metadata['retrieval']);
   const promptAppend = recordOrNullFromUnknown(metadata['prompt_append']);
+  const rerank = recordOrNullFromUnknown(metadata['rerank']);
+  const vectorDistribution = knowledgeBaseVectorDistribution(metadata);
   const contextContent = knowledgeBaseContextContent(metadata);
   const query = nonEmptyString(metadata['query']);
   const status = nonEmptyString(metadata['status']) || 'unknown';
@@ -3194,6 +3267,29 @@ function KnowledgeBaseRetrievalDialog({
               <KbKv label="content_hash" value={promptAppend?.['content_hash']} />
             </KnowledgeBaseDialogSection>
           </div>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.rerank', '重排序')}>
+            {rerank ? (
+              <div class="oh-kb-rerank-grid">
+                <KbKv label="mode" value={rerank['mode']} />
+                <KbKv label="strategy" value={rerank['strategy']} />
+                <KbKv label="candidate_count" value={rerank['candidate_count']} />
+                <KbKv label="rerank_input_count" value={rerank['rerank_input_count']} />
+                <KbKv label="rerank_output_count" value={rerank['rerank_output_count']} />
+                <KbKv label="kept_count" value={rerank['kept_count']} />
+                <KbKv label="discarded_count" value={rerank['discarded_count']} />
+                <KbKv label="duration_ms" value={rerank['duration_ms']} />
+                <KbKv label="model_id" value={rerank['model_id']} />
+                <KbKv label="error" value={rerank['error']} />
+              </div>
+            ) : (
+              <p class="oh-kb-dialog-muted">{t('message.kbDialog.noRerank', '没有记录重排序细节。')}</p>
+            )}
+          </KnowledgeBaseDialogSection>
+          {vectorDistribution ? (
+            <KnowledgeBaseDialogSection title={t('message.kbDialog.vectorSpace', '向量空间')}>
+              <KnowledgeVectorDistributionScene distribution={vectorDistribution} />
+            </KnowledgeBaseDialogSection>
+          ) : null}
           <KnowledgeBaseDialogSection title={t('message.kbDialog.hits', '命中 chunks')}>
             <div class="oh-kb-hit-list">
               {results.length === 0 ? (
@@ -3252,6 +3348,144 @@ function KnowledgeBaseDialogSection({
   );
 }
 
+function KnowledgeVectorDistributionScene({
+  distribution,
+}: {
+  distribution: KnowledgeVectorDistributionData;
+}) {
+  const [yaw, setYaw] = useState(-0.62);
+  const [pitch, setPitch] = useState(-0.34);
+  const [zoom, setZoom] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const selected = distribution.points.find((point) => point.id === selectedId) ?? null;
+  const projected = useMemo(
+    () => projectKnowledgeVectorPoints(distribution.points, yaw, pitch, zoom),
+    [distribution.points, yaw, pitch, zoom],
+  );
+  const selectedProjected = selected
+    ? projected.find((point) => point.point.id === selected.id) ?? null
+    : null;
+  return (
+    <div
+      class="oh-kb-vector-scene"
+      onPointerDown={(event) => {
+        dragRef.current = { x: event.clientX, y: event.clientY };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const previous = dragRef.current;
+        if (!previous) return;
+        const dx = event.clientX - previous.x;
+        const dy = event.clientY - previous.y;
+        dragRef.current = { x: event.clientX, y: event.clientY };
+        setYaw((value) => value + dx * 0.01);
+        setPitch((value) => Math.max(-1.18, Math.min(1.18, value + dy * 0.008)));
+      }}
+      onPointerUp={(event) => {
+        dragRef.current = null;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }}
+      onPointerCancel={() => {
+        dragRef.current = null;
+      }}
+      onWheel={(event) => {
+        event.preventDefault();
+        setZoom((value) => Math.max(0.62, Math.min(2.4, value - event.deltaY * 0.0014)));
+      }}
+    >
+      <svg class="oh-kb-vector-svg" viewBox="0 0 720 360" role="img" aria-label={t('message.kbDialog.vectorSpace', '向量空间')}>
+        <g class="oh-kb-vector-grid">
+          <circle cx="360" cy="180" r="54" />
+          <circle cx="360" cy="180" r="108" />
+          <circle cx="360" cy="180" r="162" />
+          {Array.from({ length: 8 }).map((_, index) => {
+            const angle = (index * Math.PI) / 4;
+            return (
+              <line
+                key={index}
+                x1={360 + Math.cos(angle) * 28}
+                y1={180 + Math.sin(angle) * 28}
+                x2={360 + Math.cos(angle) * 162}
+                y2={180 + Math.sin(angle) * 162}
+              />
+            );
+          })}
+        </g>
+        <g class="oh-kb-vector-axes">
+          <line x1="360" y1="180" x2="525" y2="180" />
+          <line x1="360" y1="180" x2="360" y2="36" />
+          <line x1="360" y1="180" x2="260" y2="248" />
+        </g>
+        {[...projected].sort((a, b) => a.depth - b.depth).map((item, index) => (
+          <circle
+            key={item.point.id}
+            class={`oh-kb-vector-point is-${item.point.kind} ${selectedId === item.point.id ? 'is-selected' : ''}`}
+            cx={item.x}
+            cy={item.y}
+            r={item.radius}
+            style={{ animationDelay: `${Math.min(index * 12, 520)}ms` }}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedId(item.point.id);
+            }}
+          />
+        ))}
+      </svg>
+      <div class="oh-kb-vector-stats">
+        {distribution.points.length} {t('message.kbDialog.points', '点')} · {distribution.originalDimensions}D
+      </div>
+      <div class="oh-kb-vector-legend" aria-hidden>
+        <span><i class="is-corpus" />{t('message.kbDialog.corpus', '全量')}</span>
+        <span><i class="is-match" />{t('message.kbDialog.matches', '匹配')}</span>
+        <span><i class="is-query" />{t('message.kbDialog.queryVector', '查询')}</span>
+      </div>
+      {selected && selectedProjected ? (
+        <div
+          class="oh-kb-vector-popover"
+          style={{
+            left: `${Math.max(12, Math.min(468, selectedProjected.x + 12))}px`,
+            top: `${Math.max(12, Math.min(244, selectedProjected.y - 84))}px`,
+          }}
+        >
+          <strong>{selected.title || selected.id}</strong>
+          {selected.preview ? <span>{selected.preview}</span> : null}
+          {selected.score != null ? <em>score {selected.score.toFixed(4)}</em> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function projectKnowledgeVectorPoints(
+  points: KnowledgeVectorDistributionPoint[],
+  yaw: number,
+  pitch: number,
+  zoom: number,
+): Array<KnowledgeVectorDistributionPoint & { point: KnowledgeVectorDistributionPoint; x: number; y: number; depth: number; radius: number }> {
+  const cosY = Math.cos(yaw);
+  const sinY = Math.sin(yaw);
+  const cosP = Math.cos(pitch);
+  const sinP = Math.sin(pitch);
+  const radius = 122 * zoom;
+  return points.map((point) => {
+    const x1 = point.x * cosY + point.z * sinY;
+    const z1 = -point.x * sinY + point.z * cosY;
+    const y1 = point.y * cosP - z1 * sinP;
+    const z2 = point.y * sinP + z1 * cosP;
+    const perspective = Math.max(0.42, Math.min(1.35, 1 / (1.9 - z2 * 0.46)));
+    const baseRadius = point.kind === 'query' ? 8.5 : point.kind === 'match' ? 6.8 : 4.8;
+    return {
+      ...point,
+      point,
+      x: 360 + x1 * radius * perspective,
+      y: 180 - y1 * radius * perspective,
+      depth: z2,
+      radius: baseRadius * perspective,
+    };
+  });
+}
+
 function KbKv({ label, value }: { label: string; value: unknown }) {
   const text = Array.isArray(value)
     ? value.join(', ')
@@ -3281,7 +3515,7 @@ function SelectedInfoChip({ chip }: { chip: MessageContextChip }) {
     return (
       <button
         type="button"
-        class="oh-tap-press oh-message-action-button oh-message-info-button oh-soft-replace is-clickable"
+        class={`oh-tap-press oh-message-action-button oh-message-info-button oh-soft-replace is-clickable ${chip.tone === 'knowledge' ? 'is-knowledge' : ''}`}
         style={messageActionSurfaceStyle}
         title={chip.label}
         onClick={(event) => {
@@ -3295,7 +3529,7 @@ function SelectedInfoChip({ chip }: { chip: MessageContextChip }) {
   }
   return (
     <span
-      class="oh-message-action-button oh-message-info-button oh-soft-replace"
+      class={`oh-message-action-button oh-message-info-button oh-soft-replace ${chip.tone === 'knowledge' ? 'is-knowledge' : ''}`}
       style={messageActionSurfaceStyle}
       title={chip.label}
     >

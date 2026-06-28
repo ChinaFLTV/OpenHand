@@ -2,6 +2,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import 'knowledge_base_settings.dart';
 import 'knowledge_retrieval_result.dart';
+import 'knowledge_vector_distribution.dart';
 
 const String knowledgeBaseMessageMetadataKey = 'knowledge_base';
 const String knowledgeBasePromptAppendMetadataKey = 'prompt_append_content';
@@ -84,9 +85,12 @@ class KnowledgeMessageMetadata {
           'date_to': null,
         },
       },
+      if (result.rerankTrace != null) 'rerank': result.rerankTrace!.toJson(),
       'results': result.hits
           .map((hit) => hit.toMessageJson())
           .toList(growable: false),
+      if (_messageVectorDistribution(result, settings) case final distribution?)
+        'vector_distribution': distribution.toJson(),
       'prompt_append': <String, Object?>{
         'chunk_count': result.hits.length,
         'token_estimate': result.promptTokenEstimate,
@@ -123,6 +127,13 @@ class KnowledgeMessageMetadata {
     return object(kb?['prompt_append']);
   }
 
+  static KnowledgeVectorDistribution? vectorDistribution(
+    Map<String, Object?> metadata,
+  ) {
+    final kb = fromMessageMetadata(metadata);
+    return KnowledgeVectorDistribution.fromJson(kb?['vector_distribution']);
+  }
+
   static Map<String, Object?>? object(Object? value) {
     if (value is Map<String, Object?>) return value;
     if (value is Map) return stringKeyedMapFromValue(value);
@@ -130,5 +141,43 @@ class KnowledgeMessageMetadata {
       return optionalStringKeyedMapFromJsonText(value);
     }
     return null;
+  }
+
+  static KnowledgeVectorDistribution? _messageVectorDistribution(
+    KnowledgeRetrievalResult result,
+    KnowledgeBaseSettings settings,
+  ) {
+    if (result.queryVector.isEmpty ||
+        result.queryVector.any((value) => !value.isFinite)) {
+      return null;
+    }
+    final inputs = <KnowledgeVectorProjectionInput>[
+      KnowledgeVectorProjectionInput(
+        id: 'query',
+        kind: KnowledgeVectorPointKind.query,
+        title: 'Query',
+        preview: result.query,
+        vector: result.queryVector,
+      ),
+      for (final hit in result.hits)
+        if (hit.vector.isNotEmpty && hit.vector.any((value) => value.isFinite))
+          KnowledgeVectorProjectionInput(
+            id: hit.chunk.id,
+            kind: KnowledgeVectorPointKind.match,
+            title: hit.chunk.title.isNotEmpty
+                ? hit.chunk.title
+                : hit.source.title,
+            preview: hit.chunk.content,
+            vector: hit.vector,
+            score: hit.score,
+            rerankScore: hit.rerankScore,
+          ),
+    ];
+    if (inputs.length <= 1) return null;
+    return KnowledgeVectorProjector.project(
+      inputs: inputs,
+      originalDimensions: settings.dimensions,
+      generatedAt: DateTime.now().toUtc(),
+    );
   }
 }

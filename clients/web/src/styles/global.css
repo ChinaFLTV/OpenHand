@@ -255,6 +255,11 @@ html, body, #root {
   animation: oh-appear-up var(--oh-motion-duration-base) var(--oh-motion-emphasized) both;
   will-change: transform, opacity;
 }
+[data-transcript-scroll-active='true'] .oh-appear-up {
+  animation: none;
+  transform: none;
+  opacity: 1;
+}
 .oh-appear-pop {
   animation: oh-appear-pop var(--oh-motion-duration-slow) var(--oh-motion-spring) both;
   will-change: transform, opacity;
@@ -821,6 +826,26 @@ button.oh-message-context-capsule {
   transform: translate3d(0, -1px, 0) scale(1.015);
   background: color-mix(in srgb, currentColor 16%, transparent);
 }
+.oh-message-context-capsule.is-knowledge {
+  gap: 6px;
+  min-height: 26px;
+  padding: 4px 10px 4px 6px;
+  border-color: color-mix(in srgb, var(--m3-primary) 30%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 58%, var(--m3-surface));
+  color: var(--m3-on-primary-container);
+  box-shadow: 0 8px 22px -20px color-mix(in srgb, var(--m3-primary) 70%, transparent);
+}
+.oh-message-context-capsule.is-knowledge .oh-message-context-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface) 72%, transparent);
+  color: var(--m3-primary);
+}
+.oh-message-context-capsule.is-knowledge:hover {
+  border-color: color-mix(in srgb, var(--m3-primary) 46%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 72%, var(--m3-surface));
+}
 .oh-message-context-capsule:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--m3-primary) 72%, transparent);
   outline-offset: 2px;
@@ -852,17 +877,17 @@ button.oh-message-context-capsule {
 .oh-message-kb-citation-chip {
   appearance: none;
   max-width: min(100%, 240px);
-  min-height: 24px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px 3px 7px;
+  gap: 7px;
+  padding: 4px 11px 4px 6px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--m3-primary) 24%, var(--m3-outline-variant));
-  background: color-mix(in srgb, var(--m3-primary-container) 34%, var(--m3-surface));
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 28%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 56%, var(--m3-surface));
   color: var(--m3-on-primary-container);
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 820;
   line-height: 1.25;
   white-space: nowrap;
   cursor: pointer;
@@ -875,8 +900,8 @@ button.oh-message-context-capsule {
 }
 .oh-message-kb-citation-chip:hover {
   transform: translate3d(0, -1px, 0) scale(1.015);
-  border-color: color-mix(in srgb, var(--m3-primary) 38%, var(--m3-outline-variant));
-  background: color-mix(in srgb, var(--m3-primary-container) 48%, var(--m3-surface));
+  border-color: color-mix(in srgb, var(--m3-primary) 48%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 72%, var(--m3-surface));
   box-shadow: 0 8px 20px -18px color-mix(in srgb, var(--m3-primary) 72%, transparent);
 }
 .oh-message-kb-citation-chip:focus-visible {
@@ -889,11 +914,13 @@ button.oh-message-context-capsule {
   text-overflow: ellipsis;
 }
 .oh-message-kb-citation-icon {
-  width: 14px;
-  height: 14px;
+  width: 19px;
+  height: 19px;
   flex: none;
   display: inline-grid;
   place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface) 70%, transparent);
   color: var(--m3-primary);
 }
 .oh-kb-dialog-backdrop {
@@ -1062,6 +1089,140 @@ button.oh-message-context-capsule {
   font-size: 12px;
   line-height: 1.5;
 }
+.oh-kb-rerank-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+.oh-kb-vector-scene {
+  position: relative;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--m3-primary-container) 30%, transparent), transparent 44%),
+    color-mix(in srgb, var(--m3-surface-container-highest) 58%, transparent);
+  touch-action: none;
+  user-select: none;
+}
+.oh-kb-vector-svg {
+  width: 100%;
+  height: 360px;
+  display: block;
+}
+.oh-kb-vector-grid,
+.oh-kb-vector-axes {
+  fill: none;
+  stroke: color-mix(in srgb, var(--m3-outline-variant) 56%, transparent);
+  stroke-width: 1;
+}
+.oh-kb-vector-axes {
+  stroke: color-mix(in srgb, var(--m3-primary) 46%, var(--m3-outline-variant));
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.oh-kb-vector-point {
+  cursor: pointer;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: oh-kb-vector-point-in 520ms var(--oh-motion-spring) both;
+  filter: drop-shadow(0 6px 8px color-mix(in srgb, currentColor 22%, transparent));
+}
+.oh-kb-vector-point.is-corpus {
+  fill: #38bdf8;
+}
+.oh-kb-vector-point.is-match {
+  fill: #f59e0b;
+}
+.oh-kb-vector-point.is-query {
+  fill: #ef4444;
+}
+.oh-kb-vector-point.is-selected {
+  stroke: color-mix(in srgb, #fff 72%, currentColor);
+  stroke-width: 2;
+}
+@keyframes oh-kb-vector-point-in {
+  0% { opacity: 0; transform: scale(0.42); }
+  62% { opacity: 1; transform: scale(1.16); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.oh-kb-vector-stats,
+.oh-kb-vector-legend,
+.oh-kb-vector-popover {
+  position: absolute;
+  z-index: 2;
+}
+.oh-kb-vector-stats {
+  top: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 64%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 82%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 780;
+}
+.oh-kb-vector-legend {
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.oh-kb-vector-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 64%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 82%, transparent);
+  color: var(--m3-on-surface);
+  font-size: 11px;
+  font-weight: 780;
+}
+.oh-kb-vector-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+.oh-kb-vector-legend i.is-corpus { background: #38bdf8; }
+.oh-kb-vector-legend i.is-match { background: #f59e0b; }
+.oh-kb-vector-legend i.is-query { background: #ef4444; }
+.oh-kb-vector-popover {
+  width: 240px;
+  display: grid;
+  gap: 5px;
+  padding: 10px 11px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 34%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-surface) 96%, transparent);
+  color: var(--m3-on-surface);
+  box-shadow: var(--m3-elev-3);
+  animation: oh-dialog-pop-in 220ms var(--oh-motion-spring) both;
+  pointer-events: none;
+}
+.oh-kb-vector-popover strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.oh-kb-vector-popover span {
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.oh-kb-vector-popover em {
+  color: var(--m3-primary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 780;
+}
 .oh-kb-dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -1095,8 +1256,17 @@ button.oh-message-context-capsule {
     border-radius: 16px;
   }
   .oh-kb-dialog-grid,
+  .oh-kb-rerank-grid,
   .oh-kb-hit-meta {
     grid-template-columns: 1fr;
+  }
+  .oh-kb-vector-scene,
+  .oh-kb-vector-svg {
+    min-height: 300px;
+    height: 300px;
+  }
+  .oh-kb-vector-popover {
+    width: min(220px, calc(100% - 24px));
   }
   .oh-kb-dialog-header,
   .oh-kb-dialog-body,
@@ -1392,6 +1562,15 @@ button.oh-message-context-capsule {
 }
 .oh-message-info-button.is-clickable {
   cursor: pointer;
+}
+.oh-message-info-button.is-knowledge {
+  border-color: color-mix(in srgb, var(--m3-primary) 32%, var(--m3-outline-variant)) !important;
+  background: color-mix(in srgb, var(--m3-primary-container) 62%, var(--m3-surface)) !important;
+  color: var(--m3-on-primary-container) !important;
+  box-shadow: 0 8px 20px -20px color-mix(in srgb, var(--m3-primary) 72%, transparent);
+}
+.oh-message-info-button.is-knowledge > svg {
+  color: var(--m3-primary);
 }
 
 .oh-message-selected-info-row {
@@ -3267,6 +3446,9 @@ button.oh-message-context-capsule {
   padding-bottom: 2px;
   /* 折叠 / 展开过渡：max-height 平滑变化，避免回合结束后或手动收起时生硬跳变。 */
   transition: max-height 360ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-transcript-scroll-active='true'] .oh-reasoning-collapsible-body {
+  transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .oh-reasoning-collapsible-body {
@@ -6070,6 +6252,9 @@ button.oh-composer-pill:not(:disabled):hover {
     );
   background-size: 220% 100%;
   animation: oh-html-placeholder-sweep 1.4s ease-in-out infinite;
+}
+[data-transcript-scroll-active='true'] .oh-html-body-placeholder {
+  animation: none;
 }
 .oh-html-body-placeholder span {
   display: block;

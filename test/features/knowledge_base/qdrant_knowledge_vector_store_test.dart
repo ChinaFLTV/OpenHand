@@ -94,6 +94,7 @@ void main() {
 
     expect(requestBodies, hasLength(1));
     expect(requestBodies.single.containsKey('score_threshold'), isFalse);
+    expect(requestBodies.single['with_vector'], isFalse);
     expect(hits, hasLength(2));
     expect(hits.first.id, 'point-a');
     expect(hits.first.score, 0.75);
@@ -101,5 +102,65 @@ void main() {
     expect(hits.last.id, 'point-b');
     expect(hits.last.score, 0);
     expect(hits.last.payload, isEmpty);
+  });
+
+  test('sample scrolls points with vectors and next offset', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    Map<String, Object?> requestBody = const <String, Object?>{};
+    final subscription = server.listen((request) async {
+      final body = await utf8.decoder.bind(request).join();
+      final decoded = jsonDecode(body);
+      requestBody = decoded is Map
+          ? Map<String, Object?>.from(decoded)
+          : const <String, Object?>{};
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(<String, Object?>{
+          'result': <String, Object?>{
+            'points': <Object?>[
+              <String, Object?>{
+                'id': 'point-a',
+                'vector': <Object?>[0.1, '0.2', 'bad'],
+                'payload': <String, Object?>{'chunk_id': 'chunk-a'},
+              },
+              <String, Object?>{
+                'id': 'point-b',
+                'vector': <String, Object?>{
+                  'default': <Object?>[0.3, 0.4],
+                },
+                'payload': <String, Object?>{'chunk_id': 'chunk-b'},
+              },
+            ],
+            'next_page_offset': 'point-c',
+          },
+        }),
+      );
+      await request.response.close();
+    });
+    addTearDown(() async {
+      await subscription.cancel();
+      await server.close(force: true);
+    });
+
+    final store = QdrantKnowledgeVectorStore(
+      settings: KnowledgeBaseSettings(
+        qdrantHost: server.address.address,
+        qdrantRestPort: server.port,
+        requestTimeoutSeconds: 3,
+      ),
+    );
+
+    final page = await store.sample(
+      collectionName: 'docs',
+      limit: 2,
+      offset: 'point-a',
+    );
+
+    expect(requestBody['with_vector'], isTrue);
+    expect(requestBody['offset'], 'point-a');
+    expect(page.nextPageOffset, 'point-c');
+    expect(page.points, hasLength(2));
+    expect(page.points.first.vector, <double>[0.1, 0.2]);
+    expect(page.points.last.vector, <double>[0.3, 0.4]);
   });
 }

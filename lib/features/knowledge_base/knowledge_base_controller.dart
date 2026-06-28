@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -14,6 +15,7 @@ import 'model/knowledge_chunk.dart';
 import 'model/knowledge_message_metadata.dart';
 import 'model/knowledge_retrieval_result.dart';
 import 'model/knowledge_source.dart';
+import 'model/knowledge_vector_distribution.dart';
 import 'service/knowledge_chunker.dart';
 import 'service/knowledge_dependency_service.dart';
 import 'service/knowledge_document_parser.dart';
@@ -21,6 +23,7 @@ import 'service/knowledge_embedding_service.dart';
 import 'service/knowledge_indexing_control.dart';
 import 'service/knowledge_ingestion_service.dart';
 import 'service/knowledge_retrieval_service.dart';
+import 'service/knowledge_vector_store.dart';
 import 'service/qdrant_admin_service.dart';
 import 'service/qdrant_knowledge_vector_store.dart';
 import 'service/qdrant_monitoring_service.dart';
@@ -339,6 +342,71 @@ class KnowledgeBaseController extends ChangeNotifier {
       vector: vector,
       limit: limit,
       filter: filter,
+    );
+  }
+
+  Future<KnowledgeVectorDistribution> loadVectorDistribution({
+    int maxPoints = kKnowledgeVectorDistributionDefaultMaxPoints,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    final vectorStore = QdrantKnowledgeVectorStore(settings: _settings);
+    final safeMaxPoints = maxPoints.clamp(1, 2000).toInt();
+    final samples = <KnowledgeVectorSamplePoint>[];
+    Object? offset;
+    var hasMore = false;
+    while (samples.length < safeMaxPoints) {
+      final limit = math.min(
+        kKnowledgeVectorDistributionPageSize,
+        safeMaxPoints - samples.length,
+      );
+      final page = await vectorStore.sample(
+        collectionName: _settings.effectiveCollectionName,
+        limit: limit,
+        offset: offset,
+      );
+      samples.addAll(page.points);
+      offset = page.nextPageOffset;
+      hasMore = offset != null;
+      if (page.points.isEmpty || offset == null) break;
+    }
+    final chunkIds = samples
+        .map((point) => '${point.payload['chunk_id'] ?? ''}'.trim())
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    final chunksById = await _store.loadChunksByIds(chunkIds);
+    final sourcesById = await _store.loadSourcesByIds(
+      chunksById.values.map((chunk) => chunk.sourceId),
+    );
+    final inputs = <KnowledgeVectorProjectionInput>[];
+    for (final point in samples) {
+      final chunkId = '${point.payload['chunk_id'] ?? ''}'.trim();
+      final chunk = chunksById[chunkId];
+      final source = chunk == null ? null : sourcesById[chunk.sourceId];
+      final fallbackTitle =
+          '${point.payload['source_title'] ?? point.payload['title'] ?? ''}'
+              .trim();
+      final fallbackPreview =
+          '${point.payload['heading_path'] ?? point.payload['path'] ?? ''}'
+              .trim();
+      inputs.add(
+        KnowledgeVectorProjectionInput(
+          id: chunkId.isNotEmpty ? chunkId : point.id,
+          kind: KnowledgeVectorPointKind.corpus,
+          title: chunk?.title.isNotEmpty == true
+              ? chunk!.title
+              : source?.title ?? fallbackTitle,
+          preview: chunk?.content ?? fallbackPreview,
+          vector: point.vector,
+        ),
+      );
+    }
+    stopwatch.stop();
+    return KnowledgeVectorProjector.project(
+      inputs: inputs,
+      originalDimensions: _settings.dimensions,
+      hasMore: hasMore,
+      durationMs: stopwatch.elapsedMilliseconds,
+      generatedAt: DateTime.now().toUtc(),
     );
   }
 

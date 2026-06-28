@@ -12,8 +12,10 @@ import '../knowledge_base_controller.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_message_metadata.dart';
 import '../model/knowledge_source.dart';
+import '../model/knowledge_vector_distribution.dart';
 import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
+import 'knowledge_vector_distribution_view.dart';
 
 Future<void> showKnowledgeRetrievalDetailDialog(
   BuildContext context,
@@ -48,6 +50,10 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         const <String, Object?>{};
     final results = _listOfMaps(kb['results']);
     final prompt = KnowledgeMessageMetadata.promptAppendContent(metadata);
+    final rerank = _map(kb['rerank']);
+    final distribution = KnowledgeVectorDistribution.fromJson(
+      kb['vector_distribution'],
+    );
     return buildOpenHandAlertDialog(
       title: Text(isZh ? '引用知识库详情' : 'Knowledge Base References'),
       content: buildOpenHandDialogConstrainedContent(
@@ -89,6 +95,36 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                   rows: _localizedRows(_map(kb['prompt_append']), isZh),
                 ),
               ),
+              KnowledgeDialogSection(
+                title: isZh ? '重排序' : 'Rerank',
+                subtitle: isZh
+                    ? '展示召回后如何打分、排序、保留与舍弃分块。'
+                    : 'Shows how recalled chunks were scored, reordered, kept, or discarded.',
+                icon: Icons.swap_vert_rounded,
+                child: rerank.isEmpty
+                    ? KnowledgeDialogNotice(
+                        icon: Icons.info_outline_rounded,
+                        message: isZh
+                            ? '本次消息没有记录重排序细节。'
+                            : 'No rerank details were recorded for this message.',
+                      )
+                    : KnowledgeDialogKeyValueList(
+                        rows: _localizedRows(rerank, isZh),
+                      ),
+              ),
+              if (distribution != null)
+                KnowledgeDialogSection(
+                  title: isZh ? '向量空间' : 'Vector Space',
+                  subtitle: isZh
+                      ? '红色为查询向量，橙色为当前命中结果。'
+                      : 'Red is the query vector; orange points are matched chunks.',
+                  icon: Icons.scatter_plot_rounded,
+                  child: KnowledgeVectorDistributionView(
+                    distribution: distribution,
+                    height: 380,
+                    compact: true,
+                  ),
+                ),
               KnowledgeDialogSection(
                 title: isZh
                     ? '命中分块 (${results.length})'
@@ -175,6 +211,13 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
       'chunk_count' => '追加分块数',
       'token_estimate' => '预估 token',
       'content_hash' => '内容哈希',
+      'mode' => '模式',
+      'strategy' => '策略',
+      'candidate_count' => '候选数',
+      'rerank_input_count' => '重排输入数',
+      'rerank_output_count' => '重排输出数',
+      'kept_count' => '保留数',
+      'discarded_count' => '舍弃数',
       _ => key,
     };
   }

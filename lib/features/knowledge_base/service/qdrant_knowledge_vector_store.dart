@@ -108,6 +108,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     required int limit,
     double? scoreThreshold,
     Map<String, Object?>? filter,
+    bool includeVector = false,
   }) async {
     if (limit <= 0 ||
         vector.isEmpty ||
@@ -122,6 +123,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         'vector': vector,
         'limit': limit,
         'with_payload': true,
+        'with_vector': includeVector,
         'params': <String, Object?>{'hnsw_ef': settings.searchEf},
         if (safeScoreThreshold != null) 'score_threshold': safeScoreThreshold,
         if (filter != null && filter.isNotEmpty) 'filter': filter,
@@ -135,10 +137,54 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
             id: '${item['id'] ?? ''}',
             score: doubleFromValue(item['score'], fallback: 0),
             payload: stringKeyedMapFromValue(item['payload']),
+            vector: includeVector
+                ? _vectorFromValue(item['vector'])
+                : const <double>[],
           );
         })
         .where((hit) => hit.id.isNotEmpty)
         .toList(growable: false);
+  }
+
+  @override
+  Future<KnowledgeVectorSamplePage> sample({
+    required String collectionName,
+    required int limit,
+    Object? offset,
+    Map<String, Object?>? filter,
+  }) async {
+    if (limit <= 0) {
+      return const KnowledgeVectorSamplePage(
+        points: <KnowledgeVectorSamplePoint>[],
+      );
+    }
+    final response = await _send(
+      method: 'POST',
+      uri: _uri('/collections/$collectionName/points/scroll'),
+      body: <String, Object?>{
+        'limit': limit,
+        'with_payload': true,
+        'with_vector': true,
+        if (offset != null) 'offset': offset,
+        if (filter != null && filter.isNotEmpty) 'filter': filter,
+      },
+    );
+    final decoded = _decode(response.body);
+    final result = stringKeyedMapFromValue(decoded['result']);
+    final points = stringKeyedMapListFromValue(result['points'])
+        .map((item) {
+          return KnowledgeVectorSamplePoint(
+            id: '${item['id'] ?? ''}',
+            vector: _vectorFromValue(item['vector']),
+            payload: stringKeyedMapFromValue(item['payload']),
+          );
+        })
+        .where((point) => point.id.isNotEmpty && point.vector.isNotEmpty)
+        .toList(growable: false);
+    return KnowledgeVectorSamplePage(
+      points: points,
+      nextPageOffset: result['next_page_offset'],
+    );
   }
 
   @override
@@ -224,6 +270,22 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
       'euclidean' => 'Euclid',
       _ => 'Cosine',
     };
+  }
+
+  List<double> _vectorFromValue(Object? value) {
+    if (value is List) {
+      return value
+          .map(optionalDoubleFromValue)
+          .whereType<double>()
+          .where((item) => item.isFinite)
+          .toList(growable: false);
+    }
+    final map = stringKeyedMapFromValue(value);
+    for (final item in map.values) {
+      final vector = _vectorFromValue(item);
+      if (vector.isNotEmpty) return vector;
+    }
+    return const <double>[];
   }
 }
 

@@ -6,6 +6,7 @@ class KnowledgeRetrievalHit {
     required this.chunk,
     required this.source,
     required this.score,
+    this.vector = const <double>[],
     this.rerankScore,
     this.finalScore,
     this.timeField = '',
@@ -14,12 +15,14 @@ class KnowledgeRetrievalHit {
   final KnowledgeChunk chunk;
   final KnowledgeSource source;
   final double score;
+  final List<double> vector;
   final double? rerankScore;
   final double? finalScore;
   final String timeField;
 
   KnowledgeRetrievalHit copyWith({
     double? score,
+    List<double>? vector,
     double? rerankScore,
     double? finalScore,
     String? timeField,
@@ -28,6 +31,7 @@ class KnowledgeRetrievalHit {
       chunk: chunk,
       source: source,
       score: score ?? this.score,
+      vector: vector ?? this.vector,
       rerankScore: rerankScore ?? this.rerankScore,
       finalScore: finalScore ?? this.finalScore,
       timeField: timeField ?? this.timeField,
@@ -56,6 +60,78 @@ class KnowledgeRetrievalHit {
   }
 }
 
+class KnowledgeRerankTrace {
+  const KnowledgeRerankTrace({
+    required this.mode,
+    required this.strategy,
+    required this.candidateCount,
+    this.rerankInputCount = 0,
+    this.rerankOutputCount = 0,
+    this.keptCount = 0,
+    this.discardedCount = 0,
+    this.durationMs,
+    this.providerConfigId = '',
+    this.modelId = '',
+    this.error = '',
+  });
+
+  final String mode;
+  final String strategy;
+  final int candidateCount;
+  final int rerankInputCount;
+  final int rerankOutputCount;
+  final int keptCount;
+  final int discardedCount;
+  final int? durationMs;
+  final String providerConfigId;
+  final String modelId;
+  final String error;
+
+  KnowledgeRerankTrace copyWith({
+    String? mode,
+    String? strategy,
+    int? candidateCount,
+    int? rerankInputCount,
+    int? rerankOutputCount,
+    int? keptCount,
+    int? discardedCount,
+    int? durationMs,
+    String? providerConfigId,
+    String? modelId,
+    String? error,
+  }) {
+    return KnowledgeRerankTrace(
+      mode: mode ?? this.mode,
+      strategy: strategy ?? this.strategy,
+      candidateCount: candidateCount ?? this.candidateCount,
+      rerankInputCount: rerankInputCount ?? this.rerankInputCount,
+      rerankOutputCount: rerankOutputCount ?? this.rerankOutputCount,
+      keptCount: keptCount ?? this.keptCount,
+      discardedCount: discardedCount ?? this.discardedCount,
+      durationMs: durationMs ?? this.durationMs,
+      providerConfigId: providerConfigId ?? this.providerConfigId,
+      modelId: modelId ?? this.modelId,
+      error: error ?? this.error,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'mode': mode,
+      'strategy': strategy,
+      'candidate_count': candidateCount,
+      'rerank_input_count': rerankInputCount,
+      'rerank_output_count': rerankOutputCount,
+      'kept_count': keptCount,
+      'discarded_count': discardedCount,
+      if (durationMs != null) 'duration_ms': durationMs,
+      if (providerConfigId.isNotEmpty) 'provider_config_id': providerConfigId,
+      if (modelId.isNotEmpty) 'model_id': modelId,
+      if (error.isNotEmpty) 'error': error,
+    };
+  }
+}
+
 class KnowledgeRetrievalResult {
   const KnowledgeRetrievalResult({
     required this.query,
@@ -63,6 +139,8 @@ class KnowledgeRetrievalResult {
     required this.durationMs,
     required this.promptAppend,
     required this.promptTokenEstimate,
+    this.queryVector = const <double>[],
+    this.rerankTrace,
     this.error = '',
   });
 
@@ -71,6 +149,8 @@ class KnowledgeRetrievalResult {
   final int durationMs;
   final String promptAppend;
   final int promptTokenEstimate;
+  final List<double> queryVector;
+  final KnowledgeRerankTrace? rerankTrace;
   final String error;
 
   bool get isSuccess => error.isEmpty;

@@ -328,19 +328,34 @@ class _FakeVectorStore implements KnowledgeVectorStore {
     required int limit,
     double? scoreThreshold,
     Map<String, Object?>? filter,
+    bool includeVector = false,
   }) async {
     return const <KnowledgeVectorSearchHit>[
       KnowledgeVectorSearchHit(
         id: 'source-1_chunk_0',
         score: 0.9,
+        vector: <double>[0.9, 0.1],
         payload: <String, Object?>{'chunk_id': 'source-1_chunk_0'},
       ),
       KnowledgeVectorSearchHit(
         id: 'source-1_chunk_1',
         score: 0.8,
+        vector: <double>[0.8, 0.2],
         payload: <String, Object?>{'chunk_id': 'source-1_chunk_1'},
       ),
     ];
+  }
+
+  @override
+  Future<KnowledgeVectorSamplePage> sample({
+    required String collectionName,
+    required int limit,
+    Object? offset,
+    Map<String, Object?>? filter,
+  }) async {
+    return const KnowledgeVectorSamplePage(
+      points: <KnowledgeVectorSamplePoint>[],
+    );
   }
 
   @override

@@ -47,6 +47,7 @@ class KnowledgeRetrievalService {
       limit: settings.topN,
       scoreThreshold: settings.minSimilarity,
       filter: _filterForQuery(query, settings),
+      includeVector: true,
     );
     final chunkIds = rawHits
         .map((hit) => '${hit.payload['chunk_id'] ?? hit.id}'.trim())
@@ -76,6 +77,7 @@ class KnowledgeRetrievalService {
           chunk: chunk,
           source: source,
           score: raw.score,
+          vector: raw.vector,
           finalScore: finalScore,
           timeField: chunk.documentTime != null
               ? 'document_time'
@@ -98,7 +100,7 @@ class KnowledgeRetrievalService {
       settings.sourceCap,
       settings.maxChunksPerSource,
     );
-    for (final hit in ranked) {
+    for (final hit in ranked.hits) {
       final count = perSource[hit.source.id] ?? 0;
       if (count >= perSourceLimit) continue;
       perSource[hit.source.id] = count + 1;
@@ -110,6 +112,10 @@ class KnowledgeRetrievalService {
       settings: settings,
       query: query,
     );
+    final rerankTrace = ranked.trace.copyWith(
+      keptCount: capped.length,
+      discardedCount: math.max(0, scored.length - capped.length),
+    );
     stopwatch.stop();
     return KnowledgeRetrievalResult(
       query: query,
@@ -117,22 +123,49 @@ class KnowledgeRetrievalService {
       durationMs: stopwatch.elapsedMilliseconds,
       promptAppend: prompt.text,
       promptTokenEstimate: prompt.tokenEstimate,
+      queryVector: vectors.first,
+      rerankTrace: rerankTrace,
     );
   }
 
-  Future<List<KnowledgeRetrievalHit>> _rankHits({
+  Future<({List<KnowledgeRetrievalHit> hits, KnowledgeRerankTrace trace})>
+  _rankHits({
     required String query,
     required List<KnowledgeRetrievalHit> hits,
     required KnowledgeBaseSettings settings,
     required AiModelConfig embeddingModel,
     required AiModelConfig? rerankModel,
   }) async {
-    if (hits.isEmpty) return hits;
     final mode = KnowledgeRerankMode.normalize(settings.rerankMode);
+    if (hits.isEmpty) {
+      return (
+        hits: hits,
+        trace: KnowledgeRerankTrace(
+          mode: mode,
+          strategy: 'empty',
+          candidateCount: 0,
+        ),
+      );
+    }
     final localRanked = _localHybridRank(hits);
     return switch (mode) {
-      KnowledgeRerankMode.off => _vectorRank(hits),
-      KnowledgeRerankMode.mmr => _mmrRank(localRanked, settings),
+      KnowledgeRerankMode.off => (
+        hits: _vectorRank(hits),
+        trace: KnowledgeRerankTrace(
+          mode: mode,
+          strategy: 'vector_order',
+          candidateCount: hits.length,
+        ),
+      ),
+      KnowledgeRerankMode.mmr => (
+        hits: _mmrRank(localRanked, settings),
+        trace: KnowledgeRerankTrace(
+          mode: mode,
+          strategy: 'mmr',
+          candidateCount: hits.length,
+          rerankInputCount: math.min(settings.rerankTopN, localRanked.length),
+        ),
+      ),
       KnowledgeRerankMode.model => await _modelRerank(
         query: query,
         vectorRanked: _vectorRank(hits),
@@ -141,7 +174,14 @@ class KnowledgeRetrievalService {
         embeddingModel: embeddingModel,
         rerankModel: rerankModel,
       ),
-      _ => localRanked,
+      _ => (
+        hits: localRanked,
+        trace: KnowledgeRerankTrace(
+          mode: mode,
+          strategy: 'local_hybrid',
+          candidateCount: hits.length,
+        ),
+      ),
     };
   }
 
@@ -198,7 +238,8 @@ class KnowledgeRetrievalService {
     return <KnowledgeRetrievalHit>[...selected, ...tail];
   }
 
-  Future<List<KnowledgeRetrievalHit>> _modelRerank({
+  Future<({List<KnowledgeRetrievalHit> hits, KnowledgeRerankTrace trace})>
+  _modelRerank({
     required String query,
     required List<KnowledgeRetrievalHit> vectorRanked,
     required List<KnowledgeRetrievalHit> localRanked,
@@ -210,17 +251,49 @@ class KnowledgeRetrievalService {
       settings: settings,
       embeddingModel: embeddingModel,
     )) {
-      return vectorRanked;
+      return (
+        hits: vectorRanked,
+        trace: KnowledgeRerankTrace(
+          mode: KnowledgeRerankMode.model,
+          strategy: 'model_skipped_dual_capability',
+          candidateCount: vectorRanked.length,
+          providerConfigId: settings.rerankProviderConfigId,
+          modelId: settings.rerankModelId,
+        ),
+      );
     }
     if (!settings.hasRerankModel || rerankModel == null) {
       if (settings.failureStrategy == 'fail_closed') {
         throw StateError('已选择模型重排序，但未配置可用的 rerank 模型。');
       }
-      return localRanked;
+      return (
+        hits: localRanked,
+        trace: KnowledgeRerankTrace(
+          mode: KnowledgeRerankMode.model,
+          strategy: 'model_unavailable_fallback',
+          candidateCount: localRanked.length,
+          providerConfigId: settings.rerankProviderConfigId,
+          modelId: settings.rerankModelId,
+          error: 'rerank_model_unavailable',
+        ),
+      );
     }
     final candidateLimit = math.min(settings.rerankTopN, localRanked.length);
     final candidates = localRanked.take(candidateLimit).toList(growable: false);
-    if (candidates.length <= 1) return localRanked;
+    if (candidates.length <= 1) {
+      return (
+        hits: localRanked,
+        trace: KnowledgeRerankTrace(
+          mode: KnowledgeRerankMode.model,
+          strategy: 'model_not_needed',
+          candidateCount: localRanked.length,
+          rerankInputCount: candidates.length,
+          providerConfigId: settings.rerankProviderConfigId,
+          modelId: settings.rerankModelId,
+        ),
+      );
+    }
+    final stopwatch = Stopwatch()..start();
     try {
       final result = await _rerankService.rerank(
         model: rerankModel,
@@ -232,7 +305,21 @@ class KnowledgeRetrievalService {
         returnDocuments: false,
         timeout: Duration(seconds: settings.rerankTimeoutSeconds),
       );
-      if (result.items.isEmpty) return localRanked;
+      stopwatch.stop();
+      if (result.items.isEmpty) {
+        return (
+          hits: localRanked,
+          trace: KnowledgeRerankTrace(
+            mode: KnowledgeRerankMode.model,
+            strategy: 'model_empty_fallback',
+            candidateCount: localRanked.length,
+            rerankInputCount: candidates.length,
+            durationMs: stopwatch.elapsedMilliseconds,
+            providerConfigId: settings.rerankProviderConfigId,
+            modelId: settings.rerankModelId,
+          ),
+        );
+      }
       final ordered = List<AiRerankItem>.of(result.items)
         ..sort((a, b) => b.score.compareTo(a.score));
       final usedIndexes = <int>{};
@@ -247,13 +334,40 @@ class KnowledgeRetrievalService {
           ),
         );
       }
-      if (reranked.isEmpty) return localRanked;
+      if (reranked.isEmpty) {
+        return (
+          hits: localRanked,
+          trace: KnowledgeRerankTrace(
+            mode: KnowledgeRerankMode.model,
+            strategy: 'model_invalid_output_fallback',
+            candidateCount: localRanked.length,
+            rerankInputCount: candidates.length,
+            rerankOutputCount: result.items.length,
+            durationMs: stopwatch.elapsedMilliseconds,
+            providerConfigId: settings.rerankProviderConfigId,
+            modelId: settings.rerankModelId,
+          ),
+        );
+      }
       for (var i = 0; i < candidates.length; i++) {
         if (!usedIndexes.contains(i)) reranked.add(candidates[i]);
       }
       reranked.addAll(localRanked.skip(candidateLimit));
-      return reranked;
+      return (
+        hits: reranked,
+        trace: KnowledgeRerankTrace(
+          mode: KnowledgeRerankMode.model,
+          strategy: 'model',
+          candidateCount: localRanked.length,
+          rerankInputCount: candidates.length,
+          rerankOutputCount: result.items.length,
+          durationMs: stopwatch.elapsedMilliseconds,
+          providerConfigId: settings.rerankProviderConfigId,
+          modelId: settings.rerankModelId,
+        ),
+      );
     } catch (error, stackTrace) {
+      stopwatch.stop();
       if (settings.failureStrategy == 'fail_closed') rethrow;
       silentLog(
         'knowledge_retrieval',
@@ -261,7 +375,19 @@ class KnowledgeRetrievalService {
         error,
         stackTrace,
       );
-      return localRanked;
+      return (
+        hits: localRanked,
+        trace: KnowledgeRerankTrace(
+          mode: KnowledgeRerankMode.model,
+          strategy: 'model_failed_fallback',
+          candidateCount: localRanked.length,
+          rerankInputCount: candidates.length,
+          durationMs: stopwatch.elapsedMilliseconds,
+          providerConfigId: settings.rerankProviderConfigId,
+          modelId: settings.rerankModelId,
+          error: '$error',
+        ),
+      );
     }
   }
 

@@ -9,7 +9,6 @@ class _MessageBubble extends StatefulWidget {
     required this.showReasoningSweep,
     required this.trackLayoutChanges,
     required this.onLayoutChanged,
-    required this.transcriptScrollActive,
     required this.isSelected,
     required this.actionPanelEntranceMotionKey,
     required this.animateActionPanelEntrance,
@@ -45,7 +44,6 @@ class _MessageBubble extends StatefulWidget {
   final bool showReasoningSweep;
   final bool trackLayoutChanges;
   final VoidCallback onLayoutChanged;
-  final bool transcriptScrollActive;
   final bool isSelected;
   final int actionPanelEntranceMotionKey;
   final bool animateActionPanelEntrance;
@@ -1127,9 +1125,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
               ],
             );
+            final transcriptScrollActive = context
+                .read<TranscriptScrollActivity>()
+                .value;
             final allowBubbleSizeMotion =
-                (!widget.transcriptScrollActive ||
-                    _responseVariantSizeMotionActive) &&
+                (!transcriptScrollActive || _responseVariantSizeMotionActive) &&
                 ((isReasoning && !isStreamingReasoning) ||
                     _reasoningExpandedOverride != null ||
                     _assistantResponseExpandedOverride != null ||
@@ -1333,25 +1333,25 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
       ],
     );
+    final shouldTrackLayoutChanges =
+        widget.trackLayoutChanges && !isGoalRuntimeMessage;
+    final bubbleShell = Align(
+      alignment: alignment,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
+        child: bubbleCard,
+      ),
+    );
     final messageLayout = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: alignment,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
-            child: bubbleCard,
-          ),
+        _withLayoutChangeTracking(
+          enabled: shouldTrackLayoutChanges,
+          child: bubbleShell,
         ),
         selectedActionPanel,
       ],
-    );
-    final shouldTrackLayoutChanges =
-        widget.trackLayoutChanges && !isGoalRuntimeMessage;
-    final messageContent = _withLayoutChangeTracking(
-      enabled: shouldTrackLayoutChanges,
-      child: messageLayout,
     );
 
     return Listener(
@@ -1440,7 +1440,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           _scheduleSelectionToggle();
         }
       },
-      child: _BubbleHtmlInteractiveScope(state: this, child: messageContent),
+      child: _BubbleHtmlInteractiveScope(state: this, child: messageLayout),
     );
   }
 }
@@ -1629,9 +1629,6 @@ class _SelectedMessageActionPanelSlotState
 
   void _showPanel({required bool restart}) {
     _consumeEntranceMotion();
-    if (mounted) {
-      setState(() {});
-    }
     if (_controller.duration == Duration.zero) {
       _controller.value = 1.0;
       return;
@@ -7098,7 +7095,6 @@ class _AssistantKnowledgeCitationRail extends StatelessWidget {
         for (final source in sources)
           _KnowledgeCitationChip(
             source: source,
-            textColor: textColor,
             onPressed: () {
               unawaited(
                 showKnowledgeRetrievalDetailDialog(
@@ -7114,47 +7110,76 @@ class _AssistantKnowledgeCitationRail extends StatelessWidget {
 }
 
 class _KnowledgeCitationChip extends StatelessWidget {
-  const _KnowledgeCitationChip({
-    required this.source,
-    required this.textColor,
-    required this.onPressed,
-  });
+  const _KnowledgeCitationChip({required this.source, required this.onPressed});
 
   final _KnowledgeBaseCitationSource source;
-  final Color textColor;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final background = colorScheme.surfaceContainerHighest.withValues(
-      alpha: 0.62,
-    );
-    final borderColor = colorScheme.outlineVariant.withValues(alpha: 0.58);
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 220),
-      child: ActionChip(
-        avatar: Icon(
-          Icons.library_books_rounded,
-          size: 14,
-          color: colorScheme.primary,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () {
+            _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+            onPressed();
+          },
+          child: Ink(
+            height: 28,
+            padding: const EdgeInsetsDirectional.only(start: 6, end: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: colorScheme.primaryContainer.withValues(alpha: 0.58),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.08),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 19,
+                  height: 19,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.62),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    size: 12,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    source.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        label: Text(source.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        labelStyle: theme.textTheme.labelMedium?.copyWith(
-          color: textColor.withValues(alpha: 0.82),
-          fontWeight: FontWeight.w800,
-        ),
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const EdgeInsetsDirectional.only(start: 6, end: 8),
-        backgroundColor: background,
-        side: BorderSide(color: borderColor),
-        shape: const StadiumBorder(),
-        onPressed: () {
-          _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
-          onPressed();
-        },
       ),
     );
   }
@@ -7230,8 +7255,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
         textColor: textColor,
       ),
       if (_knowledgeBaseMetadataWasEnabled(knowledgeBaseMetadata))
-        _MessageContextCapsule(
-          icon: Icons.library_books_rounded,
+        _KnowledgeBaseContextCapsule(
           label: _knowledgeBaseMessageCapsuleLabel(
             context,
             knowledgeBaseMetadata!,
@@ -7249,8 +7273,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
       if (knowledgeBaseMetadata == null &&
           associatedKnowledgeBaseMetadata != null &&
           associatedKnowledgeBaseSourceCount > 0)
-        _MessageContextCapsule(
-          icon: Icons.library_books_rounded,
+        _KnowledgeBaseContextCapsule(
           label: _localizedText(
             context,
             zh: '引用 $associatedKnowledgeBaseSourceCount 篇知识库',
@@ -7754,6 +7777,87 @@ class _MessageContextCapsule extends StatelessWidget {
       return button;
     }
     return IgnorePointer(child: button);
+  }
+}
+
+class _KnowledgeBaseContextCapsule extends StatelessWidget {
+  const _KnowledgeBaseContextCapsule({
+    required this.label,
+    required this.textColor,
+    required this.onPressed,
+  });
+
+  final String label;
+  final Color textColor;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 280),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () {
+            _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
+            onPressed();
+          },
+          child: Ink(
+            height: _messageActionChipHeight,
+            padding: const EdgeInsetsDirectional.only(start: 7, end: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: colorScheme.primaryContainer.withValues(alpha: 0.60),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 7),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.66),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    size: 14,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: textColor.withValues(alpha: 0.92),
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

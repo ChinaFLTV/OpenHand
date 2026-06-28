@@ -15,11 +15,32 @@ class KnowledgeVectorSearchHit {
     required this.id,
     required this.score,
     required this.payload,
+    this.vector = const <double>[],
   });
 
   final String id;
   final double score;
   final Map<String, Object?> payload;
+  final List<double> vector;
+}
+
+class KnowledgeVectorSamplePoint {
+  const KnowledgeVectorSamplePoint({
+    required this.id,
+    required this.vector,
+    required this.payload,
+  });
+
+  final String id;
+  final List<double> vector;
+  final Map<String, Object?> payload;
+}
+
+class KnowledgeVectorSamplePage {
+  const KnowledgeVectorSamplePage({required this.points, this.nextPageOffset});
+
+  final List<KnowledgeVectorSamplePoint> points;
+  final Object? nextPageOffset;
 }
 
 abstract class KnowledgeVectorStore {
@@ -41,6 +62,14 @@ abstract class KnowledgeVectorStore {
     required List<double> vector,
     required int limit,
     double? scoreThreshold,
+    Map<String, Object?>? filter,
+    bool includeVector = false,
+  });
+
+  Future<KnowledgeVectorSamplePage> sample({
+    required String collectionName,
+    required int limit,
+    Object? offset,
     Map<String, Object?>? filter,
   });
 
