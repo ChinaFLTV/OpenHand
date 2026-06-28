@@ -1,5 +1,8 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 class AiTokenUsage {
-  factory AiTokenUsage.fromJson(Map<String, Object?> json) {
+  factory AiTokenUsage.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiTokenUsage(
       promptTokens: _readInt(json['prompt_tokens']),
       completionTokens: _readInt(json['completion_tokens']),
@@ -69,7 +72,8 @@ class AiTokenUsage {
   }
 
   static int? _readInt(Object? value) {
-    return value is int ? value : null;
+    final parsed = optionalIntegralIntFromValue(value);
+    return parsed == null || parsed < 0 ? null : parsed;
   }
 
   static int? _sumNullable(int? left, int? right) {
