@@ -3,16 +3,6 @@ import 'ai_session_goal.dart';
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
 
-Map<String, Object?> _aiSessionRequireMap(Object? value, String label) {
-  if (value is Map<String, Object?>) {
-    return value;
-  }
-  if (value is Map) {
-    return stringKeyedMapFromValue(value);
-  }
-  throw FormatException('Invalid $label payload.');
-}
-
 int _clampNonNegative(int? value) {
   if (value == null || value < 0) {
     return 0;
@@ -91,7 +81,8 @@ class AiSessionTodoItem {
     };
   }
 
-  static AiSessionTodoItem fromJson(Map<String, Object?> json) {
+  static AiSessionTodoItem fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionTodoItem(
       id: '${json['id'] ?? ''}',
       content: '${json['content'] ?? ''}',
@@ -181,9 +172,11 @@ class AiSessionPlanAllowedPrompt {
     return <String, Object?>{'tool': tool, 'prompt': prompt};
   }
 
-  static AiSessionPlanAllowedPrompt? fromJson(Map<String, Object?> json) {
-    final tool = '${json['tool'] ?? ''}'.trim();
-    final prompt = '${json['prompt'] ?? ''}'.trim();
+  static AiSessionPlanAllowedPrompt? fromJson(Object? raw) {
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) return null;
+    final tool = stringFromValue(json['tool']).trim();
+    final prompt = stringFromValue(json['prompt']).trim();
     if (tool.isEmpty || prompt.isEmpty) {
       return null;
     }
@@ -191,21 +184,8 @@ class AiSessionPlanAllowedPrompt {
   }
 
   static List<AiSessionPlanAllowedPrompt> listFromJson(Object? rawValue) {
-    if (rawValue is! List) {
-      return const <AiSessionPlanAllowedPrompt>[];
-    }
-    return rawValue
-        .map((item) {
-          if (item is Map<String, Object?>) {
-            return AiSessionPlanAllowedPrompt.fromJson(item);
-          }
-          if (item is Map) {
-            return AiSessionPlanAllowedPrompt.fromJson(
-              Map<String, Object?>.from(item),
-            );
-          }
-          return null;
-        })
+    return stringKeyedMapListFromValueOrJsonText(rawValue)
+        .map(AiSessionPlanAllowedPrompt.fromJson)
         .whereType<AiSessionPlanAllowedPrompt>()
         .toList(growable: false);
   }
@@ -264,8 +244,8 @@ class AiSessionPlanRecord {
     };
   }
 
-  static AiSessionPlanRecord fromJson(Map<String, Object?> json) {
-    final rawSteps = json['steps'];
+  static AiSessionPlanRecord fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     final now = DateTime.now().toUtc();
     return AiSessionPlanRecord(
       id: '${json['id'] ?? ''}',
@@ -273,15 +253,9 @@ class AiSessionPlanRecord {
       updatedAt: DateTime.tryParse('${json['updated_at']}')?.toUtc() ?? now,
       status: AiSessionPlanStatus.fromStorage('${json['status'] ?? ''}'),
       plan: '${json['plan'] ?? ''}'.trim(),
-      steps: rawSteps is List
-          ? rawSteps
-                .map(
-                  (item) => AiSessionTodoItem.fromJson(
-                    _aiSessionRequireMap(item, 'plan_history.steps'),
-                  ),
-                )
-                .toList(growable: false)
-          : const <AiSessionTodoItem>[],
+      steps: stringKeyedMapListFromValueOrJsonText(
+        json['steps'],
+      ).map(AiSessionTodoItem.fromJson).toList(growable: false),
       allowedPrompts: AiSessionPlanAllowedPrompt.listFromJson(
         json['allowed_prompts'],
       ),
@@ -854,28 +828,32 @@ class AiSession {
 }
 
 class AiSessionEnvironment {
-  factory AiSessionEnvironment.fromJson(Map<String, Object?> json) {
+  factory AiSessionEnvironment.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionEnvironment(
-      localeTag: '${json['locale_tag'] ?? ''}',
-      platform: '${json['platform'] ?? ''}',
-      appVersion: '${json['app_version'] ?? ''}',
-      appBuildNumber: '${json['app_build_number'] ?? ''}',
-      applicationDirectory: '${json['application_directory'] ?? ''}',
-      homeDirectory: '${json['home_directory'] ?? ''}',
-      settingsFilePath: '${json['settings_file_path'] ?? ''}',
-      skillsStoragePath: '${json['skills_storage_path'] ?? ''}',
-      mcpServersFilePath: '${json['mcp_servers_file_path'] ?? ''}',
-      userMemoryFilePath: '${json['user_memory_file_path'] ?? ''}',
-      sessionsDirectoryPath: '${json['sessions_directory_path'] ?? ''}',
-      compressionThresholdChars: json['compression_threshold_chars'] is int
-          ? json['compression_threshold_chars'] as int
-          : 0,
-      singleRoundToolCallLimit: json['single_round_tool_call_limit'] is int
-          ? json['single_round_tool_call_limit'] as int
-          : 40,
-      sequentialToolRoundLimit: json['sequential_tool_round_limit'] is int
-          ? json['sequential_tool_round_limit'] as int
-          : 24,
+      localeTag: stringFromValue(json['locale_tag']),
+      platform: stringFromValue(json['platform']),
+      appVersion: stringFromValue(json['app_version']),
+      appBuildNumber: stringFromValue(json['app_build_number']),
+      applicationDirectory: stringFromValue(json['application_directory']),
+      homeDirectory: stringFromValue(json['home_directory']),
+      settingsFilePath: stringFromValue(json['settings_file_path']),
+      skillsStoragePath: stringFromValue(json['skills_storage_path']),
+      mcpServersFilePath: stringFromValue(json['mcp_servers_file_path']),
+      userMemoryFilePath: stringFromValue(json['user_memory_file_path']),
+      sessionsDirectoryPath: stringFromValue(json['sessions_directory_path']),
+      compressionThresholdChars: nonNegativeIntFromValue(
+        json['compression_threshold_chars'],
+        fallback: 0,
+      ),
+      singleRoundToolCallLimit: positiveIntFromValue(
+        json['single_round_tool_call_limit'],
+        fallback: defaultSingleRoundToolCallLimit,
+      ),
+      sequentialToolRoundLimit: positiveIntFromValue(
+        json['sequential_tool_round_limit'],
+        fallback: defaultSequentialToolRoundLimit,
+      ),
     );
   }
   const AiSessionEnvironment({
@@ -891,9 +869,12 @@ class AiSessionEnvironment {
     required this.userMemoryFilePath,
     required this.sessionsDirectoryPath,
     required this.compressionThresholdChars,
-    this.singleRoundToolCallLimit = 40,
-    this.sequentialToolRoundLimit = 24,
+    this.singleRoundToolCallLimit = defaultSingleRoundToolCallLimit,
+    this.sequentialToolRoundLimit = defaultSequentialToolRoundLimit,
   });
+
+  static const int defaultSingleRoundToolCallLimit = 40;
+  static const int defaultSequentialToolRoundLimit = 24;
 
   final String localeTag;
   final String platform;
@@ -1383,15 +1364,16 @@ class AiSessionCacheHitTrendPoint {
 }
 
 class AiSessionErrorRecord {
-  factory AiSessionErrorRecord.fromJson(Map<String, Object?> json) {
+  factory AiSessionErrorRecord.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionErrorRecord(
-      id: '${json['id'] ?? ''}',
+      id: stringFromValue(json['id']),
       createdAt:
           DateTime.tryParse('${json['created_at']}')?.toUtc() ??
           DateTime.now().toUtc(),
-      stage: '${json['stage'] ?? ''}',
-      message: '${json['message'] ?? ''}',
-      detail: json['detail'] == null ? null : '${json['detail']}',
+      stage: stringFromValue(json['stage']),
+      message: stringFromValue(json['message']),
+      detail: optionalStringFromValue(json['detail']),
       presentedAt: json['presented_at'] == null
           ? null
           : DateTime.tryParse('${json['presented_at']}')?.toUtc(),
