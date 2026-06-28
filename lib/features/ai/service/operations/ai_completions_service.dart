@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -97,10 +98,10 @@ class AiCompletionsService {
     final choices = payload['choices'];
     String text = '';
     if (choices is List && choices.isNotEmpty && choices.first is Map) {
-      final choice = Map<String, Object?>.from(choices.first as Map);
+      final choice = stringKeyedMapFromValue(choices.first);
       text = '${choice['text'] ?? ''}'.trim();
       if (text.isEmpty && choice['message'] is Map) {
-        final message = Map<String, Object?>.from(choice['message'] as Map);
+        final message = stringKeyedMapFromValue(choice['message']);
         text = '${message['content'] ?? ''}'.trim();
       }
     }

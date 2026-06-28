@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
@@ -241,7 +242,7 @@ class AiResponsesService {
         usage = AiTokenUsageParser.parseOpenAi(usageMap);
       } else if (usageMap is Map) {
         usage = AiTokenUsageParser.parseOpenAi(
-          Map<String, Object?>.from(usageMap),
+          stringKeyedMapFromValue(usageMap),
         );
       }
     }
@@ -257,7 +258,7 @@ class AiResponsesService {
     if (choices is! List || choices.isEmpty || choices.first is! Map) {
       return '';
     }
-    final choice = Map<String, Object?>.from(choices.first as Map);
+    final choice = stringKeyedMapFromValue(choices.first);
     final message = choice['message'];
     if (message is Map) {
       final content = message['content'];

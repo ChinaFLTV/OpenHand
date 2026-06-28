@@ -18,6 +18,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/xml_escape.dart';
@@ -3022,7 +3023,7 @@ class WebMessagePlatformService {
     final creationRequest = _creationRequestFor(
       conversationMode,
       body['creation_options'] is Map
-          ? Map<String, Object?>.from(body['creation_options'] as Map)
+          ? stringKeyedMapFromValue(body['creation_options'])
           : null,
     );
     if (!_modelSupportsConversationMode(model, conversationMode)) {

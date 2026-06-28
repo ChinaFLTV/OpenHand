@@ -826,7 +826,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     }
     final usageMap = usage is Map<String, Object?>
         ? usage
-        : Map<String, Object?>.from(usage as Map);
+        : stringKeyedMapFromValue(usage);
     return AiTokenUsageParser.parseOpenAi(usageMap);
   }
 
@@ -1057,7 +1057,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         // Anthropic accepts cache_control on the last tool definition; this
         // freezes the entire tool block.
         final mutableTools = toolJson
-            .map((e) => Map<String, Object?>.from(e as Map))
+            .map((e) => Map<String, Object?>.of(stringKeyedMapFromValue(e)))
             .toList(growable: false);
         mutableTools.last['cache_control'] = <String, Object?>{
           'type': 'ephemeral',
@@ -1387,7 +1387,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     }
     final usageMap = usage is Map<String, Object?>
         ? usage
-        : Map<String, Object?>.from(usage as Map);
+        : stringKeyedMapFromValue(usage);
     return AiTokenUsageParser.parseClaude(usageMap);
   }
 
@@ -1709,7 +1709,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     }
     final usageMap = usage is Map<String, Object?>
         ? usage
-        : Map<String, Object?>.from(usage as Map);
+        : stringKeyedMapFromValue(usage);
     return AiTokenUsageParser.parseGemini(usageMap);
   }
 

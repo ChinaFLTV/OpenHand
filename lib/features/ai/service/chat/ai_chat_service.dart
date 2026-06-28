@@ -1581,7 +1581,7 @@ void _processOpenAiStreamEvent(
   if (usageJson is Map || usageJson is Map<String, Object?>) {
     final usageMap = usageJson is Map<String, Object?>
         ? usageJson
-        : Map<String, Object?>.from(usageJson as Map);
+        : stringKeyedMapFromValue(usageJson);
     final parsedUsage = AiTokenUsageParser.parseOpenAi(usageMap);
     if (parsedUsage != null && !parsedUsage.isEmpty) {
       // Merge with the previous frame so cache_* fields surfaced in an
@@ -1720,7 +1720,7 @@ void _processClaudeStreamEvent(
         if (usageJson is Map) {
           final usageMap = usageJson is Map<String, Object?>
               ? usageJson
-              : Map<String, Object?>.from(usageJson);
+              : stringKeyedMapFromValue(usageJson);
           final parsedUsage = AiTokenUsageParser.parseClaude(usageMap);
           if (parsedUsage != null && !parsedUsage.isEmpty) {
             final merged = AiTokenUsageParser.carryForward(
@@ -1805,7 +1805,7 @@ void _processClaudeStreamEvent(
       if (usageJson is Map) {
         final usageMap = usageJson is Map<String, Object?>
             ? usageJson
-            : Map<String, Object?>.from(usageJson);
+            : stringKeyedMapFromValue(usageJson);
         final parsedUsage = AiTokenUsageParser.parseClaude(usageMap);
         if (parsedUsage != null && !parsedUsage.isEmpty) {
           // Merge with the message_start frame so cache_* fields are
@@ -1864,7 +1864,7 @@ void _processGeminiStreamEvent(
   if (usageJson is Map) {
     final usageMap = usageJson is Map<String, Object?>
         ? usageJson
-        : Map<String, Object?>.from(usageJson);
+        : stringKeyedMapFromValue(usageJson);
     final parsedUsage = AiTokenUsageParser.parseGemini(usageMap);
     if (parsedUsage != null && !parsedUsage.isEmpty) {
       final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
