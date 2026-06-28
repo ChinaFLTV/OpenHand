@@ -27,6 +27,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/unified_diff.dart' as unified_diff;
 
 enum FileMutationKind { create, modify, delete }
@@ -95,8 +96,8 @@ class FileMutationRecord {
           DateTime.now().toUtc(),
       beforeSha: json['before_sha'] as String?,
       afterSha: json['after_sha'] as String?,
-      beforeSize: (json['before_size'] as num?)?.toInt() ?? 0,
-      afterSize: (json['after_size'] as num?)?.toInt() ?? 0,
+      beforeSize: nonNegativeIntFromValue(json['before_size'], fallback: 0),
+      afterSize: nonNegativeIntFromValue(json['after_size'], fallback: 0),
     );
   }
 }
@@ -247,24 +248,25 @@ class LedgerConfig {
   };
 
   static LedgerConfig fromJson(Map<String, Object?> json) {
-    final maxV =
-        (json['max_versions_per_file'] as num?)?.toInt() ??
-        defaultMaxVersionsPerFile;
-    final days =
-        (json['auto_cleanup_days'] as num?)?.toInt() ?? defaultAutoCleanupDays;
-    final mini =
-        (json['mini_diff_max_bytes'] as num?)?.toInt() ??
-        defaultMiniDiffMaxBytes;
     return LedgerConfig(
-      maxVersionsPerFile: maxV
-          .clamp(minMaxVersionsPerFile, maxMaxVersionsPerFile)
-          .toInt(),
-      autoCleanupDays: days
-          .clamp(minAutoCleanupDays, maxAutoCleanupDays)
-          .toInt(),
-      miniDiffMaxBytes: mini
-          .clamp(minMiniDiffMaxBytes, maxMiniDiffMaxBytes)
-          .toInt(),
+      maxVersionsPerFile: clampedIntFromValue(
+        json['max_versions_per_file'],
+        fallback: defaultMaxVersionsPerFile,
+        min: minMaxVersionsPerFile,
+        max: maxMaxVersionsPerFile,
+      ),
+      autoCleanupDays: clampedIntFromValue(
+        json['auto_cleanup_days'],
+        fallback: defaultAutoCleanupDays,
+        min: minAutoCleanupDays,
+        max: maxAutoCleanupDays,
+      ),
+      miniDiffMaxBytes: clampedIntFromValue(
+        json['mini_diff_max_bytes'],
+        fallback: defaultMiniDiffMaxBytes,
+        min: minMiniDiffMaxBytes,
+        max: maxMiniDiffMaxBytes,
+      ),
     );
   }
 }
