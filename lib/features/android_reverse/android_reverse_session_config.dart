@@ -85,7 +85,7 @@ class AndroidReverseSessionConfig {
 
   static AndroidReverseSessionConfig? fromJson(Object? raw) {
     if (raw is! Map) return null;
-    final map = Map<String, Object?>.from(raw);
+    final map = stringKeyedMapFromValue(raw);
     final objective = '${map['objective'] ?? ''}'.trim();
     if (objective.isEmpty) return null;
     return AndroidReverseSessionConfig(

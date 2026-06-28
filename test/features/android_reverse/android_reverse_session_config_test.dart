@@ -3,7 +3,7 @@ import 'package:openhand/features/android_reverse/android_reverse_session_config
 
 void main() {
   test('fromJson normalizes persisted optional fields', () {
-    final config = AndroidReverseSessionConfig.fromJson(<String, Object?>{
+    final config = AndroidReverseSessionConfig.fromJson(<Object?, Object?>{
       'objective': ' inspect login flow ',
       'package_name': ' com.example.app ',
       'apk_path': '   ',
@@ -14,6 +14,7 @@ void main() {
       'frida_mcp_enabled': '0',
       'keywords': <Object?>[' token ', null, 42, '', ' login '],
       'notes': '   ',
+      42: 'ignored',
     });
 
     expect(config, isNotNull);
