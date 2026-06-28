@@ -9,6 +9,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../knowledge_base/index.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
@@ -69,10 +70,7 @@ class AiSessionCompactMemorySidecar {
 
   Map<String, Object?> get checkpointMetadata {
     final raw = metadata['checkpoint_metadata'];
-    if (raw is Map) {
-      return Map<String, Object?>.from(raw);
-    }
-    return const <String, Object?>{};
+    return stringKeyedMapFromValue(raw);
   }
 
   String get summaryContent {
@@ -201,7 +199,7 @@ class AiSessionStore {
     if (await metadataFile.exists()) {
       final decoded = jsonDecode(await metadataFile.readAsString());
       if (decoded is Map) {
-        metadata = Map<String, Object?>.from(decoded);
+        metadata = stringKeyedMapFromValue(decoded);
       }
     }
     return AiSessionCompactMemorySidecar(
@@ -536,8 +534,8 @@ class AiSessionStore {
       final id = row['id'];
       if (id is! String) continue;
       result[id] = (
-        pinned: (row['pinned'] as int? ?? 0) != 0,
-        archived: (row['archived'] as int? ?? 0) != 0,
+        pinned: boolFromValue(row['pinned']),
+        archived: boolFromValue(row['archived']),
       );
     }
     return result;
@@ -1209,12 +1207,12 @@ class AiSessionStore {
         _decodeJsonMap(row['environment_json']),
       ),
       statistics: statistics,
-      recentErrors: _decodeJsonList(row['recent_errors_json'])
-          .map((item) => AiSessionErrorRecord.fromJson(_coerceJsonMap(item)))
-          .toList(growable: false),
+      recentErrors: stringKeyedMapListFromValue(
+        _decodeJsonList(row['recent_errors_json']),
+      ).map(AiSessionErrorRecord.fromJson).toList(growable: false),
       lastUsedModelId: row['last_used_model_id'] as String?,
       lastUsedModelLabel: row['last_used_model_label'] as String?,
-      isTitleManuallyEdited: (row['is_title_manually_edited'] as int?) == 1,
+      isTitleManuallyEdited: boolFromValue(row['is_title_manually_edited']),
       autoTitleGeneratedAt: _parseNullableDateTime(
         row['auto_title_generated_at'] as String?,
       ),
@@ -1225,20 +1223,20 @@ class AiSessionStore {
         row['latest_compression_at'] as String?,
       ),
       mode: AiSessionMode.fromStorage((row['mode'] as String?) ?? 'chat'),
-      awaitingPlanApproval: (row['awaiting_plan_approval'] as int?) == 1,
+      awaitingPlanApproval: boolFromValue(row['awaiting_plan_approval']),
       pendingPlan: row['pending_plan'] as String?,
       pendingPlanAllowedPrompts: AiSessionPlanAllowedPrompt.listFromJson(
         _decodeJsonList(row['pending_plan_allowed_prompts_json']),
       ),
-      fullAccessPermission: (row['full_access_permission'] as int?) == 1,
+      fullAccessPermission: boolFromValue(row['full_access_permission']),
       metadata: _decodeJsonMap(row['metadata_json']),
       lastPromptMetadata: _decodeJsonMap(row['last_prompt_metadata_json']),
-      todoItems: _decodeJsonList(row['todo_items_json'])
-          .map((item) => AiSessionTodoItem.fromJson(_coerceJsonMap(item)))
-          .toList(growable: false),
-      planHistory: _decodeJsonList(row['plan_history_json'])
-          .map((item) => AiSessionPlanRecord.fromJson(_coerceJsonMap(item)))
-          .toList(growable: false),
+      todoItems: stringKeyedMapListFromValue(
+        _decodeJsonList(row['todo_items_json']),
+      ).map(AiSessionTodoItem.fromJson).toList(growable: false),
+      planHistory: stringKeyedMapListFromValue(
+        _decodeJsonList(row['plan_history_json']),
+      ).map(AiSessionPlanRecord.fromJson).toList(growable: false),
       messageLoadState: messageLoadState,
       messageWindowStartIndex: messageWindowStartIndex,
       messageTotalCount: messageTotalCount ?? statistics.totalMessageCount,
@@ -1308,7 +1306,7 @@ class AiSessionStore {
       try {
         final decoded = jsonDecode(usageRaw);
         if (decoded is Map) {
-          usage = AiTokenUsage.fromJson(Map<String, Object?>.from(decoded));
+          usage = AiTokenUsage.fromJson(stringKeyedMapFromValue(decoded));
         }
       } catch (error, stack) {
         silentLog('ai_session_store', 'decode usage_json column', error, stack);
@@ -1323,8 +1321,11 @@ class AiSessionStore {
       createdAt:
           DateTime.tryParse((row['created_at'] as String?) ?? '')?.toUtc() ??
           DateTime.now().toUtc(),
-      characterCount: (row['character_count'] as int?) ?? 0,
-      isDeleted: (row['is_deleted'] as int?) == 1,
+      characterCount: nonNegativeIntFromValue(
+        row['character_count'],
+        fallback: 0,
+      ),
+      isDeleted: boolFromValue(row['is_deleted']),
       modelId: row['model_id'] as String?,
       modelLabel: row['model_label'] as String?,
       usage: usage,
@@ -1364,8 +1365,7 @@ class AiSessionStore {
     if (raw is String && raw.isNotEmpty) {
       try {
         final decoded = jsonDecode(raw);
-        if (decoded is Map<String, Object?>) return decoded;
-        if (decoded is Map) return Map<String, Object?>.from(decoded);
+        if (decoded is Map) return stringKeyedMapFromValue(decoded);
       } catch (error, stack) {
         silentLog('ai_session_store', 'decode json map', error, stack);
       }
@@ -1383,16 +1383,6 @@ class AiSessionStore {
       }
     }
     return const <Object?>[];
-  }
-
-  /// Coerces a decoded JSON array element into a string-keyed map so model
-  /// `fromJson` factories can consume it. Centralises the map-coercion
-  /// boilerplate previously duplicated for every list-valued session column
-  /// (recent errors / todo items / plan history).
-  static Map<String, Object?> _coerceJsonMap(Object? item) {
-    if (item is Map<String, Object?>) return item;
-    if (item is Map) return Map<String, Object?>.from(item);
-    return const <String, Object?>{};
   }
 
   static DateTime? _parseNullableDateTime(String? value) {
