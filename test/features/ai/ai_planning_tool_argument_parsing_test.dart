@@ -158,6 +158,32 @@ void main() {
       expect(decoded['answers'], <String, Object?>{'Choose': 'One'});
     });
   });
+
+  group('AiExitPlanModeTool argument parsing', () {
+    test('accepts allowed_prompts encoded as JSON text', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _toolContext(
+          name: 'ExitPlanMode',
+          arguments: <String, Object?>{
+            'plan': '1. Run focused validation',
+            'allowed_prompts': jsonEncode(<Object?>[
+              <String, Object?>{
+                'tool': 'Bash',
+                'prompt': 'run focused validation',
+              },
+            ]),
+          },
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final allowedPrompts = stringKeyedMapListFromValue(
+        result.metadata['plan_mode_allowed_prompts'],
+      );
+      expect(allowedPrompts.single['tool'], 'Bash');
+      expect(allowedPrompts.single['prompt'], 'run focused validation');
+    });
+  });
 }
 
 AiToolExecutionContext _toolContext({

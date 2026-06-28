@@ -127,13 +127,14 @@ class AiExitPlanModeTool extends AiTool {
     if (raw == null) {
       return const _AllowedPromptsParseResult(items: <Map<String, String>>[]);
     }
-    if (raw is! List) {
+    final allowedPrompts = AiToolUtils.readList(raw);
+    if (allowedPrompts == null) {
       return const _AllowedPromptsParseResult(
         items: <Map<String, String>>[],
         error: 'ExitPlanMode allowed_prompts must be an array when provided.',
       );
     }
-    if (raw.length > _maxAllowedPromptCount) {
+    if (allowedPrompts.length > _maxAllowedPromptCount) {
       return const _AllowedPromptsParseResult(
         items: <Map<String, String>>[],
         error: 'ExitPlanMode allowed_prompts must contain at most 8 items.',
@@ -141,8 +142,8 @@ class AiExitPlanModeTool extends AiTool {
     }
     final items = <Map<String, String>>[];
     final seen = <String>{};
-    for (var i = 0; i < raw.length; i++) {
-      final entry = raw[i];
+    for (var i = 0; i < allowedPrompts.length; i++) {
+      final entry = allowedPrompts[i];
       if (entry is! Map) {
         return _AllowedPromptsParseResult(
           items: const <Map<String, String>>[],
