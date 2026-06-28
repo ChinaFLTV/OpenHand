@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_api_family.dart';
 
 class AiEndpointOverride {
@@ -63,27 +61,13 @@ class AiEndpointOverride {
   }
 
   static AiEndpointOverride? fromJson(Object? raw) {
-    Map<String, Object?>? json;
-    if (raw is Map) {
-      json = Map<String, Object?>.from(raw);
-    } else if (raw is String && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          json = Map<String, Object?>.from(decoded);
-        }
-      } catch (error, stack) {
-        silentLog('ai_endpoint_override', 'decode JSON string', error, stack);
-      }
-    }
+    final json = _mapFromValueOrJsonText(raw);
     if (json == null) return null;
     return AiEndpointOverride(
-      path: json['path'] is String ? json['path'] as String : null,
-      url: json['url'] is String ? json['url'] as String : null,
-      method: json['method'] is String ? json['method'] as String : null,
-      transport: json['transport'] is String
-          ? json['transport'] as String
-          : null,
+      path: optionalStringFromValue(json['path']),
+      url: optionalStringFromValue(json['url']),
+      method: optionalStringFromValue(json['method']),
+      transport: optionalStringFromValue(json['transport']),
       headers: _parseStringMap(json['headers']),
       queryDefaults: _parseStringMap(json['query_defaults']),
     );
@@ -93,9 +77,9 @@ class AiEndpointOverride {
     if (raw is! Map) return const <String, String>{};
     final result = <String, String>{};
     for (final entry in raw.entries) {
-      final key = '${entry.key}'.trim();
-      final value = '${entry.value}'.trim();
-      if (key.isEmpty || value.isEmpty) continue;
+      final key = optionalStringFromValue(entry.key);
+      final value = optionalStringFromValue(entry.value);
+      if (key == null || value == null) continue;
       result[key] = value;
     }
     return result;
@@ -103,15 +87,22 @@ class AiEndpointOverride {
 }
 
 Map<AiApiFamily, AiEndpointOverride> parseAiEndpointOverrides(Object? raw) {
-  if (raw is! Map) return const <AiApiFamily, AiEndpointOverride>{};
+  final json = _mapFromValueOrJsonText(raw);
+  if (json == null) return const <AiApiFamily, AiEndpointOverride>{};
   final result = <AiApiFamily, AiEndpointOverride>{};
-  for (final entry in raw.entries) {
-    final family = AiApiFamily.fromStorage('${entry.key}'.trim());
+  for (final entry in json.entries) {
+    final family = AiApiFamily.fromStorage(entry.key.trim());
     final override = AiEndpointOverride.fromJson(entry.value);
     if (family == null || override == null || override.isEmpty) continue;
     result[family] = override;
   }
   return result;
+}
+
+Map<String, Object?>? _mapFromValueOrJsonText(Object? raw) {
+  if (raw is Map) return stringKeyedMapFromValue(raw);
+  if (raw is String) return optionalStringKeyedMapFromJsonText(raw);
+  return null;
 }
 
 Map<String, Object?> aiEndpointOverridesToJson(
