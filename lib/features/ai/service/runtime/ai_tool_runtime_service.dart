@@ -2943,6 +2943,12 @@ class AiToolRuntimeService {
             'description':
                 'Optional directory to scope the search (absolute or relative).',
           },
+          'target_directories': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description':
+                'Optional Claude-style directory list. The first non-empty directory is used when path is omitted.',
+          },
           'file_pattern': <String, Object?>{
             'type': 'string',
             'description':

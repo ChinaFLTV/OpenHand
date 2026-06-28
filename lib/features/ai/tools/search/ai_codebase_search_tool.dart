@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -43,6 +44,19 @@ class AiCodebaseSearchTool extends AiTool {
     final searchRoot = _resolveSearchRoot(args);
     final filePattern = _optionalString(args['file_pattern']);
     final explanation = '${args['explanation'] ?? ''}'.trim();
+    final rootType = FileSystemEntity.typeSync(searchRoot);
+    if (rootType == FileSystemEntityType.notFound) {
+      return AiToolUtils.invalidResult(
+        'CodebaseSearch',
+        'Search path does not exist: $searchRoot',
+      );
+    }
+    if (rootType != FileSystemEntityType.directory) {
+      return AiToolUtils.invalidResult(
+        'CodebaseSearch',
+        'Search path is not a directory: $searchRoot',
+      );
+    }
 
     try {
       final results = await _multiSignalSearch(
@@ -115,13 +129,7 @@ class AiCodebaseSearchTool extends AiTool {
   }
 
   List<String> _parseTargetDirectories(Object? value) {
-    if (value is List) {
-      return value
-          .map((item) => '$item'.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false);
-    }
-    return const <String>[];
+    return stringListFromValueOrJsonText(value);
   }
 
   Future<List<_SearchResult>> _multiSignalSearch(
