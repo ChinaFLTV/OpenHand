@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../../shared/util/input_value_parsing.dart';
+
 const _skipDualCapabilityRerankJsonKey =
     'skip_model_rerank_when_embedding_supports_rerank';
 
@@ -676,18 +678,14 @@ class KnowledgeBaseSettings {
   }
 
   static int _positiveInt(Object? value, int fallback) {
-    final parsed = value is num ? value.toInt() : int.tryParse('$value');
-    return parsed == null || parsed <= 0 ? fallback : parsed;
+    return positiveIntFromValue(value, fallback: fallback);
   }
 
   static int _nonNegativeInt(Object? value, int fallback) {
-    final parsed = value is num ? value.toInt() : int.tryParse('$value');
-    return parsed == null || parsed < 0 ? fallback : parsed;
+    return nonNegativeIntFromValue(value, fallback: fallback);
   }
 
   static double _double(Object? value, double fallback) {
-    final parsed = value is num ? value.toDouble() : double.tryParse('$value');
-    if (parsed == null || parsed.isNaN || !parsed.isFinite) return fallback;
-    return parsed;
+    return doubleFromValue(value, fallback: fallback);
   }
 }

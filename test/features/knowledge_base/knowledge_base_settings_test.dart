@@ -44,4 +44,24 @@ void main() {
     expect(json['rerank_model_id'], 'bge-reranker-v2-m3');
     expect(json['skip_model_rerank_when_embedding_supports_rerank'], isTrue);
   });
+
+  test('falls back for invalid or non-finite numeric settings', () {
+    final settings = KnowledgeBaseSettings.fromJson(<String, Object?>{
+      'dimensions': double.infinity,
+      'retry_count': -1,
+      'min_similarity': 'NaN',
+      'vector_weight': 'Infinity',
+      'qdrant_log_retain_lines': 'bad',
+      'overlap_tokens': '0',
+      'top_k': '12',
+    });
+
+    expect(settings.dimensions, 1536);
+    expect(settings.retryCount, 2);
+    expect(settings.minSimilarity, 0.25);
+    expect(settings.vectorWeight, 0.65);
+    expect(settings.qdrantLogRetainLines, 300);
+    expect(settings.overlapTokens, 0);
+    expect(settings.topK, 12);
+  });
 }
