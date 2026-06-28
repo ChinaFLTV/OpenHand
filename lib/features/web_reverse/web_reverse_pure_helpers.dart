@@ -83,6 +83,11 @@ List<Object?>? decodeJsonList(String raw) {
   }
 }
 
+List<Map<String, Object?>>? decodeStringKeyedJsonMapList(String raw) {
+  final decoded = decodeJsonList(raw);
+  return decoded == null ? null : stringKeyedMapListFromValue(decoded);
+}
+
 Map<String, Object?>? cdpJsonMapStringResultValue(Object? response) {
   final raw = cdpStringResultValue(response);
   return raw == null ? null : decodeStringKeyedJsonMap(raw);

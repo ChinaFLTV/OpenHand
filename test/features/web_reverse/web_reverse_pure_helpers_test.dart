@@ -34,6 +34,19 @@ void main() {
       );
     });
 
+    test('decodes JSON arrays as normalized string-keyed map lists', () {
+      final parsed = decodeStringKeyedJsonMapList(
+        '[{"id":1},{"2":"two"},null,"tail"]',
+      );
+
+      expect(parsed, <Map<String, Object?>>[
+        <String, Object?>{'id': 1},
+        <String, Object?>{'2': 'two'},
+      ]);
+      expect(decodeStringKeyedJsonMapList('{"id":1}'), isNull);
+      expect(decodeStringKeyedJsonMapList('[bad'), isNull);
+    });
+
     test(
       'returns null for CDP errors, malformed JSON, and non-object maps',
       () {

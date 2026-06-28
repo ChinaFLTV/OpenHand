@@ -197,20 +197,21 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         });
         return;
       }
-      final decoded = jsonDecode(value);
-      if (decoded is Map && decoded['__err'] != null) {
+      final error = decodeStringKeyedJsonMap(value);
+      if (error != null && error['__err'] != null) {
         setState(() {
           _busy = false;
           _status =
               AppLocalizations.of(context)?.webReverseAnimationsBrowserError(
-                decoded['__err'].toString(),
+                stringFromValue(error['__err']),
               ) ??
-              'browser error: ${decoded['__err']}';
+              'browser error: ${error['__err']}';
           _rows = const [];
         });
         return;
       }
-      if (decoded is! List) {
+      final entries = decodeStringKeyedJsonMapList(value);
+      if (entries == null) {
         setState(() {
           _busy = false;
           _status =
@@ -223,18 +224,18 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         return;
       }
       final rows = <_AnimationRow>[];
-      for (final item in decoded.whereType<Map>()) {
+      for (final item in entries) {
         rows.add(
           _AnimationRow(
             handle: nonNegativeIntFromValue(item['handle'], fallback: 0),
-            id: (item['id'] ?? '').toString(),
-            animationName: (item['animationName'] ?? '').toString(),
-            playState: (item['playState'] ?? 'idle').toString(),
+            id: stringFromValue(item['id']),
+            animationName: stringFromValue(item['animationName']),
+            playState: stringFromValue(item['playState'], fallback: 'idle'),
             currentTime: doubleFromValue(item['currentTime'], fallback: 0),
             duration: doubleFromValue(item['duration'], fallback: 0),
             playbackRate: doubleFromValue(item['playbackRate'], fallback: 1),
             iterations: doubleFromValue(item['iterations'], fallback: 1),
-            targetSelector: (item['target'] ?? '').toString(),
+            targetSelector: stringFromValue(item['target']),
           ),
         );
       }
