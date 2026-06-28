@@ -5486,9 +5486,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   double? _readGoalDouble(Object? value) {
-    if (value is double) return value;
-    if (value is num) return value.toDouble();
-    return double.tryParse('${value ?? ''}'.trim());
+    return optionalDoubleFromValue(value);
   }
 
   int _tokenCountFromUsage(AiTokenUsage? usage) {
