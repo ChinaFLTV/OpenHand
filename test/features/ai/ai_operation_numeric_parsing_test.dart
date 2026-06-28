@@ -100,14 +100,14 @@ void main() {
           baseUrl: 'https://maas-api.cn-huabei-1.xf-yun.com/v2',
           authScheme: AiAuthScheme.bearer,
           token: 'test-token',
-          modelId: 'spark-embedding',
+          modelId: 'sde0a5839',
           protocolType: AiProtocolType.openai,
         ),
         input: 'hello',
       );
 
       expect(transport.uri?.path, '/v2/embeddings');
-      expect(transport.body['model'], 'spark-embedding');
+      expect(transport.body['model'], 'sde0a5839');
       expect(transport.body['input'], 'hello');
       expect(result.vectors.single, <double>[0.1, 0.2]);
       service.dispose();

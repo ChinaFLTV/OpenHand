@@ -124,7 +124,7 @@ void main() {
           baseUrl: 'https://maas-api.cn-huabei-1.xf-yun.com/v2',
           authScheme: AiAuthScheme.bearer,
           token: 'test-token',
-          modelId: 'spark-rerank',
+          modelId: 's125c8e0e',
           protocolType: AiProtocolType.openai,
         ),
         query: 'query',
@@ -137,7 +137,7 @@ void main() {
       );
 
       expect(transport.uri?.path, '/v2/rerank');
-      expect(transport.body['model'], 'spark-rerank');
+      expect(transport.body['model'], 's125c8e0e');
       expect(transport.body['top_n'], 1);
       expect(transport.body['return_documents'], isTrue);
       expect(transport.body['max_tokens_per_doc'], 1024);

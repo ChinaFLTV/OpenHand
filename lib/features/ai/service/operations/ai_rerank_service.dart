@@ -518,7 +518,9 @@ class _OpenAiCompatibleRerankStrategy extends _RerankRequestStrategy {
     );
     return _RerankRequestPlan(
       body: body,
-      fallbackPath: context.profileEndpointPath,
+      fallbackPath:
+          context.profileEndpointPath ??
+          (_isSparkBaseUrl(context.model.baseUrl) ? 'rerank' : null),
       contextHint: 'rerank',
     );
   }
@@ -608,4 +610,11 @@ const Set<String> _deepMergeableRerankBodyKeys = <String>{
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim() ?? '';
   return trimmed.isEmpty ? null : trimmed;
+}
+
+bool _isSparkBaseUrl(String baseUrl) {
+  final normalized = baseUrl.toLowerCase();
+  return normalized.contains('xf-yun.com') ||
+      normalized.contains('xfyun') ||
+      normalized.contains('xunfei');
 }
