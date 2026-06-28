@@ -172,6 +172,150 @@ class AiRequestBlueprint {
   final Map<String, Object?> body;
 }
 
+enum AiPromptCacheAffinityKind {
+  none('none'),
+  grokConversationHeader('grok_conversation_header'),
+  openRouterSession('openrouter_session');
+
+  const AiPromptCacheAffinityKind(this.storageValue);
+
+  final String storageValue;
+}
+
+class AiPromptCacheAffinity {
+  const AiPromptCacheAffinity._({required this.kind, required this.id});
+
+  static const AiPromptCacheAffinity none = AiPromptCacheAffinity._(
+    kind: AiPromptCacheAffinityKind.none,
+    id: '',
+  );
+  static const String grokConversationHeader = 'x-grok-conv-id';
+  static const String openRouterSessionHeader = 'x-session-id';
+  static const String openRouterSessionBodyField = 'session_id';
+  static const int _maxIdLength = 128;
+
+  final AiPromptCacheAffinityKind kind;
+  final String id;
+
+  bool get applies => kind != AiPromptCacheAffinityKind.none && id.isNotEmpty;
+
+  static AiPromptCacheAffinity resolve({
+    required AiModelConfig model,
+    required AiInputCacheRuntimeConfig? inputCacheConfig,
+  }) {
+    final kind = kindForModel(model);
+    if (kind == AiPromptCacheAffinityKind.none ||
+        inputCacheConfig == null ||
+        !inputCacheConfig.isEffectivelyEnabled) {
+      return none;
+    }
+    final id = _normalizeId(inputCacheConfig.cacheAffinityId);
+    if (id.isEmpty) return none;
+    return AiPromptCacheAffinity._(kind: kind, id: id);
+  }
+
+  static AiPromptCacheAffinityKind kindForModel(AiModelConfig model) {
+    if (_isOpenRouterEndpoint(model.baseUrl)) {
+      return AiPromptCacheAffinityKind.openRouterSession;
+    }
+    if (model.protocolType == AiProtocolType.grok ||
+        _modelIdLooksLikeGrok(model.modelId)) {
+      return AiPromptCacheAffinityKind.grokConversationHeader;
+    }
+    return AiPromptCacheAffinityKind.none;
+  }
+
+  static bool supportsModel(AiModelConfig model) =>
+      kindForModel(model) != AiPromptCacheAffinityKind.none;
+
+  void applyToHeaders(Map<String, String> headers) {
+    if (!applies) return;
+    switch (kind) {
+      case AiPromptCacheAffinityKind.grokConversationHeader:
+        _putHeaderIfAbsent(headers, grokConversationHeader, id);
+      case AiPromptCacheAffinityKind.openRouterSession:
+        _putHeaderIfAbsent(headers, openRouterSessionHeader, id);
+      case AiPromptCacheAffinityKind.none:
+        break;
+    }
+  }
+
+  Map<String, Object?> applyToBody(Map<String, Object?> body) {
+    if (!applies || kind != AiPromptCacheAffinityKind.openRouterSession) {
+      return body;
+    }
+    if (body.containsKey(openRouterSessionBodyField)) {
+      return body;
+    }
+    final updated = <String, Object?>{};
+    var inserted = false;
+    for (final entry in body.entries) {
+      if (!inserted && entry.key == 'messages') {
+        updated[openRouterSessionBodyField] = id;
+        inserted = true;
+      }
+      updated[entry.key] = entry.value;
+    }
+    if (!inserted) {
+      updated[openRouterSessionBodyField] = id;
+    }
+    return updated;
+  }
+
+  static void _putHeaderIfAbsent(
+    Map<String, String> headers,
+    String name,
+    String value,
+  ) {
+    final lowerName = name.toLowerCase();
+    final hasExisting = headers.keys.any(
+      (key) => key.toLowerCase() == lowerName,
+    );
+    if (!hasExisting) {
+      headers[name] = value;
+    }
+  }
+
+  static bool _isOpenRouterEndpoint(String baseUrl) {
+    final uri = Uri.tryParse(baseUrl.trim());
+    final host = uri?.host.toLowerCase() ?? '';
+    return host == 'openrouter.ai' || host.endsWith('.openrouter.ai');
+  }
+
+  static bool _modelIdLooksLikeGrok(String modelId) {
+    final normalized = modelId.trim().toLowerCase();
+    return normalized == 'grok' ||
+        normalized.startsWith('grok-') ||
+        normalized.startsWith('x-ai/grok-') ||
+        normalized.contains('/grok-');
+  }
+
+  static String _normalizeId(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+    final buffer = StringBuffer();
+    for (final codeUnit in trimmed.codeUnits) {
+      final isDigit = codeUnit >= 0x30 && codeUnit <= 0x39;
+      final isUpper = codeUnit >= 0x41 && codeUnit <= 0x5A;
+      final isLower = codeUnit >= 0x61 && codeUnit <= 0x7A;
+      final isSafeSeparator =
+          codeUnit == 0x2D ||
+          codeUnit == 0x2E ||
+          codeUnit == 0x3A ||
+          codeUnit == 0x5F;
+      if (isDigit || isUpper || isLower || isSafeSeparator) {
+        buffer.writeCharCode(codeUnit);
+      } else if (buffer.isNotEmpty && !buffer.toString().endsWith('-')) {
+        buffer.write('-');
+      }
+      if (buffer.length >= _maxIdLength) {
+        break;
+      }
+    }
+    return buffer.toString().replaceAll(RegExp(r'-+$'), '');
+  }
+}
+
 abstract class AiProtocolAdapter {
   const AiProtocolAdapter();
 
@@ -216,13 +360,18 @@ abstract class AiProtocolAdapter {
       stream: stream,
       inputCacheConfig: inputCacheConfig,
     );
+    final headers = buildHeaders(model, endpointHeaders: endpoint.headers);
+    AiPromptCacheAffinity.resolve(
+      model: model,
+      inputCacheConfig: inputCacheConfig,
+    ).applyToHeaders(headers);
     return AiRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
         endpoint.url,
         model,
         family,
       ).toString(),
-      headers: buildHeaders(model, endpointHeaders: endpoint.headers),
+      headers: headers,
       body: AiOperationHttp.mergeBodyExtras(model, family, body),
     );
   }
@@ -392,7 +541,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     final mergedMessages = _repairOpenAiToolMessageSequence(
       _mergeConsecutiveSystemMessages(requestMessages),
     );
-    return <String, Object?>{
+    final body = <String, Object?>{
       'model': model.resolveOperationModelId(operationFamily),
       if (model.maxTokens != null) 'max_tokens': model.maxTokens,
       if (model.temperature != null) 'temperature': model.temperature,
@@ -411,6 +560,10 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       if (stableTools.isNotEmpty) 'tool_choice': 'auto',
       'messages': mergedMessages,
     };
+    return AiPromptCacheAffinity.resolve(
+      model: model,
+      inputCacheConfig: inputCacheConfig,
+    ).applyToBody(body);
   }
 
   @override

@@ -2,8 +2,8 @@
 ///
 /// 由 [AiSessionController] 在每轮请求开始时根据 SettingsController 与
 /// [AiSessionRuntimeContext] 装配，向下传递到 [AiChatClient.sendMessageStream]
-/// 与 [AiProtocolAdapter.buildBody]，由具体协议适配器（当前仅 Claude native）
-/// 翻译为 `cache_control: {type: 'ephemeral'}` 标记。
+/// 与 [AiProtocolAdapter.buildBody]。协议适配器可将其翻译为 Claude native
+/// `cache_control` 标记，或 OpenAI-compatible provider 的会话亲和键。
 ///
 /// `enabled=false` 时，所有适配器应表现为完全无行为变化（空操作）。
 class AiInputCacheRuntimeConfig {
@@ -13,6 +13,7 @@ class AiInputCacheRuntimeConfig {
     required this.updateInterval,
     required this.breakpointCount,
     this.breakpointPositions = const <double>[],
+    this.cacheAffinityId = '',
   });
 
   /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
@@ -37,5 +38,12 @@ class AiInputCacheRuntimeConfig {
   /// 自动布点。最后一个断点恒位于消息流末尾。
   final List<double> breakpointPositions;
 
+  /// 稳定会话亲和键。OpenAI-compatible provider 可用它把同一会话路由到
+  /// 同一缓存后端，例如 xAI 的 `x-grok-conv-id` 或 OpenRouter 的
+  /// `session_id` / `x-session-id`。
+  final String cacheAffinityId;
+
   bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
+
+  bool get hasCacheAffinityId => cacheAffinityId.trim().isNotEmpty;
 }

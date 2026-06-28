@@ -529,6 +529,11 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
           promptMetadata['cache_provider_automatic_cache_protected'],
       ]) ||
       cacheControlStrategy == 'automatic_provider_cache';
+  final cacheAffinityEnabled = firstBool([
+    primaryMetadata['cache_affinity_enabled'],
+    relatedMetadata['cache_affinity_enabled'],
+    if (promptMetadata != null) promptMetadata['cache_affinity_enabled'],
+  ]);
   final protocolControlled =
       firstBool([
         primaryMetadata['cache_protocol_controlled'],
@@ -549,6 +554,14 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
       stablePrefixCacheEnabled &&
       requestCacheControlMarkerCount != null &&
       requestCacheControlMarkerCount <= 0;
+  final requestCacheAffinityMarkerCount = firstInt([
+    primaryMetadata['request_cache_affinity_marker_count'],
+    relatedMetadata['request_cache_affinity_marker_count'],
+  ]);
+  final cacheAffinityMissing =
+      cacheAffinityEnabled &&
+      requestCacheAffinityMarkerCount != null &&
+      requestCacheAffinityMarkerCount <= 0;
   final stablePrefixKnown =
       stablePrefixHash.isNotEmpty && previousStablePrefixHash.isNotEmpty;
   final stablePrefixUnchanged =
@@ -587,7 +600,8 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
           (toolCatalogHash.isNotEmpty &&
               previousToolCatalogHash.isNotEmpty &&
               toolCatalogHash != previousToolCatalogHash) ||
-          cacheControlsMissing);
+          cacheControlsMissing ||
+          cacheAffinityMissing);
   return _CacheHitDiagnostics(
     idleGapSeconds: idleGapSeconds,
     ttlSuspected: ttlSuspected,

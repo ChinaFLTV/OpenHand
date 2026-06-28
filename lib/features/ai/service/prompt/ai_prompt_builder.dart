@@ -642,6 +642,11 @@ class AiPromptBuilder {
       model: model,
       runtimeContext: runtimeContext,
     );
+    final cacheAffinityKind = AiPromptCacheAffinity.kindForModel(model);
+    final cacheAffinitySupported =
+        cacheAffinityKind != AiPromptCacheAffinityKind.none;
+    final cacheAffinityEnabled =
+        inputCachePolicy.stablePromptPrefixEnabled && cacheAffinitySupported;
     final stableCacheKey = _stableCacheKey(
       session: session,
       model: model,
@@ -695,9 +700,12 @@ class AiPromptBuilder {
       ..['cache_protocol_controlled'] =
           inputCachePolicy.injectsExplicitCacheControl
       ..['cache_provider_automatic_cache_protected'] =
-          inputCachePolicy.injectsExplicitCacheControl
+          inputCachePolicy.injectsExplicitCacheControl || cacheAffinityEnabled
       ..['cache_provider_automatic_cache_best_effort'] =
-          inputCachePolicy.usesAutomaticProviderCache
+          inputCachePolicy.usesAutomaticProviderCache && !cacheAffinityEnabled
+      ..['cache_affinity_supported'] = cacheAffinitySupported
+      ..['cache_affinity_enabled'] = cacheAffinityEnabled
+      ..['cache_affinity_strategy'] = cacheAffinityKind.storageValue
       ..['cache_background_requests_deferred'] =
           inputCachePolicy.defersBackgroundRequests
       ..['tool_result_prompt_guard_enabled'] =

@@ -6482,11 +6482,12 @@ class AiSessionController extends ChangeNotifier {
           ),
           cancelSignal: _stopSignalForSession(workingSession.id),
           inputCacheConfig: AiInputCacheRuntimeConfig(
-            enabled: inputCachePolicy.injectsExplicitCacheControl,
+            enabled: inputCachePolicy.stablePromptPrefixEnabled,
             mode: runtimeContext.aiInputCacheUpdateMode,
             updateInterval: runtimeContext.aiInputCacheUpdateInterval,
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
             breakpointPositions: runtimeContext.aiInputCacheBreakpointPositions,
+            cacheAffinityId: workingSession.id,
           ),
           onRequestStarted: previewRequestStartTelemetry,
         );
@@ -12716,6 +12717,10 @@ $tail''';
         'request_headers': _redactTelemetryHeaders(telemetry.requestHeaders!),
       if (telemetry.requestBody != null) ...<String, Object?>{
         ..._cacheControlTelemetry(telemetry.requestBody!),
+        ..._cacheAffinityTelemetry(
+          body: telemetry.requestBody!,
+          headers: telemetry.requestHeaders,
+        ),
         'request_payload': _sanitizeTelemetryMap(
           telemetry.requestBody!,
           maxChars,
@@ -12778,6 +12783,31 @@ $tail''';
       messages: updatedMessages,
       updatedAt: _clock().toUtc(),
     );
+  }
+
+  Map<String, Object?> _cacheAffinityTelemetry({
+    required Map<String, Object?> body,
+    required Map<String, String>? headers,
+  }) {
+    final paths = <String>[];
+    final trackedHeaders = <String>{
+      AiPromptCacheAffinity.grokConversationHeader,
+      AiPromptCacheAffinity.openRouterSessionHeader,
+    }.map((item) => item.toLowerCase()).toSet();
+    for (final key in headers?.keys ?? const Iterable<String>.empty()) {
+      final normalized = key.toLowerCase();
+      if (trackedHeaders.contains(normalized)) {
+        paths.add('headers.$normalized');
+      }
+    }
+    if (body.containsKey(AiPromptCacheAffinity.openRouterSessionBodyField)) {
+      paths.add('body.${AiPromptCacheAffinity.openRouterSessionBodyField}');
+    }
+    return <String, Object?>{
+      'request_cache_affinity_marker_count': paths.length,
+      if (paths.isNotEmpty)
+        'request_cache_affinity_marker_paths': paths.take(8).toList(),
+    };
   }
 
   Map<String, Object?> _cacheControlTelemetry(Map<String, Object?> body) {
@@ -12897,6 +12927,9 @@ $tail''';
       'cache_protocol_controlled',
       'cache_provider_automatic_cache_protected',
       'cache_provider_automatic_cache_best_effort',
+      'cache_affinity_supported',
+      'cache_affinity_enabled',
+      'cache_affinity_strategy',
       'cache_background_requests_deferred',
       'tool_result_prompt_guard_enabled',
       'tool_result_prompt_threshold_chars',
