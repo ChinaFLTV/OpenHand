@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -25,12 +26,7 @@ class AiLsTool extends AiTool {
       return AiToolUtils.invalidResult('LS', 'Path is not a directory: $path');
     }
     final directory = Directory(path);
-    final ignorePatterns = args['ignore'] is List
-        ? (args['ignore'] as List)
-              .map((item) => '$item'.trim())
-              .where((item) => item.isNotEmpty)
-              .toList(growable: false)
-        : const <String>[];
+    final ignorePatterns = stringListFromValueOrJsonText(args['ignore']);
     final entries = await directory.list().toList();
     entries.sort((left, right) => left.path.compareTo(right.path));
     final lines = <String>[];
