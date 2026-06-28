@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_tool.dart';
 import 'mcp_keyword_tokenizer.dart';
@@ -29,9 +30,9 @@ class McpToolRef {
   };
 
   static McpToolRef fromJson(Map<String, Object?> j) => McpToolRef(
-    serverName: (j['s'] as String?) ?? '',
-    toolId: (j['i'] as String?) ?? '',
-    toolName: (j['n'] as String?) ?? '',
+    serverName: '${j['s'] ?? ''}',
+    toolId: '${j['i'] ?? ''}',
+    toolName: '${j['n'] ?? ''}',
   );
 
   @override
@@ -100,27 +101,24 @@ class McpKeywordIndex {
   static McpKeywordIndex? fromJson(Map<String, Object?> j) {
     try {
       Map<String, List<McpToolRef>> load(Object? raw) {
-        if (raw is! Map) return <String, List<McpToolRef>>{};
         final out = <String, List<McpToolRef>>{};
-        raw.forEach((k, v) {
-          if (k is! String || v is! List) return;
-          out[k] = v
-              .whereType<Map>()
-              .map((e) => McpToolRef.fromJson(Map<String, Object?>.from(e)))
-              .toList(growable: false);
-        });
+        for (final entry in stringKeyedMapFromValue(raw).entries) {
+          out[entry.key] = stringKeyedMapListFromValue(
+            entry.value,
+          ).map(McpToolRef.fromJson).toList(growable: false);
+        }
         return out;
       }
 
-      final builtAt = DateTime.tryParse((j['builtAt'] as String?) ?? '');
+      final builtAt = dateTimeFromValue(j['builtAt']);
       return McpKeywordIndex(
         byName: load(j['byName']),
         byDescription: load(j['byDescription']),
         bySearchHint: load(j['bySearchHint']),
-        totalTools: (j['totalTools'] as int?) ?? 0,
-        totalServers: (j['totalServers'] as int?) ?? 0,
+        totalTools: nonNegativeIntFromValue(j['totalTools'], fallback: 0),
+        totalServers: nonNegativeIntFromValue(j['totalServers'], fallback: 0),
         builtAt: builtAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-        durationMs: (j['durationMs'] as int?) ?? 0,
+        durationMs: nonNegativeIntFromValue(j['durationMs'], fallback: 0),
       );
     } catch (e, s) {
       silentLog('mcp_keyword_index', 'fromJson', e, s);
@@ -360,7 +358,7 @@ class McpKeywordIndexService {
       final raw = await _file.readAsString();
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
-      return McpKeywordIndex.fromJson(Map<String, Object?>.from(decoded));
+      return McpKeywordIndex.fromJson(stringKeyedMapFromValue(decoded));
     } catch (e, s) {
       silentLog('mcp_keyword_index', 'loadFromDisk', e, s);
       return null;
