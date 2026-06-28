@@ -2,6 +2,10 @@
 /// 以便 `test/` 直接覆盖（避免拖入 Flutter widget 依赖）。
 library;
 
+import 'dart:convert';
+
+import '../../shared/util/input_value_parsing.dart';
+
 const String _vlqAlphabet =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -59,4 +63,32 @@ Object? cdpResultValue(Object? response) {
 String? cdpStringResultValue(Object? response) {
   final value = cdpResultValue(response);
   return value is String ? value : null;
+}
+
+Map<String, Object?>? decodeStringKeyedJsonMap(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    return decoded is Map ? stringKeyedMapFromValue(decoded) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+List<Object?>? decodeJsonList(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    return decoded is List ? List<Object?>.of(decoded, growable: false) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+Map<String, Object?>? cdpJsonMapStringResultValue(Object? response) {
+  final raw = cdpStringResultValue(response);
+  return raw == null ? null : decodeStringKeyedJsonMap(raw);
+}
+
+List<Object?>? cdpJsonListStringResultValue(Object? response) {
+  final raw = cdpStringResultValue(response);
+  return raw == null ? null : decodeJsonList(raw);
 }

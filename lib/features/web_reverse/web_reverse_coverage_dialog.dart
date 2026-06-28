@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -98,36 +99,33 @@ class _CoverageDialogState extends State<_CoverageDialog> {
         );
         return;
       }
-      final list = (r?['result'] as List?) ?? const [];
       final rows = <String, _CoverageRow>{};
-      for (final raw in list) {
-        if (raw is! Map) continue;
+      for (final raw in stringKeyedMapListFromValue(r?['result'])) {
         final url = '${raw['url'] ?? ''}';
         if (url.isEmpty) continue;
         final row = rows.putIfAbsent(url, () => _CoverageRow(url));
-        final functions = (raw['functions'] as List?) ?? const [];
+        final functions = stringKeyedMapListFromValue(raw['functions']);
         for (final fnRaw in functions) {
-          if (fnRaw is! Map) continue;
           row.functions += 1;
-          final ranges = (fnRaw['ranges'] as List?) ?? const [];
+          final ranges = stringKeyedMapListFromValue(fnRaw['ranges']);
           if (ranges.isEmpty) continue;
           // 第一段 range = 整段函数的 start..end，count>0 → 至少进过一次。
           final first = ranges.first;
-          if (first is Map) {
-            final start = (first['startOffset'] as num?)?.toInt() ?? 0;
-            final end = (first['endOffset'] as num?)?.toInt() ?? 0;
-            final span = end - start;
-            if (span > 0) row.total += span;
-            final cnt = (first['count'] as num?)?.toInt() ?? 0;
-            if (cnt > 0) row.coveredFunctions += 1;
-          }
+          final start = nonNegativeIntFromValue(
+            first['startOffset'],
+            fallback: 0,
+          );
+          final end = nonNegativeIntFromValue(first['endOffset'], fallback: 0);
+          final span = end - start;
+          if (span > 0) row.total += span;
+          final cnt = nonNegativeIntFromValue(first['count'], fallback: 0);
+          if (cnt > 0) row.coveredFunctions += 1;
           // 后续 ranges 是子区间，count>0 段累加为 covered bytes。
           for (var i = 1; i < ranges.length; i++) {
             final rng = ranges[i];
-            if (rng is! Map) continue;
-            final s = (rng['startOffset'] as num?)?.toInt() ?? 0;
-            final e = (rng['endOffset'] as num?)?.toInt() ?? 0;
-            final cnt = (rng['count'] as num?)?.toInt() ?? 0;
+            final s = nonNegativeIntFromValue(rng['startOffset'], fallback: 0);
+            final e = nonNegativeIntFromValue(rng['endOffset'], fallback: 0);
+            final cnt = nonNegativeIntFromValue(rng['count'], fallback: 0);
             if (cnt > 0 && e > s) row.covered += (e - s);
           }
         }

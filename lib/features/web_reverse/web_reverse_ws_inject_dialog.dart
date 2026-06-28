@@ -20,6 +20,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
@@ -216,17 +217,31 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
       if (res == null) return;
       final value = cdpStringResultValue(res);
       if (value == null) return;
-      final decoded = jsonDecode(value);
-      if (decoded is! List) return;
-      final parsed = decoded.whereType<Map>().take(_kWsInjectMaxRows).map((m) {
-        return _WsRow(
-          id: (m['id'] as num?)?.toInt() ?? 0,
-          url: _capWsInjectText('${m['url'] ?? ''}', _kWsInjectMaxUrlChars),
-          readyState: (m['readyState'] as num?)?.toInt() ?? -1,
-          protocol: _capWsInjectText('${m['protocol'] ?? ''}', 128),
-          bufferedAmount: (m['bufferedAmount'] as num?)?.toInt() ?? 0,
+      final decoded = decodeJsonList(value);
+      if (decoded == null) return;
+      final parsed = <_WsRow>[];
+      for (final m in stringKeyedMapListFromValue(decoded)) {
+        if (parsed.length >= _kWsInjectMaxRows) break;
+        final id = optionalPositiveIntFromValue(m['id']);
+        if (id == null) continue;
+        parsed.add(
+          _WsRow(
+            id: id,
+            url: _capWsInjectText('${m['url'] ?? ''}', _kWsInjectMaxUrlChars),
+            readyState: clampedIntFromValue(
+              m['readyState'],
+              fallback: -1,
+              min: -1,
+              max: 3,
+            ),
+            protocol: _capWsInjectText('${m['protocol'] ?? ''}', 128),
+            bufferedAmount: nonNegativeIntFromValue(
+              m['bufferedAmount'],
+              fallback: 0,
+            ),
+          ),
         );
-      }).toList();
+      }
       if (!mounted) return;
       setState(() {
         _rows = parsed;

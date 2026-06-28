@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
@@ -70,8 +71,8 @@ class _SmDialogState extends State<_SmDialog> {
   Future<void> _resolve() async {
     final loc = AppLocalizations.of(context);
     final url = _url.text.trim();
-    final line = int.tryParse(_line.text.trim()) ?? 0;
-    final col = int.tryParse(_col.text.trim()) ?? 0;
+    final line = positiveIntFromValue(_line.text, fallback: 0);
+    final col = nonNegativeIntFromValue(_col.text, fallback: 0);
     if (url.isEmpty || line < 1) {
       setState(
         () => _status = loc?.webReverseSmInvalidInput ?? 'invalid input',
@@ -133,7 +134,15 @@ class _SmDialogState extends State<_SmDialog> {
         });
         return;
       }
-      final wrap = jsonDecode(raw) as Map<String, Object?>;
+      final wrap = decodeStringKeyedJsonMap(raw);
+      if (wrap == null) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _status = loc?.webReverseSmBadEvalResult ?? 'Bad eval result';
+        });
+        return;
+      }
       if (wrap['error'] != null) {
         if (!mounted) return;
         setState(() {
@@ -143,24 +152,25 @@ class _SmDialogState extends State<_SmDialog> {
         return;
       }
       final mapText = '${wrap['map']}';
-      final map = jsonDecode(mapText) as Map<String, Object?>;
-      final sources =
-          (map['sources'] as List?)
-              ?.cast<Object?>()
-              .map((e) => '$e')
-              .toList() ??
-          const <String>[];
-      final names =
-          (map['names'] as List?)?.cast<Object?>().map((e) => '$e').toList() ??
-          const <String>[];
+      final map = decodeStringKeyedJsonMap(mapText);
+      if (map == null) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _status = 'Error: invalid sourcemap JSON';
+        });
+        return;
+      }
+      final sources = stringListFromValue(map['sources']);
+      final names = stringListFromValue(map['names']);
       final sourceRoot = '${map['sourceRoot'] ?? ''}';
       final mappings = '${map['mappings'] ?? ''}';
-      final sourcesContent =
-          (map['sourcesContent'] as List?)
-              ?.cast<Object?>()
-              .map((e) => e == null ? null : '$e')
-              .toList() ??
-          const <String?>[];
+      final rawSourcesContent = map['sourcesContent'];
+      final sourcesContent = rawSourcesContent is List
+          ? rawSourcesContent
+                .map((e) => e == null ? null : '$e')
+                .toList(growable: false)
+          : const <String?>[];
 
       final hit = _decode(mappings, targetLine: line - 1, targetColumn: col);
       if (hit == null) {
@@ -262,14 +272,14 @@ class _SmDialogState extends State<_SmDialog> {
     for (final seg in lineStr.split(',')) {
       if (seg.isEmpty) continue;
       final nums = vlqDecode(seg);
+      if (nums.isEmpty) continue;
       genCol += nums[0];
-      if (nums.length >= 4) {
-        srcIdx += nums[1];
-        origLine += nums[2];
-        origCol += nums[3];
-        if (nums.length >= 5) nameIdx += nums[4];
-      }
       if (genCol > targetColumn) break;
+      if (nums.length < 4) continue;
+      srcIdx += nums[1];
+      origLine += nums[2];
+      origCol += nums[3];
+      if (nums.length >= 5) nameIdx += nums[4];
       best = <String, int?>{
         'source': srcIdx,
         'origLine': origLine,

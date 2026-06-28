@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
@@ -128,8 +129,8 @@ class _CorsDialogState extends State<_CorsDialog> {
           'returnByValue': true,
         }),
       );
-      final raw = cdpStringResultValue(r);
-      if (raw == null) {
+      final res = cdpJsonMapStringResultValue(r);
+      if (res == null) {
         if (!mounted) return;
         setState(() {
           _busy = false;
@@ -137,7 +138,6 @@ class _CorsDialogState extends State<_CorsDialog> {
         });
         return;
       }
-      final res = jsonDecode(raw) as Map<String, Object?>;
       if (originOverride.isNotEmpty) {
         res['origin'] = originOverride;
       }
@@ -159,8 +159,7 @@ class _CorsDialogState extends State<_CorsDialog> {
   List<_Diagnostic> _diagnose(AppLocalizations? loc) {
     final res = _result;
     if (res == null || res['ok'] != true) return const [];
-    final hdr =
-        (res['respHeaders'] as Map?)?.cast<String, Object?>() ?? const {};
+    final hdr = stringKeyedMapFromValue(res['respHeaders']);
     final origin = '${res['origin'] ?? ''}';
     final method = _methodCtl.text.trim().toUpperCase();
     final names = _requestedHeaderNames();

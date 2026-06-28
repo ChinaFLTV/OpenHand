@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
@@ -171,8 +172,8 @@ class _WsDialogState extends State<_WsDialog> {
           'returnByValue': true,
         }),
       );
-      final raw = cdpStringResultValue(r);
-      if (raw == null) {
+      final res = cdpJsonMapStringResultValue(r);
+      if (res == null) {
         if (!mounted) return;
         setState(() {
           _busy = false;
@@ -180,15 +181,9 @@ class _WsDialogState extends State<_WsDialog> {
         });
         return;
       }
-      final res = jsonDecode(raw) as Map<String, Object?>;
-      final sent = (res['sent'] is num) ? (res['sent'] as num).toInt() : 0;
+      final sent = nonNegativeIntFromValue(res['sent'], fallback: 0);
       final ok = res['ok'] == true;
-      final received =
-          (res['received'] as List?)
-              ?.cast<Object?>()
-              .map((x) => '$x')
-              .toList() ??
-          const <String>[];
+      final received = stringListFromValue(res['received']);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -295,9 +290,7 @@ class _WsDialogState extends State<_WsDialog> {
         'returnByValue': true,
       }),
     );
-    final raw = cdpStringResultValue(r);
-    if (raw == null) return null;
-    return jsonDecode(raw) as Map<String, Object?>;
+    return cdpJsonMapStringResultValue(r);
   }
 
   Future<void> _editAndSend(String basePayload) async {
@@ -321,7 +314,7 @@ class _WsDialogState extends State<_WsDialog> {
         return;
       }
       final ok = res['ok'] == true;
-      final recv = (res['received'] as List?)?.length ?? 0;
+      final recv = stringListFromValue(res['received']).length;
       setState(() {
         _busy = false;
         _status = ok
@@ -371,8 +364,8 @@ class _WsDialogState extends State<_WsDialog> {
         return;
       }
       final ok = res['ok'] == true;
-      final sent = (res['sent'] is num) ? (res['sent'] as num).toInt() : 0;
-      final recv = (res['received'] as List?)?.length ?? 0;
+      final sent = nonNegativeIntFromValue(res['sent'], fallback: 0);
+      final recv = stringListFromValue(res['received']).length;
       setState(() {
         _busy = false;
         _status = ok
@@ -662,14 +655,20 @@ class _WsDialogState extends State<_WsDialog> {
                             icon: Icons.play_arrow_rounded,
                             label: isZh ? '开始 Fuzz' : 'Start Fuzz',
                             onPressed: () {
-                              final c =
-                                  int.tryParse(countCtrl.text.trim()) ?? 20;
-                              final d =
-                                  int.tryParse(delayCtrl.text.trim()) ?? 50;
                               Navigator.of(ctx).pop(
                                 _FuzzConfig(
-                                  count: c.clamp(1, 200),
-                                  delayMs: d.clamp(10, 1000),
+                                  count: clampedIntFromValue(
+                                    countCtrl.text,
+                                    fallback: 20,
+                                    min: 1,
+                                    max: 200,
+                                  ),
+                                  delayMs: clampedIntFromValue(
+                                    delayCtrl.text,
+                                    fallback: 50,
+                                    min: 10,
+                                    max: 1000,
+                                  ),
                                   intensity: intensity,
                                 ),
                               );
