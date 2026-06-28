@@ -393,8 +393,8 @@ class AiAskUserChoiceTool extends AiTool {
         ),
       );
     }
-    final optionsRaw = questionMap['options'];
-    if (optionsRaw is! List || optionsRaw.length < 2 || optionsRaw.length > 4) {
+    final optionsRaw = AiToolUtils.readList(questionMap['options']);
+    if (optionsRaw == null || optionsRaw.length < 2 || optionsRaw.length > 4) {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,

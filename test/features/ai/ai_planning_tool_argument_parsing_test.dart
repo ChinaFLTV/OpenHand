@@ -132,13 +132,13 @@ void main() {
                 'question': 'Choose',
                 'header': 'Short',
                 'multiSelect': 0,
-                'options': <Object?>[
+                'options': jsonEncode(<Object?>[
                   <Object?, Object?>{
                     'label': 'One',
                     'description': 'First option',
                   },
                   <Object?, Object?>{'label': 'Two'},
-                ],
+                ]),
               },
             ]),
           },
