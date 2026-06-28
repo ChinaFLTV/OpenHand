@@ -186,11 +186,16 @@ enum AiPromptCacheAffinityKind {
 }
 
 class AiPromptCacheAffinity {
-  const AiPromptCacheAffinity._({required this.kind, required this.id});
+  const AiPromptCacheAffinity._({
+    required this.kind,
+    required this.id,
+    required this.promptCacheKey,
+  });
 
   static const AiPromptCacheAffinity none = AiPromptCacheAffinity._(
     kind: AiPromptCacheAffinityKind.none,
     id: '',
+    promptCacheKey: '',
   );
   static const String grokConversationHeader = 'x-grok-conv-id';
   static const String openRouterSessionHeader = 'x-session-id';
@@ -200,8 +205,25 @@ class AiPromptCacheAffinity {
 
   final AiPromptCacheAffinityKind kind;
   final String id;
+  final String promptCacheKey;
 
-  bool get applies => kind != AiPromptCacheAffinityKind.none && id.isNotEmpty;
+  bool get applies {
+    if (kind == AiPromptCacheAffinityKind.none) {
+      return false;
+    }
+    return switch (kind) {
+      AiPromptCacheAffinityKind.openAiPromptCacheKey =>
+        _bodyPromptCacheKey.isNotEmpty,
+      AiPromptCacheAffinityKind.grokCompatibleGateway =>
+        id.isNotEmpty || _bodyPromptCacheKey.isNotEmpty,
+      AiPromptCacheAffinityKind.openRouterSession ||
+      AiPromptCacheAffinityKind.grokConversationHeader => id.isNotEmpty,
+      AiPromptCacheAffinityKind.none => false,
+    };
+  }
+
+  String get _bodyPromptCacheKey =>
+      promptCacheKey.isNotEmpty ? promptCacheKey : id;
 
   static AiPromptCacheAffinity resolve({
     required AiModelConfig model,
@@ -214,8 +236,13 @@ class AiPromptCacheAffinity {
       return none;
     }
     final id = _normalizeId(inputCacheConfig.cacheAffinityId);
-    if (id.isEmpty) return none;
-    return AiPromptCacheAffinity._(kind: kind, id: id);
+    final promptCacheKey = _normalizeId(inputCacheConfig.promptCacheKey);
+    if (id.isEmpty && promptCacheKey.isEmpty) return none;
+    return AiPromptCacheAffinity._(
+      kind: kind,
+      id: id,
+      promptCacheKey: promptCacheKey,
+    );
   }
 
   static AiPromptCacheAffinityKind kindForModel(AiModelConfig model) {
@@ -244,9 +271,13 @@ class AiPromptCacheAffinity {
     switch (kind) {
       case AiPromptCacheAffinityKind.grokConversationHeader:
       case AiPromptCacheAffinityKind.grokCompatibleGateway:
-        _putHeaderIfAbsent(headers, grokConversationHeader, id);
+        if (id.isNotEmpty) {
+          _putHeaderIfAbsent(headers, grokConversationHeader, id);
+        }
       case AiPromptCacheAffinityKind.openRouterSession:
-        _putHeaderIfAbsent(headers, openRouterSessionHeader, id);
+        if (id.isNotEmpty) {
+          _putHeaderIfAbsent(headers, openRouterSessionHeader, id);
+        }
       case AiPromptCacheAffinityKind.openAiPromptCacheKey:
       case AiPromptCacheAffinityKind.none:
         break;
@@ -259,6 +290,7 @@ class AiPromptCacheAffinity {
     }
     switch (kind) {
       case AiPromptCacheAffinityKind.openRouterSession:
+        if (id.isEmpty) return body;
         return _putBodyFieldBeforeMessages(
           body,
           openRouterSessionBodyField,
@@ -266,10 +298,12 @@ class AiPromptCacheAffinity {
         );
       case AiPromptCacheAffinityKind.openAiPromptCacheKey:
       case AiPromptCacheAffinityKind.grokCompatibleGateway:
+        final bodyKey = _bodyPromptCacheKey;
+        if (bodyKey.isEmpty) return body;
         return _putBodyFieldBeforeMessages(
           body,
           openAiPromptCacheKeyBodyField,
-          id,
+          bodyKey,
         );
       case AiPromptCacheAffinityKind.grokConversationHeader:
       case AiPromptCacheAffinityKind.none:

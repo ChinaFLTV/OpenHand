@@ -116,6 +116,63 @@ void main() {
     },
   );
 
+  test('all thread templates ignore title and git snapshot in stable prefix', () {
+    const builder = AiPromptBuilder();
+
+    for (final entry in AiPromptTemplatePolicies.entries) {
+      final firstSession = _session(
+        templateEntry: entry,
+        title: 'First exported title',
+        isTitleManuallyEdited: true,
+      );
+      final secondSession = _session(
+        templateEntry: entry,
+        title: 'Second exported title',
+        isTitleManuallyEdited: true,
+      );
+      final firstResult = builder.buildSessionPrompt(
+        templateBundle: _bundle(entry.id),
+        session: firstSession,
+        model: _model,
+        runtimeContext: _runtimeContextWithFirstGitSnapshot,
+        memoryEntries: const <UserMemoryEntry>[],
+        sessionMessages: firstSession.messages,
+        latestUserMessageId: 'user-1',
+        availableTools: _tools,
+        planModeRecoveryInspectionRequired: false,
+      );
+      final secondResult = builder.buildSessionPrompt(
+        templateBundle: _bundle(entry.id),
+        session: secondSession,
+        model: _model,
+        runtimeContext: _runtimeContextWithSecondGitSnapshot,
+        memoryEntries: const <UserMemoryEntry>[],
+        sessionMessages: secondSession.messages,
+        latestUserMessageId: 'user-1',
+        availableTools: _tools,
+        planModeRecoveryInspectionRequired: false,
+      );
+      final secondPromptText = secondResult.messages
+          .map((message) => message.content)
+          .join('\n\n');
+
+      expect(
+        secondResult.metadata['stable_prefix_hash'],
+        firstResult.metadata['stable_prefix_hash'],
+        reason:
+            '${entry.id} must keep built-in prompt cache reusable across new thread titles and git snapshots.',
+      );
+      expect(
+        secondResult.metadata['stable_cache_key'],
+        firstResult.metadata['stable_cache_key'],
+        reason:
+            '${entry.id} must derive provider cache key from stable prompt structure, not session-private labels.',
+      );
+      expect(secondPromptText, isNot(contains('Second exported title')));
+      expect(secondPromptText, isNot(contains('second dirty status')));
+    }
+  });
+
   test('plan reminder is controlled by runtime flags, not latest text', () {
     final session = _session(mode: AiSessionMode.plan, latestUserContent: '继续');
     final result = const AiPromptBuilder().buildSessionPrompt(
@@ -233,6 +290,8 @@ AiSession _session({
   AiSessionMode mode = AiSessionMode.chat,
   bool awaitingPlanApproval = false,
   String? pendingPlan,
+  String title = 'Prompt cache',
+  bool isTitleManuallyEdited = false,
   String latestUserContent = 'Do the work.',
   List<AiSessionMessage>? messages,
   Map<String, Object?> lastPromptMetadata = const <String, Object?>{},
@@ -244,7 +303,7 @@ AiSession _session({
           .defaultTemplateId]!;
   return AiSession(
     id: 'session-1',
-    title: 'Prompt cache',
+    title: title,
     templateId: entry.info.id,
     templateName: entry.info.name,
     templateIconName: entry.info.iconName,
@@ -280,6 +339,7 @@ AiSession _session({
     awaitingPlanApproval: awaitingPlanApproval,
     pendingPlan: pendingPlan,
     lastPromptMetadata: lastPromptMetadata,
+    isTitleManuallyEdited: isTitleManuallyEdited,
   );
 }
 
@@ -298,6 +358,56 @@ const AiSessionRuntimeContext _runtimeContext = AiSessionRuntimeContext(
   workingDirectory: '/tmp/openhand-test',
   timeZoneName: 'Asia/Shanghai',
 );
+
+const AiSessionRuntimeContext _runtimeContextWithFirstGitSnapshot =
+    AiSessionRuntimeContext(
+      localeTag: 'zh-Hans',
+      appVersion: 'test',
+      appBuildNumber: '1',
+      settingsFilePath: '',
+      skillsStoragePath: '',
+      mcpServersFilePath: '',
+      userMemoryFilePath: '',
+      compressionThresholdChars: 100000,
+      memoryEnabled: false,
+      memoryEntries: <UserMemoryEntry>[],
+      platformName: 'test',
+      workingDirectory: '/tmp/openhand-test',
+      timeZoneName: 'Asia/Shanghai',
+      repositorySnapshot: AiRepositorySnapshot(
+        workingDirectory: '/tmp/openhand-test',
+        isGitRepository: true,
+        currentBranch: 'main',
+        mainBranch: 'main',
+        statusSnapshot: 'first dirty status',
+        recentCommits: <String>['aaaa111 first'],
+      ),
+    );
+
+const AiSessionRuntimeContext _runtimeContextWithSecondGitSnapshot =
+    AiSessionRuntimeContext(
+      localeTag: 'zh-Hans',
+      appVersion: 'test',
+      appBuildNumber: '1',
+      settingsFilePath: '',
+      skillsStoragePath: '',
+      mcpServersFilePath: '',
+      userMemoryFilePath: '',
+      compressionThresholdChars: 100000,
+      memoryEnabled: false,
+      memoryEntries: <UserMemoryEntry>[],
+      platformName: 'test',
+      workingDirectory: '/tmp/openhand-test',
+      timeZoneName: 'Asia/Shanghai',
+      repositorySnapshot: AiRepositorySnapshot(
+        workingDirectory: '/tmp/openhand-test',
+        isGitRepository: true,
+        currentBranch: 'feature/cache',
+        mainBranch: 'main',
+        statusSnapshot: 'second dirty status',
+        recentCommits: <String>['bbbb222 second'],
+      ),
+    );
 
 const AiModelConfig _model = AiModelConfig(
   id: 'model-1',

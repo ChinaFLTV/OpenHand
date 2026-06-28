@@ -6288,11 +6288,15 @@ class AiSessionController extends ChangeNotifier {
       final loadedToolNames = _loadedMcpToolsTracker.rawSetForSession(
         sessionId,
       );
+      final builtinLazyLoadingThresholdTokens =
+          AiBuiltinToolLazyLoadingApplier.effectiveAutoThresholdTokens(
+            runtimeContext.mcpLazyLoadingThresholdTokens,
+          );
       final keepToolSearchForBuiltins =
           AiBuiltinToolLazyLoadingApplier.hasDeferredCandidates(
             catalog: fullCatalog,
             mode: runtimeContext.builtinToolLazyLoadingMode,
-            thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+            thresholdTokens: builtinLazyLoadingThresholdTokens,
             charsPerToken: runtimeContext.estimatedCharactersPerToken,
             alreadyLoadedNames: loadedToolNames,
           );
@@ -6308,7 +6312,7 @@ class AiSessionController extends ChangeNotifier {
         catalog: mcpCatalog,
         sourceCatalog: fullCatalog,
         mode: runtimeContext.builtinToolLazyLoadingMode,
-        thresholdTokens: runtimeContext.mcpLazyLoadingThresholdTokens,
+        thresholdTokens: builtinLazyLoadingThresholdTokens,
         charsPerToken: runtimeContext.estimatedCharactersPerToken,
         toolRuntimeService: _toolRuntimeService,
         alreadyLoadedNames: loadedToolNames,
@@ -6493,6 +6497,8 @@ class AiSessionController extends ChangeNotifier {
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
             breakpointPositions: runtimeContext.aiInputCacheBreakpointPositions,
             cacheAffinityId: workingSession.id,
+            promptCacheKey: '${promptResult.metadata['stable_cache_key'] ?? ''}'
+                .trim(),
           ),
           onRequestStarted: previewRequestStartTelemetry,
         );

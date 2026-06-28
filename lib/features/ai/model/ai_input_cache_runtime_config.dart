@@ -14,6 +14,7 @@ class AiInputCacheRuntimeConfig {
     required this.breakpointCount,
     this.breakpointPositions = const <double>[],
     this.cacheAffinityId = '',
+    this.promptCacheKey = '',
   });
 
   /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
@@ -43,7 +44,13 @@ class AiInputCacheRuntimeConfig {
   /// `session_id` / `x-session-id`。
   final String cacheAffinityId;
 
+  /// 稳定 Prompt 前缀缓存键。仅用于 `prompt_cache_key` 这类显式缓存键字段；
+  /// 不用于带会话语义的 header / `session_id`，避免跨线程共享会话状态。
+  final String promptCacheKey;
+
   bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
 
   bool get hasCacheAffinityId => cacheAffinityId.trim().isNotEmpty;
+
+  bool get hasPromptCacheKey => promptCacheKey.trim().isNotEmpty;
 }

@@ -9,8 +9,16 @@ import 'ai_tool_runtime_service.dart';
 class AiBuiltinToolLazyLoadingApplier {
   const AiBuiltinToolLazyLoadingApplier();
 
+  static const int defaultAutoThresholdTokens = 4096;
   static const int _deferredPreviewLimit = 80;
   static const int _deferredPreviewDescriptionChars = 140;
+
+  static int effectiveAutoThresholdTokens(int configuredThresholdTokens) {
+    return math.min(
+      math.max(1, configuredThresholdTokens),
+      defaultAutoThresholdTokens,
+    );
+  }
 
   static bool hasDeferredCandidates({
     required AiResolvedToolCatalog catalog,

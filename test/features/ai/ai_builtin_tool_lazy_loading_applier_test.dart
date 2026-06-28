@@ -5,6 +5,17 @@ import 'package:openhand/features/ai/service/runtime/ai_builtin_tool_lazy_loadin
 import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
 
 void main() {
+  test('auto mode uses capped built-in threshold', () {
+    expect(
+      AiBuiltinToolLazyLoadingApplier.effectiveAutoThresholdTokens(16000),
+      AiBuiltinToolLazyLoadingApplier.defaultAutoThresholdTokens,
+    );
+    expect(
+      AiBuiltinToolLazyLoadingApplier.effectiveAutoThresholdTokens(1000),
+      1000,
+    );
+  });
+
   test('knowledge tools stay loaded when built-in lazy loading is off', () {
     final catalog = _catalog(<AiResolvedTool>[
       _builtin(AiBuiltinToolKind.toolSearch, 'ToolSearch'),

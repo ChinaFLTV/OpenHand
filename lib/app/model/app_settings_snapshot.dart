@@ -631,7 +631,8 @@ class AppSettingsSnapshot {
   final int mcpLazyLoadingThresholdTokens;
 
   /// 2026-06-17 — 内建工具 schema 懒加载模式（关闭/自动/开启）。
-  /// auto 模式复用 [mcpLazyLoadingThresholdTokens] 作为总体积阈值。
+  /// auto 模式会使用内建工具专用阈值，并以 [mcpLazyLoadingThresholdTokens]
+  /// 作为用户配置上限；需要完全直带 schema 时应显式设为 disabled。
   final AiBuiltinToolLazyLoadingMode builtinToolLazyLoadingMode;
 
   /// 2026-05-04 — stdio MCP 包管理器镜像源模式。

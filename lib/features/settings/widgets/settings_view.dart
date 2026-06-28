@@ -3442,8 +3442,8 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           description: _localizedText(
             context,
-            zh: '控制是否折叠内建工具 schema。自动模式复用 MCP 工具压缩阈值：${settingsController.mcpLazyLoadingThresholdTokens} tokens。',
-            en: 'Controls whether built-in tool schemas are folded. Auto mode reuses the MCP compression threshold: ${settingsController.mcpLazyLoadingThresholdTokens} tokens.',
+            zh: '控制是否折叠内建工具 schema。自动模式使用内建工具专用阈值，并以 MCP 阈值作为上限：${settingsController.mcpLazyLoadingThresholdTokens} tokens。',
+            en: 'Controls whether built-in tool schemas are folded. Auto mode uses a built-in-tool threshold capped by the MCP threshold: ${settingsController.mcpLazyLoadingThresholdTokens} tokens.',
           ),
           child: _ResponsiveSettingRow(
             title: _localizedText(context, zh: '加载模式', en: 'Load mode'),

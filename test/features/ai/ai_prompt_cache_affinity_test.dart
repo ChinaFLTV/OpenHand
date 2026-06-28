@@ -57,6 +57,32 @@ void main() {
   );
 
   test(
+    'grok-compatible gateways keep session header and stable body cache key separate',
+    () async {
+      const adapter = OpenAiProtocolAdapter(AiProtocolType.openai);
+      final request = await adapter.buildChatRequest(
+        model: _model(
+          protocolType: AiProtocolType.openai,
+          baseUrl: 'http://127.0.0.1:3000',
+          modelId: 'grok-composer-2.5-fast',
+        ),
+        messages: _messages,
+        stream: true,
+        inputCacheConfig: _stablePromptCacheConfig,
+      );
+
+      expect(
+        request.headers[AiPromptCacheAffinity.grokConversationHeader],
+        'session-1',
+      );
+      expect(
+        request.body[AiPromptCacheAffinity.openAiPromptCacheKeyBodyField],
+        'stable-key-1',
+      );
+    },
+  );
+
+  test(
     'direct xai grok requests do not add openai cache body fields',
     () async {
       const adapter = OpenAiProtocolAdapter(AiProtocolType.grok);
@@ -151,6 +177,34 @@ void main() {
   );
 
   test(
+    'openai-compatible requests prefer stable prompt cache key over session id',
+    () async {
+      const adapter = OpenAiProtocolAdapter(AiProtocolType.openai);
+      final request = await adapter.buildChatRequest(
+        model: _model(
+          protocolType: AiProtocolType.openai,
+          baseUrl: 'https://api.openai.com',
+          modelId: 'gpt-5.1',
+        ),
+        messages: _messages,
+        stream: true,
+        inputCacheConfig: _stablePromptCacheConfig,
+      );
+
+      expect(
+        request.body[AiPromptCacheAffinity.openAiPromptCacheKeyBodyField],
+        'stable-key-1',
+      );
+      expect(
+        request.headers.containsKey(
+          AiPromptCacheAffinity.grokConversationHeader,
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'cache affinity is omitted when input cache config is disabled',
     () async {
       const adapter = OpenAiProtocolAdapter(AiProtocolType.grok);
@@ -193,6 +247,16 @@ const AiInputCacheRuntimeConfig _cacheConfig = AiInputCacheRuntimeConfig(
   breakpointCount: 4,
   cacheAffinityId: 'session-1',
 );
+
+const AiInputCacheRuntimeConfig _stablePromptCacheConfig =
+    AiInputCacheRuntimeConfig(
+      enabled: true,
+      mode: 'allMessages',
+      updateInterval: 10,
+      breakpointCount: 4,
+      cacheAffinityId: 'session-1',
+      promptCacheKey: 'stable-key-1',
+    );
 
 AiModelConfig _model({
   required AiProtocolType protocolType,

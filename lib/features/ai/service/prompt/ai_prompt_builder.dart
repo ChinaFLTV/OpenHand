@@ -14,7 +14,6 @@ import '../../../knowledge_base/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_attachment.dart';
-import '../../model/ai_auto_title_fetch_mode.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../../model/ai_input_cache_policy.dart';
 import '../../model/ai_message_content_format.dart';
@@ -409,7 +408,6 @@ class AiPromptBuilder {
     final staticSessionState = _buildCompactStaticSessionState(
       session: session,
       runtimeContext: runtimeContext,
-      repositorySnapshot: repositorySnapshot,
     );
     final dynamicSessionState = _buildCompactDynamicSessionState(
       session: session,
@@ -777,7 +775,6 @@ class AiPromptBuilder {
   bool _isVolatileDynamicSessionStateKey(String key) {
     return switch (key) {
       'mode' ||
-      'session_title' ||
       'rehydration' ||
       'web_reverse_runtime' ||
       'android_reverse_runtime' ||
@@ -1225,22 +1222,9 @@ class AiPromptBuilder {
     return snapshot;
   }
 
-  String? _promptSessionTitleForMetadata(AiSession session) {
-    final title = session.title.trim();
-    if (title.isEmpty) {
-      return null;
-    }
-    if (!session.isTitleManuallyEdited &&
-        session.autoTitleGeneratedAt == null) {
-      return null;
-    }
-    return title;
-  }
-
   Map<String, Object?> _buildCompactStaticSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
-    required AiRepositorySnapshot? repositorySnapshot,
   }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
@@ -1285,35 +1269,6 @@ class AiPromptBuilder {
           .toList(growable: false);
     }
 
-    final promptSessionTitle = _promptSessionTitleForMetadata(session);
-    if (promptSessionTitle != null &&
-        runtimeContext.autoTitleFetchMode == AiAutoTitleFetchMode.synchronous) {
-      staticState['session_title'] = promptSessionTitle;
-    }
-
-    // 2026-05-25 — git 信息迁入 [3s] Static（会话开启快照），从 [3d] Dynamic 移除。
-    // 原因：每次模型写文件后 git status 改变 → [3d] hash 改变 → prefix-cache 全量
-    // 冷启。迁到 [3s] 后 git 信息作为会话开启快照保持字节稳定；模型可随时调用
-    // `bash git status` 获取最新状态。
-    if (repositorySnapshot != null && repositorySnapshot.isGitRepository) {
-      final gitInfo = <String, Object?>{};
-      if (repositorySnapshot.currentBranch.trim().isNotEmpty) {
-        gitInfo['branch'] = repositorySnapshot.currentBranch;
-      }
-      if (repositorySnapshot.mainBranch.trim().isNotEmpty) {
-        gitInfo['main'] = repositorySnapshot.mainBranch;
-      }
-      if (repositorySnapshot.statusSnapshot.trim().isNotEmpty) {
-        gitInfo['status'] = repositorySnapshot.statusSnapshot.trim();
-      }
-      if (repositorySnapshot.recentCommits.isNotEmpty) {
-        gitInfo['recent_commits'] = repositorySnapshot.recentCommits;
-      }
-      if (gitInfo.isNotEmpty) {
-        staticState['git'] = gitInfo;
-      }
-    }
-
     return staticState;
   }
 
@@ -1338,18 +1293,11 @@ class AiPromptBuilder {
     final dynamicState = <String, Object?>{};
 
     // 2026-05-30 — 缓存友好策略：[3d] 只保留「会话内会变 && 模型实际会用」的字段。
-    // - session.title：同步获取时可进入 [3s]；异步获取会在首轮后变化，只允许进入
-    //   [3d]，避免击穿稳定前缀。
-    // - session.mode：默认 chat 不写入；仅切到 plan 时显式标记，避免常态污染。
-    // - 当前日期 / git 信息：见 [3s] / 工具调用兜底，[3d] 不再注入。
+    // session.title 与 git 快照不进入 prompt：标题对执行无约束价值，git
+    // 状态可由工具按需读取；二者进入稳定前缀会让新线程无法复用内置 Prompt
+    // 缓存，进入动态尾部则会破坏前缀延展。
     if (session.mode != AiSessionMode.chat) {
       dynamicState['mode'] = session.mode.storageValue;
-    }
-    final promptSessionTitle = _promptSessionTitleForMetadata(session);
-    if (promptSessionTitle != null &&
-        runtimeContext.autoTitleFetchMode ==
-            AiAutoTitleFetchMode.asynchronous) {
-      dynamicState['session_title'] = promptSessionTitle;
     }
 
     // 2026-05-30 — 仅在真实存在压缩点（active=true）时注入 rehydration 块。
@@ -1902,7 +1850,7 @@ class AiPromptBuilder {
     required String stablePrefixHash,
     required String toolCatalogHash,
   }) {
-    return _promptFingerprint(
+    return stableSha256Hex(
       [
         session.templateId,
         session.templateInternalVersion,
