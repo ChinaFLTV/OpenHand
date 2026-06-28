@@ -342,7 +342,7 @@ class SettingsStore {
   }
 
   static AppSettingsSnapshot _snapshotFromJson(Map<String, Object?> json) {
-    final schemaVersion = json['version'] is int ? json['version'] as int : 0;
+    final schemaVersion = optionalIntegralIntFromValue(json['version']) ?? 0;
     final themeMode = _themeModeFromStorage('${json['theme_mode'] ?? ''}');
     final rawThemePreset = '${json['theme_preset'] ?? ''}'.trim();
     final themePreset = OpenHandThemePreset.fromStorage(rawThemePreset);
@@ -351,9 +351,7 @@ class SettingsStore {
     final skillsStoragePath = OpenHandPaths.normalizeUserPath(
       '${json['skills_storage_path'] ?? ''}',
     );
-    final mcpEnabled = json['mcp_enabled'] is bool
-        ? json['mcp_enabled'] as bool
-        : true;
+    final mcpEnabled = boolFromValue(json['mcp_enabled'], defaultValue: true);
     final mcpServersFilePath = OpenHandPaths.normalizePath(
       '${json['mcp_servers_file_path'] ?? ''}',
       defaultPath: OpenHandPaths.defaultMcpServersFilePath(),
@@ -400,16 +398,18 @@ class SettingsStore {
         normalizeMcpKeywordIndexScheduledTimeOfDay(
           '${json['mcp_keyword_index_scheduled_time_of_day'] ?? AppSettingsSnapshot.defaultMcpKeywordIndexScheduledTimeOfDay}',
         );
-    final memoryEnabled = json['memory_enabled'] is bool
-        ? json['memory_enabled'] as bool
-        : true;
+    final memoryEnabled = boolFromValue(
+      json['memory_enabled'],
+      defaultValue: true,
+    );
     final userMemoryFilePath = OpenHandPaths.normalizePath(
       '${json['user_memory_file_path'] ?? ''}',
       defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
     );
-    final editorWordWrap = json['editor_word_wrap'] is bool
-        ? json['editor_word_wrap'] as bool
-        : true;
+    final editorWordWrap = boolFromValue(
+      json['editor_word_wrap'],
+      defaultValue: true,
+    );
     final editorIndentSpaces = normalizeEditorIndentSpaces(
       (json['editor_indent_spaces'] as num?)?.toInt(),
     );
@@ -473,17 +473,19 @@ class SettingsStore {
             json['ai_tool_result_compression_threshold_chars'] as int,
           )
         : AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars;
-    final aiToolResultCompressionEnabled =
-        json['ai_tool_result_compression_enabled'] is bool
-        ? json['ai_tool_result_compression_enabled'] as bool
-        : true;
-    final aiMicroCompressionEnabled =
-        json['ai_micro_compression_enabled'] is bool
-        ? _migrateAiMicroCompressionEnabled(
-            persisted: json['ai_micro_compression_enabled'] as bool,
+    final aiToolResultCompressionEnabled = boolFromValue(
+      json['ai_tool_result_compression_enabled'],
+      defaultValue: true,
+    );
+    final rawAiMicroCompressionEnabled = optionalBoolFromValue(
+      json['ai_micro_compression_enabled'],
+    );
+    final aiMicroCompressionEnabled = rawAiMicroCompressionEnabled == null
+        ? AppSettingsSnapshot.defaultAiMicroCompressionEnabled
+        : _migrateAiMicroCompressionEnabled(
+            persisted: rawAiMicroCompressionEnabled,
             schemaVersion: schemaVersion,
-          )
-        : AppSettingsSnapshot.defaultAiMicroCompressionEnabled;
+          );
     final aiMessageContentFormat = AiMessageContentFormat.fromStorageKey(
       json['ai_message_content_format'],
     );
@@ -506,12 +508,15 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiToolResultCompressionMaxPathHits,
       max: AppSettingsSnapshot.maxAiToolResultCompressionMaxPathHits,
     );
-    final aiInputCacheEnabled = json['ai_input_cache_enabled'] is bool
-        ? _migrateAiInputCacheEnabled(
-            persisted: json['ai_input_cache_enabled'] as bool,
+    final rawAiInputCacheEnabled = optionalBoolFromValue(
+      json['ai_input_cache_enabled'],
+    );
+    final aiInputCacheEnabled = rawAiInputCacheEnabled == null
+        ? AppSettingsSnapshot.defaultAiInputCacheEnabled
+        : _migrateAiInputCacheEnabled(
+            persisted: rawAiInputCacheEnabled,
             schemaVersion: schemaVersion,
-          )
-        : AppSettingsSnapshot.defaultAiInputCacheEnabled;
+          );
     final aiInputCacheUpdateMode =
         json['ai_input_cache_update_mode'] is String &&
             AppSettingsSnapshot.validAiInputCacheUpdateModes.contains(
@@ -559,16 +564,14 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiWriteToolSummaryMaxChars,
       max: AppSettingsSnapshot.maxAiWriteToolSummaryMaxChars,
     );
-    final aiSingleRoundToolCallLimit =
-        json['ai_single_round_tool_call_limit'] is int &&
-            (json['ai_single_round_tool_call_limit'] as int) > 0
-        ? json['ai_single_round_tool_call_limit'] as int
-        : AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit;
-    final aiSequentialToolRoundLimit =
-        json['ai_sequential_tool_round_limit'] is int &&
-            (json['ai_sequential_tool_round_limit'] as int) > 0
-        ? json['ai_sequential_tool_round_limit'] as int
-        : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
+    final aiSingleRoundToolCallLimit = positiveIntFromValue(
+      json['ai_single_round_tool_call_limit'],
+      fallback: AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit,
+    );
+    final aiSequentialToolRoundLimit = positiveIntFromValue(
+      json['ai_sequential_tool_round_limit'],
+      fallback: AppSettingsSnapshot.defaultAiSequentialToolRoundLimit,
+    );
     final aiMaxRecentErrors = clampedIntFromValue(
       json['ai_max_recent_errors'],
       fallback: AppSettingsSnapshot.defaultAiMaxRecentErrors,
@@ -699,10 +702,10 @@ class SettingsStore {
       json['ai_translation'],
     );
     final aiTtsSettings = AiTtsSettings.fromJson(json['ai_tts']);
-    final aiWriteCommandConfirmationEnabled =
-        json['ai_write_command_confirmation_enabled'] is bool
-        ? json['ai_write_command_confirmation_enabled'] as bool
-        : true;
+    final aiWriteCommandConfirmationEnabled = boolFromValue(
+      json['ai_write_command_confirmation_enabled'],
+      defaultValue: true,
+    );
 
     final aiAllowCommandRules = _readSettingsObjectList(
       json['ai_allow_command_rules'],
@@ -754,13 +757,13 @@ class SettingsStore {
     // 字段（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
     // write 路径也不会再写出。任何形状的旧 value（Map/null/异常类型）都
     // 必须被静默丢弃，保证 `load()` 不抛。
-    final aiStreamThrottleEnabled = json['ai_stream_throttle_enabled'] is bool
-        ? json['ai_stream_throttle_enabled'] as bool
-        : AppSettingsSnapshot.defaultAiStreamThrottleEnabled;
-    final aiStreamThrottleAutoMode =
-        json['ai_stream_throttle_auto_mode'] is bool
-        ? json['ai_stream_throttle_auto_mode'] as bool
-        : AppSettingsSnapshot.defaultAiStreamThrottleAutoMode;
+    final aiStreamThrottleEnabled = boolFromValue(
+      json['ai_stream_throttle_enabled'],
+      defaultValue: AppSettingsSnapshot.defaultAiStreamThrottleEnabled,
+    );
+    final aiStreamThrottleAutoMode = boolFromValue(
+      json['ai_stream_throttle_auto_mode'],
+    );
     final aiStreamThrottleDurationSeconds = clampedIntFromValue(
       json['ai_stream_throttle_duration_seconds'],
       fallback: AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds,
@@ -776,13 +779,14 @@ class SettingsStore {
     final aiStreamThrottleCloudSyncToken =
         '${json['ai_stream_throttle_cloud_sync_token'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncToken}'
             .trim();
-    final rawConfigUpdatedAt = json['ai_stream_throttle_config_updated_at_ms'];
-    final aiStreamThrottleConfigUpdatedAtMs = rawConfigUpdatedAt is int
-        ? rawConfigUpdatedAt
-        : AppSettingsSnapshot.defaultAiStreamThrottleConfigUpdatedAtMs;
-    final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
-        ? json['ai_auto_title_enabled'] as bool
-        : true;
+    final aiStreamThrottleConfigUpdatedAtMs = nonNegativeIntFromValue(
+      json['ai_stream_throttle_config_updated_at_ms'],
+      fallback: AppSettingsSnapshot.defaultAiStreamThrottleConfigUpdatedAtMs,
+    );
+    final aiAutoTitleEnabled = boolFromValue(
+      json['ai_auto_title_enabled'],
+      defaultValue: true,
+    );
     final aiAutoTitleFetchMode = AiAutoTitleFetchMode.fromStorage(
       '${json['ai_auto_title_fetch_mode'] ?? ''}',
     );
@@ -791,10 +795,9 @@ class SettingsStore {
     final aiDefaultSessionMode = rawDefaultSessionMode == 'plan'
         ? 'plan'
         : 'chat';
-    final aiDefaultFullAccessPermission =
-        json['ai_default_full_access_permission'] is bool
-        ? json['ai_default_full_access_permission'] as bool
-        : false;
+    final aiDefaultFullAccessPermission = boolFromValue(
+      json['ai_default_full_access_permission'],
+    );
 
     // AI models.
     final rawModels = json['ai_models'];
@@ -970,17 +973,16 @@ class SettingsStore {
       }
     }
 
-    final telemetryDebugEnabled = json['telemetry_debug_enabled'] is bool
-        ? json['telemetry_debug_enabled'] as bool
-        : false;
-    final telemetryCaptureRawPayload =
-        json['telemetry_capture_raw_payload'] is bool
-        ? json['telemetry_capture_raw_payload'] as bool
-        : true;
-    final telemetryCaptureEnvironment =
-        json['telemetry_capture_environment'] is bool
-        ? json['telemetry_capture_environment'] as bool
-        : false;
+    final telemetryDebugEnabled = boolFromValue(
+      json['telemetry_debug_enabled'],
+    );
+    final telemetryCaptureRawPayload = boolFromValue(
+      json['telemetry_capture_raw_payload'],
+      defaultValue: true,
+    );
+    final telemetryCaptureEnvironment = boolFromValue(
+      json['telemetry_capture_environment'],
+    );
     final telemetryMaxPayloadChars = clampedIntFromValue(
       json['telemetry_max_payload_chars'],
       fallback: AppSettingsSnapshot.defaultTelemetryMaxPayloadChars,
@@ -988,9 +990,10 @@ class SettingsStore {
       max: AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
     );
 
-    final selfLearningEnabled = json['self_learning_enabled'] is bool
-        ? json['self_learning_enabled'] as bool
-        : true;
+    final selfLearningEnabled = boolFromValue(
+      json['self_learning_enabled'],
+      defaultValue: true,
+    );
     final selfLearningConcurrency = clampedIntFromValue(
       json['self_learning_concurrency'],
       fallback: AppSettingsSnapshot.defaultSelfLearningConcurrency,
@@ -1005,13 +1008,15 @@ class SettingsStore {
       max: AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs,
     );
 
-    final showSelfLearningMessages = json['show_self_learning_messages'] is bool
-        ? json['show_self_learning_messages'] as bool
-        : true;
+    final showSelfLearningMessages = boolFromValue(
+      json['show_self_learning_messages'],
+      defaultValue: true,
+    );
 
-    final cronAutoCleanupEnabled = json['cron_auto_cleanup_enabled'] is bool
-        ? json['cron_auto_cleanup_enabled'] as bool
-        : true;
+    final cronAutoCleanupEnabled = boolFromValue(
+      json['cron_auto_cleanup_enabled'],
+      defaultValue: true,
+    );
     final cronAutoCleanupRetentionDays = clampedIntFromValue(
       json['cron_auto_cleanup_retention_days'],
       fallback: AppSettingsSnapshot.defaultCronAutoCleanupRetentionDays,
@@ -1033,9 +1038,7 @@ class SettingsStore {
       max: AppSettingsSnapshot.maxToolSearchReplayCancelWindowSeconds,
     );
 
-    final reduceMotion = json['reduce_motion'] is bool
-        ? json['reduce_motion'] as bool
-        : false;
+    final reduceMotion = boolFromValue(json['reduce_motion']);
 
     final proxySettings = AppProxySettings.fromJson(json['proxy']);
 
