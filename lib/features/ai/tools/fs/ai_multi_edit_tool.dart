@@ -138,7 +138,7 @@ class AiMultiEditTool extends AiTool {
       final edit = Map<String, Object?>.from(rawEdit);
       final oldString = '${edit['old_string'] ?? ''}';
       final newString = '${edit['new_string'] ?? ''}';
-      final replaceAll = edit['replace_all'] == true;
+      final replaceAll = AiToolUtils.readBool(edit['replace_all']) == true;
       final sequentialValidation = AiToolUtils.validateSequentialEditTarget(
         oldString: oldString,
         previousNewStrings: appliedNewStrings,

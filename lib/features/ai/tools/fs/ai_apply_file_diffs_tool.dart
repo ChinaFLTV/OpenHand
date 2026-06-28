@@ -145,7 +145,7 @@ class AiApplyFileDiffsTool extends AiTool {
         final hunk = Map<String, Object?>.from(rawHunk);
         final oldString = '${hunk['old_string'] ?? ''}';
         final newString = '${hunk['new_string'] ?? ''}';
-        final replaceAll = hunk['replace_all'] == true;
+        final replaceAll = AiToolUtils.readBool(hunk['replace_all']) == true;
         final payloadSizeValidation =
             AiToolUtils.validateGeneratedTextPayloadSize(
               toolName: 'ApplyFileDiffs',

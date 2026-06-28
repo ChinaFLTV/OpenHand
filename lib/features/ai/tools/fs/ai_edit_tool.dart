@@ -21,7 +21,7 @@ class AiEditTool extends AiTool {
     final rawFilePath = '${args['file_path'] ?? ''}'.trim();
     final oldString = '${args['old_string'] ?? ''}';
     final newString = '${args['new_string'] ?? ''}';
-    final replaceAll = args['replace_all'] == true;
+    final replaceAll = AiToolUtils.readBool(args['replace_all']) == true;
     if (rawFilePath.isEmpty) {
       return AiToolUtils.invalidResult(
         'Edit',

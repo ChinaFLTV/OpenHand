@@ -269,7 +269,7 @@ class AiSkillManagerTool extends AiTool {
     final name = '${args['name'] ?? ''}'.trim();
     final oldString = '${args['old_string'] ?? ''}';
     final newString = '${args['new_string'] ?? ''}';
-    final replaceAll = args['replace_all'] == true;
+    final replaceAll = AiToolUtils.readBool(args['replace_all']) == true;
     final filePathArg = '${args['file_path'] ?? ''}'.trim();
 
     final nameError = _validateName(name);
