@@ -1,5 +1,6 @@
 library;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../memory/index.dart';
 
 /// Hermes Talker 专用 Memory 工具。
@@ -268,16 +269,7 @@ class AiMemoryTool extends AiTool {
   static const int _previewChars = 200;
 
   List<String> _readStringList(Object? raw) {
-    if (raw is List) {
-      return raw
-          .map((item) => '$item'.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false);
-    }
-    if (raw is String && raw.trim().isNotEmpty) {
-      return <String>[raw.trim()];
-    }
-    return const <String>[];
+    return stringListFromValueOrJsonText(raw);
   }
 
   String _preview(String content) {
