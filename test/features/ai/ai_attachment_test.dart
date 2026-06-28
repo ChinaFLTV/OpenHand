@@ -43,4 +43,54 @@ void main() {
     expect(attachment.pixelCount, 2073600);
     expect(attachment.compressionRatio, 0.75);
   });
+
+  test('attachment metadata accepts JSON object text', () {
+    final attachment = AiMessageAttachment.fromJson('''
+      {
+        "id": " att-3 ",
+        "name": " doc.md ",
+        "storage_path": " /tmp/doc.md ",
+        "kind": "text",
+        "mime_type": " text/markdown ",
+        "size_bytes": "1024",
+        "prompt_text": "  keep text spacing  ",
+        "original_source_path": " /source/doc.md "
+      }
+    ''');
+
+    expect(attachment.id, 'att-3');
+    expect(attachment.name, 'doc.md');
+    expect(attachment.storagePath, '/tmp/doc.md');
+    expect(attachment.kind, AiAttachmentKind.text);
+    expect(attachment.mimeType, 'text/markdown');
+    expect(attachment.sizeBytes, 1024);
+    expect(attachment.promptText, '  keep text spacing  ');
+    expect(attachment.originalSourcePath, '/source/doc.md');
+  });
+
+  test(
+    'attachment list metadata accepts JSON text and filters incomplete rows',
+    () {
+      final attachments = AiMessageAttachment.listFromMetadata('''
+      [
+        {
+          "id": "att-4",
+          "name": "image.png",
+          "storage_path": "/tmp/image.png",
+          "kind": "image",
+          "size_bytes": "2048"
+        },
+        {
+          "id": "missing-storage",
+          "name": "broken.txt"
+        }
+      ]
+    ''');
+
+      expect(attachments, hasLength(1));
+      expect(attachments.single.id, 'att-4');
+      expect(attachments.single.storagePath, '/tmp/image.png');
+      expect(attachments.single.sizeBytes, 2048);
+    },
+  );
 }

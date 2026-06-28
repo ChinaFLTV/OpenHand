@@ -44,22 +44,22 @@ List<String> aiAttachmentPickerExtensions() {
 }
 
 class AiMessageAttachment {
-  factory AiMessageAttachment.fromJson(Map<String, Object?> json) {
+  factory AiMessageAttachment.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiMessageAttachment(
-      id: '${json['id'] ?? ''}'.trim(),
-      name: '${json['name'] ?? ''}'.trim(),
-      storagePath: '${json['storage_path'] ?? ''}'.trim(),
-      kind: AiAttachmentKind.fromStorage('${json['kind'] ?? ''}'),
-      mimeType: '${json['mime_type'] ?? ''}'.trim(),
+      id: stringFromValue(json['id']),
+      name: stringFromValue(json['name']),
+      storagePath: stringFromValue(json['storage_path']),
+      kind: AiAttachmentKind.fromStorage(stringFromValue(json['kind'])),
+      mimeType: stringFromValue(json['mime_type']),
       sizeBytes: _readInt(json['size_bytes']),
-      promptText: '${json['prompt_text'] ?? ''}',
-      summaryText: '${json['summary_text'] ?? ''}',
+      promptText: json['prompt_text'] == null ? '' : '${json['prompt_text']}',
+      summaryText: json['summary_text'] == null
+          ? ''
+          : '${json['summary_text']}',
       width: _readNullableInt(json['width']),
       height: _readNullableInt(json['height']),
-      originalSourcePath: () {
-        final value = '${json['original_source_path'] ?? ''}'.trim();
-        return value.isEmpty ? null : value;
-      }(),
+      originalSourcePath: optionalStringFromValue(json['original_source_path']),
       pixelCount: _readNullableInt(json['pixel_count']),
       compressionRatio: optionalDoubleFromValue(json['compression_ratio']),
     );
@@ -161,22 +161,8 @@ class AiMessageAttachment {
   }
 
   static List<AiMessageAttachment> listFromMetadata(Object? rawValue) {
-    if (rawValue is! List) {
-      return const <AiMessageAttachment>[];
-    }
-    return rawValue
-        .map((item) {
-          if (item is Map<String, Object?>) {
-            return AiMessageAttachment.fromJson(item);
-          }
-          if (item is Map) {
-            return AiMessageAttachment.fromJson(
-              Map<String, Object?>.from(item),
-            );
-          }
-          return null;
-        })
-        .whereType<AiMessageAttachment>()
+    return stringKeyedMapListFromValueOrJsonText(rawValue)
+        .map(AiMessageAttachment.fromJson)
         .where((item) => item.id.isNotEmpty && item.storagePath.isNotEmpty)
         .toList(growable: false);
   }
