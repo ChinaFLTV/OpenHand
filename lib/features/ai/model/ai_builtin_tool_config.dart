@@ -459,10 +459,9 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.edit:
       case AiBuiltinToolKind.todoWrite:
       case AiBuiltinToolKind.toolSearch:
-        return AiBuiltinToolLoadStrategy.eager;
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
-        return AiBuiltinToolLoadStrategy.deferred;
+        return AiBuiltinToolLoadStrategy.eager;
       case AiBuiltinToolKind.bashBackground:
       case AiBuiltinToolKind.taskOutput:
       case AiBuiltinToolKind.taskStop:

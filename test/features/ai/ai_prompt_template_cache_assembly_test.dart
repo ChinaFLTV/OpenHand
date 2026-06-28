@@ -189,7 +189,7 @@ void main() {
     );
   });
 
-  test('deferred knowledge tools stay in the dynamic catalog preview', () {
+  test('force-loaded knowledge tools stay in the built-in catalog', () {
     final session = _session();
     final result = const AiPromptBuilder().buildSessionPrompt(
       templateBundle: _bundle(),
@@ -199,7 +199,7 @@ void main() {
       memoryEntries: const <UserMemoryEntry>[],
       sessionMessages: session.messages,
       latestUserMessageId: 'user-1',
-      availableTools: _toolsWithDeferredKnowledge,
+      availableTools: _toolsWithKnowledge,
       planModeRecoveryInspectionRequired: false,
     );
     final promptText = result.messages
@@ -209,12 +209,10 @@ void main() {
       promptText.indexOf('## Builtin'),
     );
 
-    expect(promptText, contains('## Dynamic Tools'));
-    expect(promptText, contains('[built-in] KnowledgeSearch'));
-    expect(promptText, contains('[built-in] KnowledgeRead'));
+    expect(promptText, isNot(contains('## Dynamic Tools')));
     expect(builtinSection, contains('- ToolSearch:'));
-    expect(builtinSection, isNot(contains('- KnowledgeSearch:')));
-    expect(builtinSection, isNot(contains('- KnowledgeRead:')));
+    expect(builtinSection, contains('- KnowledgeSearch:'));
+    expect(builtinSection, contains('- KnowledgeRead:'));
   });
 }
 
@@ -321,22 +319,26 @@ const List<AiToolDefinition> _tools = <AiToolDefinition>[
   ),
 ];
 
-const List<AiToolDefinition> _toolsWithDeferredKnowledge = <AiToolDefinition>[
+const List<AiToolDefinition> _toolsWithKnowledge = <AiToolDefinition>[
   AiToolDefinition(
     name: 'ToolSearch',
-    description:
-        'Fetch full schema definitions for deferred runtime tools.\n\n'
-        '## Deferred built-in tools (2)\n'
-        '- KnowledgeSearch - Search local knowledge base chunks.\n'
-        '- KnowledgeRead - Read local knowledge base chunks.',
+    description: 'Fetch full schema definitions for deferred runtime tools.',
     parameters: <String, Object?>{
       'type': 'object',
       'properties': <String, Object?>{},
     },
   ),
   AiToolDefinition(
-    name: 'WebFetch',
-    description: 'Fetch a web page.',
+    name: 'KnowledgeSearch',
+    description: 'Search local knowledge base chunks.',
+    parameters: <String, Object?>{
+      'type': 'object',
+      'properties': <String, Object?>{},
+    },
+  ),
+  AiToolDefinition(
+    name: 'KnowledgeRead',
+    description: 'Read local knowledge base chunks.',
     parameters: <String, Object?>{
       'type': 'object',
       'properties': <String, Object?>{},

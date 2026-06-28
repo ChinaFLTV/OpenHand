@@ -11,11 +11,6 @@ class AiBuiltinToolLazyLoadingApplier {
 
   static const int _deferredPreviewLimit = 80;
   static const int _deferredPreviewDescriptionChars = 140;
-  static const Set<AiBuiltinToolKind> _dynamicCatalogBuiltinKinds =
-      <AiBuiltinToolKind>{
-        AiBuiltinToolKind.knowledgeSearch,
-        AiBuiltinToolKind.knowledgeRead,
-      };
 
   static bool hasDeferredCandidates({
     required AiResolvedToolCatalog catalog,
@@ -25,12 +20,6 @@ class AiBuiltinToolLazyLoadingApplier {
     Set<String> alreadyLoadedNames = const <String>{},
   }) {
     if (_findToolSearchEntry(catalog) == null) return false;
-    if (_hasDynamicCatalogBuiltinEntries(
-      catalog,
-      alreadyLoadedNames: alreadyLoadedNames,
-    )) {
-      return true;
-    }
     return _shouldDeferAllEligible(
       catalog,
       mode: mode,
@@ -61,18 +50,13 @@ class AiBuiltinToolLazyLoadingApplier {
       charsPerToken: charsPerToken,
       alreadyLoadedNames: alreadyLoadedNames,
     );
-    if (!deferAllEligible &&
-        !_hasDynamicCatalogBuiltinEntries(
-          catalog,
-          alreadyLoadedNames: alreadyLoadedNames,
-        )) {
+    if (!deferAllEligible) {
       return catalog;
     }
 
     final deferredEntries = _deferredBuiltinEntries(
       catalog,
       alreadyLoadedNames: alreadyLoadedNames,
-      dynamicOnly: !deferAllEligible,
     );
     if (deferredEntries.isEmpty) {
       return catalog;
@@ -136,9 +120,7 @@ class AiBuiltinToolLazyLoadingApplier {
       toolsByName: Map<String, AiResolvedTool>.fromEntries(keptEntries),
       notices: <String>[
         ...catalog.notices,
-        deferAllEligible
-            ? 'Built-in tool lazy loading active: ${deferredEntries.length} built-in tool(s) deferred. Use ToolSearch to load them on demand.'
-            : 'Dynamic built-in tool catalog active: ${deferredEntries.length} cache-stable tool(s) deferred. Use ToolSearch to load them on demand.',
+        'Built-in tool lazy loading active: ${deferredEntries.length} built-in tool(s) deferred. Use ToolSearch to load them on demand.',
       ],
       mcpServerInstructionsByName: catalog.mcpServerInstructionsByName,
     );
@@ -172,7 +154,6 @@ class AiBuiltinToolLazyLoadingApplier {
     final deferredEntries = _deferredBuiltinEntries(
       catalog,
       alreadyLoadedNames: alreadyLoadedNames,
-      dynamicOnly: false,
     );
     if (deferredEntries.isEmpty) {
       return false;
@@ -187,21 +168,9 @@ class AiBuiltinToolLazyLoadingApplier {
         math.max(1, thresholdTokens);
   }
 
-  static bool _hasDynamicCatalogBuiltinEntries(
-    AiResolvedToolCatalog catalog, {
-    required Set<String> alreadyLoadedNames,
-  }) {
-    return _deferredBuiltinEntries(
-      catalog,
-      alreadyLoadedNames: alreadyLoadedNames,
-      dynamicOnly: true,
-    ).isNotEmpty;
-  }
-
   static List<MapEntry<String, AiResolvedTool>> _deferredBuiltinEntries(
     AiResolvedToolCatalog catalog, {
     required Set<String> alreadyLoadedNames,
-    required bool dynamicOnly,
   }) {
     final entries = catalog.toolsByName.entries
         .where((entry) {
@@ -211,19 +180,10 @@ class AiBuiltinToolLazyLoadingApplier {
               tool.builtinKind == AiBuiltinToolKind.toolSearch) {
             return false;
           }
-          final dynamicCatalogBuiltin = _dynamicCatalogBuiltinKinds.contains(
-            tool.builtinKind,
-          );
-          if (dynamicOnly && !dynamicCatalogBuiltin) {
-            return false;
-          }
           if (alreadyLoadedNames.contains(entry.key) ||
               alreadyLoadedNames.contains(tool.name) ||
               alreadyLoadedNames.contains(tool.definition.name)) {
             return false;
-          }
-          if (dynamicCatalogBuiltin) {
-            return true;
           }
           final config = tool.builtinConfig;
           final forceLoad =

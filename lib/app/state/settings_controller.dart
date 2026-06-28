@@ -2989,8 +2989,8 @@ class SettingsController extends ChangeNotifier {
     if (!_knowledgeBuiltinToolKinds.contains(config.kind)) return config;
     return config.copyWith(
       enabled: enabled,
-      loadStrategy: AiBuiltinToolLoadStrategy.deferred,
-      forceLoad: false,
+      loadStrategy: AiBuiltinToolLoadStrategy.eager,
+      forceLoad: true,
     );
   }
 
