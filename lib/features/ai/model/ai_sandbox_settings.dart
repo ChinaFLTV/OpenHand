@@ -20,12 +20,12 @@ enum AiSandboxFileAccessMode {
 class AiSandboxPatternRule {
   factory AiSandboxPatternRule.fromJson(Map<String, Object?> json) {
     return AiSandboxPatternRule(
-      id: '${json['id'] ?? ''}'.trim(),
-      pattern: '${json['pattern'] ?? ''}',
+      id: stringFromValue(json['id']),
+      pattern: stringFromValue(json['pattern']),
       matchMode: AiDenyCommandMatchMode.fromStorage(
-        '${json['match_mode'] ?? ''}',
+        stringFromValue(json['match_mode']),
       ),
-      note: '${json['note'] ?? ''}',
+      note: stringFromValue(json['note']),
     );
   }
 
@@ -84,15 +84,15 @@ class AiSandboxPatternRule {
 class AiSandboxFileRule {
   factory AiSandboxFileRule.fromJson(Map<String, Object?> json) {
     return AiSandboxFileRule(
-      id: '${json['id'] ?? ''}'.trim(),
-      path: '${json['path'] ?? ''}',
+      id: stringFromValue(json['id']),
+      path: stringFromValue(json['path']),
       accessMode: AiSandboxFileAccessMode.fromStorage(
-        '${json['access_mode'] ?? ''}',
+        stringFromValue(json['access_mode']),
       ),
       matchMode: AiDenyCommandMatchMode.fromStorage(
-        '${json['match_mode'] ?? ''}',
+        stringFromValue(json['match_mode']),
       ),
-      note: '${json['note'] ?? ''}',
+      note: stringFromValue(json['note']),
     );
   }
 
@@ -163,29 +163,34 @@ class AiSandboxSettings {
     );
   }
 
-  factory AiSandboxSettings.fromJson(Map<String, Object?> json) {
+  factory AiSandboxSettings.fromJson(Object? raw) {
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) return AiSandboxSettings.defaults();
     return AiSandboxSettings(
-      enabled: json['enabled'] == true,
-      failIfUnavailable: json['fail_if_unavailable'] is bool
-          ? json['fail_if_unavailable'] as bool
-          : true,
-      allowUnsandboxedCommands: json['allow_unsandboxed_commands'] is bool
-          ? json['allow_unsandboxed_commands'] as bool
-          : false,
-      autoAllowBashIfSandboxed: json['auto_allow_bash_if_sandboxed'] is bool
-          ? json['auto_allow_bash_if_sandboxed'] as bool
-          : false,
-      sandboxedBuiltinTools: _readStringList(json['sandboxed_builtin_tools']),
+      enabled: boolFromValue(json['enabled']),
+      failIfUnavailable: boolFromValue(
+        json['fail_if_unavailable'],
+        defaultValue: true,
+      ),
+      allowUnsandboxedCommands: boolFromValue(
+        json['allow_unsandboxed_commands'],
+      ),
+      autoAllowBashIfSandboxed: boolFromValue(
+        json['auto_allow_bash_if_sandboxed'],
+      ),
+      sandboxedBuiltinTools: _readUniqueStringList(
+        json['sandboxed_builtin_tools'],
+      ),
       filesystemRules: _readFileRules(json['filesystem_rules']),
       excludedCommands: _readPatternRules(json['excluded_commands']),
       allowedDomains: _readPatternRules(json['allowed_domains']),
       deniedDomains: _readPatternRules(json['denied_domains']),
       httpProxyPort: _normalizePort(json['http_proxy_port']),
       socksProxyPort: _normalizePort(json['socks_proxy_port']),
-      allowNetworkWhenNoDomainRules:
-          json['allow_network_when_no_domain_rules'] is bool
-          ? json['allow_network_when_no_domain_rules'] as bool
-          : true,
+      allowNetworkWhenNoDomainRules: boolFromValue(
+        json['allow_network_when_no_domain_rules'],
+        defaultValue: true,
+      ),
     );
   }
 
@@ -294,39 +299,26 @@ class AiSandboxSettings {
     };
   }
 
-  static List<String> _readStringList(Object? value) {
-    if (value is! List) return const <String>[];
-    return value
-        .map((item) => '$item'.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+  static List<String> _readUniqueStringList(Object? value) {
+    return stringListFromValueOrJsonText(value).toSet().toList(growable: false);
   }
 
   static List<AiSandboxFileRule> _readFileRules(Object? value) {
-    if (value is! List) return AiSandboxSettings.defaults().filesystemRules;
+    final items = stringKeyedMapListFromValueOrJsonText(value);
+    if (items.isEmpty) return AiSandboxSettings.defaults().filesystemRules;
     final rules = <AiSandboxFileRule>[];
-    for (final item in value) {
-      if (item is Map) {
-        final rule = AiSandboxFileRule.fromJson(
-          Map<String, Object?>.from(item),
-        );
-        if (rule.path.trim().isNotEmpty) rules.add(rule);
-      }
+    for (final item in items) {
+      final rule = AiSandboxFileRule.fromJson(item);
+      if (rule.path.trim().isNotEmpty) rules.add(rule);
     }
     return rules.isEmpty ? AiSandboxSettings.defaults().filesystemRules : rules;
   }
 
   static List<AiSandboxPatternRule> _readPatternRules(Object? value) {
-    if (value is! List) return const <AiSandboxPatternRule>[];
     final rules = <AiSandboxPatternRule>[];
-    for (final item in value) {
-      if (item is Map) {
-        final rule = AiSandboxPatternRule.fromJson(
-          Map<String, Object?>.from(item),
-        );
-        if (rule.pattern.trim().isNotEmpty) rules.add(rule);
-      }
+    for (final item in stringKeyedMapListFromValueOrJsonText(value)) {
+      final rule = AiSandboxPatternRule.fromJson(item);
+      if (rule.pattern.trim().isNotEmpty) rules.add(rule);
     }
     return rules;
   }

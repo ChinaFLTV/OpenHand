@@ -101,6 +101,29 @@ void main() {
       expect(optionalStringKeyedMapFromValueOrJsonText('[1, 2]'), isNull);
       expect(optionalStringKeyedMapFromValueOrJsonText(42), isNull);
     });
+
+    test('parses map list values or JSON text through one entrypoint', () {
+      expect(
+        stringKeyedMapListFromValueOrJsonText(<Object?>[
+          <Object?, Object?>{1: 'one'},
+          'ignored',
+          <String, Object?>{'two': 2},
+        ]),
+        <Map<String, Object?>>[
+          <String, Object?>{'1': 'one'},
+          <String, Object?>{'two': 2},
+        ],
+      );
+      expect(
+        stringKeyedMapListFromValueOrJsonText('[{"one": 1}, {"two": 2}]'),
+        <Map<String, Object?>>[
+          <String, Object?>{'one': 1},
+          <String, Object?>{'two': 2},
+        ],
+      );
+      expect(optionalStringKeyedMapListFromValueOrJsonText('not-json'), isNull);
+      expect(optionalStringKeyedMapListFromValueOrJsonText(42), isNull);
+    });
   });
 
   group('numeric fallback parsing', () {

@@ -124,6 +124,28 @@ List<Map<String, Object?>> stringKeyedMapListFromValue(Object? value) {
   return out;
 }
 
+List<Map<String, Object?>> stringKeyedMapListFromValueOrJsonText(
+  Object? value,
+) {
+  return optionalStringKeyedMapListFromValueOrJsonText(value) ??
+      const <Map<String, Object?>>[];
+}
+
+List<Map<String, Object?>>? optionalStringKeyedMapListFromValueOrJsonText(
+  Object? value,
+) {
+  if (value is List) return stringKeyedMapListFromValue(value);
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return const <Map<String, Object?>>[];
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is List) return stringKeyedMapListFromValue(decoded);
+    } catch (_) {}
+  }
+  return null;
+}
+
 Map<String, Object?> stringKeyedMapFromJsonText(String value) {
   return optionalStringKeyedMapFromJsonText(value) ?? const <String, Object?>{};
 }

@@ -751,11 +751,7 @@ class SettingsStore {
     }
 
     final rawSandboxSettings = json['ai_sandbox'];
-    final aiSandboxSettings = rawSandboxSettings is Map
-        ? AiSandboxSettings.fromJson(
-            Map<String, Object?>.from(rawSandboxSettings),
-          )
-        : AiSandboxSettings.defaults();
+    final aiSandboxSettings = AiSandboxSettings.fromJson(rawSandboxSettings);
 
     // Session timeout settings.
     final aiConnectTimeoutSeconds = clampedIntFromValue(
