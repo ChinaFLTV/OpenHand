@@ -455,6 +455,18 @@ class AiToolUtils {
     return optionalBoolFromValue(value);
   }
 
+  static List<Object?>? readList(Object? value) {
+    if (value is List<Object?>) return value;
+    if (value is List) return value.cast<Object?>().toList(growable: false);
+    if (value is String) {
+      final decoded = _tryDecodeJson(value.trim());
+      if (decoded is List) {
+        return decoded.cast<Object?>().toList(growable: false);
+      }
+    }
+    return null;
+  }
+
   static List<String> normalizeStringList(Object? value) {
     return stringListFromValueOrJsonText(value)
         .map((item) => item.trim().toLowerCase())

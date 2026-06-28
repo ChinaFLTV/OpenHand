@@ -119,8 +119,8 @@ class AiAskUserChoiceTool extends AiTool {
     final description = args['description'] is String
         ? (args['description'] as String).trim()
         : null;
-    final optionsRaw = args['options'];
-    if (optionsRaw is! List || optionsRaw.isEmpty) {
+    final optionsRaw = AiToolUtils.readList(args['options']);
+    if (optionsRaw == null || optionsRaw.isEmpty) {
       return AiToolUtils.invalidResult(
         commandName,
         '$commandName requires a non-empty "options" array.',
@@ -338,8 +338,8 @@ class AiAskUserChoiceTool extends AiTool {
       }
     }
 
-    final questionsRaw = args['questions'];
-    if (questionsRaw is! List) {
+    final questionsRaw = AiToolUtils.readList(args['questions']);
+    if (questionsRaw == null) {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,
@@ -467,13 +467,7 @@ class AiAskUserChoiceTool extends AiTool {
 
   static bool? _optionalBool(Object? raw) {
     if (raw == null) return false;
-    if (raw is bool) return raw;
-    if (raw is String) {
-      final normalized = raw.trim().toLowerCase();
-      if (normalized == 'true') return true;
-      if (normalized == 'false') return false;
-    }
-    return null;
+    return AiToolUtils.readBool(raw);
   }
 
   static bool _looksLikePlanApprovalQuestion({

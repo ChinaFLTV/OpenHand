@@ -31,8 +31,8 @@ class AiTodoWriteTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final todos = args['todos'];
-    if (todos is! List) {
+    final todos = AiToolUtils.readList(args['todos']);
+    if (todos == null) {
       return AiToolUtils.invalidResult(
         'TodoWrite',
         'TodoWrite requires a todos array.',

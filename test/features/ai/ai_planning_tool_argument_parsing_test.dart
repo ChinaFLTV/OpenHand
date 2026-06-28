@@ -52,6 +52,29 @@ void main() {
       expect(result.status, BashToolExecutionStatus.invalidArguments);
       expect(result.stderr, contains('Each todo must be an object'));
     });
+
+    test('accepts todo arrays encoded as JSON text', () async {
+      final result = await AiTodoWriteTool().execute(
+        _toolContext(
+          name: 'TodoWrite',
+          arguments: <String, Object?>{
+            'todos': jsonEncode(<Object?>[
+              <String, Object?>{
+                'content': 'ship parser fallback',
+                'status': 'in_progress',
+              },
+            ]),
+          },
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final todoItems = stringKeyedMapListFromValue(
+        result.metadata['todo_items'],
+      );
+      expect(todoItems.single['content'], 'ship parser fallback');
+      expect(todoItems.single['status'], 'in_progress');
+    });
   });
 
   group('AiAskUserChoiceTool argument parsing', () {
@@ -104,11 +127,11 @@ void main() {
         _toolContext(
           name: 'AskUserQuestion',
           arguments: <String, Object?>{
-            'questions': <Object?>[
+            'questions': jsonEncode(<Object?>[
               <Object?, Object?>{
                 'question': 'Choose',
                 'header': 'Short',
-                'multiSelect': 'false',
+                'multiSelect': 0,
                 'options': <Object?>[
                   <Object?, Object?>{
                     'label': 'One',
@@ -117,7 +140,7 @@ void main() {
                   <Object?, Object?>{'label': 'Two'},
                 ],
               },
-            ],
+            ]),
           },
         ),
       );
