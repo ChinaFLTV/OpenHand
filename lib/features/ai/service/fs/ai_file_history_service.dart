@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/rolling_hash.dart';
 
 /// 文件编辑历史版本服务
@@ -125,8 +126,8 @@ class AiFileHistoryService {
         if (entity is File && entity.path.endsWith('.meta.json')) {
           try {
             final metaContent = await entity.readAsString();
-            final meta = jsonDecode(metaContent) as Map<String, Object?>;
-            versions.add(FileVersionInfo.fromJson(meta));
+            final info = _decodeVersionInfo(metaContent);
+            if (info != null) versions.add(info);
           } catch (_) {
             // 跳过损坏的元数据文件
           }
@@ -266,8 +267,7 @@ class AiFileHistoryService {
       if (await metaFile.exists()) {
         try {
           final metaContent = await metaFile.readAsString();
-          final meta = jsonDecode(metaContent) as Map<String, Object?>;
-          metadata = FileVersionInfo.fromJson(meta);
+          metadata = _decodeVersionInfo(metaContent);
         } catch (error, stack) {
           silentLog(
             'ai_file_history_service',
@@ -294,17 +294,14 @@ class AiFileHistoryService {
           if (file is! File || !file.path.endsWith('.meta.json')) continue;
           try {
             final content = await file.readAsString();
-            final meta = jsonDecode(content) as Map<String, Object?>;
-            if (meta['session_id'] == sessionId) {
-              final versionId = meta['version_id'] as String?;
-              if (versionId != null) {
-                await file.delete();
-                final contentFile = File(
-                  p.join(pathDir.path, '$versionId.content'),
-                );
-                if (await contentFile.exists()) {
-                  await contentFile.delete();
-                }
+            final info = _decodeVersionInfo(content);
+            if (info?.sessionId == sessionId) {
+              await file.delete();
+              final contentFile = File(
+                p.join(pathDir.path, '${info!.versionId}.content'),
+              );
+              if (await contentFile.exists()) {
+                await contentFile.delete();
               }
             }
           } catch (error, stack) {
@@ -341,14 +338,12 @@ class FileVersionInfo {
 
   factory FileVersionInfo.fromJson(Map<String, Object?> json) {
     return FileVersionInfo(
-      versionId: json['version_id'] as String? ?? '',
-      filePath: json['file_path'] as String? ?? '',
-      sessionId: json['session_id'] as String? ?? '',
-      createdAt:
-          DateTime.tryParse(json['created_at'] as String? ?? '') ??
-          DateTime.now(),
-      toolCallId: json['tool_call_id'] as String?,
-      fileSizeBytes: json['file_size_bytes'] as int?,
+      versionId: nullIfBlank(json['version_id']?.toString()) ?? '',
+      filePath: nullIfBlank(json['file_path']?.toString()) ?? '',
+      sessionId: nullIfBlank(json['session_id']?.toString()) ?? '',
+      createdAt: dateTimeFromValue(json['created_at']) ?? DateTime.now(),
+      toolCallId: nullIfBlank(json['tool_call_id']?.toString()),
+      fileSizeBytes: optionalNonNegativeIntFromValue(json['file_size_bytes']),
     );
   }
 
@@ -358,6 +353,13 @@ class FileVersionInfo {
   final DateTime createdAt;
   final String? toolCallId;
   final int? fileSizeBytes;
+}
+
+FileVersionInfo? _decodeVersionInfo(String content) {
+  final decoded = jsonDecode(content);
+  if (decoded is! Map) return null;
+  final info = FileVersionInfo.fromJson(stringKeyedMapFromValue(decoded));
+  return info.versionId.isEmpty ? null : info;
 }
 
 /// 回滚结果
