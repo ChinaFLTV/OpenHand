@@ -15,9 +15,9 @@ enum AiTranslationProvider {
   final String storageKey;
 
   static AiTranslationProvider fromStorageKey(Object? value) {
-    if (value is! String) return AiTranslationProvider.ai;
+    final storageKey = stringFromValue(value);
     return AiTranslationProvider.values.firstWhere(
-      (provider) => provider.storageKey == value,
+      (provider) => provider.storageKey == storageKey,
       orElse: () => AiTranslationProvider.ai,
     );
   }
@@ -152,19 +152,19 @@ class AiTranslationProviderSettings {
     required AiTranslationProvider provider,
   }) {
     final defaults = AiTranslationProviderSettings.defaults(provider);
-    if (raw is! Map) return defaults;
-    final json = stringKeyedMapFromValue(raw);
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) return defaults;
     return defaults
         .copyWith(
-          enabled: json['enabled'] is bool ? json['enabled'] as bool : null,
-          endpoint: _stringOrNull(json['endpoint']),
-          appId: _stringOrNull(json['app_id']),
-          apiKey: _stringOrNull(json['api_key']),
-          apiSecret: _stringOrNull(json['api_secret']),
-          accessToken: _stringOrNull(json['access_token']),
-          region: _stringOrNull(json['region']),
-          modelConfigId: _stringOrNull(json['model_config_id']),
-          modelId: _stringOrNull(json['model_id']),
+          enabled: optionalBoolFromValue(json['enabled']),
+          endpoint: optionalStringFromValue(json['endpoint']),
+          appId: optionalStringFromValue(json['app_id']),
+          apiKey: optionalStringFromValue(json['api_key']),
+          apiSecret: optionalStringFromValue(json['api_secret']),
+          accessToken: optionalStringFromValue(json['access_token']),
+          region: optionalStringFromValue(json['region']),
+          modelConfigId: optionalStringFromValue(json['model_config_id']),
+          modelId: optionalStringFromValue(json['model_id']),
           extra: json['extra'] is Map
               ? stringKeyedMapFromValue(json['extra'])
               : null,
@@ -269,8 +269,8 @@ class AiTranslationSettings {
 
   factory AiTranslationSettings.fromJson(Object? raw) {
     final defaults = AiTranslationSettings.defaults();
-    if (raw is! Map) return defaults;
-    final json = stringKeyedMapFromValue(raw);
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) return defaults;
     final rawProviders = json['providers'];
     final providers = <AiTranslationProvider, AiTranslationProviderSettings>{
       for (final provider in AiTranslationProvider.values)
@@ -280,23 +280,30 @@ class AiTranslationSettings {
         ),
     };
     final rawPriority = json['provider_priority'];
-    final priority = rawPriority is List
+    final rawPriorityValues = stringListFromValue(rawPriority);
+    final priority = rawPriorityValues.isNotEmpty
         ? _uniqueProviders(
-            rawPriority.map(AiTranslationProvider.fromStorageKey),
+            rawPriorityValues.map(AiTranslationProvider.fromStorageKey),
           )
         : defaultProviderPriority;
     return AiTranslationSettings(
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : false,
+      enabled: boolFromValue(json['enabled']),
       sourceLanguage:
-          _normalizeLanguage(_stringOrNull(json['source_language'])) ??
+          _normalizeLanguage(
+            optionalStringFromValue(json['source_language']),
+          ) ??
           defaultSourceLanguage,
       targetLanguage:
-          _normalizeLanguage(_stringOrNull(json['target_language'])) ??
+          _normalizeLanguage(
+            optionalStringFromValue(json['target_language']),
+          ) ??
           defaultTargetLanguage,
       timeoutSeconds:
-          _intOrNull(json['timeout_seconds']) ?? defaultTimeoutSeconds,
+          optionalIntFromValue(json['timeout_seconds']) ??
+          defaultTimeoutSeconds,
       maxTextCharacters:
-          _intOrNull(json['max_text_characters']) ?? defaultMaxTextCharacters,
+          optionalIntFromValue(json['max_text_characters']) ??
+          defaultMaxTextCharacters,
       providers: providers,
       providerPriority: _normalizePriority(priority),
     ).normalized();
@@ -469,10 +476,4 @@ String? _normalizeLanguage(String? value) {
     if (language.toLowerCase() == trimmed.toLowerCase()) return language;
   }
   return null;
-}
-
-String? _stringOrNull(Object? value) => value is String ? value : null;
-
-int? _intOrNull(Object? value) {
-  return optionalIntFromValue(value);
 }

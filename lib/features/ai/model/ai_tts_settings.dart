@@ -17,9 +17,9 @@ enum AiTtsProvider {
   final String storageKey;
 
   static AiTtsProvider fromStorageKey(Object? value) {
-    if (value is! String) return AiTtsProvider.system;
+    final storageKey = stringFromValue(value);
     return AiTtsProvider.values.firstWhere(
-      (provider) => provider.storageKey == value,
+      (provider) => provider.storageKey == storageKey,
       orElse: () => AiTtsProvider.system,
     );
   }
@@ -265,24 +265,24 @@ class AiTtsProviderSettings {
     required AiTtsProvider provider,
   }) {
     final defaults = AiTtsProviderSettings.defaults(provider);
-    if (raw is! Map) return defaults;
-    final json = stringKeyedMapFromValue(raw);
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) return defaults;
     return defaults
         .copyWith(
-          enabled: json['enabled'] is bool ? json['enabled'] as bool : null,
-          voice: _stringOrNull(json['voice']),
-          language: _stringOrNull(json['language']),
-          speed: _doubleOrNull(json['speed']),
-          volume: _doubleOrNull(json['volume']),
-          pitch: _doubleOrNull(json['pitch']),
-          endpoint: _stringOrNull(json['endpoint']),
-          appId: _stringOrNull(json['app_id']),
-          apiKey: _stringOrNull(json['api_key']),
-          apiSecret: _stringOrNull(json['api_secret']),
-          accessToken: _stringOrNull(json['access_token']),
-          region: _stringOrNull(json['region']),
-          modelConfigId: _stringOrNull(json['model_config_id']),
-          modelId: _stringOrNull(json['model_id']),
+          enabled: optionalBoolFromValue(json['enabled']),
+          voice: optionalStringFromValue(json['voice']),
+          language: optionalStringFromValue(json['language']),
+          speed: optionalDoubleFromValue(json['speed']),
+          volume: optionalDoubleFromValue(json['volume']),
+          pitch: optionalDoubleFromValue(json['pitch']),
+          endpoint: optionalStringFromValue(json['endpoint']),
+          appId: optionalStringFromValue(json['app_id']),
+          apiKey: optionalStringFromValue(json['api_key']),
+          apiSecret: optionalStringFromValue(json['api_secret']),
+          accessToken: optionalStringFromValue(json['access_token']),
+          region: optionalStringFromValue(json['region']),
+          modelConfigId: optionalStringFromValue(json['model_config_id']),
+          modelId: optionalStringFromValue(json['model_id']),
           extra: json['extra'] is Map
               ? stringKeyedMapFromValue(json['extra'])
               : null,
@@ -413,8 +413,8 @@ class AiTtsSettings {
 
   factory AiTtsSettings.fromJson(Object? raw) {
     final defaults = AiTtsSettings.defaults();
-    if (raw is! Map) return defaults;
-    final json = stringKeyedMapFromValue(raw);
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) return defaults;
     final rawProviders = json['providers'];
     final providers = <AiTtsProvider, AiTtsProviderSettings>{
       for (final provider in AiTtsProvider.values)
@@ -424,15 +424,18 @@ class AiTtsSettings {
         ),
     };
     final rawPriority = json['provider_priority'];
-    final priority = rawPriority is List
-        ? _uniqueProviders(rawPriority.map(AiTtsProvider.fromStorageKey))
+    final rawPriorityValues = stringListFromValue(rawPriority);
+    final priority = rawPriorityValues.isNotEmpty
+        ? _uniqueProviders(rawPriorityValues.map(AiTtsProvider.fromStorageKey))
         : defaultProviderPriority;
     return AiTtsSettings(
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : false,
+      enabled: boolFromValue(json['enabled']),
       timeoutSeconds:
-          _intOrNull(json['timeout_seconds']) ?? defaultTimeoutSeconds,
+          optionalIntFromValue(json['timeout_seconds']) ??
+          defaultTimeoutSeconds,
       maxTextCharacters:
-          _intOrNull(json['max_text_characters']) ?? defaultMaxTextCharacters,
+          optionalIntFromValue(json['max_text_characters']) ??
+          defaultMaxTextCharacters,
       providers: providers,
       providerPriority: _normalizePriority(priority),
     ).normalized();
@@ -542,14 +545,4 @@ List<AiTtsProvider> _uniqueProviders(Iterable<AiTtsProvider> providers) {
     if (seen.add(provider)) result.add(provider);
   }
   return result;
-}
-
-String? _stringOrNull(Object? value) => value is String ? value : null;
-
-double? _doubleOrNull(Object? value) {
-  return optionalDoubleFromValue(value);
-}
-
-int? _intOrNull(Object? value) {
-  return optionalIntFromValue(value);
 }
