@@ -2213,9 +2213,15 @@ class AiToolRuntimeService {
             'type': 'string',
             'description': 'Working directory. Alias for working_directory.',
           },
-          'timeout': <String, Object?>{'type': 'integer'},
+          'timeout': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 600000,
+          },
           'timeout_ms': <String, Object?>{
             'type': 'integer',
+            'minimum': 1,
+            'maximum': 600000,
             'description': 'Timeout in milliseconds. Alias for timeout.',
           },
           'description': <String, Object?>{

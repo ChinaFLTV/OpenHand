@@ -55,7 +55,8 @@ class AiBashTool extends AiTool {
         AiToolUtils.readInt(args['timeout_ms']) ??
         AiBashToolService.defaultTimeoutMs;
     if (timeoutMs <= 0 || timeoutMs > 600000) {
-      throw ArgumentError(
+      return AiToolUtils.invalidResult(
+        'Bash',
         'Bash timeout must be between 1 and 600000 milliseconds.',
       );
     }
