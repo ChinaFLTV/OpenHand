@@ -7,6 +7,7 @@ const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
 const double _aiTtsDragHandleSize = 34;
 const double _aiTtsCardActionSize = 40;
 const double _aiTtsDragFeedbackMaxHeight = 240;
+const int _aiTtsMimoDefaultSampleRate = 24000;
 const double _settingsStandardFieldWidth = 360;
 const String _translationSettingsTestText = 'Hello, OpenHand.';
 const bool _settingsProviderCardDefaultExpanded = false;
@@ -2016,10 +2017,14 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                     zh: 'PCM 采样率',
                     en: 'PCM Sample Rate',
                   ),
-                  value: '${providerSettings.extra['sample_rate'] ?? 24000}',
+                  value:
+                      '${providerSettings.extra['sample_rate'] ?? _aiTtsMimoDefaultSampleRate}',
                   onSubmitted: (value) => _updateExtra(
                     'sample_rate',
-                    int.tryParse(value.trim()) ?? 24000,
+                    positiveIntFromText(
+                      value,
+                      fallback: _aiTtsMimoDefaultSampleRate,
+                    ),
                   ),
                 ),
               ],

@@ -4790,10 +4790,8 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final trimmed = rawValue.trim();
-    final parsed = trimmed.isEmpty ? 0.0 : double.tryParse(trimmed);
+    final parsed = trimmed.isEmpty ? 0.0 : optionalDoubleFromText(trimmed);
     if (parsed == null ||
-        parsed.isNaN ||
-        !parsed.isFinite ||
         parsed < AppSettingsSnapshot.minAiBudgetUsdPerSession ||
         parsed > AppSettingsSnapshot.maxAiBudgetUsdPerSession) {
       _showSnackBar(
