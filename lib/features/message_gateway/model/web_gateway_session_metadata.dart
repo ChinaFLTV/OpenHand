@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'web_message_platform_config.dart';
 
 /// 强类型 Web 端登录上下文。
@@ -50,11 +51,7 @@ class WebGatewaySessionMetadata {
     json.forEach((key, value) {
       if (!reserved.contains(key)) extras[key] = value;
     });
-    final loginAtRaw = json['login_at'];
-    DateTime? loginAt;
-    if (loginAtRaw is String && loginAtRaw.isNotEmpty) {
-      loginAt = DateTime.tryParse(loginAtRaw);
-    }
+    final loginAt = dateTimeFromValue(json['login_at'])?.toUtc();
     return WebGatewaySessionMetadata(
       loginSource: WebGatewayLoginSource.fromStorage(
         json[webGatewayLoginSourceKey]?.toString(),
@@ -174,7 +171,7 @@ class WebGatewaySessionMetadata {
   ) {
     final raw = sessionMetadata[webGatewayMetadataKey];
     if (raw is Map) {
-      return WebGatewaySessionMetadata.fromJson(Map<String, Object?>.from(raw));
+      return WebGatewaySessionMetadata.fromJson(stringKeyedMapFromValue(raw));
     }
     return null;
   }
@@ -214,7 +211,7 @@ Map<String, Object?> buildLegacyWebGatewayRequestMetadata({
       'request_id': requestId,
       'request_method': requestMethod,
       'request_path': requestPath,
-      'captured_at': (capturedAt ?? DateTime.now().toUtc()).toIso8601String(),
+      'captured_at': (capturedAt ?? DateTime.now()).toUtc().toIso8601String(),
     },
   };
 }
