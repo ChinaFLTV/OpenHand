@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiDenyCommandMatchMode {
   regex('regex'),
   simple('simple');
@@ -15,14 +17,15 @@ enum AiDenyCommandMatchMode {
 }
 
 class AiDenyCommandRule {
-  factory AiDenyCommandRule.fromJson(Map<String, Object?> json) {
+  factory AiDenyCommandRule.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiDenyCommandRule(
-      id: '${json['id'] ?? ''}'.trim(),
-      pattern: '${json['pattern'] ?? ''}',
+      id: stringFromValue(json['id']),
+      pattern: stringFromValue(json['pattern']),
       matchMode: AiDenyCommandMatchMode.fromStorage(
-        '${json['match_mode'] ?? ''}',
+        stringFromValue(json['match_mode']),
       ),
-      note: '${json['note'] ?? ''}',
+      note: stringFromValue(json['note']),
     );
   }
   const AiDenyCommandRule({

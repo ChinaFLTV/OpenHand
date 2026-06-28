@@ -1,14 +1,16 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_deny_command_rule.dart';
 
 class AiAllowCommandRule {
-  factory AiAllowCommandRule.fromJson(Map<String, Object?> json) {
+  factory AiAllowCommandRule.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiAllowCommandRule(
-      id: '${json['id'] ?? ''}'.trim(),
-      pattern: '${json['pattern'] ?? ''}',
+      id: stringFromValue(json['id']),
+      pattern: stringFromValue(json['pattern']),
       matchMode: AiDenyCommandMatchMode.fromStorage(
-        '${json['match_mode'] ?? ''}',
+        stringFromValue(json['match_mode']),
       ),
-      note: '${json['note'] ?? ''}',
+      note: stringFromValue(json['note']),
     );
   }
   const AiAllowCommandRule({

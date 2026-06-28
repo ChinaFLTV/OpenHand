@@ -706,49 +706,16 @@ class SettingsStore {
         ? json['ai_write_command_confirmation_enabled'] as bool
         : true;
 
-    // Allow command rules.
-    final rawAllowRules = json['ai_allow_command_rules'];
-    final aiAllowCommandRules = <AiAllowCommandRule>[];
-    if (rawAllowRules is List) {
-      for (final item in rawAllowRules) {
-        if (item is Map) {
-          try {
-            aiAllowCommandRules.add(
-              AiAllowCommandRule.fromJson(Map<String, Object?>.from(item)),
-            );
-          } catch (error, stack) {
-            silentLog(
-              'settings_store',
-              'parse ai_allow_command_rules entry',
-              error,
-              stack,
-            );
-          }
-        }
-      }
-    }
-
-    // Deny command rules.
-    final rawDenyRules = json['ai_deny_command_rules'];
-    final aiDenyCommandRules = <AiDenyCommandRule>[];
-    if (rawDenyRules is List) {
-      for (final item in rawDenyRules) {
-        if (item is Map) {
-          try {
-            aiDenyCommandRules.add(
-              AiDenyCommandRule.fromJson(Map<String, Object?>.from(item)),
-            );
-          } catch (error, stack) {
-            silentLog(
-              'settings_store',
-              'parse ai_deny_command_rules entry',
-              error,
-              stack,
-            );
-          }
-        }
-      }
-    }
+    final aiAllowCommandRules = _readSettingsObjectList(
+      json['ai_allow_command_rules'],
+      AiAllowCommandRule.fromJson,
+      'parse ai_allow_command_rules entry',
+    );
+    final aiDenyCommandRules = _readSettingsObjectList(
+      json['ai_deny_command_rules'],
+      AiDenyCommandRule.fromJson,
+      'parse ai_deny_command_rules entry',
+    );
 
     final rawSandboxSettings = json['ai_sandbox'];
     final aiSandboxSettings = AiSandboxSettings.fromJson(rawSandboxSettings);
@@ -1211,6 +1178,22 @@ class SettingsStore {
       maxConcurrentTools: maxConcurrentTools,
     );
   }
+}
+
+List<T> _readSettingsObjectList<T>(
+  Object? raw,
+  T Function(Object? raw) parse,
+  String logAction,
+) {
+  final out = <T>[];
+  for (final item in stringKeyedMapListFromValueOrJsonText(raw)) {
+    try {
+      out.add(parse(item));
+    } catch (error, stack) {
+      silentLog('settings_store', logAction, error, stack);
+    }
+  }
+  return out;
 }
 
 DialogAnimationSettings _dialogAnimationFromValue(
