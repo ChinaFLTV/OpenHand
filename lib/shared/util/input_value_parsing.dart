@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 String? nullIfBlank(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
@@ -50,6 +52,20 @@ List<Map<String, Object?>> stringKeyedMapListFromValue(Object? value) {
     }
   }
   return out;
+}
+
+Map<String, Object?> stringKeyedMapFromJsonText(String value) {
+  return optionalStringKeyedMapFromJsonText(value) ?? const <String, Object?>{};
+}
+
+Map<String, Object?>? optionalStringKeyedMapFromJsonText(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map) return stringKeyedMapFromValue(decoded);
+  } catch (_) {}
+  return null;
 }
 
 Map<String, String> keyValueMapFromValue(

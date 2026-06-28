@@ -77,6 +77,14 @@ void main() {
     expect(skipped, isEmpty);
     expect(requestBodies, isEmpty);
 
+    final skippedLimit = await store.search(
+      collectionName: 'docs',
+      vector: const <double>[0.1, 0.2],
+      limit: 0,
+    );
+    expect(skippedLimit, isEmpty);
+    expect(requestBodies, isEmpty);
+
     final hits = await store.search(
       collectionName: 'docs',
       vector: const <double>[0.1, 0.2],

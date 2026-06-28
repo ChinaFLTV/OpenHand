@@ -1,7 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
+
+const Duration _qdrantAdminConnectionTimeout = Duration(seconds: 5);
+
+List<Map<String, Object?>> qdrantCollectionsFromResponse(Object? response) {
+  final root = stringKeyedMapFromValue(response);
+  final result = stringKeyedMapFromValue(root['result']);
+  return stringKeyedMapListFromValue(result['collections']);
+}
 
 class QdrantAdminOperationLog {
   const QdrantAdminOperationLog({
@@ -24,13 +33,7 @@ class QdrantAdminService {
     KnowledgeBaseSettings settings,
   ) async {
     final json = await _request(settings, 'GET', '/collections');
-    final result = json['result'];
-    final collections = result is Map ? result['collections'] : null;
-    if (collections is! List) return const <Map<String, Object?>>[];
-    return collections
-        .whereType<Map>()
-        .map((item) => Map<String, Object?>.from(item))
-        .toList(growable: false);
+    return qdrantCollectionsFromResponse(json);
   }
 
   Future<Map<String, Object?>> collectionInfo(
@@ -174,7 +177,8 @@ class QdrantAdminService {
     Map<String, Object?>? body,
     String? action,
   }) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    final client = HttpClient()
+      ..connectionTimeout = _qdrantAdminConnectionTimeout;
     try {
       final request = await client.openUrl(
         method,
@@ -197,10 +201,7 @@ class QdrantAdminService {
         );
       }
       if (text.trim().isEmpty) return const <String, Object?>{};
-      final decoded = jsonDecode(text);
-      return decoded is Map
-          ? Map<String, Object?>.from(decoded)
-          : const <String, Object?>{};
+      return stringKeyedMapFromJsonText(text);
     } finally {
       client.close(force: true);
     }

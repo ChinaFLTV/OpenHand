@@ -657,16 +657,10 @@ class KnowledgeBaseSettings {
   static KnowledgeBaseSettings decode(String value) {
     if (value.trim().isEmpty) return const KnowledgeBaseSettings();
     try {
-      final decoded = jsonDecode(value);
-      if (decoded is Map) {
-        return KnowledgeBaseSettings.fromJson(
-          Map<String, Object?>.from(decoded),
-        );
-      }
+      return KnowledgeBaseSettings.fromJson(stringKeyedMapFromJsonText(value));
     } catch (_) {
       return const KnowledgeBaseSettings();
     }
-    return const KnowledgeBaseSettings();
   }
 
   static String _string(Object? value, [String fallback = '']) {

@@ -41,12 +41,12 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     );
     if (existing.statusCode == 200) {
       final decoded = _decode(existing.body);
-      final result = decoded['result'];
-      if (result is Map) {
-        final config = result['config'];
-        final params = config is Map ? config['params'] : null;
-        final vectors = params is Map ? params['vectors'] : null;
-        final size = vectors is Map ? vectors['size'] : null;
+      final result = stringKeyedMapFromValue(decoded['result']);
+      if (result.isNotEmpty) {
+        final config = stringKeyedMapFromValue(result['config']);
+        final params = stringKeyedMapFromValue(config['params']);
+        final vectors = stringKeyedMapFromValue(params['vectors']);
+        final size = vectors['size'];
         final vectorSize = optionalPositiveIntFromValue(size);
         if (vectorSize != null && vectorSize != dimensions) {
           throw StateError(
@@ -109,7 +109,9 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     double? scoreThreshold,
     Map<String, Object?>? filter,
   }) async {
-    if (vector.isEmpty || vector.any((value) => !value.isFinite)) {
+    if (limit <= 0 ||
+        vector.isEmpty ||
+        vector.any((value) => !value.isFinite)) {
       return const <KnowledgeVectorSearchHit>[];
     }
     final safeScoreThreshold = optionalDoubleFromValue(scoreThreshold);
@@ -127,17 +129,12 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     );
     final decoded = _decode(response.body);
     final result = decoded['result'];
-    if (result is! List) return const <KnowledgeVectorSearchHit>[];
-    return result
-        .whereType<Map>()
+    return stringKeyedMapListFromValue(result)
         .map((item) {
-          final payload = item['payload'];
           return KnowledgeVectorSearchHit(
             id: '${item['id'] ?? ''}',
             score: doubleFromValue(item['score'], fallback: 0),
-            payload: payload is Map
-                ? Map<String, Object?>.from(payload)
-                : const <String, Object?>{},
+            payload: stringKeyedMapFromValue(item['payload']),
           );
         })
         .where((hit) => hit.id.isNotEmpty)
@@ -216,9 +213,9 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   }
 
   Map<String, Object?> _decode(String body) {
-    final decoded = jsonDecode(body);
-    if (decoded is Map) return Map<String, Object?>.from(decoded);
-    return const <String, Object?>{};
+    final decoded = optionalStringKeyedMapFromJsonText(body);
+    if (decoded != null) return decoded;
+    throw const FormatException('Expected Qdrant JSON object response.');
   }
 
   String _qdrantDistance(String value) {

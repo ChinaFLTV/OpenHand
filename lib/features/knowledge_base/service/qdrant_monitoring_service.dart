@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../shared/util/input_value_parsing.dart';
 import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
+
+const Duration _qdrantMonitoringConnectionTimeout = Duration(seconds: 3);
 
 class QdrantMonitoringSnapshot {
   const QdrantMonitoringSnapshot({
@@ -40,9 +43,7 @@ class QdrantMonitoringService {
     );
     final clusterInfo = await _get(settings, '$collectionPath/cluster');
     final telemetry = await _get(settings, '/telemetry');
-    final payloadSchema =
-        _object(collectionResult['payload_schema']) ??
-        _object(collectionResult['payload_schema'.toString()]);
+    final payloadSchema = _object(collectionResult['payload_schema']);
     final config = _object(collectionResult['config']);
     final params = _object(config?['params']);
     final vectors = _object(params?['vectors']);
@@ -177,7 +178,7 @@ class QdrantMonitoringService {
 
   static Map<String, Object?>? _object(Object? value) {
     if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
+    if (value is Map) return stringKeyedMapFromValue(value);
     return null;
   }
 
@@ -185,23 +186,7 @@ class QdrantMonitoringService {
     KnowledgeBaseSettings settings,
     String path,
   ) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
-    try {
-      final uri = settings.qdrantBaseUri.replace(path: path);
-      final request = await client.getUrl(uri);
-      final response = await request.close();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return const <String, Object?>{};
-      }
-      final text = await utf8.decoder.bind(response).join();
-      final decoded = jsonDecode(text);
-      if (decoded is Map) return Map<String, Object?>.from(decoded);
-    } catch (_) {
-      return const <String, Object?>{};
-    } finally {
-      client.close(force: true);
-    }
-    return const <String, Object?>{};
+    return _request(settings, 'GET', path);
   }
 
   Future<Map<String, Object?>> _post(
@@ -209,25 +194,34 @@ class QdrantMonitoringService {
     String path,
     Map<String, Object?> body,
   ) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+    return _request(settings, 'POST', path, body: body);
+  }
+
+  Future<Map<String, Object?>> _request(
+    KnowledgeBaseSettings settings,
+    String method,
+    String path, {
+    Map<String, Object?>? body,
+  }) async {
+    final client = HttpClient()
+      ..connectionTimeout = _qdrantMonitoringConnectionTimeout;
     try {
-      final request = await client.postUrl(
-        settings.qdrantBaseUri.replace(path: path),
-      );
-      request.headers.contentType = ContentType.json;
-      request.write(jsonEncode(body));
+      final uri = settings.qdrantBaseUri.replace(path: path);
+      final request = await client.openUrl(method, uri);
+      if (body != null) {
+        request.headers.contentType = ContentType.json;
+        request.write(jsonEncode(body));
+      }
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return const <String, Object?>{};
       }
       final text = await utf8.decoder.bind(response).join();
-      final decoded = jsonDecode(text);
-      if (decoded is Map) return Map<String, Object?>.from(decoded);
+      return stringKeyedMapFromJsonText(text);
     } catch (_) {
       return const <String, Object?>{};
     } finally {
       client.close(force: true);
     }
-    return const <String, Object?>{};
   }
 }

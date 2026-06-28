@@ -24,6 +24,24 @@ void main() {
     });
   });
 
+  group('string keyed map parsing', () {
+    test('normalizes loose map keys without dropping values', () {
+      expect(
+        stringKeyedMapFromValue(<Object?, Object?>{1: 'one', 'two': 2}),
+        <String, Object?>{'1': 'one', 'two': 2},
+      );
+    });
+
+    test('parses JSON object text into a normalized map', () {
+      expect(
+        stringKeyedMapFromJsonText('{"answer": 42, "enabled": true}'),
+        <String, Object?>{'answer': 42, 'enabled': true},
+      );
+      expect(stringKeyedMapFromJsonText('[1, 2]'), isEmpty);
+      expect(optionalStringKeyedMapFromJsonText('not-json'), isNull);
+    });
+  });
+
   group('numeric fallback parsing', () {
     test('keeps only positive integers when requested', () {
       expect(optionalPositiveIntFromText('12'), 12);

@@ -1,4 +1,4 @@
-import 'dart:convert';
+import '../../../shared/util/input_value_parsing.dart';
 
 DateTime? knowledgeDate(Object? value) {
   final text = '${value ?? ''}'.trim();
@@ -8,11 +8,7 @@ DateTime? knowledgeDate(Object? value) {
 
 Map<String, Object?> knowledgeJsonMap(Object? value) {
   if (value is! String || value.trim().isEmpty) return const {};
-  try {
-    final decoded = jsonDecode(value);
-    if (decoded is Map) return Map<String, Object?>.from(decoded);
-  } catch (_) {}
-  return const {};
+  return stringKeyedMapFromJsonText(value);
 }
 
 String? knowledgeNullableString(Object? value) {

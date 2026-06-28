@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import 'knowledge_base_settings.dart';
 import 'knowledge_retrieval_result.dart';
@@ -126,12 +125,9 @@ class KnowledgeMessageMetadata {
 
   static Map<String, Object?>? object(Object? value) {
     if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
+    if (value is Map) return stringKeyedMapFromValue(value);
     if (value is String && value.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(value);
-        if (decoded is Map) return Map<String, Object?>.from(decoded);
-      } catch (_) {}
+      return optionalStringKeyedMapFromJsonText(value);
     }
     return null;
   }
