@@ -19,6 +19,7 @@ import 'dart:typed_data';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 /// 当前 LSP 子进程状态。
 enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
@@ -264,21 +265,22 @@ class WebReverseLspClient {
     if (r == null) return null;
     final result = r['result'];
     if (result == null) return null;
-    Map? loc;
-    if (result is List && result.isNotEmpty) {
-      loc = result.first as Map;
+    Map<String, Object?>? loc;
+    if (result is List && result.isNotEmpty && result.first is Map) {
+      loc = stringKeyedMapFromValue(result.first);
     } else if (result is Map) {
-      loc = result;
+      loc = stringKeyedMapFromValue(result);
     }
     if (loc == null) return null;
-    final tgtUri = loc['uri'] ?? loc['targetUri'];
-    final range =
-        (loc['range'] ?? loc['targetSelectionRange'] ?? loc['targetRange'])
-            as Map?;
-    final start = range?['start'] as Map?;
-    final ln = (start?['line'] as num?)?.toInt() ?? 0;
-    final ch = (start?['character'] as num?)?.toInt() ?? 0;
-    return (uri: '$tgtUri', line: ln, character: ch);
+    final tgtUri = '${loc['uri'] ?? loc['targetUri'] ?? ''}'.trim();
+    if (tgtUri.isEmpty) return null;
+    final range = stringKeyedMapFromValue(
+      loc['range'] ?? loc['targetSelectionRange'] ?? loc['targetRange'],
+    );
+    final start = stringKeyedMapFromValue(range['start']);
+    final ln = nonNegativeIntFromValue(start['line'], fallback: 0);
+    final ch = nonNegativeIntFromValue(start['character'], fallback: 0);
+    return (uri: tgtUri, line: ln, character: ch);
   }
 
   /// rename：返回 LSP WorkspaceEdit 原始 JSON；上层负责解析后落盘。

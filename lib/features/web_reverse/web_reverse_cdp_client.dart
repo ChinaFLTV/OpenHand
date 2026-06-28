@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 /// CDP（Chrome DevTools Protocol）轻量客户端：连 WebSocket、发命令、订阅事件。
 ///
@@ -119,23 +120,23 @@ class WebReverseCdpClient {
     try {
       final data = jsonDecode(raw);
       if (data is! Map) return;
-      final map = Map<String, Object?>.from(data);
+      final map = stringKeyedMapFromValue(data);
       final id = map['id'];
       if (id is int) {
         final pending = _pending.remove(id);
         if (pending == null || pending.isCompleted) return;
         if (map['error'] is Map) {
-          final err = Map<String, Object?>.from(map['error'] as Map);
+          final err = stringKeyedMapFromValue(map['error']);
           pending.completeError(
             CdpException(
-              code: err['code'] is int ? err['code'] as int : -1,
+              code: intFromValue(err['code'], fallback: -1),
               message: '${err['message'] ?? 'unknown error'}',
             ),
           );
         } else {
           pending.complete(
             map['result'] is Map
-                ? Map<String, Object?>.from(map['result'] as Map)
+                ? stringKeyedMapFromValue(map['result'])
                 : <String, Object?>{},
           );
         }
@@ -144,7 +145,7 @@ class WebReverseCdpClient {
       final method = map['method'];
       if (method is String) {
         final params = map['params'] is Map
-            ? Map<String, Object?>.from(map['params'] as Map)
+            ? stringKeyedMapFromValue(map['params'])
             : const <String, Object?>{};
         final sessionId = map['sessionId'] as String?;
         if (!_eventCtrl.isClosed) {

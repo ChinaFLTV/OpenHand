@@ -271,9 +271,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         method: 'Runtime.evaluate',
         paramsJson: jsonEncode({'expression': expr, 'returnByValue': true}),
       );
-      final result = (r?['result'] is Map)
-          ? Map<String, Object?>.from(r!['result'] as Map)
-          : const <String, Object?>{};
+      final result = stringKeyedMapFromValue(r?['result']);
       final n = nonNegativeIntFromValue(result['value'], fallback: 0);
       if (!mounted) return;
       setState(() {

@@ -17,6 +17,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
@@ -668,23 +669,24 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                           final f = frames[i];
                           final fn = (f['functionName'] as String?) ?? '';
                           final url = (f['url'] as String?) ?? '';
-                          final line =
-                              ((f['lineNumber'] as num?)?.toInt() ?? 0) + 1;
-                          final col =
-                              ((f['columnNumber'] as num?)?.toInt() ?? 0) + 1;
+                          final rawLine = nonNegativeIntFromValue(
+                            f['lineNumber'],
+                            fallback: 0,
+                          );
+                          final rawCol = nonNegativeIntFromValue(
+                            f['columnNumber'],
+                            fallback: 0,
+                          );
+                          final line = rawLine + 1;
+                          final col = rawCol + 1;
                           return InkWell(
                             onTap: url.isEmpty
                                 ? null
                                 : () {
                                     ctrl.requestSourceJump(
                                       url: url,
-                                      line:
-                                          (f['lineNumber'] as num?)?.toInt() ??
-                                          0,
-                                      col:
-                                          (f['columnNumber'] as num?)
-                                              ?.toInt() ??
-                                          0,
+                                      line: rawLine,
+                                      col: rawCol,
                                     );
                                     Navigator.of(dialogContext).pop();
                                     if (mounted) Navigator.of(context).pop();
