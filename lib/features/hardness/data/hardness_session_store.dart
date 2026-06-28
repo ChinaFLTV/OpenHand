@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/hardness_session_record.dart';
 
 /// Persists a single Harness Engineering session record in the SQLite
@@ -22,7 +23,10 @@ class HardnessSessionStore {
       if (rows.isEmpty) {
         return null;
       }
-      final dataJson = rows.first['data_json'] as String?;
+      final rawDataJson = rows.first['data_json'];
+      final dataJson = rawDataJson is String
+          ? rawDataJson
+          : rawDataJson?.toString();
       if (dataJson == null || dataJson.isEmpty) {
         return null;
       }
@@ -31,14 +35,12 @@ class HardnessSessionStore {
         return null;
       }
       final record = HardnessSessionRecord.fromJson(
-        Map<String, Object?>.from(decoded),
+        stringKeyedMapFromValue(decoded),
       );
       return record;
     } on FormatException {
       // Corrupted JSON - treat as missing record rather than crashing.
       return null;
-    } catch (e) {
-      rethrow;
     }
   }
 
@@ -48,25 +50,21 @@ class HardnessSessionStore {
   /// at most one record at a time.  Old rows with a different primary key are
   /// explicitly deleted before the upsert to prevent stale data accumulation.
   Future<void> save(HardnessSessionRecord record) async {
-    try {
-      final dataJson = jsonEncode(record.toJson());
-      final db = _db;
-      await db.transaction((txn) async {
-        // Remove any rows whose id differs from the current record so that
-        // only one session exists at a time.
-        await txn.delete(
-          'hardness_sessions',
-          where: 'id != ?',
-          whereArgs: [record.id],
-        );
-        await txn.insert('hardness_sessions', <String, Object?>{
-          'id': record.id,
-          'data_json': dataJson,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
-      });
-    } catch (e) {
-      rethrow;
-    }
+    final dataJson = jsonEncode(record.toJson());
+    final db = _db;
+    await db.transaction((txn) async {
+      // Remove any rows whose id differs from the current record so that
+      // only one session exists at a time.
+      await txn.delete(
+        'hardness_sessions',
+        where: 'id != ?',
+        whereArgs: [record.id],
+      );
+      await txn.insert('hardness_sessions', <String, Object?>{
+        'id': record.id,
+        'data_json': dataJson,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
   }
 
   /// Removes the persisted record.

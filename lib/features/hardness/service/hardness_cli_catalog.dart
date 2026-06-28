@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
 
@@ -653,7 +654,7 @@ Future<bool?> _probeCliAuthFromLocalState(HardnessCli cli) async {
     if (decoded is! Map) {
       return false;
     }
-    final value = decoded[key];
+    final value = stringKeyedMapFromValue(decoded)[key];
     if (value is String) {
       return value.trim().isNotEmpty;
     }

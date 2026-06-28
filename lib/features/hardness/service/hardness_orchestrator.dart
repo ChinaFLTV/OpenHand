@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_phase_context_config.dart';
@@ -48,6 +49,13 @@ HardnessPhaseStatus _hardnessPhaseStatusFromStorageValue(String value) {
     }
   }
   return HardnessPhaseStatus.pending;
+}
+
+List<String> _hardnessLogLinesFromValue(Object? value) {
+  if (value is! List) return const <String>[];
+  return value
+      .map((item) => item == null ? '' : '$item')
+      .toList(growable: false);
 }
 
 class HardnessPhaseLog {
@@ -155,24 +163,16 @@ class HardnessPhaseLogSnapshot {
       return null;
     }
     final rawLines = json['lines'];
-    final rawChangedFiles = json['changed_files'];
     return HardnessPhaseLogSnapshot(
       phaseValue: phaseValue,
       statusValue: '${json['status'] ?? HardnessPhaseStatus.pending.name}',
-      lines: rawLines is List
-          ? rawLines.map((item) => '$item').toList(growable: false)
-          : const <String>[],
-      exitCode: json['exit_code'] is int ? json['exit_code'] as int : null,
+      lines: _hardnessLogLinesFromValue(rawLines),
+      exitCode: optionalIntegralIntFromValue(json['exit_code']),
       savedLogPath: json['saved_log_path'] == null
           ? null
           : '${json['saved_log_path']}',
-      changedFiles: rawChangedFiles is List
-          ? rawChangedFiles
-                .whereType<Map>()
-                .map((m) => Map<String, Object?>.from(m))
-                .toList()
-          : const [],
-      reviewVerdictFail: json['review_verdict_fail'] == true,
+      changedFiles: stringKeyedMapListFromValue(json['changed_files']),
+      reviewVerdictFail: boolFromValue(json['review_verdict_fail']),
     );
   }
 }
@@ -209,8 +209,8 @@ class HardnessChangedFile {
         (t) => t.name == '${json['change_type']}',
         orElse: () => HardnessFileChangeType.modified,
       ),
-      beforeContent: json['before_content'] as String?,
-      afterContent: json['after_content'] as String?,
+      beforeContent: json['before_content']?.toString(),
+      afterContent: json['after_content']?.toString(),
     );
   }
 }
@@ -1494,11 +1494,11 @@ class HardnessOrchestrator extends ChangeNotifier {
       // 1b. Pre-execution auth re-validation for CLIs that support it.
       //     Auth tokens may expire between session setup and phase execution.
       if (cliEntry.hasLoginCheck) {
-        final scanEntry = (
+        final CliScanEntry scanEntry = (
           cli: cliEntry,
           installed: true,
-          resolvedPath: null as String?,
-          isLoggedIn: null as bool?,
+          resolvedPath: null,
+          isLoggedIn: null,
         );
         final authOk = await probeCliAuth(scanEntry);
         if (authOk == false) {

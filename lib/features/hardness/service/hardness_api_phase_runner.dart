@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../../mcp/index.dart';
 import '../model/hardness_phase.dart';
@@ -1301,15 +1302,14 @@ $phasePrompt
     }
   }
 
-  Map<String, dynamic> _tryDecodeJsonMap(String raw) {
+  Map<String, Object?> _tryDecodeJsonMap(String raw) {
     try {
       final trimmed = raw.trim();
       if (trimmed.isEmpty || trimmed == '{}') {
-        return const <String, dynamic>{};
+        return const <String, Object?>{};
       }
       final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } catch (error, stack) {
       silentLog(
         'hardness_api_phase_runner',
@@ -1318,6 +1318,6 @@ $phasePrompt
         stack,
       );
     }
-    return const <String, dynamic>{};
+    return const <String, Object?>{};
   }
 }

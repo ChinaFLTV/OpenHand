@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../shared/util/input_value_parsing.dart';
 import '../service/hardness_cli_catalog.dart';
 import 'hardness_role_config.dart';
 
@@ -80,9 +81,7 @@ class HardnessSessionConfig {
   }
 
   static Map<String, Object?> _requireMap(Object? value) {
-    if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
-    return const <String, Object?>{};
+    return stringKeyedMapFromValue(value);
   }
 
   /// Looks up the CLI executable binary name from the catalog by display name.

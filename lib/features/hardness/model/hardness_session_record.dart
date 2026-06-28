@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import '../service/hardness_orchestrator.dart';
 import 'hardness_phase.dart';
 import 'hardness_session_config.dart';
@@ -126,30 +127,18 @@ class HardnessSessionRecord {
   };
 
   static HardnessSessionRecord fromJson(Map<String, Object?> json) {
-    final configRaw = json['config'];
-    final configMap = configRaw is Map<String, Object?>
-        ? configRaw
-        : configRaw is Map
-        ? Map<String, Object?>.from(configRaw)
-        : const <String, Object?>{};
-    final phaseLogsRaw = json['phase_logs'];
+    final configMap = stringKeyedMapFromValue(json['config']);
     final phaseLogs = <HardnessPhaseLogSnapshot>[];
-    if (phaseLogsRaw is List) {
-      for (final entry in phaseLogsRaw) {
-        if (entry is! Map) {
-          continue;
-        }
-        final snapshot = HardnessPhaseLogSnapshot.fromJson(
-          Map<String, Object?>.from(entry),
-        );
-        if (snapshot != null) {
-          phaseLogs.add(snapshot);
-        }
+    for (final entry in stringKeyedMapListFromValue(json['phase_logs'])) {
+      final snapshot = HardnessPhaseLogSnapshot.fromJson(entry);
+      if (snapshot != null) {
+        phaseLogs.add(snapshot);
       }
     }
     final now = DateTime.now().toUtc();
-    final legacyManualReviewInputRequested =
-        json['manual_review_input_requested'] == true;
+    final legacyManualReviewInputRequested = boolFromValue(
+      json['manual_review_input_requested'],
+    );
     final legacyQueuedManualReviewInput = json['queued_manual_review_input'];
     final queuedManualPhaseInput = json['queued_manual_phase_input'] == null
         ? (legacyQueuedManualReviewInput == null
@@ -167,8 +156,8 @@ class HardnessSessionRecord {
       title: '${json['title'] ?? ''}',
       config: HardnessSessionConfig.fromJson(configMap),
       statusValue: '${json['status'] ?? 'idle'}',
-      createdAt: DateTime.tryParse('${json['created_at']}')?.toUtc() ?? now,
-      updatedAt: DateTime.tryParse('${json['updated_at']}')?.toUtc() ?? now,
+      createdAt: dateTimeFromValue(json['created_at'])?.toUtc() ?? now,
+      updatedAt: dateTimeFromValue(json['updated_at'])?.toUtc() ?? now,
       phaseLogs: phaseLogs,
       errorMessage: json['error_message'] == null
           ? null
@@ -177,7 +166,7 @@ class HardnessSessionRecord {
           ? null
           : '${json['current_phase']}',
       manualPhaseInputRequested:
-          json['manual_phase_input_requested'] == true ||
+          boolFromValue(json['manual_phase_input_requested']) ||
           (json['manual_phase_input_requested'] == null &&
               legacyManualReviewInputRequested),
       queuedManualPhaseInput: queuedManualPhaseInput,

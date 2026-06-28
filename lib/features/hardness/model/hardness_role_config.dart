@@ -92,10 +92,10 @@ class HardnessRoleConfig {
       cliName: '${json['cli_name'] ?? ''}',
       modelId: '${json['model_id'] ?? ''}',
       executionMode: HardnessExecutionMode.fromStorage(
-        json['execution_mode'] as String?,
+        json['execution_mode']?.toString(),
       ),
-      aiModelConfigId: json['ai_model_config_id'] as String?,
-      urlModeModelId: json['url_mode_model_id'] as String?,
+      aiModelConfigId: json['ai_model_config_id']?.toString(),
+      urlModeModelId: json['url_mode_model_id']?.toString(),
     );
   }
 
