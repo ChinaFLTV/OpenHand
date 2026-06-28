@@ -39,4 +39,25 @@ void main() {
       isNull,
     );
   });
+
+  test('fromJson accepts JSON object text and JSON text keyword lists', () {
+    final config = AndroidReverseSessionConfig.fromJson('''
+      {
+        "objective": "inspect request signing",
+        "package_name": "com.example.app",
+        "analysis_mode": "static_first",
+        "adb_mcp_enabled": "yes",
+        "frida_mcp_enabled": "no",
+        "keywords": "[\\"sign\\", \\"token\\"]"
+      }
+    ''');
+
+    expect(config, isNotNull);
+    expect(config!.objective, 'inspect request signing');
+    expect(config.packageName, 'com.example.app');
+    expect(config.analysisMode, AndroidReverseAnalysisMode.staticFirst);
+    expect(config.adbMcpEnabled, isTrue);
+    expect(config.fridaMcpEnabled, isFalse);
+    expect(config.keywords, <String>['sign', 'token']);
+  });
 }

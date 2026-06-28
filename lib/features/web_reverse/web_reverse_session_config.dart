@@ -77,8 +77,8 @@ class WebReverseSessionConfig {
   };
 
   static WebReverseSessionConfig? fromJson(Object? raw) {
-    if (raw is! Map) return null;
-    final map = stringKeyedMapFromValue(raw);
+    final map = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (map == null) return null;
     final targetUrl = stringFromValue(map['target_url']);
     final objective = stringFromValue(map['objective']);
     final cdpPort = optionalPositiveIntFromValue(map['cdp_port']) ?? 0;
@@ -96,7 +96,7 @@ class WebReverseSessionConfig {
       triggerActions: optionalStringFromValue(map['trigger_actions']),
       loginMode: WebReverseLoginMode.fromId(stringFromValue(map['login_mode'])),
       proxy: optionalStringFromValue(map['proxy']),
-      keywords: stringListFromValue(map['keywords']),
+      keywords: stringListFromValueOrJsonText(map['keywords']),
       harPath: optionalStringFromValue(map['har_path']),
       cdpMcpEnabled: boolFromValue(map['cdp_mcp_enabled']),
     );

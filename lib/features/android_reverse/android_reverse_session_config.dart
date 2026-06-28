@@ -84,23 +84,23 @@ class AndroidReverseSessionConfig {
   };
 
   static AndroidReverseSessionConfig? fromJson(Object? raw) {
-    if (raw is! Map) return null;
-    final map = stringKeyedMapFromValue(raw);
-    final objective = '${map['objective'] ?? ''}'.trim();
+    final map = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (map == null) return null;
+    final objective = stringFromValue(map['objective']);
     if (objective.isEmpty) return null;
     return AndroidReverseSessionConfig(
       objective: objective,
-      packageName: nullIfBlank(map['package_name']?.toString()),
-      apkPath: nullIfBlank(map['apk_path']?.toString()),
-      deviceSerial: nullIfBlank(map['device_serial']?.toString()),
-      authorizationScope: nullIfBlank(map['authorization_scope']?.toString()),
+      packageName: optionalStringFromValue(map['package_name']),
+      apkPath: optionalStringFromValue(map['apk_path']),
+      deviceSerial: optionalStringFromValue(map['device_serial']),
+      authorizationScope: optionalStringFromValue(map['authorization_scope']),
       analysisMode: AndroidReverseAnalysisMode.fromStorage(
-        '${map['analysis_mode'] ?? ''}',
+        stringFromValue(map['analysis_mode']),
       ),
       adbMcpEnabled: boolFromValue(map['adb_mcp_enabled']),
       fridaMcpEnabled: boolFromValue(map['frida_mcp_enabled']),
-      keywords: stringListFromValue(map['keywords']),
-      notes: nullIfBlank(map['notes']?.toString()),
+      keywords: stringListFromValueOrJsonText(map['keywords']),
+      notes: optionalStringFromValue(map['notes']),
     );
   }
 

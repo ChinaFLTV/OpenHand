@@ -65,4 +65,23 @@ void main() {
     expect(config.cdpPort, 9222);
     expect(config.triggerActions, 'click login');
   });
+
+  test('fromJson accepts JSON object text and JSON text keyword lists', () {
+    final config = WebReverseSessionConfig.fromJson('''
+      {
+        "target_url": "https://example.test",
+        "objective": "trace request signing",
+        "cdp_port": "9222",
+        "browser_kind": "chromium",
+        "keywords": "[\\"sign\\", \\"token\\"]",
+        "cdp_mcp_enabled": "true"
+      }
+    ''');
+
+    expect(config, isNotNull);
+    expect(config!.targetUrl, 'https://example.test');
+    expect(config.objective, 'trace request signing');
+    expect(config.keywords, <String>['sign', 'token']);
+    expect(config.cdpMcpEnabled, isTrue);
+  });
 }
