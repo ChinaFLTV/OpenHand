@@ -2,16 +2,30 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:flutter/foundation.dart' show ChangeNotifier, visibleForTesting;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/mcp_server.dart';
 import 'mcp_tool_discovery_service.dart';
+
+@visibleForTesting
+Map<String, Object?>? parseMcpStdioJsonRpcLine(String line) {
+  final trimmed = line.trim();
+  if (trimmed.isEmpty || !trimmed.startsWith('{')) return null;
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is! Map) return null;
+    return stringKeyedMapFromValue(decoded);
+  } catch (_) {
+    return null;
+  }
+}
 
 /// STDIO MCP 服务进程的运行状态。
 enum StdioProcessState { stopped, starting, running, stopping }
@@ -397,36 +411,49 @@ class McpStdioProcessManager extends ChangeNotifier {
 
   /// 将 JSON-RPC 响应解析为结构化摘要，避免超长单行 JSON 淹没日志。
   void _appendJsonRpcSummary(List<String> logs, String jsonLine) {
+    final parsed = parseMcpStdioJsonRpcLine(jsonLine);
+    if (parsed == null) {
+      // JSON 解析失败，原样输出（截断超长行）
+      if (jsonLine.length > 200) {
+        logs.add('${jsonLine.substring(0, 200)}… [截断，共 ${jsonLine.length} 字符]');
+      } else {
+        logs.add(jsonLine);
+      }
+      return;
+    }
     try {
-      final parsed = jsonDecode(jsonLine) as Map<String, Object?>;
       final id = parsed['id'];
       final result = parsed['result'];
 
-      if (result is Map<String, Object?>) {
+      if (result is Map) {
+        final resultMap = stringKeyedMapFromValue(result);
         // initialize 响应
-        if (result.containsKey('protocolVersion')) {
-          final version = result['protocolVersion'] ?? '?';
-          final serverInfo = result['serverInfo'] as Map<String, Object?>?;
-          final serverName = serverInfo?['name'] ?? '';
-          final serverVersion = serverInfo?['version'] ?? '';
+        if (resultMap.containsKey('protocolVersion')) {
+          final version = resultMap['protocolVersion'] ?? '?';
+          final serverInfo = stringKeyedMapFromValue(resultMap['serverInfo']);
+          final serverName = serverInfo['name'] ?? '';
+          final serverVersion = serverInfo['version'] ?? '';
           logs.add('[jsonrpc:$id] ← initialize 响应');
           logs.add('  协议版本: $version');
           if (serverName.toString().isNotEmpty) {
             logs.add('  服务名称: $serverName v$serverVersion');
           }
-          final capabilities = result['capabilities'] as Map<String, Object?>?;
-          if (capabilities != null && capabilities.isNotEmpty) {
+          final capabilities = stringKeyedMapFromValue(
+            resultMap['capabilities'],
+          );
+          if (capabilities.isNotEmpty) {
             logs.add('  能力: ${capabilities.keys.join(', ')}');
           }
           return;
         }
         // tools/list 响应
-        if (result.containsKey('tools')) {
-          final tools = result['tools'];
+        if (resultMap.containsKey('tools')) {
+          final tools = resultMap['tools'];
           if (tools is List) {
             logs.add('[jsonrpc:$id] ← tools/list 响应 (${tools.length} 个工具)');
-            for (final tool in tools.take(12)) {
-              if (tool is Map<String, Object?>) {
+            for (final toolRaw in tools.take(12)) {
+              if (toolRaw is Map) {
+                final tool = stringKeyedMapFromValue(toolRaw);
                 final name = tool['name'] ?? '?';
                 final desc = tool['description'] ?? '';
                 final descStr = desc.toString();
@@ -443,16 +470,19 @@ class McpStdioProcessManager extends ChangeNotifier {
           }
         }
         // 其他 result 响应：紧凑摘要
-        final keys = result.keys.take(5).join(', ');
-        logs.add('[jsonrpc:$id] ← 响应 {$keys${result.length > 5 ? ", …" : ""}}');
+        final keys = resultMap.keys.take(5).join(', ');
+        logs.add(
+          '[jsonrpc:$id] ← 响应 {$keys${resultMap.length > 5 ? ", …" : ""}}',
+        );
         return;
       }
 
       // error 响应
       final error = parsed['error'];
-      if (error is Map<String, Object?>) {
-        final code = error['code'] ?? '?';
-        final message = error['message'] ?? '';
+      if (error is Map) {
+        final errorMap = stringKeyedMapFromValue(error);
+        final code = errorMap['code'] ?? '?';
+        final message = errorMap['message'] ?? '';
         logs.add('[jsonrpc:$id] ← 错误 [$code] $message');
         return;
       }
@@ -469,13 +499,17 @@ class McpStdioProcessManager extends ChangeNotifier {
           ? '${jsonLine.substring(0, 120)}…'
           : jsonLine;
       logs.add(compact);
-    } catch (_) {
-      // JSON 解析失败，原样输出（截断超长行）
-      if (jsonLine.length > 200) {
-        logs.add('${jsonLine.substring(0, 200)}… [截断，共 ${jsonLine.length} 字符]');
-      } else {
-        logs.add(jsonLine);
-      }
+    } catch (error, stack) {
+      silentLog(
+        'mcp_stdio_process_manager',
+        'summarize json-rpc line',
+        error,
+        stack,
+      );
+      final compact = jsonLine.length > 120
+          ? '${jsonLine.substring(0, 120)}…'
+          : jsonLine;
+      logs.add(compact);
     }
   }
 
@@ -761,7 +795,8 @@ class _ManagedResponseRouter {
       final trimmed = line.trim();
       if (trimmed.isEmpty || !trimmed.startsWith('{')) continue;
       try {
-        final decoded = jsonDecode(trimmed) as Map<String, Object?>;
+        final decoded = parseMcpStdioJsonRpcLine(trimmed);
+        if (decoded == null) continue;
         final id = decoded['id'];
         if (id == null) continue;
         final idText = '$id';
