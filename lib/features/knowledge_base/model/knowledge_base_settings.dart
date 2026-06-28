@@ -43,6 +43,64 @@ class KnowledgeRerankMode {
   }
 }
 
+class KnowledgeDistanceMetric {
+  const KnowledgeDistanceMetric._();
+
+  static const cosine = 'cosine';
+  static const dot = 'dot';
+  static const euclidean = 'euclidean';
+
+  static const values = <String>[cosine, dot, euclidean];
+
+  static String normalize(String value) {
+    final normalized = value.trim();
+    return values.contains(normalized) ? normalized : cosine;
+  }
+}
+
+class KnowledgeTagFilterMode {
+  const KnowledgeTagFilterMode._();
+
+  static const any = 'any';
+  static const all = 'all';
+
+  static const values = <String>[any, all];
+
+  static String normalize(String value) {
+    final normalized = value.trim();
+    return values.contains(normalized) ? normalized : any;
+  }
+}
+
+class KnowledgeDateFilterMode {
+  const KnowledgeDateFilterMode._();
+
+  static const hardWhenExplicit = 'hard_when_explicit';
+  static const softBoost = 'soft_boost';
+  static const off = 'off';
+
+  static const values = <String>[hardWhenExplicit, softBoost, off];
+
+  static String normalize(String value) {
+    final normalized = value.trim();
+    return values.contains(normalized) ? normalized : hardWhenExplicit;
+  }
+}
+
+class KnowledgeFailureStrategy {
+  const KnowledgeFailureStrategy._();
+
+  static const failOpen = 'fail_open';
+  static const failClosed = 'fail_closed';
+
+  static const values = <String>[failOpen, failClosed];
+
+  static String normalize(String value) {
+    final normalized = value.trim();
+    return values.contains(normalized) ? normalized : failOpen;
+  }
+}
+
 class KnowledgeReaderParserMode {
   const KnowledgeReaderParserMode._();
 
@@ -143,7 +201,7 @@ class KnowledgeBaseSettings {
     this.qdrantRestPort = 6333,
     this.qdrantGrpcPort = 6334,
     this.collectionName = '',
-    this.distanceMetric = 'cosine',
+    this.distanceMetric = KnowledgeDistanceMetric.cosine,
     this.hnswM = 16,
     this.hnswEfConstruct = 100,
     this.searchEf = 64,
@@ -174,8 +232,8 @@ class KnowledgeBaseSettings {
     this.topK = 6,
     this.minSimilarity = 0.25,
     this.sourceCap = 3,
-    this.tagFilterMode = 'any',
-    this.dateFilterMode = 'hard_when_explicit',
+    this.tagFilterMode = KnowledgeTagFilterMode.any,
+    this.dateFilterMode = KnowledgeDateFilterMode.hardWhenExplicit,
     this.vectorWeight = 0.65,
     this.titleWeight = 0.10,
     this.tagWeight = 0.10,
@@ -201,8 +259,8 @@ class KnowledgeBaseSettings {
     this.includeDate = true,
     this.includeSourcePath = true,
     this.includeChunkId = true,
-    this.failureStrategy = 'fail_open',
-    this.embeddingFailureStrategy = 'fail_open',
+    this.failureStrategy = KnowledgeFailureStrategy.failOpen,
+    this.embeddingFailureStrategy = KnowledgeFailureStrategy.failOpen,
     this.continueWhenNoHits = true,
     this.showPreviewBeforeSend = false,
     this.cacheQueryEmbedding = true,
@@ -242,7 +300,9 @@ class KnowledgeBaseSettings {
       qdrantRestPort: _positiveInt(json['qdrant_rest_port'], 6333),
       qdrantGrpcPort: _positiveInt(json['qdrant_grpc_port'], 6334),
       collectionName: _string(json['collection_name']),
-      distanceMetric: _string(json['distance_metric'], 'cosine'),
+      distanceMetric: KnowledgeDistanceMetric.normalize(
+        _string(json['distance_metric'], KnowledgeDistanceMetric.cosine),
+      ),
       hnswM: _positiveInt(json['hnsw_m'], 16),
       hnswEfConstruct: _positiveInt(json['hnsw_ef_construct'], 100),
       searchEf: _positiveInt(json['search_ef'], 64),
@@ -296,8 +356,15 @@ class KnowledgeBaseSettings {
       topK: _positiveInt(json['top_k'], 6),
       minSimilarity: _double(json['min_similarity'], 0.25),
       sourceCap: _positiveInt(json['source_cap'], 3),
-      tagFilterMode: _string(json['tag_filter_mode'], 'any'),
-      dateFilterMode: _string(json['date_filter_mode'], 'hard_when_explicit'),
+      tagFilterMode: KnowledgeTagFilterMode.normalize(
+        _string(json['tag_filter_mode'], KnowledgeTagFilterMode.any),
+      ),
+      dateFilterMode: KnowledgeDateFilterMode.normalize(
+        _string(
+          json['date_filter_mode'],
+          KnowledgeDateFilterMode.hardWhenExplicit,
+        ),
+      ),
       vectorWeight: _double(json['vector_weight'], 0.65),
       titleWeight: _double(json['title_weight'], 0.10),
       tagWeight: _double(json['tag_weight'], 0.10),
@@ -330,10 +397,14 @@ class KnowledgeBaseSettings {
       includeDate: _bool(json['include_date'], true),
       includeSourcePath: _bool(json['include_source_path'], true),
       includeChunkId: _bool(json['include_chunk_id'], true),
-      failureStrategy: _string(json['failure_strategy'], 'fail_open'),
-      embeddingFailureStrategy: _string(
-        json['embedding_failure_strategy'],
-        'fail_open',
+      failureStrategy: KnowledgeFailureStrategy.normalize(
+        _string(json['failure_strategy'], KnowledgeFailureStrategy.failOpen),
+      ),
+      embeddingFailureStrategy: KnowledgeFailureStrategy.normalize(
+        _string(
+          json['embedding_failure_strategy'],
+          KnowledgeFailureStrategy.failOpen,
+        ),
       ),
       continueWhenNoHits: _bool(json['continue_when_no_hits'], true),
       showPreviewBeforeSend: _bool(json['show_preview_before_send']),
@@ -567,7 +638,9 @@ class KnowledgeBaseSettings {
       qdrantRestPort: qdrantRestPort ?? this.qdrantRestPort,
       qdrantGrpcPort: qdrantGrpcPort ?? this.qdrantGrpcPort,
       collectionName: collectionName ?? this.collectionName,
-      distanceMetric: distanceMetric ?? this.distanceMetric,
+      distanceMetric: distanceMetric == null
+          ? this.distanceMetric
+          : KnowledgeDistanceMetric.normalize(distanceMetric),
       hnswM: hnswM ?? this.hnswM,
       hnswEfConstruct: hnswEfConstruct ?? this.hnswEfConstruct,
       searchEf: searchEf ?? this.searchEf,
@@ -608,8 +681,12 @@ class KnowledgeBaseSettings {
       topK: topK ?? this.topK,
       minSimilarity: minSimilarity ?? this.minSimilarity,
       sourceCap: sourceCap ?? this.sourceCap,
-      tagFilterMode: tagFilterMode ?? this.tagFilterMode,
-      dateFilterMode: dateFilterMode ?? this.dateFilterMode,
+      tagFilterMode: tagFilterMode == null
+          ? this.tagFilterMode
+          : KnowledgeTagFilterMode.normalize(tagFilterMode),
+      dateFilterMode: dateFilterMode == null
+          ? this.dateFilterMode
+          : KnowledgeDateFilterMode.normalize(dateFilterMode),
       vectorWeight: vectorWeight ?? this.vectorWeight,
       titleWeight: titleWeight ?? this.titleWeight,
       tagWeight: tagWeight ?? this.tagWeight,
@@ -641,9 +718,12 @@ class KnowledgeBaseSettings {
       includeDate: includeDate ?? this.includeDate,
       includeSourcePath: includeSourcePath ?? this.includeSourcePath,
       includeChunkId: includeChunkId ?? this.includeChunkId,
-      failureStrategy: failureStrategy ?? this.failureStrategy,
-      embeddingFailureStrategy:
-          embeddingFailureStrategy ?? this.embeddingFailureStrategy,
+      failureStrategy: failureStrategy == null
+          ? this.failureStrategy
+          : KnowledgeFailureStrategy.normalize(failureStrategy),
+      embeddingFailureStrategy: embeddingFailureStrategy == null
+          ? this.embeddingFailureStrategy
+          : KnowledgeFailureStrategy.normalize(embeddingFailureStrategy),
       continueWhenNoHits: continueWhenNoHits ?? this.continueWhenNoHits,
       showPreviewBeforeSend:
           showPreviewBeforeSend ?? this.showPreviewBeforeSend,

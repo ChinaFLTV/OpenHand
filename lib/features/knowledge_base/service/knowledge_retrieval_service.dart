@@ -263,7 +263,7 @@ class KnowledgeRetrievalService {
       );
     }
     if (!settings.hasRerankModel || rerankModel == null) {
-      if (settings.failureStrategy == 'fail_closed') {
+      if (settings.failureStrategy == KnowledgeFailureStrategy.failClosed) {
         throw StateError('已选择模型重排序，但未配置可用的 rerank 模型。');
       }
       return (
@@ -368,7 +368,9 @@ class KnowledgeRetrievalService {
       );
     } catch (error, stackTrace) {
       stopwatch.stop();
-      if (settings.failureStrategy == 'fail_closed') rethrow;
+      if (settings.failureStrategy == KnowledgeFailureStrategy.failClosed) {
+        rethrow;
+      }
       silentLog(
         'knowledge_retrieval',
         'model rerank failed',
@@ -451,7 +453,7 @@ class KnowledgeRetrievalService {
         .where((tag) => tag.isNotEmpty)
         .toList(growable: false);
     if (tags.isNotEmpty) {
-      if (settings.tagFilterMode == 'all') {
+      if (settings.tagFilterMode == KnowledgeTagFilterMode.all) {
         must.addAll(
           tags.map(
             (tag) => <String, Object?>{
@@ -467,7 +469,7 @@ class KnowledgeRetrievalService {
         });
       }
     }
-    if (settings.dateFilterMode == 'hard_when_explicit') {
+    if (settings.dateFilterMode == KnowledgeDateFilterMode.hardWhenExplicit) {
       final range = _dateRangeForQuery(
         query,
         allowNaturalLanguage: settings.parseNaturalLanguageTime,
@@ -508,7 +510,8 @@ class KnowledgeRetrievalService {
         ? 1.0
         : 0.0;
     final timeScore =
-        settings.recencyBoostEnabled && settings.dateFilterMode != 'off'
+        settings.recencyBoostEnabled &&
+            settings.dateFilterMode != KnowledgeDateFilterMode.off
         ? _timeScore(query, documentTime)
         : 0.0;
     return vectorScore * settings.vectorWeight +

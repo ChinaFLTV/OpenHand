@@ -20,31 +20,12 @@ import '../service/knowledge_dependency_service.dart';
 import '../service/knowledge_document_parser.dart';
 import 'knowledge_dialog_widgets.dart';
 
-const List<String> _knowledgeDistanceMetrics = <String>[
-  'cosine',
-  'dot',
-  'euclidean',
-];
-
 const List<String> _knowledgeChunkStrategies = KnowledgeChunkStrategy.values;
 
 const List<String> _knowledgeDocumentTimeSources = <String>[
   'front_matter',
   'file_modified_at',
   'imported_at',
-];
-
-const List<String> _knowledgeTagFilterModes = <String>['any', 'all'];
-
-const List<String> _knowledgeDateFilterModes = <String>[
-  'hard_when_explicit',
-  'soft_boost',
-  'off',
-];
-
-const List<String> _knowledgeFailureStrategies = <String>[
-  'fail_open',
-  'fail_closed',
 ];
 
 const double _knowledgeConfigItemHeight = 64;
@@ -567,11 +548,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   _dropdown(
                     label: isZh ? '距离度量' : 'Distance metric',
                     value: _settings.distanceMetric,
-                    values: _knowledgeDistanceMetrics,
+                    values: KnowledgeDistanceMetric.values,
                     itemLabel: (value) => switch (value) {
-                      'cosine' => 'Cosine',
-                      'dot' => 'Dot',
-                      'euclidean' => 'Euclidean',
+                      KnowledgeDistanceMetric.cosine => 'Cosine',
+                      KnowledgeDistanceMetric.dot => 'Dot',
+                      KnowledgeDistanceMetric.euclidean => 'Euclidean',
                       _ => value,
                     },
                     onChanged: (value) {
@@ -897,10 +878,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   _dropdown(
                     label: isZh ? '标签过滤模式' : 'Tag filter mode',
                     value: _settings.tagFilterMode,
-                    values: _knowledgeTagFilterModes,
+                    values: KnowledgeTagFilterMode.values,
                     itemLabel: (value) => switch (value) {
-                      'any' => isZh ? '任一标签命中' : 'Any tag',
-                      'all' => isZh ? '全部标签命中' : 'All tags',
+                      KnowledgeTagFilterMode.any => isZh ? '任一标签命中' : 'Any tag',
+                      KnowledgeTagFilterMode.all =>
+                        isZh ? '全部标签命中' : 'All tags',
                       _ => value,
                     },
                     onChanged: (value) {
@@ -914,12 +896,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   _dropdown(
                     label: isZh ? '日期过滤模式' : 'Date filter mode',
                     value: _settings.dateFilterMode,
-                    values: _knowledgeDateFilterModes,
+                    values: KnowledgeDateFilterMode.values,
                     itemLabel: (value) => switch (value) {
-                      'hard_when_explicit' =>
+                      KnowledgeDateFilterMode.hardWhenExplicit =>
                         isZh ? '显式时间硬过滤' : 'Hard when explicit',
-                      'soft_boost' => isZh ? '软加权' : 'Soft boost',
-                      'off' => isZh ? '关闭' : 'Off',
+                      KnowledgeDateFilterMode.softBoost =>
+                        isZh ? '软加权' : 'Soft boost',
+                      KnowledgeDateFilterMode.off => isZh ? '关闭' : 'Off',
                       _ => value,
                     },
                     onChanged: (value) {
@@ -1174,10 +1157,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   _dropdown(
                     label: isZh ? '检索失败策略' : 'Retrieval failure strategy',
                     value: _settings.failureStrategy,
-                    values: _knowledgeFailureStrategies,
+                    values: KnowledgeFailureStrategy.values,
                     itemLabel: (value) => switch (value) {
-                      'fail_open' => isZh ? '失败后继续发送' : 'Fail open',
-                      'fail_closed' => isZh ? '失败后阻止发送' : 'Fail closed',
+                      KnowledgeFailureStrategy.failOpen =>
+                        isZh ? '失败后继续发送' : 'Fail open',
+                      KnowledgeFailureStrategy.failClosed =>
+                        isZh ? '失败后阻止发送' : 'Fail closed',
                       _ => value,
                     },
                     onChanged: (value) {
@@ -1190,13 +1175,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   ),
                   _switch(
                     isZh ? 'Embedding 失败继续发送' : 'Fail open on embedding error',
-                    _settings.embeddingFailureStrategy == 'fail_open',
+                    _settings.embeddingFailureStrategy ==
+                        KnowledgeFailureStrategy.failOpen,
                     (value) {
                       setState(
                         () => _settings = _settings.copyWith(
                           embeddingFailureStrategy: value
-                              ? 'fail_open'
-                              : 'fail_closed',
+                              ? KnowledgeFailureStrategy.failOpen
+                              : KnowledgeFailureStrategy.failClosed,
                         ),
                       );
                     },

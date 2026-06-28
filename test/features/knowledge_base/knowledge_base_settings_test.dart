@@ -17,6 +17,39 @@ void main() {
     expect(settings.skipModelRerankWhenEmbeddingSupportsRerank, isTrue);
   });
 
+  test('normalizes enum-like retrieval settings from json and copyWith', () {
+    final settings = KnowledgeBaseSettings.fromJson(const <String, Object?>{
+      'distance_metric': 'invalid',
+      'tag_filter_mode': 'invalid',
+      'date_filter_mode': 'invalid',
+      'failure_strategy': 'invalid',
+      'embedding_failure_strategy': 'invalid',
+    });
+
+    expect(settings.distanceMetric, KnowledgeDistanceMetric.cosine);
+    expect(settings.tagFilterMode, KnowledgeTagFilterMode.any);
+    expect(settings.dateFilterMode, KnowledgeDateFilterMode.hardWhenExplicit);
+    expect(settings.failureStrategy, KnowledgeFailureStrategy.failOpen);
+    expect(
+      settings.embeddingFailureStrategy,
+      KnowledgeFailureStrategy.failOpen,
+    );
+
+    final updated = settings.copyWith(
+      distanceMetric: KnowledgeDistanceMetric.dot,
+      tagFilterMode: KnowledgeTagFilterMode.all,
+      dateFilterMode: KnowledgeDateFilterMode.off,
+      failureStrategy: KnowledgeFailureStrategy.failClosed,
+      embeddingFailureStrategy: 'unexpected',
+    );
+
+    expect(updated.distanceMetric, KnowledgeDistanceMetric.dot);
+    expect(updated.tagFilterMode, KnowledgeTagFilterMode.all);
+    expect(updated.dateFilterMode, KnowledgeDateFilterMode.off);
+    expect(updated.failureStrategy, KnowledgeFailureStrategy.failClosed);
+    expect(updated.embeddingFailureStrategy, KnowledgeFailureStrategy.failOpen);
+  });
+
   test('migrates legacy cloud rerank settings to model rerank mode', () {
     final settings = KnowledgeBaseSettings.fromJson(const <String, Object?>{
       'provider_config_id': 'provider-a',

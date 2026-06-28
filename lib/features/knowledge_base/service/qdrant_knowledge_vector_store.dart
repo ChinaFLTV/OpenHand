@@ -265,9 +265,9 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
   }
 
   String _qdrantDistance(String value) {
-    return switch (value.trim().toLowerCase()) {
-      'dot' => 'Dot',
-      'euclidean' => 'Euclid',
+    return switch (KnowledgeDistanceMetric.normalize(value)) {
+      KnowledgeDistanceMetric.dot => 'Dot',
+      KnowledgeDistanceMetric.euclidean => 'Euclid',
       _ => 'Cosine',
     };
   }

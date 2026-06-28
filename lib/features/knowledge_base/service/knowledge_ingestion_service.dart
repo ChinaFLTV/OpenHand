@@ -341,7 +341,9 @@ class KnowledgeIngestionService {
       return _fallbackLocalParse(
         request,
         reason: 'reader_model_unavailable',
-        failClosed: request.settings.failureStrategy == 'fail_closed',
+        failClosed:
+            request.settings.failureStrategy ==
+            KnowledgeFailureStrategy.failClosed,
       );
     }
     try {
@@ -384,7 +386,9 @@ class KnowledgeIngestionService {
         request,
         reason: 'reader_conversion_failed',
         error: '$error',
-        failClosed: request.settings.failureStrategy == 'fail_closed',
+        failClosed:
+            request.settings.failureStrategy ==
+            KnowledgeFailureStrategy.failClosed,
       );
     }
   }
