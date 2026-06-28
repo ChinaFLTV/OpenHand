@@ -234,7 +234,6 @@ class _KnowledgeToolbarActions extends StatelessWidget {
               onPressed: controller.busy
                   ? null
                   : () => showKnowledgeImportDialog(context),
-              filled: true,
             ),
             _KnowledgeToolbarIconButton(
               tooltip: isZh ? '向量分布' : 'Vector Map',
@@ -356,13 +355,11 @@ class _KnowledgeToolbarIconButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
-    this.filled = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
-  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -371,18 +368,9 @@ class _KnowledgeToolbarIconButton extends StatelessWidget {
       child: IconButton(
         onPressed: onPressed,
         icon: Icon(icon),
-        style: filled
-            ? IconButton.styleFrom(
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.secondaryContainer.withValues(alpha: 0.88),
-                foregroundColor: Theme.of(
-                  context,
-                ).colorScheme.onSecondaryContainer,
-              )
-            : IconButton.styleFrom(
-                side: BorderSide(color: Theme.of(context).colorScheme.outline),
-              ),
+        style: IconButton.styleFrom(
+          side: BorderSide(color: Theme.of(context).colorScheme.outline),
+        ),
       ),
     );
     return Tooltip(message: tooltip, child: child);

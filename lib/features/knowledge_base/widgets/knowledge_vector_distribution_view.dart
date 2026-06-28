@@ -8,6 +8,8 @@ import '../model/knowledge_vector_distribution.dart';
 
 const double _kVectorSceneMinHeight = 320;
 const double _kVectorPointHitRadius = 18;
+const double _kVectorSceneMinZoom = 0.62;
+const double _kVectorSceneMaxZoom = 2.4;
 
 class KnowledgeVectorDistributionView extends StatefulWidget {
   const KnowledgeVectorDistributionView({
@@ -36,6 +38,7 @@ class _KnowledgeVectorDistributionViewState
   double _yaw = -0.62;
   double _pitch = -0.34;
   double _zoom = 1.0;
+  double _gestureStartZoom = 1.0;
   KnowledgeVectorDistributionPoint? _selected;
 
   @override
@@ -114,22 +117,22 @@ class _KnowledgeVectorDistributionViewState
                 child: Listener(
                   onPointerSignal: (event) {
                     if (event is! PointerScrollEvent) return;
-                    final next = (_zoom - event.scrollDelta.dy * 0.0014)
-                        .clamp(0.62, 2.4)
-                        .toDouble();
-                    if (next == _zoom) return;
-                    setState(() => _zoom = next);
+                    _setZoom(_zoom - event.scrollDelta.dy * 0.0014);
                   },
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onPanUpdate: (details) {
+                      onScaleStart: (_) {
+                        _gestureStartZoom = _zoom;
+                      },
+                      onScaleUpdate: (details) {
                         setState(() {
-                          _yaw += details.delta.dx * 0.010;
-                          _pitch = (_pitch + details.delta.dy * 0.008)
+                          _yaw += details.focalPointDelta.dx * 0.010;
+                          _pitch = (_pitch + details.focalPointDelta.dy * 0.008)
                               .clamp(-1.18, 1.18)
                               .toDouble();
+                          _zoom = _clampZoom(_gestureStartZoom * details.scale);
                         });
                       },
                       onTapDown: (details) {
@@ -146,6 +149,9 @@ class _KnowledgeVectorDistributionViewState
                             painter: _KnowledgeVectorScenePainter(
                               projected: projected,
                               revealProgress: _revealController.value,
+                              yaw: _yaw,
+                              pitch: _pitch,
+                              zoom: _zoom,
                               colors: _KnowledgeVectorSceneColors.resolve(
                                 context,
                               ),
@@ -163,6 +169,16 @@ class _KnowledgeVectorDistributionViewState
                 start: 14,
                 top: 12,
                 child: _VectorSceneStats(distribution: widget.distribution),
+              ),
+              PositionedDirectional(
+                end: 14,
+                top: 12,
+                child: _VectorViewportControls(
+                  zoom: _zoom,
+                  onZoomIn: () => _setZoom(_zoom * 1.16),
+                  onZoomOut: () => _setZoom(_zoom / 1.16),
+                  onReset: _resetViewport,
+                ),
               ),
               PositionedDirectional(
                 start: 14,
@@ -210,6 +226,24 @@ class _KnowledgeVectorDistributionViewState
     return a.points.first.id == b.points.first.id &&
         a.points.last.id == b.points.last.id &&
         a.generatedAt == b.generatedAt;
+  }
+
+  void _setZoom(double zoom) {
+    final next = _clampZoom(zoom);
+    if (next == _zoom) return;
+    setState(() => _zoom = next);
+  }
+
+  void _resetViewport() {
+    setState(() {
+      _yaw = -0.62;
+      _pitch = -0.34;
+      _zoom = 1.0;
+    });
+  }
+
+  double _clampZoom(double zoom) {
+    return zoom.clamp(_kVectorSceneMinZoom, _kVectorSceneMaxZoom).toDouble();
   }
 }
 
@@ -322,6 +356,96 @@ class _VectorLegendPill extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _VectorViewportControls extends StatelessWidget {
+  const _VectorViewportControls({
+    required this.zoom,
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onReset,
+  });
+
+  final double zoom;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.58),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _VectorViewportIconButton(
+              tooltip: isZh ? '缩小' : 'Zoom out',
+              icon: Icons.remove_rounded,
+              onPressed: onZoomOut,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                '${(zoom * 100).round()}%',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ),
+            _VectorViewportIconButton(
+              tooltip: isZh ? '放大' : 'Zoom in',
+              icon: Icons.add_rounded,
+              onPressed: onZoomIn,
+            ),
+            _VectorViewportIconButton(
+              tooltip: isZh ? '重置视角' : 'Reset view',
+              icon: Icons.center_focus_strong_rounded,
+              onPressed: onReset,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VectorViewportIconButton extends StatelessWidget {
+  const _VectorViewportIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 30, height: 30),
       ),
     );
   }
@@ -458,6 +582,9 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
   const _KnowledgeVectorScenePainter({
     required this.projected,
     required this.revealProgress,
+    required this.yaw,
+    required this.pitch,
+    required this.zoom,
     required this.colors,
     required this.selectedId,
     required this.compact,
@@ -465,6 +592,9 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
 
   final List<_ProjectedVectorPoint> projected;
   final double revealProgress;
+  final double yaw;
+  final double pitch;
+  final double zoom;
   final _KnowledgeVectorSceneColors colors;
   final String? selectedId;
   final bool compact;
@@ -505,46 +635,100 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
   }
 
   void _paintGrid(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * 0.34;
     final gridPaint = Paint()
       ..color = colors.grid
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (var i = 1; i <= 3; i++) {
-      canvas.drawCircle(center, radius * i / 3, gridPaint);
+      canvas.drawPath(_projectCirclePath(size, i / 3), gridPaint);
     }
     for (var i = 0; i < 8; i++) {
       final angle = i * math.pi / 4;
-      canvas.drawLine(
-        center + Offset(math.cos(angle), math.sin(angle)) * radius * 0.18,
-        center + Offset(math.cos(angle), math.sin(angle)) * radius,
-        gridPaint,
+      final inner = _projectSceneCoordinate(
+        x: math.cos(angle) * 0.18,
+        y: math.sin(angle) * 0.18,
+        z: 0,
+        size: size,
+        yaw: yaw,
+        pitch: pitch,
+        zoom: zoom,
       );
+      final outer = _projectSceneCoordinate(
+        x: math.cos(angle),
+        y: math.sin(angle),
+        z: 0,
+        size: size,
+        yaw: yaw,
+        pitch: pitch,
+        zoom: zoom,
+      );
+      canvas.drawLine(inner.offset, outer.offset, gridPaint);
     }
   }
 
   void _paintAxes(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * 0.36;
-    final axes = <({Offset end, Color color})>[
-      (end: Offset(radius, 0), color: colors.axisX),
-      (end: Offset(0, -radius), color: colors.axisY),
-      (end: Offset(-radius * 0.62, radius * 0.42), color: colors.axisZ),
+    final origin = _projectSceneCoordinate(
+      x: 0,
+      y: 0,
+      z: 0,
+      size: size,
+      yaw: yaw,
+      pitch: pitch,
+      zoom: zoom,
+    );
+    final axes = <({double x, double y, double z, Color color})>[
+      (x: 1.14, y: 0.0, z: 0.0, color: colors.axisX),
+      (x: 0.0, y: 1.14, z: 0.0, color: colors.axisY),
+      (x: 0.0, y: 0.0, z: 1.14, color: colors.axisZ),
     ];
     for (final axis in axes) {
+      final end = _projectSceneCoordinate(
+        x: axis.x,
+        y: axis.y,
+        z: axis.z,
+        size: size,
+        yaw: yaw,
+        pitch: pitch,
+        zoom: zoom,
+      );
       final paint = Paint()
         ..color = axis.color
         ..strokeWidth = 1.4
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(center, center + axis.end, paint);
+      canvas.drawLine(origin.offset, end.offset, paint);
     }
+  }
+
+  Path _projectCirclePath(Size size, double radius) {
+    final path = Path();
+    const segments = 72;
+    for (var i = 0; i <= segments; i++) {
+      final angle = math.pi * 2 * i / segments;
+      final projected = _projectSceneCoordinate(
+        x: math.cos(angle) * radius,
+        y: math.sin(angle) * radius,
+        z: 0,
+        size: size,
+        yaw: yaw,
+        pitch: pitch,
+        zoom: zoom,
+      );
+      if (i == 0) {
+        path.moveTo(projected.offset.dx, projected.offset.dy);
+      } else {
+        path.lineTo(projected.offset.dx, projected.offset.dy);
+      }
+    }
+    return path;
   }
 
   @override
   bool shouldRepaint(covariant _KnowledgeVectorScenePainter oldDelegate) {
     return oldDelegate.projected != projected ||
         oldDelegate.revealProgress != revealProgress ||
+        oldDelegate.yaw != yaw ||
+        oldDelegate.pitch != pitch ||
+        oldDelegate.zoom != zoom ||
         oldDelegate.selectedId != selectedId ||
         oldDelegate.colors != colors ||
         oldDelegate.compact != compact;
@@ -595,8 +779,22 @@ class _ProjectedVectorPoint {
   final Color color;
 }
 
-List<_ProjectedVectorPoint> _projectPoints({
-  required List<KnowledgeVectorDistributionPoint> points,
+class _VectorSceneProjection {
+  const _VectorSceneProjection({
+    required this.offset,
+    required this.depth,
+    required this.perspective,
+  });
+
+  final Offset offset;
+  final double depth;
+  final double perspective;
+}
+
+_VectorSceneProjection _projectSceneCoordinate({
+  required double x,
+  required double y,
+  required double z,
   required Size size,
   required double yaw,
   required double pitch,
@@ -608,16 +806,36 @@ List<_ProjectedVectorPoint> _projectPoints({
   final sinY = math.sin(yaw);
   final cosP = math.cos(pitch);
   final sinP = math.sin(pitch);
+  final x1 = x * cosY + z * sinY;
+  final z1 = -x * sinY + z * cosY;
+  final y1 = y * cosP - z1 * sinP;
+  final z2 = y * sinP + z1 * cosP;
+  final perspective = (1 / (1.9 - z2 * 0.46)).clamp(0.42, 1.35).toDouble();
+  return _VectorSceneProjection(
+    offset: center + Offset(x1 * radius, -y1 * radius) * perspective,
+    depth: z2,
+    perspective: perspective,
+  );
+}
+
+List<_ProjectedVectorPoint> _projectPoints({
+  required List<KnowledgeVectorDistributionPoint> points,
+  required Size size,
+  required double yaw,
+  required double pitch,
+  required double zoom,
+}) {
   return points
       .map((point) {
-        final x1 = point.x * cosY + point.z * sinY;
-        final z1 = -point.x * sinY + point.z * cosY;
-        final y1 = point.y * cosP - z1 * sinP;
-        final z2 = point.y * sinP + z1 * cosP;
-        final perspective = (1 / (1.9 - z2 * 0.46))
-            .clamp(0.42, 1.35)
-            .toDouble();
-        final offset = center + Offset(x1 * radius, -y1 * radius) * perspective;
+        final projected = _projectSceneCoordinate(
+          x: point.x,
+          y: point.y,
+          z: point.z,
+          size: size,
+          yaw: yaw,
+          pitch: pitch,
+          zoom: zoom,
+        );
         final baseRadius = switch (point.kind) {
           KnowledgeVectorPointKind.query => 8.5,
           KnowledgeVectorPointKind.match => 6.7,
@@ -630,9 +848,9 @@ List<_ProjectedVectorPoint> _projectPoints({
         };
         return _ProjectedVectorPoint(
           point: point,
-          offset: offset,
-          depth: z2,
-          radius: baseRadius * perspective,
+          offset: projected.offset,
+          depth: projected.depth,
+          radius: baseRadius * projected.perspective,
           color: color,
         );
       })

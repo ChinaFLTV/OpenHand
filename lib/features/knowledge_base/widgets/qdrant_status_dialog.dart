@@ -1400,6 +1400,7 @@ class _CollectionTile extends StatelessWidget {
             onPressed: busy ? null : onInfo,
             icon: const Icon(Icons.info_outline_rounded),
           ),
+          const SizedBox(width: 8),
           IconButton(
             tooltip: isZh ? '删除' : 'Delete',
             onPressed: busy ? null : onDelete,
