@@ -756,7 +756,7 @@ class WebReverseSessionController extends ChangeNotifier {
           .whereType<Map>()
           .map((m) {
             final n = '${m['name'] ?? ''}';
-            final v = (m['value'] as num?)?.toDouble() ?? 0;
+            final v = doubleFromValue(m['value'], fallback: 0);
             return (n, v);
           })
           .toList(growable: false);
@@ -1183,9 +1183,9 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      final db = r['databaseWithObjectStores'] as Map?;
-      if (db == null) return null;
-      final version = (db['version'] as num?)?.toInt() ?? 0;
+      final db = stringKeyedMapFromValue(r['databaseWithObjectStores']);
+      if (db.isEmpty) return null;
+      final version = nonNegativeIntFromValue(db['version'], fallback: 0);
       final stores =
           (db['objectStores'] as List?)
               ?.whereType<Map>()
@@ -4390,9 +4390,11 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
       final entries = (r['entries'] as List?) ?? const [];
-      final current = (r['currentIndex'] as num?)?.toInt() ?? -1;
+      final current = intFromValue(r['currentIndex'], fallback: -1);
       if (current <= 0 || entries.isEmpty) return;
-      final id = (entries[current - 1] as Map?)?['id'];
+      final id = optionalIntFromValue(
+        stringKeyedMapFromValue(entries[current - 1])['id'],
+      );
       if (id == null) return;
       await cdp.send(
         'Page.navigateToHistoryEntry',
@@ -4415,9 +4417,11 @@ class WebReverseSessionController extends ChangeNotifier {
         timeout: const Duration(seconds: 3),
       );
       final entries = (r['entries'] as List?) ?? const [];
-      final current = (r['currentIndex'] as num?)?.toInt() ?? -1;
+      final current = intFromValue(r['currentIndex'], fallback: -1);
       if (current < 0 || current + 1 >= entries.length) return;
-      final id = (entries[current + 1] as Map?)?['id'];
+      final id = optionalIntFromValue(
+        stringKeyedMapFromValue(entries[current + 1])['id'],
+      );
       if (id == null) return;
       await cdp.send(
         'Page.navigateToHistoryEntry',
@@ -5455,9 +5459,10 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final raw = cdpStringResultValue(r);
       if (raw == null) return null;
-      final decoded = jsonDecode(raw) as Map<String, Object?>;
+      final decoded = decodeStringKeyedJsonMap(raw);
+      if (decoded == null) return null;
       return (
-        status: (decoded['status'] as num?)?.toInt() ?? -1,
+        status: intFromValue(decoded['status'], fallback: -1),
         body: '${decoded['body'] ?? ''}',
       );
     } catch (error, stack) {
@@ -6073,15 +6078,15 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      final result = eval['result'] as Map?;
-      final objectId = result?['objectId'] as String?;
+      final result = stringKeyedMapFromValue(eval['result']);
+      final objectId = result['objectId'] as String?;
       if (objectId == null) return false;
       final node = await cdp.send(
         'DOM.requestNode',
         params: <String, Object?>{'objectId': objectId},
         sessionId: _pageSessionId,
       );
-      final nodeId = (node['nodeId'] as num?)?.toInt();
+      final nodeId = optionalIntFromValue(node['nodeId']);
       if (nodeId == null) return false;
       await cdp.send(
         'DOMDebugger.setDOMBreakpoint',
@@ -6117,14 +6122,15 @@ class WebReverseSessionController extends ChangeNotifier {
         },
         sessionId: _pageSessionId,
       );
-      final objectId = (eval['result'] as Map?)?['objectId'] as String?;
+      final objectId =
+          stringKeyedMapFromValue(eval['result'])['objectId'] as String?;
       if (objectId != null) {
         final node = await cdp.send(
           'DOM.requestNode',
           params: <String, Object?>{'objectId': objectId},
           sessionId: _pageSessionId,
         );
-        final nodeId = (node['nodeId'] as num?)?.toInt();
+        final nodeId = optionalIntFromValue(node['nodeId']);
         if (nodeId != null) {
           await cdp.send(
             'DOMDebugger.removeDOMBreakpoint',
@@ -6873,7 +6879,7 @@ class WebReverseSessionController extends ChangeNotifier {
             resourceType: 'mitmproxy',
           )..requestHeaders.clear(),
         );
-        match.statusCode = (m['status'] as num?)?.toInt();
+        match.statusCode = optionalIntFromValue(m['status']);
         final headers = (m['headers'] as List?) ?? const [];
         for (final h in headers.whereType<List>()) {
           if (h.length >= 2) {
@@ -7047,10 +7053,10 @@ class WebReverseSessionController extends ChangeNotifier {
   }) {
     try {
       final raw = utf8.decode(bytes);
-      final har = jsonDecode(raw);
-      if (har is! Map) return (loaded: 0, skipped: 0);
-      final log = har['log'] as Map?;
-      final entries = log?['entries'] as List?;
+      final har = decodeStringKeyedJsonMap(raw);
+      if (har == null) return (loaded: 0, skipped: 0);
+      final log = stringKeyedMapFromValue(har['log']);
+      final entries = log['entries'] as List?;
       if (entries == null) return (loaded: 0, skipped: 0);
       // 解析所有 entry 到候选列表；merge=false 时清空旧表后按解析顺序回填，
       // merge=true 时与现有列表按时间归并并 dedup。
@@ -7066,19 +7072,21 @@ class WebReverseSessionController extends ChangeNotifier {
           skipped++;
           continue;
         }
-        final req = raw['request'] as Map?;
-        final res = raw['response'] as Map?;
-        if (req == null) {
+        final req = stringKeyedMapFromValue(raw['request']);
+        final res = stringKeyedMapFromValue(raw['response']);
+        if (req.isEmpty) {
           skipped++;
           continue;
         }
+        final resContent = stringKeyedMapFromValue(res['content']);
+        final postData = stringKeyedMapFromValue(req['postData']);
         final url = _capPlainWebReverseText(
           '${req['url'] ?? ''}',
           _maxImportedUrlChars,
         );
         final method = _capPlainWebReverseText('${req['method'] ?? 'GET'}', 32);
         final reqHeaders = _headersFromHarList(req['headers']);
-        final resHeaders = _headersFromHarList(res?['headers']);
+        final resHeaders = _headersFromHarList(res['headers']);
         final startedRaw = '${raw['startedDateTime'] ?? ''}';
         DateTime started;
         try {
@@ -7088,7 +7096,7 @@ class WebReverseSessionController extends ChangeNotifier {
             Duration(milliseconds: entries.length - i),
           );
         }
-        final timeMs = (raw['time'] as num?)?.toInt() ?? 0;
+        final timeMs = nonNegativeIntFromValue(raw['time'], fallback: 0);
         // requestId 在 merge 时必须避免与现有 / 同批次冲突；用 ts 后缀保证唯一。
         final reqId = merge
             ? 'har-${started.microsecondsSinceEpoch}-$i'
@@ -7100,19 +7108,21 @@ class WebReverseSessionController extends ChangeNotifier {
                 method: method,
                 timestamp: started,
                 resourceType: _resourceTypeFromMime(
-                  '${res?['content']?['mimeType'] ?? ''}',
+                  '${resContent['mimeType'] ?? ''}',
                 ),
               )
               ..requestHeaders = reqHeaders
               ..requestPostData = _importedTextOrNull(
-                (req['postData'] as Map?)?['text'],
+                postData['text'],
                 label: 'HAR request body',
               )
               ..responseHeaders = resHeaders
-              ..statusCode = (res?['status'] as num?)?.toInt()
-              ..statusText = res?['statusText'] as String?
-              ..mimeType = '${res?['content']?['mimeType'] ?? ''}'
-              ..encodedDataLength = (res?['bodySize'] as num?)?.toInt()
+              ..statusCode = optionalIntFromValue(res['status'])
+              ..statusText = res['statusText'] as String?
+              ..mimeType = '${resContent['mimeType'] ?? ''}'
+              ..encodedDataLength = optionalNonNegativeIntFromValue(
+                res['bodySize'],
+              )
               ..responseReceivedAt = started.add(
                 Duration(milliseconds: timeMs ~/ 2),
               )
@@ -7662,24 +7672,18 @@ class WebReverseSessionController extends ChangeNotifier {
         _sourceMapCache[url] = null;
         return null;
       }
-      final wrap = jsonDecode(raw) as Map<String, Object?>;
-      if (wrap['error'] != null || wrap['map'] is! String) {
+      final wrap = decodeStringKeyedJsonMap(raw);
+      if (wrap == null || wrap['error'] != null || wrap['map'] is! String) {
         _sourceMapCache[url] = null;
         return null;
       }
-      final mapJson = jsonDecode('${wrap['map']}') as Map<String, Object?>;
-      final sources =
-          (mapJson['sources'] as List?)
-              ?.cast<Object?>()
-              .map((e) => '$e')
-              .toList(growable: false) ??
-          const <String>[];
-      final names =
-          (mapJson['names'] as List?)
-              ?.cast<Object?>()
-              .map((e) => '$e')
-              .toList(growable: false) ??
-          const <String>[];
+      final mapJson = decodeStringKeyedJsonMap('${wrap['map']}');
+      if (mapJson == null) {
+        _sourceMapCache[url] = null;
+        return null;
+      }
+      final sources = stringListFromValue(mapJson['sources']);
+      final names = stringListFromValue(mapJson['names']);
       final sourcesContent =
           (mapJson['sourcesContent'] as List?)
               ?.cast<Object?>()
@@ -8738,7 +8742,7 @@ class WebReverseMockRule {
         urlPattern: '${j['urlPattern'] ?? ''}',
         enabled: j['enabled'] != false,
         methodFilter: '${j['method'] ?? ''}',
-        statusCode: (j['status'] as num?)?.toInt() ?? 200,
+        statusCode: intFromValue(j['status'], fallback: 200),
         contentType: '${j['contentType'] ?? 'application/json; charset=utf-8'}',
         body: '${j['body'] ?? ''}',
         extraHeaders:
