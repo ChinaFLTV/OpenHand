@@ -132,6 +132,8 @@ class AiPromptBuilder {
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
+  static const int _dynamicToolCatalogPreviewLimit = 12;
+  static const int _dynamicToolCatalogPreviewLineMaxChars = 160;
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
@@ -1627,6 +1629,9 @@ class AiPromptBuilder {
     if (deferredMcpMatch != null || deferredBuiltinMatch != null) {
       final mcpCount = deferredMcpMatch?.group(1);
       final builtinCount = deferredBuiltinMatch?.group(1);
+      final deferredPreviewLines = _deferredToolCatalogPreviewLines(
+        toolSearch.description,
+      );
       final foldedKinds = <String>[
         if (mcpCount != null) '$mcpCount MCP',
         if (builtinCount != null) '$builtinCount built-in',
@@ -1635,8 +1640,8 @@ class AiPromptBuilder {
         ..writeln()
         ..writeln(
           compact
-              ? '## Tools (lazy)'
-              : '## Runtime Tools (lazy-loaded schemas deferred)',
+              ? '## Dynamic Tools'
+              : '## Dynamic Tool Catalog (schemas deferred)',
         )
         ..writeln(
           'Schemas for $foldedKinds deferred tool(s) are folded to save context. '
@@ -1645,6 +1650,19 @@ class AiPromptBuilder {
           '`select:<exact_name>` or keywords; the next model request receives '
           'the full JSONSchema. Do not invent tool names.',
         );
+      if (deferredPreviewLines.isNotEmpty) {
+        buffer.writeln('Deferred index preview:');
+        final renderedLines = deferredPreviewLines
+            .take(_dynamicToolCatalogPreviewLimit)
+            .toList(growable: false);
+        for (final line in renderedLines) {
+          buffer.writeln('- $line');
+        }
+        final omitted = deferredPreviewLines.length - renderedLines.length;
+        if (omitted > 0) {
+          buffer.writeln('- [deferred_tools_truncated: omitted $omitted]');
+        }
+      }
       if (isWebReverse) {
         buffer.writeln(
           'For Web Reverse sessions, load and use CDP / Chrome DevTools / js-reverse MCP tools when present in the deferred list. Do not use non-CDP browser automation for target-origin capture; if live CDP is unavailable, use local jsonl/HAR artifacts or ask the user to restore CDP.',
@@ -1736,6 +1754,41 @@ class AiPromptBuilder {
         );
     }
     return buffer.toString().trimRight();
+  }
+
+  List<String> _deferredToolCatalogPreviewLines(String toolSearchDescription) {
+    final grouped = <String, List<String>>{
+      'built-in': <String>[],
+      'MCP': <String>[],
+    };
+    String? activeGroup;
+    for (final rawLine in toolSearchDescription.split('\n')) {
+      final line = rawLine.trim();
+      final headingMatch = RegExp(
+        r'^## Deferred (MCP|built-in) tools \(\d+\)$',
+      ).firstMatch(line);
+      if (headingMatch != null) {
+        activeGroup = headingMatch.group(1);
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        activeGroup = null;
+        continue;
+      }
+      if (activeGroup == null || !line.startsWith('- ')) {
+        continue;
+      }
+      final item = line.substring(2).trim();
+      if (item.isEmpty ||
+          item.startsWith('... and ') ||
+          item.startsWith('… and ')) {
+        continue;
+      }
+      grouped[activeGroup]!.add(
+        '[$activeGroup] ${_truncateToolDescription(item, maxCharacters: _dynamicToolCatalogPreviewLineMaxChars)}',
+      );
+    }
+    return <String>[...grouped['built-in']!, ...grouped['MCP']!];
   }
 
   void _renderToolEntry(
@@ -4516,16 +4569,24 @@ $content
   List<AiResolvedTool> _postCompactDeferredBuiltinTools(
     Map<String, AiResolvedTool> resolvedToolsByName,
   ) {
-    final tools = resolvedToolsByName.values
-        .where(
-          (tool) =>
-              tool.source == AiRuntimeToolSource.builtin &&
-              tool.name.trim().isNotEmpty &&
-              tool.builtinConfig?.loadStrategy != null &&
-              tool.builtinConfig!.loadStrategy !=
-                  AiBuiltinToolLoadStrategy.eager,
-        )
-        .toList(growable: false);
+    final byName = <String, AiResolvedTool>{};
+    void addIfDeferredBuiltin(AiResolvedTool tool) {
+      if (tool.source != AiRuntimeToolSource.builtin ||
+          tool.name.trim().isEmpty ||
+          tool.builtinConfig?.loadStrategy == null ||
+          tool.builtinConfig!.loadStrategy == AiBuiltinToolLoadStrategy.eager) {
+        return;
+      }
+      byName.putIfAbsent(tool.name, () => tool);
+    }
+
+    for (final tool in resolvedToolsByName.values) {
+      addIfDeferredBuiltin(tool);
+      for (final deferred in tool.toolSearchDeferredTools.values) {
+        addIfDeferredBuiltin(deferred);
+      }
+    }
+    final tools = byName.values.toList(growable: false);
     tools.sort((left, right) {
       final leftConfig = left.builtinConfig;
       final rightConfig = right.builtinConfig;

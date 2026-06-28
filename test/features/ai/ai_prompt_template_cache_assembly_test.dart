@@ -104,6 +104,34 @@ void main() {
       contains('Write'),
     );
   });
+
+  test('deferred knowledge tools stay in the dynamic catalog preview', () {
+    final session = _session();
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: _bundle(),
+      session: session,
+      model: _model,
+      runtimeContext: _runtimeContext,
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: session.messages,
+      latestUserMessageId: 'user-1',
+      availableTools: _toolsWithDeferredKnowledge,
+      planModeRecoveryInspectionRequired: false,
+    );
+    final promptText = result.messages
+        .map((message) => message.content)
+        .join('\n\n');
+    final builtinSection = promptText.substring(
+      promptText.indexOf('## Builtin'),
+    );
+
+    expect(promptText, contains('## Dynamic Tools'));
+    expect(promptText, contains('[built-in] KnowledgeSearch'));
+    expect(promptText, contains('[built-in] KnowledgeRead'));
+    expect(builtinSection, contains('- ToolSearch:'));
+    expect(builtinSection, isNot(contains('- KnowledgeSearch:')));
+    expect(builtinSection, isNot(contains('- KnowledgeRead:')));
+  });
 }
 
 AiPromptTemplateBundle _bundle() {
@@ -192,6 +220,29 @@ const List<AiToolDefinition> _tools = <AiToolDefinition>[
   AiToolDefinition(
     name: 'Write',
     description: 'Write a file.',
+    parameters: <String, Object?>{
+      'type': 'object',
+      'properties': <String, Object?>{},
+    },
+  ),
+];
+
+const List<AiToolDefinition> _toolsWithDeferredKnowledge = <AiToolDefinition>[
+  AiToolDefinition(
+    name: 'ToolSearch',
+    description:
+        'Fetch full schema definitions for deferred runtime tools.\n\n'
+        '## Deferred built-in tools (2)\n'
+        '- KnowledgeSearch - Search local knowledge base chunks.\n'
+        '- KnowledgeRead - Read local knowledge base chunks.',
+    parameters: <String, Object?>{
+      'type': 'object',
+      'properties': <String, Object?>{},
+    },
+  ),
+  AiToolDefinition(
+    name: 'WebFetch',
+    description: 'Fetch a web page.',
     parameters: <String, Object?>{
       'type': 'object',
       'properties': <String, Object?>{},
