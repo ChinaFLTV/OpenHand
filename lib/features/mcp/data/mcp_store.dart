@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/mcp_server.dart';
 
 enum McpPersistenceIssueKind {
@@ -37,6 +38,8 @@ class McpStore {
   McpStore({String? serversFilePath})
     : _serversFilePath =
           serversFilePath ?? OpenHandPaths.defaultMcpServersFilePath();
+
+  static const String _serversRootKey = 'mcpServers';
 
   final String _serversFilePath;
 
@@ -79,7 +82,10 @@ class McpStore {
     }
 
     try {
-      final decoded = jsonDecode(rawContent);
+      final decoded = optionalStringKeyedMapFromJsonText(rawContent);
+      if (decoded == null) {
+        throw const FormatException('Root JSON is invalid.');
+      }
       final sanitized = _sanitize(decoded);
       if (!sanitized.didSanitize) {
         return McpLoadResult(servers: sanitized.servers);
@@ -139,13 +145,13 @@ class McpStore {
   }
 
   _SanitizedMcpResult _sanitize(Object? decoded) {
-    if (decoded is! Map<String, dynamic>) {
+    if (decoded is! Map) {
       throw const FormatException('Root JSON is invalid.');
     }
 
     var didSanitize = false;
-    final rawServers = decoded['mcpServers'];
-    if (rawServers is! Map<String, dynamic>) {
+    final rawServers = decoded[_serversRootKey];
+    if (rawServers is! Map) {
       return const _SanitizedMcpResult(
         didSanitize: true,
         servers: <McpServer>[],
@@ -160,8 +166,7 @@ class McpStore {
         didSanitize = true;
         return;
       }
-      final hasExplicitEnabled =
-          rawValue is Map<String, dynamic> && rawValue['enabled'] is bool;
+      final hasExplicitEnabled = rawValue is Map && rawValue['enabled'] is bool;
       if (!hasExplicitEnabled) {
         didSanitize = true;
       }
@@ -175,31 +180,41 @@ class McpStore {
   }
 
   _ParsedMcpServer? _parseServer(String name, Object? rawValue) {
-    if (name.isEmpty || rawValue is! Map<String, dynamic>) {
+    if (name.isEmpty || rawValue is! Map) {
       return null;
     }
+    final rawMap = stringKeyedMapFromValue(rawValue);
     final type =
-        McpServerType.fromStorage('${rawValue['type'] ?? ''}'.trim()) ??
-        McpServerType.fromStorage('${rawValue['transport'] ?? ''}'.trim());
+        McpServerType.fromStorage(stringFromValue(rawMap['type'])) ??
+        McpServerType.fromStorage(stringFromValue(rawMap['transport']));
     if (type == null) {
       return null;
     }
-    final enabled = rawValue['enabled'] is bool
-        ? rawValue['enabled'] as bool
-        : true;
-    final probeEnabled = rawValue['probeEnabled'] is bool
-        ? rawValue['probeEnabled'] as bool
-        : true;
-    final url = '${rawValue['url'] ?? ''}'.trim();
-    final command = '${rawValue['command'] ?? ''}'.trim();
-    final rawArgs = rawValue['args'];
-    final args = rawArgs is List
-        ? rawArgs
-              .map((item) => '$item'.trim())
-              .where((item) => item.isNotEmpty)
-              .toList(growable: false)
-        : const <String>[];
-    final parsedHeaders = _parseHeaders(rawValue['headers']);
+    var didSanitize = false;
+    final enabled = boolFromValue(rawMap['enabled'], defaultValue: true);
+    if (rawMap['enabled'] is! bool) {
+      didSanitize = true;
+    }
+    final probeEnabled = boolFromValue(
+      rawMap['probeEnabled'],
+      defaultValue: true,
+    );
+    if (rawMap['probeEnabled'] is! bool) {
+      didSanitize = true;
+    }
+    final url = stringFromValue(rawMap['url']);
+    final command = stringFromValue(rawMap['command']);
+    final rawArgs = rawMap['args'];
+    final args = stringListFromValue(rawArgs);
+    if (rawArgs != null) {
+      if (rawArgs is! List) {
+        didSanitize = true;
+      } else if (rawArgs.any((item) => optionalStringFromValue(item) == null)) {
+        didSanitize = true;
+      }
+    }
+    final parsedHeaders = _parseHeaders(rawMap['headers']);
+    didSanitize = didSanitize || parsedHeaders.didSanitize;
 
     final isValid = switch (type) {
       McpServerType.streamableHttp || McpServerType.sse => isValidHttpUrl(url),
@@ -220,7 +235,7 @@ class McpStore {
         args: args,
         headers: parsedHeaders.headers,
       ),
-      didSanitize: parsedHeaders.didSanitize,
+      didSanitize: didSanitize,
     );
   }
 
@@ -252,7 +267,7 @@ class McpStore {
     }
     return const JsonEncoder.withIndent(
       '  ',
-    ).convert(<String, Object?>{'mcpServers': entries});
+    ).convert(<String, Object?>{_serversRootKey: entries});
   }
 
   _ParsedHeaders _parseHeaders(Object? rawHeaders) {
@@ -268,9 +283,9 @@ class McpStore {
     var didSanitize = false;
     final headers = <String, String>{};
     rawHeaders.forEach((rawName, rawValue) {
-      final name = '$rawName'.trim();
-      final value = '$rawValue'.trim();
-      if (name.isEmpty || value.isEmpty || value == 'null') {
+      final name = optionalStringFromValue(rawName);
+      final value = optionalStringFromValue(rawValue);
+      if (name == null || value == null) {
         didSanitize = true;
         return;
       }
