@@ -42,4 +42,40 @@ void main() {
     expect(AiToolUtils.readBool(double.nan), isNull);
     expect(AiToolUtils.readBool('bad'), isNull);
   });
+
+  test('normalizes string list values from arrays and text', () {
+    expect(
+      AiToolUtils.normalizeStringList(<Object?>[' Example.COM ', '', 'Foo.cn']),
+      <String>['example.com', 'foo.cn'],
+    );
+    expect(AiToolUtils.normalizeStringList(' Example.COM, Foo.cn '), <String>[
+      'example.com',
+      'foo.cn',
+    ]);
+    expect(
+      AiToolUtils.normalizeStringList('["Example.COM", " Foo.cn "]'),
+      <String>['example.com', 'foo.cn'],
+    );
+  });
+
+  test('decode arguments coerces schema-guided JSON strings and wrappers', () {
+    final decoded = AiToolUtils.decodeArguments(
+      '{"limit":"12","todos":{"item":[{"content":"ship"}]}}',
+      parameters: <String, Object?>{
+        'properties': <Object?, Object?>{
+          'limit': <Object?, Object?>{'type': 'integer'},
+          'todos': <Object?, Object?>{
+            'type': 'array',
+            'items': <Object?, Object?>{'type': 'object'},
+          },
+        },
+      },
+    );
+
+    expect(decoded['limit'], 12);
+    final todos = decoded['todos'] as List<Object?>;
+    expect(todos, hasLength(1));
+    expect(todos.single, isA<Map<String, Object?>>());
+    expect((todos.single as Map<String, Object?>)['content'], 'ship');
+  });
 }

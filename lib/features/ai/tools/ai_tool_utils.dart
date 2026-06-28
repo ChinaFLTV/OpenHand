@@ -210,12 +210,9 @@ class AiToolUtils {
   }) {
     try {
       final decoded = jsonDecode(rawArguments);
-      if (decoded is Map<String, Object?>) {
-        return _coerceArgumentMap(decoded, parameters: parameters);
-      }
       if (decoded is Map) {
         return _coerceArgumentMap(
-          Map<String, Object?>.from(decoded),
+          stringKeyedMapFromValue(decoded),
           parameters: parameters,
         );
       }
@@ -320,7 +317,7 @@ class AiToolUtils {
       return stripped;
     }
     if (value is Map) {
-      final asMap = Map<String, Object?>.from(value);
+      final asMap = stringKeyedMapFromValue(value);
       // Single-key XML-style array wrappers: {item:[...]} → [...]
       if (asMap.length == 1) {
         final onlyKey = asMap.keys.first.toLowerCase();
@@ -366,19 +363,14 @@ class AiToolUtils {
     for (final entry in properties.entries) {
       final key = '${entry.key}';
       final value = entry.value;
-      if (value is Map<String, Object?>) {
-        result[key] = value;
-      } else if (value is Map) {
-        result[key] = Map<String, Object?>.from(value);
-      }
+      if (value is Map) result[key] = stringKeyedMapFromValue(value);
     }
     return result;
   }
 
   static Map<String, Object?>? _itemSchema(Map<String, Object?>? schema) {
     final items = schema?['items'];
-    if (items is Map<String, Object?>) return items;
-    if (items is Map) return Map<String, Object?>.from(items);
+    if (items is Map) return stringKeyedMapFromValue(items);
     return null;
   }
 
@@ -463,9 +455,8 @@ class AiToolUtils {
   }
 
   static List<String> normalizeStringList(Object? value) {
-    if (value is! List) return const <String>[];
-    return value
-        .map((item) => '$item'.trim().toLowerCase())
+    return stringListFromValueOrJsonText(value)
+        .map((item) => item.trim().toLowerCase())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
   }
