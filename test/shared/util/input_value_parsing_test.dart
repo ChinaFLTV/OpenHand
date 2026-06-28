@@ -33,5 +33,15 @@ void main() {
       expect(nonNegativeIntFromText('-1', fallback: 7), 7);
       expect(nonNegativeIntFromText('bad', fallback: 7), 7);
     });
+
+    test('keeps finite non-negative doubles when requested', () {
+      expect(optionalNonNegativeDoubleFromText('0'), 0);
+      expect(optionalNonNegativeDoubleFromText('1.25'), 1.25);
+      expect(optionalNonNegativeDoubleFromText(''), isNull);
+      expect(optionalNonNegativeDoubleFromText('-0.1'), isNull);
+      expect(optionalNonNegativeDoubleFromText('NaN'), isNull);
+      expect(optionalNonNegativeDoubleFromText('Infinity'), isNull);
+      expect(optionalNonNegativeDoubleFromText('bad'), isNull);
+    });
   });
 }

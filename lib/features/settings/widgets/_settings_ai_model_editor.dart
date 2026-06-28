@@ -58,6 +58,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late List<_HeaderEntry> _customHeaderEntries;
   final ScrollController _chipScrollController = ScrollController();
   static const AiEndpointRouter _endpointPreviewRouter = AiEndpointRouter();
+  static const double _maxTemperature = 2.0;
 
   List<String> get _visibleModelIds => AiModelConfig.normalizeModelIds(<String>[
     ..._availableModelIds,
@@ -1299,8 +1300,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 if (trimmed.isEmpty) {
                                   return null;
                                 }
-                                final parsed = int.tryParse(trimmed);
-                                if (parsed == null || parsed <= 0) {
+                                if (optionalPositiveIntFromText(trimmed) ==
+                                    null) {
                                   return AppLocalizations.of(
                                     context,
                                   )!.mdlEdEnterAWholeNumberGreaterThan;
@@ -1436,8 +1437,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   validator: (value) {
                                     final trimmed = value?.trim() ?? '';
                                     if (trimmed.isEmpty) return null;
-                                    final parsed = int.tryParse(trimmed);
-                                    if (parsed == null || parsed <= 0) {
+                                    if (optionalPositiveIntFromText(trimmed) ==
+                                        null) {
                                       return AppLocalizations.of(
                                         context,
                                       )!.mdlEdEnterAWholeNumberGreaterThan;
@@ -1463,10 +1464,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   validator: (value) {
                                     final trimmed = value?.trim() ?? '';
                                     if (trimmed.isEmpty) return null;
-                                    final parsed = double.tryParse(trimmed);
+                                    final parsed = optionalDoubleFromText(
+                                      trimmed,
+                                    );
                                     if (parsed == null ||
                                         parsed < 0 ||
-                                        parsed > 2.0) {
+                                        parsed > _maxTemperature) {
                                       return AppLocalizations.of(
                                         context,
                                       )!.mdlEdEnterANumberBetween00;
@@ -2094,41 +2097,29 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       explicitPromptCacheEnabled: _showsExplicitPromptCacheControl
           ? _explicitPromptCacheEnabled
           : false,
-      maxContextTokens: _parseOptionalPositiveInt(
+      maxContextTokens: optionalPositiveIntFromText(
         _maxContextTokensController.text,
       ),
       availableModelIds: _availableModelIds,
       defaultTitleModelId: _defaultTitleModelId?.trim() ?? '',
       customHeaders: _collectCustomHeaders(),
       requestMethod: _requestMethod,
-      maxTokens: _parseOptionalPositiveInt(_maxTokensController.text),
-      temperature: _parseOptionalDouble(_temperatureController.text),
+      maxTokens: optionalPositiveIntFromText(_maxTokensController.text),
+      temperature: optionalDoubleFromText(_temperatureController.text),
       streamEnabled: _streamEnabled,
       modelProfiles: _modelProfiles,
       operationRouting: AiOperationRouting(
-        responsesModelId: _normalizeOptionalText(
-          _responsesModelIdController.text,
-        ),
-        embeddingModelId: _normalizeOptionalText(
-          _embeddingModelIdController.text,
-        ),
-        moderationModelId: _normalizeOptionalText(
-          _moderationModelIdController.text,
-        ),
-        rerankModelId: _normalizeOptionalText(_rerankModelIdController.text),
-        imageModelId: _normalizeOptionalText(_imageModelIdController.text),
-        videoModelId: _normalizeOptionalText(_videoModelIdController.text),
-        speechModelId: _normalizeOptionalText(_speechModelIdController.text),
-        transcriptionModelId: _normalizeOptionalText(
-          _transcriptionModelIdController.text,
-        ),
-        translationModelId: _normalizeOptionalText(
-          _translationModelIdController.text,
-        ),
-        realtimeModelId: _normalizeOptionalText(
-          _realtimeModelIdController.text,
-        ),
-        defaultVoice: _normalizeOptionalText(_defaultVoiceController.text),
+        responsesModelId: nullIfBlank(_responsesModelIdController.text),
+        embeddingModelId: nullIfBlank(_embeddingModelIdController.text),
+        moderationModelId: nullIfBlank(_moderationModelIdController.text),
+        rerankModelId: nullIfBlank(_rerankModelIdController.text),
+        imageModelId: nullIfBlank(_imageModelIdController.text),
+        videoModelId: nullIfBlank(_videoModelIdController.text),
+        speechModelId: nullIfBlank(_speechModelIdController.text),
+        transcriptionModelId: nullIfBlank(_transcriptionModelIdController.text),
+        translationModelId: nullIfBlank(_translationModelIdController.text),
+        realtimeModelId: nullIfBlank(_realtimeModelIdController.text),
+        defaultVoice: nullIfBlank(_defaultVoiceController.text),
       ),
       endpointOverrides: parseAiEndpointOverrides(endpointOverridesJson),
       capabilityOverrides: <AiApiFamily, String>{
@@ -2138,10 +2129,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       },
       operationExtras: operationExtrasJson,
       realtime: AiRealtimeConfig(
-        transport: _normalizeOptionalText(_realtimeTransportController.text),
-        urlOverride: _normalizeOptionalText(
-          _realtimeUrlOverrideController.text,
-        ),
+        transport: nullIfBlank(_realtimeTransportController.text),
+        urlOverride: nullIfBlank(_realtimeUrlOverrideController.text),
       ),
     );
 
@@ -2171,25 +2160,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       return;
     }
     Navigator.of(context).pop(true);
-  }
-
-  int? _parseOptionalPositiveInt(String rawValue) {
-    final parsed = int.tryParse(rawValue.trim());
-    if (parsed == null || parsed <= 0) {
-      return null;
-    }
-    return parsed;
-  }
-
-  double? _parseOptionalDouble(String rawValue) {
-    final trimmed = rawValue.trim();
-    if (trimmed.isEmpty) return null;
-    return double.tryParse(trimmed);
-  }
-
-  String? _normalizeOptionalText(String rawValue) {
-    final trimmed = rawValue.trim();
-    return trimmed.isEmpty ? null : trimmed;
   }
 
   Map<String, Object?> _decodeJsonObject(String rawValue) {
@@ -2746,27 +2716,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     return const JsonEncoder.withIndent('  ').convert(map);
   }
 
-  String? _optionalText(String value) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  int? _parsePositiveInt(String value) {
-    final parsed = int.tryParse(value.trim());
-    if (parsed == null || parsed <= 0) return null;
-    return parsed;
-  }
-
-  double? _parseNonNegativeDouble(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
-    final parsed = double.tryParse(trimmed);
-    if (parsed == null || !parsed.isFinite || parsed.isNaN || parsed < 0) {
-      return null;
-    }
-    return parsed;
-  }
-
   String? _validatedModelId() {
     final modelId = _modelIdController.text.trim();
     if (modelId.isEmpty) {
@@ -2815,19 +2764,31 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           : null,
       isMultimodal: _isMultimodal,
       supportedModalities: _supportedModalities,
-      maxContextLength: _parsePositiveInt(_maxContextLengthController.text),
-      maxSummaryLength: _parsePositiveInt(_maxSummaryLengthController.text),
-      maxOutputLength: _parsePositiveInt(_maxOutputLengthController.text),
-      maxThinkingLength: _parsePositiveInt(_maxThinkingLengthController.text),
+      maxContextLength: optionalPositiveIntFromText(
+        _maxContextLengthController.text,
+      ),
+      maxSummaryLength: optionalPositiveIntFromText(
+        _maxSummaryLengthController.text,
+      ),
+      maxOutputLength: optionalPositiveIntFromText(
+        _maxOutputLengthController.text,
+      ),
+      maxThinkingLength: optionalPositiveIntFromText(
+        _maxThinkingLengthController.text,
+      ),
       requiresReasoningEcho: _requiresReasoningEcho,
       capabilities: _capabilities,
       supportsAttachments: _supportsAttachments,
-      inputUsdPer1M: _parseNonNegativeDouble(_inputUsdPer1MController.text),
-      outputUsdPer1M: _parseNonNegativeDouble(_outputUsdPer1MController.text),
-      cacheReadUsdPer1M: _parseNonNegativeDouble(
+      inputUsdPer1M: optionalNonNegativeDoubleFromText(
+        _inputUsdPer1MController.text,
+      ),
+      outputUsdPer1M: optionalNonNegativeDoubleFromText(
+        _outputUsdPer1MController.text,
+      ),
+      cacheReadUsdPer1M: optionalNonNegativeDoubleFromText(
         _cacheReadUsdPer1MController.text,
       ),
-      cacheWriteUsdPer1M: _parseNonNegativeDouble(
+      cacheWriteUsdPer1M: optionalNonNegativeDoubleFromText(
         _cacheWriteUsdPer1MController.text,
       ),
       canonicalSlug: _canonicalSlugController.text.trim().isNotEmpty
@@ -2845,10 +2806,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       supportedParameters: _parseCsv(_supportedParametersController.text),
       defaultParameters: defaultParameters,
       isGlobalDefaultTitleModel: _isGlobalDefaultTitleModel,
-      embeddingDimensions: _parsePositiveInt(
+      embeddingDimensions: optionalPositiveIntFromText(
         _embeddingDimensionsController.text,
       ),
-      embeddingMaxInputTokens: _parsePositiveInt(
+      embeddingMaxInputTokens: optionalPositiveIntFromText(
         _embeddingMaxInputTokensController.text,
       ),
       embeddingSupportsCustomDimensions: _embeddingSupportsCustomDimensions,
@@ -2856,69 +2817,69 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           _embeddingEndpointPathController.text.trim().isNotEmpty
           ? _embeddingEndpointPathController.text.trim()
           : null,
-      embeddingBatchSize: _parsePositiveInt(_embeddingBatchSizeController.text),
-      embeddingRequiresSpecialBody: _embeddingRequiresSpecialBody,
-      embeddingQueryModelId: _optionalText(
-        _embeddingQueryModelIdController.text,
+      embeddingBatchSize: optionalPositiveIntFromText(
+        _embeddingBatchSizeController.text,
       ),
-      embeddingDocumentModelId: _optionalText(
+      embeddingRequiresSpecialBody: _embeddingRequiresSpecialBody,
+      embeddingQueryModelId: nullIfBlank(_embeddingQueryModelIdController.text),
+      embeddingDocumentModelId: nullIfBlank(
         _embeddingDocumentModelIdController.text,
       ),
       embeddingInputTypes: _parseCsv(_embeddingInputTypesController.text),
-      embeddingDefaultInputType: _optionalText(
+      embeddingDefaultInputType: nullIfBlank(
         _embeddingDefaultInputTypeController.text,
       ),
-      embeddingQueryInputType: _optionalText(
+      embeddingQueryInputType: nullIfBlank(
         _embeddingQueryInputTypeController.text,
       ),
-      embeddingDocumentInputType: _optionalText(
+      embeddingDocumentInputType: nullIfBlank(
         _embeddingDocumentInputTypeController.text,
       ),
       embeddingSupportedTaskTypes: _parseCsv(
         _embeddingSupportedTaskTypesController.text,
       ),
-      embeddingDefaultTaskType: _optionalText(
+      embeddingDefaultTaskType: nullIfBlank(
         _embeddingDefaultTaskTypeController.text,
       ),
-      embeddingDefaultQueryTaskType: _optionalText(
+      embeddingDefaultQueryTaskType: nullIfBlank(
         _embeddingDefaultQueryTaskTypeController.text,
       ),
-      embeddingDefaultDocumentTaskType: _optionalText(
+      embeddingDefaultDocumentTaskType: nullIfBlank(
         _embeddingDefaultDocumentTaskTypeController.text,
       ),
-      embeddingQueryTextPrefix: _optionalText(
+      embeddingQueryTextPrefix: nullIfBlank(
         _embeddingQueryTextPrefixController.text,
       ),
-      embeddingDocumentTextPrefix: _optionalText(
+      embeddingDocumentTextPrefix: nullIfBlank(
         _embeddingDocumentTextPrefixController.text,
       ),
       embeddingEncodingFormats: _parseCsv(
         _embeddingEncodingFormatsController.text,
       ),
-      embeddingDefaultEncodingFormat: _optionalText(
+      embeddingDefaultEncodingFormat: nullIfBlank(
         _embeddingDefaultEncodingFormatController.text,
       ),
       embeddingOutputDTypes: _parseCsv(_embeddingOutputDTypesController.text),
-      embeddingDefaultOutputDType: _optionalText(
+      embeddingDefaultOutputDType: nullIfBlank(
         _embeddingDefaultOutputDTypeController.text,
       ),
-      embeddingDefaultTruncation: _optionalText(
+      embeddingDefaultTruncation: nullIfBlank(
         _embeddingDefaultTruncationController.text,
       ),
-      embeddingSimilarityMetric: _optionalText(
+      embeddingSimilarityMetric: nullIfBlank(
         _embeddingSimilarityMetricController.text,
       ),
       embeddingOutputsNormalized: _embeddingOutputsNormalized,
-      embeddingMinDimensions: _parsePositiveInt(
+      embeddingMinDimensions: optionalPositiveIntFromText(
         _embeddingMinDimensionsController.text,
       ),
-      embeddingMaxDimensions: _parsePositiveInt(
+      embeddingMaxDimensions: optionalPositiveIntFromText(
         _embeddingMaxDimensionsController.text,
       ),
-      embeddingMaxInputsPerBatch: _parsePositiveInt(
+      embeddingMaxInputsPerBatch: optionalPositiveIntFromText(
         _embeddingMaxInputsPerBatchController.text,
       ),
-      embeddingMaxTokensPerBatch: _parsePositiveInt(
+      embeddingMaxTokensPerBatch: optionalPositiveIntFromText(
         _embeddingMaxTokensPerBatchController.text,
       ),
       embeddingSupportsTruncation: _embeddingSupportsTruncation,
