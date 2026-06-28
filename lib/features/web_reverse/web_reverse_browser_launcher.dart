@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -8,6 +7,7 @@ import 'package:http/io_client.dart' as http_io;
 import '../../app/support/silent_log.dart';
 import 'web_reverse_browser_kind.dart';
 import 'web_reverse_cdp_http.dart';
+import 'web_reverse_pure_helpers.dart';
 
 /// 启动失败原因。UI 层据此给出可操作的提示。
 enum WebReverseLaunchFailure { noFreePort, spawnFailed, cdpHandshakeFailed }
@@ -223,10 +223,18 @@ class WebReverseBrowserLauncher {
               .get(webReverseCdpHttpUri(port, '/json/version'))
               .timeout(const Duration(seconds: 2));
           if (resp.statusCode == 200) {
-            final data = jsonDecode(resp.body) as Map<String, dynamic>;
-            wsUrl = data['webSocketDebuggerUrl'] as String?;
-            version = (data['Browser'] as String?) ?? version;
-            if (wsUrl != null && wsUrl.isNotEmpty) break;
+            final data = decodeStringKeyedJsonMap(resp.body);
+            if (data == null) {
+              lastHttpError = 'invalid /json/version response';
+            } else {
+              final nextWsUrl = data['webSocketDebuggerUrl'];
+              final nextVersion = data['Browser'];
+              wsUrl = nextWsUrl is String ? nextWsUrl.trim() : null;
+              if (nextVersion is String && nextVersion.trim().isNotEmpty) {
+                version = nextVersion.trim();
+              }
+              if (wsUrl != null && wsUrl.isNotEmpty) break;
+            }
           } else {
             lastHttpError = 'HTTP ${resp.statusCode}';
           }
