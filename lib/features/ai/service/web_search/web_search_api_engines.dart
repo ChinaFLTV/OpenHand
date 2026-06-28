@@ -51,7 +51,7 @@ class WebSearchTavilyEngine extends WebSearchEngine {
             title: stringOf(r['title']),
             url: stringOf(r['url']),
             snippet: stringOf(r['content']),
-            score: (r['score'] as num?)?.toDouble(),
+            score: webSearchScoreFromValue(r['score']),
             source: 'tavily',
           );
         })
@@ -98,7 +98,7 @@ class WebSearchExaEngine extends WebSearchEngine {
             title: stringOf(r['title']),
             url: stringOf(r['url']),
             snippet: text.isEmpty ? stringOf(r['snippet']) : text,
-            score: (r['score'] as num?)?.toDouble(),
+            score: webSearchScoreFromValue(r['score']),
             publishedAt: DateTime.tryParse(stringOf(r['publishedDate'])),
             source: 'exa',
           );

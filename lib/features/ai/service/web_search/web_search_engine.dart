@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_base.dart';
@@ -43,6 +44,10 @@ class WebSearchEngineHit {
 
   static String _cap(String input, int n) =>
       input.length <= n ? input : '${input.substring(0, n)}…';
+}
+
+double? webSearchScoreFromValue(Object? value) {
+  return optionalNonNegativeDoubleFromValue(value);
 }
 
 /// 调用引擎所需的请求信息（query + 过滤）。
