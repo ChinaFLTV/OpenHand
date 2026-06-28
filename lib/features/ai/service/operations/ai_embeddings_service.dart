@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_dialect.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
@@ -1259,13 +1260,7 @@ int? _embeddingResponseDimensions(Map<String, Object?> body) {
 }
 
 int? _positiveIntOrNull(Object? value) {
-  if (value is int && value > 0) return value;
-  if (value is num && value > 0) return value.toInt();
-  if (value is String) {
-    final parsed = int.tryParse(value.trim());
-    if (parsed != null && parsed > 0) return parsed;
-  }
-  return null;
+  return optionalPositiveIntFromValue(value);
 }
 
 Map<String, Object?> _deepMergeObjectMaps(

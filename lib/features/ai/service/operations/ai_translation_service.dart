@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
@@ -841,10 +842,7 @@ class AiTranslationService {
   }
 
   int? _intValue(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim());
-    return null;
+    return optionalIntFromValue(value);
   }
 
   void dispose() {
