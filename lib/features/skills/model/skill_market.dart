@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 class SkillMarketSearchResult {
   const SkillMarketSearchResult({
     required this.skills,
@@ -15,16 +17,13 @@ class SkillMarketSearchResult {
     if (data is! Map) {
       throw const FormatException('Skill market search data is invalid.');
     }
-    final rawSkills = data['skills'];
-    final skills = rawSkills is List
-        ? rawSkills
-              .whereType<Map>()
-              .map((item) => SkillMarketSummary.fromJson(item))
-              .toList(growable: false)
-        : const <SkillMarketSummary>[];
+    final dataMap = stringKeyedMapFromValue(data);
+    final skills = stringKeyedMapListFromValue(
+      dataMap['skills'],
+    ).map(SkillMarketSummary.fromJson).toList(growable: false);
     return SkillMarketSearchResult(
       skills: skills,
-      total: _readInt(data['total']),
+      total: _readInt(dataMap['total']),
       page: page,
       pageSize: pageSize,
     );
@@ -135,28 +134,13 @@ class SkillMarketDetail {
   });
 
   factory SkillMarketDetail.fromJson(Map<String, Object?> json) {
-    final rawSecurityReports = json['securityReports'];
-    final securityReports = <String, SkillMarketSecurityReport>{};
-    if (rawSecurityReports is Map) {
-      for (final entry in rawSecurityReports.entries) {
-        final value = entry.value;
-        if (value is Map) {
-          securityReports['${entry.key}'] = SkillMarketSecurityReport.fromJson(
-            value,
-          );
-        }
-      }
-    }
-
     return SkillMarketDetail(
       skill: SkillMarketDetailSkill.fromJson(_readMap(json['skill'])),
       owner: SkillMarketOwner.fromJson(_readMap(json['owner'])),
       latestVersion: SkillMarketVersion.fromJsonOrNull(
         _readNullableMap(json['latestVersion']),
       ),
-      securityReports: Map<String, SkillMarketSecurityReport>.unmodifiable(
-        securityReports,
-      ),
+      securityReports: _readSecurityReports(json['securityReports']),
     );
   }
 
@@ -292,12 +276,9 @@ class SkillMarketFilesResult {
     final rawFiles = json['files'];
     return SkillMarketFilesResult(
       count: _readInt(json['count']),
-      files: rawFiles is List
-          ? rawFiles
-                .whereType<Map>()
-                .map((item) => SkillMarketFileEntry.fromJson(item))
-                .toList(growable: false)
-          : const <SkillMarketFileEntry>[],
+      files: stringKeyedMapListFromValue(
+        rawFiles,
+      ).map(SkillMarketFileEntry.fromJson).toList(growable: false),
       version: _readString(json['version']),
     );
   }
@@ -339,12 +320,9 @@ class SkillMarketVersionsResult {
     return SkillMarketVersionsResult(
       slug: _readString(json['slug']),
       source: _readString(json['source']),
-      versions: rawVersions is List
-          ? rawVersions
-                .whereType<Map>()
-                .map((item) => SkillMarketVersion.fromJson(item))
-                .toList(growable: false)
-          : const <SkillMarketVersion>[],
+      versions: stringKeyedMapListFromValue(
+        rawVersions,
+      ).map(SkillMarketVersion.fromJson).toList(growable: false),
     );
   }
 
@@ -363,27 +341,12 @@ class SkillMarketVersion {
   });
 
   factory SkillMarketVersion.fromJson(Map<Object?, Object?> json) {
-    final rawSecurityReports = json['securityReports'];
-    final securityReports = <String, SkillMarketSecurityReport>{};
-    if (rawSecurityReports is Map) {
-      for (final entry in rawSecurityReports.entries) {
-        final value = entry.value;
-        if (value is Map) {
-          securityReports['${entry.key}'] = SkillMarketSecurityReport.fromJson(
-            value,
-          );
-        }
-      }
-    }
-
     return SkillMarketVersion(
       changelog: _readString(json['changelog']),
       createdAt: _readInt(json['createdAt']),
       version: _readString(json['version']),
       versionId: _readInt(json['versionId']),
-      securityReports: Map<String, SkillMarketSecurityReport>.unmodifiable(
-        securityReports,
-      ),
+      securityReports: _readSecurityReports(json['securityReports']),
     );
   }
 
@@ -415,43 +378,26 @@ int _readInt(Object? value) {
   if (value is int) {
     return value;
   }
-  if (value is num) {
+  if (value is num && value.isFinite) {
     return value.round();
   }
   return int.tryParse('$value') ?? 0;
 }
 
 double _readDouble(Object? value) {
-  if (value is num) {
+  if (value is num && value.isFinite) {
     return value.toDouble();
   }
-  return double.tryParse('$value') ?? 0;
+  final parsed = double.tryParse('$value');
+  return parsed != null && parsed.isFinite ? parsed : 0;
 }
 
 bool _readBool(Object? value) {
-  if (value is bool) {
-    return value;
-  }
-  final normalized = '$value'.trim().toLowerCase();
-  return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  return boolFromValue(value);
 }
 
 List<String> _readStringList(Object? value) {
-  if (value is List) {
-    return value
-        .map(_readString)
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
-  }
-  final text = _readNullableString(value);
-  if (text == null) {
-    return const <String>[];
-  }
-  return text
-      .split(',')
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
+  return stringListFromValue(value);
 }
 
 Map<String, String> _readStringMap(Object? value) {
@@ -476,7 +422,18 @@ Map<String, Object?>? _readNullableMap(Object? value) {
     return value;
   }
   if (value is Map) {
-    return value.map((key, value) => MapEntry('$key', value));
+    return stringKeyedMapFromValue(value);
   }
   return null;
+}
+
+Map<String, SkillMarketSecurityReport> _readSecurityReports(Object? value) {
+  final reports = <String, SkillMarketSecurityReport>{};
+  final rawReports = stringKeyedMapFromValue(value);
+  for (final entry in rawReports.entries) {
+    final report = stringKeyedMapFromValue(entry.value);
+    if (report.isEmpty) continue;
+    reports[entry.key] = SkillMarketSecurityReport.fromJson(report);
+  }
+  return Map<String, SkillMarketSecurityReport>.unmodifiable(reports);
 }
