@@ -2,11 +2,56 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
+
+@visibleForTesting
+Map<String, Object?>? qdrantInspectMetadataFromDecoded(Object? decoded) {
+  if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
+    return null;
+  }
+
+  final inspect = stringKeyedMapFromValue(decoded.first);
+  final state = stringKeyedMapFromValue(inspect['State']);
+  final config = stringKeyedMapFromValue(inspect['Config']);
+  final networkSettings = stringKeyedMapFromValue(inspect['NetworkSettings']);
+  final hostConfig = stringKeyedMapFromValue(inspect['HostConfig']);
+  final labels = stringKeyedMapFromValue(config['Labels']);
+  final openHandManaged =
+      boolFromValue(labels['openhand.managed']) ||
+      boolFromValue(labels['com.openhand.managed']);
+  final image = '${config['Image'] ?? ''}'.trim();
+
+  return <String, Object?>{
+    'docker_daemon_running': true,
+    'openhand_managed': openHandManaged,
+    'container_id': '${inspect['Id'] ?? ''}'.trim(),
+    'container_name': PluginScannerService.qdrantContainerName,
+    'container_status': '${state['Status'] ?? ''}'.trim(),
+    'running': boolFromValue(state['Running']),
+    'started_at': '${state['StartedAt'] ?? ''}'.trim(),
+    'finished_at': '${state['FinishedAt'] ?? ''}'.trim(),
+    'restart_count': optionalNonNegativeIntFromValue(state['RestartCount']),
+    'exit_code': optionalNonNegativeIntFromValue(state['ExitCode']),
+    'image': image,
+    'image_id': '${inspect['Image'] ?? ''}'.trim(),
+    'ports': PluginScannerService._formatDockerPorts(networkSettings['Ports']),
+    'restart_policy': PluginScannerService._formatRestartPolicy(
+      hostConfig['RestartPolicy'],
+    ),
+    'rest_endpoint': 'http://127.0.0.1:${PluginScannerService.qdrantRestPort}',
+    'grpc_endpoint': '127.0.0.1:${PluginScannerService.qdrantGrpcPort}',
+    'data_directory': PluginScannerService._extractHostDataDirectory(
+      inspect['Mounts'],
+    ),
+  };
+}
 
 /// 扫描本机已安装的插件（NodeJS / Playwright / Python / pip），检测版本与可用性。
 ///
@@ -1061,52 +1106,16 @@ class PluginScannerService {
         return _qdrantNotInstalled;
       }
       final decoded = _decodeOptionalJson(inspectResult.stdout.toString());
-      if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
+      final metadata = qdrantInspectMetadataFromDecoded(decoded);
+      if (metadata == null) {
         return _qdrantNotInstalled.copyWith(
           status: PluginStatus.error,
           errorMessage: '无法解析 OpenHand Qdrant 容器信息。',
         );
       }
-      final inspect = Map<String, Object?>.from(decoded.first as Map);
-      final state = inspect['State'] is Map
-          ? Map<String, Object?>.from(inspect['State'] as Map)
-          : const <String, Object?>{};
-      final config = inspect['Config'] is Map
-          ? Map<String, Object?>.from(inspect['Config'] as Map)
-          : const <String, Object?>{};
-      final networkSettings = inspect['NetworkSettings'] is Map
-          ? Map<String, Object?>.from(inspect['NetworkSettings'] as Map)
-          : const <String, Object?>{};
-      final hostConfig = inspect['HostConfig'] is Map
-          ? Map<String, Object?>.from(inspect['HostConfig'] as Map)
-          : const <String, Object?>{};
-      final image = '${config['Image'] ?? ''}'.trim();
-      final running = state['Running'] == true;
-      final labels = config['Labels'] is Map
-          ? Map<String, Object?>.from(config['Labels'] as Map)
-          : const <String, Object?>{};
-      final openHandManaged =
-          labels['openhand.managed'] == 'true' ||
-          labels['com.openhand.managed'] == 'true';
-      final metadata = <String, Object?>{
-        'docker_daemon_running': true,
-        'openhand_managed': openHandManaged,
-        'container_id': '${inspect['Id'] ?? ''}'.trim(),
-        'container_name': qdrantContainerName,
-        'container_status': '${state['Status'] ?? ''}'.trim(),
-        'running': running,
-        'started_at': '${state['StartedAt'] ?? ''}'.trim(),
-        'finished_at': '${state['FinishedAt'] ?? ''}'.trim(),
-        'restart_count': state['RestartCount'],
-        'exit_code': state['ExitCode'],
-        'image': image,
-        'image_id': '${inspect['Image'] ?? ''}'.trim(),
-        'ports': _formatDockerPorts(networkSettings['Ports']),
-        'restart_policy': _formatRestartPolicy(hostConfig['RestartPolicy']),
-        'rest_endpoint': 'http://127.0.0.1:$qdrantRestPort',
-        'grpc_endpoint': '127.0.0.1:$qdrantGrpcPort',
-        'data_directory': _extractHostDataDirectory(inspect['Mounts']),
-      };
+      final image = '${metadata['image'] ?? ''}'.trim();
+      final running = metadata['running'] == true;
+      final openHandManaged = metadata['openhand_managed'] == true;
       String? qdrantVersion;
       if (running) {
         final health = await _shellRun(
@@ -1187,8 +1196,10 @@ class PluginScannerService {
       if (bindings is List && bindings.isNotEmpty) {
         for (final binding in bindings) {
           if (binding is Map) {
-            final hostIp = '${binding['HostIp'] ?? ''}';
-            final hostPort = '${binding['HostPort'] ?? ''}';
+            final bindingMap = stringKeyedMapFromValue(binding);
+            final hostIp = '${bindingMap['HostIp'] ?? ''}'.trim();
+            final hostPort = '${bindingMap['HostPort'] ?? ''}'.trim();
+            if (hostIp.isEmpty && hostPort.isEmpty) continue;
             parts.add('${entry.key} -> $hostIp:$hostPort');
           }
         }
@@ -1198,9 +1209,10 @@ class PluginScannerService {
   }
 
   static String _formatRestartPolicy(Object? value) {
-    if (value is! Map) return '';
-    final name = '${value['Name'] ?? ''}'.trim();
-    final maximumRetryCount = '${value['MaximumRetryCount'] ?? ''}'.trim();
+    final map = stringKeyedMapFromValue(value);
+    if (map.isEmpty) return '';
+    final name = '${map['Name'] ?? ''}'.trim();
+    final maximumRetryCount = '${map['MaximumRetryCount'] ?? ''}'.trim();
     if (maximumRetryCount.isEmpty || maximumRetryCount == '0') return name;
     return '$name ($maximumRetryCount)';
   }
@@ -1209,9 +1221,10 @@ class PluginScannerService {
     if (mounts is! List) return '';
     for (final mount in mounts) {
       if (mount is! Map) continue;
-      final destination = '${mount['Destination'] ?? ''}'.trim();
+      final mountMap = stringKeyedMapFromValue(mount);
+      final destination = '${mountMap['Destination'] ?? ''}'.trim();
       if (destination == '/qdrant/storage') {
-        return '${mount['Source'] ?? ''}'.trim();
+        return '${mountMap['Source'] ?? ''}'.trim();
       }
     }
     return '';
