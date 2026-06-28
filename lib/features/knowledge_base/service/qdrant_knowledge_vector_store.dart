@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
 import 'knowledge_vector_store.dart';
@@ -46,9 +47,10 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         final params = config is Map ? config['params'] : null;
         final vectors = params is Map ? params['vectors'] : null;
         final size = vectors is Map ? vectors['size'] : null;
-        if (size is num && size.toInt() != dimensions) {
+        final vectorSize = optionalPositiveIntFromValue(size);
+        if (vectorSize != null && vectorSize != dimensions) {
           throw StateError(
-            'Qdrant collection $collectionName vector size is ${size.toInt()}, expected $dimensions. Rebuild the index after changing embedding dimensions.',
+            'Qdrant collection $collectionName vector size is $vectorSize, expected $dimensions. Rebuild the index after changing embedding dimensions.',
           );
         }
       }
@@ -107,6 +109,10 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     double? scoreThreshold,
     Map<String, Object?>? filter,
   }) async {
+    if (vector.isEmpty || vector.any((value) => !value.isFinite)) {
+      return const <KnowledgeVectorSearchHit>[];
+    }
+    final safeScoreThreshold = optionalDoubleFromValue(scoreThreshold);
     final response = await _send(
       method: 'POST',
       uri: _uri('/collections/$collectionName/points/search'),
@@ -115,7 +121,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
         'limit': limit,
         'with_payload': true,
         'params': <String, Object?>{'hnsw_ef': settings.searchEf},
-        if (scoreThreshold != null) 'score_threshold': scoreThreshold,
+        if (safeScoreThreshold != null) 'score_threshold': safeScoreThreshold,
         if (filter != null && filter.isNotEmpty) 'filter': filter,
       },
     );
@@ -128,7 +134,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
           final payload = item['payload'];
           return KnowledgeVectorSearchHit(
             id: '${item['id'] ?? ''}',
-            score: (item['score'] as num?)?.toDouble() ?? 0,
+            score: doubleFromValue(item['score'], fallback: 0),
             payload: payload is Map
                 ? Map<String, Object?>.from(payload)
                 : const <String, Object?>{},

@@ -1523,8 +1523,6 @@ class _QdrantMetricSample {
   }
 
   static int _intValue(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.round();
-    return int.tryParse('$value') ?? 0;
+    return nonNegativeIntFromValue(value, fallback: 0);
   }
 }
