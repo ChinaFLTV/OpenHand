@@ -116,31 +116,26 @@ enum AiSessionMessageFeedback {
 }
 
 class AiSessionMessage {
-  factory AiSessionMessage.fromJson(Map<String, Object?> json) {
+  factory AiSessionMessage.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     final createdAt =
         DateTime.tryParse('${json['created_at']}')?.toUtc() ??
         DateTime.now().toUtc();
     final content = '${json['content'] ?? ''}';
-    final usageJson = json['usage'];
     return AiSessionMessage(
       id: '${json['id'] ?? ''}',
       kind: AiSessionMessageKind.fromStorage('${json['kind'] ?? ''}'),
       role: AiSessionMessageRole.fromStorage('${json['role'] ?? ''}'),
       content: content,
       createdAt: createdAt,
-      characterCount: json['character_count'] is int
-          ? json['character_count'] as int
-          : countCharacters(content),
-      isDeleted: json['is_deleted'] is bool
-          ? json['is_deleted'] as bool
-          : false,
+      characterCount: nonNegativeIntFromValue(
+        json['character_count'],
+        fallback: countCharacters(content),
+      ),
+      isDeleted: boolFromValue(json['is_deleted']),
       modelId: _readNullableString(json['model_id']),
       modelLabel: _readNullableString(json['model_label']),
-      usage: usageJson is Map<String, Object?>
-          ? AiTokenUsage.fromJson(usageJson)
-          : usageJson is Map
-          ? AiTokenUsage.fromJson(stringKeyedMapFromValue(usageJson))
-          : null,
+      usage: _readUsage(json['usage']),
       metadata: Map<String, Object?>.of(
         stringKeyedMapFromValue(json['metadata']),
       ),
@@ -589,6 +584,12 @@ class AiSessionMessage {
       return null;
     }
     return text;
+  }
+
+  static AiTokenUsage? _readUsage(Object? value) {
+    final json = optionalStringKeyedMapFromValueOrJsonText(value);
+    if (json == null) return null;
+    return AiTokenUsage.fromJson(json);
   }
 }
 
@@ -1330,8 +1331,8 @@ class AiSessionMessageResponseVariant {
     );
   }
 
-  factory AiSessionMessageResponseVariant.fromJson(Map<String, Object?> json) {
-    final usageJson = json['usage'];
+  factory AiSessionMessageResponseVariant.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionMessageResponseVariant(
       id: AiSessionMessage._readNullableString(json['id']),
       content: '${json['content'] ?? ''}',
@@ -1340,11 +1341,7 @@ class AiSessionMessageResponseVariant {
           DateTime.now().toUtc(),
       modelId: AiSessionMessage._readNullableString(json['model_id']),
       modelLabel: AiSessionMessage._readNullableString(json['model_label']),
-      usage: usageJson is Map<String, Object?>
-          ? AiTokenUsage.fromJson(usageJson)
-          : usageJson is Map
-          ? AiTokenUsage.fromJson(stringKeyedMapFromValue(usageJson))
-          : null,
+      usage: AiSessionMessage._readUsage(json['usage']),
       feedback: AiSessionMessageFeedback.fromStorage(
         json[aiSessionMessageFeedbackMetadataKey],
       ),
@@ -1463,16 +1460,10 @@ class AiSessionMessageResponseVariant {
   }
 
   static List<String> _normalizeMessageIds(Object? raw) {
-    if (raw is! Iterable) {
-      return const <String>[];
-    }
     final ids = <String>[];
     final seen = <String>{};
-    for (final item in raw) {
-      final id = '$item'.trim();
-      if (id.isEmpty || !seen.add(id)) {
-        continue;
-      }
+    for (final id in stringListFromValueOrJsonText(raw)) {
+      if (!seen.add(id)) continue;
       ids.add(id);
     }
     return List<String>.unmodifiable(ids);
