@@ -920,10 +920,11 @@ class AiChatService implements AiChatClient {
     }
     if (streamedResponse.statusCode < 200 ||
         streamedResponse.statusCode >= 300) {
-      var errorBody = await streamedResponse.stream.bytesToString();
+      final initialErrorBody = await streamedResponse.stream.bytesToString();
+      var finalErrorBody = initialErrorBody;
       if (_shouldRetryWithoutCacheBodyAffinity(
         statusCode: streamedResponse.statusCode,
-        errorBody: errorBody,
+        errorBody: initialErrorBody,
         requestBody: blueprint.body,
       )) {
         final retryBody = _withoutCacheBodyAffinityMarkers(blueprint.body);
@@ -946,28 +947,26 @@ class AiChatService implements AiChatClient {
             ),
           );
         }
-      }
-      if (streamedResponse.statusCode >= 200 &&
-          streamedResponse.statusCode < 300) {
-        errorBody = '';
-      }
-      if (errorBody.isEmpty &&
-          (streamedResponse.statusCode < 200 ||
-              streamedResponse.statusCode >= 300)) {
-        errorBody = await streamedResponse.stream.bytesToString();
+        if (streamedResponse.statusCode < 200 ||
+            streamedResponse.statusCode >= 300) {
+          finalErrorBody = await streamedResponse.stream.bytesToString();
+        }
       }
       if (streamedResponse.statusCode >= 200 &&
           streamedResponse.statusCode < 300) {
         // Retry succeeded; continue into the normal SSE reader below.
       } else {
-        final errorMessage = adapter.extractErrorMessage(errorBody);
+        final errorMessage = adapter.extractErrorMessage(finalErrorBody);
         final message = AiTransportDiagnosticMessages.httpStatus(
           streamedResponse.statusCode,
           serverMessage: errorMessage,
         );
         throw AiChatException(
           message,
-          telemetry: telemetrySnapshot(rawResponse: errorBody, error: message),
+          telemetry: telemetrySnapshot(
+            rawResponse: finalErrorBody,
+            error: message,
+          ),
         );
       }
     }

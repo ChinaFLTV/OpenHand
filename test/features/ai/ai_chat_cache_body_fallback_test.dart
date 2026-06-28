@@ -84,4 +84,57 @@ void main() {
       expect(result.usage?.cacheReadTokens, 6);
     },
   );
+
+  test(
+    'stream keeps non-cache gateway errors on the original failure',
+    () async {
+      var callCount = 0;
+      final client = MockClient((request) async {
+        callCount += 1;
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'error': <String, Object?>{'message': 'Bad request: unrelated'},
+          }),
+          400,
+          headers: const <String, String>{'content-type': 'application/json'},
+        );
+      });
+      final service = AiChatService(client: client);
+
+      await expectLater(
+        service.sendMessageStream(
+          model: const AiModelConfig(
+            id: 'model-1',
+            baseUrl: 'http://127.0.0.1:3000',
+            authScheme: AiAuthScheme.bearer,
+            token: 'token',
+            modelId: 'grok-composer-2.5-fast',
+            protocolType: AiProtocolType.openai,
+          ),
+          messages: const <AiChatTurn>[
+            AiChatTurn(
+              role: AiChatRole.system,
+              content: 'Stable system prompt.',
+            ),
+            AiChatTurn(role: AiChatRole.user, content: 'Hello'),
+          ],
+          inputCacheConfig: const AiInputCacheRuntimeConfig(
+            enabled: true,
+            mode: 'allMessages',
+            updateInterval: 10,
+            breakpointCount: 4,
+            cacheAffinityId: 'session-1',
+          ),
+        ),
+        throwsA(
+          isA<AiChatException>().having(
+            (error) => error.message,
+            'message',
+            contains('Bad request: unrelated'),
+          ),
+        ),
+      );
+      expect(callCount, 1);
+    },
+  );
 }
