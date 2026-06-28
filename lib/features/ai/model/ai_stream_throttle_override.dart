@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 /// Per-thread-template override for stream output throttle settings.
 ///
 /// 2026-05-17 — 流式输出节流的「每个线程模板独立覆盖」。当用户希望某
@@ -54,14 +56,12 @@ class AiStreamThrottleOverride {
   }
 
   static AiStreamThrottleOverride? fromJson(Object? raw) {
-    if (raw is! Map) return null;
-    final c = raw['chars_per_second'];
-    final m = raw['cards_per_second'];
-    final e = raw['enabled'];
+    final json = optionalStringKeyedMapFromValueOrJsonText(raw);
+    if (json == null) return null;
     final override = AiStreamThrottleOverride(
-      charsPerSecond: c is int ? c : null,
-      cardsPerSecond: m is int ? m : null,
-      enabled: e is bool ? e : null,
+      charsPerSecond: optionalPositiveIntFromValue(json['chars_per_second']),
+      cardsPerSecond: optionalPositiveIntFromValue(json['cards_per_second']),
+      enabled: optionalBoolFromValue(json['enabled']),
     );
     return override.isEmpty ? null : override;
   }

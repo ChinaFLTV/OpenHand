@@ -27,7 +27,7 @@ extension AppProxyModeJson on AppProxyMode {
   }
 
   static AppProxyMode fromJson(Object? raw) {
-    switch ('$raw'.toLowerCase()) {
+    switch (stringFromValue(raw).toLowerCase()) {
       case 'disabled':
       case 'none':
       case 'off':
@@ -56,7 +56,7 @@ extension AppProxyProtocolJson on AppProxyProtocol {
   }
 
   static AppProxyProtocol? tryFromJson(Object? raw) {
-    switch ('$raw'.toLowerCase()) {
+    switch (stringFromValue(raw).toLowerCase()) {
       case 'http':
         return AppProxyProtocol.http;
       case 'https':
@@ -103,13 +103,14 @@ class AppProxySettings {
   /// back to defaults() so a corrupted settings file never crashes the
   /// app boot.
   factory AppProxySettings.fromJson(Object? rawJson) {
-    if (rawJson is! Map) {
+    final json = optionalStringKeyedMapFromValueOrJsonText(rawJson);
+    if (json == null) {
       return AppProxySettings.defaults();
     }
     final defaults = AppProxySettings.defaults();
-    final mode = AppProxyModeJson.fromJson(rawJson['mode']);
+    final mode = AppProxyModeJson.fromJson(json['mode']);
 
-    final rawProtocols = rawJson['protocols'];
+    final rawProtocols = json['protocols'];
     final protocols = <AppProxyProtocol>{};
     if (rawProtocols is List) {
       for (final entry in rawProtocols) {
@@ -121,40 +122,19 @@ class AppProxySettings {
     }
     final usableProtocols = protocols.isEmpty ? defaults.protocols : protocols;
 
-    final host = rawJson['host'] is String
-        ? (rawJson['host'] as String).trim()
-        : defaults.host;
+    final host = stringFromValue(json['host'], fallback: defaults.host);
     final port = clampedIntFromValue(
-      rawJson['port'],
+      json['port'],
       fallback: defaults.port,
       min: minPort,
       max: maxPort,
     );
-    final authEnabled = rawJson['auth_enabled'] is bool
-        ? rawJson['auth_enabled'] as bool
-        : false;
-    final username = rawJson['username'] is String
-        ? (rawJson['username'] as String)
-        : '';
-    final password = rawJson['password'] is String
-        ? (rawJson['password'] as String)
-        : '';
-    final rawExceptions = rawJson['exceptions'];
-    final exceptions = <String>[];
-    if (rawExceptions is List) {
-      for (final entry in rawExceptions) {
-        if (entry is String) {
-          final trimmed = entry.trim();
-          if (trimmed.isNotEmpty) {
-            exceptions.add(trimmed);
-          }
-        }
-      }
-    }
+    final authEnabled = boolFromValue(json['auth_enabled']);
+    final username = _credentialFromValue(json['username']);
+    final password = _credentialFromValue(json['password']);
+    final exceptions = stringListFromValue(json['exceptions']);
 
-    final rawTestEndpoint = rawJson['test_endpoint'] is String
-        ? (rawJson['test_endpoint'] as String).trim()
-        : '';
+    final rawTestEndpoint = stringFromValue(json['test_endpoint']);
     final testEndpoint = rawTestEndpoint.isEmpty
         ? defaults.testEndpoint
         : rawTestEndpoint;
@@ -278,4 +258,9 @@ bool _listEquals<T>(List<T> a, List<T> b) {
     if (a[i] != b[i]) return false;
   }
   return true;
+}
+
+String _credentialFromValue(Object? value) {
+  if (value is String) return value;
+  return stringFromValue(value);
 }
