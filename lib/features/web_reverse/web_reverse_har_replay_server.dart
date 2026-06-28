@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 /// 把 HAR 1.2 文档作为只读 mock server 跑起来，监听 127.0.0.1:N，
 /// 收到 GET 请求时按 URL 全等匹配 HAR 条目并回放 status / headers / body。
@@ -37,15 +38,21 @@ class WebReverseHarReplayServer {
     Map<String, _HarHit> map;
     try {
       final raw = utf8.decode(harBytes);
-      final har = jsonDecode(raw) as Map;
-      final entries = (har['log'] as Map?)?['entries'] as List? ?? const [];
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final har = stringKeyedMapFromValue(decoded);
+      final log = stringKeyedMapFromValue(har['log']);
+      final entries = log['entries'] is List
+          ? log['entries'] as List
+          : const <Object?>[];
       map = <String, _HarHit>{};
       var accepted = 0;
       for (final e in entries.whereType<Map>()) {
         if (accepted >= _maxReplayEntries) break;
-        final req = e['request'] as Map?;
-        final res = e['response'] as Map?;
-        if (req == null || res == null) continue;
+        final entry = stringKeyedMapFromValue(e);
+        final req = stringKeyedMapFromValue(entry['request']);
+        final res = stringKeyedMapFromValue(entry['response']);
+        if (req.isEmpty || res.isEmpty) continue;
         final method = '${req['method'] ?? 'GET'}';
         if (method.toUpperCase() != 'GET') continue;
         final url = '${req['url'] ?? ''}';
@@ -57,17 +64,24 @@ class WebReverseHarReplayServer {
             in (res['headers'] as List? ?? const []).whereType<Map>().take(
               _maxReplayHeaders,
             )) {
-          headers['${h['name'] ?? ''}'] = _clipText(
+          final name = '${h['name'] ?? ''}'.trim();
+          if (name.isEmpty) continue;
+          headers[name] = _clipText(
             '${h['value'] ?? ''}',
             _maxReplayHeaderValueChars,
           );
         }
-        final content = res['content'] as Map? ?? const {};
+        final content = stringKeyedMapFromValue(res['content']);
         final bodyRaw = '${content['text'] ?? ''}';
         final isB64 = '${content['encoding'] ?? ''}'.toLowerCase() == 'base64';
         final body = _clipReplayBody(bodyRaw, isBase64: isB64);
         final hit = _HarHit(
-          status: (res['status'] as num?)?.toInt() ?? 200,
+          status: clampedIntFromValue(
+            res['status'],
+            fallback: 200,
+            min: 100,
+            max: 599,
+          ),
           headers: headers,
           body: body,
           isBase64: isB64,
