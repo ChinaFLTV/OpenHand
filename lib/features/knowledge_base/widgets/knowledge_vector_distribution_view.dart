@@ -9,7 +9,7 @@ import '../model/knowledge_vector_distribution.dart';
 const double _kVectorSceneMinHeight = 320;
 const double _kVectorPointHitRadius = 18;
 const double _kVectorSceneMinZoom = 0.62;
-const double _kVectorSceneMaxZoom = 2.4;
+const double _kVectorSceneMaxZoom = 5.0;
 
 class KnowledgeVectorDistributionView extends StatefulWidget {
   const KnowledgeVectorDistributionView({
@@ -185,12 +185,49 @@ class _KnowledgeVectorDistributionViewState
                 bottom: 12,
                 child: _VectorLegend(visibleKinds: visibleKinds),
               ),
-              if (selectedProjection != null)
-                _VectorPointPopover(
-                  projection: selectedProjection,
-                  sceneSize: size,
-                  onClose: () => setState(() => _selected = null),
+              IgnorePointer(
+                ignoring: selectedProjection == null,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  reverseDuration: const Duration(milliseconds: 210),
+                  switchInCurve: Curves.easeOutBack,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final curved = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutBack,
+                      reverseCurve: Curves.easeInCubic,
+                    );
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.90,
+                          end: 1.0,
+                        ).animate(curved),
+                        alignment: Alignment.bottomLeft,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: selectedProjection == null
+                      ? const SizedBox.expand(key: ValueKey('popover-empty'))
+                      : SizedBox.expand(
+                          key: ValueKey<String>(
+                            'popover-${selectedProjection.point.id}',
+                          ),
+                          child: Stack(
+                            children: [
+                              _VectorPointPopover(
+                                projection: selectedProjection,
+                                sceneSize: size,
+                                onClose: () => setState(() => _selected = null),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
+              ),
             ],
           ),
         );
@@ -397,6 +434,7 @@ class _VectorViewportControls extends StatelessWidget {
               icon: Icons.remove_rounded,
               onPressed: onZoomOut,
             ),
+            const SizedBox(width: 4),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
@@ -408,11 +446,13 @@ class _VectorViewportControls extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 4),
             _VectorViewportIconButton(
               tooltip: isZh ? '放大' : 'Zoom in',
               icon: Icons.add_rounded,
               onPressed: onZoomIn,
             ),
+            const SizedBox(width: 4),
             _VectorViewportIconButton(
               tooltip: isZh ? '重置视角' : 'Reset view',
               icon: Icons.center_focus_strong_rounded,
