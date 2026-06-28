@@ -969,7 +969,8 @@ class AiSessionEnvironment {
 }
 
 class AiSessionStatistics {
-  factory AiSessionStatistics.fromJson(Map<String, Object?> json) {
+  factory AiSessionStatistics.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionStatistics(
       totalMessageCount: _readInt(json['total_message_count']),
       userMessageCount: _readInt(json['user_message_count']),
@@ -1279,11 +1280,12 @@ class AiSessionStatistics {
   }
 
   static int _readInt(Object? value) {
-    return value is int ? value : 0;
+    return _readNullableInt(value) ?? 0;
   }
 
   static int? _readNullableInt(Object? value) {
-    return value is int ? value : null;
+    final parsed = optionalIntegralIntFromValue(value);
+    return parsed == null || parsed < 0 ? null : parsed;
   }
 
   static double? _readNullableDouble(Object? value) {
@@ -1291,11 +1293,9 @@ class AiSessionStatistics {
   }
 
   static List<AiSessionCacheHitTrendPoint> _readTrendPoints(Object? value) {
-    if (value is! List) return const <AiSessionCacheHitTrendPoint>[];
-    return value
-        .whereType<Map<String, Object?>>()
-        .map(AiSessionCacheHitTrendPoint.fromJson)
-        .toList(growable: false);
+    return stringKeyedMapListFromValueOrJsonText(
+      value,
+    ).map(AiSessionCacheHitTrendPoint.fromJson).toList(growable: false);
   }
 }
 
@@ -1314,7 +1314,8 @@ class AiSessionCacheHitTrendPoint {
     this.idleGapSeconds,
   });
 
-  factory AiSessionCacheHitTrendPoint.fromJson(Map<String, Object?> json) {
+  factory AiSessionCacheHitTrendPoint.fromJson(Object? raw) {
+    final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionCacheHitTrendPoint(
       turnIndex: _readNonNegativeInt(json[turnIndexJsonKey]),
       hitRatio: _readHitRatio(json[hitRatioJsonKey]),
@@ -1362,8 +1363,8 @@ class AiSessionCacheHitTrendPoint {
   };
 
   static String? _readString(Object? value) {
-    final text = '${value ?? ''}'.trim();
-    if (text.isEmpty || text == 'null') return null;
+    final text = optionalStringFromValue(value);
+    if (text == null || text == 'null') return null;
     return text;
   }
 
@@ -1372,8 +1373,7 @@ class AiSessionCacheHitTrendPoint {
   }
 
   static int? _readNullableNonNegativeInt(Object? value) {
-    final parsed = optionalIntFromValue(value);
-    return parsed == null || parsed < 0 ? null : parsed;
+    return optionalNonNegativeIntFromValue(value);
   }
 
   static double _readHitRatio(Object? value) {
