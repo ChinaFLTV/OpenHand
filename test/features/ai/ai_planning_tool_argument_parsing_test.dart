@@ -183,12 +183,41 @@ void main() {
       expect(allowedPrompts.single['tool'], 'Bash');
       expect(allowedPrompts.single['prompt'], 'run focused validation');
     });
+
+    test('recovers plan from current_todos encoded as JSON text', () async {
+      final result = await AiExitPlanModeTool().execute(
+        _toolContext(
+          name: 'ExitPlanMode',
+          arguments: const <String, Object?>{},
+          metadata: <String, Object?>{
+            'current_todos': jsonEncode(<Object?>[
+              <String, Object?>{
+                'content': 'Inspect affected parser paths',
+                'status': 'pending',
+              },
+              <String, Object?>{
+                'content': 'Skip completed work',
+                'status': 'completed',
+              },
+            ]),
+          },
+        ),
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(
+        result.metadata['pending_plan'],
+        '1. Inspect affected parser paths',
+      );
+      expect(result.metadata['pending_plan_source'], 'current_todos');
+    });
   });
 }
 
 AiToolExecutionContext _toolContext({
   required String name,
   required Map<String, Object?> arguments,
+  Map<String, Object?> metadata = const <String, Object?>{},
 }) {
   return AiToolExecutionContext(
     sessionId: 'test-session',
@@ -214,5 +243,6 @@ AiToolExecutionContext _toolContext({
     denyCommandRules: const <AiDenyCommandRule>[],
     requireWriteCommandConfirmation: false,
     confirmWriteCommand: null,
+    metadata: metadata,
   );
 }

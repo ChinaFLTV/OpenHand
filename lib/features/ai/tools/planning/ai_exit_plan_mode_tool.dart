@@ -98,11 +98,12 @@ class AiExitPlanModeTool extends AiTool {
   }
 
   String _planFromCurrentTodos(Object? rawTodos) {
-    if (rawTodos is! List) {
+    final todos = AiToolUtils.readList(rawTodos);
+    if (todos == null) {
       return '';
     }
     final lines = <String>[];
-    for (final rawTodo in rawTodos) {
+    for (final rawTodo in todos) {
       if (rawTodo is! Map) {
         continue;
       }
