@@ -31,6 +31,7 @@ void main() {
       'X-Test': 'value',
       '42': 'true',
     });
+    expect(rule.matches('https://api.example.test/v1/users'), isTrue);
   });
 
   test('fromJson clamps invalid status codes to safe fallbacks', () {
@@ -43,6 +44,23 @@ void main() {
         'status': double.nan,
       }).statusCode,
       200,
+    );
+  });
+
+  test('matches supports star and question-mark wildcards', () {
+    const rule = WebReverseMockRule(
+      id: 'rule',
+      name: 'Rule',
+      urlPattern: 'https://api.example.test/users/?/detail/*',
+    );
+
+    expect(
+      rule.matches('https://api.example.test/users/7/detail/profile'),
+      isTrue,
+    );
+    expect(
+      rule.matches('https://api.example.test/users/42/detail/profile'),
+      isFalse,
     );
   });
 }

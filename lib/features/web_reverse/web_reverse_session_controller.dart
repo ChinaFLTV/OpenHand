@@ -8297,17 +8297,14 @@ class WebReverseInterceptRule {
     this.headerOverrides = const <String, String>{},
   });
 
-  factory WebReverseInterceptRule.fromJson(
-    Map<String, Object?> j,
-  ) => WebReverseInterceptRule(
-    urlPattern: '${j['urlPattern'] ?? ''}',
-    enabled: j['enabled'] != false,
-    block: j['block'] == true,
-    replaceUrl: j['replaceUrl'] is String ? j['replaceUrl'] as String : null,
-    headerOverrides:
-        (j['headerOverrides'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ??
-        const <String, String>{},
-  );
+  factory WebReverseInterceptRule.fromJson(Map<String, Object?> j) =>
+      WebReverseInterceptRule(
+        urlPattern: stringFromValue(j['urlPattern']),
+        enabled: boolFromValue(j['enabled'], defaultValue: true),
+        block: boolFromValue(j['block']),
+        replaceUrl: optionalStringFromValue(j['replaceUrl']),
+        headerOverrides: _webReverseHeaderMapFromValue(j['headerOverrides']),
+      );
 
   final String urlPattern;
   final bool enabled;
@@ -8331,13 +8328,7 @@ class WebReverseInterceptRule {
 
   bool matches(String url) {
     if (urlPattern.isEmpty) return false;
-    final regexSrc = urlPattern
-        .split(RegExp(r'([*?])'))
-        .map(RegExp.escape)
-        .join()
-        .replaceAll(r'\*', '.*')
-        .replaceAll(r'\?', '.');
-    return RegExp('^$regexSrc\$', caseSensitive: false).hasMatch(url);
+    return _webReverseWildcardPatternToRegExp(urlPattern).hasMatch(url);
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -8752,7 +8743,7 @@ class WebReverseMockRule {
           fallback: 'application/json; charset=utf-8',
         ),
         body: stringFromValue(j['body']),
-        extraHeaders: _mockRuleHeadersFromValue(j['headers']),
+        extraHeaders: _webReverseHeaderMapFromValue(j['headers']),
       );
 
   final String id;
@@ -8767,13 +8758,7 @@ class WebReverseMockRule {
 
   bool matches(String url) {
     if (urlPattern.isEmpty) return false;
-    final regexSrc = urlPattern
-        .split(RegExp(r'([*?])'))
-        .map(RegExp.escape)
-        .join()
-        .replaceAll(r'\*', '.*')
-        .replaceAll(r'\?', '.');
-    return RegExp('^$regexSrc\$', caseSensitive: false).hasMatch(url);
+    return _webReverseWildcardPatternToRegExp(urlPattern).hasMatch(url);
   }
 
   WebReverseMockRule copyWith({
@@ -8811,7 +8796,7 @@ class WebReverseMockRule {
   };
 }
 
-Map<String, String> _mockRuleHeadersFromValue(Object? value) {
+Map<String, String> _webReverseHeaderMapFromValue(Object? value) {
   final raw = stringKeyedMapFromValue(value);
   if (raw.isEmpty) return const <String, String>{};
   final headers = <String, String>{};
@@ -8821,6 +8806,22 @@ Map<String, String> _mockRuleHeadersFromValue(Object? value) {
     headers[name] = stringFromValue(entry.value);
   }
   return Map<String, String>.unmodifiable(headers);
+}
+
+RegExp _webReverseWildcardPatternToRegExp(String pattern) {
+  final buffer = StringBuffer('^');
+  for (var i = 0; i < pattern.length; i++) {
+    final ch = pattern[i];
+    if (ch == '*') {
+      buffer.write('.*');
+    } else if (ch == '?') {
+      buffer.write('.');
+    } else {
+      buffer.write(RegExp.escape(ch));
+    }
+  }
+  buffer.write(r'$');
+  return RegExp(buffer.toString(), caseSensitive: false);
 }
 
 /// 单次 mock 命中记录。
