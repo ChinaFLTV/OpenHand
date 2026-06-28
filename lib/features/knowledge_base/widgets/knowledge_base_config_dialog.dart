@@ -10,6 +10,7 @@ import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/reader_file_type.dart';
 import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
 import '../knowledge_base_controller.dart';
@@ -264,6 +265,35 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     return filtered;
   }
 
+  List<AiModelConfig> _readerModels(
+    List<AiModelConfig> models, {
+    String? sourceType,
+  }) {
+    final filtered = <AiModelConfig>[];
+    final normalizedSource = sourceType == null
+        ? null
+        : ReaderFileType.normalize(sourceType);
+    for (final model in models) {
+      final ids = model.allModelIds
+          .where((id) {
+            final profile = model.profileFor(id);
+            return profile.supportsReaderConversion &&
+                (normalizedSource == null ||
+                    profile.supportsReaderSourceType(normalizedSource));
+          })
+          .toList(growable: false);
+      if (ids.isEmpty) continue;
+      filtered.add(
+        model.copyWith(
+          modelId: ids.contains(model.modelId) ? model.modelId : ids.first,
+          availableModelIds: ids,
+          defaultTitleModelId: '',
+        ),
+      );
+    }
+    return filtered;
+  }
+
   bool _selectedEmbeddingModelAvailable(List<AiModelConfig> models) {
     if (!_settings.hasEmbeddingModel) return false;
     for (final model in models) {
@@ -282,6 +312,42 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           model.profileFor(_settings.rerankModelId).supportsRerank;
     }
     return false;
+  }
+
+  AiModelProfile? _selectedReaderProfile({
+    required List<AiModelConfig> models,
+    required KnowledgeReaderParserRule rule,
+    required String sourceType,
+  }) {
+    if (!rule.hasModel) return null;
+    final normalizedSource = ReaderFileType.normalize(sourceType);
+    for (final model in models) {
+      if (model.id != rule.providerConfigId ||
+          !model.allModelIds.contains(rule.modelId)) {
+        continue;
+      }
+      final profile = model.profileFor(rule.modelId);
+      if (!profile.supportsReaderSourceType(normalizedSource)) return null;
+      return profile;
+    }
+    return null;
+  }
+
+  void _updateReaderRule(String sourceType, KnowledgeReaderParserRule rule) {
+    final normalizedSource = ReaderFileType.normalize(sourceType);
+    final rules = Map<String, KnowledgeReaderParserRule>.of(
+      _settings.readerParserRules,
+    );
+    if (rule.mode == KnowledgeReaderParserMode.local &&
+        !rule.hasModel &&
+        rule.targetType == ReaderFileType.markdown) {
+      rules.remove(normalizedSource);
+    } else {
+      rules[normalizedSource] = rule;
+    }
+    setState(() {
+      _settings = _settings.copyWith(readerParserRules: rules);
+    });
   }
 
   int _int(TextEditingController controller, int fallback) {
@@ -378,6 +444,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final settingsController = context.watch<SettingsController>();
     final embeddingModels = _embeddingModels(settingsController.aiModels);
     final rerankModels = _rerankModels(settingsController.aiModels);
+    final readerModels = _readerModels(settingsController.aiModels);
     final dependencies = knowledgeController.dependencies(pluginController);
     final isZh = openHandIsChineseLocale(context);
     final embeddingModelSupportsRerank =
@@ -676,6 +743,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ),
                       );
                     },
+                  ),
+                  _fullRow(
+                    _readerParserRulesPanel(
+                      context: context,
+                      settingsController: settingsController,
+                      readerModels: readerModels,
+                    ),
                   ),
                   _field(
                     _targetTokens,
@@ -1518,6 +1592,290 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         message: isZh
             ? '没有已开启“嵌入生成”的模型。请先在设置的模型配置中启用该能力。'
             : 'No model profile has Embedding Generation enabled. Enable it in model settings first.',
+      ),
+    );
+  }
+
+  Widget _readerParserRulesPanel({
+    required BuildContext context,
+    required SettingsController settingsController,
+    required List<AiModelConfig> readerModels,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_fix_high_rounded,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isZh ? '模型解析规则' : 'Model Parsing Rules',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isZh
+                ? '为指定源文件类型启用 reader 模型后，导入时会先转换为目标类型，再进入分块与向量化。'
+                : 'When a reader model is enabled for a source type, import converts it to the target type before chunking and embedding.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final sourceType in ReaderFileType.sourceTypes) ...[
+            _readerParserRuleRow(
+              context: context,
+              sourceType: sourceType,
+              settingsController: settingsController,
+              readerModels: _readerModels(
+                settingsController.aiModels,
+                sourceType: sourceType,
+              ),
+            ),
+            if (sourceType != ReaderFileType.sourceTypes.last)
+              const SizedBox(height: 10),
+          ],
+          if (readerModels.isEmpty) ...[
+            const SizedBox(height: 12),
+            KnowledgeDialogNotice(
+              icon: Icons.info_outline_rounded,
+              message: isZh
+                  ? '当前没有已开启“读取转换”的模型。请先在设置的模型配置中启用该能力并配置源/目标类型。'
+                  : 'No model profile has Read Conversion enabled. Enable it in model settings and configure source/target types first.',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _readerParserRuleRow({
+    required BuildContext context,
+    required String sourceType,
+    required SettingsController settingsController,
+    required List<AiModelConfig> readerModels,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    final rule = _settings.readerRuleForSourceType(sourceType);
+    final selectedProfile = _selectedReaderProfile(
+      models: readerModels,
+      rule: rule,
+      sourceType: sourceType,
+    );
+    final targetValues = selectedProfile == null
+        ? ReaderFileType.targetTypes
+        : selectedProfile.readerTargetTypes
+              .where(ReaderFileType.targetTypes.contains)
+              .toList(growable: false);
+    final safeTargetValues = targetValues.isEmpty
+        ? ReaderFileType.targetTypes
+        : targetValues;
+    final safeTarget = safeTargetValues.contains(rule.targetType)
+        ? rule.targetType
+        : safeTargetValues.first;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  ReaderFileType.label(sourceType, isZh: isZh),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 150,
+                child: DropdownButtonFormField<String>(
+                  initialValue: rule.mode,
+                  isExpanded: true,
+                  decoration: knowledgeDialogInputDecoration(
+                    context,
+                    isZh ? '解析方式' : 'Parser',
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: KnowledgeReaderParserMode.local,
+                      child: Text(isZh ? '本地解析' : 'Local'),
+                    ),
+                    DropdownMenuItem(
+                      value: KnowledgeReaderParserMode.model,
+                      child: Text(isZh ? '模型解析' : 'Model'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    var next = value == KnowledgeReaderParserMode.local
+                        ? const KnowledgeReaderParserRule()
+                        : rule.copyWith(mode: value);
+                    if (value == KnowledgeReaderParserMode.model &&
+                        !rule.hasModel &&
+                        readerModels.isNotEmpty) {
+                      final config = readerModels.first;
+                      final modelId = config.allModelIds.first;
+                      final profile = config.profileFor(modelId);
+                      final targets = profile.readerTargetTypes
+                          .where(ReaderFileType.targetTypes.contains)
+                          .toList(growable: false);
+                      next = next.copyWith(
+                        providerConfigId: config.id,
+                        modelId: modelId,
+                        targetType: targets.isEmpty
+                            ? ReaderFileType.markdown
+                            : targets.first,
+                      );
+                    }
+                    _updateReaderRule(sourceType, next);
+                  },
+                ),
+              ),
+            ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutBack,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(
+                      begin: 0.98,
+                      end: 1,
+                    ).animate(animation),
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
+                );
+              },
+              child: rule.mode == KnowledgeReaderParserMode.model
+                  ? Padding(
+                      key: ValueKey('reader-rule-$sourceType-model'),
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (readerModels.isEmpty)
+                            KnowledgeDialogNotice(
+                              icon: Icons.info_outline_rounded,
+                              message: isZh
+                                  ? '没有可读取 ${ReaderFileType.label(sourceType, isZh: isZh)} 的 reader 模型。'
+                                  : 'No reader model can read ${ReaderFileType.label(sourceType, isZh: isZh)}.',
+                            )
+                          else ...[
+                            OpenHandModelSelectorField(
+                              models: readerModels,
+                              recentSelections:
+                                  settingsController.recentModelSelections,
+                              selectedConfigId: rule.providerConfigId,
+                              selectedModelId: rule.modelId,
+                              required: true,
+                              labelZh: 'Reader 模型',
+                              labelEn: 'Reader model',
+                              helperZh: '仅显示具备“读取转换”且支持当前源文件类型的模型。',
+                              helperEn:
+                                  'Only read-conversion models supporting this source type are shown.',
+                              modelFilter: (config, modelId) => config
+                                  .profileFor(modelId)
+                                  .supportsReaderSourceType(sourceType),
+                              onSelected: (selection) {
+                                final config = readerModels.firstWhere(
+                                  (item) => item.id == selection.$1,
+                                );
+                                final profile = config.profileFor(selection.$2);
+                                final targets = profile.readerTargetTypes
+                                    .where(ReaderFileType.targetTypes.contains)
+                                    .toList(growable: false);
+                                final target = targets.contains(rule.targetType)
+                                    ? rule.targetType
+                                    : (targets.isEmpty
+                                          ? ReaderFileType.markdown
+                                          : targets.first);
+                                _updateReaderRule(
+                                  sourceType,
+                                  rule.copyWith(
+                                    mode: KnowledgeReaderParserMode.model,
+                                    providerConfigId: selection.$1,
+                                    modelId: selection.$2,
+                                    targetType: target,
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            DropdownButtonFormField<String>(
+                              initialValue: safeTarget,
+                              isExpanded: true,
+                              decoration: knowledgeDialogInputDecoration(
+                                context,
+                                isZh ? '转换目标类型' : 'Target type',
+                              ),
+                              items: [
+                                for (final item in safeTargetValues)
+                                  DropdownMenuItem(
+                                    value: item,
+                                    child: Text(
+                                      ReaderFileType.label(item, isZh: isZh),
+                                    ),
+                                  ),
+                              ],
+                              onChanged: (value) {
+                                if (value == null) return;
+                                _updateReaderRule(
+                                  sourceType,
+                                  rule.copyWith(targetType: value),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('reader-rule-local')),
+            ),
+          ),
+        ],
       ),
     );
   }

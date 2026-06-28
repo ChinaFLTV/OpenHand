@@ -103,6 +103,7 @@ class KnowledgeBaseController extends ChangeNotifier {
   Future<KnowledgeSource?> importFile({
     required String filePath,
     required AiModelConfig embeddingModel,
+    List<AiModelConfig> readerModels = const <AiModelConfig>[],
     List<String> tags = const <String>[],
     KnowledgeIndexingCancelToken? cancelToken,
     KnowledgeIndexingProgressCallback? onProgress,
@@ -117,14 +118,20 @@ class KnowledgeBaseController extends ChangeNotifier {
         embeddingService: _embeddingService,
         vectorStore: vectorStore,
       );
-      final source = await ingestion.importFile(
-        filePath: filePath,
-        settings: _settings,
-        embeddingModel: embeddingModel,
-        tags: tags,
-        cancelToken: cancelToken,
-        onProgress: onProgress,
-      );
+      final KnowledgeSource source;
+      try {
+        source = await ingestion.importFile(
+          filePath: filePath,
+          settings: _settings,
+          embeddingModel: embeddingModel,
+          readerModels: readerModels,
+          tags: tags,
+          cancelToken: cancelToken,
+          onProgress: onProgress,
+        );
+      } finally {
+        ingestion.dispose();
+      }
       _sources = await _store.loadSources(query: _query);
       return source;
     } on KnowledgeIndexingCancelledException {
@@ -549,6 +556,16 @@ class KnowledgeBaseController extends ChangeNotifier {
         .where(
           (model) => model.allModelIds.any(
             (id) => model.profileFor(id).supportsRerank,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<AiModelConfig> readerCapableModels(List<AiModelConfig> models) {
+    return models
+        .where(
+          (model) => model.allModelIds.any(
+            (id) => model.profileFor(id).supportsReaderConversion,
           ),
         )
         .toList(growable: false);

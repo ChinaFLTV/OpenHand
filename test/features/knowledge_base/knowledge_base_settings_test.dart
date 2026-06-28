@@ -45,6 +45,29 @@ void main() {
     expect(json['skip_model_rerank_when_embedding_supports_rerank'], isTrue);
   });
 
+  test('persists reader parser rules by normalized source type', () {
+    final settings = KnowledgeBaseSettings.fromJson(<String, Object?>{
+      'reader_parser_rules': <String, Object?>{
+        'HTM': <String, Object?>{
+          'mode': 'model',
+          'provider_config_id': 'reader-provider',
+          'model_id': 'reader-model',
+          'target_type': 'JSON',
+        },
+      },
+    });
+
+    final rule = settings.readerRuleForSourceType('html');
+    expect(rule.mode, KnowledgeReaderParserMode.model);
+    expect(rule.providerConfigId, 'reader-provider');
+    expect(rule.modelId, 'reader-model');
+    expect(rule.targetType, 'json');
+
+    final json = settings.toJson();
+    final rules = json['reader_parser_rules'] as Map<String, Object?>;
+    expect(rules.keys, contains('html'));
+  });
+
   test('falls back for invalid or non-finite numeric settings', () {
     final settings = KnowledgeBaseSettings.fromJson(<String, Object?>{
       'dimensions': double.infinity,

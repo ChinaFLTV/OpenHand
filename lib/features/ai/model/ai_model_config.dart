@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/reader_file_type.dart';
 import 'ai_api_dialect.dart';
 import 'ai_api_family.dart';
 import 'ai_endpoint_override.dart';
@@ -219,7 +220,8 @@ enum AiModelCapability {
   pdfGeneration('pdf_generation'),
   pptGeneration('ppt_generation'),
   embeddingGeneration('embedding_generation'),
-  rerank('rerank');
+  rerank('rerank'),
+  readerConversion('reader_conversion');
 
   const AiModelCapability(this.storageValue);
   final String storageValue;
@@ -305,6 +307,8 @@ class AiModelProfile {
     this.rerankDefaultInstruction,
     this.rerankSupportsTruncation = false,
     this.rerankDefaultTruncation,
+    this.readerSourceTypes = const <String>[],
+    this.readerTargetTypes = const <String>[],
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -428,6 +432,12 @@ class AiModelProfile {
       rerankSupportsTruncation:
           _readBool(json['rerank_supports_truncation']) ?? false,
       rerankDefaultTruncation: _readBool(json['rerank_default_truncation']),
+      readerSourceTypes: ReaderFileType.normalizeList(
+        _parseStringList(json['reader_source_types']),
+      ),
+      readerTargetTypes: ReaderFileType.normalizeList(
+        _parseStringList(json['reader_target_types']),
+      ),
     );
   }
 
@@ -535,11 +545,34 @@ class AiModelProfile {
   final String? rerankDefaultInstruction;
   final bool rerankSupportsTruncation;
   final bool? rerankDefaultTruncation;
+  final List<String> readerSourceTypes;
+  final List<String> readerTargetTypes;
 
   bool get supportsEmbeddings =>
       capabilities.contains(AiModelCapability.embeddingGeneration);
 
   bool get supportsRerank => capabilities.contains(AiModelCapability.rerank);
+
+  bool get supportsReaderConversion =>
+      capabilities.contains(AiModelCapability.readerConversion);
+
+  bool supportsReaderSourceType(String sourceType) {
+    return supportsReaderConversion &&
+        readerSourceTypes.contains(ReaderFileType.normalize(sourceType));
+  }
+
+  bool supportsReaderTargetType(String targetType) {
+    return supportsReaderConversion &&
+        readerTargetTypes.contains(ReaderFileType.normalize(targetType));
+  }
+
+  bool supportsReaderConversionFor({
+    required String sourceType,
+    required String targetType,
+  }) {
+    return supportsReaderSourceType(sourceType) &&
+        supportsReaderTargetType(targetType);
+  }
 
   /// Whether user explicitly configured this profile (not just empty defaults).
   bool get hasUserOverrides =>
@@ -608,7 +641,9 @@ class AiModelProfile {
       rerankSupportsInstruction ||
       rerankDefaultInstruction != null ||
       rerankSupportsTruncation ||
-      rerankDefaultTruncation != null;
+      rerankDefaultTruncation != null ||
+      readerSourceTypes.isNotEmpty ||
+      readerTargetTypes.isNotEmpty;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -726,6 +761,8 @@ class AiModelProfile {
     bool? rerankSupportsTruncation,
     bool? rerankDefaultTruncation,
     bool clearRerankDefaultTruncation = false,
+    List<String>? readerSourceTypes,
+    List<String>? readerTargetTypes,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -898,6 +935,8 @@ class AiModelProfile {
       rerankDefaultTruncation: clearRerankDefaultTruncation
           ? null
           : rerankDefaultTruncation ?? this.rerankDefaultTruncation,
+      readerSourceTypes: readerSourceTypes ?? this.readerSourceTypes,
+      readerTargetTypes: readerTargetTypes ?? this.readerTargetTypes,
     );
   }
 
@@ -1016,6 +1055,10 @@ class AiModelProfile {
       if (rerankSupportsTruncation) 'rerank_supports_truncation': true,
       if (rerankDefaultTruncation != null)
         'rerank_default_truncation': rerankDefaultTruncation,
+      if (readerSourceTypes.isNotEmpty)
+        'reader_source_types': readerSourceTypes,
+      if (readerTargetTypes.isNotEmpty)
+        'reader_target_types': readerTargetTypes,
     };
   }
 
@@ -1408,6 +1451,12 @@ class AiModelConfig {
           override.rerankSupportsTruncation || catalog.rerankSupportsTruncation,
       rerankDefaultTruncation:
           override.rerankDefaultTruncation ?? catalog.rerankDefaultTruncation,
+      readerSourceTypes: override.readerSourceTypes.isNotEmpty
+          ? override.readerSourceTypes
+          : catalog.readerSourceTypes,
+      readerTargetTypes: override.readerTargetTypes.isNotEmpty
+          ? override.readerTargetTypes
+          : catalog.readerTargetTypes,
     );
   }
 

@@ -99,6 +99,7 @@ class KnowledgeBaseView extends StatelessWidget {
                     context,
                     controller: controller,
                     embeddingModel: embeddingModel,
+                    aiModels: settingsController.aiModels,
                   ),
             icon: const Icon(Icons.upload_file_rounded),
             label: Text(isZh ? '导入' : 'Import'),
@@ -145,6 +146,7 @@ class KnowledgeBaseView extends StatelessWidget {
     BuildContext context, {
     required KnowledgeBaseController controller,
     required AiModelConfig? embeddingModel,
+    required List<AiModelConfig> aiModels,
   }) async {
     final isZh = openHandIsChineseLocale(context);
     if (embeddingModel == null) {
@@ -180,6 +182,7 @@ class KnowledgeBaseView extends StatelessWidget {
         task: () => controller.importFile(
           filePath: file.path,
           embeddingModel: embeddingModel,
+          readerModels: aiModels,
           cancelToken: cancelToken,
           onProgress: progressController.updateProgress,
         ),

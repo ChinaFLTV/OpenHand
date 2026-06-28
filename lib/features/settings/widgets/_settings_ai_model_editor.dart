@@ -2273,6 +2273,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _embeddingMaxDimensionsController;
   late final TextEditingController _embeddingMaxInputsPerBatchController;
   late final TextEditingController _embeddingMaxTokensPerBatchController;
+  late Set<String> _readerSourceTypes;
+  late Set<String> _readerTargetTypes;
   bool? _isMultimodal;
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
@@ -2542,6 +2544,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         effective.embeddingRequiresSpecialBody;
     _embeddingSupportsTruncation =
         p.embeddingSupportsTruncation || effective.embeddingSupportsTruncation;
+    _readerSourceTypes = ReaderFileType.normalizeList(
+      p.readerSourceTypes.isNotEmpty
+          ? p.readerSourceTypes
+          : effective.readerSourceTypes,
+    ).toSet();
+    _readerTargetTypes = ReaderFileType.normalizeList(
+      p.readerTargetTypes.isNotEmpty
+          ? p.readerTargetTypes
+          : effective.readerTargetTypes,
+    ).toSet();
 
     if (hasExisting) {
       // User already configured — use their saved values.
@@ -2633,6 +2645,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (normalizedModelId.contains('rerank') ||
         normalizedModelId.contains('reranker')) {
       result.add(AiModelCapability.rerank);
+    }
+    if (normalizedModelId.contains('reader') ||
+        normalizedModelId.contains('readerlm') ||
+        normalizedModelId.contains('docling') ||
+        normalizedModelId.contains('marker') ||
+        normalizedModelId.contains('html2markdown')) {
+      result.add(AiModelCapability.readerConversion);
     }
     return result;
   }
@@ -2753,6 +2772,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     }
     if (_profileErrorMessage != null) {
       setState(() => _profileErrorMessage = null);
+    }
+    if (_capabilities.contains(AiModelCapability.readerConversion) &&
+        (_readerSourceTypes.isEmpty || _readerTargetTypes.isEmpty)) {
+      setState(() {
+        _profileErrorMessage = openHandIsChineseLocale(context)
+            ? '读取转换模型至少需要选择一个源文件类型和一个目标文件类型。'
+            : 'Read conversion models need at least one source type and one target type.';
+      });
+      return null;
     }
 
     return AiModelProfile(
@@ -2883,6 +2911,14 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _embeddingMaxTokensPerBatchController.text,
       ),
       embeddingSupportsTruncation: _embeddingSupportsTruncation,
+      readerSourceTypes:
+          _capabilities.contains(AiModelCapability.readerConversion)
+          ? ReaderFileType.normalizeList(_readerSourceTypes)
+          : const <String>[],
+      readerTargetTypes:
+          _capabilities.contains(AiModelCapability.readerConversion)
+          ? ReaderFileType.normalizeList(_readerTargetTypes)
+          : const <String>[],
     );
   }
 
@@ -2993,6 +3029,43 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         hintText: hint,
         isDense: true,
       ),
+    );
+  }
+
+  Widget _buildReaderTypeChips({
+    required String title,
+    required List<String> values,
+    required Set<String> selected,
+    required ValueChanged<Set<String>> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    final zh = openHandIsChineseLocale(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.bodyMedium),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            for (final value in values)
+              FilterChip(
+                label: Text(ReaderFileType.label(value, isZh: zh)),
+                selected: selected.contains(value),
+                onSelected: (checked) {
+                  final next = <String>{...selected};
+                  if (checked) {
+                    next.add(value);
+                  } else {
+                    next.remove(value);
+                  }
+                  onChanged(next);
+                },
+              ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -3281,6 +3354,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                               : 'Embeddings',
                         AiModelCapability.rerank =>
                           openHandIsChineseLocale(context) ? '重排序' : 'Rerank',
+                        AiModelCapability.readerConversion =>
+                          openHandIsChineseLocale(context)
+                              ? '读取转换'
+                              : 'Read Convert',
                       };
                       return FilterChip(
                         label: Text(label),
@@ -3289,8 +3366,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                           setState(() {
                             if (selected) {
                               _capabilities.add(c);
+                              if (c == AiModelCapability.readerConversion) {
+                                _readerSourceTypes.add(ReaderFileType.html);
+                                _readerTargetTypes.add(ReaderFileType.markdown);
+                              }
                             } else {
                               _capabilities.remove(c);
+                              if (c == AiModelCapability.readerConversion) {
+                                _readerSourceTypes.clear();
+                                _readerTargetTypes.clear();
+                              }
                             }
                           });
                         },
@@ -3299,6 +3384,38 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     .toList(growable: false),
               ),
               const SizedBox(height: 16),
+
+              if (_capabilities.contains(
+                AiModelCapability.readerConversion,
+              )) ...[
+                _buildSectionHeader(zh ? '读取转换配置' : 'Read Conversion'),
+                const SizedBox(height: 8),
+                Text(
+                  zh
+                      ? '配置该模型可读取的源文件类型，以及可转换输出的目标类型。知识库模型解析会按这里的能力筛选模型。'
+                      : 'Configure source file types this model can read and target types it can output. Knowledge Base model parsing filters by these capabilities.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildReaderTypeChips(
+                  title: zh ? '源文件类型' : 'Source Types',
+                  values: ReaderFileType.sourceTypes,
+                  selected: _readerSourceTypes,
+                  onChanged: (next) =>
+                      setState(() => _readerSourceTypes = next),
+                ),
+                const SizedBox(height: 12),
+                _buildReaderTypeChips(
+                  title: zh ? '目标文件类型' : 'Target Types',
+                  values: ReaderFileType.targetTypes,
+                  selected: _readerTargetTypes,
+                  onChanged: (next) =>
+                      setState(() => _readerTargetTypes = next),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               if (_capabilities.contains(
                 AiModelCapability.embeddingGeneration,

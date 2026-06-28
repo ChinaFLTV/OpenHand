@@ -26,6 +26,26 @@ void main() {
     expect(profile.supportsRerank, isTrue);
   });
 
+  test('model profile parses reader conversion capability and type ranges', () {
+    final profile = AiModelProfile.fromJson(const <String, Object?>{
+      'capabilities': <String>['reader_conversion'],
+      'reader_source_types': <String>['HTML', 'md', 'pdf'],
+      'reader_target_types': <String>['Markdown', 'json'],
+    });
+
+    expect(profile.supportsReaderConversion, isTrue);
+    expect(profile.readerSourceTypes, <String>['html', 'markdown', 'pdf']);
+    expect(profile.readerTargetTypes, <String>['markdown', 'json']);
+    expect(
+      profile.supportsReaderConversionFor(
+        sourceType: 'htm',
+        targetType: 'JSON',
+      ),
+      isTrue,
+    );
+    expect(profile.toJson()['reader_source_types'], isNotNull);
+  });
+
   test('model profile numeric metadata ignores invalid non-finite values', () {
     final profile = AiModelProfile.fromJson(<String, Object?>{
       'max_context_length': '0',

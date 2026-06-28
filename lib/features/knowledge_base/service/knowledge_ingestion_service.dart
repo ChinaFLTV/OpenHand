@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -5,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../ai/index.dart';
 import '../data/knowledge_base_store.dart';
@@ -14,6 +16,7 @@ import 'knowledge_chunker.dart';
 import 'knowledge_document_parser.dart';
 import 'knowledge_embedding_service.dart';
 import 'knowledge_indexing_control.dart';
+import 'knowledge_reader_conversion_service.dart';
 import 'knowledge_vector_store.dart';
 
 class KnowledgeIngestionService {
@@ -24,23 +27,30 @@ class KnowledgeIngestionService {
     KnowledgeChunker chunker = const KnowledgeChunker(),
     KnowledgeDocumentParserRegistry parserRegistry =
         const KnowledgeDocumentParserRegistry(),
+    KnowledgeReaderConversionService? readerConversionService,
   }) : _store = store,
        _embeddingService = embeddingService,
        _vectorStore = vectorStore,
        _chunker = chunker,
-       _parserRegistry = parserRegistry;
+       _parserRegistry = parserRegistry,
+       _readerConversionService =
+           readerConversionService ?? KnowledgeReaderConversionService(),
+       _ownsReaderConversionService = readerConversionService == null;
 
   final KnowledgeBaseStore _store;
   final KnowledgeEmbeddingService _embeddingService;
   final KnowledgeVectorStore _vectorStore;
   final KnowledgeChunker _chunker;
   final KnowledgeDocumentParserRegistry _parserRegistry;
+  final KnowledgeReaderConversionService _readerConversionService;
+  final bool _ownsReaderConversionService;
   final Uuid _uuid = const Uuid();
 
   Future<KnowledgeSource> importFile({
     required String filePath,
     required KnowledgeBaseSettings settings,
     required AiModelConfig embeddingModel,
+    List<AiModelConfig> readerModels = const <AiModelConfig>[],
     List<String> tags = const <String>[],
     KnowledgeIndexingCancelToken? cancelToken,
     KnowledgeIndexingProgressCallback? onProgress,
@@ -68,13 +78,16 @@ class KnowledgeIngestionService {
         sourceTitle: initialTitle,
       ),
     );
-    final parsed = await _parserRegistry.parse(
-      KnowledgeDocumentParseRequest(
-        file: file,
-        settings: settings,
-        stat: stat,
-        tags: tags,
-      ),
+    final parseRequest = KnowledgeDocumentParseRequest(
+      file: file,
+      settings: settings,
+      stat: stat,
+      tags: tags,
+    );
+    final parsed = await _parseWithReaderIfConfigured(
+      request: parseRequest,
+      readerModels: readerModels,
+      cancelToken: cancelToken,
     );
     cancelToken?.throwIfCancelled();
     final now = DateTime.now().toUtc();
@@ -307,5 +320,135 @@ class KnowledgeIngestionService {
     final target = File(p.join(root.path, '$sourceId$ext'));
     await writeFileBytesAtomically(target, await file.readAsBytes());
     return target.path;
+  }
+
+  Future<KnowledgeDocumentParseResult> _parseWithReaderIfConfigured({
+    required KnowledgeDocumentParseRequest request,
+    required List<AiModelConfig> readerModels,
+    required KnowledgeIndexingCancelToken? cancelToken,
+  }) async {
+    final sourceType = ReaderFileType.normalize(p.extension(request.file.path));
+    final rule = request.settings.readerRuleForSourceType(sourceType);
+    if (!rule.usesModel) {
+      return _parserRegistry.parse(request);
+    }
+    final readerModel = _resolveReaderModel(
+      readerModels: readerModels,
+      rule: rule,
+      sourceType: sourceType,
+    );
+    if (readerModel == null) {
+      return _fallbackLocalParse(
+        request,
+        reason: 'reader_model_unavailable',
+        failClosed: request.settings.failureStrategy == 'fail_closed',
+      );
+    }
+    try {
+      cancelToken?.throwIfCancelled();
+      final localParsed = ReaderFileType.isTextLikeSource(sourceType)
+          ? null
+          : await _parserRegistry.parse(request);
+      final sourceText = localParsed?.text ?? await _readTextFile(request.file);
+      final conversion = await _readerConversionService.convert(
+        KnowledgeReaderConversionRequest(
+          model: readerModel,
+          sourceType: sourceType,
+          targetType: rule.targetType,
+          content: sourceText,
+          sourceTitle: localParsed?.title ?? p.basename(request.file.path),
+          cancelSignal: cancelToken?.whenCancelled,
+        ),
+      );
+      cancelToken?.throwIfCancelled();
+      final targetType = ReaderFileType.normalize(rule.targetType);
+      return KnowledgeDocumentParseResult(
+        text: conversion.text,
+        kind: targetType,
+        mimeType: ReaderFileType.mimeType(targetType),
+        parserId: 'model_reader_conversion',
+        title: localParsed?.title ?? p.basename(request.file.path),
+        metadata: <String, Object?>{
+          if (localParsed != null) ...localParsed.metadata,
+          'reader_parse_mode': KnowledgeReaderParserMode.model,
+          'reader_input_source_type': sourceType,
+          if (localParsed != null)
+            'reader_local_extraction_parser_id': localParsed.parserId,
+          ...conversion.metadata,
+        },
+      );
+    } on KnowledgeIndexingCancelledException {
+      rethrow;
+    } catch (error) {
+      return _fallbackLocalParse(
+        request,
+        reason: 'reader_conversion_failed',
+        error: '$error',
+        failClosed: request.settings.failureStrategy == 'fail_closed',
+      );
+    }
+  }
+
+  AiModelConfig? _resolveReaderModel({
+    required List<AiModelConfig> readerModels,
+    required KnowledgeReaderParserRule rule,
+    required String sourceType,
+  }) {
+    final providerConfigId = rule.providerConfigId.trim();
+    final modelId = rule.modelId.trim();
+    if (providerConfigId.isEmpty || modelId.isEmpty) return null;
+    for (final config in readerModels) {
+      if (config.id != providerConfigId ||
+          !config.allModelIds.contains(modelId)) {
+        continue;
+      }
+      final profile = config.profileFor(modelId);
+      if (!profile.supportsReaderConversionFor(
+        sourceType: sourceType,
+        targetType: rule.targetType,
+      )) {
+        return null;
+      }
+      return config.copyWith(modelId: modelId);
+    }
+    return null;
+  }
+
+  Future<KnowledgeDocumentParseResult> _fallbackLocalParse(
+    KnowledgeDocumentParseRequest request, {
+    required String reason,
+    String? error,
+    required bool failClosed,
+  }) async {
+    if (failClosed) {
+      throw StateError(error == null ? reason : '$reason: $error');
+    }
+    final parsed = await _parserRegistry.parse(request);
+    return KnowledgeDocumentParseResult(
+      text: parsed.text,
+      kind: parsed.kind,
+      mimeType: parsed.mimeType,
+      parserId: parsed.parserId,
+      title: parsed.title,
+      metadata: <String, Object?>{
+        ...parsed.metadata,
+        'reader_parse_mode': KnowledgeReaderParserMode.model,
+        'reader_fallback_reason': reason,
+        if (error != null) 'reader_fallback_error': error,
+      },
+    );
+  }
+
+  Future<String> _readTextFile(File file) async {
+    final bytes = await file.readAsBytes();
+    return String.fromCharCodes(bytes).trim().isEmpty
+        ? ''
+        : const Utf8Decoder(allowMalformed: true).convert(bytes);
+  }
+
+  void dispose() {
+    if (_ownsReaderConversionService) {
+      _readerConversionService.dispose();
+    }
   }
 }

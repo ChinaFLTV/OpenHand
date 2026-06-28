@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/reader_file_type.dart';
 
 const _skipDualCapabilityRerankJsonKey =
     'skip_model_rerank_when_embedding_supports_rerank';
@@ -42,6 +43,87 @@ class KnowledgeRerankMode {
   }
 }
 
+class KnowledgeReaderParserMode {
+  const KnowledgeReaderParserMode._();
+
+  static const local = 'local';
+  static const model = 'model';
+
+  static const values = <String>[local, model];
+
+  static String normalize(String value) {
+    final normalized = value.trim();
+    return values.contains(normalized) ? normalized : local;
+  }
+}
+
+class KnowledgeReaderParserRule {
+  const KnowledgeReaderParserRule({
+    this.mode = KnowledgeReaderParserMode.local,
+    this.providerConfigId = '',
+    this.modelId = '',
+    this.targetType = ReaderFileType.markdown,
+  });
+
+  factory KnowledgeReaderParserRule.fromJson(Map<String, Object?> json) {
+    return KnowledgeReaderParserRule(
+      mode: KnowledgeReaderParserMode.normalize(
+        KnowledgeBaseSettings._string(json['mode']),
+      ),
+      providerConfigId: KnowledgeBaseSettings._string(
+        json['provider_config_id'],
+      ),
+      modelId: KnowledgeBaseSettings._string(json['model_id']),
+      targetType: _normalizeTargetType(json['target_type']),
+    );
+  }
+
+  final String mode;
+  final String providerConfigId;
+  final String modelId;
+  final String targetType;
+
+  bool get usesModel => mode == KnowledgeReaderParserMode.model;
+
+  bool get hasModel =>
+      providerConfigId.trim().isNotEmpty && modelId.trim().isNotEmpty;
+
+  KnowledgeReaderParserRule copyWith({
+    String? mode,
+    String? providerConfigId,
+    String? modelId,
+    String? targetType,
+  }) {
+    return KnowledgeReaderParserRule(
+      mode: mode == null
+          ? this.mode
+          : KnowledgeReaderParserMode.normalize(mode),
+      providerConfigId: providerConfigId ?? this.providerConfigId,
+      modelId: modelId ?? this.modelId,
+      targetType: targetType == null
+          ? this.targetType
+          : _normalizeTargetType(targetType),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'mode': KnowledgeReaderParserMode.normalize(mode),
+      if (providerConfigId.trim().isNotEmpty)
+        'provider_config_id': providerConfigId.trim(),
+      if (modelId.trim().isNotEmpty) 'model_id': modelId.trim(),
+      'target_type': _normalizeTargetType(targetType),
+    };
+  }
+
+  static String _normalizeTargetType(Object? value) {
+    final normalized = ReaderFileType.normalize('${value ?? ''}');
+    return ReaderFileType.targetTypes.contains(normalized)
+        ? normalized
+        : ReaderFileType.markdown;
+  }
+}
+
 class KnowledgeBaseSettings {
   const KnowledgeBaseSettings({
     this.providerConfigId = '',
@@ -76,6 +158,7 @@ class KnowledgeBaseSettings {
     this.structuredDataParsingMode = 'readable_markdown',
     this.spreadsheetParsingMode = 'markdown_table',
     this.presentationParsingMode = 'slide_text',
+    this.readerParserRules = const <String, KnowledgeReaderParserRule>{},
     this.chunkStrategy = KnowledgeChunkStrategy.markdownHeadingRecursive,
     this.targetTokens = 700,
     this.hardMaxTokens = 1200,
@@ -186,6 +269,7 @@ class KnowledgeBaseSettings {
         json['presentation_parsing_mode'],
         'slide_text',
       ),
+      readerParserRules: _parseReaderParserRules(json['reader_parser_rules']),
       chunkStrategy: KnowledgeChunkStrategy.normalize(
         _string(
           json['chunk_strategy'],
@@ -298,6 +382,7 @@ class KnowledgeBaseSettings {
   final String structuredDataParsingMode;
   final String spreadsheetParsingMode;
   final String presentationParsingMode;
+  final Map<String, KnowledgeReaderParserRule> readerParserRules;
   final String chunkStrategy;
   final int targetTokens;
   final int hardMaxTokens;
@@ -359,6 +444,11 @@ class KnowledgeBaseSettings {
       rerankProviderConfigId.trim().isNotEmpty &&
       rerankModelId.trim().isNotEmpty;
 
+  KnowledgeReaderParserRule readerRuleForSourceType(String sourceType) {
+    final normalized = ReaderFileType.normalize(sourceType);
+    return readerParserRules[normalized] ?? const KnowledgeReaderParserRule();
+  }
+
   String get effectiveCollectionName {
     if (collectionName.trim().isNotEmpty) return collectionName.trim();
     final raw = '${providerConfigId}_${modelId}_$dimensions'
@@ -402,6 +492,7 @@ class KnowledgeBaseSettings {
     String? structuredDataParsingMode,
     String? spreadsheetParsingMode,
     String? presentationParsingMode,
+    Map<String, KnowledgeReaderParserRule>? readerParserRules,
     String? chunkStrategy,
     int? targetTokens,
     int? hardMaxTokens,
@@ -495,6 +586,9 @@ class KnowledgeBaseSettings {
           spreadsheetParsingMode ?? this.spreadsheetParsingMode,
       presentationParsingMode:
           presentationParsingMode ?? this.presentationParsingMode,
+      readerParserRules: _normalizeReaderParserRules(
+        readerParserRules ?? this.readerParserRules,
+      ),
       chunkStrategy: chunkStrategy == null
           ? this.chunkStrategy
           : KnowledgeChunkStrategy.normalize(chunkStrategy),
@@ -597,6 +691,11 @@ class KnowledgeBaseSettings {
       'structured_data_parsing_mode': structuredDataParsingMode,
       'spreadsheet_parsing_mode': spreadsheetParsingMode,
       'presentation_parsing_mode': presentationParsingMode,
+      if (readerParserRules.isNotEmpty)
+        'reader_parser_rules': <String, Object?>{
+          for (final entry in readerParserRules.entries)
+            ReaderFileType.normalize(entry.key): entry.value.toJson(),
+        },
       'chunk_strategy': chunkStrategy,
       'target_tokens': targetTokens,
       'hard_max_tokens': hardMaxTokens,
@@ -681,5 +780,36 @@ class KnowledgeBaseSettings {
 
   static double _double(Object? value, double fallback) {
     return doubleFromValue(value, fallback: fallback);
+  }
+
+  static Map<String, KnowledgeReaderParserRule> _parseReaderParserRules(
+    Object? value,
+  ) {
+    if (value is! Map) return const <String, KnowledgeReaderParserRule>{};
+    final result = <String, KnowledgeReaderParserRule>{};
+    final map = stringKeyedMapFromValue(value);
+    for (final entry in map.entries) {
+      final sourceType = ReaderFileType.normalize(entry.key);
+      if (sourceType.isEmpty) continue;
+      final rawRule = entry.value;
+      if (rawRule is! Map) continue;
+      result[sourceType] = KnowledgeReaderParserRule.fromJson(
+        stringKeyedMapFromValue(rawRule),
+      );
+    }
+    return Map<String, KnowledgeReaderParserRule>.unmodifiable(result);
+  }
+
+  static Map<String, KnowledgeReaderParserRule> _normalizeReaderParserRules(
+    Map<String, KnowledgeReaderParserRule> rules,
+  ) {
+    if (rules.isEmpty) return const <String, KnowledgeReaderParserRule>{};
+    final result = <String, KnowledgeReaderParserRule>{};
+    for (final entry in rules.entries) {
+      final sourceType = ReaderFileType.normalize(entry.key);
+      if (sourceType.isEmpty) continue;
+      result[sourceType] = entry.value.copyWith();
+    }
+    return Map<String, KnowledgeReaderParserRule>.unmodifiable(result);
   }
 }
