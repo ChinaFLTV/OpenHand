@@ -228,9 +228,15 @@ class _RerankRequestContext {
     this.priority,
     this.instruction,
     this.truncation,
-  }) : modelId = model.resolveOperationModelId(AiApiFamily.rerank),
-       profile = model.profileFor(
+  }) : modelId = _normalizeRerankRequestModelId(
+         model,
          model.resolveOperationModelId(AiApiFamily.rerank),
+       ),
+       profile = model.profileFor(
+         _normalizeRerankRequestModelId(
+           model,
+           model.resolveOperationModelId(AiApiFamily.rerank),
+         ),
        );
 
   final AiModelConfig model;
@@ -610,6 +616,40 @@ const Set<String> _deepMergeableRerankBodyKeys = <String>{
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim() ?? '';
   return trimmed.isEmpty ? null : trimmed;
+}
+
+String _normalizeRerankRequestModelId(AiModelConfig model, String modelId) {
+  final trimmed = modelId.trim();
+  final slash = trimmed.lastIndexOf('/');
+  if (slash <= 0 || slash + 1 >= trimmed.length) return trimmed;
+  final owner = trimmed.substring(0, slash).toLowerCase();
+  final leaf = trimmed.substring(slash + 1).trim();
+  final lowerLeaf = leaf.toLowerCase();
+  final lowerBaseUrl = model.baseUrl.toLowerCase();
+  if ((lowerBaseUrl.contains('jina.ai') ||
+          owner == 'jina' ||
+          owner == 'jina-ai' ||
+          owner == 'jinaai') &&
+      (lowerLeaf.startsWith('jina-reranker') ||
+          lowerLeaf.startsWith('jina-colbert'))) {
+    return leaf;
+  }
+  if ((lowerBaseUrl.contains('voyage.ai') ||
+          lowerBaseUrl.contains('voyageai') ||
+          owner == 'voyage' ||
+          owner == 'voyage-ai' ||
+          owner == 'voyageai') &&
+      (lowerLeaf.startsWith('rerank') ||
+          lowerLeaf.startsWith('voyage-rerank'))) {
+    return leaf;
+  }
+  if ((lowerBaseUrl.contains('cohere') || owner == 'cohere') &&
+      (lowerLeaf.startsWith('rerank-') ||
+          lowerLeaf.startsWith('rerank_') ||
+          lowerLeaf.startsWith('cohere-rerank'))) {
+    return leaf;
+  }
+  return trimmed;
 }
 
 bool _isSparkBaseUrl(String baseUrl) {

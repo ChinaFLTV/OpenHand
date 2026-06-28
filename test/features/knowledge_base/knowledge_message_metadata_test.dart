@@ -98,4 +98,72 @@ void main() {
         (metadata['vector_distribution'] as Map)['points'] as List;
     expect((rawPoints.first as Map).containsKey('vector'), isFalse);
   });
+
+  test('tool metadata references table titles used by assistant answer', () {
+    const preview = '''
+### 6.3 纪录片 / 微纪实
+
+| 时间 | 名称 | 说明 |
+|---|---|---|
+| 2017-06-03 | 《DOCUMENTARY of SNH48 GROUP 我心翱翔》 | SNH48 GROUP 纪录片 |
+| 2017-12-26 | 《StarLight·星梦之光》 | 个人纪录片口径 |
+| 2018-03-10 | 《DOCUMENTARY of SNH48 TEAM NII 48的N次方》 | Team NII 公演纪录片 |
+| 2021-11-14 | 《嘉南传·我们20+》 | 《嘉南传》微纪实 |
+''';
+    final metadata = KnowledgeMessageMetadata.usedReferencesFromToolMetadata(
+      toolMessages: const <Map<String, Object?>>[
+        <String, Object?>{
+          'tool_name': 'KnowledgeSearch',
+          'status': 'success',
+          'query': '鞠婧祎 纪录片',
+          'retrieval': <String, Object?>{'strategy': 'vector'},
+          'rerank': <String, Object?>{'strategy': 'model'},
+          'results': <Object?>[
+            <String, Object?>{
+              'chunk_id': 'source-1_chunk_27',
+              'source_id': 'source-1',
+              'title': '6.3 纪录片 / 微纪实',
+              'token_estimate': 117,
+              'preview': preview,
+            },
+          ],
+        },
+      ],
+      answerText:
+          '根据知识库里的公开资料，主要有《DOCUMENTARY of SNH48 GROUP 我心翱翔》、'
+          '《StarLight·星梦之光》、《DOCUMENTARY of SNH48 TEAM NII 48的N次方》'
+          '以及《嘉南传·我们20+》。',
+    );
+
+    expect(metadata, isNotNull);
+    expect(metadata!['status'], 'success');
+    expect(metadata['results'], hasLength(1));
+    expect((metadata['prompt_append'] as Map)['chunk_count'], 1);
+  });
+
+  test(
+    'tool metadata is ignored when answer did not use retrieved content',
+    () {
+      final metadata = KnowledgeMessageMetadata.usedReferencesFromToolMetadata(
+        toolMessages: const <Map<String, Object?>>[
+          <String, Object?>{
+            'tool_name': 'KnowledgeSearch',
+            'status': 'success',
+            'query': '鞠婧祎 纪录片',
+            'results': <Object?>[
+              <String, Object?>{
+                'chunk_id': 'source-1_chunk_27',
+                'source_id': 'source-1',
+                'title': '6.3 纪录片 / 微纪实',
+                'preview': '《DOCUMENTARY of SNH48 GROUP 我心翱翔》',
+              },
+            ],
+          },
+        ],
+        answerText: '我没有查到可用资料。',
+      );
+
+      expect(metadata, isNull);
+    },
+  );
 }

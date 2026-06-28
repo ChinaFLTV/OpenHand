@@ -26,7 +26,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
-import '../knowledge_base/knowledge_base_controller.dart';
+import '../knowledge_base/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
@@ -7564,6 +7564,12 @@ class AiSessionController extends ChangeNotifier {
             : result.reasoning,
       );
       streamedSession = setReasoningStreamingState(streamedSession, false);
+      if (result.toolCalls.isEmpty) {
+        streamedSession = _attachRoundKnowledgeBaseReferencesToAssistantMessage(
+          session: streamedSession,
+          assistantMessageId: assistantMessageId,
+        );
+      }
       flushPreview();
       // Attach per-round telemetry (URL/method/headers/body/raw_response/
       // timings/environment + composed prompt) to the user+assistant+reasoning
@@ -12639,6 +12645,60 @@ $tail''';
       changed = true;
     }
     if (!changed) return session;
+    return session.copyWith(
+      messages: updatedMessages,
+      updatedAt: _clock().toUtc(),
+    );
+  }
+
+  AiSession _attachRoundKnowledgeBaseReferencesToAssistantMessage({
+    required AiSession session,
+    required String? assistantMessageId,
+  }) {
+    if (assistantMessageId == null || assistantMessageId.isEmpty) {
+      return session;
+    }
+    final assistantIndex = session.messages.indexWhere(
+      (message) => message.id == assistantMessageId,
+    );
+    if (assistantIndex <= 0) return session;
+    final assistant = session.messages[assistantIndex];
+    if (assistant.kind != AiSessionMessageKind.assistant ||
+        assistant.content.trim().isEmpty ||
+        KnowledgeMessageMetadata.hasReferences(assistant.metadata)) {
+      return session;
+    }
+
+    final roundToolMessages = <Map<String, Object?>>[];
+    for (var index = assistantIndex - 1; index >= 0; index--) {
+      final candidate = session.messages[index];
+      if (candidate.kind == AiSessionMessageKind.user) break;
+      if (candidate.kind == AiSessionMessageKind.toolCall ||
+          candidate.kind == AiSessionMessageKind.tool) {
+        roundToolMessages.insert(0, candidate.metadata);
+      }
+    }
+    if (roundToolMessages.isEmpty) return session;
+
+    final knowledgeMetadata =
+        KnowledgeMessageMetadata.usedReferencesFromToolMetadata(
+          toolMessages: roundToolMessages,
+          answerText: assistant.content,
+        );
+    if (knowledgeMetadata == null ||
+        !KnowledgeMessageMetadata.hasReferences(knowledgeMetadata)) {
+      return session;
+    }
+
+    final displayMetadata = <String, Object?>{...knowledgeMetadata}
+      ..remove(knowledgeBasePromptAppendMetadataKey);
+    final updatedMessages = List<AiSessionMessage>.from(session.messages);
+    updatedMessages[assistantIndex] = assistant.copyWith(
+      metadata: <String, Object?>{
+        ...assistant.metadata,
+        knowledgeBaseMessageMetadataKey: displayMetadata,
+      },
+    );
     return session.copyWith(
       messages: updatedMessages,
       updatedAt: _clock().toUtc(),

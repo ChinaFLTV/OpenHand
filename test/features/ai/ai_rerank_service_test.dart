@@ -74,6 +74,37 @@ void main() {
     expect(result.items.single.document, 'doc');
   });
 
+  test('Jina rerank strips provider namespace from request model id', () async {
+    final transport = _RecordingTransport(
+      responseBody: jsonEncode(<String, Object?>{
+        'results': <Object?>[
+          <String, Object?>{'index': 0, 'relevance_score': 0.86},
+        ],
+      }),
+    );
+    final service = AiRerankService(transport: transport);
+
+    final result = await service.rerank(
+      model: const AiModelConfig(
+        id: 'jina',
+        baseUrl: 'https://api.jina.ai',
+        authScheme: AiAuthScheme.bearer,
+        token: 'test-token',
+        modelId: 'jina-ai/jina-reranker-v3',
+        protocolType: AiProtocolType.openai,
+      ),
+      query: 'query',
+      documents: const <Object>['doc'],
+      topN: 1,
+      returnDocuments: false,
+    );
+
+    expect(transport.uri?.path, '/v1/rerank');
+    expect(transport.body['model'], 'jina-reranker-v3');
+    expect(transport.body['top_n'], 1);
+    expect(result.items.single.score, 0.86);
+  });
+
   test('Cohere rerank omits unsupported return_documents flag', () async {
     final transport = _RecordingTransport(
       responseBody: jsonEncode(<String, Object?>{
