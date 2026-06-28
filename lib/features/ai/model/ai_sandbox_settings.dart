@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_deny_command_rule.dart';
 
 enum AiSandboxFileAccessMode {
@@ -331,9 +332,7 @@ class AiSandboxSettings {
   }
 
   static int _normalizePort(Object? value) {
-    int? port;
-    if (value is int) port = value;
-    if (value is String) port = int.tryParse(value);
+    final port = optionalIntFromValue(value);
     if (port == null || port <= 0 || port > 65535) return 0;
     return port;
   }
