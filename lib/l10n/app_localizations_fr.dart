@@ -4534,14 +4534,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Réduisez les coûts en jetons en stabilisant le préfixe statique du prompt et en insérant des points de cache au niveau du protocole. Si activé, le fournisseur et le modèle sont verrouillés après le premier message utilisateur ; Prompt Builder garde autant que possible les instructions système, le catalogue d’outils, la mémoire et les instructions utilisateur en sections stables au début ; l’adaptateur Anthropic injecte les points cache_control.';
+      'Réduisez les coûts en jetons en stabilisant le préfixe statique du prompt et en appliquant des indices de cache au niveau du protocole. Si activé, le fournisseur et le modèle sont verrouillés après le premier message utilisateur ; Prompt Builder garde autant que possible les instructions système, le catalogue d’outils, la mémoire et les instructions utilisateur en sections stables au début ; Anthropic injecte les points cache_control, et les requêtes compatibles OpenAI utilisent une affinité de cache stable avec un corps où messages reste en dernier.';
 
   @override
   String get settingsEnableInputCache => 'Activer le cache d’entrée';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      'Activé par défaut. Si désactivé, OpenHand n’injecte pas de points de cache au niveau du protocole et n’applique pas les protections de cache d’entrée comme le verrouillage du modèle. Pour maximiser le taux de succès, évitez de modifier fréquemment les outils, compétences, MCP, mémoire ou instructions en cours de session.';
+      'Activé par défaut. Si désactivé, OpenHand n’injecte pas d’indices de cache au niveau du protocole et n’applique pas les protections de cache d’entrée comme le verrouillage du modèle. Pour maximiser le taux de succès, évitez de modifier fréquemment les outils, compétences, MCP, mémoire ou instructions en cours de session.';
 
   @override
   String get settingsCacheBreakpointUpdateMode =>
@@ -4579,7 +4579,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Par défaut 4, plage 1-4. Anthropic prend en charge jusqu’à 4 points d’arrêt cache_control par requête. Les N-1 premiers sont épinglés aux points de découpe du préfixe statique (invite système / outils / compétences / MCP / instructions / mémoire) ; le N-ième glisse à travers le flux de messages selon l’intervalle de mise à jour ci-dessus.';
+      'Par défaut 4, plage 1-4. Anthropic prend en charge jusqu’à 4 points d’arrêt cache_control par requête. Les fournisseurs compatibles OpenAI utilisent ce réglage uniquement comme force d’affinité de cache ; aucun marqueur cache_control incompatible n’est ajouté à leurs messages.';
 
   @override
   String get settingsCommandSafety => 'Sécurité des commandes';

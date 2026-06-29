@@ -318,22 +318,19 @@ class AiChatService implements AiChatClient {
     return message.contains('404') || message.contains('405');
   }
 
-  bool _shouldRetryWithoutCacheBodyAffinity({
+  bool _shouldRetryWithoutCacheAffinity({
     required int statusCode,
     required String errorBody,
     required Map<String, Object?> requestBody,
+    required Map<String, String> requestHeaders,
   }) {
     if (statusCode < 400 || statusCode >= 500) {
       return false;
     }
-    final hasBodyAffinity =
-        requestBody.containsKey(
-          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
-        ) ||
-        requestBody.containsKey(
-          AiPromptCacheAffinity.openRouterSessionBodyField,
-        );
-    if (!hasBodyAffinity) {
+    if (!AiPromptCacheAffinity.requestHasMarker(
+      body: requestBody,
+      headers: requestHeaders,
+    )) {
       return false;
     }
     final normalized = errorBody.toLowerCase();
@@ -341,37 +338,42 @@ class AiChatService implements AiChatClient {
         normalized.contains(
           AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
         ) ||
-        normalized.contains(AiPromptCacheAffinity.openRouterSessionBodyField);
-    if (!mentionsAffinityField) {
+        normalized.contains(AiPromptCacheAffinity.openRouterSessionBodyField) ||
+        normalized.contains(AiPromptCacheAffinity.openRouterSessionHeader) ||
+        normalized.contains(AiPromptCacheAffinity.grokConversationHeader);
+    if (mentionsAffinityField) {
+      return normalized.contains('unknown') ||
+          normalized.contains('unrecognized') ||
+          normalized.contains('unsupported') ||
+          normalized.contains('unexpected') ||
+          normalized.contains('not allowed') ||
+          normalized.contains('additional') ||
+          normalized.contains('invalid');
+    }
+    if (statusCode != 400 && statusCode != 422) {
       return false;
     }
-    return normalized.contains('unknown') ||
+    return normalized.contains('invalid') ||
+        normalized.contains('schema') ||
+        normalized.contains('parameter') ||
+        normalized.contains('field') ||
+        normalized.contains('body') ||
+        normalized.contains('request') ||
+        normalized.contains('bad request') ||
         normalized.contains('unrecognized') ||
         normalized.contains('unsupported') ||
         normalized.contains('unexpected') ||
-        normalized.contains('not allowed') ||
-        normalized.contains('additional') ||
-        normalized.contains('invalid');
+        normalized.contains('additional');
   }
 
-  Map<String, Object?> _withoutCacheBodyAffinityMarkers(
-    Map<String, Object?> body,
+  AiRequestBlueprint _withoutCacheAffinityMarkers(
+    AiRequestBlueprint blueprint,
   ) {
-    if (!body.containsKey(
-          AiPromptCacheAffinity.openAiPromptCacheKeyBodyField,
-        ) &&
-        !body.containsKey(AiPromptCacheAffinity.openRouterSessionBodyField)) {
-      return body;
-    }
-    final updated = <String, Object?>{};
-    for (final entry in body.entries) {
-      if (entry.key == AiPromptCacheAffinity.openAiPromptCacheKeyBodyField ||
-          entry.key == AiPromptCacheAffinity.openRouterSessionBodyField) {
-        continue;
-      }
-      updated[entry.key] = entry.value;
-    }
-    return updated;
+    return AiRequestBlueprint(
+      url: blueprint.url,
+      headers: AiPromptCacheAffinity.withoutHeaderMarkers(blueprint.headers),
+      body: AiPromptCacheAffinity.withoutBodyMarkers(blueprint.body),
+    );
   }
 
   /// Throws an [AiChatException] with a user-friendly message when the caller
@@ -561,7 +563,7 @@ class AiChatService implements AiChatClient {
     }
     try {
       final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-      final blueprint = await adapter.buildChatRequest(
+      var blueprint = await adapter.buildChatRequest(
         model: model,
         messages: messages,
         tools: tools,
@@ -572,15 +574,6 @@ class AiChatService implements AiChatClient {
           ? model.requestMethod.trim()
           : 'POST';
       final startedAt = DateTime.now().toUtc();
-      onRequestStarted?.call(
-        AiChatRequestTelemetry(
-          requestUrl: blueprint.url,
-          requestMethod: effectiveMethod,
-          requestHeaders: Map<String, String>.unmodifiable(blueprint.headers),
-          requestBody: blueprint.body,
-          startedAt: startedAt,
-        ),
-      );
       AiChatRequestTelemetry telemetry({
         String? rawResponse,
         DateTime? endedAt,
@@ -600,38 +593,64 @@ class AiChatService implements AiChatClient {
         );
       }
 
-      late final http.Response response;
-      try {
-        response = await _awaitWithCancelSignal(
-          _sendHttpRequestWithRedirects(
-            client: _client,
-            method: effectiveMethod,
-            uri: Uri.parse(blueprint.url),
-            headers: blueprint.headers,
-            body: jsonEncode(blueprint.body),
-            timeout: timeout,
-          ).then(http.Response.fromStream),
-          cancelSignal,
+      Future<http.Response> sendBlueprint(AiRequestBlueprint next) async {
+        blueprint = next;
+        onRequestStarted?.call(
+          AiChatRequestTelemetry(
+            requestUrl: blueprint.url,
+            requestMethod: effectiveMethod,
+            requestHeaders: Map<String, String>.unmodifiable(blueprint.headers),
+            requestBody: blueprint.body,
+            startedAt: startedAt,
+          ),
         );
-      } on AiChatCancelledException {
-        rethrow;
-      } on TimeoutException {
-        final message = AiTransportDiagnosticMessages.timeout(timeout);
-        throw AiChatException(message, telemetry: telemetry(error: message));
-      } on HandshakeException catch (error) {
-        final message = AiTransportDiagnosticMessages.handshake(error);
-        throw AiChatException(message, telemetry: telemetry(error: message));
-      } on TlsException catch (error) {
-        final message = AiTransportDiagnosticMessages.tls(error);
-        throw AiChatException(message, telemetry: telemetry(error: message));
-      } on SocketException catch (error) {
-        final message = AiTransportDiagnosticMessages.socket(error);
-        throw AiChatException(message, telemetry: telemetry(error: message));
-      } on http.ClientException catch (error) {
-        final message = AiTransportDiagnosticMessages.httpClient(error);
-        throw AiChatException(message, telemetry: telemetry(error: message));
+        try {
+          return await _awaitWithCancelSignal(
+            _sendHttpRequestWithRedirects(
+              client: _client,
+              method: effectiveMethod,
+              uri: Uri.parse(blueprint.url),
+              headers: blueprint.headers,
+              body: jsonEncode(blueprint.body),
+              timeout: timeout,
+            ).then(http.Response.fromStream),
+            cancelSignal,
+          );
+        } on AiChatCancelledException {
+          rethrow;
+        } on TimeoutException {
+          final message = AiTransportDiagnosticMessages.timeout(timeout);
+          throw AiChatException(message, telemetry: telemetry(error: message));
+        } on HandshakeException catch (error) {
+          final message = AiTransportDiagnosticMessages.handshake(error);
+          throw AiChatException(message, telemetry: telemetry(error: message));
+        } on TlsException catch (error) {
+          final message = AiTransportDiagnosticMessages.tls(error);
+          throw AiChatException(message, telemetry: telemetry(error: message));
+        } on SocketException catch (error) {
+          final message = AiTransportDiagnosticMessages.socket(error);
+          throw AiChatException(message, telemetry: telemetry(error: message));
+        } on http.ClientException catch (error) {
+          final message = AiTransportDiagnosticMessages.httpClient(error);
+          throw AiChatException(message, telemetry: telemetry(error: message));
+        }
       }
-      final endedAt = DateTime.now().toUtc();
+
+      var response = await sendBlueprint(blueprint);
+      var endedAt = DateTime.now().toUtc();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (_shouldRetryWithoutCacheAffinity(
+          statusCode: response.statusCode,
+          errorBody: response.body,
+          requestBody: blueprint.body,
+          requestHeaders: blueprint.headers,
+        )) {
+          response = await sendBlueprint(
+            _withoutCacheAffinityMarkers(blueprint),
+          );
+          endedAt = DateTime.now().toUtc();
+        }
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final errorMessage = adapter.extractErrorMessage(response.body);
         final message = AiTransportDiagnosticMessages.httpStatus(
@@ -922,18 +941,15 @@ class AiChatService implements AiChatClient {
         streamedResponse.statusCode >= 300) {
       final initialErrorBody = await streamedResponse.stream.bytesToString();
       var finalErrorBody = initialErrorBody;
-      if (_shouldRetryWithoutCacheBodyAffinity(
+      if (_shouldRetryWithoutCacheAffinity(
         statusCode: streamedResponse.statusCode,
         errorBody: initialErrorBody,
         requestBody: blueprint.body,
+        requestHeaders: blueprint.headers,
       )) {
-        final retryBody = _withoutCacheBodyAffinityMarkers(blueprint.body);
-        final retryBlueprint = AiRequestBlueprint(
-          url: blueprint.url,
-          headers: blueprint.headers,
-          body: retryBody,
+        streamedResponse = await openStream(
+          _withoutCacheAffinityMarkers(blueprint),
         );
-        streamedResponse = await openStream(retryBlueprint);
         if (streamedResponse == null) {
           return AiChatStreamingResponse(
             events: const Stream<AiChatStreamEvent>.empty(),

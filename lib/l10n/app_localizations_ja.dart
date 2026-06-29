@@ -4316,14 +4316,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Prompt の静的プレフィックスを安定させ、プロトコルレベルのキャッシュブレークポイントを挿入して token コストを削減します。有効にすると、最初のユーザーメッセージ後にプロバイダーとモデルをロックし、Prompt Builder はシステム指示、ツールカタログ、メモリ、ユーザー指示を可能な限り安定した先頭セクションに保ちます。Anthropic アダプターは cache_control ブレークポイントを注入します。';
+      'Prompt の静的プレフィックスを安定させ、プロトコルレベルのキャッシュヒントを適用して token コストを削減します。有効にすると、最初のユーザーメッセージ後にプロバイダーとモデルをロックし、Prompt Builder はシステム指示、ツールカタログ、メモリ、ユーザー指示を可能な限り安定した先頭セクションに保ちます。Anthropic は cache_control ブレークポイントを注入し、OpenAI 互換リクエストは安定したキャッシュアフィニティと messages を末尾に置く body レイアウトを使います。';
 
   @override
   String get settingsEnableInputCache => '入力キャッシュを有効化';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '既定で有効です。無効にすると、プロトコルレベルのキャッシュブレークポイント注入やモデルロックなどの入力キャッシュ保護は行われません。ヒット率を最大化するには、会話中にツール、スキル、MCP、メモリ、指示を頻繁に変更しないでください。';
+      '既定で有効です。無効にすると、プロトコルレベルのキャッシュヒント注入やモデルロックなどの入力キャッシュ保護は行われません。ヒット率を最大化するには、会話中にツール、スキル、MCP、メモリ、指示を頻繁に変更しないでください。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => 'キャッシュブレークポイント更新モード';
@@ -4356,7 +4356,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '既定値 4、範囲 1-4。Anthropic はリクエストごとに最大 4 つの cache_control ブレークポイントをサポートします。最初の N-1 個は静的プレフィックスのスライス点（システムプロンプト / ツール / スキル / MCP / 指示 / メモリ）に固定されます。N 番目は上記の更新間隔に従ってメッセージストリーム内をスライドします。';
+      '既定値 4、範囲 1-4。Anthropic はリクエストごとに最大 4 つの cache_control ブレークポイントをサポートします。OpenAI 互換プロバイダーでは、この設定はキャッシュアフィニティの強さとしてのみ扱われ、互換性のない cache_control マーカーはメッセージに追加されません。';
 
   @override
   String get settingsCommandSafety => 'コマンドセーフティ';

@@ -13028,6 +13028,8 @@ $tail''';
       'request_cache_affinity_marker_paths',
       'request_cache_control_marker_count',
       'request_cache_control_marker_paths',
+      'request_payload_lcp_chars',
+      'request_payload_lcp_previous_ratio',
       'request_payload_prefix_continuity',
       'request_payload_prefix_probe_complete',
     };

@@ -4514,14 +4514,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix stabilisieren und Cache-Breakpoints auf Protokollebene einfügen. Wenn aktiviert, werden Anbieter und Modell nach der ersten Benutzernachricht gesperrt; der Prompt Builder hält Systemanweisungen, Werkzeugkatalog, Speicher und Nutzeranweisungen möglichst stabil am Anfang; der Anthropic-Adapter injiziert cache_control-Breakpoints.';
+      'Reduzieren Sie Token-Kosten, indem Sie das statische Prompt-Präfix stabilisieren und Cache-Hinweise auf Protokollebene anwenden. Wenn aktiviert, werden Anbieter und Modell nach der ersten Benutzernachricht gesperrt; der Prompt Builder hält Systemanweisungen, Werkzeugkatalog, Speicher und Nutzeranweisungen möglichst stabil am Anfang; Anthropic injiziert cache_control-Breakpoints, OpenAI-kompatible Anfragen nutzen stabile Cache-Affinität und ein messages-last Body-Layout.';
 
   @override
   String get settingsEnableInputCache => 'Eingabecache aktivieren';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      'Standardmäßig aktiviert. Wenn deaktiviert, injiziert OpenHand keine Protokoll-Cache-Breakpoints und nutzt keine Eingabecache-Schutzmaßnahmen wie Modellsperren. Für maximale Trefferquote sollten Werkzeuge, Skills, MCP, Speicher und Anweisungen während einer Sitzung möglichst stabil bleiben.';
+      'Standardmäßig aktiviert. Wenn deaktiviert, injiziert OpenHand keine Cache-Hinweise auf Protokollebene und nutzt keine Eingabecache-Schutzmaßnahmen wie Modellsperren. Für maximale Trefferquote sollten Werkzeuge, Skills, MCP, Speicher und Anweisungen während einer Sitzung möglichst stabil bleiben.';
 
   @override
   String get settingsCacheBreakpointUpdateMode =>
@@ -4558,7 +4558,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Standard 4, Bereich 1-4. Anthropic unterstützt bis zu 4 cache_control-Breakpoints pro Anfrage. Die ersten N-1 sind an statischen Präfix-Schnittpunkten (System-Prompt / Werkzeuge / Skills / MCP / Anweisungen / Speicher) angeheftet; der N-te gleitet gemäß dem obigen Aktualisierungsintervall durch den Nachrichtenstrom.';
+      'Standard 4, Bereich 1-4. Anthropic unterstützt bis zu 4 cache_control-Breakpoints pro Anfrage. OpenAI-kompatible Anbieter verwenden diese Einstellung nur als Cache-Affinitätsstärke; ihren Nachrichten werden keine inkompatiblen cache_control-Marker hinzugefügt.';
 
   @override
   String get settingsCommandSafety => 'Befehlssicherheit';

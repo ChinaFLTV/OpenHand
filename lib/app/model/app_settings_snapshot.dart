@@ -347,16 +347,18 @@ class AppSettingsSnapshot {
   static const bool defaultAiMicroCompressionEnabled = true;
 
   /// 2026-05-02 — 成本控制：是否启用输入缓存优化。开启后，Prompt
-  /// Builder 尽量保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
-  /// 前置，并在 Anthropic 协议上自动注入 cache_control 断点；同时在用户
-  /// 首条消息发出后锁定服务商/模型选择，降低跨轮缓存击穿概率。
+  /// Builder 统一保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
+  /// 前置；Anthropic native 注入 cache_control 断点，OpenAI-compatible
+  /// 请求注入稳定的会话/Prompt 亲和键并保持 messages 位于请求体末尾，
+  /// 同时在用户首条消息发出后锁定服务商/模型选择，降低跨轮缓存击穿概率。
   ///
   /// 2026-06-01 — 默认改为 `true`：
   /// 旧默认 `false` 导致绝大多数用户从未开启；从第 2 轮起无法享受
-  /// Anthropic prefix cache 命中，token 费用直线上升。开启后 Claude 协议
-  /// 会在对应 Claude provider 开关开启时注入
-  /// `cache_control: {type: ephemeral}` 断点；其它协议不插入缓存点，
-  /// 不会产生请求体副作用。少数场景需要关闭时再在"输入缓存"设置里手动关闭。
+  /// Anthropic / OpenAI-compatible prefix cache 命中，token 费用直线上升。
+  /// 开启后 Claude 协议会在对应 Claude provider 开关开启时注入
+  /// `cache_control: {type: ephemeral}` 断点；OpenAI-compatible 协议会使用
+  /// 稳定亲和键与请求体顺序优化。少数场景需要关闭时再在"输入缓存"设置里
+  /// 手动关闭。
   static const bool defaultAiInputCacheEnabled = true;
 
   /// 2026-05-02 — 缓存断点更新模式：allMessages | userMessages | tokens。
@@ -692,7 +694,7 @@ class AppSettingsSnapshot {
   final int aiToolResultCompressionMaxPathHits;
 
   /// 2026-05-02 — 成本控制：是否启用输入缓存优化（稳定静态前缀 + 模型锁
-  /// + 支持协议的 cache_control 断点注入）。
+  /// + Claude cache_control + OpenAI-compatible 稳定亲和键/请求体顺序优化）。
   final bool aiInputCacheEnabled;
 
   /// 2026-05-02 — 缓存断点更新模式（allMessages / userMessages / tokens）。

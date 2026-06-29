@@ -4253,14 +4253,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '通过稳定 Prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会自动注入 cache_control 断点。';
+      '通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '默认开启。关闭后不会注入协议层缓存断点，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。';
+      '默认开启。关闭后不会注入协议层缓存提示，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
@@ -4293,7 +4293,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。';
+      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考，不会向消息内容注入不兼容的 cache_control 标记。';
 
   @override
   String get settingsCommandSafety => '命令安全';
@@ -12084,14 +12084,14 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '通过稳定 Prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会自动注入 cache_control 断点。';
+      '通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '默认开启。关闭后不会注入协议层缓存断点，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。';
+      '默认开启。关闭后不会注入协议层缓存提示，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
@@ -12124,7 +12124,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。';
+      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考，不会向消息内容注入不兼容的 cache_control 标记。';
 
   @override
   String get settingsCommandSafety => '命令安全';
@@ -19914,14 +19914,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      '透過穩定 Prompt 靜態前綴與協議層快取斷點來降低 token 成本。開啟後：使用者送出第一則訊息後會鎖定服務商與模型；Prompt Builder 會盡量保持系統提示、工具目錄、記憶、指令等穩定前置；Anthropic 協議會自動注入 cache_control 斷點。';
+      '透過穩定 Prompt 靜態前綴與協議層快取提示來降低 token 成本。開啟後：使用者送出第一則訊息後會鎖定服務商與模型；Prompt Builder 會盡量保持系統提示、工具目錄、記憶、指令等穩定前置；Anthropic 協議會注入 cache_control 斷點，OpenAI-compatible 請求會使用穩定快取親和鍵與 messages 置尾布局。';
 
   @override
   String get settingsEnableInputCache => '启用输入缓存';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      '預設開啟。關閉後不會注入協議層快取斷點，也不會執行模型鎖定等輸入快取保護。若要最大化命中率，請避免在會話中途頻繁修改工具、技能、MCP、記憶或指令。';
+      '預設開啟。關閉後不會注入協議層快取提示，也不會執行模型鎖定等輸入快取保護。若要最大化命中率，請避免在會話中途頻繁修改工具、技能、MCP、記憶或指令。';
 
   @override
   String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
@@ -19954,7 +19954,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。';
+      '預設 4，範圍 1-4。Anthropic 協議每個請求最多支援 4 個 cache_control 斷點。OpenAI-compatible 服務商僅將此設定作為快取親和強度參考，不會向訊息內容注入不相容的 cache_control 標記。';
 
   @override
   String get settingsCommandSafety => '命令安全';

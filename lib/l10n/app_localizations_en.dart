@@ -4470,14 +4470,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsReduceTokenCostsByFreezingThe =>
-      'Reduce token costs by stabilizing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: the provider and model are locked after the first user message; Prompt Builder keeps system instructions, tool catalog, memory, and user instructions as stable leading sections where possible; the Anthropic adapter injects cache_control breakpoints.';
+      'Reduce token costs by stabilizing the prompt static prefix and applying protocol-level cache hints. When enabled: the provider and model are locked after the first user message; Prompt Builder keeps system instructions, tool catalog, memory, and user instructions as stable leading sections where possible; Anthropic injects cache_control breakpoints, and OpenAI-compatible requests use stable cache affinity plus a messages-last body layout.';
 
   @override
   String get settingsEnableInputCache => 'Enable Input Cache';
 
   @override
   String get settingsDisabledByDefaultWhenEnabledEvery =>
-      'Enabled by default. When disabled, OpenHand will not inject protocol-level cache breakpoints or apply model-locking input-cache safeguards. To maximize hit rate, avoid frequent mid-session changes to tools, skills, MCP, memory, or instructions.';
+      'Enabled by default. When disabled, OpenHand will not inject protocol-level cache hints or apply model-locking input-cache safeguards. To maximize hit rate, avoid frequent mid-session changes to tools, skills, MCP, memory, or instructions.';
 
   @override
   String get settingsCacheBreakpointUpdateMode =>
@@ -4513,7 +4513,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. The first N-1 are pinned at static prefix slice points (system prompt / tools / skills / MCP / instructions / memory); the Nth slides through the message stream per the update interval above.';
+      'Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. OpenAI-compatible providers use this setting as cache-affinity strength only; no unsupported cache_control markers are added to their messages.';
 
   @override
   String get settingsCommandSafety => 'Command Safety';

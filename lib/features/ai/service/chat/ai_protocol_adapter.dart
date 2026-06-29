@@ -201,7 +201,16 @@ class AiPromptCacheAffinity {
   static const String openRouterSessionHeader = 'x-session-id';
   static const String openRouterSessionBodyField = 'session_id';
   static const String openAiPromptCacheKeyBodyField = 'prompt_cache_key';
+  static const String messagesBodyField = 'messages';
   static const int _maxIdLength = 128;
+  static const Set<String> _bodyMarkerFields = <String>{
+    openRouterSessionBodyField,
+    openAiPromptCacheKeyBodyField,
+  };
+  static const Set<String> _headerMarkerNames = <String>{
+    grokConversationHeader,
+    openRouterSessionHeader,
+  };
 
   final AiPromptCacheAffinityKind kind;
   final String id;
@@ -258,6 +267,9 @@ class AiPromptCacheAffinity {
     }
     if (model.providerKind == AiProviderKind.openai ||
         _isOpenAiEndpoint(model.baseUrl)) {
+      return AiPromptCacheAffinityKind.openAiPromptCacheKey;
+    }
+    if (_usesRemoteOpenAiCompatibleChatProtocol(model.protocolType)) {
       return AiPromptCacheAffinityKind.openAiPromptCacheKey;
     }
     return AiPromptCacheAffinityKind.none;
@@ -335,6 +347,79 @@ class AiPromptCacheAffinity {
     return kind == AiPromptCacheAffinityKind.grokCompatibleGateway;
   }
 
+  static bool requestHasMarker({
+    required Map<String, Object?> body,
+    required Map<String, String>? headers,
+  }) {
+    return bodyHasMarker(body) || headersHaveMarker(headers);
+  }
+
+  static bool bodyHasMarker(Map<String, Object?> body) {
+    for (final field in _bodyMarkerFields) {
+      if (body.containsKey(field)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool headersHaveMarker(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) {
+      return false;
+    }
+    final markerNames = _headerMarkerNames
+        .map((item) => item.toLowerCase())
+        .toSet();
+    return headers.keys.any((key) => markerNames.contains(key.toLowerCase()));
+  }
+
+  static Map<String, Object?> withoutBodyMarkers(Map<String, Object?> body) {
+    if (!bodyHasMarker(body)) {
+      return body;
+    }
+    final updated = <String, Object?>{};
+    for (final entry in body.entries) {
+      if (_bodyMarkerFields.contains(entry.key)) {
+        continue;
+      }
+      updated[entry.key] = entry.value;
+    }
+    return updated;
+  }
+
+  static Map<String, String> withoutHeaderMarkers(Map<String, String> headers) {
+    if (!headersHaveMarker(headers)) {
+      return headers;
+    }
+    final markerNames = _headerMarkerNames
+        .map((item) => item.toLowerCase())
+        .toSet();
+    final updated = <String, String>{};
+    for (final entry in headers.entries) {
+      if (markerNames.contains(entry.key.toLowerCase())) {
+        continue;
+      }
+      updated[entry.key] = entry.value;
+    }
+    return updated;
+  }
+
+  static Map<String, Object?> withMessagesLast(Map<String, Object?> body) {
+    if (!body.containsKey(messagesBodyField)) {
+      return body;
+    }
+    final messages = body[messagesBodyField];
+    final updated = <String, Object?>{};
+    for (final entry in body.entries) {
+      if (entry.key == messagesBodyField) {
+        continue;
+      }
+      updated[entry.key] = entry.value;
+    }
+    updated[messagesBodyField] = messages;
+    return updated;
+  }
+
   static Map<String, Object?> _putBodyFieldBeforeMessages(
     Map<String, Object?> body,
     String field,
@@ -398,6 +483,34 @@ class AiPromptCacheAffinity {
         normalized.startsWith('grok-') ||
         normalized.startsWith('x-ai/grok-') ||
         normalized.contains('/grok-');
+  }
+
+  static bool _usesRemoteOpenAiCompatibleChatProtocol(
+    AiProtocolType protocolType,
+  ) {
+    return switch (protocolType) {
+      AiProtocolType.openai ||
+      AiProtocolType.deepseek ||
+      AiProtocolType.qwen ||
+      AiProtocolType.kimi ||
+      AiProtocolType.glm ||
+      AiProtocolType.seed ||
+      AiProtocolType.stepfun ||
+      AiProtocolType.minimax ||
+      AiProtocolType.longcat ||
+      AiProtocolType.agnes ||
+      AiProtocolType.joycode ||
+      AiProtocolType.wenxin ||
+      AiProtocolType.meta ||
+      AiProtocolType.mimo ||
+      AiProtocolType.hunyuan => true,
+      AiProtocolType.claude ||
+      AiProtocolType.gemini ||
+      AiProtocolType.grok ||
+      AiProtocolType.ollama ||
+      AiProtocolType.vllm ||
+      AiProtocolType.sglang => false,
+    };
   }
 
   static String _normalizeId(String value) {
@@ -471,10 +584,15 @@ abstract class AiProtocolAdapter {
       inputCacheConfig: inputCacheConfig,
     );
     final headers = buildHeaders(model, endpointHeaders: endpoint.headers);
-    AiPromptCacheAffinity.resolve(
+    final cacheAffinity = AiPromptCacheAffinity.resolve(
       model: model,
       inputCacheConfig: inputCacheConfig,
-    ).applyToHeaders(headers);
+    );
+    cacheAffinity.applyToHeaders(headers);
+    final bodyWithExtras = AiOperationHttp.mergeBodyExtras(model, family, body);
+    final cacheAwareBody = AiPromptCacheAffinity.withMessagesLast(
+      cacheAffinity.applyToBody(bodyWithExtras),
+    );
     return AiRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
         endpoint.url,
@@ -482,7 +600,7 @@ abstract class AiProtocolAdapter {
         family,
       ).toString(),
       headers: headers,
-      body: AiOperationHttp.mergeBodyExtras(model, family, body),
+      body: cacheAwareBody,
     );
   }
 
@@ -670,10 +788,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       if (stableTools.isNotEmpty) 'tool_choice': 'auto',
       'messages': mergedMessages,
     };
-    return AiPromptCacheAffinity.resolve(
-      model: model,
-      inputCacheConfig: inputCacheConfig,
-    ).applyToBody(body);
+    return body;
   }
 
   @override

@@ -8069,7 +8069,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsReduceTokenCostsByFreezingThe.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'通过稳定 Prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会自动注入 cache_control 断点。'**
+  /// **'通过稳定 Prompt 静态前缀与协议层缓存提示来降低 token 成本。开启后：用户发出首条消息后会锁定服务商与模型；Prompt Builder 会尽量保持系统提示、工具目录、记忆、指令等稳定前置；Anthropic 协议会注入 cache_control 断点，OpenAI-compatible 请求会使用稳定缓存亲和键与 messages 末尾布局。'**
   String get settingsReduceTokenCostsByFreezingThe;
 
   /// No description provided for @settingsEnableInputCache.
@@ -8081,7 +8081,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDisabledByDefaultWhenEnabledEvery.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认开启。关闭后不会注入协议层缓存断点，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。'**
+  /// **'默认开启。关闭后不会注入协议层缓存提示，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。'**
   String get settingsDisabledByDefaultWhenEnabledEvery;
 
   /// No description provided for @settingsCacheBreakpointUpdateMode.
@@ -8141,7 +8141,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDefault4Range14Anthropic.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。'**
+  /// **'默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考，不会向消息内容注入不兼容的 cache_control 标记。'**
   String get settingsDefault4Range14Anthropic;
 
   /// No description provided for @settingsCommandSafety.
