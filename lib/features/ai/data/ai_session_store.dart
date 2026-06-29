@@ -563,6 +563,9 @@ class AiSessionStore {
                + COALESCE(LENGTH(s.updated_at), 0)
                + COALESCE(LENGTH(s.last_used_model_id), 0)
                + COALESCE(LENGTH(s.last_used_model_label), 0)
+               + COALESCE(LENGTH(s.auto_title_acquired), 0)
+               + COALESCE(LENGTH(s.auto_title_retry_count), 0)
+               + COALESCE(LENGTH(s.auto_title_first_user_content), 0)
                + COALESCE(LENGTH(s.auto_title_generated_at), 0)
                + COALESCE(LENGTH(s.auto_title_source_message_id), 0)
                + COALESCE(LENGTH(s.latest_compression_checkpoint_message_id), 0)
@@ -1212,6 +1215,13 @@ class AiSessionStore {
       lastUsedModelId: row['last_used_model_id'] as String?,
       lastUsedModelLabel: row['last_used_model_label'] as String?,
       isTitleManuallyEdited: boolFromValue(row['is_title_manually_edited']),
+      autoTitleAcquired: boolFromValue(row['auto_title_acquired']),
+      autoTitleRetryCount: nonNegativeIntFromValue(
+        row['auto_title_retry_count'],
+        fallback: 0,
+      ),
+      autoTitleFirstUserContent:
+          row['auto_title_first_user_content'] as String?,
       autoTitleGeneratedAt: _parseNullableDateTime(
         row['auto_title_generated_at'] as String?,
       ),
@@ -1260,6 +1270,11 @@ class AiSessionStore {
       'last_used_model_id': session.lastUsedModelId,
       'last_used_model_label': session.lastUsedModelLabel,
       'is_title_manually_edited': session.isTitleManuallyEdited ? 1 : 0,
+      'auto_title_acquired': session.autoTitleAcquired ? 1 : 0,
+      'auto_title_retry_count': session.autoTitleRetryCount < 0
+          ? 0
+          : session.autoTitleRetryCount,
+      'auto_title_first_user_content': session.autoTitleFirstUserContent,
       'auto_title_generated_at': session.autoTitleGeneratedAt
           ?.toUtc()
           .toIso8601String(),

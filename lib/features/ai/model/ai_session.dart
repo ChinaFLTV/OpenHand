@@ -314,12 +314,11 @@ class AiSession {
       isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool
           ? sessionJson['is_title_manually_edited'] as bool
           : false,
-      autoTitleAcquired: sessionJson['auto_title_acquired'] is bool
-          ? sessionJson['auto_title_acquired'] as bool
-          : false,
-      autoTitleRetryCount: sessionJson['auto_title_retry_count'] is int
-          ? sessionJson['auto_title_retry_count'] as int
-          : 0,
+      autoTitleAcquired: boolFromValue(sessionJson['auto_title_acquired']),
+      autoTitleRetryCount: nonNegativeIntFromValue(
+        sessionJson['auto_title_retry_count'],
+        fallback: 0,
+      ),
       autoTitleFirstUserContent: _readNullableString(
         sessionJson['auto_title_first_user_content'],
       ),

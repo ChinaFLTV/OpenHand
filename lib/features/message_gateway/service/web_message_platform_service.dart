@@ -2772,6 +2772,71 @@ class WebMessagePlatformService {
     return _mergeStoredAndLiveMessages(stored.messages, session.messages);
   }
 
+  Future<AiSession> _loadExportSessionSnapshot(AiSession session) async {
+    try {
+      final stored = await _sessionController.store.loadSession(session.id);
+      if (stored == null) {
+        return session;
+      }
+      final messages = _mergeStoredAndLiveMessages(
+        stored.messages,
+        session.messages,
+      );
+      return stored.copyWith(
+        title: session.title,
+        updatedAt: session.updatedAt.isAfter(stored.updatedAt)
+            ? session.updatedAt
+            : stored.updatedAt,
+        messages: messages,
+        lastUsedModelId: session.lastUsedModelId ?? stored.lastUsedModelId,
+        lastUsedModelLabel:
+            session.lastUsedModelLabel ?? stored.lastUsedModelLabel,
+        isTitleManuallyEdited: session.isTitleManuallyEdited,
+        autoTitleAcquired:
+            session.autoTitleAcquired || stored.autoTitleAcquired,
+        autoTitleRetryCount: math.max(
+          session.autoTitleRetryCount,
+          stored.autoTitleRetryCount,
+        ),
+        autoTitleFirstUserContent:
+            session.autoTitleFirstUserContent ??
+            stored.autoTitleFirstUserContent,
+        autoTitleGeneratedAt:
+            session.autoTitleGeneratedAt ?? stored.autoTitleGeneratedAt,
+        autoTitleSourceMessageId:
+            session.autoTitleSourceMessageId ?? stored.autoTitleSourceMessageId,
+        latestCompressionCheckpointMessageId:
+            session.latestCompressionCheckpointMessageId ??
+            stored.latestCompressionCheckpointMessageId,
+        latestCompressionAt:
+            session.latestCompressionAt ?? stored.latestCompressionAt,
+        lastPromptMetadata: session.lastPromptMetadata.isEmpty
+            ? stored.lastPromptMetadata
+            : session.lastPromptMetadata,
+        todoItems: session.todoItems.isEmpty
+            ? stored.todoItems
+            : session.todoItems,
+        mode: session.mode,
+        awaitingPlanApproval: session.awaitingPlanApproval,
+        pendingPlan: session.pendingPlan ?? stored.pendingPlan,
+        pendingPlanAllowedPrompts: session.pendingPlanAllowedPrompts.isEmpty
+            ? stored.pendingPlanAllowedPrompts
+            : session.pendingPlanAllowedPrompts,
+        planHistory: session.planHistory.isEmpty
+            ? stored.planHistory
+            : session.planHistory,
+        fullAccessPermission: session.fullAccessPermission,
+        metadata: <String, Object?>{...stored.metadata, ...session.metadata},
+        messageLoadState: AiSessionMessageLoadState.complete,
+        messageWindowStartIndex: 0,
+        messageTotalCount: messages.length,
+      );
+    } catch (error, stack) {
+      silentLog('WebGateway', 'load export session snapshot', error, stack);
+      return session;
+    }
+  }
+
   /// 导出整会话为 JSONL 附件下载。复用 APP 端同一编码语义，确保下载后缀、
   /// MIME 与实际载荷格式一致。
   Future<shelf.Response> _exportSession(
@@ -2785,11 +2850,13 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    final bodyText = encodeAiSessionToJsonlText(session: session);
-    final safeTitle = (session.title.isEmpty ? 'session' : session.title)
-        .replaceAll(RegExp(r'[^\w\u4e00-\u9fff\-\.]+'), '_');
+    final exportSession = await _loadExportSessionSnapshot(session);
+    final bodyText = encodeAiSessionToJsonlText(session: exportSession);
+    final safeTitle =
+        (exportSession.title.isEmpty ? 'session' : exportSession.title)
+            .replaceAll(RegExp(r'[^\w\u4e00-\u9fff\-\.]+'), '_');
     final filename = normalizeJsonlExportFilename(
-      '${safeTitle}_${session.id}.jsonl',
+      '${safeTitle}_${exportSession.id}.jsonl',
     );
     return shelf.Response.ok(
       bodyText,

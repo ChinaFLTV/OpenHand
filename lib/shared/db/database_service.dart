@@ -15,7 +15,7 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 7;
+  static const int schemaVersion = 8;
   static const String _databaseFileName = 'openhand.db';
 
   /// Returns the singleton instance.  Must call [initialize] first.
@@ -118,6 +118,9 @@ class DatabaseService {
         last_used_model_id                        TEXT,
         last_used_model_label                     TEXT,
         is_title_manually_edited                  INTEGER NOT NULL DEFAULT 0,
+        auto_title_acquired                       INTEGER NOT NULL DEFAULT 0,
+        auto_title_retry_count                    INTEGER NOT NULL DEFAULT 0,
+        auto_title_first_user_content             TEXT,
         auto_title_generated_at                   TEXT,
         auto_title_source_message_id              TEXT,
         latest_compression_checkpoint_message_id  TEXT,
@@ -431,6 +434,19 @@ class DatabaseService {
       final batch = db.batch();
       _createKnowledgeBaseSchema(batch);
       await batch.commit(noResult: true);
+    }
+    if (oldVersion < 8) {
+      await db.execute(
+        'ALTER TABLE sessions ADD COLUMN auto_title_acquired '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE sessions ADD COLUMN auto_title_retry_count '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE sessions ADD COLUMN auto_title_first_user_content TEXT',
+      );
     }
   }
 }

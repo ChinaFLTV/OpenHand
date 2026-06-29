@@ -397,6 +397,7 @@ class _ThreadSessionManagementDialogState
       Navigator.of(context, rootNavigator: true).pop();
     }
     await dialogFuture;
+    progressController.dispose();
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
     final l10n = AppLocalizations.of(context)!;
@@ -512,6 +513,7 @@ class _ThreadSessionManagementDialogState
       Navigator.of(context, rootNavigator: true).pop();
     }
     await dialogFuture;
+    progressController.dispose();
     if (!mounted) return;
     final batchMessage = AppLocalizations.of(
       context,
