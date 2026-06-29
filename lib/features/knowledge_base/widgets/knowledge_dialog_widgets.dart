@@ -231,6 +231,22 @@ class KnowledgeDialogNotice extends StatelessWidget {
               ? KnowledgeDialogNoticeTone.error
               : KnowledgeDialogNoticeTone.neutral),
     );
+    final content = Row(
+      children: [
+        Icon(icon, size: 19, color: colors.icon),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.foreground,
+              height: 1.32,
+              fontWeight: colors.fontWeight,
+            ),
+          ),
+        ),
+      ],
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -239,26 +255,31 @@ class KnowledgeDialogNotice extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colors.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 19, color: colors.icon),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.foreground,
-                height: 1.32,
-                fontWeight: colors.fontWeight,
-              ),
-            ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 10),
-            Align(alignment: Alignment.centerRight, child: trailing),
-          ],
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final action = trailing;
+          if (action == null) return content;
+          final compact =
+              constraints.hasBoundedWidth && constraints.maxWidth < 520;
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                content,
+                const SizedBox(height: 10),
+                Align(alignment: Alignment.centerRight, child: action),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: content),
+              const SizedBox(width: 10),
+              Align(alignment: Alignment.centerRight, child: action),
+            ],
+          );
+        },
       ),
     );
   }

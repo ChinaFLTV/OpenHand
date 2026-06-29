@@ -34,6 +34,7 @@ const double _knowledgeConfigSummaryItemHeight = 76;
 const double _knowledgeConfigMinItemWidth = 280;
 const double _knowledgeConfigFallbackFullRowWidth =
     _knowledgeConfigMinItemWidth * 2 + _knowledgeConfigGridSpacing;
+const List<String> _knowledgeDependencyPluginIds = <String>['docker', 'qdrant'];
 
 Future<void> showKnowledgeBaseConfigDialog(
   BuildContext context, {
@@ -93,6 +94,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   late final TextEditingController _maxPromptTokens;
   late final TextEditingController _qdrantMetricsRefreshSeconds;
   late final TextEditingController _qdrantLogRetainLines;
+  Future<void>? _dependencyRefreshFuture;
 
   @override
   void initState() {
@@ -164,6 +166,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     _qdrantLogRetainLines = TextEditingController(
       text: '${_settings.qdrantLogRetainLines}',
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_refreshDependencyStatus());
+      }
+    });
   }
 
   @override
@@ -294,6 +301,38 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           model.profileFor(_settings.rerankModelId).supportsRerank;
     }
     return false;
+  }
+
+  Future<void> _refreshDependencyStatus() {
+    final active = _dependencyRefreshFuture;
+    if (active != null) return active;
+    final pluginController = context.read<PluginServiceController>();
+    late final Future<void> refresh;
+    refresh = _refreshDependencyStatusUncached(pluginController).whenComplete(
+      () {
+        if (!mounted || !identical(_dependencyRefreshFuture, refresh)) return;
+        setState(() => _dependencyRefreshFuture = null);
+      },
+    );
+    setState(() => _dependencyRefreshFuture = refresh);
+    return refresh;
+  }
+
+  Future<void> _refreshDependencyStatusUncached(
+    PluginServiceController pluginController,
+  ) async {
+    final missingKnownPlugin =
+        pluginController.plugins.isEmpty ||
+        _knowledgeDependencyPluginIds.any(
+          (id) => pluginController.pluginById(id) == null,
+        );
+    if (missingKnownPlugin) {
+      await pluginController.rescan();
+      return;
+    }
+    for (final pluginId in _knowledgeDependencyPluginIds) {
+      await pluginController.checkPluginUpdate(pluginId);
+    }
   }
 
   AiModelProfile? _selectedReaderProfile({
@@ -434,6 +473,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final rerankModels = _rerankModels(settingsController.aiModels);
     final readerModels = _readerModels(settingsController.aiModels);
     final dependencies = knowledgeController.dependencies(pluginController);
+    final dependencyRefreshing =
+        _dependencyRefreshFuture != null ||
+        _knowledgeDependencyPluginIds.contains(
+          pluginController.checkingPluginId,
+        );
     final isZh = openHandIsChineseLocale(context);
     final knowledgeBuiltinToolsEnabled =
         settingsController.knowledgeBuiltinToolsEnabled;
@@ -455,6 +499,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ..._buildConfigNotices(
                 context,
                 dependencies: dependencies,
+                dependencyRefreshing: dependencyRefreshing,
                 embeddingModelAvailable: _selectedEmbeddingModelAvailable(
                   embeddingModels,
                 ),
@@ -1330,9 +1375,11 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   List<Widget> _buildConfigNotices(
     BuildContext context, {
     required KnowledgeDependencySnapshot dependencies,
+    required bool dependencyRefreshing,
     required bool embeddingModelAvailable,
   }) {
     final isZh = openHandIsChineseLocale(context);
+    final dependencyMessage = dependencies.localizedMessage(isZh);
     return <Widget>[
       if (!dependencies.ready)
         Padding(
@@ -1342,9 +1389,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 ? Icons.storage_rounded
                 : Icons.dns_outlined,
             tone: KnowledgeDialogNoticeTone.warning,
-            message: isZh
-                ? '知识库依赖未就绪：${dependencies.localizedMessage(true)}'
-                : 'Knowledge dependencies are unavailable: ${dependencies.localizedMessage(false)}',
+            message: dependencyRefreshing
+                ? (isZh
+                      ? '正在重新检测 Docker/Qdrant 状态；当前缓存：$dependencyMessage'
+                      : 'Refreshing Docker/Qdrant status; cached state: $dependencyMessage')
+                : (isZh
+                      ? '知识库依赖未就绪：$dependencyMessage'
+                      : 'Knowledge dependencies are unavailable: $dependencyMessage'),
             trailing: widget.onOpenPlugins == null
                 ? null
                 : KnowledgeDialogNoticeAction(

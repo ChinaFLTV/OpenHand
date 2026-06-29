@@ -1198,6 +1198,7 @@ class _EscapeDismissDialogScope extends StatefulWidget {
 
 class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
   ModalRoute<Object?>? _route;
+  bool _dismissRequested = false;
 
   @override
   void initState() {
@@ -1222,7 +1223,11 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
     if (event.logicalKey != LogicalKeyboardKey.escape) return false;
     final route = _route;
     if (route == null || !route.isCurrent) return false;
-    unawaited(Navigator.of(context).maybePop());
+    if (_dismissRequested) return true;
+    final navigator = route.navigator ?? Navigator.maybeOf(context);
+    if (navigator == null || !navigator.canPop()) return false;
+    _dismissRequested = true;
+    navigator.pop();
     return true;
   }
 
