@@ -24,6 +24,7 @@ import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
+import '../../shared/util/timer_safety.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
 import '../knowledge_base/index.dart';
@@ -6804,7 +6805,7 @@ class AiSessionController extends ChangeNotifier {
         final previewThrottle = reason == 'reasoningDelta'
             ? _reasoningStreamPreviewThrottle
             : _streamPreviewThrottle;
-        previewTimer = Timer(previewThrottle, () {
+        previewTimer = startSafeTimer(previewThrottle, () {
           if (_isDisposed) {
             return;
           }
@@ -7005,7 +7006,7 @@ class AiSessionController extends ChangeNotifier {
       // 此 timer 即便被回调命中也是无副作用。
       Timer? throttleExpiryTimer;
       if (throttleDuration != null) {
-        throttleExpiryTimer = Timer(throttleDuration, () {
+        throttleExpiryTimer = startSafeTimer(throttleDuration, () {
           if (_isDisposed) return;
           _sessionStreamThrottleSignal.value =
               _sessionStreamThrottleSignal.value + 1;

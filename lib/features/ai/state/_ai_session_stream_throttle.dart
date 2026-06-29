@@ -331,7 +331,7 @@ class _StreamCharThrottle {
     // grapheme/秒）下也能感受到稳定的"打字机"节奏，而不是间歇性蹦出
     // 整块。在高速率下也不会因为 tick 太密把主线程拖累——onTick 回调
     // 本身只做轻量切片。
-    _drainTimer = Timer(const Duration(milliseconds: 16), () {
+    _drainTimer = startSafeTimer(kOpenHandFramePeriodicTimerInterval, () {
       _drainTimer = null;
       if (_disposed) {
         return;
@@ -394,9 +394,9 @@ class _StreamCardThrottle {
   _StreamCardThrottle({
     required int maxCardsPerSecond,
     required void Function() onCardEmitted,
-  }) : _maxCardsPerSecond = maxCardsPerSecond,
+  }) : _maxCardsPerSecond = math.max(0, maxCardsPerSecond),
        _onCardEmitted = onCardEmitted,
-       _budget = maxCardsPerSecond.toDouble(),
+       _budget = math.max(0, maxCardsPerSecond).toDouble(),
        _lastTickAt = DateTime.now();
 
   /// 每秒允许被「展示」的新卡片数；<=0 视为关闭限速。
@@ -404,9 +404,20 @@ class _StreamCardThrottle {
   int _maxCardsPerSecond;
   int get maxCardsPerSecond => _maxCardsPerSecond;
   set maxCardsPerSecond(int next) {
-    if (next == _maxCardsPerSecond) return;
-    _maxCardsPerSecond = next;
-    if (_budget > next) _budget = next.toDouble();
+    final safeNext = math.max(0, next);
+    if (safeNext == _maxCardsPerSecond) return;
+    _maxCardsPerSecond = safeNext;
+    if (safeNext <= 0) {
+      _budget = 0;
+      _drainTimer?.cancel();
+      _drainTimer = null;
+      _flushPending();
+      return;
+    }
+    if (_budget > safeNext) _budget = safeNext.toDouble();
+    if (_pending.isNotEmpty) {
+      _scheduleDrain();
+    }
   }
 
   /// 2026-05-19 — 会话级运行时开关：会话弹窗 Apply 关闭节流时，控制器
@@ -416,17 +427,7 @@ class _StreamCardThrottle {
     if (next == _enabledOverride) return;
     _enabledOverride = next;
     if (next == false && _pending.isNotEmpty && !_disposed) {
-      // 立刻放行所有积压回调。
-      final pending = List<VoidCallback>.from(_pending);
-      _pending.clear();
-      for (final cb in pending) {
-        try {
-          cb();
-        } catch (_) {}
-      }
-      try {
-        _onCardEmitted();
-      } catch (_) {}
+      _flushPending();
     }
   }
 
@@ -458,6 +459,11 @@ class _StreamCardThrottle {
   }
 
   void _refill() {
+    if (maxCardsPerSecond <= 0) {
+      _budget = 0;
+      _lastTickAt = DateTime.now();
+      return;
+    }
     final now = DateTime.now();
     final elapsedMicros = now.difference(_lastTickAt).inMicroseconds;
     if (elapsedMicros <= 0) {
@@ -474,12 +480,16 @@ class _StreamCardThrottle {
     if (_drainTimer != null || _disposed) {
       return;
     }
+    if (!isEnabled || maxCardsPerSecond <= 0) {
+      _flushPending();
+      return;
+    }
     final tokensNeeded = (1 - _budget).clamp(0, 1).toDouble();
     final waitSeconds = tokensNeeded <= 0
         ? 0.0
         : tokensNeeded / maxCardsPerSecond;
     final waitMs = (waitSeconds * 1000).ceil().clamp(8, 1000);
-    _drainTimer = Timer(Duration(milliseconds: waitMs), _drainOnce);
+    _drainTimer = startSafeTimer(Duration(milliseconds: waitMs), _drainOnce);
   }
 
   void _drainOnce() {
@@ -509,13 +519,8 @@ class _StreamCardThrottle {
     }
   }
 
-  /// 立即释放：把所有积压回调一次性追加，然后置位 disposed 防止 Timer
-  /// 再触发。流结束 / 取消时调用。
-  void releaseAll() {
-    _disposed = true;
-    _drainTimer?.cancel();
-    _drainTimer = null;
-    if (_pending.isEmpty) {
+  void _flushPending() {
+    if (_pending.isEmpty || _disposed) {
       return;
     }
     final pending = List<VoidCallback>.from(_pending);
@@ -528,6 +533,26 @@ class _StreamCardThrottle {
     try {
       _onCardEmitted();
     } catch (_) {}
+  }
+
+  /// 立即释放：把所有积压回调一次性追加，然后置位 disposed 防止 Timer
+  /// 再触发。流结束 / 取消时调用。
+  void releaseAll() {
+    _disposed = true;
+    _drainTimer?.cancel();
+    _drainTimer = null;
+    final pending = List<VoidCallback>.from(_pending);
+    _pending.clear();
+    for (final cb in pending) {
+      try {
+        cb();
+      } catch (_) {}
+    }
+    if (pending.isNotEmpty) {
+      try {
+        _onCardEmitted();
+      } catch (_) {}
+    }
   }
 
   void cancelPending() {

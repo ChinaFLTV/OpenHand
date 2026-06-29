@@ -7,6 +7,14 @@ String? nullIfBlank(String? value) {
 
 final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
 
+({bool ok, Object? value}) _tryDecodeJsonText(String value) {
+  try {
+    return (ok: true, value: jsonDecode(value));
+  } on FormatException {
+    return (ok: false, value: null);
+  }
+}
+
 List<String> splitTrimmedNonEmpty(String value, {Pattern separator = ','}) {
   if (separator is String && separator.isEmpty) {
     final trimmed = value.trim();
@@ -57,12 +65,10 @@ List<String>? optionalStringListFromJsonText(
 }) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return const <String>[];
-  try {
-    final decoded = jsonDecode(trimmed);
-    if (requireList && decoded is! List) return null;
-    return stringListFromValue(decoded, separator: separator);
-  } catch (_) {}
-  return null;
+  final decoded = _tryDecodeJsonText(trimmed);
+  if (!decoded.ok) return null;
+  if (requireList && decoded.value is! List) return null;
+  return stringListFromValue(decoded.value, separator: separator);
 }
 
 List<String> stringListFromValueOrJsonText(
@@ -138,10 +144,10 @@ List<Map<String, Object?>>? optionalStringKeyedMapListFromValueOrJsonText(
   if (value is String) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return const <Map<String, Object?>>[];
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is List) return stringKeyedMapListFromValue(decoded);
-    } catch (_) {}
+    final decoded = _tryDecodeJsonText(trimmed);
+    if (decoded.value is List) {
+      return stringKeyedMapListFromValue(decoded.value);
+    }
   }
   return null;
 }
@@ -164,10 +170,8 @@ Map<String, Object?>? optionalStringKeyedMapFromValueOrJsonText(Object? value) {
 Map<String, Object?>? optionalStringKeyedMapFromJsonText(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return null;
-  try {
-    final decoded = jsonDecode(trimmed);
-    if (decoded is Map) return stringKeyedMapFromValue(decoded);
-  } catch (_) {}
+  final decoded = _tryDecodeJsonText(trimmed);
+  if (decoded.value is Map) return stringKeyedMapFromValue(decoded.value);
   return null;
 }
 

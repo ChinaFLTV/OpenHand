@@ -92,6 +92,109 @@ bool _isCollapsedPreviewAtBottom(
   return position.pixels >= maxExtent - epsilon;
 }
 
+class _CollapsedPreviewScrollCoordinator {
+  _CollapsedPreviewScrollCoordinator({
+    required this.controller,
+    required this.isMounted,
+    required this.isUserScrolling,
+    required this.setUserScrolling,
+  });
+
+  final ScrollController controller;
+  final bool Function() isMounted;
+  final bool Function() isUserScrolling;
+  final ValueChanged<bool> setUserScrolling;
+  Timer? _settleTimer;
+
+  void markUserScrolling() {
+    if (!isUserScrolling()) {
+      setUserScrolling(true);
+    }
+    armSettleTimer();
+  }
+
+  void armSettleTimer() {
+    _settleTimer?.cancel();
+    _settleTimer = startSafeTimer(_collapsedPreviewScrollSettleDelay, () {
+      _settleTimer = null;
+      if (!isMounted()) return;
+      if (controller.hasClients &&
+          controller.position.isScrollingNotifier.value) {
+        armSettleTimer();
+        return;
+      }
+      if (isUserScrolling()) {
+        setUserScrolling(false);
+      }
+    });
+  }
+
+  void cancelSettleTimer() {
+    _settleTimer?.cancel();
+    _settleTimer = null;
+  }
+
+  void dispose() => cancelSettleTimer();
+}
+
+Widget _buildCollapsedPreviewScrollableFrame({
+  required BuildContext context,
+  required double height,
+  required bool hasOverflow,
+  required bool showFade,
+  required ScrollController controller,
+  required Color fadeColor,
+  required bool animateFade,
+  required ValueChanged<Size> onSizeChanged,
+  required Widget child,
+}) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final constrainedWidth = constraints.maxWidth.isFinite
+          ? constraints.maxWidth
+          : MediaQuery.sizeOf(context).width;
+      return SizedBox(
+        height: height,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRect(
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _consumeNestedMessageScrollNotification,
+                    child: SingleChildScrollView(
+                      controller: controller,
+                      primary: false,
+                      physics: hasOverflow
+                          ? openHandDialogAwareScrollPhysics(context)
+                          : const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        width: constrainedWidth,
+                        child: _MeasureSize(
+                          onChange: onSizeChanged,
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            _CollapsedPreviewFade(
+              visible: showFade,
+              fadeColor: fadeColor,
+              animate: animateFade,
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 class _CollapsedPreviewFade extends StatelessWidget {
   const _CollapsedPreviewFade({
     required this.visible,
@@ -415,11 +518,11 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
   static const int _previewCharCap = 1600;
 
   late final ScrollController _scrollController;
+  late final _CollapsedPreviewScrollCoordinator _scrollCoordinator;
   double? _contentHeight;
   bool _atBottom = false;
   bool _userScrollingPreview = false;
   int? _lockedPreviewLength;
-  Timer? _scrollSettleTimer;
 
   String get _scrollStateKey =>
       widget.scrollStateKey ??
@@ -446,14 +549,19 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
       initialScrollOffset:
           _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
     );
+    _scrollCoordinator = _CollapsedPreviewScrollCoordinator(
+      controller: _scrollController,
+      isMounted: () => mounted,
+      isUserScrolling: () => _userScrollingPreview,
+      setUserScrolling: _setUserScrollingPreview,
+    );
     _scrollController.addListener(_onScroll);
     _restoreScrollOffset();
   }
 
   @override
   void dispose() {
-    _scrollSettleTimer?.cancel();
-    _scrollSettleTimer = null;
+    _scrollCoordinator.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -479,8 +587,7 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
       _atBottom = false;
       _userScrollingPreview = false;
       _lockedPreviewLength = null;
-      _scrollSettleTimer?.cancel();
-      _scrollSettleTimer = null;
+      _scrollCoordinator.cancelSettleTimer();
     } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
     }
@@ -491,7 +598,7 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    _markUserScrollingPreview();
+    _scrollCoordinator.markUserScrolling();
     final atBottom = _isCollapsedPreviewAtBottom(
       pos,
       currentlyAtBottom: _atBottom,
@@ -501,27 +608,9 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
     }
   }
 
-  void _markUserScrollingPreview() {
-    if (!_userScrollingPreview) {
-      setState(() => _userScrollingPreview = true);
-    }
-    _armScrollSettleTimer();
-  }
-
-  void _armScrollSettleTimer() {
-    _scrollSettleTimer?.cancel();
-    _scrollSettleTimer = startSafeTimer(_collapsedPreviewScrollSettleDelay, () {
-      _scrollSettleTimer = null;
-      if (!mounted) return;
-      if (_scrollController.hasClients &&
-          _scrollController.position.isScrollingNotifier.value) {
-        _armScrollSettleTimer();
-        return;
-      }
-      if (_userScrollingPreview) {
-        setState(() => _userScrollingPreview = false);
-      }
-    });
+  void _setUserScrollingPreview(bool value) {
+    if (_userScrollingPreview == value) return;
+    setState(() => _userScrollingPreview = value);
   }
 
   void _restoreScrollOffset() {
@@ -549,11 +638,11 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
     if (!mounted) return;
     if (_scrollController.hasClients &&
         _scrollController.position.isScrollingNotifier.value) {
-      _markUserScrollingPreview();
+      _scrollCoordinator.markUserScrolling();
       return;
     }
     if (_userScrollingPreview) {
-      _armScrollSettleTimer();
+      _scrollCoordinator.armSettleTimer();
       return;
     }
     final nextHeight = size.height;
@@ -585,50 +674,16 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody> {
         : math.min(measuredHeight, widget.maxHeight);
     final showFade = hasOverflow && !_atBottom;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final constrainedWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        return SizedBox(
-          height: effectiveHeight,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ClipRect(
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(scrollbars: false),
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: _consumeNestedMessageScrollNotification,
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        primary: false,
-                        physics: hasOverflow
-                            ? openHandDialogAwareScrollPhysics(context)
-                            : const NeverScrollableScrollPhysics(),
-                        child: SizedBox(
-                          width: constrainedWidth,
-                          child: _MeasureSize(
-                            onChange: _handleContentSizeChanged,
-                            child: SelectableText(_effectiveData, style: style),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              _CollapsedPreviewFade(
-                visible: showFade,
-                fadeColor: widget.fadeColor,
-                animate: !_userScrollingPreview,
-              ),
-            ],
-          ),
-        );
-      },
+    return _buildCollapsedPreviewScrollableFrame(
+      context: context,
+      height: effectiveHeight,
+      hasOverflow: hasOverflow,
+      showFade: showFade,
+      controller: _scrollController,
+      fadeColor: widget.fadeColor,
+      animateFade: !_userScrollingPreview,
+      onSizeChanged: _handleContentSizeChanged,
+      child: SelectableText(_effectiveData, style: style),
     );
   }
 }
@@ -976,9 +1031,9 @@ class _CollapsedFullMarkdownBodyState
     extends State<_CollapsedFullMarkdownBody> {
   double? _contentHeight;
   late final ScrollController _scrollController;
+  late final _CollapsedPreviewScrollCoordinator _scrollCoordinator;
   bool _atBottom = false;
   bool _userScrollingPreview = false;
-  Timer? _scrollSettleTimer;
 
   String get _scrollStateKey => widget.scrollStateKey ?? widget.parseKey;
 
@@ -989,14 +1044,19 @@ class _CollapsedFullMarkdownBodyState
       initialScrollOffset:
           _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
     );
+    _scrollCoordinator = _CollapsedPreviewScrollCoordinator(
+      controller: _scrollController,
+      isMounted: () => mounted,
+      isUserScrolling: () => _userScrollingPreview,
+      setUserScrolling: _setUserScrollingPreview,
+    );
     _scrollController.addListener(_onScroll);
     _restoreScrollOffset();
   }
 
   @override
   void dispose() {
-    _scrollSettleTimer?.cancel();
-    _scrollSettleTimer = null;
+    _scrollCoordinator.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -1015,8 +1075,7 @@ class _CollapsedFullMarkdownBodyState
       _contentHeight = null;
       _atBottom = false;
       _userScrollingPreview = false;
-      _scrollSettleTimer?.cancel();
-      _scrollSettleTimer = null;
+      _scrollCoordinator.cancelSettleTimer();
     }
     _restoreScrollOffset();
   }
@@ -1025,7 +1084,7 @@ class _CollapsedFullMarkdownBodyState
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    _markUserScrollingPreview();
+    _scrollCoordinator.markUserScrolling();
     final atBottom = _isCollapsedPreviewAtBottom(
       pos,
       currentlyAtBottom: _atBottom,
@@ -1033,27 +1092,9 @@ class _CollapsedFullMarkdownBodyState
     if (atBottom != _atBottom) setState(() => _atBottom = atBottom);
   }
 
-  void _markUserScrollingPreview() {
-    if (!_userScrollingPreview) {
-      setState(() => _userScrollingPreview = true);
-    }
-    _armScrollSettleTimer();
-  }
-
-  void _armScrollSettleTimer() {
-    _scrollSettleTimer?.cancel();
-    _scrollSettleTimer = startSafeTimer(_collapsedPreviewScrollSettleDelay, () {
-      _scrollSettleTimer = null;
-      if (!mounted) return;
-      if (_scrollController.hasClients &&
-          _scrollController.position.isScrollingNotifier.value) {
-        _armScrollSettleTimer();
-        return;
-      }
-      if (_userScrollingPreview) {
-        setState(() => _userScrollingPreview = false);
-      }
-    });
+  void _setUserScrollingPreview(bool value) {
+    if (_userScrollingPreview == value) return;
+    setState(() => _userScrollingPreview = value);
   }
 
   void _restoreScrollOffset() {
@@ -1081,11 +1122,11 @@ class _CollapsedFullMarkdownBodyState
     if (!mounted) return;
     if (_scrollController.hasClients &&
         _scrollController.position.isScrollingNotifier.value) {
-      _markUserScrollingPreview();
+      _scrollCoordinator.markUserScrolling();
       return;
     }
     if (_userScrollingPreview) {
-      _armScrollSettleTimer();
+      _scrollCoordinator.armSettleTimer();
       return;
     }
     final nextHeight = size.height;
@@ -1106,58 +1147,24 @@ class _CollapsedFullMarkdownBodyState
         : math.min(measuredHeight, widget.maxHeight);
     final showFade = hasOverflow && !_atBottom;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final constrainedWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        return SizedBox(
-          height: effectiveHeight,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ClipRect(
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(scrollbars: false),
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: _consumeNestedMessageScrollNotification,
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        primary: false,
-                        physics: hasOverflow
-                            ? openHandDialogAwareScrollPhysics(context)
-                            : const NeverScrollableScrollPhysics(),
-                        child: SizedBox(
-                          width: constrainedWidth,
-                          child: _MeasureSize(
-                            onChange: _handleContentSizeChanged,
-                            child: _SafeMarkdownBody(
-                              data: widget.data,
-                              selectable: widget.selectable,
-                              builders: widget.builders,
-                              styleSheet: widget.styleSheet,
-                              inlineSyntaxes: widget.inlineSyntaxes,
-                              pathRoots: widget.pathRoots,
-                              parseKey: widget.parseKey,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              _CollapsedPreviewFade(
-                visible: showFade,
-                fadeColor: widget.fadeColor,
-                animate: !_userScrollingPreview,
-              ),
-            ],
-          ),
-        );
-      },
+    return _buildCollapsedPreviewScrollableFrame(
+      context: context,
+      height: effectiveHeight,
+      hasOverflow: hasOverflow,
+      showFade: showFade,
+      controller: _scrollController,
+      fadeColor: widget.fadeColor,
+      animateFade: !_userScrollingPreview,
+      onSizeChanged: _handleContentSizeChanged,
+      child: _SafeMarkdownBody(
+        data: widget.data,
+        selectable: widget.selectable,
+        builders: widget.builders,
+        styleSheet: widget.styleSheet,
+        inlineSyntaxes: widget.inlineSyntaxes,
+        pathRoots: widget.pathRoots,
+        parseKey: widget.parseKey,
+      ),
     );
   }
 }
@@ -1197,11 +1204,11 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
 
   double? _contentHeight;
   late final ScrollController _scrollController;
+  late final _CollapsedPreviewScrollCoordinator _scrollCoordinator;
   bool _atBottom = false;
   // 用户滚动 Markdown 预览区期间跳过高度变化通知，防止外层视口被拽回底部。
   bool _userScrollingPreview = false;
   int? _lockedPreviewLength;
-  Timer? _scrollSettleTimer;
 
   String get _scrollStateKey => widget.scrollStateKey ?? widget.parseKey;
 
@@ -1226,14 +1233,19 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
       initialScrollOffset:
           _CollapsedBodyScrollOffsetCache.read(_scrollStateKey) ?? 0,
     );
+    _scrollCoordinator = _CollapsedPreviewScrollCoordinator(
+      controller: _scrollController,
+      isMounted: () => mounted,
+      isUserScrolling: () => _userScrollingPreview,
+      setUserScrolling: _setUserScrollingPreview,
+    );
     _scrollController.addListener(_onScroll);
     _restoreScrollOffset();
   }
 
   @override
   void dispose() {
-    _scrollSettleTimer?.cancel();
-    _scrollSettleTimer = null;
+    _scrollCoordinator.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -1243,7 +1255,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
     _CollapsedBodyScrollOffsetCache.save(_scrollStateKey, pos.pixels);
-    _markUserScrollingPreview();
+    _scrollCoordinator.markUserScrolling();
     final atBottom = _isCollapsedPreviewAtBottom(
       pos,
       currentlyAtBottom: _atBottom,
@@ -1267,35 +1279,16 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
       _atBottom = false;
       _userScrollingPreview = false;
       _lockedPreviewLength = null;
-      _scrollSettleTimer?.cancel();
-      _scrollSettleTimer = null;
+      _scrollCoordinator.cancelSettleTimer();
     } else if (oldWidget.data != widget.data && _atBottom) {
       _atBottom = false;
     }
     _restoreScrollOffset();
   }
 
-  void _markUserScrollingPreview() {
-    if (!_userScrollingPreview) {
-      setState(() => _userScrollingPreview = true);
-    }
-    _armScrollSettleTimer();
-  }
-
-  void _armScrollSettleTimer() {
-    _scrollSettleTimer?.cancel();
-    _scrollSettleTimer = startSafeTimer(_collapsedPreviewScrollSettleDelay, () {
-      _scrollSettleTimer = null;
-      if (!mounted) return;
-      if (_scrollController.hasClients &&
-          _scrollController.position.isScrollingNotifier.value) {
-        _armScrollSettleTimer();
-        return;
-      }
-      if (_userScrollingPreview) {
-        setState(() => _userScrollingPreview = false);
-      }
-    });
+  void _setUserScrollingPreview(bool value) {
+    if (_userScrollingPreview == value) return;
+    setState(() => _userScrollingPreview = value);
   }
 
   void _restoreScrollOffset() {
@@ -1323,11 +1316,11 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     if (!mounted) return;
     if (_scrollController.hasClients &&
         _scrollController.position.isScrollingNotifier.value) {
-      _markUserScrollingPreview();
+      _scrollCoordinator.markUserScrolling();
       return;
     }
     if (_userScrollingPreview) {
-      _armScrollSettleTimer();
+      _scrollCoordinator.armSettleTimer();
       return;
     }
     final nextHeight = size.height;
@@ -1354,68 +1347,25 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
     final effectiveHeight = measuredHeight == null
         ? widget.maxHeight
         : math.min(measuredHeight, widget.maxHeight);
-    // 滚到底部时淡出遮罩；初次渲染内容高度未知时先隐藏（与旧行为一致）。
     final showFade = hasOverflow && !_atBottom;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final constrainedWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        return SizedBox(
-          height: effectiveHeight,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ClipRect(
-                  // 折叠预览体改为可滚动视图：用户无需展开即可上下浏览内容。
-                  // 保留 _MeasureSize 测量实际内容高度，用于：
-                  //   (1) 计算 effectiveHeight（内容较短时容器自动收缩）；
-                  //   (2) 判断是否出现溢出，从而决定是否显示底部渐隐遮罩。
-                  // ScrollConfiguration 隐藏滚动条（视觉简洁）。
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(scrollbars: false),
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: _consumeNestedMessageScrollNotification,
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        primary: false,
-                        // 内容未溢出时禁用滚动，避免与父级 ListView 争抢手势。
-                        physics: hasOverflow
-                            ? openHandDialogAwareScrollPhysics(context)
-                            : const NeverScrollableScrollPhysics(),
-                        child: SizedBox(
-                          width: constrainedWidth,
-                          child: _MeasureSize(
-                            onChange: _handleContentSizeChanged,
-                            child: _SafeMarkdownBody(
-                              data: _effectiveData,
-                              selectable: true,
-                              builders: widget.builders,
-                              styleSheet: widget.styleSheet,
-                              inlineSyntaxes: widget.inlineSyntaxes,
-                              pathRoots: widget.pathRoots,
-                              parseKey: widget.parseKey,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // 底部渐隐遮罩：滚到底时 AnimatedOpacity 平滑淡出，
-              // 告知用户已无更多预览内容（需展开查看完整正文）。
-              _CollapsedPreviewFade(
-                visible: showFade,
-                fadeColor: widget.fadeColor,
-                animate: !_userScrollingPreview,
-              ),
-            ],
-          ),
-        );
-      },
+    return _buildCollapsedPreviewScrollableFrame(
+      context: context,
+      height: effectiveHeight,
+      hasOverflow: hasOverflow,
+      showFade: showFade,
+      controller: _scrollController,
+      fadeColor: widget.fadeColor,
+      animateFade: !_userScrollingPreview,
+      onSizeChanged: _handleContentSizeChanged,
+      child: _SafeMarkdownBody(
+        data: _effectiveData,
+        selectable: true,
+        builders: widget.builders,
+        styleSheet: widget.styleSheet,
+        inlineSyntaxes: widget.inlineSyntaxes,
+        pathRoots: widget.pathRoots,
+        parseKey: widget.parseKey,
+      ),
     );
   }
 }

@@ -161,7 +161,7 @@ Timer startNonOverlappingPeriodicTimer(
         try {
           final pending = Future<void>.sync(() => callback(timer));
           if (effectiveCallbackTimeout != null) {
-            timeoutTimer = Timer(
+            timeoutTimer = startSafeTimer(
               effectiveCallbackTimeout,
               () => _handleTimerCallbackTimeout(
                 timer: timer,
