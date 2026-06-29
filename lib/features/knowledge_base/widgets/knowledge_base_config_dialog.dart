@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
@@ -311,27 +312,40 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     refresh = _refreshDependencyStatusUncached(pluginController).whenComplete(
       () {
         if (!mounted || !identical(_dependencyRefreshFuture, refresh)) return;
-        setState(() => _dependencyRefreshFuture = null);
+        setState(() {
+          _dependencyRefreshFuture = null;
+        });
       },
     );
-    setState(() => _dependencyRefreshFuture = refresh);
+    setState(() {
+      _dependencyRefreshFuture = refresh;
+    });
     return refresh;
   }
 
   Future<void> _refreshDependencyStatusUncached(
     PluginServiceController pluginController,
   ) async {
-    final missingKnownPlugin =
-        pluginController.plugins.isEmpty ||
-        _knowledgeDependencyPluginIds.any(
-          (id) => pluginController.pluginById(id) == null,
-        );
-    if (missingKnownPlugin) {
-      await pluginController.rescan();
-      return;
-    }
-    for (final pluginId in _knowledgeDependencyPluginIds) {
-      await pluginController.checkPluginUpdate(pluginId);
+    try {
+      final missingKnownPlugin =
+          pluginController.plugins.isEmpty ||
+          _knowledgeDependencyPluginIds.any(
+            (id) => pluginController.pluginById(id) == null,
+          );
+      if (missingKnownPlugin) {
+        await pluginController.rescan();
+        return;
+      }
+      for (final pluginId in _knowledgeDependencyPluginIds) {
+        await pluginController.checkPluginUpdate(pluginId);
+      }
+    } catch (error, stack) {
+      silentLog(
+        'knowledge_base_config_dialog',
+        'refresh dependency status',
+        error,
+        stack,
+      );
     }
   }
 

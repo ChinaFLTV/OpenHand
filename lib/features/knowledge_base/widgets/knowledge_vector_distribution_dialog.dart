@@ -114,7 +114,9 @@ class _KnowledgeVectorDistributionDialogState
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () {
-            setState(() => _future = _load());
+            setState(() {
+              _future = _load();
+            });
           },
           icon: Icons.refresh_rounded,
           label: isZh ? '重新采样' : 'Resample',
