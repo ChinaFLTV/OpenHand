@@ -494,6 +494,7 @@ Future<T?> showAnimatedDialog<T>({
       ),
       useRootNavigator: useRootNavigator,
       routeSettings: routeSettings,
+      requestFocus: true,
       animationStyle: AnimationStyle.noAnimation,
     );
   }
@@ -510,6 +511,7 @@ Future<T?> showAnimatedDialog<T>({
     ),
     useRootNavigator: useRootNavigator,
     routeSettings: routeSettings,
+    requestFocus: true,
     transitionDuration: effectiveSettings.duration,
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       return _buildTransition(
@@ -1177,15 +1179,13 @@ class _ModalSheetDragHandle extends StatelessWidget {
 }
 
 /// Adds Escape-to-dismiss to a dialog without stealing focus from descendant
-/// inputs. Uses a [HardwareKeyboard] handler instead of [CallbackShortcuts]:
+/// inputs. Uses a [HardwareKeyboard] handler as the primary path:
 /// `Focus(autofocus: true)` and `FocusScope(autofocus: true)` both regress
 /// macOS IMK and leave every `TextField` unable to receive input/copy/paste;
-/// `CallbackShortcuts` is fine for most dialogs but is silently swallowed by
-/// descendants like [SelectionArea] (which consumes ESC to clear the current
-/// selection) — that prevented dialogs such as 代理连通性诊断弹窗 from
-/// closing on ESC. The HW handler runs before focus dispatch and pops the
-/// route directly, guarded by `ModalRoute.isCurrent` so nested dialogs don't
-/// double-pop.
+/// the HW handler does not request focus and pops the route directly, guarded
+/// by `ModalRoute.isCurrent` so nested dialogs don't double-pop. Standard
+/// [Shortcuts]/[Actions] are layered in as a secondary path for focused dialog
+/// controls that dispatch [DismissIntent] themselves.
 class _EscapeDismissDialogScope extends StatefulWidget {
   const _EscapeDismissDialogScope({required this.child});
 
@@ -1219,20 +1219,41 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
   }
 
   bool _handleKey(KeyEvent event) {
-    if (event is! KeyDownEvent) return false;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
     if (event.logicalKey != LogicalKeyboardKey.escape) return false;
+    return _dismiss();
+  }
+
+  bool _dismiss() {
     final route = _route;
     if (route == null || !route.isCurrent) return false;
     if (_dismissRequested) return true;
     final navigator = route.navigator ?? Navigator.maybeOf(context);
-    if (navigator == null || !navigator.canPop()) return false;
+    if (navigator == null) return false;
     _dismissRequested = true;
     navigator.pop();
     return true;
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              _dismiss();
+              return null;
+            },
+          ),
+        },
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 Widget _buildTransition({
