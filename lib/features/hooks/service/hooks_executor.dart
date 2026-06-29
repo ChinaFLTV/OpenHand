@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/model/hook_config.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../hooks_controller.dart';
 
@@ -16,6 +17,24 @@ const int _maxHookOutputCharacters = 4000;
 /// Maximum size (bytes) of the context JSON written to the temp file.
 /// Prevents a misconfigured or malicious payload from exhausting disk space.
 const int _maxContextJsonBytes = 512 * 1024; // 512 KB
+
+Future<void> _closeHookStdin(IOSink stdin, String where) async {
+  try {
+    await stdin.close();
+  } catch (error, stack) {
+    silentLog('hooks_executor', where, error, stack);
+  }
+}
+
+Future<void> _deleteHookTempContextFile(File file) async {
+  try {
+    if (await file.exists()) {
+      await file.delete();
+    }
+  } catch (error, stack) {
+    silentLog('hooks_executor', 'delete temp context file', error, stack);
+  }
+}
 
 /// Result of executing all hooks for a single event.
 class HookExecutionResult {
@@ -346,15 +365,12 @@ class HooksExecutor {
       final stdoutFuture = _collectOutput(process.stdout);
       final stderrFuture = _collectOutput(process.stderr);
 
-      // Also write to stdin for scripts that prefer reading from pipe.
       try {
         process.stdin.write(contextJson);
-        await process.stdin.close();
-      } catch (_) {
-        try {
-          await process.stdin.close();
-        } catch (_) {}
+      } catch (error, stack) {
+        silentLog('hooks_executor', 'write context stdin', error, stack);
       }
+      await _closeHookStdin(process.stdin, 'close context stdin');
 
       try {
         // Wait for the process exit code first, with a timeout that covers
@@ -425,14 +441,7 @@ class HooksExecutor {
         );
       }
     } finally {
-      // Best-effort cleanup of the temp context file.
-      if (contextFile != null) {
-        try {
-          if (await contextFile.exists()) {
-            await contextFile.delete();
-          }
-        } catch (_) {}
-      }
+      if (contextFile != null) await _deleteHookTempContextFile(contextFile);
     }
   }
 

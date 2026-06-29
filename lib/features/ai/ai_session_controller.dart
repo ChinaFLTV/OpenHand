@@ -6813,7 +6813,7 @@ class AiSessionController extends ChangeNotifier {
         });
       }
 
-      // 2026-05-17 — 流式输出渲染节流：
+      // 流式输出渲染节流：
       //   * charThrottle / reasoningCharThrottle 限制每秒最多向当前流式
       //     卡片显示多少 sanitized 字符；底层 raw buffer 仍按真实速率写
       //     入，结束时由 syncFinalAssistantMessage / syncFinalReasoning
@@ -6825,7 +6825,7 @@ class AiSessionController extends ChangeNotifier {
       late final _StreamCardThrottle cardThrottle;
       final aiThroughputSampler = _StreamThroughputSampler();
 
-      // 2026-05-17 — 思考-响应顺序保护：当模型同时返回思考与正式响应时，
+      // 思考-响应顺序保护：当模型同时返回思考与正式响应时，
       // 先把思考节流式渲染完，再放出 assistant 卡片的字符，保证视觉上
       // 「先看到思考铺开，再看到回答」的自然节奏；正式响应若提前到达
       // 则进入 assistantRawBuffer 等待思考排空后再 render。
@@ -6847,11 +6847,7 @@ class AiSessionController extends ChangeNotifier {
         final fullSanitized = _sanitizeVisibleModelContent(
           assistantRawBuffer.toString(),
         );
-        // 2026-05-22 — Bug 1 修复（task 3.2）：字符语义切到 grapheme
-        // cluster。以前传 `fullSanitized.length`（UTF-16 code units）会
-        // 让中文 / emoji 场景下节流速率失真，且 `substring(0, visibleLen)`
-        // 可能切在 surrogate / ZWJ 中间。改走 `package:characters`：
-        // 总数 / 切片均按 grapheme 边界进行。
+        // 节流按 grapheme 计算，避免中文 / emoji 被切在 cluster 中间。
         final fullChars = fullSanitized.characters;
         final visibleGraphemes = fullChars.length;
         final visibleLen = charThrottle.renderableGraphemeCount(
@@ -6865,7 +6861,7 @@ class AiSessionController extends ChangeNotifier {
         }
         materializePendingReasoningPreview();
         streamedSession = setReasoningStreamingState(streamedSession, false);
-        // 2026-05-17 — 还有未释放的字符余量则标记 streaming=true，让 UI
+        // 还有未释放的字符余量则标记 streaming=true，让 UI
         // 在尾部渲染打字机光标；停止时由 syncFinalAssistantMessage 把
         // streaming 置为 false，光标随之消失。
         final isStillStreaming = visibleLen < visibleGraphemes;
@@ -6907,9 +6903,7 @@ class AiSessionController extends ChangeNotifier {
         final fullSanitized = _sanitizeVisibleModelContent(
           reasoningRawBuffer.toString(),
         );
-        // 2026-05-22 — Bug 1 修复（task 3.2）：reasoning 路径也切到
-        // grapheme 维度，与 assistant 路径口径一致；切片走
-        // `Characters.take(visible).toString()` 保证落在 cluster 边界。
+        // reasoning 路径与 assistant 一样按 grapheme 边界切片。
         final fullChars = fullSanitized.characters;
         final visibleGraphemes = fullChars.length;
         final visibleLen = reasoningCharThrottle.renderableGraphemeCount(
@@ -6925,7 +6919,7 @@ class AiSessionController extends ChangeNotifier {
         reasoningMessageId ??= _idGenerator();
         hasPendingReasoningPreview = true;
         schedulePreview('reasoningDelta');
-        // 2026-05-17 — 思考刚完成排空，立刻看看是否有 assistant 字符
+        // 思考刚完成排空，立刻看看是否有 assistant 字符
         // 在等队，有则启动它的均匀放出节奏。
         if (reasoningDrained() &&
             (assistantRawBuffer.isNotEmpty || assistantMessageId != null)) {
@@ -6942,7 +6936,7 @@ class AiSessionController extends ChangeNotifier {
       final effCards =
           sessionThrottleOverride?.cardsPerSecond ??
           runtimeContext.effectiveStreamMaxMessageCardsPerSecond();
-      // 2026-05-22 — 多媒体生成模式（图片/视频/音频）旁路所有流式节流：
+      // 多媒体生成模式（图片/视频/音频）旁路所有流式节流：
       // 这些请求走专用 media endpoint，输出是文件/URL 而非真正的文本流，
       // 把它们丢进 charThrottle/cardThrottle 会导致进度/结果以人造节奏
       // 慢慢出现，与"特殊非文本输出"的语义不符。
@@ -6988,7 +6982,7 @@ class AiSessionController extends ChangeNotifier {
             reasoningCharThrottle;
       }
       _activeAiThroughputSamplers[workingSession.id] = aiThroughputSampler;
-      // 2026-05-19 — 流式构造时若任一限速 > 0，标记该会话「初始已节流」。
+      // 流式构造时若任一限速 > 0，标记该会话「初始已节流」。
       // 之后即便用户在弹窗里关闭节流，胶囊也会以灰色保留入口。
       if (effChars0 > 0 || effCards0 > 0) {
         _sessionsInitiallyThrottled.add(workingSession.id);
@@ -7001,7 +6995,7 @@ class AiSessionController extends ChangeNotifier {
         reasoningCharThrottle.enabledOverride = persistedEnabled;
         cardThrottle.enabledOverride = persistedEnabled;
       }
-      // 2026-05-17 — 节流时长一到，立刻向 UI 派发一次信号，让顶栏胶囊
+      // 节流时长一到，立刻向 UI 派发一次信号，让顶栏胶囊
       // 把渲染态切换为「时长已耗尽 → 灰色」。流式结束时统一被 release，
       // 此 timer 即便被回调命中也是无副作用。
       Timer? throttleExpiryTimer;
@@ -7362,36 +7356,13 @@ class AiSessionController extends ChangeNotifier {
         }
       }
 
-      // 2026-05-17 — 软排空：如果服务端 stream 比节流速率快得多，结束
-      // 时令牌桶里仍可能有几十/几百字符未释放。直接 release 会让 UI 一
-      // 次性 burst 出剩余内容，破坏打字机体验。这里改为先等令牌按节奏
-      // 把 pending 字符均匀放出（最长 wait = pending / rate * 1.2 +
-      // 缓冲）。如果用户主动 stop 或出现错误，则跳过等待立即 release 把
-      // 残余补齐。
-      //
-      // 2026-05-22 — Bug 1 修复（task 3.3）：守住「正式响应卡片必走节流」
-      // 的不变量。原实现给 [maxWaitMs] 加了 8s 硬顶，对持续节流（duration
-      // 为空）+ 大段中文/emoji 的场景，自然 drain 时长 ≈ N/rate 远超 8s
-      // —— 一旦超时 drainGracefully 提前返回，紧接着的 release() 会让
-      // syncFinalAssistantMessage 把残余字符一次性 dump 到 message
-      // content，这就是 Bug 1 的尾部短路路径。
-      //
-      // 修复策略：
-      //   * 持续节流（throttleDuration == null）路径取消 8s 上限，按自然
-      //     drain 时长等待，让 pending grapheme 通过 onTick 一帧一帧
-      //     释放；release() 仅在 stream 真正结束（drain 完成）后执行；
-      //   * 时长节流（throttleDuration != null）路径保留 8s 上限，因为
-      //     时长一到 throttle 自身就会 _isExpired，UI 已切到真实节奏。
+      // 正常完成时先按节流速率软排空，避免 stream 结束时把积压内容一次性
+      // 写进消息卡片；用户主动 stop 或出错时才跳过等待并立即补齐。
       didCancelStreamEarly =
           didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
       if (!didCancelStreamEarly) {
-        // 2026-05-22 — Bug 1 修复（task 3.2）：drainGracefully 的等待时
-        // 长估算改用 grapheme 长度。继续用 raw buffer 的 UTF-16 长度会
-        // 在中文 / emoji 场景下放大 maxWaitMs，让流末尾的 idle 等待变
-        // 得不必要地长。这里先把 raw buffer sanitize 一遍，再用
-        // `package:characters` 的 grapheme 长度估 pendingChars。assistant
-        // 与 reasoning 共享同一个会话级字符预算，所以等待时长按两者总和
-        // 估算，而不是取 max。
+        // assistant 与 reasoning 共享会话级字符预算，等待时长按二者
+        // grapheme 总量估算。
         final assistantPendingGraphemes = _sanitizeVisibleModelContent(
           assistantRawBuffer.toString(),
         ).characters.length;
@@ -7401,19 +7372,8 @@ class AiSessionController extends ChangeNotifier {
         final pendingChars =
             assistantPendingGraphemes + reasoningPendingGraphemes;
         final effectiveCharsPerSec = effChars;
-        // 2026-05-25 — Bug 1 复发修复：彻底移除「持续节流」路径的 drain
-        // 上限。之前留了 90s 防呆顶，结果对几百到上千 grapheme 的正式
-        // 响应（80 char/s 速率下 1000 grapheme ≈ 15s，30000 grapheme ≈
-        // 375s）来说 90s 远远不够 —— drainGracefully 提前返回，紧接着
-        // release() + syncFinalAssistantMessage 把全文一次性 dump 进
-        // message content，用户看到的就是「思考节流正常 → 正式响应
-        // 突然一股脑输出」。
-        //
-        // 现在策略：无论是否配置 throttleDuration，正常完成路径都完全按
-        // `pendingChars / rate * 1.2 + 1s` 等待，不设上限。throttleDuration
-        // 只影响 UI 的「持续时长已耗尽」提示，不再绕过显示侧字符节流；
-        // 流式卡片必须随阈值一格一格铺完才允许 release。用户主动 stop 时
-        // `didCancelStreamEarly` 已经走 cancel 分支跳过等待。
+        // throttleDuration 只影响 UI 提示；正常完成路径仍等积压内容按
+        // `pending / rate * 1.2 + 1s` 铺完后再 release。
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
             : ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000;
@@ -7429,14 +7389,8 @@ class AiSessionController extends ChangeNotifier {
             ]).then<void>((_) {}),
           );
         }
-        // 2026-05-25 — Bug 1 防御层（task 3 后续加固）：drainGracefully
-        // 已尽力按 pendingChars/rate 自然 drain，但极端情况下（rate=0
-        // 时 maxWaitMs=0，或者 effChars 估算偏差）可能在 release 前仍
-        // 残留 grapheme。release() 之后任何 syncFinalAssistantMessage
-        // 都会把 result.reply 全文一次性 dump，重现「正式响应一股脑
-        // 输出」。这里 release 前再做一道兜底：检测 hasPending，然后
-        // 16ms 一拍按 grapheme 批次手动喂剩余字符，保证视觉上仍是
-        // 「逐字铺开」而非一次性 dump。
+        // 兜底：release 前若仍有残留 grapheme，继续按帧推进，确保视觉
+        // 上仍是逐步铺开。
         didCancelStreamEarly =
             didCancelStreamEarly ||
             _isStopRequestedForSession(workingSession.id);

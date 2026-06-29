@@ -361,21 +361,21 @@ class AiSessionRuntimeContext {
   /// Per-chunk stream idle timeout for streaming AI requests (seconds).
   final int streamIdleTimeoutSeconds;
 
-  /// 2026-05-17 — 流式输出节流：每秒最多向当前流式卡片追加渲染的字符数。
+  /// 流式输出节流：每秒最多向当前流式卡片追加渲染的用户感知字符数。
   /// 0 表示关闭节流，>0 时使用令牌桶限速。
   final int streamMaxCharsPerSecond;
 
-  /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。
+  /// 每秒最多向当前会话追加渲染的新消息卡片数。
   /// 0 表示关闭节流。
   final int streamMaxMessageCardsPerSecond;
 
-  /// 2026-05-17 — 全局节流总开关（false 时上述速率全部强制为 0）。
+  /// 全局节流总开关（false 时上述速率全部强制为 0）。
   final bool streamThrottleEnabled;
 
-  /// 2026-05-17 — 自动模式（true 时按平台预设，覆盖手动配置）。
+  /// 自动模式（true 时按平台预设，覆盖手动配置）。
   final bool streamThrottleAutoMode;
 
-  /// 2026-05-17 — 节流持续时长（秒）。0 = 持续节流；>0 时该时长后剩余流式
+  /// 节流持续时长（秒）。0 = 持续节流；>0 时该时长后剩余流式
   /// 响应直接按真实接收节奏追加。
   final int streamThrottleDurationSeconds;
 

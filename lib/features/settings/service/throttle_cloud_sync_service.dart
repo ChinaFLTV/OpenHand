@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../../app/state/settings_controller.dart'
     show aiStreamThrottleConfigSchemaVersion, migrateAiStreamThrottleConfig;
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 /// 节流配置云端同步 provider 类型。
 ///
@@ -494,12 +495,11 @@ class ThrottleCloudSyncService {
       }
       String createdId = '';
       if (id.isEmpty) {
-        try {
-          final decoded = jsonDecode(resp.body);
-          if (decoded is Map && decoded['id'] is String) {
-            createdId = decoded['id'] as String;
-          }
-        } catch (_) {}
+        createdId =
+            optionalStringFromValue(
+              optionalStringKeyedMapFromJsonText(resp.body)?['id'],
+            ) ??
+            '';
       }
       return ThrottleCloudSyncResult.success(
         message: id.isEmpty

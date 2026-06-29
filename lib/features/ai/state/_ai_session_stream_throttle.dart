@@ -1,8 +1,6 @@
 /// Stream output back-pressure helpers for AiSessionController.
 ///
-/// 2026-05-17 — 用户反馈：AI 在短时间内回吐大量字符或连续追加多张消息卡
-/// 片时，会触发 UI 端布局抖动 / 主线程卡顿 / 列表上下弹跳等糟糕体验。
-/// 本文件提供两个轻量的令牌桶限速器，用于在流式追加层做背压：
+/// 两个轻量令牌桶限速器，用于在流式追加层做背压：
 ///
 ///   * [_StreamCharThrottle] —— 限制每秒向当前流式卡片 *显示* 的
 ///     grapheme cluster（用户感知字符）数。
@@ -13,6 +11,16 @@
 ///   - 不阻塞 isolate；
 ///   - dispose 时不会泄漏待执行回调。
 part of '../ai_session_controller.dart';
+
+bool _runStreamThrottleCallback(void Function() callback, String where) {
+  try {
+    callback();
+    return true;
+  } catch (error, stack) {
+    silentLog('ai_stream_throttle', where, error, stack);
+    return false;
+  }
+}
 
 /// 滑动窗口吞吐采样器，每秒一个桶，桶 0 = 当前秒。
 ///
@@ -170,10 +178,8 @@ class _StreamCharThrottleBudget {
 /// 遵守 [maxCharsPerSecond]，避免已积压的正式响应内容突然一次性倾泻。
 /// null = 不显示时长耗尽态。
 ///
-/// 命名约定：所有 `*Chars` / `*chars` 计数（包括对外 [maxCharsPerSecond]
-/// 字段名以及内部 [_budget] / 节流桶）均按 grapheme 语义解释；
-/// 字段名保留 `Chars` 是为了避免破坏 SettingsController 等远端调用方
-/// 的字段命名（task 3.2 会把整条调用链一起切到 grapheme 命名）。
+/// 命名约定：所有 `*Chars` / `*chars` 计数均按 grapheme 语义解释；
+/// 字段名保留 `Chars` 是为了兼容既有设置与持久化结构。
 class _StreamCharThrottle {
   _StreamCharThrottle({
     required int maxCharsPerSecond,
@@ -188,18 +194,8 @@ class _StreamCharThrottle {
            (throttleDuration != null && throttleDuration.inMilliseconds > 0)
            ? DateTime.now().add(throttleDuration)
            : null {
-    // 2026-05-22 — Bug 1 修复（task 3.3）：守住「正式响应卡片必走节流」的
-    // 不变量。
-    //
-    // 持续节流模式（[throttleDuration] == null 或非正）下：
-    //   * `_expireAt` 必须保持 null —— [_isExpired] 因此恒为 false，
-    //     [isEnabled] 仅在 [maxCharsPerSecond] <= 0 时关闭；
-    //   * `[_isExpired]` 既然不会被翻转，整个生命周期内 [renderableGraphemeCount]
-    //     的「!isEnabled 且 maxCharsPerSecond > 0」短路只可能因为
-    //     [release] 标记 [_disposed] 才发生。
-    //
-    // 写时检查：[_expireAt] 是 final，构造完成之后没有路径能再次赋值，
-    // 所以这里一次断言即可锁住整条不变量；不引入额外状态机。
+    // 持续节流模式下 `_expireAt` 必须保持 null，避免正式响应在流期内
+    // 意外穿透限速。
     assert(
       !(maxCharsPerSecond > 0 && throttleDuration == null) || _expireAt == null,
       'positive-rate continuous throttle (assistant_final path) MUST keep '
@@ -219,8 +215,7 @@ class _StreamCharThrottle {
   int get maxCharsPerSecond => _budget.maxCharsPerSecond;
   set maxCharsPerSecond(int next) => _budget.maxCharsPerSecond = next;
 
-  /// 2026-05-19 — 会话级运行时开关：用户在节流弹窗中关闭节流时，控制
-  /// 器把 `false` 推到当前活跃 throttle，立即从限速桶切换到 pass-through。
+  /// 会话级运行时开关：`false` 立即从限速桶切换到 pass-through。
   /// `null` = 沿用 maxCharsPerSecond 推断的 enable 状态；显式 `false`
   /// 时即便 maxCharsPerSecond > 0 也会绕过节流；`true` 等同于默认。
   bool? _enabledOverride;
@@ -230,9 +225,7 @@ class _StreamCharThrottle {
     // 关闭节流后立刻补一次 onTick，让等待中的 grapheme 一次性兑现，
     // 不必等下一个 textDelta 才看见输出。
     if (next == false && !_disposed) {
-      try {
-        _onTick();
-      } catch (_) {}
+      _runStreamThrottleCallback(_onTick, 'char enabledOverride');
     }
   }
 
@@ -240,8 +233,7 @@ class _StreamCharThrottle {
   Timer? _drainTimer;
   bool _disposed = false;
   final _StreamCharThrottleBudget _budget;
-  // 已被允许显示的 grapheme 数。命名从 `_emittedChars` 切换为
-  // `_emittedGraphemes`，对外通过 [renderableGraphemeCount] 暴露。
+  // 已被允许显示的 grapheme 数。
   int _emittedGraphemes = 0;
   // 最近一次 [renderableGraphemeCount] 的总 grapheme 数；用于
   // [hasPending] / [drainGracefully] 判定。
@@ -267,14 +259,7 @@ class _StreamCharThrottle {
   int renderableGraphemeCount(int totalSanitizedGraphemeCount) {
     _lastKnownTotalGraphemes = totalSanitizedGraphemeCount;
     if (!isEnabled || _disposed) {
-      // 2026-05-22 — Bug 1 修复（task 3.3）：守住正式响应卡片的节流
-      // 不变量。当 maxCharsPerSecond > 0 时，进入 pass-through 短路
-      // 只允许两种合法原因：
-      //   ① [_disposed] == true   —— 调用方主动 release（错误/取消/
-      //                                  流末尾兜底）；
-      //   ② [_enabledOverride] == false —— 用户显式关闭节流。
-      // 在持续节流（throttleDuration == null）+ 仍在流期（未 release）
-      // 的路径里命中本短路就是真 bug —— 字符会被一次性 dump。
+      // 正速率 pass-through 只允许发生在主动 release 或用户显式关闭节流后。
       assert(
         !(maxCharsPerSecond > 0) || _disposed || _enabledOverride == false,
         'positive-rate _StreamCharThrottle short-circuited to pass-through '
@@ -336,11 +321,7 @@ class _StreamCharThrottle {
       if (_disposed) {
         return;
       }
-      // 由调用方通过 renderableGraphemeCount + sanitized 文本切片驱动新一
-      // 轮显示。
-      try {
-        _onTick();
-      } catch (_) {}
+      _runStreamThrottleCallback(_onTick, 'char drain tick');
       if (_emittedGraphemes < _lastKnownTotalGraphemes) {
         _scheduleDrain();
       }
@@ -420,8 +401,7 @@ class _StreamCardThrottle {
     }
   }
 
-  /// 2026-05-19 — 会话级运行时开关：会话弹窗 Apply 关闭节流时，控制器
-  /// 把 `false` 推下来；下次 [tryAcquire] 直接通过 + 排空积压。
+  /// 会话级运行时开关：关闭时下次 [tryAcquire] 直接通过并排空积压。
   bool? _enabledOverride;
   set enabledOverride(bool? next) {
     if (next == _enabledOverride) return;
@@ -502,17 +482,12 @@ class _StreamCardThrottle {
     while (_pending.isNotEmpty && _budget >= 1) {
       final cb = _pending.removeAt(0);
       _budget -= 1;
-      try {
-        cb();
+      if (_runStreamThrottleCallback(cb, 'card drain callback')) {
         emitted++;
-      } catch (_) {
-        // ignore individual callback failures; queue remains intact.
       }
     }
     if (emitted > 0) {
-      try {
-        _onCardEmitted();
-      } catch (_) {}
+      _runStreamThrottleCallback(_onCardEmitted, 'card emitted');
     }
     if (_pending.isNotEmpty) {
       _scheduleDrain();
@@ -526,13 +501,9 @@ class _StreamCardThrottle {
     final pending = List<VoidCallback>.from(_pending);
     _pending.clear();
     for (final cb in pending) {
-      try {
-        cb();
-      } catch (_) {}
+      _runStreamThrottleCallback(cb, 'card flush callback');
     }
-    try {
-      _onCardEmitted();
-    } catch (_) {}
+    _runStreamThrottleCallback(_onCardEmitted, 'card flushed');
   }
 
   /// 立即释放：把所有积压回调一次性追加，然后置位 disposed 防止 Timer
@@ -544,14 +515,10 @@ class _StreamCardThrottle {
     final pending = List<VoidCallback>.from(_pending);
     _pending.clear();
     for (final cb in pending) {
-      try {
-        cb();
-      } catch (_) {}
+      _runStreamThrottleCallback(cb, 'card release callback');
     }
     if (pending.isNotEmpty) {
-      try {
-        _onCardEmitted();
-      } catch (_) {}
+      _runStreamThrottleCallback(_onCardEmitted, 'card released');
     }
   }
 

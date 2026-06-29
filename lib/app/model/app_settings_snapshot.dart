@@ -523,33 +523,31 @@ class AppSettingsSnapshot {
   static const int minAiStreamIdleTimeoutSeconds = 10;
   static const int maxAiStreamIdleTimeoutSeconds = 600;
 
-  /// 2026-05-17 — 流式输出渲染节流：每秒最多向当前流式消息卡片追加渲染的
-  /// 字符数（按 Unicode code point 计）。当 AI 侧短时间内回吐大量字符时，
-  /// 通过该背压阀控制 UI 端追加速率，避免主线程被 markdown/widget 重建洪
-  /// 水冲垮，从而保持 60fps 流畅滚动与稳定 UI。设置为 0 表示关闭节流。
+  /// 流式输出渲染节流：每秒最多向当前流式消息卡片追加渲染的用户感知
+  /// 字符数（grapheme cluster）。设置为 0 表示关闭节流。
   static const int defaultAiStreamMaxCharsPerSecond = 10;
   static const int minAiStreamMaxCharsPerSecond = 0;
   static const int maxAiStreamMaxCharsPerSecond = 100000;
 
-  /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。当 AI 侧
+  /// 每秒最多向当前会话追加渲染的新消息卡片数。当 AI 侧
   /// 同一轮内连发多个工具调用 / 助手分段时，先放出 1 个再节流后续，
   /// 避免消息列表瞬间堆叠出现"上下弹跳/抽搐"。0 表示关闭节流。
   static const int defaultAiStreamMaxMessageCardsPerSecond = 1;
   static const int minAiStreamMaxMessageCardsPerSecond = 0;
   static const int maxAiStreamMaxMessageCardsPerSecond = 60;
 
-  /// 2026-05-17 — 全局节流总开关（默认 true）。关闭后字符 / 卡片限速
+  /// 全局节流总开关（默认 true）。关闭后字符 / 卡片限速
   /// 全部失效，所有会话以真实速率全速渲染。
   static const bool defaultAiStreamThrottleEnabled = true;
 
-  /// 2026-05-17 — 自动模式总开关（默认 false）。开启后自动按平台 /
+  /// 自动模式总开关（默认 false）。开启后自动按平台 /
   /// 设备性能选择速率，忽略手动配置。
   static const bool defaultAiStreamThrottleAutoMode = false;
   static const int autoStreamMaxCharsPerSecondDesktop = 12;
   static const int autoStreamMaxCharsPerSecondMobile = 6;
   static const int autoStreamMaxMessageCardsPerSecondAuto = 2;
 
-  /// 2026-05-17 — 节流时长（秒）。在该时长内按节流速率均匀放出字符 /
+  /// 节流时长（秒）。在该时长内按节流速率均匀放出字符 /
   /// 卡片；时长耗尽后剩余流式响应直接按 AI 端真实接收节奏追加渲染，
   /// 兼顾"前段优雅打字机"与"后段不再卡读者节奏"。0 = 持续节流（不限时）。
   static const int defaultAiStreamThrottleDurationSeconds = 0;
@@ -773,22 +771,22 @@ class AppSettingsSnapshot {
   final int aiResponseTimeoutSeconds;
   final int aiStreamIdleTimeoutSeconds;
 
-  /// 2026-05-17 — 流式输出节流：每秒最多向当前流式卡片追加的字符数。
+  /// 流式输出节流：每秒最多向当前流式卡片追加的用户感知字符数。
   /// 0 表示关闭节流。
   final int aiStreamMaxCharsPerSecond;
 
-  /// 2026-05-17 — 每秒最多向当前会话追加渲染的新消息卡片数。
+  /// 每秒最多向当前会话追加渲染的新消息卡片数。
   /// 0 表示关闭节流。
   final int aiStreamMaxMessageCardsPerSecond;
 
-  /// 2026-05-17 — 全局节流总开关。关闭后字符 / 卡片限速全部失效。
+  /// 全局节流总开关。关闭后字符 / 卡片限速全部失效。
   final bool aiStreamThrottleEnabled;
 
-  /// 2026-05-17 — 自动模式总开关。开启后忽略手动配置，按平台 / 性能
+  /// 自动模式总开关。开启后忽略手动配置，按平台 / 性能
   /// 选择速率。
   final bool aiStreamThrottleAutoMode;
 
-  /// 2026-05-17 — 节流持续时长（秒）。在该时长内按节流速率渲染；时长
+  /// 节流持续时长（秒）。在该时长内按节流速率渲染；时长
   /// 耗尽后剩余流式响应直接按真实接收节奏追加，避免长文末尾被节流"卡住"
   /// 用户阅读节奏。0 = 持续节流（不限时）。
   final int aiStreamThrottleDurationSeconds;
