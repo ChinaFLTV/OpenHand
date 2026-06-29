@@ -9,7 +9,16 @@ import '../model/knowledge_vector_distribution.dart';
 const double _kVectorSceneMinHeight = 320;
 const double _kVectorPointHitRadius = 18;
 const double _kVectorSceneMinZoom = 0.62;
-const double _kVectorSceneMaxZoom = 5.0;
+const double _kVectorSceneMaxZoom = 10.0;
+const double _kVectorSceneZoomButtonFactor = 1.18;
+const double _kVectorSceneScrollZoomSensitivity = 0.0012;
+const double _kVectorAxisExtent = 1.18;
+const double _kVectorAxisTickScreenLength = 8;
+const double _kVectorAxisMinorTickScreenLength = 5;
+const double _kVectorAxisTargetTickGap = 62;
+const double _kVectorAxisCompactTargetTickGap = 54;
+const double _kVectorPopoverMinWidth = 282;
+const double _kVectorPopoverMaxWidth = 342;
 
 class KnowledgeVectorDistributionView extends StatefulWidget {
   const KnowledgeVectorDistributionView({
@@ -102,6 +111,11 @@ class _KnowledgeVectorDistributionViewState
           pitch: _pitch,
           zoom: _zoom,
         );
+        final axisScale = _VectorAxisScale.resolve(
+          size: size,
+          zoom: _zoom,
+          compact: widget.compact,
+        );
         final selectedProjection = _selected == null
             ? null
             : projected
@@ -117,7 +131,11 @@ class _KnowledgeVectorDistributionViewState
                 child: Listener(
                   onPointerSignal: (event) {
                     if (event is! PointerScrollEvent) return;
-                    _setZoom(_zoom - event.scrollDelta.dy * 0.0014);
+                    final factor = math.exp(
+                      -event.scrollDelta.dy *
+                          _kVectorSceneScrollZoomSensitivity,
+                    );
+                    _setZoom(_zoom * factor);
                   },
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
@@ -127,12 +145,22 @@ class _KnowledgeVectorDistributionViewState
                         _gestureStartZoom = _zoom;
                       },
                       onScaleUpdate: (details) {
+                        final gestureScale =
+                            details.scale.isFinite && details.scale > 0
+                            ? details.scale
+                            : 1.0;
+                        final dx = details.focalPointDelta.dx.isFinite
+                            ? details.focalPointDelta.dx
+                            : 0.0;
+                        final dy = details.focalPointDelta.dy.isFinite
+                            ? details.focalPointDelta.dy
+                            : 0.0;
                         setState(() {
-                          _yaw += details.focalPointDelta.dx * 0.010;
-                          _pitch = (_pitch + details.focalPointDelta.dy * 0.008)
+                          _yaw += dx * 0.010;
+                          _pitch = (_pitch + dy * 0.008)
                               .clamp(-1.18, 1.18)
                               .toDouble();
-                          _zoom = _clampZoom(_gestureStartZoom * details.scale);
+                          _zoom = _clampZoom(_gestureStartZoom * gestureScale);
                         });
                       },
                       onTapDown: (details) {
@@ -152,6 +180,7 @@ class _KnowledgeVectorDistributionViewState
                               yaw: _yaw,
                               pitch: _pitch,
                               zoom: _zoom,
+                              axisScale: axisScale,
                               colors: _KnowledgeVectorSceneColors.resolve(
                                 context,
                               ),
@@ -175,8 +204,13 @@ class _KnowledgeVectorDistributionViewState
                 top: 12,
                 child: _VectorViewportControls(
                   zoom: _zoom,
-                  onZoomIn: () => _setZoom(_zoom * 1.16),
-                  onZoomOut: () => _setZoom(_zoom / 1.16),
+                  tickStep: axisScale.step,
+                  onZoomIn: _zoom >= _kVectorSceneMaxZoom
+                      ? null
+                      : () => _setZoom(_zoom * _kVectorSceneZoomButtonFactor),
+                  onZoomOut: _zoom <= _kVectorSceneMinZoom
+                      ? null
+                      : () => _setZoom(_zoom / _kVectorSceneZoomButtonFactor),
                   onReset: _resetViewport,
                 ),
               ),
@@ -265,7 +299,7 @@ class _KnowledgeVectorDistributionViewState
 
   void _setZoom(double zoom) {
     final next = _clampZoom(zoom);
-    if (next == _zoom) return;
+    if ((next - _zoom).abs() < 0.001) return;
     setState(() => _zoom = next);
   }
 
@@ -399,14 +433,16 @@ class _VectorLegendPill extends StatelessWidget {
 class _VectorViewportControls extends StatelessWidget {
   const _VectorViewportControls({
     required this.zoom,
+    required this.tickStep,
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onReset,
   });
 
   final double zoom;
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
+  final double tickStep;
+  final VoidCallback? onZoomIn;
+  final VoidCallback? onZoomOut;
   final VoidCallback onReset;
 
   @override
@@ -436,7 +472,7 @@ class _VectorViewportControls extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                '${(zoom * 100).round()}%',
+                '${(zoom * 100).round()}% · ${isZh ? '刻度' : 'tick'} ${_formatAxisValue(tickStep)}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w800,
@@ -472,7 +508,7 @@ class _VectorViewportIconButton extends StatelessWidget {
 
   final String tooltip;
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -504,14 +540,27 @@ class _VectorPointPopover extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    const width = 260.0;
+    final isZh = openHandIsChineseLocale(context);
+    final axisColors = _KnowledgeVectorSceneColors.resolve(context);
+    final availableWidth = math.max(180.0, sceneSize.width - 24);
+    final width = availableWidth < _kVectorPopoverMinWidth
+        ? availableWidth
+        : math.min(_kVectorPopoverMaxWidth, availableWidth);
+    final maxHeight = math.max(160.0, sceneSize.height - 24);
+    final estimatedHeight = _estimatedVectorPopoverHeight(projection.point);
+    final visibleHeight = math.min(estimatedHeight, maxHeight);
+    final preferAbove = projection.offset.dy > sceneSize.height * 0.52;
     final left = (projection.offset.dx + 14)
-        .clamp(12.0, math.max(12, sceneSize.width - width - 12))
+        .clamp(12.0, math.max(12.0, sceneSize.width - width - 12))
         .toDouble();
-    final top = (projection.offset.dy - 86)
-        .clamp(12.0, math.max(12, sceneSize.height - 132))
+    final preferredTop = preferAbove
+        ? projection.offset.dy - estimatedHeight - 14
+        : projection.offset.dy + 14;
+    final top = preferredTop
+        .clamp(12.0, math.max(12.0, sceneSize.height - visibleHeight - 12))
         .toDouble();
     final score = projection.point.score;
+    final rerankScore = projection.point.rerankScore;
     return Positioned(
       left: left,
       top: top,
@@ -543,72 +592,306 @@ class _VectorPointPopover extends StatelessWidget {
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 11),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: projection.color,
-                        shape: BoxShape.circle,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          margin: const EdgeInsets.only(top: 4),
+                          decoration: BoxDecoration(
+                            color: projection.color,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: projection.color.withValues(alpha: 0.32),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                projection.point.title.isEmpty
+                                    ? projection.point.id
+                                    : projection.point.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.18,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  _VectorPopoverPill(
+                                    color: projection.color,
+                                    label: _vectorKindLabel(
+                                      projection.point.kind,
+                                      isZh,
+                                    ),
+                                  ),
+                                  _VectorPopoverPill(
+                                    color: colorScheme.outline,
+                                    label: isZh
+                                        ? '投影深度 ${_formatCoordinate(projection.depth)}'
+                                        : 'depth ${_formatCoordinate(projection.depth)}',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Tooltip(
+                          message: isZh ? '关闭详情' : 'Close details',
+                          child: IconButton(
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 30,
+                              height: 30,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _VectorPopoverSection(
+                      title: isZh ? '空间坐标' : 'Projected Coordinates',
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _VectorMetricTile(
+                              label: 'X',
+                              value: _formatCoordinate(projection.point.x),
+                              color: axisColors.axisX,
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: _VectorMetricTile(
+                              label: 'Y',
+                              value: _formatCoordinate(projection.point.y),
+                              color: axisColors.axisY,
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: _VectorMetricTile(
+                              label: 'Z',
+                              value: _formatCoordinate(projection.point.z),
+                              color: axisColors.axisZ,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        projection.point.title.isEmpty
-                            ? projection.point.id
-                            : projection.point.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          height: 1.15,
+                    if (score != null || rerankScore != null) ...[
+                      const SizedBox(height: 10),
+                      _VectorPopoverSection(
+                        title: isZh ? '检索指标' : 'Retrieval Metrics',
+                        child: Row(
+                          children: [
+                            if (score != null)
+                              Expanded(
+                                child: _VectorMetricTile(
+                                  label: isZh ? '召回' : 'Score',
+                                  value: _formatScore(score),
+                                  color: projection.color,
+                                ),
+                              ),
+                            if (score != null && rerankScore != null)
+                              const SizedBox(width: 7),
+                            if (rerankScore != null)
+                              Expanded(
+                                child: _VectorMetricTile(
+                                  label: isZh ? '重排' : 'Rerank',
+                                  value: _formatScore(rerankScore),
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: onClose,
-                      icon: const Icon(Icons.close_rounded, size: 17),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 28,
-                        height: 28,
+                    ],
+                    if (projection.point.preview.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _VectorPopoverSection(
+                        title: isZh ? '内容预览' : 'Preview',
+                        child: Text(
+                          projection.point.preview,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.38,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    _VectorPopoverSection(
+                      title: isZh ? '向量标识' : 'Vector ID',
+                      child: Text(
+                        projection.point.id,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          height: 1.28,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                if (projection.point.preview.isNotEmpty) ...[
-                  const SizedBox(height: 7),
-                  Text(
-                    projection.point.preview,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-                if (score != null) ...[
-                  const SizedBox(height: 7),
-                  Text(
-                    'score ${score.toStringAsFixed(4)}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: projection.color,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VectorPopoverSection extends StatelessWidget {
+  const _VectorPopoverSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.42),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VectorMetricTile extends StatelessWidget {
+  const _VectorMetricTile({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 5),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VectorPopoverPill extends StatelessWidget {
+  const _VectorPopoverPill({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
+            height: 1,
           ),
         ),
       ),
@@ -623,6 +906,7 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
     required this.yaw,
     required this.pitch,
     required this.zoom,
+    required this.axisScale,
     required this.colors,
     required this.selectedId,
     required this.compact,
@@ -633,6 +917,7 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
   final double yaw;
   final double pitch;
   final double zoom;
+  final _VectorAxisScale axisScale;
   final _KnowledgeVectorSceneColors colors;
   final String? selectedId;
   final bool compact;
@@ -677,11 +962,16 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
       ..color = colors.grid
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    for (var i = 1; i <= 3; i++) {
-      canvas.drawPath(_projectCirclePath(size, i / 3), gridPaint);
+    final ringCount = (_kVectorAxisExtent / axisScale.gridStep).floor();
+    for (var i = 1; i <= ringCount; i++) {
+      final radius = i * axisScale.gridStep;
+      if (radius <= 1.02) {
+        canvas.drawPath(_projectCirclePath(size, radius), gridPaint);
+      }
     }
-    for (var i = 0; i < 8; i++) {
-      final angle = i * math.pi / 4;
+    final spokes = zoom >= 5 ? 12 : 8;
+    for (var i = 0; i < spokes; i++) {
+      final angle = i * math.pi * 2 / spokes;
       final inner = _projectSceneCoordinate(
         x: math.cos(angle) * 0.18,
         y: math.sin(angle) * 0.18,
@@ -705,6 +995,50 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
   }
 
   void _paintAxes(Canvas canvas, Size size) {
+    final axes = <_VectorAxisSpec>[
+      const _VectorAxisSpec(
+        label: 'X',
+        x: 1,
+        y: 0,
+        z: 0,
+        tickX: 0,
+        tickY: 0,
+        tickZ: 1,
+      ),
+      const _VectorAxisSpec(
+        label: 'Y',
+        x: 0,
+        y: 1,
+        z: 0,
+        tickX: 1,
+        tickY: 0,
+        tickZ: 0,
+      ),
+      const _VectorAxisSpec(
+        label: 'Z',
+        x: 0,
+        y: 0,
+        z: 1,
+        tickX: 1,
+        tickY: 0,
+        tickZ: 0,
+      ),
+    ];
+    for (final axis in axes) {
+      _paintAxis(canvas, size, axis, _axisColor(axis.label));
+    }
+  }
+
+  void _paintAxis(Canvas canvas, Size size, _VectorAxisSpec axis, Color color) {
+    final start = _projectSceneCoordinate(
+      x: -axis.x * _kVectorAxisExtent,
+      y: -axis.y * _kVectorAxisExtent,
+      z: -axis.z * _kVectorAxisExtent,
+      size: size,
+      yaw: yaw,
+      pitch: pitch,
+      zoom: zoom,
+    );
     final origin = _projectSceneCoordinate(
       x: 0,
       y: 0,
@@ -714,27 +1048,171 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
       pitch: pitch,
       zoom: zoom,
     );
-    final axes = <({double x, double y, double z, Color color})>[
-      (x: 1.14, y: 0.0, z: 0.0, color: colors.axisX),
-      (x: 0.0, y: 1.14, z: 0.0, color: colors.axisY),
-      (x: 0.0, y: 0.0, z: 1.14, color: colors.axisZ),
-    ];
-    for (final axis in axes) {
-      final end = _projectSceneCoordinate(
-        x: axis.x,
-        y: axis.y,
-        z: axis.z,
+    final end = _projectSceneCoordinate(
+      x: axis.x * _kVectorAxisExtent,
+      y: axis.y * _kVectorAxisExtent,
+      z: axis.z * _kVectorAxisExtent,
+      size: size,
+      yaw: yaw,
+      pitch: pitch,
+      zoom: zoom,
+    );
+    final negativePaint = Paint()
+      ..color = color.withValues(alpha: 0.25)
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    final positivePaint = Paint()
+      ..color = color.withValues(alpha: 0.70)
+      ..strokeWidth = 1.55
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(start.offset, origin.offset, negativePaint);
+    canvas.drawLine(origin.offset, end.offset, positivePaint);
+
+    final tickCount = (_kVectorAxisExtent / axisScale.step).floor();
+    for (var index = -tickCount; index <= tickCount; index++) {
+      if (index == 0) continue;
+      final value = index * axisScale.step;
+      if (value.abs() > _kVectorAxisExtent + 1e-6) continue;
+      final tick = _projectSceneCoordinate(
+        x: axis.x * value,
+        y: axis.y * value,
+        z: axis.z * value,
         size: size,
         yaw: yaw,
         pitch: pitch,
         zoom: zoom,
       );
-      final paint = Paint()
-        ..color = axis.color
-        ..strokeWidth = 1.4
+      final major = _isAxisStepMultiple(value, axisScale.labelStep);
+      final tickDirection = _axisTickDirection(size, axis, value);
+      final length = major
+          ? _kVectorAxisTickScreenLength
+          : _kVectorAxisMinorTickScreenLength;
+      final tickPaint = Paint()
+        ..color = color.withValues(alpha: major ? 0.58 : 0.36)
+        ..strokeWidth = major ? 1.15 : 0.9
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(origin.offset, end.offset, paint);
+      canvas.drawLine(
+        tick.offset - tickDirection * (length / 2),
+        tick.offset + tickDirection * (length / 2),
+        tickPaint,
+      );
+      if (major && _isVisibleLabelAnchor(tick.offset, size)) {
+        _paintTickLabel(
+          canvas,
+          axis: axis,
+          value: value,
+          anchor: tick.offset + tickDirection * (length + 5),
+          color: color,
+        );
+      }
     }
+
+    if (_isVisibleLabelAnchor(end.offset, size, padding: 26)) {
+      _paintAxisEndLabel(canvas, axis.label, end.offset, color);
+    }
+  }
+
+  Offset _axisTickDirection(Size size, _VectorAxisSpec axis, double value) {
+    final center = _projectSceneCoordinate(
+      x: axis.x * value,
+      y: axis.y * value,
+      z: axis.z * value,
+      size: size,
+      yaw: yaw,
+      pitch: pitch,
+      zoom: zoom,
+    );
+    final side = _projectSceneCoordinate(
+      x: axis.x * value + axis.tickX * 0.08,
+      y: axis.y * value + axis.tickY * 0.08,
+      z: axis.z * value + axis.tickZ * 0.08,
+      size: size,
+      yaw: yaw,
+      pitch: pitch,
+      zoom: zoom,
+    );
+    final direct = _normalizedOffset(side.offset - center.offset, Offset.zero);
+    if (direct != Offset.zero) return direct;
+    final start = _projectSceneCoordinate(
+      x: -axis.x,
+      y: -axis.y,
+      z: -axis.z,
+      size: size,
+      yaw: yaw,
+      pitch: pitch,
+      zoom: zoom,
+    );
+    final end = _projectSceneCoordinate(
+      x: axis.x,
+      y: axis.y,
+      z: axis.z,
+      size: size,
+      yaw: yaw,
+      pitch: pitch,
+      zoom: zoom,
+    );
+    return _normalizedOffset(
+      Offset(
+        -(end.offset.dy - start.offset.dy),
+        end.offset.dx - start.offset.dx,
+      ),
+      const Offset(0, -1),
+    );
+  }
+
+  void _paintTickLabel(
+    Canvas canvas, {
+    required _VectorAxisSpec axis,
+    required double value,
+    required Offset anchor,
+    required Color color,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: '${axis.label} ${_formatAxisValue(value)}',
+        style: TextStyle(
+          color: color.withValues(alpha: 0.72),
+          fontSize: compact ? 8.5 : 9.5,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(
+      canvas,
+      anchor - Offset(painter.width / 2, painter.height / 2),
+    );
+  }
+
+  void _paintAxisEndLabel(
+    Canvas canvas,
+    String label,
+    Offset anchor,
+    Color color,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: color.withValues(alpha: 0.88),
+          fontSize: compact ? 10 : 11,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(canvas, anchor + const Offset(8, -8));
+  }
+
+  Color _axisColor(String label) {
+    return switch (label) {
+      'X' => colors.axisX,
+      'Y' => colors.axisY,
+      'Z' => colors.axisZ,
+      _ => colors.axisX,
+    };
   }
 
   Path _projectCirclePath(Size size, double radius) {
@@ -767,6 +1245,7 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
         oldDelegate.yaw != yaw ||
         oldDelegate.pitch != pitch ||
         oldDelegate.zoom != zoom ||
+        oldDelegate.axisScale != axisScale ||
         oldDelegate.selectedId != selectedId ||
         oldDelegate.colors != colors ||
         oldDelegate.compact != compact;
@@ -799,6 +1278,75 @@ class _KnowledgeVectorSceneColors {
       axisZ: colorScheme.secondary.withValues(alpha: 0.45),
     );
   }
+}
+
+@immutable
+class _VectorAxisScale {
+  const _VectorAxisScale({
+    required this.step,
+    required this.labelStep,
+    required this.gridStep,
+  });
+
+  final double step;
+  final double labelStep;
+  final double gridStep;
+
+  static _VectorAxisScale resolve({
+    required Size size,
+    required double zoom,
+    required bool compact,
+  }) {
+    final baseRadius = math.min(size.width, size.height) * 0.34;
+    final pixelsPerUnit = math.max(1.0, baseRadius * zoom);
+    final targetGap = compact
+        ? _kVectorAxisCompactTargetTickGap
+        : _kVectorAxisTargetTickGap;
+    final step = _closestNiceAxisStep(targetGap / pixelsPerUnit);
+    final labelStep = switch (step) {
+      <= 0.05 => 0.10,
+      <= 0.10 => 0.20,
+      <= 0.25 => 0.50,
+      _ => step,
+    };
+    final gridStep = math.max(0.10, labelStep);
+    return _VectorAxisScale(
+      step: step,
+      labelStep: labelStep,
+      gridStep: gridStep,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _VectorAxisScale &&
+          step == other.step &&
+          labelStep == other.labelStep &&
+          gridStep == other.gridStep;
+
+  @override
+  int get hashCode => Object.hash(step, labelStep, gridStep);
+}
+
+class _VectorAxisSpec {
+  const _VectorAxisSpec({
+    required this.label,
+    required this.x,
+    required this.y,
+    required this.z,
+    required this.tickX,
+    required this.tickY,
+    required this.tickZ,
+  });
+
+  final String label;
+  final double x;
+  final double y;
+  final double z;
+  final double tickX;
+  final double tickY;
+  final double tickZ;
 }
 
 class _ProjectedVectorPoint {
@@ -916,4 +1464,75 @@ extension _FirstOrNull<T> on Iterable<T> {
     final iterator = this.iterator;
     return iterator.moveNext() ? iterator.current : null;
   }
+}
+
+double _closestNiceAxisStep(double rawStep) {
+  final target = rawStep.clamp(0.05, 1.0).toDouble();
+  const steps = <double>[0.05, 0.10, 0.20, 0.25, 0.50, 1.0];
+  var best = steps.first;
+  var bestScore = double.infinity;
+  for (final step in steps) {
+    final score = (math.log(target / step)).abs();
+    if (score < bestScore) {
+      best = step;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+bool _isAxisStepMultiple(double value, double step) {
+  if (!value.isFinite || !step.isFinite || step <= 0) return false;
+  final scaled = value / step;
+  return (scaled - scaled.roundToDouble()).abs() < 1e-6;
+}
+
+bool _isVisibleLabelAnchor(Offset offset, Size size, {double padding = 52}) {
+  return offset.dx >= -padding &&
+      offset.dy >= -padding &&
+      offset.dx <= size.width + padding &&
+      offset.dy <= size.height + padding;
+}
+
+Offset _normalizedOffset(Offset value, Offset fallback) {
+  final distance = value.distance;
+  if (!distance.isFinite || distance <= 1e-4) return fallback;
+  return value / distance;
+}
+
+String _formatAxisValue(double value) {
+  final normalized = value.abs() < 1e-9 ? 0.0 : value;
+  if (normalized.abs() >= 1) return normalized.toStringAsFixed(1);
+  return normalized.toStringAsFixed(2).replaceFirst(RegExp(r'0$'), '');
+}
+
+String _formatCoordinate(double value) {
+  if (!value.isFinite) return '-';
+  final normalized = value.abs() < 1e-9 ? 0.0 : value;
+  return normalized.abs() < 0.1
+      ? normalized.toStringAsFixed(3)
+      : normalized.toStringAsFixed(2);
+}
+
+String _formatScore(double value) {
+  if (!value.isFinite) return '-';
+  final normalized = value.abs() < 1e-9 ? 0.0 : value;
+  return normalized.toStringAsFixed(4);
+}
+
+String _vectorKindLabel(String kind, bool isZh) {
+  return switch (kind) {
+    KnowledgeVectorPointKind.query => isZh ? '查询向量' : 'Query vector',
+    KnowledgeVectorPointKind.match => isZh ? '命中结果' : 'Matched chunk',
+    KnowledgeVectorPointKind.corpus => isZh ? '全量采样' : 'Corpus sample',
+    _ => kind.trim().isEmpty ? (isZh ? '向量点' : 'Vector point') : kind,
+  };
+}
+
+double _estimatedVectorPopoverHeight(KnowledgeVectorDistributionPoint point) {
+  var height = 216.0;
+  if (point.preview.isNotEmpty) height += 86;
+  if (point.score != null || point.rerankScore != null) height += 82;
+  if (point.title.length > 38) height += 18;
+  return height;
 }
