@@ -51,7 +51,6 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
         KnowledgeMessageMetadata.fromMessageMetadata(metadata) ??
         const <String, Object?>{};
     final results = stringKeyedMapListFromValue(kb['results']);
-    final prompt = KnowledgeMessageMetadata.promptAppendContent(metadata);
     final rerank = stringKeyedMapFromValue(kb['rerank']);
     final distribution = KnowledgeMessageMetadata.vectorDistribution(metadata);
     return buildOpenHandAlertDialog(
@@ -145,7 +144,7 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                 title: isZh ? '实际追加给模型的上下文' : 'Actual appended context',
                 icon: Icons.notes_rounded,
                 margin: EdgeInsets.zero,
-                child: KnowledgeDialogTextBox(text: prompt, maxHeight: 300),
+                child: _KnowledgePromptAppendContextBox(metadata: kb),
               ),
             ],
           ),
@@ -206,6 +205,148 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
       'discarded_count' => '舍弃数',
       _ => key,
     };
+  }
+}
+
+class _KnowledgePromptAppendContextBox extends StatefulWidget {
+  const _KnowledgePromptAppendContextBox({required this.metadata});
+
+  final Map<String, Object?> metadata;
+
+  @override
+  State<_KnowledgePromptAppendContextBox> createState() =>
+      _KnowledgePromptAppendContextBoxState();
+}
+
+class _KnowledgePromptAppendContextBoxState
+    extends State<_KnowledgePromptAppendContextBox> {
+  late String _fallback;
+  late Future<String> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _startResolve();
+  }
+
+  @override
+  void didUpdateWidget(_KnowledgePromptAppendContextBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.metadata, widget.metadata)) {
+      _startResolve();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
+    return FutureBuilder<String>(
+      future: _future,
+      builder: (context, snapshot) {
+        final loading = snapshot.connectionState != ConnectionState.done;
+        final text = (snapshot.data ?? _fallback).trim();
+        if (loading && text.isEmpty) {
+          return KnowledgeDialogNotice(
+            icon: Icons.hourglass_top_rounded,
+            message: isZh
+                ? '正在恢复本次追加给模型的知识库上下文。'
+                : 'Restoring the Knowledge Base context appended to the model.',
+          );
+        }
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: KnowledgeDialogTextBox(
+            key: ValueKey<String>(
+              '${loading ? 'loading' : 'ready'}:${text.hashCode}',
+            ),
+            text: text,
+            maxHeight: 300,
+            emptyText: isZh
+                ? '没有记录实际上下文；可打开命中分块查看详情。'
+                : 'No appended context was recorded. Open a hit chunk for details.',
+          ),
+        );
+      },
+    );
+  }
+
+  void _startResolve() {
+    _fallback = KnowledgeMessageMetadata.promptAppendContent(widget.metadata);
+    _future = _resolvePromptContext();
+  }
+
+  Future<String> _resolvePromptContext() async {
+    final direct = KnowledgeMessageMetadata.rawPromptAppendContent(
+      widget.metadata,
+    );
+    if (direct.isNotEmpty) return direct;
+    final results = stringKeyedMapListFromValue(widget.metadata['results']);
+    if (results.isEmpty) return _fallback;
+
+    KnowledgeBaseController controller;
+    try {
+      controller = context.read<KnowledgeBaseController>();
+    } catch (_) {
+      return _fallback;
+    }
+
+    final sourceCache = <String, KnowledgeSource?>{};
+    final chunkCache = <String, List<KnowledgeChunk>>{};
+    final hydrated = <Map<String, Object?>>[];
+    for (final hit in results) {
+      final next = Map<String, Object?>.from(hit);
+      final sourceId = _text(hit['source_id']);
+      final chunkId = _text(hit['chunk_id']);
+      if (sourceId.isNotEmpty) {
+        if (!sourceCache.containsKey(sourceId)) {
+          sourceCache[sourceId] = await controller.loadSource(sourceId);
+        }
+        final source = sourceCache[sourceId];
+        if (source != null) {
+          _putIfEmpty(next, 'source_title', source.title);
+          _putIfEmpty(next, 'path', source.originalPath);
+        }
+      }
+      if (_text(next['content']).isEmpty &&
+          sourceId.isNotEmpty &&
+          chunkId.isNotEmpty) {
+        chunkCache[sourceId] ??= await controller.loadChunksForSource(sourceId);
+        final chunk = _findChunk(chunkCache[sourceId]!, chunkId);
+        if (chunk != null) {
+          next['content'] = chunk.content;
+          next['content_truncated'] = false;
+          next['content_status'] = 'complete';
+          _putIfEmpty(next, 'chunk_title', chunk.title);
+          _putIfEmpty(next, 'heading_path', chunk.headingPath);
+          _putIfEmpty(next, 'token_estimate', chunk.tokenEstimate);
+          _putIfEmpty(
+            next,
+            'document_time',
+            chunk.documentTime?.toUtc().toIso8601String(),
+          );
+        }
+      }
+      hydrated.add(next);
+    }
+    final resolved = KnowledgeMessageMetadata.promptAppendContentFromResults(
+      hydrated,
+      query: _text(widget.metadata['query']),
+    ).trim();
+    return resolved.isNotEmpty ? resolved : _fallback;
+  }
+
+  KnowledgeChunk? _findChunk(List<KnowledgeChunk> chunks, String chunkId) {
+    for (final chunk in chunks) {
+      if (chunk.id == chunkId) return chunk;
+    }
+    return null;
+  }
+
+  void _putIfEmpty(Map<String, Object?> target, String key, Object? value) {
+    if (value == null || _text(value).isEmpty || _hasValue(target[key])) return;
+    target[key] = value;
   }
 }
 

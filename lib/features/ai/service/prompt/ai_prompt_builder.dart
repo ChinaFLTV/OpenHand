@@ -3200,13 +3200,15 @@ $identity''';
           );
       }
     }
-    final knowledgeBasePromptAppend =
-        KnowledgeMessageMetadata.promptAppendContent(message.metadata);
-    if (knowledgeBasePromptAppend.isNotEmpty) {
-      buffer
-        ..writeln()
-        ..writeln()
-        ..write(knowledgeBasePromptAppend);
+    if (message.kind == AiSessionMessageKind.user) {
+      final knowledgeBasePromptAppend =
+          KnowledgeMessageMetadata.promptAppendContent(message.metadata);
+      if (knowledgeBasePromptAppend.isNotEmpty) {
+        buffer
+          ..writeln()
+          ..writeln()
+          ..write(knowledgeBasePromptAppend);
+      }
     }
     return buffer.toString().trim();
   }

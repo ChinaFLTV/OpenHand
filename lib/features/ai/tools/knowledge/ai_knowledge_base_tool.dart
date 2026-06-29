@@ -459,23 +459,30 @@ Map<String, Object?> _readHitJson(
   required bool includeContent,
 }) {
   final content = _stringValue(row['content']).trim();
-  final preview = _truncate(content, _knowledgeToolPreviewMaxChars);
+  final chunkTitle = _stringValue(row['title']);
+  final sourceTitle = _stringValue(row['source_title']);
   final contentView = includeContent
       ? _truncate(content, _knowledgeReadContentMaxChars)
       : '';
+  final contentTruncated = contentView.length < content.length;
   return <String, Object?>{
     'chunk_id': row['chunk_id'] ?? row['id'],
     'source_id': row['source_id'],
-    'title': row['source_title'] ?? row['title'],
+    'title': sourceTitle.isNotEmpty ? sourceTitle : chunkTitle,
+    if (sourceTitle.isNotEmpty) 'source_title': sourceTitle,
+    if (chunkTitle.isNotEmpty) 'chunk_title': chunkTitle,
     'source_kind': row['kind'] ?? row['source_kind'],
     'document_time': row['document_time'],
     'updated_at': row['updated_at'],
     'token_estimate': row['token_estimate'],
     'heading_path': row['heading_path'],
-    'preview': preview,
+    if (!includeContent)
+      'preview': _truncate(content, _knowledgeToolPreviewMaxChars),
     if (includeContent) ...<String, Object?>{
       'content': contentView,
-      'content_truncated': contentView.length < content.length,
+      'content_truncated': contentTruncated,
+      'content_status': contentTruncated ? 'truncated' : 'complete',
+      if (contentTruncated) 'content_char_limit': _knowledgeReadContentMaxChars,
     },
   };
 }

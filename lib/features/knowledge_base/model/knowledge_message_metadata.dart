@@ -119,6 +119,18 @@ class KnowledgeMessageMetadata {
   }
 
   static String promptAppendContent(Map<String, Object?> metadata) {
+    final direct = rawPromptAppendContent(metadata);
+    if (direct.isNotEmpty) return direct;
+    final kb = fromMessageMetadata(metadata);
+    if (kb == null) return '';
+    if (!_looksLikeKnowledgeMetadata(kb)) return '';
+    return promptAppendContentFromResults(
+      _resultMaps(kb),
+      query: '${kb['query'] ?? ''}'.trim(),
+    );
+  }
+
+  static String rawPromptAppendContent(Map<String, Object?> metadata) {
     final kb = fromMessageMetadata(metadata);
     return '${kb?[knowledgeBasePromptAppendMetadataKey] ?? ''}'.trim();
   }
@@ -126,6 +138,56 @@ class KnowledgeMessageMetadata {
   static Map<String, Object?>? promptAppendInfo(Map<String, Object?> metadata) {
     final kb = fromMessageMetadata(metadata);
     return object(kb?['prompt_append']);
+  }
+
+  static String promptAppendContentFromResults(
+    List<Map<String, Object?>> results, {
+    String query = '',
+  }) {
+    final usable = results
+        .where((hit) => _contextContent(hit).trim().isNotEmpty)
+        .toList(growable: false);
+    if (usable.isEmpty) return '';
+    final buffer = StringBuffer()
+      ..writeln('<OpenHandKnowledgeBaseContext>')
+      ..writeln('Knowledge Base context retained for this message.')
+      ..writeln('Use it only when relevant; do not invent citations.');
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isNotEmpty) {
+      buffer.writeln('Query: $normalizedQuery');
+    }
+    buffer.writeln();
+    for (var index = 0; index < usable.length; index++) {
+      final hit = usable[index];
+      final content = _contextContent(hit).trim();
+      final hasExactContent = '${hit['content'] ?? ''}'.trim().isNotEmpty;
+      final title = _contextTitle(hit);
+      final source = _contextSource(hit);
+      final heading = '${hit['heading_path'] ?? ''}'.trim();
+      final chunkId = '${hit['chunk_id'] ?? ''}'.trim();
+      final documentTime = '${hit['document_time'] ?? ''}'.trim();
+      final score = hit['final_score'] ?? hit['rerank_score'] ?? hit['score'];
+      buffer.writeln('[KB-${index + 1}]');
+      if (title.isNotEmpty) buffer.writeln('Title: $title');
+      if (source.isNotEmpty) buffer.writeln('Source: $source');
+      if (chunkId.isNotEmpty) buffer.writeln('Chunk ID: $chunkId');
+      if (heading.isNotEmpty) buffer.writeln('Heading: $heading');
+      if (documentTime.isNotEmpty) {
+        buffer.writeln('Document Time: $documentTime');
+      }
+      if (score != null && '$score'.trim().isNotEmpty) {
+        buffer.writeln('Score: $score');
+      }
+      if (_isTruthy(hit['content_truncated'])) {
+        buffer.writeln('Content Status: truncated');
+      }
+      buffer
+        ..writeln(hasExactContent ? 'Content:' : 'Content Preview:')
+        ..writeln(content)
+        ..writeln();
+    }
+    buffer.write('</OpenHandKnowledgeBaseContext>');
+    return buffer.toString();
   }
 
   static KnowledgeVectorDistribution? vectorDistribution(
@@ -148,11 +210,18 @@ class KnowledgeMessageMetadata {
     if (usedResults.isEmpty) return null;
     final promptAppend =
         promptAppendInfo(metadata) ?? const <String, Object?>{};
+    final rawPromptAppend = rawPromptAppendContent(metadata);
     final tokenEstimate = usedResults.fold<int>(
       0,
       (total, hit) =>
           total + nonNegativeIntFromValue(hit['token_estimate'], fallback: 0),
     );
+    final promptAppendContent = rawPromptAppend.isNotEmpty
+        ? rawPromptAppend
+        : promptAppendContentFromResults(
+            usedResults,
+            query: '${metadata['query'] ?? ''}'.trim(),
+          );
     return <String, Object?>{
       ...metadata,
       'results': usedResults,
@@ -161,6 +230,8 @@ class KnowledgeMessageMetadata {
         'chunk_count': usedResults.length,
         if (tokenEstimate > 0) 'token_estimate': tokenEstimate,
       },
+      if (promptAppendContent.trim().isNotEmpty)
+        knowledgeBasePromptAppendMetadataKey: promptAppendContent,
     };
   }
 
@@ -168,9 +239,9 @@ class KnowledgeMessageMetadata {
     required Iterable<Map<String, Object?>> toolMessages,
     required String answerText,
   }) {
-    final results = <Map<String, Object?>>[];
+    final resultsByKey = <String, Map<String, Object?>>{};
     final queries = <String>[];
-    final seen = <String>{};
+    final seenToolExecutions = <String>{};
     Map<String, Object?>? embedding;
     final retrievalSteps = <Map<String, Object?>>[];
     final rerankSteps = <Map<String, Object?>>[];
@@ -178,6 +249,11 @@ class KnowledgeMessageMetadata {
     for (final toolMessage in toolMessages) {
       final extracted = _fromToolMessageMetadata(toolMessage);
       if (extracted == null) continue;
+      final toolExecutionKey = _toolExecutionKey(toolMessage);
+      if (toolExecutionKey.isNotEmpty &&
+          !seenToolExecutions.add(toolExecutionKey)) {
+        continue;
+      }
       final query = '${extracted['query'] ?? ''}'.trim();
       if (query.isNotEmpty) queries.add(query);
       embedding ??= object(extracted['embedding']);
@@ -188,11 +264,15 @@ class KnowledgeMessageMetadata {
       vectorDistribution ??= object(extracted['vector_distribution']);
       for (final result in _resultMaps(extracted)) {
         final label = citationLabel(result);
-        final key = citationKey(result, label);
-        if (!seen.add(key)) continue;
-        results.add(result);
+        if (label.isEmpty) continue;
+        final key = _resultKey(result, label);
+        final existing = resultsByKey[key];
+        resultsByKey[key] = existing == null
+            ? result
+            : _mergePreferredResultHit(existing, result);
       }
     }
+    final results = resultsByKey.values.toList(growable: false);
     if (results.isEmpty) return null;
     return usedReferencesByAnswer(<String, Object?>{
       'enabled': true,
@@ -242,6 +322,99 @@ class KnowledgeMessageMetadata {
       return slash >= 0 ? normalized.substring(slash + 1) : normalized;
     }
     return '${hit['chunk_id'] ?? ''}'.trim();
+  }
+
+  static String _resultKey(Map<String, Object?> hit, [String? label]) {
+    final chunkId = '${hit['chunk_id'] ?? hit['id'] ?? ''}'.trim();
+    if (chunkId.isNotEmpty) return 'chunk:$chunkId';
+    final sourceId = '${hit['source_id'] ?? ''}'.trim();
+    final heading = '${hit['heading_path'] ?? ''}'.trim();
+    if (sourceId.isNotEmpty && heading.isNotEmpty) {
+      return 'source-heading:$sourceId:$heading';
+    }
+    final title = '${hit['title'] ?? hit['source_title'] ?? ''}'.trim();
+    if (sourceId.isNotEmpty && title.isNotEmpty) {
+      return 'source-title:$sourceId:$title';
+    }
+    return citationKey(hit, label);
+  }
+
+  static Map<String, Object?> _mergePreferredResultHit(
+    Map<String, Object?> existing,
+    Map<String, Object?> candidate,
+  ) {
+    final candidateQuality = _hitContentQuality(candidate);
+    final existingQuality = _hitContentQuality(existing);
+    final preferred = candidateQuality > existingQuality ? candidate : existing;
+    final fallback = identical(preferred, candidate) ? existing : candidate;
+    return <String, Object?>{...fallback, ...preferred};
+  }
+
+  static int _hitContentQuality(Map<String, Object?> hit) {
+    final content = '${hit['content'] ?? ''}'.trim();
+    if (content.isNotEmpty) {
+      return 2000 +
+          content.length -
+          (_isTruthy(hit['content_truncated']) ? 500 : 0);
+    }
+    final preview = '${hit['preview'] ?? ''}'.trim();
+    return preview.isNotEmpty ? preview.length : 0;
+  }
+
+  static String _toolExecutionKey(Map<String, Object?> metadata) {
+    final toolName = '${metadata['tool_name'] ?? ''}'.trim().toLowerCase();
+    final callId = '${metadata['tool_call_id'] ?? ''}'.trim();
+    if (toolName.isNotEmpty && callId.isNotEmpty) {
+      return '$toolName:$callId';
+    }
+    final command =
+        '${metadata['tool_execution_command'] ?? metadata['command'] ?? ''}'
+            .trim();
+    final args = '${metadata['tool_arguments'] ?? ''}'.trim();
+    if (toolName.isEmpty && command.isEmpty && args.isEmpty) return '';
+    return '$toolName|$command|$args';
+  }
+
+  static String _contextContent(Map<String, Object?> hit) {
+    final content = '${hit['content'] ?? ''}'.trim();
+    if (content.isNotEmpty) return content;
+    return '${hit['preview'] ?? ''}'.trim();
+  }
+
+  static String _contextTitle(Map<String, Object?> hit) {
+    for (final key in const <String>['source_title', 'title', 'chunk_title']) {
+      final value = '${hit[key] ?? ''}'.trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  static String _contextSource(Map<String, Object?> hit) {
+    for (final key in const <String>[
+      'path',
+      'original_path',
+      'source_path',
+      'source_id',
+    ]) {
+      final value = '${hit[key] ?? ''}'.trim();
+      if (value.isNotEmpty && value != 'null') return value;
+    }
+    return '';
+  }
+
+  static bool _isTruthy(Object? value) {
+    if (value is bool) return value;
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+
+  static bool _looksLikeKnowledgeMetadata(Map<String, Object?> metadata) {
+    return metadata['enabled'] == true ||
+        metadata['source'] == 'knowledge_tools' ||
+        metadata.containsKey('prompt_append') ||
+        metadata.containsKey('embedding') ||
+        metadata.containsKey('retrieval') ||
+        metadata.containsKey('vector_distribution');
   }
 
   static Map<String, Object?>? object(Object? value) {
@@ -400,6 +573,8 @@ class KnowledgeMessageMetadata {
       'chunk_id': row['chunk_id'] ?? row['id'],
       'source_id': row['source_id'],
       'title': row['source_title'] ?? row['title'],
+      if (row['source_title'] != null) 'source_title': row['source_title'],
+      if (row['chunk_title'] != null) 'chunk_title': row['chunk_title'],
       'path': row['original_path'] ?? row['path'],
       'source_kind': row['kind'] ?? row['source_kind'],
       'document_time': row['document_time'],
@@ -408,6 +583,12 @@ class KnowledgeMessageMetadata {
       'heading_path': row['heading_path'],
       'preview': preview,
       if (content.isNotEmpty) 'content': content,
+      if (row['content_truncated'] != null)
+        'content_truncated': row['content_truncated'],
+      if (row['content_status'] != null)
+        'content_status': row['content_status'],
+      if (row['content_char_limit'] != null)
+        'content_char_limit': row['content_char_limit'],
     };
   }
 
@@ -434,7 +615,7 @@ class KnowledgeMessageMetadata {
     for (final result in results) {
       if (!_hitUsedByAnswer(result, normalizedAnswer)) continue;
       final label = citationLabel(result);
-      final key = citationKey(result, label);
+      final key = _resultKey(result, label);
       if (!seen.add(key)) continue;
       used.add(result);
     }

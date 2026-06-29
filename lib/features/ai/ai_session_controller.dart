@@ -12696,8 +12696,7 @@ $tail''';
       return session;
     }
 
-    final displayMetadata = <String, Object?>{...knowledgeMetadata}
-      ..remove(knowledgeBasePromptAppendMetadataKey);
+    final displayMetadata = <String, Object?>{...knowledgeMetadata};
     final updatedMessages = List<AiSessionMessage>.from(session.messages);
     updatedMessages[assistantIndex] = assistant.copyWith(
       metadata: <String, Object?>{

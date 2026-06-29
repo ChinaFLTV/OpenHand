@@ -1166,8 +1166,7 @@ class AiSessionStore {
   Map<String, Object?> _assistantDisplayKnowledgeBaseMetadata(
     Map<String, Object?> metadata,
   ) {
-    return <String, Object?>{...metadata}
-      ..remove(knowledgeBasePromptAppendMetadataKey);
+    return <String, Object?>{...metadata};
   }
 
   Future<void> _yieldAfterSessionDecodeIfNeeded(int decodedCount) async {

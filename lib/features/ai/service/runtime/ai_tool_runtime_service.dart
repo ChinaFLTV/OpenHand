@@ -3342,6 +3342,7 @@ class AiToolRuntimeService {
       name: 'KnowledgeRead',
       description:
           'Read-only fetch for Knowledge Base chunks. Prefer chunk_id returned by KnowledgeSearch. '
+          'When content_status is complete, the content field is exact and complete. '
           'source_id is limited to a small preview and must not be used to dump a whole document.',
       parameters: const <String, Object?>{
         'type': 'object',
