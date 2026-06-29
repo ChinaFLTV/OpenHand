@@ -19,6 +19,8 @@ const double _kVectorAxisTargetTickGap = 62;
 const double _kVectorAxisCompactTargetTickGap = 54;
 const double _kVectorPopoverMinWidth = 282;
 const double _kVectorPopoverMaxWidth = 342;
+const double _kVectorPopoverScenePadding = 12;
+const double _kVectorPopoverAnchorGap = 14;
 
 class KnowledgeVectorDistributionView extends StatefulWidget {
   const KnowledgeVectorDistributionView({
@@ -542,227 +544,218 @@ class _VectorPointPopover extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isZh = openHandIsChineseLocale(context);
     final axisColors = _KnowledgeVectorSceneColors.resolve(context);
-    final availableWidth = math.max(180.0, sceneSize.width - 24);
-    final width = availableWidth < _kVectorPopoverMinWidth
-        ? availableWidth
-        : math.min(_kVectorPopoverMaxWidth, availableWidth);
-    final maxHeight = math.max(160.0, sceneSize.height - 24);
-    final estimatedHeight = _estimatedVectorPopoverHeight(projection.point);
-    final visibleHeight = math.min(estimatedHeight, maxHeight);
-    final preferAbove = projection.offset.dy > sceneSize.height * 0.52;
-    final left = (projection.offset.dx + 14)
-        .clamp(12.0, math.max(12.0, sceneSize.width - width - 12))
-        .toDouble();
-    final preferredTop = preferAbove
-        ? projection.offset.dy - estimatedHeight - 14
-        : projection.offset.dy + 14;
-    final top = preferredTop
-        .clamp(12.0, math.max(12.0, sceneSize.height - visibleHeight - 12))
-        .toDouble();
+    final popoverWidth = _resolveVectorPopoverWidth(sceneSize);
+    final safeRect = _VectorPopoverSafeRect.resolve(sceneSize);
     final score = projection.point.score;
     final rerankScore = projection.point.rerankScore;
-    return Positioned(
-      left: left,
-      top: top,
-      width: width,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0.88, end: 1),
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutBack,
-        builder: (context, scale, child) {
-          return Transform.scale(
-            scale: scale,
-            alignment: Alignment.bottomLeft,
-            child: Opacity(
-              opacity: scale.clamp(0.0, 1.0).toDouble(),
-              child: child,
-            ),
-          );
-        },
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colorScheme.surface.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: projection.color.withValues(alpha: 0.44)),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.shadow.withValues(alpha: 0.18),
-                blurRadius: 22,
-                offset: const Offset(0, 12),
+    return Positioned.fill(
+      child: CustomSingleChildLayout(
+        delegate: _VectorPopoverLayoutDelegate(
+          anchor: projection.offset,
+          safeRect: safeRect,
+          width: popoverWidth,
+        ),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.88, end: 1),
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutBack,
+          builder: (context, scale, child) {
+            final boundedScale = scale.clamp(0.0, 1.0).toDouble();
+            return Transform.scale(
+              scale: boundedScale,
+              alignment: Alignment.bottomLeft,
+              child: Opacity(opacity: boundedScale, child: child),
+            );
+          },
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surface.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: projection.color.withValues(alpha: 0.44),
               ),
-            ],
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 10, 14),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          margin: const EdgeInsets.only(top: 4),
-                          decoration: BoxDecoration(
-                            color: projection.color,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: projection.color.withValues(alpha: 0.32),
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 9),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                projection.point.title.isEmpty
-                                    ? projection.point.id
-                                    : projection.point.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.18,
-                                ),
-                              ),
-                              const SizedBox(height: 7),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  _VectorPopoverPill(
-                                    color: projection.color,
-                                    label: _vectorKindLabel(
-                                      projection.point.kind,
-                                      isZh,
-                                    ),
-                                  ),
-                                  _VectorPopoverPill(
-                                    color: colorScheme.outline,
-                                    label: isZh
-                                        ? '投影深度 ${_formatCoordinate(projection.depth)}'
-                                        : 'depth ${_formatCoordinate(projection.depth)}',
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        Tooltip(
-                          message: isZh ? '关闭详情' : 'Close details',
-                          child: IconButton(
-                            onPressed: onClose,
-                            icon: const Icon(Icons.close_rounded, size: 18),
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 30,
-                              height: 30,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _VectorPopoverSection(
-                      title: isZh ? '空间坐标' : 'Projected Coordinates',
-                      child: Row(
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.18),
+                  blurRadius: 22,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: safeRect.height),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 10, 14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _VectorMetricTile(
-                              label: 'X',
-                              value: _formatCoordinate(projection.point.x),
-                              color: axisColors.axisX,
+                          Container(
+                            width: 10,
+                            height: 10,
+                            margin: const EdgeInsets.only(top: 4),
+                            decoration: BoxDecoration(
+                              color: projection.color,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: projection.color.withValues(
+                                    alpha: 0.32,
+                                  ),
+                                  blurRadius: 10,
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 7),
+                          const SizedBox(width: 9),
                           Expanded(
-                            child: _VectorMetricTile(
-                              label: 'Y',
-                              value: _formatCoordinate(projection.point.y),
-                              color: axisColors.axisY,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  projection.point.title.isEmpty
+                                      ? projection.point.id
+                                      : projection.point.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.18,
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    _VectorPopoverPill(
+                                      color: projection.color,
+                                      label: _vectorKindLabel(
+                                        projection.point.kind,
+                                        isZh,
+                                      ),
+                                    ),
+                                    _VectorPopoverPill(
+                                      color: colorScheme.outline,
+                                      label: isZh
+                                          ? '投影深度 ${_formatCoordinate(projection.depth)}'
+                                          : 'depth ${_formatCoordinate(projection.depth)}',
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: _VectorMetricTile(
-                              label: 'Z',
-                              value: _formatCoordinate(projection.point.z),
-                              color: axisColors.axisZ,
+                          Tooltip(
+                            message: isZh ? '关闭详情' : 'Close details',
+                            child: IconButton(
+                              onPressed: onClose,
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 30,
+                                height: 30,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    if (score != null || rerankScore != null) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       _VectorPopoverSection(
-                        title: isZh ? '检索指标' : 'Retrieval Metrics',
+                        title: isZh ? '空间坐标' : 'Projected Coordinates',
                         child: Row(
                           children: [
-                            if (score != null)
-                              Expanded(
-                                child: _VectorMetricTile(
-                                  label: isZh ? '召回' : 'Score',
-                                  value: _formatScore(score),
-                                  color: projection.color,
-                                ),
+                            Expanded(
+                              child: _VectorMetricTile(
+                                label: 'X',
+                                value: _formatCoordinate(projection.point.x),
+                                color: axisColors.axisX,
                               ),
-                            if (score != null && rerankScore != null)
-                              const SizedBox(width: 7),
-                            if (rerankScore != null)
-                              Expanded(
-                                child: _VectorMetricTile(
-                                  label: isZh ? '重排' : 'Rerank',
-                                  value: _formatScore(rerankScore),
-                                  color: colorScheme.primary,
-                                ),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: _VectorMetricTile(
+                                label: 'Y',
+                                value: _formatCoordinate(projection.point.y),
+                                color: axisColors.axisY,
                               ),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: _VectorMetricTile(
+                                label: 'Z',
+                                value: _formatCoordinate(projection.point.z),
+                                color: axisColors.axisZ,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                    if (projection.point.preview.isNotEmpty) ...[
+                      if (score != null || rerankScore != null) ...[
+                        const SizedBox(height: 10),
+                        _VectorPopoverSection(
+                          title: isZh ? '检索指标' : 'Retrieval Metrics',
+                          child: Row(
+                            children: [
+                              if (score != null)
+                                Expanded(
+                                  child: _VectorMetricTile(
+                                    label: isZh ? '召回' : 'Score',
+                                    value: _formatScore(score),
+                                    color: projection.color,
+                                  ),
+                                ),
+                              if (score != null && rerankScore != null)
+                                const SizedBox(width: 7),
+                              if (rerankScore != null)
+                                Expanded(
+                                  child: _VectorMetricTile(
+                                    label: isZh ? '重排' : 'Rerank',
+                                    value: _formatScore(rerankScore),
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (projection.point.preview.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _VectorPopoverSection(
+                          title: isZh ? '内容预览' : 'Preview',
+                          child: Text(
+                            projection.point.preview,
+                            maxLines: 5,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.38,
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       _VectorPopoverSection(
-                        title: isZh ? '内容预览' : 'Preview',
+                        title: isZh ? '向量标识' : 'Vector ID',
                         child: Text(
-                          projection.point.preview,
-                          maxLines: 5,
+                          projection.point.id,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
-                            height: 1.38,
+                            fontWeight: FontWeight.w700,
+                            height: 1.28,
                           ),
                         ),
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    _VectorPopoverSection(
-                      title: isZh ? '向量标识' : 'Vector ID',
-                      child: Text(
-                        projection.point.id,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          height: 1.28,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -770,6 +763,78 @@ class _VectorPointPopover extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _VectorPopoverSafeRect {
+  const _VectorPopoverSafeRect._();
+
+  static Rect resolve(Size sceneSize) {
+    final horizontalPadding = math.min(
+      _kVectorPopoverScenePadding,
+      math.max(0.0, sceneSize.width / 2 - 1),
+    );
+    final verticalPadding = math.min(
+      _kVectorPopoverScenePadding,
+      math.max(0.0, sceneSize.height / 2 - 1),
+    );
+    final width = math.max(0.0, sceneSize.width - horizontalPadding * 2);
+    final height = math.max(0.0, sceneSize.height - verticalPadding * 2);
+    return Rect.fromLTWH(horizontalPadding, verticalPadding, width, height);
+  }
+}
+
+class _VectorPopoverLayoutDelegate extends SingleChildLayoutDelegate {
+  const _VectorPopoverLayoutDelegate({
+    required this.anchor,
+    required this.safeRect,
+    required this.width,
+  });
+
+  final Offset anchor;
+  final Rect safeRect;
+  final double width;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final safeWidth = safeRect.width.clamp(0.0, constraints.maxWidth);
+    final effectiveWidth = width.clamp(0.0, safeWidth).toDouble();
+    final safeHeight = safeRect.height.clamp(0.0, constraints.maxHeight);
+    return BoxConstraints(
+      minWidth: effectiveWidth,
+      maxWidth: effectiveWidth,
+      maxHeight: math.max(0.0, safeHeight),
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    if (safeRect.isEmpty) return Offset.zero;
+    final clampedAnchor = Offset(
+      anchor.dx.clamp(safeRect.left, safeRect.right).toDouble(),
+      anchor.dy.clamp(safeRect.top, safeRect.bottom).toDouble(),
+    );
+    final childWidth = math.min(childSize.width, safeRect.width);
+    final childHeight = math.min(childSize.height, safeRect.height);
+    final rightX = clampedAnchor.dx + _kVectorPopoverAnchorGap;
+    final leftX = clampedAnchor.dx - childWidth - _kVectorPopoverAnchorGap;
+    final rightSpace = safeRect.right - rightX;
+    final leftSpace =
+        clampedAnchor.dx - _kVectorPopoverAnchorGap - safeRect.left;
+    final preferRight = rightSpace >= childWidth || rightSpace >= leftSpace;
+    final rawX = preferRight ? rightX : leftX;
+    final rawY = clampedAnchor.dy - childHeight * 0.34;
+    return Offset(
+      rawX.clamp(safeRect.left, safeRect.right - childWidth).toDouble(),
+      rawY.clamp(safeRect.top, safeRect.bottom - childHeight).toDouble(),
+    );
+  }
+
+  @override
+  bool shouldRelayout(covariant _VectorPopoverLayoutDelegate oldDelegate) {
+    return oldDelegate.anchor != anchor ||
+        oldDelegate.safeRect != safeRect ||
+        oldDelegate.width != width;
   }
 }
 
@@ -1529,10 +1594,12 @@ String _vectorKindLabel(String kind, bool isZh) {
   };
 }
 
-double _estimatedVectorPopoverHeight(KnowledgeVectorDistributionPoint point) {
-  var height = 216.0;
-  if (point.preview.isNotEmpty) height += 86;
-  if (point.score != null || point.rerankScore != null) height += 82;
-  if (point.title.length > 38) height += 18;
-  return height;
+double _resolveVectorPopoverWidth(Size sceneSize) {
+  final availableWidth = math.max(
+    0.0,
+    sceneSize.width - _kVectorPopoverScenePadding * 2,
+  );
+  if (availableWidth <= 0) return 0;
+  if (availableWidth < _kVectorPopoverMinWidth) return availableWidth;
+  return math.min(_kVectorPopoverMaxWidth, availableWidth);
 }
