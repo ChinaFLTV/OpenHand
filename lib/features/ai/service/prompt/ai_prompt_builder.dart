@@ -103,6 +103,9 @@ class AiPromptBuilder {
   static const int _compressionAttachmentDetailMaxChars = 2000;
   static const int _compressionPromptToolResultThresholdChars = 4096;
   static const int _compressionPromptToolResultHeadTailChars = 384;
+  static const int _knowledgeToolPromptMaxChars = 12000;
+  static const int _knowledgeToolPromptMaxResults = 8;
+  static const int _knowledgeToolPromptPreviewMaxChars = 1200;
   static const int _compressionPromptMaxPlanRecords = 3;
   static const int _compressionPromptMaxPlanChars = 6000;
   static const int _promptGoalObjectiveMaxChars = 1200;
@@ -4924,6 +4927,14 @@ $content
         message,
         inlineSystemReminders: inlineSystemReminders,
       );
+      final knowledgeResult = _compressKnowledgeToolResultContent(
+        message,
+        compressionConfig,
+        originalOverride: original,
+      );
+      if (knowledgeResult != null) {
+        return knowledgeResult;
+      }
       if (!compressionConfig.guardsFreshToolResults ||
           original.length <= compressionConfig.thresholdChars) {
         return original;
@@ -4940,6 +4951,14 @@ $content
       );
     }
     if (!writeLikeToolResult) {
+      final knowledgeResult = _compressKnowledgeToolResultContent(
+        message,
+        compressionConfig,
+        inlineSystemReminders: inlineSystemReminders,
+      );
+      if (knowledgeResult != null) {
+        return knowledgeResult;
+      }
       // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
       // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
       // description/reason），保留首尾片段作为结构性补充信息，避免
@@ -5515,6 +5534,107 @@ $content
   ///
   /// 这样可以显著降低 conversation history 的 token 占比，让模型把注意力
   /// 集中在结构化线索上，避免被冗长 raw 输出淹没。
+
+  String? _compressKnowledgeToolResultContent(
+    AiSessionMessage message,
+    _ToolCompressionConfig compressionConfig, {
+    bool inlineSystemReminders = false,
+    String? originalOverride,
+  }) {
+    final metadata = message.metadata;
+    final toolName = '${metadata['tool_name'] ?? ''}'.trim();
+    if (!_isKnowledgeToolName(toolName)) return null;
+    final original =
+        originalOverride ??
+        _promptContentForMessage(
+          message,
+          inlineSystemReminders: inlineSystemReminders,
+        );
+    if (original.length <= compressionConfig.thresholdChars) return null;
+
+    final kb = KnowledgeMessageMetadata.fromMessageMetadata(metadata);
+    final results = stringKeyedMapListFromValue(
+      kb?['results'] ?? metadata['results'],
+    );
+    final promptContext = KnowledgeMessageMetadata.promptAppendContent(
+      metadata,
+    );
+    if (promptContext.isEmpty && results.isEmpty) return null;
+
+    final status =
+        '${metadata['status'] ?? metadata['tool_execution_status'] ?? kb?['status'] ?? ''}'
+            .trim();
+    final query = '${kb?['query'] ?? metadata['query'] ?? ''}'.trim();
+    final lines = <String>[
+      '[knowledge_tool_result] ${toolName.isEmpty ? 'KnowledgeTool' : toolName}',
+      'original_chars: ${original.length}',
+      if (status.isNotEmpty) 'status: $status',
+      if (query.isNotEmpty) 'query: $query',
+      'result_count: ${results.length}',
+      'instruction: Use matching Knowledge Base rows as evidence. Ignore unrelated lower-ranked rows; do not claim no match when a relevant title, heading, preview, or content is present.',
+    ];
+    if (promptContext.isNotEmpty) {
+      lines
+        ..add('context:')
+        ..add(_truncate(promptContext, _knowledgeToolPromptMaxChars));
+    } else {
+      lines
+        ..add('results:')
+        ..add(_knowledgeToolResultRowsForPrompt(results));
+    }
+    lines.add(
+      'note: Call KnowledgeRead with chunk_id only when exact content beyond this context is needed.',
+    );
+    return lines.join('\n');
+  }
+
+  bool _isKnowledgeToolName(String toolName) {
+    final normalized = toolName.trim().toLowerCase();
+    return normalized == 'knowledgesearch' ||
+        normalized == 'knowledge_search' ||
+        normalized == 'knowledgeread' ||
+        normalized == 'knowledge_read';
+  }
+
+  String _knowledgeToolResultRowsForPrompt(List<Map<String, Object?>> results) {
+    final buffer = StringBuffer();
+    for (
+      var index = 0;
+      index < results.length && index < _knowledgeToolPromptMaxResults;
+      index++
+    ) {
+      final hit = results[index];
+      final title =
+          '${hit['source_title'] ?? hit['title'] ?? hit['chunk_title'] ?? ''}'
+              .trim();
+      final heading = '${hit['heading_path'] ?? ''}'.trim();
+      final chunkId = '${hit['chunk_id'] ?? hit['id'] ?? ''}'.trim();
+      final score = hit['final_score'] ?? hit['rerank_score'] ?? hit['score'];
+      final content = '${hit['content'] ?? hit['preview'] ?? ''}'.trim();
+      buffer.writeln('[KB-${index + 1}]');
+      if (title.isNotEmpty) buffer.writeln('Title: $title');
+      if (heading.isNotEmpty) buffer.writeln('Heading: $heading');
+      if (chunkId.isNotEmpty) buffer.writeln('Chunk ID: $chunkId');
+      if (score != null && '$score'.trim().isNotEmpty) {
+        buffer.writeln('Score: $score');
+      }
+      if (content.isNotEmpty) {
+        buffer
+          ..writeln(hit['content'] == null ? 'Preview:' : 'Content:')
+          ..writeln(_truncate(content, _knowledgeToolPromptPreviewMaxChars));
+      }
+      if (index < results.length - 1 &&
+          index < _knowledgeToolPromptMaxResults - 1) {
+        buffer.writeln();
+      }
+    }
+    if (results.length > _knowledgeToolPromptMaxResults) {
+      buffer.writeln(
+        '\n[omitted ${results.length - _knowledgeToolPromptMaxResults} lower-ranked results]',
+      );
+    }
+    return buffer.toString().trimRight();
+  }
 
   String _compressGenericToolResultContent(
     AiSessionMessage message,

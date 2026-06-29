@@ -3299,6 +3299,7 @@ class AiToolRuntimeService {
       description:
           'Read-only ranked search over local OpenHand Knowledge Base chunks. '
           'Use this as the Knowledge Base search path; it returns chunk_id values ranked by chunk content, title, and heading. '
+          'If any returned title, heading, or preview matches the question, use that row as evidence and ignore unrelated lower-ranked rows. '
           'Call KnowledgeRead with a returned chunk_id when exact chunk content is needed. '
           'Do not use filesystem Read/Grep on source paths as a substitute for Knowledge Base retrieval.',
       parameters: const <String, Object?>{
