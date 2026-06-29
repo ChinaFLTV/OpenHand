@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -47,8 +48,34 @@ class AiTtsPlaybackService {
   static const int _defaultAiTtsBitRate = 128000;
   static const int _audioCacheMaxEntries = 48;
   static const int _audioCacheMaxBytes = 64 * 1024 * 1024;
+  static const Duration _speechProcessPipeDrainTimeout = Duration(
+    milliseconds: 300,
+  );
+  static const Duration _speechProcessTerminateGrace = Duration(
+    milliseconds: 500,
+  );
+  static const Duration _audioDurationProbeTimeout = Duration(seconds: 2);
+  static const Duration _audiblePlaybackMinTimeout = Duration(seconds: 45);
+  static const Duration _audiblePlaybackGrace = Duration(seconds: 12);
+  static const Duration _audiblePlaybackMaxTimeout = Duration(minutes: 45);
+  static const double _audiblePlaybackGraceRatio = 0.15;
+  static const int _defaultSpeechCharsPerMinute = 300;
+  static const int _minSpeechCharsPerMinute = 120;
+  static const int _maxSpeechCharsPerMinute = 900;
+  static const int _conservativeCompressedAudioBitRate = 48000;
+  static const int _minCompressedAudioBitRate = 24000;
+  static const int _maxCompressedAudioBitRate = 320000;
+  static const int _pcm16BytesPerSample = 2;
   static final RegExp _markdownMediaLinkPattern = RegExp(r'\]\(([^)]+)\)');
   static final RegExp _markdownLinkTitlePattern = RegExp(r'\s+"');
+  static final RegExp _afinfoDurationPattern = RegExp(
+    r'(?:estimated\s+)?duration:\s*([0-9]+(?:\.[0-9]+)?)',
+    caseSensitive: false,
+  );
+  static final RegExp _audioBitRatePattern = RegExp(
+    r'(\d+)\s*k(?:bitrate|bps|b)?',
+    caseSensitive: false,
+  );
   static final LifecycleLruCache<_AiTtsAudioPayload> _audioCache =
       LifecycleLruCache<_AiTtsAudioPayload>(
         maxEntries: _audioCacheMaxEntries,
@@ -218,7 +245,12 @@ class AiTtsPlaybackService {
   }) async {
     if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
     if (!_isCacheableTtsProvider(provider.provider)) {
-      await _speakWithSystem(provider, text, timeout: timeout);
+      await _speakWithSystem(
+        provider,
+        text,
+        timeout: timeout,
+        isCurrent: isCurrent,
+      );
       return;
     }
     final cacheKey = await _ttsAudioCacheKey(
@@ -244,7 +276,9 @@ class AiTtsPlaybackService {
       audio.bytes,
       extension: audio.extension,
       volume: _playbackVolume(provider),
-      timeout: timeout,
+      provider: provider,
+      requestTimeout: timeout,
+      isCurrent: isCurrent,
     );
   }
 
@@ -675,11 +709,19 @@ class AiTtsPlaybackService {
     AiTtsProviderSettings settings,
     String text, {
     required Duration timeout,
+    required bool Function() isCurrent,
   }) async {
+    if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
+    final playbackTimeout = _speechProcessTimeoutForText(
+      text,
+      settings,
+      requestTimeout: timeout,
+    );
     if (Platform.isMacOS) {
       final voice = await _resolveMacOsVoice(
         settings.voice,
       ).timeout(const Duration(seconds: 2), onTimeout: () => '');
+      if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
       if (voice.isNotEmpty) {
         await _runSpeechProcess('say', <String>[
           '-v',
@@ -687,16 +729,17 @@ class AiTtsPlaybackService {
           '-r',
           '${_systemRate(settings.speed)}',
           text,
-        ], timeout: timeout);
+        ], timeout: playbackTimeout);
         return;
       }
       await _runSpeechProcess('osascript', <String>[
         '-e',
         _macOsSpeechScript(text, settings),
-      ], timeout: timeout);
+      ], timeout: playbackTimeout);
       return;
     }
     if (Platform.isWindows) {
+      if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
       final script = _windowsSpeechScript(text, settings);
       await _runSpeechProcess('powershell', <String>[
         '-NoProfile',
@@ -704,15 +747,16 @@ class AiTtsPlaybackService {
         'Bypass',
         '-Command',
         script,
-      ], timeout: timeout);
+      ], timeout: playbackTimeout);
       return;
     }
     if (Platform.isLinux) {
+      if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
       await _runSpeechProcess('spd-say', <String>[
         '-r',
         '${_linuxRate(settings.speed)}',
         text,
-      ], timeout: timeout);
+      ], timeout: playbackTimeout);
       return;
     }
     throw UnsupportedError('System TTS is not available on this platform.');
@@ -1006,8 +1050,11 @@ class AiTtsPlaybackService {
     List<int> bytes, {
     required String extension,
     required double volume,
-    required Duration timeout,
+    required AiTtsProviderSettings provider,
+    required Duration requestTimeout,
+    required bool Function() isCurrent,
   }) async {
+    if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
     if (bytes.isEmpty) throw StateError('TTS returned empty audio.');
     if (!Platform.isMacOS) {
       throw UnsupportedError('Audio playback is only wired for macOS now.');
@@ -1024,7 +1071,16 @@ class AiTtsPlaybackService {
     );
     await file.writeAsBytes(bytes, flush: true);
     try {
-      await _playAudioFile(file.path, volume: volume, timeout: timeout);
+      if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
+      final playbackTimeout = await _playbackTimeoutForAudioFile(
+        file,
+        byteLength: bytes.length,
+        extension: extension,
+        provider: provider,
+        requestTimeout: requestTimeout,
+      );
+      if (!isCurrent()) throw const _AiTtsPlaybackCancelled();
+      await _playAudioFile(file.path, volume: volume, timeout: playbackTimeout);
     } finally {
       unawaited(file.delete().catchError((_) => file));
     }
@@ -1047,6 +1103,49 @@ class AiTtsPlaybackService {
       '${_afplayVolume(volume)}',
       file.path,
     ], timeout: timeout);
+  }
+
+  Future<Duration> _playbackTimeoutForAudioFile(
+    File file, {
+    required int byteLength,
+    required String extension,
+    required AiTtsProviderSettings provider,
+    required Duration requestTimeout,
+  }) async {
+    final probedDuration = await _probeAudioDuration(file.path);
+    final estimatedDuration =
+        probedDuration ??
+        _estimateAudioDurationFromBytes(
+          byteLength: byteLength,
+          extension: extension,
+          provider: provider,
+        );
+    return _audibleProcessTimeout(
+      estimatedDuration,
+      requestTimeout: requestTimeout,
+    );
+  }
+
+  Future<Duration?> _probeAudioDuration(String path) async {
+    if (!Platform.isMacOS) return null;
+    try {
+      final result = await runTrackedProcessOrFailed(
+        'afinfo',
+        <String>[path],
+        timeout: _audioDurationProbeTimeout,
+        tag: 'ai_tts.audio_duration',
+      );
+      if (result.exitCode != 0) return null;
+      return _parseAfinfoDuration('${result.stdout}\n${result.stderr}');
+    } catch (error, stack) {
+      silentLog(
+        'ai_tts_playback_service',
+        'probe audio duration',
+        error,
+        stack,
+      );
+      return null;
+    }
   }
 
   Future<_AiTtsAudioPayload> _audioPayloadFromReference(
@@ -1139,19 +1238,20 @@ class AiTtsPlaybackService {
     List<String> args, {
     required Duration timeout,
   }) async {
-    final process = await startTrackedProcess(executable, args);
+    final process = await startTrackedProcessInNewGroup(executable, args);
     _activeProcess = process;
     final stderrBuffer = StringBuffer();
-    final stderrDone = process.stderr.transform(utf8.decoder).listen((chunk) {
-      if (stderrBuffer.length < 1000) stderrBuffer.write(chunk);
-    }).asFuture<void>();
-    final stdoutDone = process.stdout.drain<void>();
+    final stderrDone = process.stderr
+        .transform(utf8.decoder)
+        .listen((chunk) {
+          if (stderrBuffer.length < 1000) stderrBuffer.write(chunk);
+        })
+        .asFuture<void>()
+        .catchError((_) {});
+    final stdoutDone = process.stdout.drain<void>().catchError((_) {});
     try {
       final exitCode = await process.exitCode.timeout(timeout);
-      await Future.wait<void>([
-        stderrDone.timeout(const Duration(milliseconds: 300), onTimeout: () {}),
-        stdoutDone.timeout(const Duration(milliseconds: 300), onTimeout: () {}),
-      ]);
+      await _drainSpeechProcessStreams(stderrDone, stdoutDone);
       if (exitCode != 0) {
         if (!identical(_activeProcess, process)) {
           throw const _AiTtsPlaybackCancelled();
@@ -1167,11 +1267,27 @@ class AiTtsPlaybackService {
         );
       }
     } on TimeoutException {
-      process.kill();
+      final cancelled = !identical(_activeProcess, process);
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: _speechProcessTerminateGrace,
+      );
+      await _drainSpeechProcessStreams(stderrDone, stdoutDone);
+      if (cancelled) throw const _AiTtsPlaybackCancelled();
       throw TimeoutException('TTS process timed out.', timeout);
     } finally {
       if (identical(_activeProcess, process)) _activeProcess = null;
     }
+  }
+
+  static Future<void> _drainSpeechProcessStreams(
+    Future<void> stderrDone,
+    Future<void> stdoutDone,
+  ) {
+    return Future.wait<void>([
+      stderrDone.timeout(_speechProcessPipeDrainTimeout, onTimeout: () {}),
+      stdoutDone.timeout(_speechProcessPipeDrainTimeout, onTimeout: () {}),
+    ]);
   }
 
   Future<void> _stopActiveResources({required bool clearState}) async {
@@ -1179,7 +1295,10 @@ class AiTtsPlaybackService {
     _activeProcess = null;
     if (process != null) {
       try {
-        process.kill();
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: _speechProcessTerminateGrace,
+        );
       } catch (error, stack) {
         silentLog(
           'ai_tts_playback_service',
@@ -1393,6 +1512,122 @@ class AiTtsPlaybackService {
   static double _afplayVolume(double volume) {
     if (volume <= 1) return volume.clamp(0.0, 1.0).toDouble();
     return (volume / 100).clamp(0.0, 2.0).toDouble();
+  }
+
+  static Duration _speechProcessTimeoutForText(
+    String text,
+    AiTtsProviderSettings settings, {
+    required Duration requestTimeout,
+  }) {
+    final characterCount = math.max(1, text.runes.length);
+    final charsPerMinute =
+        (_defaultSpeechCharsPerMinute * _speechSpeedFactor(settings.speed))
+            .round()
+            .clamp(_minSpeechCharsPerMinute, _maxSpeechCharsPerMinute)
+            .toInt();
+    final estimatedMs = (characterCount * 60000 / charsPerMinute).ceil();
+    return _audibleProcessTimeout(
+      Duration(milliseconds: estimatedMs),
+      requestTimeout: requestTimeout,
+    );
+  }
+
+  static double _speechSpeedFactor(double speed) {
+    if (!speed.isFinite) return 1.0;
+    if (speed > 10) {
+      return (_systemRate(speed) / 175).clamp(0.45, 2.4).toDouble();
+    }
+    return speed.clamp(0.5, 2.0).toDouble();
+  }
+
+  static Duration _estimateAudioDurationFromBytes({
+    required int byteLength,
+    required String extension,
+    required AiTtsProviderSettings provider,
+  }) {
+    final normalizedExtension = extension.trim().toLowerCase();
+    if (normalizedExtension == '.wav' || normalizedExtension == '.pcm') {
+      final sampleRate = _extraInt(
+        provider,
+        'sample_rate',
+        fallback: _defaultAiTtsSampleRate,
+      ).clamp(8000, 96000).toInt();
+      final channels = _extraInt(
+        provider,
+        'channels',
+        fallback: 1,
+      ).clamp(1, 2).toInt();
+      final headerBytes = normalizedExtension == '.wav' ? 44 : 0;
+      final payloadBytes = math.max(0, byteLength - headerBytes);
+      final bytesPerSecond = sampleRate * channels * _pcm16BytesPerSample;
+      return _durationFromSeconds(payloadBytes / bytesPerSecond);
+    }
+    final bitRate = _estimatedCompressedAudioBitRate(provider);
+    return _durationFromSeconds(byteLength * 8 / bitRate);
+  }
+
+  static int _estimatedCompressedAudioBitRate(AiTtsProviderSettings settings) {
+    final configuredBitRate = _extraInt(settings, 'bit_rate', fallback: 0);
+    final outputFormatBitRate = _bitRateFromText(
+      _extraString(settings, 'outputFormat'),
+    );
+    final selectedBitRate = configuredBitRate > 0
+        ? configuredBitRate
+        : outputFormatBitRate ?? _conservativeCompressedAudioBitRate;
+    return math
+        .min(selectedBitRate, _conservativeCompressedAudioBitRate)
+        .clamp(_minCompressedAudioBitRate, _maxCompressedAudioBitRate)
+        .toInt();
+  }
+
+  static int? _bitRateFromText(String value) {
+    final match = _audioBitRatePattern.firstMatch(value);
+    if (match == null) return null;
+    final kbps = int.tryParse(match.group(1) ?? '');
+    if (kbps == null || kbps <= 0) return null;
+    return kbps * 1000;
+  }
+
+  static Duration? _parseAfinfoDuration(String output) {
+    final match = _afinfoDurationPattern.firstMatch(output);
+    if (match == null) return null;
+    final seconds = double.tryParse(match.group(1) ?? '');
+    if (seconds == null || !seconds.isFinite || seconds <= 0) return null;
+    return _durationFromSeconds(seconds);
+  }
+
+  static Duration _durationFromSeconds(double seconds) {
+    if (!seconds.isFinite || seconds <= 0) return Duration.zero;
+    return Duration(milliseconds: (seconds * 1000).ceil());
+  }
+
+  static Duration _audibleProcessTimeout(
+    Duration estimatedDuration, {
+    required Duration requestTimeout,
+  }) {
+    final baselineMs = math.max(
+      estimatedDuration.inMilliseconds,
+      requestTimeout.inMilliseconds,
+    );
+    final graceMs = math.max(
+      _audiblePlaybackGrace.inMilliseconds,
+      (baselineMs * _audiblePlaybackGraceRatio).ceil(),
+    );
+    return _clampDuration(
+      Duration(milliseconds: baselineMs + graceMs),
+      min: _audiblePlaybackMinTimeout,
+      max: _audiblePlaybackMaxTimeout,
+    );
+  }
+
+  static Duration _clampDuration(
+    Duration value, {
+    required Duration min,
+    required Duration max,
+  }) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
   }
 
   static int _linuxRate(double speed) {
